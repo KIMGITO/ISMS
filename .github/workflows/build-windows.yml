@@ -54,7 +54,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       # ── 4. Setup Rust stable ───────────────────────────────────────────────
@@ -137,7 +137,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      # ── 11. Upload to GitHub Release (only on version tags) ────────────────
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
