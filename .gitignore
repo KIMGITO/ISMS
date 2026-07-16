@@ -1,6 +1,9 @@
 node_modules/
 build/
 dist/
+release-builds/
+src-tauri/target/
+target/
 coverage/
 android/
 data/
