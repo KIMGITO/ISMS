@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches:
       - main
@@ -50,8 +50,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -72,12 +72,6 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      # This forces the runner to use the latest Tauri packages, fixing the NSIS Windows bug
-      - name: Update Tauri & Rust Dependencies
-        run: |
-          npm install -D @tauri-apps/cli@latest
-          cd src-tauri && cargo update
-
       - name: Build frontend
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
@@ -87,7 +81,20 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
         run: npm run build
 
-      - name: Build Tauri Desktop (${{ matrix.os-name }})
+      # For Windows, we ONLY build the MSI bundle to bypass the broken NSIS 3.11 .exe compiler.
+      # For Linux, we build default bundles (AppImage, deb).
+      - name: Build Tauri Desktop (Windows MSI Only)
+        if: matrix.os-name == 'Windows'
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
+          VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
+          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
+        run: npx tauri build --bundles msi
+
+      - name: Build Tauri Desktop (Linux)
+        if: matrix.os-name == 'Linux'
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
@@ -101,7 +108,6 @@ jobs:
         with:
           name: Desktop-Artifacts-${{ matrix.os-name }}
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
@@ -121,8 +127,8 @@ jobs:
       - name: Setup Java (Temurin JDK 17)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -130,13 +136,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
+          targets: "aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android"
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -152,11 +158,6 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      - name: Update Tauri & Rust Dependencies
-        run: |
-          npm install -D @tauri-apps/cli@latest
-          cd src-tauri && cargo update
-
       - name: Build frontend
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
@@ -166,7 +167,6 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
         run: npm run build
 
-      # Fail-proof Node.js decoder that ignores YAML formatting and whitespace
       - name: Decode Android Keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -184,6 +184,14 @@ jobs:
             echo "Keystore secret not found, skipping signing."
           fi
 
+      # THIS IS THE FIX: Initialize Android project if it doesn't exist
+      - name: Initialize Android Project
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            echo "Android project missing. Initializing..."
+            npx tauri android init
+          fi
+
       - name: Build Android APK
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
@@ -191,7 +199,7 @@ jobs:
           VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
           VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
-          TAURI_ANDROID_KEYSTORE: 'release.decrypted.keystore'
+          TAURI_ANDROID_KEYSTORE: "release.decrypted.keystore"
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
