@@ -22,8 +22,8 @@ jobs:
       matrix:
         include:
           - runner: windows-latest
-             os-name: Windows
-             rust-target: x86_64-pc-windows-msvc
+            os-name: Windows
+            rust-target: x86_64-pc-windows-msvc
           - runner: ubuntu-22.04
             os-name: Linux
             rust-target: x86_64-unknown-linux-gnu
