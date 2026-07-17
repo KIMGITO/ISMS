@@ -10,13 +10,13 @@ export const getApiUrl = (path: string): string => {
     }
   }
 
-  const env = (import.meta as any).env || {};
-  const envApiUrl = env.VITE_API_URL;
+  const env = import.meta.env;
+  const envApiUrl = env?.VITE_API_URL;
   if (envApiUrl) {
     return `${envApiUrl.replace(/\/$/, "")}${path}`;
   }
 
-  const appUrl = env.APP_URL;
+  const appUrl = env?.APP_URL as string | undefined;
   if (appUrl) {
     return `${appUrl.replace(/\/$/, "")}${path}`;
   }

@@ -546,7 +546,7 @@ export default function UnifiedUploader({
     setUnsplashLoading(true);
     setUnsplashError("");
     
-    const accessKey = (import.meta as any).env?.VITE_UNSPLASH_ACCESS_KEY || "";
+    const accessKey = import.meta.env?.VITE_UNSPLASH_ACCESS_KEY || "";
     
     // Fallback if no key is configured or offline
     if (!accessKey || accessKey === "your-unsplash-access-key" || !isOnline) {

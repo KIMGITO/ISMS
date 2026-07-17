@@ -47,7 +47,7 @@ interface GlobalSearchProps {
 
 export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
   const { products, customers, transactions, employees, businesses, activeBusinessId, toggleNetwork } = useAppStore();
-  const aiName = (import.meta as any).env?.VITE_AI_NAME || "Kim";
+  const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const { shifts, activeShift, currentEmployee, invitations, users } = useAuthStore();
   const { notifications } = useNotificationStore();
   

@@ -172,6 +172,7 @@ jobs:
         run: |
           rm -rf src-tauri/gen/android
           npx tauri android init
+          npx tauri icon || echo "Icon generation fallback"
 
       # STEP 2: Decode the Keystore and place it IN the newly created project
       - name: Decode Android Keystore
