@@ -209,7 +209,7 @@ jobs:
         with:
           name: Android-Artifacts
           path: |
-            src-tauri/gen/android/app/build/outputs/apk/release/*.apk
-            src-tauri/gen/android/app/build/outputs/bundle/release/*.aab
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+            src-tauri/gen/android/app/build/outputs/**/*.aab
           if-no-files-found: warn
           retention-days: 30
