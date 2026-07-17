@@ -34,11 +34,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "windows": {
-      "nsis": {
-        "downloadUrl": "https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.09/nsis-3.09.zip"
-      }
-    },
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }
