@@ -24,7 +24,7 @@ interface UiState {
 const localChatHistoryKey = "kkm_ai_chat_history_v1";
 
 const getSavedChatHistory = (): ChatMessage[] => {
-  const aiName = typeof window !== "undefined" ? ((import.meta as any).env?.VITE_AI_NAME || "Kim") : "Kim";
+  const aiName = typeof window !== "undefined" ? (import.meta.env?.VITE_AI_NAME || "Kim") : "Kim";
   const defaultMsg: ChatMessage = {
     role: "assistant",
     content: `Hello! I am ${aiName}, your professional KayKay's Milk Workspace Assistant. I can explain POS workflows, analyze sales history, suggest stocking actions, or generate fresh-batch SMS marketing templates. How can I help you today?`,

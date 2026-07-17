@@ -291,7 +291,7 @@ export default function WorkspaceAssistantView() {
     }
   };
 
-  const aiName = (import.meta as any).env?.VITE_AI_NAME || 'Kim';
+  const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   const groupMessages = () => {
     const today: ChatMessage[] = [];

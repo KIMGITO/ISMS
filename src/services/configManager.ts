@@ -8,29 +8,29 @@ export interface EnvConfig {
   environmentName: AppEnvironment;
 }
 
-const DEFAULT_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "https://your-project.supabase.co";
-const DEFAULT_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "your-anon-key";
+const DEFAULT_URL = import.meta.env?.VITE_SUPABASE_URL || "https://your-project.supabase.co";
+const DEFAULT_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || "your-anon-key";
 
 // Build configuration bundled backends
 const ENV_CONFIGS: Record<AppEnvironment, EnvConfig> = {
   Production: {
-    supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL_PROD || DEFAULT_URL,
-    supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY_PROD || DEFAULT_ANON_KEY,
+    supabaseUrl: import.meta.env?.VITE_SUPABASE_URL_PROD || DEFAULT_URL,
+    supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY_PROD || DEFAULT_ANON_KEY,
     environmentName: "Production",
   },
   Staging: {
-    supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL_STAGING || DEFAULT_URL,
-    supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY_STAGING || DEFAULT_ANON_KEY,
+    supabaseUrl: import.meta.env?.VITE_SUPABASE_URL_STAGING || DEFAULT_URL,
+    supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY_STAGING || DEFAULT_ANON_KEY,
     environmentName: "Staging",
   },
   Development: {
-    supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL_DEV || DEFAULT_URL,
-    supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY_DEV || DEFAULT_ANON_KEY,
+    supabaseUrl: import.meta.env?.VITE_SUPABASE_URL_DEV || DEFAULT_URL,
+    supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY_DEV || DEFAULT_ANON_KEY,
     environmentName: "Development",
   },
   "Developer Mode": {
-    supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL_DEV_MODE || DEFAULT_URL,
-    supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY_DEV_MODE || DEFAULT_ANON_KEY,
+    supabaseUrl: import.meta.env?.VITE_SUPABASE_URL_DEV_MODE || DEFAULT_URL,
+    supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY_DEV_MODE || DEFAULT_ANON_KEY,
     environmentName: "Developer Mode",
   }
 };
@@ -44,7 +44,7 @@ class ConfigManager {
 
   private initEnvironment() {
     // 1. Determine env based on build configuration
-    const envMode = (import.meta as any).env?.MODE || "production";
+    const envMode = import.meta.env?.MODE || "production";
     if (envMode === "development") {
       this.activeEnv = "Development";
     } else if (envMode === "staging") {

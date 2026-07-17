@@ -721,7 +721,7 @@ export default function App() {
     }
   }, []);
 
-const aiName = (import.meta as any).env?.VITE_AI_NAME || 'Kim';
+const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
  useEffect(() => {
   if (isOnline) {

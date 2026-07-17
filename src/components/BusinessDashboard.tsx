@@ -54,7 +54,7 @@ function calculatePercentages(values: number[]): number[] {
 }
 
 export default function BusinessDashboard() {
-  const aiName = (import.meta as any).env?.VITE_AI_NAME || "Kim";
+  const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const { products } = useInventoryStore();
   const { customers } = useCustomerStore();
   const { transactions, debtPayments } = useTransactionStore();

@@ -38,7 +38,7 @@ const INITIAL_COMMENTS: CustomerComment[] = [];
 export default function CustomerFeedbackView() {
   const { currentEmployee } = useAuthStore();
   const { activeBusinessId } = useAppStore();
-  const aiName = (import.meta as any).env?.VITE_AI_NAME || "Kim";
+  const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const hasAiPermission = currentEmployee ? hasRolePermission(currentEmployee.role, "ai.use") : false;
 
   const [comments, setComments] = useState<CustomerComment[]>([]);

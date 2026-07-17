@@ -909,7 +909,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // 3. Link user business membership atomically using SECURITY DEFINER RPC
         const { error: linkErr } = await supabase.rpc("accept_invitation_with_token", {
           p_token: token.trim(),
-          p_auth_user_id: data.user.id,
+          p_auth_user_id: data?.user?.id,
           p_name: name?.trim() || invite.name,
           p_phone: formatToE164(phone?.trim() || invite.phone || "")
         });
