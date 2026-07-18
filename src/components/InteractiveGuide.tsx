@@ -28,6 +28,28 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
   const currentStep = steps[currentStepIndex];
 
+  // Helper to resolve dynamic selector and placement based on screen width
+  const getResolvedTarget = () => {
+    if (!currentStep) return { selector: undefined, placement: "bottom" };
+    let selector = currentStep.targetSelector;
+    let placement = currentStep.placement || "bottom";
+
+    if (selector && window.innerWidth < 768) {
+      if (selector.startsWith("#sidebar-tab-")) {
+        selector = selector.replace("#sidebar-tab-", "#mobile-tab-");
+        placement = "top";
+      } else if (selector === "#sidebar-brand-header") {
+        selector = "#mobile-brand-header";
+        placement = "bottom";
+      } else if (selector === "#restart-tour-button") {
+        selector = undefined; // Fallback to center screen
+      }
+    }
+    return { selector, placement };
+  };
+
+  const { selector: resolvedSelector, placement: resolvedPlacement } = getResolvedTarget();
+
   // Reset step index when opened
   useEffect(() => {
     if (isOpen) {
@@ -53,12 +75,13 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
     const maxAttempts = 15;
 
     const measureElement = () => {
-      if (!currentStep.targetSelector) {
+      const { selector } = getResolvedTarget();
+      if (!selector) {
         setTargetRect(null);
         return;
       }
 
-      const el = document.querySelector(currentStep.targetSelector);
+      const el = document.querySelector(selector);
       if (el) {
         // Scroll the element into viewport center smoothly
         el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -81,10 +104,11 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
   // Recalculate target position on window scroll or resize
   useEffect(() => {
-    if (!isOpen || !currentStep || !currentStep.targetSelector) return;
+    const { selector } = getResolvedTarget();
+    if (!isOpen || !currentStep || !selector) return;
 
     const handleUpdate = () => {
-      const el = document.querySelector(currentStep.targetSelector!);
+      const el = document.querySelector(selector);
       if (el) {
         setTargetRect(el.getBoundingClientRect());
       }
@@ -95,7 +119,7 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
     return () => {
       window.removeEventListener("resize", handleUpdate);
-      window.removeEventListener("scroll", handleUpdate);
+      window.removeEventListener("scroll", handleUpdate, { capture: true });
     };
   }, [currentStep, isOpen]);
 
@@ -105,7 +129,6 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
   const maskId = `tour-spotlight-mask-${currentStepIndex}`;
-  const placement = currentStep.placement || "bottom";
 
   const handleNext = () => {
     if (isLastStep) {
@@ -120,70 +143,112 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
       setCurrentStepIndex((prev) => prev - 1);
     }
   };
+  const margin = 16;
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 768;
+  const tooltipWidth = Math.min(320, viewportWidth - 32);
+  const tooltipHeight = 200; // Safe estimate for viewport checks
 
-  // Compute absolute tooltip styles
-  const getTooltipStyle = () => {
-    if (!targetRect) {
-      return {
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        position: "fixed" as const,
-      };
+  let tooltipStyle: React.CSSProperties = {
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    position: "fixed" as const,
+  };
+  let finalPlacement = resolvedPlacement;
+  let top = 0;
+  let left = 0;
+
+  if (targetRect) {
+    const getCoords = (p: typeof resolvedPlacement) => {
+      let t = 0;
+      let l = 0;
+      if (p === "bottom") {
+        t = targetRect.top + targetRect.height + 12;
+        l = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
+      } else if (p === "top") {
+        t = targetRect.top - tooltipHeight - 12;
+        l = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
+      } else if (p === "right") {
+        t = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
+        l = targetRect.left + targetRect.width + 12;
+      } else if (p === "left") {
+        t = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
+        l = targetRect.left - tooltipWidth - 12;
+      }
+      return { t, l };
+    };
+
+    const idealCoords = getCoords(resolvedPlacement);
+    top = idealCoords.t;
+    left = idealCoords.l;
+
+    // Auto-flip if it overflows the boundaries
+    if (resolvedPlacement === "top" && top < margin) {
+      const bottomCoords = getCoords("bottom");
+      if (bottomCoords.t + tooltipHeight < viewportHeight - margin) {
+        finalPlacement = "bottom";
+        top = bottomCoords.t;
+        left = bottomCoords.l;
+      }
+    } else if (resolvedPlacement === "bottom" && top + tooltipHeight > viewportHeight - margin) {
+      const topCoords = getCoords("top");
+      if (topCoords.t > margin) {
+        finalPlacement = "top";
+        top = topCoords.t;
+        left = topCoords.l;
+      }
+    } else if (resolvedPlacement === "left" && left < margin) {
+      const rightCoords = getCoords("right");
+      if (rightCoords.l + tooltipWidth < viewportWidth - margin) {
+        finalPlacement = "right";
+        top = rightCoords.t;
+        left = rightCoords.l;
+      }
+    } else if (resolvedPlacement === "right" && left + tooltipWidth > viewportWidth - margin) {
+      const leftCoords = getCoords("left");
+      if (leftCoords.l > margin) {
+        finalPlacement = "left";
+        top = leftCoords.t;
+        left = leftCoords.l;
+      }
     }
 
-    const margin = 16;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    // Keep tooltip inside screen boundaries
+    left = Math.max(margin, Math.min(viewportWidth - tooltipWidth - margin, left));
+    top = Math.max(margin, Math.min(viewportHeight - tooltipHeight - margin, top));
 
-    let top = 0;
-    let left = 0;
-    let transform = "";
-
-    if (placement === "bottom") {
-      top = targetRect.top + targetRect.height + 16;
-      left = targetRect.left + targetRect.width / 2;
-      transform = "translate(-50%, 0)";
-    } else if (placement === "top") {
-      top = targetRect.top - 16;
-      left = targetRect.left + targetRect.width / 2;
-      transform = "translate(-50%, -100%)";
-    } else if (placement === "right") {
-      top = targetRect.top + targetRect.height / 2;
-      left = targetRect.left + targetRect.width + 16;
-      transform = "translate(0, -50%)";
-    } else if (placement === "left") {
-      top = targetRect.top + targetRect.height / 2;
-      left = targetRect.left - 16;
-      transform = "translate(-100%, -50%)";
-    }
-
-    return {
-      top: `${Math.max(margin, Math.min(viewportHeight - margin, top))}px`,
-      left: `${Math.max(margin, Math.min(viewportWidth - margin, left))}px`,
-      transform,
+    tooltipStyle = {
+      top: `${top}px`,
+      left: `${left}px`,
+      width: `${tooltipWidth}px`,
       position: "fixed" as const,
     };
-  };
+  }
 
-  // Render CSS arrow element depending on placement
+  // Render CSS arrow element depending on finalPlacement and center alignment
   const renderArrow = () => {
     if (!targetRect) return null;
 
     const baseArrowClass = "absolute w-3 h-3 bg-app-card border-app-border rotate-45 z-0";
 
-    switch (placement) {
-      case "bottom":
-        return <div className={`${baseArrowClass} -top-1.5 left-1/2 -translate-x-1/2 border-t border-l`} />;
-      case "top":
-        return <div className={`${baseArrowClass} -bottom-1.5 left-1/2 -translate-x-1/2 border-b border-r`} />;
-      case "right":
-        return <div className={`${baseArrowClass} -left-1.5 top-1/2 -translate-y-1/2 border-b border-l`} />;
-      case "left":
-        return <div className={`${baseArrowClass} -right-1.5 top-1/2 -translate-y-1/2 border-t border-r`} />;
-      default:
-        return null;
+    if (finalPlacement === "bottom") {
+      const arrowOffset = Math.max(16, Math.min(tooltipWidth - 16, targetRect.left + targetRect.width / 2 - left));
+      return <div style={{ left: `${arrowOffset}px` }} className={`${baseArrowClass} -top-1.5 -translate-x-1/2 border-t border-l`} />;
     }
+    if (finalPlacement === "top") {
+      const arrowOffset = Math.max(16, Math.min(tooltipWidth - 16, targetRect.left + targetRect.width / 2 - left));
+      return <div style={{ left: `${arrowOffset}px` }} className={`${baseArrowClass} -bottom-1.5 -translate-x-1/2 border-b border-r`} />;
+    }
+    if (finalPlacement === "right") {
+      const arrowOffset = Math.max(16, Math.min(tooltipHeight - 16, targetRect.top + targetRect.height / 2 - top));
+      return <div style={{ top: `${arrowOffset}px` }} className={`${baseArrowClass} -left-1.5 -translate-y-1/2 border-b border-l`} />;
+    }
+    if (finalPlacement === "left") {
+      const arrowOffset = Math.max(16, Math.min(tooltipHeight - 16, targetRect.top + targetRect.height / 2 - top));
+      return <div style={{ top: `${arrowOffset}px` }} className={`${baseArrowClass} -right-1.5 -translate-y-1/2 border-t border-r`} />;
+    }
+    return null;
   };
 
   return (
@@ -215,8 +280,8 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
       {/* Popover Tooltip Box */}
       <div
-        style={getTooltipStyle()}
-        className="w-[320px] max-w-[calc(100vw-32px)] bg-app-card border border-app-border rounded-3xl p-5 shadow-2xl pointer-events-auto transition-all duration-200 animate-scale-up"
+        style={tooltipStyle}
+        className="max-w-[calc(100vw-32px)] bg-app-card border border-app-border rounded-3xl p-5 shadow-2xl pointer-events-auto transition-all duration-200 animate-scale-up"
       >
         {renderArrow()}
 

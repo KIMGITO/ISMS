@@ -60,6 +60,7 @@ export interface Customer {
   debtBalance?: number;
   walletBalance?: number;
   businessId?: string;
+  description?: string;
 }
 
 export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer';
@@ -91,6 +92,8 @@ export interface Business {
   secondaryColor?: string;
   timezone?: string;
   defaultPaymentMethods?: string[];
+  isTaxEnabled?: boolean;
+  taxPercentage?: number;
 }
 
 export interface BusinessMembership {
@@ -149,7 +152,7 @@ export interface DbSchedule {
   date: string;           // YYYY-MM-DD
   startTime: string;      // HH:MM
   endTime: string | null; // HH:MM
-  repeat: 'None' | 'Daily' | 'Weekly';
+  repeat: 'None' | 'Daily' | 'Weekly' | 'Monthly';
   color: string;
   reminderSent: boolean;
   createdBy: string | null;

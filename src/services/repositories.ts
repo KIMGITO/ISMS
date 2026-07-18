@@ -378,6 +378,7 @@ export class CustomerRepository {
       debtBalance: Number(c.debt_balance),
       walletBalance: Number(c.wallet_balance),
       businessId: c.business_id,
+      description: c.description || "",
       sync_status: "synced"
     }));
   }
@@ -406,6 +407,7 @@ export class CustomerRepository {
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
+      description: data.description || "",
       sync_status: "synced"
     };
   }
@@ -453,6 +455,7 @@ export class CustomerRepository {
       purchases_count: customer.purchasesCount || 0,
       debt_balance: customer.debtBalance || 0,
       wallet_balance: customer.walletBalance || 0,
+      description: customer.description ? normalizeForStorage(customer.description) : "",
     };
 
     const { data, error } = await supabase.from("customers").insert(payload).select().single();
@@ -470,6 +473,7 @@ export class CustomerRepository {
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
+      description: data.description || "",
       sync_status: "synced"
     };
   }
@@ -487,6 +491,7 @@ export class CustomerRepository {
     if (updates.purchasesCount !== undefined) payload.purchases_count = updates.purchasesCount;
     if (updates.debtBalance !== undefined) payload.debt_balance = updates.debtBalance;
     if (updates.walletBalance !== undefined) payload.wallet_balance = updates.walletBalance;
+    if (updates.description !== undefined) payload.description = updates.description ? normalizeForStorage(updates.description) : "";
 
     const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
     if (error) { triggerNetworkFailureEvent(); throw error; }
@@ -503,6 +508,7 @@ export class CustomerRepository {
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
+      description: data.description || "",
       sync_status: "synced"
     };
   }

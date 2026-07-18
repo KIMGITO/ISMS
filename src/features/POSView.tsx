@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Product, ProductCategory, PaymentMethod } from '../types';
 import {
@@ -35,6 +35,8 @@ export default function POSView() {
     isOnline,
     employees,
     showToast,
+    businesses,
+    activeBusinessId,
   } = useAppStore();
 
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'All'>(
@@ -47,7 +49,13 @@ export default function POSView() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [lastTxId, setLastTxId] = useState('');
-  const [taxRate, setTaxRate] = useState<number>(0.16); // 16% Kenyan VAT default
+  const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
+  const businessTaxRate = activeBusiness?.isTaxEnabled ? (typeof activeBusiness.taxPercentage === 'number' ? activeBusiness.taxPercentage / 100 : 0.16) : 0.0;
+  const [taxRate, setTaxRate] = useState<number>(businessTaxRate);
+
+  useEffect(() => {
+    setTaxRate(businessTaxRate);
+  }, [activeBusinessId, businessTaxRate]);
   const [cartDiscountType, setCartDiscountType] = useState<
     'percent' | 'amount'
   >('percent');
@@ -120,9 +128,8 @@ export default function POSView() {
         setCheckoutSuccess(true);
         setIsCartOpen(false);
         setNote('');
-        // Reset POS specific discount/tax state for next transaction
         setCartDiscountValue(0);
-        setTaxRate(0.16);
+        setTaxRate(businessTaxRate);
         setIsDelivery(false);
         setDeliveryFee(0);
         setRiderName('');
@@ -659,14 +666,14 @@ export default function POSView() {
                     <div className="grid grid-cols-2 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
                       <button
                         type="button"
-                        onClick={() => setTaxRate(0.16)}
+                        onClick={() => setTaxRate(businessTaxRate)}
                         className={`py-1 rounded-lg text-[9px] font-black uppercase transition cursor-pointer ${
-                          taxRate === 0.16
+                          taxRate === businessTaxRate
                             ? 'bg-amber-500 text-slate-950 shadow'
                             : 'text-app-text-muted hover:bg-app-bg'
                         }`}
                       >
-                        16% VAT Standard
+                        {(businessTaxRate * 100).toFixed(0)}% VAT Business Default
                       </button>
                       <button
                         type="button"

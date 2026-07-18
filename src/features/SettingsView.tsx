@@ -671,7 +671,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
 
   return (
     
-    <div className="flex-1 flex flex-col h-full bg-app-bg mb-20 text-app-text overflow-hidden font-sans">
+    <div className="flex-1 flex flex-col h-full bg-app-bg mb-2 text-app-text overflow-hidden font-sans">
       {/* Header */}
       <div className="bg-app-card border-b border-app-border p-4 flex items-center justify-between shrink-0 shadow-xs">
         <div className="flex items-center gap-2">
@@ -693,7 +693,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
       </div>
 
       {/* Main Settings Panel */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5 pb-20 font-semibold text-xs">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5 pb-6 font-semibold text-xs">
         {!isAdminOrOwner && !allowWorkerSettings ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
             <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mb-4 border border-red-500/15 ">
@@ -762,9 +762,9 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
               </div>
             )}
 
-            <div className="columns-1 xl:columns-3 gap-5 w-full [&>div]:mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full items-start">
               {/* 0. INTERACTIVE GUIDE TOUR SECTION */}
-              <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm break-inside-avoid animate-fade-in">
+              <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in">
                 <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
                   <HelpCircle size={16} className="text-amber-500" />
                   <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">
@@ -793,181 +793,9 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
                 </div>
               </div>
 
-              {/* 1. NOTIFICATIONS SECTION */}
-              {hasRolePermission(currentRole, 'settings.theme') && (
-                <div id="theme-settings-card" className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm break-inside-avoid">
-                  <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
-                    <Bell size={16} className="text-amber-500" />
-                    <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">
-                      Notification Settings
-                    </h3>
-                  </div>
-
-                  {/* Toggles */}
-                  <div className="flex flex-col gap-3.5">
-                    <div className="flex items-center justify-between gap-4 py-1">
-                      <div>
-                        <span className="font-extrabold text-app-text text-[11px] block">
-                          Ringtone Audio Alerts
-                        </span>
-                        <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                          Play audio bells and sound waves on incoming POS
-                          alerts
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setAllowPush(!allowPush)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          allowPush ? 'bg-amber-500' : 'bg-app-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            allowPush ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 py-1 border-t border-app-border/30 pt-3.5">
-                      <div>
-                        <span className="font-extrabold text-app-text text-[11px] block">
-                          Automated Dispatch Notifications
-                        </span>
-                        <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                          Deliver live task sync logs to courier alerts feed
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setAllowSMS(!allowSMS)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          allowSMS ? 'bg-amber-500' : 'bg-app-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            allowSMS ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Ringtone selection */}
-                  <div className="flex flex-col gap-2 mt-2">
-                    <span className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                      Ring Tone Profile
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="flex-1">
-                        <SearchableDropdown
-                          items={[
-                            { id: 'Milk Bell', label: 'Milk Bell (Default)' },
-                            { id: 'Digital Chime', label: 'Digital Chime' },
-                            { id: 'Retro Siren', label: 'Retro Siren' },
-                            {
-                              id: 'Quiet Buzzer',
-                              label: 'Quiet Haptic Buzzer',
-                            },
-                          ]}
-                          selectedValue={ringtone}
-                          onChange={(val) => {
-                            setRingtone(val);
-                            playChimeTone(val);
-                          }}
-                          placeholder="Select Ringtone..."
-                        />
-                      </div>
-                      <button
-                        onClick={() => handleTestRingtone(ringtone)}
-                        className="h-[38px] px-3 bg-app-bg hover:bg-app-card border border-app-border hover:border-amber-500/25 text-app-text rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider text-[9px] font-black shrink-0"
-                      >
-                        <Volume2 size={13} className="text-amber-500" />
-                        <span>Test Selected Tone</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Personal Notification Category Subscriptions */}
-                  <div className="border-t border-app-border/30 pt-3.5 flex flex-col gap-3">
-                    <div>
-                      <span className="font-extrabold text-app-text text-[11px] block">
-                        Role-Specific Subscriptions ({currentRole})
-                      </span>
-                      <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                        Toggle and customize which specific alerts you want to
-                        actively receive on your account.
-                      </span>
-                    </div>
-
-                    <div className="space-y-3 bg-app-bg/50 p-3.5 border border-app-border rounded-2xl">
-                      {(
-                        (ROLE_ELIGIBLE_CATEGORIES[currentRole as any] ||
-                          []) as string[]
-                      ).map((cat) => {
-                        const detail = NOTIF_CAT_DETAILS[cat];
-                        const isEnabled =
-                          notifPrefs[cat as keyof NotificationPref];
-                        return (
-                          <div
-                            key={cat}
-                            className="flex items-center justify-between gap-4 py-0.5"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="font-bold text-app-text text-[10.5px] block">
-                                {detail ? detail.label : cat}
-                              </span>
-                              <span className="text-[9px] text-app-text-muted font-medium block mt-0.5 leading-tight">
-                                {detail ? detail.desc : ''}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = {
-                                  ...notifPrefs,
-                                  [cat]: !isEnabled,
-                                };
-                                setNotifPrefs(updated);
-                                const empId = currentEmployee
-                                  ? currentEmployee.id
-                                  : 'emp-1';
-                                saveNotificationPrefs(empId, updated);
-                                showToast(
-                                  'Preference Changed',
-                                  `${detail?.label || cat} ${
-                                    !isEnabled ? 'enabled' : 'muted'
-                                  }.`,
-                                );
-                              }}
-                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                isEnabled ? 'bg-amber-500' : 'bg-app-border'
-                              }`}
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                                  isEnabled ? 'translate-x-4' : 'translate-x-0'
-                                }`}
-                              />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {(!ROLE_ELIGIBLE_CATEGORIES[currentRole as any] ||
-                        ROLE_ELIGIBLE_CATEGORIES[currentRole as any].length ===
-                          0) && (
-                        <span className="text-[9.5px] text-app-text-muted italic block">
-                          No notifications are configurable for this role.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Enterprise AI Platform configuration card */}
               {hasRolePermission(currentRole, 'settings.integrations') && (
-                <div className=" break-inside-avoid bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
+                <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Brain
@@ -1495,7 +1323,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
               )}
               {/* Twilio SMS Platform configuration card */}
               {hasRolePermission(currentRole, 'settings.integrations') && (
-                <div id="sms-gateway-config-card" className=" break-inside-avoid bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
+                <div id="sms-gateway-config-card" className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Smartphone
@@ -1885,7 +1713,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
 
               {/* Google Sheets Backup Integration Card */}
               {hasRolePermission(currentRole, 'settings.storage') && (
-                <div className=" break-inside-avoid bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
+                <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                     <div className="flex items-center gap-2">
                       <FileSpreadsheet size={16} className="text-amber-500" />
@@ -2144,7 +1972,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
               {/* RECEIPT SYSTEM OVERHAUL: PRODUCTION-READY RECEIPT ENGINE SETTINGS PANEL */}
               {hasRolePermission(currentRole, 'settings.tax') && (
                 <div
-                  className="break-inside-avoid bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm"
+                  className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm"
                   id="receipt-engine-customization-settings"
                 >
                   <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
@@ -2710,64 +2538,6 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
                           </div>
                         </div>
 
-                        <div className="border-t border-app-border/30 pt-3.5 flex flex-col gap-3">
-                          <div className="flex items-center justify-between gap-4 py-0.5">
-                            <div>
-                              <span className="font-extrabold text-app-text text-[11px] block">
-                                Show Smart Insights on Receipt
-                              </span>
-                              <span className="text-[9px] text-app-text-muted font-medium block mt-0.5 leading-tight">
-                                Display a personalized product
-                                recommendation at the bottom of customer receipts.
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setReceiptSettings({
-                                  ...receiptSettings,
-                                  isTaxEnabled: !receiptSettings.isTaxEnabled,
-                                })
-                              }
-                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                receiptSettings.isTaxEnabled
-                                  ? 'bg-amber-500'
-                                  : 'bg-app-border'
-                              }`}
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                                  receiptSettings.isTaxEnabled
-                                    ? 'translate-x-4'
-                                    : 'translate-x-0'
-                                }`}
-                              />
-                            </button>
-                          </div>
-
-                          {receiptSettings.isTaxEnabled && (
-                            <div className="flex flex-col gap-1 bg-app-bg/50 p-2 border border-app-border rounded-xl">
-                              <label className="text-[8.5px] font-black text-app-text-muted uppercase tracking-wider">
-                                VAT Rate %
-                              </label>
-                              <input
-                                type="number"
-                                value={receiptSettings.taxPercentage}
-                                onChange={(e) =>
-                                  setReceiptSettings({
-                                    ...receiptSettings,
-                                    taxPercentage:
-                                      parseFloat(e.target.value) || 16,
-                                  })
-                                }
-                                className="w-[100px] bg-app-bg text-app-text px-2 py-1 rounded-lg border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-bold"
-                                placeholder="16"
-                                max={100}
-                                min={0}
-                              />
-                            </div>
-                          )}
-                        </div>
                       </div>
                     )}
 

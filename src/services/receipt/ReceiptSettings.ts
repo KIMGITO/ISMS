@@ -34,20 +34,17 @@ const DEFAULT_SETTINGS: Record<string, BusinessReceiptSettings> = {
 
 export class ReceiptSettingsService {
   public static getSettings(businessId: string): BusinessReceiptSettings {
-    const config = useBusinessStore.getState().integrationConfigs['receipt'];
+    const bizState = useBusinessStore.getState();
+    const activeBiz = bizState.businesses.find((b) => b.id === businessId);
+    const config = bizState.integrationConfigs['receipt'];
     
-    // Fallback to businessId, then default settings
-    if (config && Object.keys(config).length > 0) {
-      return config;
-    }
-    
-    // Auto-create customized settings based on the business if possible
     const defaultSet = DEFAULT_SETTINGS.default;
+    const baseSettings = (config && Object.keys(config).length > 0) ? config : defaultSet;
     
-    // We can fetch from businessStore dynamically, or just adapt defaultSet
     return {
-      ...defaultSet,
-      // Customize name if we want, otherwise default is fine
+      ...baseSettings,
+      isTaxEnabled: activeBiz ? activeBiz.isTaxEnabled !== false : baseSettings.isTaxEnabled,
+      taxPercentage: activeBiz && typeof activeBiz.taxPercentage === 'number' ? activeBiz.taxPercentage : baseSettings.taxPercentage,
     };
   }
 
