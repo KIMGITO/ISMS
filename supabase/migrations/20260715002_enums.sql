@@ -72,7 +72,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Planned schedule recurrence
 DO $$ BEGIN
-  CREATE TYPE public.schedule_repeat AS ENUM ('None', 'Daily', 'Weekly');
+  CREATE TYPE public.schedule_repeat AS ENUM ('None', 'Daily', 'Weekly', 'Monthly');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- M-Pesa STK push result

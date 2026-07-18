@@ -46,6 +46,8 @@ import {
 
 // Lucide Icons
 import {
+  Search,
+  X,
   Smartphone,
   Database,
   Tag,
@@ -270,6 +272,7 @@ export default function App() {
 
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const handleCloseTour = () => {
     setIsTourOpen(false);
@@ -929,8 +932,8 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   useEffect(() => {
     const handleScroll = (e: Event) => {
-      // If we are on the AI page, keep the bottom navigation fully stable and visible to prevent flickering from keyboard or layout shifts
-      if (activeTab === "ai") {
+      // If we are on the AI page or the onboarding tour is open, keep the bottom navigation fully stable and visible
+      if (activeTab === "ai" || isTourOpen) {
         setShowNav(true);
         return;
       }
@@ -976,7 +979,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [activeTab]);
+  }, [activeTab, isTourOpen]);
 
   // Show bottom nav instantly when switching views
   useEffect(() => {
@@ -2830,89 +2833,132 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 
                 {/* TOP APPLICATION BAR */}
                 <header 
-                  className="bg-app-card border-b border-app-border px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30"
-                  style={{ paddingTop: "calc(0.375rem + env(safe-area-inset-top, 0px))" }}
+                  className="bg-app-card border-b border-app-border px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
+                  style={{ 
+                    paddingTop: "calc(0.375rem + env(safe-area-inset-top, 0px))",
+                    backgroundImage: activeBusiness?.coverImageUrl 
+                      ? `linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.75)), url(${activeBusiness.coverImageUrl})` 
+                      : "none",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
                 >
-                  {/* Brand Logo or Indicator for mobile/tablet only */}
-                  <div 
-                    onClick={() => {
-                      if (assignableBranchesCount > 1) {
-                        setShowBusinessDropdown(!showBusinessDropdown);
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 shrink-0 md:hidden select-none ${
-                      assignableBranchesCount > 1 ? "cursor-pointer" : "cursor-default"
-                    }`}
-                    title={assignableBranchesCount > 1 ? "Click to switch dairy branch" : undefined}
-                  >
-                    <img
-                      src={activeBusiness.logoUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"}
-                      alt={activeBusiness.name}
-                      className="w-7 h-7 rounded-lg object-cover shrink-0 shadow-xs border border-amber-500/20"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="font-display font-black text-xs text-app-text hidden md:hidden lg:inline-block">
-                      {activeBusiness.name}
-                    </span>
-                    {assignableBranchesCount > 1 && (
-                      <span className="text-[9px] text-amber-500">▼</span>
-                    )}
-                  </div>
-
-                  {/* Desktop dummy spacer for balanced layout */}
-                  <div className="hidden md:block shrink-0" />
-
-                  {/* Global Unified Search Bar */}
-                  <div id="global-search-container" className="flex-1 max-w-sm hidden md:block">
-                    <GlobalSearch onNavigateTab={(tab) => setActiveTab(tab)} />
-                  </div>
-
-                  {/* Top Right Action Items */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Notification Bell Icon (Always visible) */}
-                    <button
-                      id="header-notification-bell"
-                      onClick={() => setActiveTab("notifications")}
-                      className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
-                        activeTab === "notifications"
-                          ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                          : "bg-app-bg border-app-border text-app-text hover:text-app-text"
-                      }`}
-                      title="System Message Center"
-                    >
-                      <Bell size={13} className={unreadNotificationsCount > 0 ? "animate-swing" : ""} />
-                      {unreadNotificationsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center  shadow-sm">
-                          {unreadNotificationsCount}
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Status controls (visible on mobile only since desktop is inside sidebar) */}
-                    <div className="flex items-center gap-1.5 md:hidden">
-                      {/* Network Online status toggle */}
+                  {showMobileSearch ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1">
+                        <GlobalSearch onNavigateTab={(tab) => {
+                          setActiveTab(tab);
+                          setShowMobileSearch(false);
+                        }} />
+                      </div>
                       <button
-                        onClick={toggleNetwork}
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          isOnline 
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/15" 
-                            : "bg-red-500/10 border-red-500/20 text-red-500  hover:bg-red-500/15"
-                        }`}
-                        title={isOnline ? "Network is Online. Click to go Offline." : "Network is Offline. Click to go Online."}
+                        onClick={() => setShowMobileSearch(false)}
+                        className="p-1.5 bg-app-bg border border-app-border text-app-text-muted hover:text-app-text rounded-lg transition cursor-pointer shrink-0"
+                        title="Close Search"
                       >
-                        {isOnline ? <Wifi size={13} /> : <WifiOff size={13} />}
-                      </button>
-
-                      {/* Dark Mode toggle */}
-                      <button
-                        onClick={() => setThemeMode(themeMode === "light" ? "dark" : "light")}
-                        className="p-1.5 bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
-                        title="Toggle Theme"
-                      >
-                        {themeMode === "light" ? <Moon size={13} /> : <Sun size={13} />}
+                        <X size={13} />
                       </button>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Brand Logo or Indicator for mobile/tablet only */}
+                      <div 
+                        id="mobile-brand-header"
+                        onClick={() => {
+                          if (assignableBranchesCount > 1) {
+                            setShowBusinessDropdown(!showBusinessDropdown);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 shrink-0 md:hidden select-none ${
+                          assignableBranchesCount > 1 ? "cursor-pointer" : "cursor-default"
+                        }`}
+                        title={assignableBranchesCount > 1 ? "Click to switch dairy branch" : undefined}
+                      >
+                        <img
+                          src={activeBusiness.logoUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"}
+                          alt={activeBusiness.name}
+                          className="w-7 h-7 rounded-lg object-cover shrink-0 shadow-xs border border-amber-500/20"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="font-display font-black text-xs text-app-text hidden md:hidden lg:inline-block">
+                          {activeBusiness.name}
+                        </span>
+                        {assignableBranchesCount > 1 && (
+                          <span className="text-[9px] text-amber-500">▼</span>
+                        )}
+                      </div>
+
+                      {/* Desktop dummy spacer for balanced layout */}
+                      <div className="hidden md:block shrink-0" />
+
+                      {/* Global Unified Search Bar */}
+                      <div id="global-search-container" className="flex-1 max-w-sm hidden md:block">
+                        <GlobalSearch onNavigateTab={(tab) => setActiveTab(tab)} />
+                      </div>
+
+                      {/* Top Right Action Items */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Search icon for mobile only */}
+                        <button
+                          onClick={() => setShowMobileSearch(true)}
+                          className="p-1.5 md:hidden bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
+                          title="Search App"
+                        >
+                          <Search size={13} />
+                        </button>
+
+                        {/* Notification Bell Icon (Always visible) */}
+                        <button
+                          id="header-notification-bell"
+                          onClick={() => setActiveTab("notifications")}
+                          className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
+                            activeTab === "notifications"
+                              ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                              : "bg-app-bg border-app-border text-app-text hover:text-app-text"
+                          }`}
+                          title="System Message Center"
+                        >
+                          <Bell size={13} className={unreadNotificationsCount > 0 ? "animate-swing" : ""} />
+                          {unreadNotificationsCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center  shadow-sm">
+                              {unreadNotificationsCount}
+                            </span>
+                          )}
+                        </button>
+                        
+
+                        {/* Status controls (visible on mobile only since desktop is inside sidebar) */}
+                        <div className="flex items-center gap-1.5 md:hidden">
+                          {/* Network Online status toggle */}
+                           <button
+                            onClick={() => setThemeMode(themeMode === "light" ? "dark" : "light")}
+                            className="p-1.5 bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
+                            title="Toggle Theme"
+                          >
+                            {themeMode === "light" ? <Moon size={13} /> : <Sun size={13} />}
+                          </button>
+                           <div className="relative">
+              <img
+                src={currentEmployee.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
+                alt="My Profile"
+                className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
+                referrerPolicy="no-referrer"
+              />
+              <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
+                Me
+              </span>
+              {/* Tooltip */}
+              <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
+                My Profile
+              </div>
+            </div>
+
+                          {/* Dark Mode toggle */}
+                         
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </header>
 
                 {/* CORE VIEWPORT CARDS */}
@@ -3213,48 +3259,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
           )}
         </AnimatePresence>
 
-        {/* Floating Profile Picture Action Button (FAB) — DRAGGABLE ENCLAVE FIXED */}
-        {currentEmployee && !isTerminalLocked && activeTab !== "profile" && (
-          <motion.div
-            drag
-            dragConstraints={mainConstraintsRef}
-            dragMomentum={false}
-            dragElastic={0.1}
-            // ── INITIAL DEFENSIVE LAYOUT CORNER PLACEMENT VIA TRANSFORMS ──
-            style={{ 
-              touchAction: "none",
-              top: "40px",
-              right: "16px",
-              bottom: "auto",
-              left: "auto"
-            }}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="fixed z-50 group cursor-grab active:cursor-grabbing select-none"
-            onTap={() => {
-              setActiveTab("profile");
-            }}
-          >
-            <div className="relative">
-              <img
-                src={currentEmployee.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
-                alt="My Profile"
-                className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
-                Me
-              </span>
-              {/* Tooltip */}
-              <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
-                My Profile
-              </div>
-            </div>
-          </motion.div>
-        )}
+        
 
         {/* Multi-Business Management & Switcher Modal Overlay */}
         <AnimatePresence>

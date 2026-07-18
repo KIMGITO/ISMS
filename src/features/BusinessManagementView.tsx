@@ -54,6 +54,8 @@ export default function BusinessManagementView() {
   const [currency, setCurrency] = useState("Ksh");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [isTaxEnabled, setIsTaxEnabled] = useState(true);
+  const [taxPercentage, setTaxPercentage] = useState(16.0);
   
   // Custom theme colors
   const [primaryColor, setPrimaryColor] = useState("#f59e0b");
@@ -201,6 +203,8 @@ export default function BusinessManagementView() {
       setContactPhone(activeBiz.contactPhone || "");
       setPrimaryColor(activeBiz.primaryColor || "#f59e0b");
       setSecondaryColor(activeBiz.secondaryColor || "#1e293b");
+      setIsTaxEnabled(activeBiz.isTaxEnabled !== false);
+      setTaxPercentage(typeof activeBiz.taxPercentage === 'number' ? activeBiz.taxPercentage : 16.0);
     }
   }, [activeBiz]);
 
@@ -261,7 +265,9 @@ export default function BusinessManagementView() {
         contactEmail.trim(),
         normalizedPhone,
         primaryColor,
-        secondaryColor
+        secondaryColor,
+        isTaxEnabled,
+        taxPercentage
       );
 
       showToast("Workspace Synced", "Business configuration has been updated.", undefined, "success");
@@ -696,6 +702,61 @@ export default function BusinessManagementView() {
                           />
                           {errors.contactPhone && <span className="text-[9px] text-red-500 font-medium">{errors.contactPhone}</span>}
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Tax & VAT Settings */}
+                    <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
+                        <Briefcase size={14} className="text-amber-500" />
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Tax & VAT Settings</h3>
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <span className="font-extrabold text-app-text text-xs block">
+                              Enable Tax / VAT Tracking
+                            </span>
+                            <span className="text-[10px] text-app-text-muted font-medium block mt-0.5 leading-tight">
+                              Toggle tax computations during Point of Sale checkouts.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsTaxEnabled(!isTaxEnabled)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              isTaxEnabled ? 'bg-amber-500' : 'bg-app-border'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
+                                isTaxEnabled ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {isTaxEnabled && (
+                          <div className="flex flex-col gap-1 bg-app-bg/50 p-3.5 border border-app-border rounded-2xl">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              VAT Rate % (Supports 0% for Zero-Rating)
+                            </label>
+                            <input
+                              type="number"
+                              value={taxPercentage}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setTaxPercentage(isNaN(val) ? 0 : val);
+                              }}
+                              className="w-[120px] bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-xs font-bold"
+                              placeholder="16"
+                              max={100}
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

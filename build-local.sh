@@ -39,6 +39,7 @@ cd ..
 
 echo "--> Copying Android release APK..."
 cp android/app/build/outputs/apk/release/app-release-unsigned.apk release-builds/android/kaykay-release-unsigned.apk || true
+echo "--> Note: Run ./sign-apk.sh to align and sign the release build with your keystore."
 # Also copy debug apk for convenience
 cd android && ./gradlew assembleDebug && cd ..
 cp android/app/build/outputs/apk/debug/app-debug.apk release-builds/android/kaykay-debug.apk || true

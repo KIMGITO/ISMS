@@ -34,7 +34,9 @@ interface BusinessState {
     contactEmail?: string,
     contactPhone?: string,
     primaryColor?: string,
-    secondaryColor?: string
+    secondaryColor?: string,
+    isTaxEnabled?: boolean,
+    taxPercentage?: number
   ) => Promise<void>;
   deleteBusiness: (id: string) => Promise<void>;
   setActiveBusinessId: (id: string) => void;
@@ -233,7 +235,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       contactEmail,
       contactPhone,
       primaryColor,
-      secondaryColor
+      secondaryColor,
+      isTaxEnabled,
+      taxPercentage
     ) => {
       const supabase = getSupabase();
       try {
@@ -249,7 +253,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
           contact_email: contactEmail || "",
           contact_phone: contactPhone || "",
           primary_color: primaryColor || "",
-          secondary_color: secondaryColor || ""
+          secondary_color: secondaryColor || "",
+          is_tax_enabled: isTaxEnabled !== false,
+          tax_percentage: typeof taxPercentage === 'number' ? taxPercentage : 16.0
         };
 
         const { error } = await supabase.from("businesses").update(payload).eq("id", id);
@@ -269,7 +275,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
             contactEmail: contactEmail || "",
             contactPhone: contactPhone || "",
             primaryColor: primaryColor || "",
-            secondaryColor: secondaryColor || ""
+            secondaryColor: secondaryColor || "",
+            isTaxEnabled: isTaxEnabled !== false,
+            taxPercentage: typeof taxPercentage === 'number' ? taxPercentage : 16.0
           } : b
         );
         localStorage.setItem(localBusinessesKey, JSON.stringify(updated));

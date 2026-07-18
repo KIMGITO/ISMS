@@ -93,6 +93,7 @@ export default function CustomersView() {
   const [editEmail, setEditEmail] = useState("");
   const [editTier, setEditTier] = useState<"Bronze" | "Silver" | "Gold">("Bronze");
   const [editPoints, setEditPoints] = useState(0);
+  const [editDescription, setEditDescription] = useState("");
 
   // Local state for manual balance adjustments
   const [adjustAmt, setAdjustAmt] = useState<number>(0);
@@ -155,6 +156,7 @@ export default function CustomersView() {
       email: "",
       tier: "Bronze" as "Bronze" | "Silver" | "Gold",
       startingPoints: 10,
+      description: "",
     },
     validate: (vals) => {
       const errs: Record<string, string> = {};
@@ -177,6 +179,7 @@ export default function CustomersView() {
           email: vals.email || "no-email@kaykaysmilk.com",
           loyaltyPoints: vals.startingPoints,
           tier: vals.tier,
+          description: vals.description,
         });
         setIsAdding(false);
         setSuccessBanner(true);
@@ -196,6 +199,7 @@ export default function CustomersView() {
       setEditEmail(selectedCustomer.email);
       setEditTier(selectedCustomer.tier);
       setEditPoints(selectedCustomer.loyaltyPoints);
+      setEditDescription(selectedCustomer.description || "");
       setAdjustAmt(0);
       setMessageText("");
       setSuccessMsg("");
@@ -628,6 +632,17 @@ export default function CustomersView() {
                         />
                       </div>
 
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-black text-app-text-muted uppercase">Customer Description / Notes</label>
+                        <textarea
+                          rows={3}
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-sans font-medium"
+                          placeholder="Add customer descriptions or notes..."
+                        />
+                      </div>
+
                       <button
                         type="button"
                         disabled={isSavingProfile}
@@ -649,6 +664,7 @@ export default function CustomersView() {
                               phone: fullPhone,
                               tier: editTier,
                               loyaltyPoints: editPoints,
+                              description: editDescription,
                             });
                             playSfx("save");
                             setSuccessMsg("Customer record updated successfully!");
@@ -1457,6 +1473,18 @@ export default function CustomersView() {
                       className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 h-[38px] font-mono font-bold"
                     />
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-app-text-muted uppercase">Customer Description / Notes</label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    placeholder="e.g., Prefers raw whole milk, delivers before 8 AM"
+                    value={values.description}
+                    onChange={handleChange}
+                    className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-sans"
+                  />
                 </div>
 
                 <div className="pt-4 border-t border-app-border flex gap-3 mt-4 shrink-0">

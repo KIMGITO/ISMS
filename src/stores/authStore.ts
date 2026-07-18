@@ -188,8 +188,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
           timeoutPromise
         ]);
         set({ isInitializing: false, initializationError: null });
+        sessionStorage.removeItem("kkm_init_retry_count");
       } catch (err: any) {
         console.error("Failed to initialize authentication:", err);
+        
+        const retryCountStr = sessionStorage.getItem("kkm_init_retry_count");
+        const retryCount = retryCountStr ? parseInt(retryCountStr, 10) : 0;
+        
+        if (retryCount < 4) {
+          sessionStorage.setItem("kkm_init_retry_count", String(retryCount + 1));
+          console.warn(`Init failed. Automatically reloading browser (attempt ${retryCount + 1}/4)...`);
+          window.location.reload();
+          return;
+        }
+
+        sessionStorage.removeItem("kkm_init_retry_count");
         set({
           isInitializing: false,
           initializationError: err.message || "Failed to initialize application connection."
@@ -1050,7 +1063,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const supabase = getSupabase();
         const { error } = await supabase
           .from("invitations")
-          .update({ status: "Revoked" })
+          .delete()
           .eq("id", id);
 
         if (error) throw error;
@@ -1082,7 +1095,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         useNotificationStore.getState().showToast(
           "Invitation Revoked",
-          "Staff invitation cancelled.",
+          "Staff invitation cancelled and removed.",
           undefined,
           "info"
         );

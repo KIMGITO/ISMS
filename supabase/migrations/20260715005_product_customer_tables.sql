@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
     purchases_count  INTEGER NOT NULL DEFAULT 0 CHECK (purchases_count >= 0),
     debt_balance     NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (debt_balance >= 0),
     wallet_balance   NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (wallet_balance >= 0),
+    description      TEXT,
     version          INTEGER NOT NULL DEFAULT 1,
     sync_status      public.sync_status NOT NULL DEFAULT 'synced',
     last_modified_by TEXT NOT NULL DEFAULT 'system',

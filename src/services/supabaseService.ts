@@ -171,6 +171,7 @@ export class SupabaseService {
       debtBalance: Number(c.debt_balance),
       walletBalance: Number(c.wallet_balance),
       businessId: c.business_id,
+      description: c.description || "",
     }));
   }
 
@@ -500,7 +501,9 @@ export class SupabaseService {
       primaryColor: b.primary_color || "",
       secondaryColor: b.secondary_color || "",
       timezone: b.timezone || "Africa/Nairobi",
-      defaultPaymentMethods: Array.isArray(b.default_payment_methods) ? b.default_payment_methods : ["Cash", "M-Pesa"]
+      defaultPaymentMethods: Array.isArray(b.default_payment_methods) ? b.default_payment_methods : ["Cash", "M-Pesa"],
+      isTaxEnabled: b.is_tax_enabled !== false,
+      taxPercentage: typeof b.tax_percentage === 'number' ? b.tax_percentage : 16.0
     }));
   }
 
@@ -692,7 +695,7 @@ export class SupabaseService {
     date: string;       // YYYY-MM-DD
     startTime: string;  // HH:MM
     endTime?: string;   // HH:MM
-    repeat?: 'None' | 'Daily' | 'Weekly';
+    repeat?: 'None' | 'Daily' | 'Weekly' | 'Monthly';
     color?: string;
   }): Promise<DbSchedule> {
     const supabase = getSupabase();

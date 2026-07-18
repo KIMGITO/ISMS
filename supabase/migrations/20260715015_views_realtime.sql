@@ -55,7 +55,8 @@ SELECT
     c.debt_balance,
     c.wallet_balance,
     c.join_date,
-    c.created_at
+    c.created_at,
+    c.description
 FROM public.customers c
 JOIN public.businesses b ON c.business_id = b.id
 WHERE c.deleted_at IS NULL;
