@@ -1,5 +1,29 @@
 import { CartItem } from "../types";
 
+
+export function handleNumberInput(
+  value: string | number,
+  onChange: (value: number) => void,
+  min: number = 0
+): void {
+  const stringValue = String(value);
+  
+  // If empty or just deleted, set to 0
+  if (stringValue === '' || stringValue === '0') {
+    onChange(0);
+    return;
+  }
+  
+  // Remove leading zeros but keep the number
+  const cleaned = stringValue.replace(/^0+/, '') || '0';
+  const numValue = parseFloat(cleaned);
+  
+  // Only update if it's a valid number
+  if (!isNaN(numValue) && isFinite(numValue)) {
+    onChange(Math.max(min, numValue));
+  }
+}
+
 /**
  * Formats a numeric value as Kenyan Shillings (KSh)
  */

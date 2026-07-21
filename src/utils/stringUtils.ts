@@ -129,3 +129,19 @@ export function formatName(str: string | null | undefined): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
+
+/**
+ * Extracts the first name from a full name string and formats it properly.
+ * Example: "James Mwangi" -> "James", "jane doe" -> "Jane"
+ */
+export function getFirstName(fullName: string | null | undefined): string {
+  if (!fullName) return "";
+  const trimmed = fullName.trim();
+  if (!trimmed) return "";
+  
+  // Split by whitespace and take the first part
+  const firstPart = trimmed.split(/\s+/)[0];
+  
+  // Return formatted
+  return formatName(firstPart);
+}

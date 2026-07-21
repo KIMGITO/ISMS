@@ -39,6 +39,8 @@ import SearchableDropdown from '../components/SearchableDropdown';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
+import EndShiftModal from '../components/EndShiftModal';
+import NotificationService from '../services/notifications/notificationService';
 
 interface Schedule {
   id: string;
@@ -76,6 +78,8 @@ export default function DashboardView() {
 
   const { products } = useInventoryStore();
   const { transactions } = useTransactionStore();
+
+  const [isEndShiftModalOpen, setIsEndShiftModalOpen] = useState(false);
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const { activeBusinessId } = useBusinessStore();
@@ -775,7 +779,7 @@ export default function DashboardView() {
             <div className="flex items-center gap-1.5 shrink-0">
               {activeShift ? (
                 <button
-                  onClick={punchOut}
+                  onClick={() => setIsEndShiftModalOpen(true)}
                   className="px-2 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[8.5px] font-black uppercase tracking-wider  flex items-center gap-1 transition cursor-pointer"
                   title="Punch Out"
                 >
@@ -1533,6 +1537,28 @@ export default function DashboardView() {
           </div>
         </div>
       </div>
+      {/* Modals & Forms */}
+      <EndShiftModal 
+        isOpen={isEndShiftModalOpen} 
+        onClose={() => setIsEndShiftModalOpen(false)} 
+        onConfirm={(reportText, customMessage) => {
+          // Send Notification
+          NotificationService.createNotification(
+            "Custom Notification", 
+            { message: "Shift Ended: " + (currentEmployee?.name || "Unknown Staff") },
+            {
+              title: "Shift Completed",
+              role: "Owner",
+              priority: "high",
+              payloadExtra: { reportText, customMessage }
+            }
+          );
+          // Punch out logic
+          punchOut();
+          setIsEndShiftModalOpen(false);
+          showToast('Shift Ended', 'End of shift report sent to owners.');
+        }}
+      />
     </div>
   );
 }

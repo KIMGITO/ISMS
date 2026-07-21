@@ -42,6 +42,8 @@ interface GlobalSearchProps {
       | "settings" 
       | "dashboard" 
       | "notifications"
+      | "business-management"
+      | "production"
   ) => void;
 }
 
@@ -155,6 +157,8 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
         return hasRolePermission(currentEmployee.role, "staff.roles");
       case "Notifications":
         return true; // standard alerts
+      case "Communication Center":
+        return hasRolePermission(currentEmployee.role, "communication.view");
       case "Reports":
         return hasRolePermission(currentEmployee.role, "reports.view");
       case "AI Insights":
@@ -965,6 +969,23 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
         relevance: 65,
         action: () => {
           onNavigateTab("ai");
+          setIsOpen(false);
+          setQuery("");
+        }
+      });
+    }
+
+    if ("communication center".includes(lower) || "bulk message".includes(lower) || "outreach".includes(lower) || "messaging".includes(lower)) {
+      matched.push({
+        id: "act-communication",
+        title: "Customer Communication Center",
+        subtitle: "Send bulk SMS, WhatsApp, and Emails to filtered customer segments",
+        category: "Communication Center",
+        businessName: activeBizName,
+        relevance: 60,
+        action: () => {
+          onNavigateTab("feedback");
+          // NOTE: It navigates to the 'feedback' tab, which now houses the Communication Center sub-tab.
           setIsOpen(false);
           setQuery("");
         }

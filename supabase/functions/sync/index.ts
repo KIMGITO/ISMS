@@ -4,7 +4,6 @@
 // (or retrieves previously synced records) so they survive app restarts and device switches.
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   handleCors,
@@ -12,7 +11,7 @@ import {
   errorResponse,
 } from "../shared/cors.ts";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
@@ -54,7 +53,12 @@ serve(async (req) => {
 
     // ── POST: Push offline transactions to Supabase ──────────────────────
     } else if (req.method === "POST") {
-      const body = await req.json();
+      let body;
+      try {
+        body = await req.json();
+      } catch {
+        return errorResponse("Invalid JSON payload", 400);
+      }
       const { transactions, businessId } = body;
 
       if (!businessId) return errorResponse("businessId is required.", 400);

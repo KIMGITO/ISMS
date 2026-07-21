@@ -1,188 +1,252 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import nodemailer from "npm:nodemailer@6.9.13"; // Using modern NPM specifier
+import nodemailer from "npm:nodemailer@6.9.13";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
-  let subject = "";
-  let html = "";
+/**
+ * Strips legacy prefixes like "INV-" from verification and invitation codes
+ */
+function cleanCodeValue(codeVal: any): string {
+  if (!codeVal) return "";
+  let str = String(codeVal).trim();
+  if (str.toUpperCase().startsWith("INV-")) {
+    str = str.slice(4);
+  }
+  return str.toUpperCase();
+}
 
-  const appName = "KayKay's Milk Systems";
-  const primaryColor = "#f59e0b"; // Amber 500
+/**
+ * Modern Responsive Branded Email Template Builder
+ */
+function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
+  const brandName = vars.brandName || "KayKay's Milk Systems";
+  const appName = brandName;
+  const primaryColor = vars.primaryColor || "#f59e0b"; // Warm Amber Accent
+  const code = cleanCodeValue(vars.code || vars.token || vars.otp || vars.verificationCode);
+  const appUrl = vars.appUrl || "http://localhost:5173";
+
+  let subject = "";
+  let bodyContent = "";
 
   switch (type) {
-    case "verification_code": {
-      const { code, name } = vars;
+    case "verification_code":
+    case "signup": {
+      const name = vars.name || vars.to || "Business Owner";
+      const cleanCode = code;
+
       subject = `Verify your email address - ${appName}`;
       html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Verification Code Flow</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>Thank you for signing up as a Business Owner. Use the verification code below to confirm your email and complete registration:</p>
-          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 16px; font-size: 32px; font-weight: bold; letter-spacing: 6px; text-align: center; color: ${primaryColor}; margin: 20px 0; border-radius: 8px;">
-            ${code}
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc; shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
+            <!-- Header Badge -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+              <div style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🥛</div>
+              <div>
+                <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc; letter-spacing: -0.5px;">${appName}</h1>
+                <span style="font-size: 11px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Security & Account Verification</span>
+              </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 0 0 24px 0;" />
+
+            <!-- Body Content -->
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">Hello <strong style="color: #f8fafc;">${name}</strong>,</p>
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">Thank you for registering. Use the 6-character verification code below to confirm your email and complete account setup:</p>
+
+            <!-- Prominent Code Box -->
+            <div style="background-color: #1e293b; border: 2px dashed rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 24px; text-align: center; margin: 28px 0;">
+              <span id="verification-code" style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${primaryColor}; text-shadow: 0 0 12px rgba(245, 158, 11, 0.2); display: block; margin-bottom: 12px;">
+                ${cleanCode}
+              </span>
+              <button onclick="navigator.clipboard.writeText('${cleanCode}').then(() => this.innerHTML='✓ Copied!').catch(() => {})" style="background-color: ${primaryColor}; color: #090d16; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                📋 Copy Code
+              </button>
+              <span style="font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 10px;">Standard 6-Character Verification Code</span>
+            </div>
+
+            <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 16px; line-height: 1.5;">
+              Copy this code and paste it into the application verification screen to confirm your email address.
+            </p>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0 16px 0;" />
+
+            <p style="font-size: 11px; color: #64748b; margin: 0; text-align: center;">
+              This code expires in 15 minutes. If you did not request this email, please ignore it.
+            </p>
           </div>
-          <p style="font-size: 11px; color: #94a3b8;">This code is valid for 15 minutes. If you did not request this, you can safely ignore this email.</p>
-        </div>
+        </body>
+        </html>
       `;
       break;
     }
+
     case "invitation": {
-      const { code, name, businessName, role, optionalMessage } = vars;
-      subject = `Join ${businessName || "Workspace"} on ${appName}`;
+      const { name, businessName, role, optionalMessage } = vars;
+      const cleanCode = code;
+
+      subject = `Team Invitation: Join ${businessName || "Workspace"} on ${appName}`;
       html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Workspace Staff Invitation</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>You have been invited to join <strong>${businessName || "our workspace"}</strong> as a <strong>${role || "Staff"}</strong>.</p>
-          <p>Open the app, select <strong>Join Team</strong>, and enter the code below to register:</p>
-          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 16px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; color: ${primaryColor}; margin: 20px 0; border-radius: 8px;">
-            ${code}
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc; shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+              <div style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📋</div>
+              <div>
+                <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${appName}</h1>
+                <span style="font-size: 11px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Workspace Staff Invitation</span>
+              </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 0 0 24px 0;" />
+
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">Hello <strong style="color: #f8fafc;">${name || "Team Member"}</strong>,</p>
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">You have been officially invited to join <strong style="color: #f8fafc;">${businessName || "our workspace"}</strong> as a <strong style="color: ${primaryColor};">${role || "Staff"}</strong>.</p>
+            
+            ${optionalMessage ? `<div style="background-color: #1e293b; border-left: 3px solid ${primaryColor}; padding: 12px 16px; margin: 16px 0; border-radius: 6px; font-style: italic; color: #cbd5e1; font-size: 13px;">"${optionalMessage}"</div>` : ""}
+
+            <div style="background-color: #1e293b; border: 2px dashed rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 24px; text-align: center; margin: 28px 0;">
+              <span id="invitation-code" style="font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: ${primaryColor}; display: block; margin-bottom: 12px;">
+                ${cleanCode}
+              </span>
+              <button onclick="navigator.clipboard.writeText('${cleanCode}').then(() => this.innerHTML='✓ Copied!').catch(() => {})" style="background-color: ${primaryColor}; color: #090d16; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                📋 Copy Code
+              </button>
+              <span style="font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 10px;">6-Character Team Invitation Code</span>
+            </div>
+
+            <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 16px; line-height: 1.5;">
+              Copy this code and paste it into the application invitation screen to join the workspace.
+            </p>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0 16px 0;" />
+            <p style="font-size: 11px; color: #64748b; margin: 0; text-align: center;">This invitation code is valid for 72 hours.</p>
           </div>
-          ${optionalMessage ? `<p>Message from owner: <em>"${optionalMessage}"</em></p>` : ""}
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">This invitation token is valid for 72 hours.</p>
-        </div>
+        </body>
+        </html>
       `;
       break;
     }
+
+    case "password_reset": {
+      const { name } = vars;
+      const cleanCode = code;
+
+      subject = `Password Recovery Code - ${appName}`;
+      html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc; shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+              <div style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🔐</div>
+              <div>
+                <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${appName}</h1>
+                <span style="font-size: 11px; color: #ef4444; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Security & Password Recovery</span>
+              </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 0 0 24px 0;" />
+
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">Hello <strong style="color: #f8fafc;">${name || "User"}</strong>,</p>
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">We received a request to reset your security passcode. Use the password reset OTP code below to authorize password recovery:</p>
+
+            <div style="background-color: #1e293b; border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 14px; padding: 24px; text-align: center; margin: 28px 0;">
+              <span id="reset-code" style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #f87171; display: block; margin-bottom: 12px;">
+                ${cleanCode}
+              </span>
+              <button onclick="navigator.clipboard.writeText('${cleanCode}').then(() => this.innerHTML='✓ Copied!').catch(() => {})" style="background-color: #ef4444; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                📋 Copy Code
+              </button>
+              <span style="font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 10px;">Password Reset OTP</span>
+            </div>
+
+            <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 16px; line-height: 1.5;">
+              Copy this code and paste it into the application password reset screen to recover your account.
+            </p>
+
+            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0 16px 0;" />
+            <p style="font-size: 11px; color: #64748b; margin: 0; text-align: center;">This code expires in 15 minutes. If you did not request a password reset, please ignore this email.</p>
+          </div>
+        </body>
+        </html>
+      `;
+      break;
+    }
+
     case "welcome": {
       const { name } = vars;
       subject = `Welcome to ${appName}!`;
       html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Welcome aboard!</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>Your owner account is officially verified! We are excited to help you streamline your dairy cooperative and milk distribution command center.</p>
-          <p>You can now log in, configure your branches, add products, register staff, and manage your inventory with state-of-the-art biometrics and offline synchronization.</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Best regards,<br>The ${appName} Team</p>
-        </div>
-      `;
-      break;
-    }
-    case "password_reset": {
-      const { code, name } = vars;
-      subject = `Reset your password - ${appName}`;
-      html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Password Recovery</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>We received a request to reset your security passcode. Use the password reset OTP code below to confirm authorization:</p>
-          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 16px; font-size: 32px; font-weight: bold; letter-spacing: 6px; text-align: center; color: ${primaryColor}; margin: 20px 0; border-radius: 8px;">
-            ${code}
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc;">
+            <h1 style="color: ${primaryColor}; margin-top: 0;">Welcome to ${appName}!</h1>
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">Hello <strong style="color: #f8fafc;">${name || "User"}</strong>,</p>
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">Your account has been verified successfully. You now have full access to your business operations dashboard, inventory management, and POS terminal.</p>
+            <div style="text-align: center; margin: 28px 0 16px 0;">
+              <a href="${appUrl}/?screen=login" style="display: inline-block; padding: 14px 28px; background-color: ${primaryColor}; color: #090d16; font-weight: 900; font-size: 14px; text-decoration: none; border-radius: 12px;">Launch Dashboard</a>
+            </div>
           </div>
-          <p style="font-size: 11px; color: #94a3b8;">This code is valid for 15 minutes. If you did not request this, you can safely ignore this email.</p>
-        </div>
+        </body>
+        </html>
       `;
       break;
     }
-    case "ai_insight": {
-      const { name, insightText, confidenceScore } = vars;
-      subject = `🤖 New AI Business Insight - ${appName}`;
-      html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">AI Demand Engine Analysis</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>Our intelligent agent has compiled a new recommendation for your active branch:</p>
-          <div style="background: #fffbeb; border-left: 4px solid ${primaryColor}; padding: 16px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 0; font-style: italic; color: #b45309;">"${insightText}"</p>
-          </div>
-          <p><strong>Confidence Score:</strong> ${confidenceScore || 90}%</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Generated automatically by the AI Copilot.</p>
-        </div>
-      `;
-      break;
-    }
-    case "report": {
-      const { name, reportType, reportData } = vars;
-      subject = `📊 ${reportType || "Business"} Performance Report - ${appName}`;
-      html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Financial Statement & Logs</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>Your requested <strong>${reportType || "business"}</strong> analysis is ready for review.</p>
-          <div style="background: #f8fafc; padding: 16px; margin: 20px 0; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <pre style="margin: 0; font-family: monospace; white-space: pre-wrap; font-size: 12px; color: #334155;">${JSON.stringify(reportData, null, 2)}</pre>
-          </div>
-          <p>Log in to the POS Hub to download the complete spreadsheet and PDF sheets.</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">This report was prepared by KayKay's Milk automated report scheduler.</p>
-        </div>
-      `;
-      break;
-    }
-    case "password_changed_notification": {
-      const { name } = vars;
-      subject = `Security Alert: Password changed - ${appName}`;
-      html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Security Notification</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>This is a confirmation that your account password was recently changed.</p>
-          <p>If you did not make this change, please contact our support team immediately to secure your account.</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Best regards,<br>The ${appName} Team</p>
-        </div>
-      `;
-      break;
-    }
-    case "email_changed_notification": {
-      const { name } = vars;
-      subject = `Security Alert: Email address updated - ${appName}`;
-      html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Security Notification</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>This is a confirmation that the email address associated with your account was successfully updated.</p>
-          <p>If you did not make this change, please contact our support team immediately.</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Best regards,<br>The ${appName} Team</p>
-        </div>
-      `;
-      break;
-    }
+
     default: {
-      const { name, code } = vars;
-      subject = `Notification from ${appName}`;
-      const codeHtml = code ? `
-        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 16px; font-size: 24px; font-weight: bold; text-align: center; color: ${primaryColor}; margin: 20px 0; border-radius: 8px;">
-          ${code}
+      const { name } = vars;
+      const cleanCode = code;
+      const codeHtml = cleanCode ? `
+        <div style="background-color: #1e293b; border: 1px dashed rgba(245, 158, 11, 0.4); padding: 16px; font-family: monospace; font-size: 28px; font-weight: bold; text-align: center; color: ${primaryColor}; margin: 20px 0; border-radius: 8px;">
+          ${cleanCode}
         </div>
       ` : "";
 
+      subject = `Notification from ${appName}`;
       html = `
-        <div style="font-family: sans-serif; padding: 20px; color: #0f172a; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: ${primaryColor}; margin-bottom: 4px;">${appName}</h2>
-          <p style="font-size: 14px; color: #64748b;">Account Notification</p>
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
-          <p>Hello <strong>${name || "User"}</strong>,</p>
-          <p>This email was dispatched to update you regarding your account activity (event type: <strong>${type}</strong>).</p>
-          ${codeHtml}
-          <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Best regards,<br>The ${appName} Team</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc;">
+            <h2 style="color: ${primaryColor}; margin-top: 0;">${appName}</h2>
+            <p style="color: #cbd5e1;">Hello <strong>${name || "User"}</strong>,</p>
+            <p style="color: #94a3b8;">This email is regarding your account activity (Type: ${type}).</p>
+            ${codeHtml}
+          </div>
+        </body>
+        </html>
       `;
       break;
     }
@@ -191,13 +255,21 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
   return { subject, html };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid JSON payload" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
     let to: string;
     let type: string;
     let variables: Record<string, any> = {};
@@ -210,37 +282,36 @@ serve(async (req) => {
       const code = email_data.token;
       const name = user.user_metadata?.name || user.email.split("@")[0];
 
-      // Map Supabase Auth Action to our email templates
       if (action === "signup" || action === "email_change" || action === "magiclink") {
         type = "verification_code";
-        variables = { code, name };
+        variables = { code, name, to };
       } else if (action === "recovery") {
         type = "password_reset";
-        variables = { code, name };
+        variables = { code, name, to };
       } else if (action === "invite") {
         type = "invitation";
         variables = {
           code,
           name,
+          to,
           businessName: user.user_metadata?.business_name || "KayKay's Milk Systems",
           role: user.user_metadata?.role || "Staff",
           optionalMessage: user.user_metadata?.message || ""
         };
       } else {
-        // Use the action name directly or default fallback
         type = action;
-        variables = { code, name, ...email_data };
+        variables = { code, name, to, ...email_data };
       }
     } else {
-      // Direct call
+      // Direct API call
       to = body.to;
       type = body.type;
-      variables = body.variables || {};
+      variables = { to, ...body.variables };
     }
 
-    if (!to || !type || !variables) {
+    if (!to || !type) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields: to, type, variables" }),
+        JSON.stringify({ success: false, error: "Missing required fields: to, type" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -255,19 +326,23 @@ serve(async (req) => {
     const hasResend = !!RESEND_API_KEY;
     const hasSmtp = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
-    if (!hasResend && !hasSmtp) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Email provider is not configured. Please set RESEND_API_KEY or SMTP variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS) in Supabase secrets."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    // Get rendered template details
     const { subject, html } = getEmailTemplate(type, variables);
     const senderEmail = SMTP_USER || "operations@kaykaysmilk.com";
+
+    // If no real email transport is configured, log code and return mock success for local dev
+    if (!hasResend && !hasSmtp) {
+      console.log(`[send-email] LOCAL DEV SIMULATION: Dispatched "${type}" email to ${to}`);
+      console.log(`[send-email] Code: "${cleanCodeValue(variables.code)}" | Subject: "${subject}"`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          simulated: true,
+          message: `[Dev Sandbox] Simulated email dispatch to ${to}. Code: ${cleanCodeValue(variables.code)}`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
 
     if (hasResend) {
       console.log(`[send-email] Dispatching email to ${to} via Resend API`);
@@ -296,11 +371,10 @@ serve(async (req) => {
       );
     } else {
       console.log(`[send-email] Dispatching email to ${to} via SMTP ${SMTP_HOST}`);
-      
       const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: SMTP_PORT,
-        secure: SMTP_PORT === 465, // true for 465, false for 587/25
+        secure: SMTP_PORT === 465,
         auth: {
           user: SMTP_USER,
           pass: SMTP_PASS,

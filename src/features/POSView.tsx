@@ -211,7 +211,7 @@ export default function POSView() {
             >
               <div className="w-full h-24 bg-app-bg relative shrink-0">
                 <img
-                  src={product.image}
+                  src={product.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D'}
                   alt={product.name}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"

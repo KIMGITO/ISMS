@@ -4,7 +4,6 @@
 // automatically share the same owner-configured API key and provider settings.
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   handleCors,
@@ -12,6 +11,8 @@ import {
   errorResponse,
   verifyUserMembership,
 } from "../shared/cors.ts";
+
+import { runAI, getHuggingFaceTokens } from "../shared/ai-runner.ts";
 
 /** Masks an API key: first 4 chars + •••••••• + last 4 chars */
 function maskKey(key: string): string {
@@ -24,8 +25,8 @@ function maskKey(key: string): string {
 function defaultConfig(businessId: string) {
   return {
     business_id: businessId,
-    provider: "gemini",
-    model: "gemini-2.5-flash",
+    provider: "huggingface",
+    model: "Qwen/Qwen2.5-Coder-32B-Instruct",
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 0.95,
@@ -35,16 +36,22 @@ function defaultConfig(businessId: string) {
     system_prompt: "",
     enabled: true,
     api_key: "",
-    isConfigured: false,
+    isConfigured: true,
   };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
   try {
-    const { action, businessId, activeRole, config } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON payload", 400);
+    }
+    const { action, businessId, activeRole, config } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 
@@ -72,7 +79,7 @@ serve(async (req) => {
         return errorResponse("Failed to load AI configuration.", 500);
       }
 
-      // Nothing configured yet — return safe defaults
+      // Nothing configured yet — return safe defaults (Hugging Face default)
       if (!data) {
         return jsonResponse({ success: true, config: defaultConfig(businessId) });
       }
@@ -82,12 +89,14 @@ serve(async (req) => {
         ? isOwner ? maskKey(data.api_key) : "••••••••"
         : "";
 
+      const provider = (data.provider || "huggingface").toLowerCase();
+
       return jsonResponse({
         success: true,
         config: {
           ...data,
           api_key: maskedKey,
-          isConfigured: !!data.api_key,
+          isConfigured: provider === "huggingface" || !!data.api_key,
         },
       });
 
@@ -114,12 +123,13 @@ serve(async (req) => {
         keyToSave = existing?.api_key || "";
       }
 
+      const provider = (config.provider || "huggingface").toLowerCase();
       const now = new Date().toISOString();
       const upsertPayload = {
         business_id: businessId,
-        provider: config.provider || "gemini",
+        provider,
         api_key: keyToSave,
-        model: config.model || "gemini-2.5-flash",
+        model: config.model || (provider === "huggingface" ? "Qwen/Qwen2.5-Coder-32B-Instruct" : "gemini-2.5-flash"),
         temperature: Number(config.temperature ?? 0.7),
         max_tokens: Number(config.max_tokens ?? 2048),
         top_p: Number(config.top_p ?? 0.95),
@@ -148,9 +158,32 @@ serve(async (req) => {
         config: {
           ...saved,
           api_key: saved.api_key ? "••••••••" : "",
-          isConfigured: !!saved.api_key,
+          isConfigured: provider === "huggingface" || !!saved.api_key,
         },
       });
+
+    // ── TEST ─────────────────────────────────────────────────────────────
+    } else if (action === "test") {
+      const testConfig = config || defaultConfig(businessId);
+      const testResult = await runAI(testConfig, {
+        systemInstruction: "You are testing AI connectivity.",
+        messages: [{ role: "user", content: "Ping" }],
+      });
+
+      if (testResult.success) {
+        const hfTokens = getHuggingFaceTokens();
+        const infoMsg = testConfig.provider === "huggingface"
+          ? `Hugging Face Connection Verified! (${hfTokens.length} server rotation tokens active)`
+          : `${testConfig.provider.toUpperCase()} AI Connection Verified!`;
+
+        return jsonResponse({
+          success: true,
+          message: infoMsg,
+          responseSample: testResult.text.slice(0, 100),
+        });
+      } else {
+        return errorResponse(testResult.error || "AI Test connection failed.", 400);
+      }
 
     } else {
       return errorResponse(`Unknown action: "${action}"`, 400);

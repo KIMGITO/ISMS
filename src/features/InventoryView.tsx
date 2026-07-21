@@ -100,7 +100,7 @@ export default function InventoryView() {
   // New product form handling using the custom useForm hook
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [productImage, setProductImage] = useState(
-    'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400',
+    'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
   );
   const [isUploadingPic, setIsUploadingPic] = useState(false);
 
@@ -427,7 +427,7 @@ export default function InventoryView() {
               onClick={() => {
                 resetForm();
                 setProductImage(
-                  'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400',
+                  'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
                 );
                 handleCustomChange(
                   'sku',
@@ -537,7 +537,7 @@ export default function InventoryView() {
                             perishable: !!p.perishable,
                             expiryDays: p.expiryDays || 7,
                           });
-                          setEditProductImage(p.image);
+                          setEditProductImage(p.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D');
                           setEditErrors({});
                           setIsEditingProduct(true);
                         }}
@@ -675,14 +675,28 @@ export default function InventoryView() {
                           )}
                         </button>
                         <div className="min-w-0 flex-1">
-                          <span className="font-bold text-app-text truncate block">
-                            {adj.productName}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-app-text truncate">
+                              {adj.productName}
+                            </span>
+                            {adj.type && (
+                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                                adj.type === 'Production Consumption' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                adj.type === 'Production Output' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                adj.type === 'Production Reversal' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                adj.type === 'Production Waste' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
+                                adj.type === 'Restock' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                              }`}>
+                                {adj.type}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-app-text-muted mt-0.5 truncate font-medium">
-                            Reason: {adj.reason} · By {adj.staffName}
+                            {adj.reason} · By {adj.staffName} {adj.referenceNumber ? `(Ref: ${adj.referenceNumber})` : ''}
                           </p>
                           <span className="text-[9px] font-mono text-app-text-muted block mt-0.5">
-                            {new Date(adj.timestamp).toLocaleTimeString()}
+                            {new Date(adj.timestamp).toLocaleString()}
                           </span>
                         </div>
                       </div>

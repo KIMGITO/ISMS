@@ -517,8 +517,208 @@ export class SupabaseService {
       body: payload,
     });
 
-    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw new Error("Failed."); }
     return data;
+  }
+
+  // ==========================================
+  // BILL OF MATERIALS (BOM) OPERATIONS
+  // ==========================================
+
+  static async fetchBoms(businessId: string): Promise<any[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("bill_of_materials")
+      .select(`
+        *,
+        bom_ingredients (
+          *,
+          products (id, name)
+        ),
+        products!bill_of_materials_product_id_fkey (id, name),
+        recipes (id, name)
+      `)
+      .eq("business_id", toUuid(businessId))
+      .order("name", { ascending: true });
+
+    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+
+    return (data || []).map((bom: any) => ({
+      id: bom.id,
+      businessId: bom.business_id,
+      productId: bom.product_id,
+      productName: bom.products?.name || "",
+      recipeId: bom.recipe_id,
+      recipeName: bom.recipes?.name || "",
+      name: bom.name,
+      yieldQuantity: Number(bom.yield_quantity),
+      yieldUnit: bom.yield_unit,
+      ingredients: (bom.bom_ingredients || []).map((ing: any) => ({
+        id: ing.id,
+        bomId: ing.bom_id,
+        productId: ing.product_id,
+        productName: ing.products?.name || "",
+        quantityRequired: Number(ing.quantity_required),
+        unit: ing.unit,
+        wastePercentage: Number(ing.waste_percentage),
+        createdAt: ing.created_at,
+      })),
+      createdAt: bom.created_at,
+      updatedAt: bom.updated_at,
+    }));
+  }
+
+  static async createBom(payload: {
+    businessId: string;
+    productId: string;
+    recipeId?: string;
+    name: string;
+    yieldQuantity: number;
+    yieldUnit: string;
+    ingredients: Array<{
+      productId: string;
+      quantityRequired: number;
+      unit: string;
+      wastePercentage?: number;
+    }>;
+  }): Promise<any> {
+    const supabase = getSupabase();
+
+    // 1. Insert BOM header
+    const { data: bom, error: bomErr } = await supabase
+      .from("bill_of_materials")
+      .insert({
+        business_id: toUuid(payload.businessId),
+        product_id: toUuid(payload.productId),
+        recipe_id: payload.recipeId ? toUuid(payload.recipeId) : null,
+        name: payload.name,
+        yield_quantity: payload.yieldQuantity,
+        yield_unit: payload.yieldUnit,
+      })
+      .select()
+      .single();
+
+    if (bomErr) throw bomErr;
+
+    // 2. Insert BOM ingredients
+    if (payload.ingredients.length > 0) {
+      const ingredientsPayload = payload.ingredients.map((ing) => ({
+        bom_id: bom.id,
+        product_id: toUuid(ing.productId),
+        quantity_required: ing.quantityRequired,
+        unit: ing.unit,
+        waste_percentage: ing.wastePercentage || 0,
+      }));
+
+      const { error: ingErr } = await supabase
+        .from("bom_ingredients")
+        .insert(ingredientsPayload);
+
+      if (ingErr) throw ingErr;
+    }
+
+    return bom;
+  }
+
+  static async deleteBom(id: string): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from("bill_of_materials")
+      .delete()
+      .eq("id", id);
+
+    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+  }
+
+  // Production Batch RPC Operations
+  static async createProductionBatchWithDeduction(payload: {
+    businessId: string;
+    bomId: string;
+    recipeName: string;
+    quantityProduced: number;
+    unit: string;
+    status: string;
+    staffName: string;
+    date?: string;
+  }): Promise<any> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("fn_create_production_batch", {
+      p_business_id: toUuid(payload.businessId),
+      p_bom_id: toUuid(payload.bomId),
+      p_recipe_name: payload.recipeName,
+      p_quantity_produced: payload.quantityProduced,
+      p_unit: payload.unit,
+      p_status: payload.status,
+      p_staff_name: payload.staffName,
+      p_date: payload.date || new Date().toISOString(),
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+    return data;
+  }
+
+  static async completeProductionBatch(batchId: string, staffName: string): Promise<any> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("fn_complete_production_batch", {
+      p_batch_id: toUuid(batchId),
+      p_staff_name: staffName,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+    return data;
+  }
+
+  static async cancelProductionBatchWithRestock(
+    batchId: string,
+    staffName: string,
+    returnItems: Array<{ productId: string; returnQty: number; wasteReason?: string }>
+  ): Promise<any> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("fn_cancel_production_batch", {
+      p_batch_id: toUuid(batchId),
+      p_staff_name: staffName,
+      p_return_items: returnItems,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+    return data;
+  }
+
+  static async fetchProductionBatches(businessId: string): Promise<any[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("production_batches")
+      .select("*")
+      .eq("business_id", toUuid(businessId))
+      .order("date", { ascending: false });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+
+    return (data || []).map((b) => ({
+      id: b.id,
+      businessId: b.business_id,
+      recipeName: b.recipe_name,
+      productId: b.product_id,
+      bomId: b.bom_id,
+      quantityProduced: Number(b.quantity_produced),
+      unit: b.unit,
+      status: b.status === "In Progress" ? "In_Progress" : b.status,
+      staffName: b.staff_name,
+      referenceNumber: b.reference_number || undefined,
+      date: b.date,
+    }));
   }
 
   // ==========================================

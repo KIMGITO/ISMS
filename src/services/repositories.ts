@@ -775,6 +775,9 @@ export class InventoryAdjustmentRepository {
       timestamp: a.timestamp,
       reason: a.reason,
       staffName: a.staff_name,
+      batchId: a.batch_id || undefined,
+      referenceNumber: a.reference_number || undefined,
+      notes: a.notes || undefined,
       sync_status: "synced"
     }));
   }
@@ -956,5 +959,63 @@ export class PaymentRepository {
     const { error } = await supabase.from("payments").delete().eq("id", id);
     if (error) { triggerNetworkFailureEvent(); throw error; }
     return true;
+  }
+}
+
+// ─────────────────────────────────────────────
+// PRODUCTION BATCH REPOSITORY (With Realtime Sync)
+// ─────────────────────────────────────────────
+export class ProductionBatchRepository {
+  public static setAll(_batches: any[]) {}
+
+  public static async getAll(): Promise<any[]> {
+    const supabase = getSupabase();
+    const activeBusinessId = getActiveBusinessId();
+
+    const { data, error } = await supabase
+      .from("production_batches")
+      .select("*")
+      .eq("business_id", activeBusinessId)
+      .order("date", { ascending: false });
+
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+
+    return (data || []).map(b => ({
+      id: b.id,
+      businessId: b.business_id,
+      recipeName: b.recipe_name,
+      productId: b.product_id,
+      bomId: b.bom_id,
+      quantityProduced: Number(b.quantity_produced),
+      unit: b.unit,
+      status: b.status === "In Progress" ? "In_Progress" : b.status,
+      staffName: b.staff_name,
+      referenceNumber: b.reference_number || undefined,
+      date: b.date,
+      sync_status: "synced"
+    }));
+  }
+
+  public static subscribe(callback: (batches: any[]) => void): () => void {
+    this.getAll().then(callback).catch(console.error);
+
+    if (typeof global !== "undefined" && (global as any).IS_TEST) {
+      return () => {};
+    }
+
+    const activeBusinessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channelId = Math.random().toString(36).substring(2, 10);
+
+    const channel = supabase
+      .channel(`realtime-production-batches-${activeBusinessId}-${channelId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "production_batches", filter: `business_id=eq.${activeBusinessId}` },
+        () => { this.getAll().then(callback).catch(console.error); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }
 }

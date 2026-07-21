@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { EmployeeRole, NotificationType, NotificationPriority } from "../types";
+import { EmployeeRole, NotificationType, NotificationPriority, AppNotification } from "../types";
 import { useAuthStore } from "./authStore";
 import { useBusinessStore } from "./businessStore";
-import { NotificationRepository } from "../services/notifications/notificationRepository";
+import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
 
 export interface ToastMessage {
   id: string;
@@ -13,7 +13,7 @@ export interface ToastMessage {
   type?: "success" | "error" | "info";
   timestamp: string;
   read: boolean;
-  category?: "inventory" | "logistics" | "security" | "sales" | "audit";
+  category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system";
 }
 
 export interface NotificationPref {
@@ -90,313 +90,177 @@ export const getCategoryForNotification = (sender: string, message: string): "in
 
 interface NotificationState {
   toast: ToastMessage | null;
-  notifications: ToastMessage[];
-  showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info", category?: "inventory" | "logistics" | "security" | "sales" | "audit") => void;
+  notifications: SQLiteRow<AppNotification>[];
+  unreadCount: number;
+  init: () => void;
+  // Local UI-only toast (doesn't save to DB)
+  showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
   clearToast: () => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
-  clearAllNotifications: () => void;
   deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
 }
-
-const localNotificationsKey = "kkm_notifications_list_v1";
-
-const getSavedNotifications = (): ToastMessage[] => {
-  try {
-    const saved = localStorage.getItem(localNotificationsKey);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-};
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   toast: null,
-  notifications: getSavedNotifications(),
+  notifications: [],
+  unreadCount: 0,
+  
+  init: () => {
+    // Subscribe to DB notifications via repository
+    NotificationRepository.subscribe((activeNotifications) => {
+      // Filter out deleted/archived and update state
+      set({ 
+        notifications: activeNotifications,
+        unreadCount: activeNotifications.filter(n => !n.read_at).length
+      });
+      
+      // When a new notification arrives via realtime, pop up a toast if it's new
+      // We can determine if it's new by checking if it was just created within the last 10 seconds
+      if (activeNotifications.length > 0) {
+        const latest = activeNotifications[0];
+        const age = Date.now() - new Date(latest.created_at).getTime();
+        if (age < 10000 && !latest.read_at) {
+          // Play audio cue
+          playAudioCue(latest.priority === "high" || latest.priority === "critical" ? "error" : "info");
+          
+          let parsedPayload: any = {};
+          try {
+            parsedPayload = typeof latest.payload === "string" ? JSON.parse(latest.payload) : latest.payload;
+          } catch(e) {}
+          
+          set({
+            toast: {
+              id: latest.id,
+              sender: latest.title,
+              message: latest.message,
+              avatar: parsedPayload?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
+              timestamp: latest.created_at,
+              read: false,
+              type: latest.priority === "high" || latest.priority === "critical" ? "error" : "info",
+              category: parsedPayload?.category || "system"
+            }
+          });
+          
+          setTimeout(() => {
+            const current = get().toast;
+            if (current && current.id === latest.id) {
+              set({ toast: null });
+            }
+          }, 5000);
+        }
+      }
+    });
+  },
+
   showToast: (sender, message, avatar, type, category) => {
-    // Generate a unique toast message
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     
-    // Auto-detect error type if not explicitly supplied
     let computedType = type;
     if (!computedType) {
       const txt = (sender + " " + message).toLowerCase();
-      if (txt.includes("fail") || txt.includes("error") || txt.includes("denied") || txt.includes("violation") || txt.includes("restrict")) {
+      if (txt.includes("fail") || txt.includes("error") || txt.includes("denied")) {
         computedType = "error";
       } else {
         computedType = "success";
       }
     }
     
-    // Clear any existing toast timer
-    const currentToast = get().toast;
-    if (currentToast) {
-      set({ toast: null });
-    }
+    if (get().toast) set({ toast: null });
 
-    const resolvedAvatar = avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150";
-    const computedCategory = category || getCategoryForNotification(sender, message);
+    playAudioCue(computedType);
 
-    const newNotification: ToastMessage = {
-      id,
-      sender,
-      message,
-      avatar: resolvedAvatar,
-      time: "Just now",
-      type: computedType,
-      timestamp,
-      read: false,
-      category: computedCategory
-    };
-
-    // Detect routine operations (e.g. database syncs, settings saves, backup events)
-    const isRoutine = 
-      sender.toLowerCase().includes("backup") || 
-      sender.toLowerCase().includes("sync") || 
-      sender.toLowerCase().includes("save") || 
-      sender.toLowerCase().includes("config") ||
-      message.toLowerCase().includes("backup") ||
-      message.toLowerCase().includes("sync") ||
-      message.toLowerCase().includes("saved") ||
-      message.toLowerCase().includes("configured") ||
-      message.toLowerCase().includes("updated");
-
-    // Update the persistent inbox list only if NOT routine
-    let updatedNotifications = get().notifications;
-    if (!isRoutine) {
-      updatedNotifications = [newNotification, ...get().notifications].slice(0, 50); // limit to last 50
-      localStorage.setItem(localNotificationsKey, JSON.stringify(updatedNotifications));
-
-      // Also register/save the in-app notification to the database repository so it appears on the Notifications page
-      try {
-        const activeBizId = useBusinessStore.getState().activeBusinessId || "all";
-        const activeEmp = useAuthStore.getState().currentEmployee;
-
-        // Map computedCategory to NotificationType
-        let mappedType: NotificationType = "System Update";
-        if (computedCategory === "inventory") {
-          mappedType = "Stock Almost Finished";
-        } else if (computedCategory === "logistics") {
-          mappedType = "Delivery Assigned";
-        } else if (computedCategory === "sales") {
-          mappedType = "Payment Received";
-        } else if (computedCategory === "security") {
-          mappedType = "Account Activity";
-        } else if (computedCategory === "audit") {
-          mappedType = "Account Activity";
-        }
-
-        // Map computedType to priority
-        let mappedPriority: NotificationPriority = "low";
-        if (computedType === "error") {
-          mappedPriority = "high";
-        } else if (computedType === "success") {
-          mappedPriority = "low";
-        } else {
-          mappedPriority = "medium";
-        }
-
-        NotificationRepository.add({
-          id,
-          business_id: activeBizId,
-          user_id: activeEmp ? activeEmp.id : null,
-          role: activeEmp ? activeEmp.role : null,
-          title: sender,
-          message: message,
-          type: mappedType,
-          priority: mappedPriority,
-          action_type: "none",
-          action_target: "none",
-          payload: JSON.stringify({ category: computedCategory, avatar: resolvedAvatar }),
-          read_at: null,
-          clicked_at: null,
-          expires_at: null,
-          sent_at: timestamp,
-          delivered_at: timestamp,
-          status: "delivered",
-          created_by: activeEmp ? activeEmp.name : "system"
-        });
-      } catch (err) {
-        console.error("Failed to register in-app notification to repository", err);
+    set({
+      toast: {
+        id,
+        sender,
+        message,
+        avatar: avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
+        time: "Just now",
+        type: computedType,
+        timestamp,
+        read: false,
+        category: category || "system"
       }
-    }
+    });
 
-    // Determine if the currently active employee has disabled or is not eligible for this category of notifications.
-    // If they have muted or disabled it, we don't show the toast overlay or play the audio cue.
-    let shouldShowFloating = true;
-    try {
-      const activeEmp = useAuthStore.getState().currentEmployee;
-      if (activeEmp) {
-        const activeRole = activeEmp.role;
-        const eligibleCats = ROLE_ELIGIBLE_CATEGORIES[activeRole] || [];
-        if (!eligibleCats.includes(computedCategory)) {
-          shouldShowFloating = false;
-        } else {
-          const prefs = getNotificationPrefs(activeEmp.id, activeRole);
-          if (prefs[computedCategory] === false) {
-            shouldShowFloating = false;
-          }
-        }
+    setTimeout(() => {
+      const active = get().toast;
+      if (active && active.id === id) {
+        set({ toast: null });
       }
-    } catch (err) {
-      console.warn("Could not check employee notification preferences", err);
-    }
-
-    if (shouldShowFloating) {
-      // Play a beautiful synthesized chime tone using Web Audio API (skip for routine notifications)
-      if (!isRoutine) {
-        try {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioContextClass) {
-            const ctx = new AudioContextClass();
-            
-            if (computedType === "error") {
-              // Double alert beep for errors/security warnings
-              const osc1 = ctx.createOscillator();
-              const gain1 = ctx.createGain();
-              osc1.type = "sine";
-              osc1.frequency.setValueAtTime(260, ctx.currentTime);
-              gain1.gain.setValueAtTime(0.12, ctx.currentTime);
-              gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-              osc1.connect(gain1);
-              gain1.connect(ctx.destination);
-              osc1.start();
-              osc1.stop(ctx.currentTime + 0.15);
-
-              setTimeout(() => {
-                try {
-                  const osc2 = ctx.createOscillator();
-                  const gain2 = ctx.createGain();
-                  osc2.type = "sine";
-                  osc2.frequency.setValueAtTime(220, ctx.currentTime);
-                  gain2.gain.setValueAtTime(0.12, ctx.currentTime);
-                  gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-                  osc2.connect(gain2);
-                  gain2.connect(ctx.destination);
-                  osc2.start();
-                  osc2.stop(ctx.currentTime + 0.2);
-                } catch {}
-              }, 120);
-            } else if (computedType === "success") {
-              // Satisfying upward success double chime
-              const osc1 = ctx.createOscillator();
-              const gain1 = ctx.createGain();
-              osc1.type = "triangle";
-              osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-              gain1.gain.setValueAtTime(0.15, ctx.currentTime);
-              gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-              osc1.connect(gain1);
-              gain1.connect(ctx.destination);
-              osc1.start();
-              osc1.stop(ctx.currentTime + 0.15);
-
-              setTimeout(() => {
-                try {
-                  const osc2 = ctx.createOscillator();
-                  const gain2 = ctx.createGain();
-                  osc2.type = "sine";
-                  osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
-                  gain2.gain.setValueAtTime(0.12, ctx.currentTime);
-                  gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-                  osc2.connect(gain2);
-                  gain2.connect(ctx.destination);
-                  osc2.start();
-                  osc2.stop(ctx.currentTime + 0.25);
-                } catch {}
-              }, 100);
-            } else {
-              // Info or generic alert: warm, soft dual chime
-              const osc1 = ctx.createOscillator();
-              const osc2 = ctx.createOscillator();
-              const gain = ctx.createGain();
-              
-              osc1.type = "sine";
-              osc1.frequency.setValueAtTime(440, ctx.currentTime); // A4
-              osc2.type = "sine";
-              osc2.frequency.setValueAtTime(554.37, ctx.currentTime); // C#5
-              
-              gain.gain.setValueAtTime(0.15, ctx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-              
-              osc1.connect(gain);
-              osc2.connect(gain);
-              gain.connect(ctx.destination);
-              
-              osc1.start();
-              osc2.start();
-              osc1.stop(ctx.currentTime + 0.3);
-              osc2.stop(ctx.currentTime + 0.3);
-            }
-          }
-        } catch {}
-      }
-
-      // Try to dispatch a real OS/browser push notification! (skip for routine notifications)
-      if (!isRoutine && typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission === "granted") {
-          try {
-            new Notification(sender, {
-              body: message,
-              icon: resolvedAvatar,
-              tag: id,
-            });
-          } catch (e) {
-            console.warn("Could not dispatch standard Notification object:", e);
-          }
-        } else if (Notification.permission !== "denied" && localStorage.getItem("kkm_pref_push") === "true") {
-          Notification.requestPermission().then((perm) => {
-            if (perm === "granted") {
-              try {
-                new Notification(sender, {
-                  body: message,
-                  icon: resolvedAvatar,
-                  tag: id,
-                });
-              } catch {}
-            }
-          });
-        }
-      }
-
-      set({
-        toast: newNotification,
-        notifications: updatedNotifications
-      });
-
-      // Automatically clear the floating toast in 5 seconds
-      setTimeout(() => {
-        const active = get().toast;
-        if (active && active.id === id) {
-          set({ toast: null });
-        }
-      }, 5000);
-    } else {
-      set({
-        notifications: updatedNotifications
-      });
-    }
+    }, 5000);
   },
+
   clearToast: () => {
     set({ toast: null });
   },
+
   markAsRead: (id) => {
-    const updated = get().notifications.map(n => n.id === id ? { ...n, read: true } : n);
-    localStorage.setItem(localNotificationsKey, JSON.stringify(updated));
-    set({ notifications: updated });
+    NotificationRepository.update(id, { read_at: new Date().toISOString() });
   },
+
   markAllAsRead: () => {
-    const updated = get().notifications.map(n => ({ ...n, read: true }));
-    localStorage.setItem(localNotificationsKey, JSON.stringify(updated));
-    set({ notifications: updated });
+    const active = get().notifications.filter(n => !n.read_at);
+    active.forEach(n => {
+      NotificationRepository.update(n.id, { read_at: new Date().toISOString() });
+    });
   },
-  clearAllNotifications: () => {
-    localStorage.setItem(localNotificationsKey, JSON.stringify([]));
-    set({ notifications: [] });
-  },
+
   deleteNotification: (id) => {
-    const updated = get().notifications.filter(n => n.id !== id);
-    localStorage.setItem(localNotificationsKey, JSON.stringify(updated));
-    set({ notifications: updated });
+    NotificationRepository.update(id, { deleted_at: new Date().toISOString() });
+  },
+
+  clearAllNotifications: () => {
+    const active = get().notifications;
+    active.forEach(n => {
+      NotificationRepository.update(n.id, { deleted_at: new Date().toISOString() });
+    });
   }
 }));
+
+// Helper function to play a synthesized chime
+function playAudioCue(type: "error" | "success" | "info") {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      const ctx = new AudioContextClass();
+      if (type === "error") {
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(260, ctx.currentTime);
+        gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start();
+        osc1.stop(ctx.currentTime + 0.15);
+      } else if (type === "success") {
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = "triangle";
+        osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+        gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start();
+        osc1.stop(ctx.currentTime + 0.15);
+      } else {
+        const osc1 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(440, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc1.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start();
+        osc1.stop(ctx.currentTime + 0.3);
+      }
+    }
+  } catch (e) {}
+}

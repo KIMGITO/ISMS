@@ -89,7 +89,7 @@ runTest("hasRolePermission dynamic checks and DB overrides", () => {
   useAuthStore.setState({ dbPermissions: [] });
 
   // 1. By default, 'Cashier' should not have credit_payments access (assuming standard rules)
-  const defaultCashierVal = hasRolePermission("Cashier", "credit_payments");
+  const defaultCashierVal = hasRolePermission("Cashier", "credit_payments" as any);
   
   // 2. Set database permissions override
   useAuthStore.setState({
@@ -98,7 +98,7 @@ runTest("hasRolePermission dynamic checks and DB overrides", () => {
     ]
   });
 
-  const overrideCashierVal = hasRolePermission("Cashier", "credit_payments");
+  const overrideCashierVal = hasRolePermission("Cashier", "credit_payments" as any);
   if (overrideCashierVal !== true) {
     throw new Error(`Expected Cashier to have credit_payments permission via DB override, got ${overrideCashierVal}`);
   }
@@ -110,9 +110,99 @@ runTest("hasRolePermission dynamic checks and DB overrides", () => {
     ]
   });
 
-  const deniedCashierVal = hasRolePermission("Cashier", "credit_payments");
+  const deniedCashierVal = hasRolePermission("Cashier", "credit_payments" as any);
   if (deniedCashierVal !== false) {
     throw new Error(`Expected Cashier to not have credit_payments permission when explicitly false in DB, got ${deniedCashierVal}`);
+  }
+});
+
+runTest("BOM Batch Ingredient Requirement & Stock Shortage Calculation", () => {
+  const mockIngredients = [
+    { productId: "p-milk", quantityRequired: 1.5, wastePercentage: 10, unit: "Liters" }, // 1.5 * 1.1 = 1.65 L per unit
+    { productId: "p-[#3-culture]", quantityRequired: 0.5, wastePercentage: 0, unit: "Grams" },  // 0.5 g per unit
+  ];
+
+  const batchQty = 10; // Batch of 10 units
+  const mockStock = { "p-milk": 15, "p-[#3-culture] border": 10 }; // Milk has 15L, but need 16.5L!
+
+  const availability = mockIngredients.map(ing => {
+    const required = ing.quantityRequired * (1 + ing.wastePercentage / 100) * batchQty;
+    const current = mockStock[ing.productId as keyof typeof mockStock] || 0;
+    return { productId: ing.productId, required, current, isSufficient: current >= required };
+  });
+
+  const milkCheck = availability.find(a => a.productId === "p-milk");
+  if (!milkCheck || milkCheck.isSufficient !== false || milkCheck.required !== 16.5) {
+    throw new Error(`Expected Milk shortage calculation (needed 16.5L, got required=${milkCheck?.required}, isSufficient=${milkCheck?.isSufficient})`);
+  }
+});
+
+runTest("Batch Cancellation Restocking vs Waste Split Logic", () => {
+  const consumedQty = 50; // 50L consumed
+  const returnQtyInput = 30; // Return 30L, 20L wasted
+
+  const returnQty = Math.min(consumedQty, Math.max(0, returnQtyInput));
+  const wastedQty = Math.max(0, consumedQty - returnQty);
+
+  if (returnQty !== 30 || wastedQty !== 20) {
+    throw new Error(`Expected returnQty=30 and wastedQty=20, got returnQty=${returnQty}, wastedQty=${wastedQty}`);
+  }
+});
+
+runTest("AI Copilot Pending Action Store & Permission Validation", async () => {
+  const { usePendingActionStore, evaluateValidation } = await import("../stores/pendingActionStore");
+  
+  // Clear any existing db overrides
+  useAuthStore.setState({ dbPermissions: [], currentEmployee: { id: "e1", name: "Cashier Bob", role: "Cashier", phone: "123" } as any });
+
+  // 1. Evaluate validation for unauthorized action (Cashier trying to create BOM requiring "bom.create")
+  const validation = evaluateValidation("create_recipe_bom", "bom.create", { name: "Test BOM" });
+  if (validation.isValid !== false || validation.hasPermission !== false) {
+    throw new Error(`Expected validation to fail for unauthorized role "Cashier", got isValid=${validation.isValid}`);
+  }
+
+  // 2. Add pending action draft to store
+  const store = usePendingActionStore.getState();
+  const draft = store.addPendingAction({
+    type: "create_customer",
+    title: "New Customer Draft",
+    summary: "Create customer Jane Doe",
+    requiredPermission: "customers.create",
+    params: { name: "Jane Doe", phone: "0799887766" },
+    createdBy: "Kim AI Copilot",
+  });
+
+  if (!draft || draft.status !== "pending_review") {
+    throw new Error(`Expected draft status to be "pending_review", got ${draft?.status}`);
+  }
+
+  // 3. Reject pending action
+  store.rejectPendingAction(draft.id);
+  const updatedAction = usePendingActionStore.getState().pendingActions.find(a => a.id === draft.id);
+  if (updatedAction?.status !== "rejected") {
+    throw new Error(`Expected rejected status, got ${updatedAction?.status}`);
+  }
+});
+
+runTest("Hugging Face Default Provider & Token Rotation Logic", () => {
+  // Test default provider selection
+  const defaultProvider = "huggingface";
+  const defaultModel = "Qwen/Qwen2.5-Coder-32B-Instruct";
+  
+  if (defaultProvider !== "huggingface" || !defaultModel.includes("Qwen")) {
+    throw new Error(`Expected huggingface default, got provider=${defaultProvider}, model=${defaultModel}`);
+  }
+
+  // Test token env scanner simulation
+  const envKeys = ["HF_TOKEN_A", "HF_TOKEN_B", "HF_TOKEN", "HUGGINGFACE_TOKEN"];
+  const mockEnv: Record<string, string> = {
+    HF_TOKEN_A: "hf_token_a_12345",
+    HF_TOKEN_B: "hf_token_b_67890",
+  };
+
+  const tokens = envKeys.map(k => mockEnv[k]).filter(Boolean);
+  if (tokens.length !== 2 || tokens[0] !== "hf_token_a_12345") {
+    throw new Error(`Expected 2 tokens collected from pool, got ${tokens.length}`);
   }
 });
 

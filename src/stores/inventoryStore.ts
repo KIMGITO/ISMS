@@ -2,7 +2,7 @@
 // Re-engineered for Pure Real-Time Streaming — Removes local cache lookups entirely
 
 import { create } from "zustand";
-import { Product, InventoryAdjustment } from "../types";
+import { Product, InventoryAdjustment, AdjustmentType } from "../types";
 import { useAuthStore } from "./authStore";
 import { useNotificationStore } from "./notificationStore";
 import { useBusinessStore } from "./businessStore";
@@ -18,7 +18,7 @@ interface InventoryState {
   adjustStock: (
     productId: string,
     quantityAdjusted: number,
-    type: "Restock" | "Damage" | "Reconciliation",
+    type: AdjustmentType,
     reason: string
   ) => Promise<void>;
   addProduct: (product: Product) => Promise<void>;

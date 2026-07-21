@@ -287,8 +287,9 @@ max_frequency = "5s"
 
 # This hook intercepts auth email requests to send them through a custom edge function.
 [auth.hook.send_email]
-enabled = false
+enabled = true
 uri = "http://127.0.0.1:54321/functions/v1/send-email"
+secrets = "v1,whsec_dGVzdF9zZWNyZXRfa2V5X2Zvcl9hdXRoX2hvb2tzX2tleQ=="
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]

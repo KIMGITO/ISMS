@@ -17,8 +17,8 @@ interface UiState {
   setSelectedCustomerId: (id: string | null) => void;
   activeInvoiceData: any | null;
   setActiveInvoiceData: (data: any | null) => void;
-  activeTab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management";
-  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management") => void;
+  activeTab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production";
+  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production") => void;
 }
 
 const localChatHistoryKey = "kkm_ai_chat_history_v1";
