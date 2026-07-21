@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { usePendingActionStore } from '../stores/pendingActionStore';
 import {
   Send,
   RefreshCw,
@@ -11,6 +12,8 @@ import {
 } from 'lucide-react';
 import { getDynamicRoles } from '../utils/permissions';
 import { SupabaseService } from '../services/supabaseService';
+import { ProductRepository, CustomerRepository, ExpenseRepository } from '../services/repositories';
+import { useExtraModulesStore } from '../stores/extraModulesStore';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -39,6 +42,7 @@ export default function WorkspaceAssistantView() {
     setAiIsLoading,
   } = useAppStore();
   const [input, setInput] = useState('');
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [isSuggestionsCollapsed, setIsSuggestionsCollapsed] = useState(() => {
     return localStorage.getItem('kkm_suggestions_collapsed') === 'true';
   });
@@ -132,7 +136,7 @@ export default function WorkspaceAssistantView() {
     scrollToBottom();
   }, [aiChatHistory, aiIsLoading]);
 
-  const executeWorkspaceAction = (actionData: any) => {
+  const executeWorkspaceAction = async (actionData: any) => {
     const { action, params } = actionData;
     const currentRole: string = currentEmployee?.role || 'Staff';
 
@@ -288,6 +292,109 @@ export default function WorkspaceAssistantView() {
         'POS Cart Loaded',
         `Workspace Assistant queued ${totalCount} item(s) in your active POS tab. Review and checkout here!`,
       );
+    } else if (action === 'create_product') {
+      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Admin';
+      if (!isAuthorized) {
+        showToast('Access Denied', 'Your active role does not have permission to create products.');
+        return;
+      }
+      try {
+        await ProductRepository.add({
+          name: params.name,
+          category: params.category || 'General Dairy',
+          price: parseFloat(params.price) || 0,
+          cost: parseFloat(params.cost) || 0,
+          image: params.image || '',
+          stock: parseFloat(params.stock) || 0,
+          minStock: parseFloat(params.minStock) || 5,
+          unit: params.unit || 'Unit',
+          sku: params.sku || `SKU-${Date.now().toString().slice(-4)}`,
+          description: params.description || '',
+          businessId: activeBusinessId,
+        });
+        showToast('Product Created', `Successfully added ${params.name} to the catalog.`);
+      } catch (err) {
+        showToast('Action Failed', 'Failed to create product.');
+      }
+    } else if (action === 'create_customer') {
+      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager';
+      if (!isAuthorized) {
+        showToast('Access Denied', 'Your active role does not have permission to create customers.');
+        return;
+      }
+      try {
+        await CustomerRepository.add({
+          name: params.name,
+          phone: params.phone || '',
+          email: params.email || '',
+          tier: params.tier || 'Bronze',
+          loyaltyPoints: params.loyaltyPoints || 0,
+          joinDate: new Date().toISOString().split('T')[0],
+          purchasesCount: 0,
+          businessId: activeBusinessId,
+        });
+        showToast('Customer Created', `Successfully added ${params.name} to your customers.`);
+      } catch (err) {
+        showToast('Action Failed', 'Failed to create customer.');
+      }
+    } else if (action === 'create_expense') {
+      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Accountant';
+      if (!isAuthorized) {
+        showToast('Access Denied', 'Your active role does not have permission to record expenses.');
+        return;
+      }
+      try {
+        await ExpenseRepository.add({
+          amount: parseFloat(params.amount) || 0,
+          category: params.category || 'Supplies',
+          description: params.description || 'AI Logged Expense',
+          date: new Date().toISOString(),
+          staffName: currentEmployee?.name || 'AI Assistant',
+          businessId: activeBusinessId,
+        });
+        showToast('Expense Logged', `Successfully logged expense for ${params.category}.`);
+      } catch (err) {
+        showToast('Action Failed', 'Failed to log expense.');
+      }
+    } else if (action === 'create_purchase') {
+      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Admin';
+      if (!isAuthorized) {
+        showToast('Access Denied', 'Your active role does not have permission to create purchases.');
+        return;
+      }
+      try {
+        useExtraModulesStore.getState().addPurchase({
+          id: `PO-${Date.now().toString().slice(-6)}`,
+          businessId: activeBusinessId,
+          supplierName: params.supplierName || 'Supplier',
+          items: params.items || [],
+          totalAmount: parseFloat(params.totalAmount) || 0,
+          status: 'Approved',
+          date: new Date().toISOString(),
+        });
+        showToast('Purchase Created', `Successfully logged purchase from ${params.supplierName}.`);
+      } catch (err) {
+        showToast('Action Failed', 'Failed to log purchase.');
+      }
+    } else if (action === 'create_recipe_bom') {
+      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Production Staff';
+      if (!isAuthorized) {
+        showToast('Access Denied', 'Your active role does not have permission to create recipes.');
+        return;
+      }
+      try {
+        await SupabaseService.createBom({
+          businessId: activeBusinessId,
+          productId: params.productId,
+          name: params.name,
+          yieldQuantity: parseFloat(params.yieldQuantity) || 1,
+          yieldUnit: params.yieldUnit || 'Unit',
+          ingredients: params.ingredients || [],
+        });
+        showToast('Recipe Created', `Successfully created recipe: ${params.name}.`);
+      } catch (err) {
+        showToast('Action Failed', 'Failed to create recipe.');
+      }
     }
   };
 
@@ -353,6 +460,9 @@ export default function WorkspaceAssistantView() {
     setInput('');
     setAiIsLoading(true);
 
+    const controller = new AbortController();
+    setAbortController(controller);
+
     try {
       const inventoryStatus = products
         .map((p) => `${p.name} (SKU: ${p.sku}, Stock: ${p.stock})`)
@@ -375,20 +485,65 @@ export default function WorkspaceAssistantView() {
         businessId: activeBusinessId,
       });
 
+      if (controller.signal.aborted) {
+        return; // Ignore response if cancelled
+      }
+
       console.log('Full AI Response Object:', response);
 
       if (response && (response.success || response.reply)) {
         let replyText =
           response.reply || 'I received your message, but I have no response.';
 
-        // Handle Action Triggers
-        const actionRegex = /\[ACTION_TRIGGER:\s*(\{.*?\})\s*\]/g;
+        // Handle AI Pending Action Drafts
+        const pendingActionRegex = /\[PENDING_ACTION:\s*(\{[\s\S]*\})\s*\]/g;
+        let pMatch;
+        while ((pMatch = pendingActionRegex.exec(replyText)) !== null) {
+          try {
+            const draftData = JSON.parse(pMatch[1]);
+            if (draftData && draftData.type) {
+              // Execute Checkouts immediately (pushes to POS tab)
+              if (draftData.type === 'create_checkout') {
+                executeWorkspaceAction({
+                  action: draftData.type,
+                  params: draftData.params || {},
+                });
+              } else {
+                // Route database modifications to Pending Actions Drawer for human review
+                usePendingActionStore.getState().addPendingAction({
+                  type: draftData.type,
+                  title: draftData.title || 'AI Draft Action',
+                  summary: draftData.summary || 'Draft action queued for verification',
+                  requiredPermission: draftData.requiredPermission || 'ai.use',
+                  params: draftData.params || {},
+                  createdBy: `${aiName} AI Copilot`,
+                });
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse pending action trigger:', e);
+          }
+        }
+
+        // Handle Legacy Action Triggers
+        const actionRegex = /\[ACTION_TRIGGER:\s*(\{[\s\S]*\})\s*\]/g;
         let match;
         while ((match = actionRegex.exec(replyText)) !== null) {
           try {
             const actionData = JSON.parse(match[1]);
             if (actionData && actionData.action) {
-              executeWorkspaceAction(actionData);
+              if (actionData.action === 'create_checkout') {
+                executeWorkspaceAction(actionData);
+              } else {
+                usePendingActionStore.getState().addPendingAction({
+                  type: actionData.action,
+                  title: `${actionData.action.replace('_', ' ').toUpperCase()} Draft`,
+                  summary: `Legacy action queued for human verification: ${JSON.stringify(actionData.params)}`,
+                  requiredPermission: 'ai.use',
+                  params: actionData.params || {},
+                  createdBy: `${aiName} AI Copilot`,
+                });
+              }
             }
           } catch (e) {
             console.error('Failed to parse action trigger:', e);
@@ -396,7 +551,8 @@ export default function WorkspaceAssistantView() {
         }
 
         replyText = replyText
-          .replace(/\[ACTION_TRIGGER:\s*(\{.*?\})\s*\]/g, '')
+          .replace(/\[PENDING_ACTION:\s*(\{[\s\S]*\})\s*\]/g, '')
+          .replace(/\[ACTION_TRIGGER:\s*(\{[\s\S]*\})\s*\]/g, '')
           .trim();
 
         // 4. Update history with assistant reply
@@ -412,6 +568,7 @@ export default function WorkspaceAssistantView() {
         throw new Error(response?.error || 'Empty response from assistant');
       }
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       console.error('Chat Error:', err);  
       setAiChatHistory((prev) => [
         ...prev,
@@ -422,24 +579,52 @@ export default function WorkspaceAssistantView() {
         },
       ]);
     } finally {
-      setAiIsLoading(false);
+      if (!controller.signal.aborted) {
+        setAiIsLoading(false);
+        setAbortController(null);
+      }
     }
   };
+
+  const handleCancelPrompt = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setAiIsLoading(false);
+      showToast('Prompt Cancelled', 'Your query was cancelled.');
+    }
+  };
+
+  const { pendingActions, setDrawerOpen } = usePendingActionStore();
+  const activePendingCount = pendingActions.filter(
+    (a) => a.status === 'pending_review' || a.status === 'verified'
+  ).length;
+
   return (
     <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans pb-[74px] md:pb-0">
       {/* Header */}
-      <div className="bg-app-card border-b border-app-border p-3.5 flex items-center gap-2 shrink-0 shadow-xs z-10">
-        <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl ">
-          <Brain size={18} />
+      <div className="bg-app-card border-b border-app-border p-3.5 flex items-center justify-between gap-2 shrink-0 shadow-xs z-10">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl ">
+            <Brain size={18} />
+          </div>
+          <div>
+            <h2 className="text-sm font-extrabold font-display text-app-text flex items-center gap-1">
+              <span>{aiName} </span>
+            </h2>
+            <span className="text-[10px] text-app-text-muted font-medium">
+              Enterprise AI Copilot
+            </span>
+          </div>
         </div>
-        <div>
-          <h2 className="text-sm font-extrabold font-display text-app-text flex items-center gap-1">
-            <span>{aiName} </span>
-          </h2>
-          <span className="text-[10px] text-app-text-muted font-medium">
-            Workspace Assistant
-          </span>
-        </div>
+
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-black transition cursor-pointer"
+        >
+          <Sparkles size={13} />
+          <span>Pending Actions ({activePendingCount})</span>
+        </button>
       </div>
 
       {/* Messages viewport */}
@@ -520,15 +705,26 @@ export default function WorkspaceAssistantView() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(input)}
-          className="flex-1 bg-app-bg text-xs px-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-card text-app-text transition"
+          disabled={aiIsLoading}
+          className="flex-1 bg-app-bg text-xs px-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-card text-app-text transition disabled:opacity-50"
         />
-        <button
-          onClick={() => handleSendMessage(input)}
-          className="p-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition cursor-pointer flex items-center justify-center"
-          title="Send Query"
-        >
-          <Send size={14} />
-        </button>
+        {aiIsLoading ? (
+          <button
+            onClick={handleCancelPrompt}
+            className="p-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded-xl transition cursor-pointer flex items-center justify-center font-bold text-xs"
+            title="Cancel Prompt"
+          >
+            Cancel
+          </button>
+        ) : (
+          <button
+            onClick={() => handleSendMessage(input)}
+            className="p-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition cursor-pointer flex items-center justify-center"
+            title="Send Query"
+          >
+            <Send size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

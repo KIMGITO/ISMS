@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
+import { Clipboard, ClipboardCheck } from "lucide-react";
 
 interface OtpInputProps {
   length?: number;
@@ -7,6 +8,7 @@ interface OtpInputProps {
   onComplete?: (value: string) => void;
   disabled?: boolean;
   alphanumeric?: boolean;
+  label?: string;
 }
 
 export function OtpInput({
@@ -16,8 +18,11 @@ export function OtpInput({
   onComplete,
   disabled = false,
   alphanumeric = false,
+  label,
 }: OtpInputProps) {
   const inputsRef = useRef<HTMLInputElement[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
   // Keep inputsRef clean with the correct length
   useEffect(() => {
@@ -109,30 +114,91 @@ export function OtpInput({
     }
   };
 
+  const handleClipboardPaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      let pastedData = text.trim();
+      
+      // If it starts with INV- or inv-, remove it (for invitation token support)
+      if (pastedData.toUpperCase().startsWith("INV-")) {
+        pastedData = pastedData.slice(4);
+      }
+      
+      // Validate pasted code string matches regex
+      const regex = alphanumeric ? /^[a-zA-Z0-9]+$/ : /^[0-9]+$/;
+      if (!regex.test(pastedData)) {
+        setError("Invalid code format");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
+
+      const code = alphanumeric ? pastedData.slice(0, length).toUpperCase() : pastedData.slice(0, length);
+      onChange(code);
+
+      // Focus last input index of pasted code
+      const targetIdx = Math.min(code.length, length - 1);
+      inputsRef.current[targetIdx]?.focus();
+
+      // Show success feedback
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+
+      if (code.length === length && onComplete) {
+        onComplete(code);
+      }
+    } catch (err) {
+      console.error("Failed to read clipboard:", err);
+      setError("Clipboard access denied");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
+
   return (
-    <div className="flex justify-center gap-2 sm:gap-2.5" role="group" aria-label="Verification Code Input">
-      {Array.from({ length }).map((_, index) => {
-        const char = value[index] || "";
-        return (
-          <input
-            key={index}
-            ref={(el) => {
-              if (el) inputsRef.current[index] = el;
-            }}
-            type="text"
-            inputMode={alphanumeric ? "text" : "numeric"}
-            pattern={alphanumeric ? "[a-zA-Z0-9]*" : "[0-9]*"}
-            maxLength={1}
-            value={char}
-            onChange={(e) => handleChange(index, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            onPaste={handlePaste}
-            disabled={disabled}
-            className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg sm:text-xl font-bold bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-slate-100 outline-none transition-all disabled:opacity-50"
-            aria-label={`Code Digit ${index + 1}`}
-          />
-        );
-      })}
+    <div className="w-full">
+      {label && (
+        <label className="block text-sm font-medium text-slate-300 mb-2 text-center">
+          {label}
+        </label>
+      )}
+      <div className="flex justify-center gap-2 sm:gap-2.5" role="group" aria-label="Verification Code Input">
+        {Array.from({ length }).map((_, index) => {
+          const char = value[index] || "";
+          return (
+            <input
+              key={index}
+              ref={(el) => {
+                if (el) inputsRef.current[index] = el;
+              }}
+              type="text"
+              inputMode={alphanumeric ? "text" : "numeric"}
+              pattern={alphanumeric ? "[a-zA-Z0-9]*" : "[0-9]*"}
+              maxLength={1}
+              value={char}
+              onChange={(e) => handleChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
+              disabled={disabled}
+              className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg sm:text-xl font-bold bg-slate-950 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-slate-100 outline-none transition-all disabled:opacity-50"
+              aria-label={`Code Digit ${index + 1}`}
+            />
+          );
+        })}
+      </div>
+      {error && (
+        <p className="text-red-400 text-xs text-center mt-2">{error}</p>
+      )}
+      <div className="flex justify-center mt-3">
+        <button
+          type="button"
+          onClick={handleClipboardPaste}
+          disabled={disabled}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-50 text-slate-200 rounded-lg text-sm font-medium transition-all border border-slate-700 hover:border-amber-500/50 disabled:cursor-not-allowed"
+          title="Paste from clipboard"
+        >
+          {copied ? <ClipboardCheck size={16} className="text-green-400" /> : <Clipboard size={16} />}
+          {copied ? "Pasted!" : "Paste from Clipboard"}
+        </button>
+      </div>
     </div>
   );
 }

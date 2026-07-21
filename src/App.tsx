@@ -8,6 +8,7 @@ import POSView from "./features/POSView";
 import InventoryView from "./features/InventoryView";
 import SalesView from "./features/SalesView";
 import CustomersView from "./features/CustomersView";
+import CommunicationCenterView from "./features/CommunicationCenterView";
 import DashboardView from "./features/DashboardView";
 import WorkspaceAssistantView from "./features/WorkspaceAssistantView";
 import WorkersView from "./features/WorkersView";
@@ -18,6 +19,7 @@ import NotificationsView from "./features/NotificationsView";
 import BusinessManagementView from "./features/BusinessManagementView";
 import CustomerFeedbackView from "./features/CustomerFeedbackView";
 import HomeView from "./features/HomeView";
+import ProductionBOMView from "./features/ProductionBOMView";
 import { useNotificationStore } from "./stores/notificationStore";
 import SearchableDropdown from "./components/SearchableDropdown";
 import UnifiedUploader from "./components/shared/UnifiedUploader";
@@ -36,6 +38,8 @@ import { useInventoryStore } from "./stores/inventoryStore";
 import { useCustomerStore } from "./stores/customerStore";
 import { useBusinessStore } from "./stores/businessStore";
 import { useKeyboardVisible } from "./hooks/useKeyboardVisible";
+import PendingActionsDrawer from "./components/PendingActionsDrawer";
+import { usePendingActionStore } from "./stores/pendingActionStore";
 import {
   nativePlatformService,
   statusBarService,
@@ -60,6 +64,7 @@ import {
   WifiOff,
   Sun,
   Bell,
+  Sparkles,
   Moon,
   Lock,
   Delete,
@@ -94,7 +99,8 @@ import {
   Mail,
   Phone,
   RefreshCw,
-  Brain
+  Brain,
+  FlaskConical
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -203,6 +209,13 @@ const tourSteps: TourStep[] = [
     tab: "settings"
   },
   {
+    targetSelector: "#sidebar-tab-production",
+    title: "Production & Bill of Materials",
+    content: "Create production recipes (BOMs), manage raw material ingredients, track production batches, and auto-deduct inventory when batches are completed.",
+    placement: "right",
+    tab: "production"
+  },
+  {
     targetSelector: "#global-search-container",
     title: "Global Search Engine",
     content: "Instantly locate customers, check product details, search receipts, or navigate anywhere across the workspace.",
@@ -269,6 +282,11 @@ export default function App() {
     updatePassword,
     updateEmailDuringVerification
   } = useAppStore();
+
+  const { pendingActions, setDrawerOpen } = usePendingActionStore();
+  const unexecutedPendingCount = pendingActions.filter(
+    (a) => a.status === 'pending_review' || a.status === 'verified'
+  ).length;
 
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -344,6 +362,7 @@ export default function App() {
   useEffect(() => {
     SystemHealthService.start();
     const unsubscribe = useAuthStore.getState().initializeAuthStateListener();
+    useNotificationStore.getState().init();
     return () => {
       SystemHealthService.stop();
       unsubscribe();
@@ -534,12 +553,13 @@ export default function App() {
     };
   }, [authViewTab, verifyCountdown]);
 
-  // Support manual/automated navigation to specific auth screens via URL parameters
+  // Support manual/automated navigation to specific auth screens via URL parameters and deep links
   useEffect(() => {
     const handleUrlNavigation = () => {
       const params = new URLSearchParams(window.location.search);
       const screenParam = params.get("screen");
       const emailParam = params.get("email");
+      const codeParam = params.get("code") || params.get("token") || params.get("otp");
       
       if (screenParam) {
         const validScreens = [
@@ -552,7 +572,15 @@ export default function App() {
             if (screenParam === "verify") setVerifyEmail(emailParam);
             else if (screenParam === "login") setLoginEmail(emailParam);
             else if (screenParam === "register") setRegEmail(emailParam);
-            else if (screenParam === "forgot-password") setForgotEmail(emailParam);
+            else if (screenParam === "forgot-password" || screenParam === "verify-reset-code") setForgotEmail(emailParam);
+            else if (screenParam === "accept-invite") setInviteEmail(emailParam);
+          }
+          if (codeParam) {
+            let cleanCode = codeParam.trim().toUpperCase();
+            if (cleanCode.startsWith("INV-")) cleanCode = cleanCode.slice(4);
+            if (screenParam === "verify") setVerifyCode(cleanCode);
+            else if (screenParam === "verify-reset-code") setResetOtpCode(cleanCode);
+            else if (screenParam === "accept-invite" || screenParam === "register") setInviteTokenInput(cleanCode);
           }
         }
       }
@@ -832,6 +860,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
         { id: "profile", permission: "dashboard.view" as const },
         { id: "business-management", permission: "business.update" as const },
         { id: "settings", permission: "settings.view" as const },
+        { id: "production", permission: "bom.view" as const },
         { id: "notifications", permission: "dashboard.view" as const }
       ];
       const permitted = allTabsWithPerms.filter(tab => 
@@ -1931,11 +1960,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 setAuthError("Invitation Code must be exactly 6 characters.");
                                 return;
                               }
-                              const fullCode = `INV-${code}`;
                               setAuthLoading(true);
                               setAuthError("");
                               setAuthSuccess("");
-                              const res = await verifyInvitation(fullCode);
+                              const res = await verifyInvitation(code);
                               setAuthLoading(false);
                               if (res.success && res.invitation) {
                                 setValidatedInvite(res.invitation);
@@ -1943,7 +1971,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 setInviteName(res.invitation.name);
                                 setInviteEmail(res.invitation.email);
                                 setInvitePhone(res.invitation.phone || "");
-                                setInviteTokenInput(fullCode);
+                                setInviteTokenInput(code);
                                 setAuthSuccess(`Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`);
                               } else {
                                 setAuthError(res.error || "Invalid invitation token.");
@@ -1961,11 +1989,11 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                   onChange={(val) => setInviteTokenInput(val)}
                                   disabled={authLoading}
                                   onComplete={async (code) => {
-                                    const fullCode = `INV-${code.toUpperCase()}`;
+                                    const cleanCode = code.toUpperCase();
                                     setAuthLoading(true);
                                     setAuthError("");
                                     setAuthSuccess("");
-                                    const res = await verifyInvitation(fullCode);
+                                    const res = await verifyInvitation(cleanCode);
                                     setAuthLoading(false);
                                     if (res.success && res.invitation) {
                                       setValidatedInvite(res.invitation);
@@ -1973,7 +2001,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                       setInviteName(res.invitation.name);
                                       setInviteEmail(res.invitation.email);
                                       setInvitePhone(res.invitation.phone || "");
-                                      setInviteTokenInput(fullCode);
+                                      setInviteTokenInput(cleanCode);
                                       setAuthSuccess(`Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`);
                                     } else {
                                       setAuthError(res.error || "Invalid invitation token.");
@@ -1982,7 +2010,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 />
                               </div>
                               <span className="text-[9px] text-slate-500 block text-center mt-1 font-mono uppercase">
-                                Format: INV-XXXXXX (Prepended automatically)
+                                Format: 6-Character Code (e.g. A1B2C3)
                               </span>
                             </div>
 
@@ -2723,6 +2751,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     { id: "ai", label: `${aiName}`, icon: Brain, desc: "Workspace Assistant", permission: "ai.use" as const },
                     { id: "profile", label: "My Profile", icon: User, desc: "Manage profile & PIN", permission: "dashboard.view" as const },
                     { id: "business-management", label: "Business Management", icon: Building, desc: "Name, logo, branding", permission: "business.update" as const },
+                    { id: "production", label: "Production & BOM", icon: FlaskConical, desc: "BOM & Batch Tracking", permission: "bom.view" as const },
                     { id: "settings", label: "Settings", icon: Settings, desc: "Preferences & Security", permission: "settings.view" as const }
                   ].filter(tab => currentEmployee ? (tab.id === "profile" || tab.id === "notifications" || hasRolePermission(currentEmployee.role, tab.permission as any)) : false).map((tab) => {
                     const Icon = tab.icon;
@@ -2926,8 +2955,24 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           )}
                         </button>
                         
-
-                        {/* Status controls (visible on mobile only since desktop is inside sidebar) */}
+                        {/* Pending Actions (Drafts) Badge Icon */}
+                        <button
+                          id="header-pending-actions-btn"
+                          onClick={() => setDrawerOpen(true)}
+                          className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
+                            unexecutedPendingCount > 0
+                              ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                              : "bg-app-bg border-app-border text-app-text hover:text-app-text"
+                          }`}
+                          title="AI Draft Actions Awaiting Verification"
+                        >
+                          <Sparkles size={13} className={unexecutedPendingCount > 0 ? "animate-pulse" : ""} />
+                          {unexecutedPendingCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs">
+                              {unexecutedPendingCount}
+                            </span>
+                          )}
+                        </button>
                         <div className="flex items-center gap-1.5 md:hidden">
                           {/* Network Online status toggle */}
                            <button
@@ -3020,7 +3065,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "customers" && (
+                    { activeTab === "customers" && (
                       <motion.div
                         key="cust-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3144,6 +3189,20 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
+                    {activeTab === "production" && (
+                      <motion.div
+                        key="production-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0 flex flex-col overflow-hidden"
+                      >
+                        <SecurityGuard permission="bom.view">
+                          <ProductionBOMView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === "notifications" && (
                       <motion.div
                         key="notifications-view"
@@ -3200,6 +3259,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     { id: "ai", label: "Assistant", icon: Bot, permission: "ai.use" as const },
                     { id: "profile", label: "Profile", icon: User, permission: "dashboard.view" as const },
                     { id: "business-management", label: "Business", icon: Building, permission: "business.update" as const },
+                    { id: "production", label: "BOM", icon: FlaskConical, permission: "bom.view" as const },
                     { id: "settings", label: "Settings", icon: Settings, permission: "settings.view" as const }
                   ].filter(tab => currentEmployee ? (tab.id === "profile" || tab.id === "notifications" || hasRolePermission(currentEmployee.role, tab.permission as any)) : false).map((tab) => {
                     const Icon = tab.icon;
@@ -3771,6 +3831,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
             </>
           )}
         </AnimatePresence>
+
+        {/* Global Pending Actions (Drafts) Verification Drawer */}
+        <PendingActionsDrawer />
 
         {/* Interactive Onboarding Tour Guide */}
         <InteractiveGuide

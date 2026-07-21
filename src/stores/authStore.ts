@@ -7,6 +7,8 @@ import { isSupabaseConfigured, getSupabase } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
 import { getApiUrl, safeFetch } from "../utils/apiUtils";
 import { EmailService } from "../services/emailService";
+import { nativePlatformService } from "../core/native/NativePlatformService";
+import { notificationService } from "../core/native/NotificationService";
 import { realtimeService } from "../services/realtimeService";
 import { ProductRepository, TransactionRepository, CustomerRepository, ExpenseRepository, ExpenseCategoryRepository, InventoryAdjustmentRepository } from "../services/repositories";
 import { useCartStore } from "./cartStore";
@@ -428,6 +430,29 @@ export const useAuthStore = create<AuthState>((set, get) => {
           };
         }
 
+        // Register push token for FCM
+        try {
+          const pushGranted = await notificationService.registerPush();
+          if (pushGranted) {
+            notificationService.onPushRegistered(async (token) => {
+              // Upsert the device token for the current user in Supabase
+              const { error: tokenErr } = await supabase
+                .from("device_fcm_tokens")
+                .upsert({
+                  user_id: mappedUser.id,
+                  device_token: token,
+                  device_type: nativePlatformService.isNative() ? "mobile" : "web"
+                }, { onConflict: "user_id, device_token" });
+              
+              if (tokenErr) {
+                console.error("[AuthStore] Failed to save push token:", tokenErr);
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("[AuthStore] Push registration error:", e);
+        }
+
         // Subscribe to real-time changes on business_memberships table for current user
         if (unsubMembership) unsubMembership();
         if (mappedUser.id) {
@@ -753,8 +778,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           throw new Error("You must be logged in to an active business to invite staff.");
         }
 
-        // Generate INV-XXXXXX token
-        const inviteCode = `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        // Generate 6-character invitation code (without INV- prefix)
+        const inviteCode = Math.random().toString(36).substr(2, 6).toUpperCase();
         const expiresAt = new Date(Date.now() + 86400000 * 3).toISOString(); // 72 hours limit
 
         // Client-side checks for registered users
@@ -864,7 +889,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
     verifyInvitation: async (token) => {
       try {
         const supabase = getSupabase();
-        const { data, error } = await supabase.rpc("get_invitation_by_token", { p_token: token.trim() });
+        const rawToken = token.trim().toUpperCase();
+        let { data, error } = await supabase.rpc("get_invitation_by_token", { p_token: rawToken });
+
+        // Fallback for legacy INV- prefixed tokens
+        if ((!data || data.length === 0) && !rawToken.startsWith("INV-")) {
+          const legacyRes = await supabase.rpc("get_invitation_by_token", { p_token: `INV-${rawToken}` });
+          if (!legacyRes.error && legacyRes.data && legacyRes.data.length > 0) {
+            data = legacyRes.data;
+          }
+        }
+
         if (error) throw error;
 
         if (!data || data.length === 0) {

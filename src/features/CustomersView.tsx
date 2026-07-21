@@ -11,7 +11,7 @@ import { useForm } from "../hooks/useForm";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency } from "../utils/helpers";
 import SearchableDropdown from "../components/SearchableDropdown";
-import { titleCase, searchMatch } from "../utils/stringUtils";
+import { titleCase, searchMatch, getFirstName } from "../utils/stringUtils";
 import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { formatCustomerNumber, formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
@@ -265,7 +265,7 @@ export default function CustomersView() {
       itemSummary += `• ${val.name} x ${val.qty} (KSh ${(val.price * val.qty).toFixed(0)})\n`;
     });
 
-    let msg = `Hi *${cust.name}*,\n\n`;
+    let msg = `Hi *${getFirstName(cust.name)}*,\n\n`;
     msg += `This is a friendly statement regarding your outstanding balance of *KSh ${(cust.debtBalance || 0).toFixed(0)}* at KayKay's Milk.\n\n`;
     if (itemSummary) {
       msg += `*Included Products:*\n${itemSummary}\n`;

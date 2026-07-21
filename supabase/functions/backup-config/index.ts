@@ -1,6 +1,5 @@
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import crypto from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -214,7 +213,7 @@ async function writeSheetTab(
 // MAIN HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 

@@ -156,8 +156,10 @@ export type PermissionCode =
   | 'ai.manage'
   // Storage & Logs
   | 'notifications.view'
-  | 'notifications.send'
   | 'notifications.manage'
+  | 'notifications.send'
+  | 'communication.view'
+  | 'communication.send'
   | 'audit.view'
   | 'audit.manage'
   | 'files.view'
@@ -326,6 +328,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'notifications.view', category: 'Notifications & Alerts', description: 'Review user notification lists' },
   { code: 'notifications.send', category: 'Notifications & Alerts', description: 'Broadcast message board updates' },
   { code: 'notifications.manage', category: 'Notifications & Alerts', description: 'Modify automated alert thresholds' },
+  { code: 'communication.view', category: 'Notifications & Alerts', description: 'View the Customer Communication Center' },
+  { code: 'communication.send', category: 'Notifications & Alerts', description: 'Send bulk messages to customers' },
 
   // Reports & AI
   { code: 'reports.view', category: 'Reports & AI', description: 'Access dashboard audit ledger' },
@@ -384,7 +388,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'expenses.view', 'expenses.create', 'expenses.update',
       'payments.view', 'payments.verify', 'payments.cash',
       'reports.view', 'reports.sales', 'reports.inventory', 'reports.customers', 'reports.profit', 'reports.deliveries',
-      'notifications.view', 'notifications.send',
+      'notifications.view', 'notifications.send', 'communication.view', 'communication.send',
       'ai.use', 'ai.insights',
       'files.view', 'assets.view'
     ]

@@ -199,10 +199,10 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
   // AI Platform Config States
   const [aiConfig, setAiConfig] = useState({
     business_id: activeBusinessId || 'biz-1',
-    provider: 'gemini',
-    model: 'gemini-3.5-flash',
+    provider: 'huggingface',
+    model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
     temperature: 0.7,
-    max_tokens: 1024,
+    max_tokens: 2048,
     top_p: 0.95,
     top_k: 40,
     thinking_enabled: false,
@@ -855,27 +855,26 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
   
   <SearchableDropdown
     items={[
+      { id: 'huggingface', label: 'Hugging Face (Server Rotation Tokens - Recommended)' },
       { id: 'gemini', label: 'Google Gemini Platform' },
       { id: 'openai', label: 'OpenAI GPT Engines' },
       { id: 'anthropic', label: 'Anthropic Claude' },
       { id: 'deepseek', label: 'DeepSeek AI' },
-      { id: 'nvidia', label: 'NVIDIA DeepSeek V4 Pro' },
-      { id: 'huggingface', label: 'Hugging Face Serverless Router' },
-      { id: 'azure_openai', label: 'Azure OpenAI Service' },
+      { id: 'groq', label: 'Groq Cloud Llama' },
+      { id: 'openrouter', label: 'OpenRouter Unified API' },
     ]}
-    selectedValue={aiConfig.provider}
+    selectedValue={aiConfig.provider || 'huggingface'}
     onChange={(val) => {
       const prov = val;
-      let defaultModel = 'gemini-3.5-flash';
+      let defaultModel = 'Qwen/Qwen2.5-Coder-32B-Instruct';
       
-      if (prov === 'openai') defaultModel = 'gpt-4o-mini';
+      if (prov === 'huggingface') defaultModel = 'Qwen/Qwen2.5-Coder-32B-Instruct';
+      else if (prov === 'gemini') defaultModel = 'gemini-2.5-flash';
+      else if (prov === 'openai') defaultModel = 'gpt-4o-mini';
       else if (prov === 'anthropic') defaultModel = 'claude-3-5-haiku-latest';
       else if (prov === 'deepseek') defaultModel = 'deepseek-chat';
-      else if (prov === 'nvidia') defaultModel = 'deepseek-ai/deepseek-v4-pro';
-      else if (prov === 'huggingface') defaultModel = 'openai/gpt-oss-120b';
       else if (prov === 'groq') defaultModel = 'llama-3.3-70b-versatile';
-      else if (prov === 'ollama') defaultModel = 'llama3';
-      else if (prov === 'azure_openai') defaultModel = 'gpt-4o';
+      else if (prov === 'openrouter') defaultModel = 'meta-llama/llama-3.3-70b-instruct';
 
       setAiConfig({
         ...aiConfig,
@@ -888,11 +887,28 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
   />
 </div>
 
-                    {/* API Key Input */}
+                    {/* Hugging Face Managed Server-Side Token Rotation Badge */}
+                    {(!aiConfig.provider || aiConfig.provider === 'huggingface') && (
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">Server Token Pool Active</span>
+                          </div>
+                          <p className="text-[9.5px] text-app-text-muted font-medium leading-tight">
+                            Requests are automatically load-balanced across managed secrets (<code className="text-emerald-400 font-mono">HF_TOKEN_A..J</code>) with automatic rate-limit rotation & instant failover.
+                          </p>
+                        </div>
+                        <span className="text-[8.5px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-500/30 shrink-0 uppercase tracking-wider">
+                          No Key Required
+                        </span>
+                      </div>
+                    )}
+
+                    {/* API Key Input (Optional for Hugging Face, required for other providers) */}
                     <div className="flex flex-col gap-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                          API Access Token / Key
+                          API Access Token / Key {aiConfig.provider === 'huggingface' ? '(Optional Override)' : '*'}
                         </label>
                         <button
                           type="button"
@@ -908,7 +924,7 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
                         onChange={(e) =>
                           setAiConfig({ ...aiConfig, api_key: e.target.value })
                         }
-                        placeholder="Enter provider secret key..."
+                        placeholder={aiConfig.provider === 'huggingface' ? 'Optional custom HF token (Server tokens used by default)...' : 'Enter provider secret key...'}
                         className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
                       />
                     </div>
@@ -924,12 +940,52 @@ export default function SettingsView({ onRestartTour }: SettingsViewProps = {}) 
                         onChange={(e) =>
                           setAiConfig({ ...aiConfig, model: e.target.value })
                         }
-                        placeholder="e.g. gemini-3.5-flash"
+                        placeholder="e.g. Qwen/Qwen2.5-Coder-32B-Instruct"
                         className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
                       />
 
                       {/* Model suggestion tags */}
                       <div className="flex flex-wrap gap-1.5 mt-1">
+                        {(!aiConfig.provider || aiConfig.provider === 'huggingface') && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAiConfig({
+                                  ...aiConfig,
+                                  model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+                                })
+                              }
+                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
+                            >
+                              Qwen2.5-Coder-32B
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAiConfig({
+                                  ...aiConfig,
+                                  model: 'meta-llama/Llama-3.3-70B-Instruct',
+                                })
+                              }
+                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
+                            >
+                              Llama-3.3-70B
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAiConfig({
+                                  ...aiConfig,
+                                  model: 'mistralai/Mistral-7B-Instruct-v0.3',
+                                })
+                              }
+                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
+                            >
+                              Mistral-7B-v0.3
+                            </button>
+                          </>
+                        )}
                         {aiConfig.provider === 'gemini' && (
                           <>
                             <button

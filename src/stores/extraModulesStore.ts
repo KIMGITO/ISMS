@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { BillOfMaterials, BomIngredient, ProductionBatchInput } from "../types";
 
 export interface PurchaseItem {
   name: string;
@@ -38,10 +39,13 @@ export interface ProductionBatch {
   id: string;
   businessId: string;
   recipeName: string;
+  productId?: string;
+  bomId?: string;
   quantityProduced: number;
   unit: string;
   status: "Pending" | "In_Progress" | "Completed" | "Cancelled";
   staffName: string;
+  referenceNumber?: string;
   date: string;
 }
 
@@ -106,6 +110,7 @@ interface ExtraModulesState {
   auditLogs: AuditLog[];
   aiInsights: AIInsight[];
   payments: Payment[];
+  billOfMaterials: BillOfMaterials[];
   
   // Basic mutations
   addPurchase: (purchase: Purchase) => void;
@@ -115,6 +120,21 @@ interface ExtraModulesState {
   addStorageFile: (file: StorageFile) => void;
   addAuditLog: (log: AuditLog) => void;
   addPayment: (payment: Payment) => void;
+
+  // BOM mutations
+  setBillOfMaterials: (boms: BillOfMaterials[]) => void;
+  addBillOfMaterial: (bom: BillOfMaterials) => void;
+  updateBillOfMaterial: (id: string, bom: Partial<BillOfMaterials>) => void;
+  removeBillOfMaterial: (id: string) => void;
+
+  // Production batch with backflushing
+  createProductionBatch: (input: ProductionBatchInput) => Promise<{ success: boolean; error?: string }>;
+  updateProductionBatch: (id: string, updates: { status?: string; quantityProduced?: number; unit?: string; staffName?: string }) => Promise<{ success: boolean; error?: string }>;
+  cancelProductionBatch: (
+    id: string,
+    staffName: string,
+    returnItems: Array<{ productId: string; returnQty: number; wasteReason?: string }>
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 const getSavedJson = <T>(key: string, defaultVal: T): T => {
@@ -403,6 +423,8 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
   const initialAudit = getSavedJson<AuditLog[]>(localAuditKey, SEED_AUDIT_LOGS);
   const initialInsights = getSavedJson<AIInsight[]>(localInsightsKey, SEED_INSIGHTS);
   const initialPayments = getSavedJson<Payment[]>(localPaymentsKey, SEED_PAYMENTS);
+  const localBomKey = "kkm_bill_of_materials_v1";
+  const initialBoms = getSavedJson<BillOfMaterials[]>(localBomKey, []);
 
   return {
     purchases: initialPurchases,
@@ -413,6 +435,7 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
     auditLogs: initialAudit,
     aiInsights: initialInsights,
     payments: initialPayments,
+    billOfMaterials: initialBoms,
 
     addPurchase: (purchase) => {
       set((state) => {
@@ -468,6 +491,164 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
         saveJson(localPaymentsKey, updated);
         return { payments: updated };
       });
-    }
+    },
+
+    // BOM mutations
+    setBillOfMaterials: (boms) => {
+      set({ billOfMaterials: boms });
+      saveJson(localBomKey, boms);
+    },
+
+    addBillOfMaterial: (bom) => {
+      set((state) => {
+        const updated = [bom, ...state.billOfMaterials];
+        saveJson(localBomKey, updated);
+        return { billOfMaterials: updated };
+      });
+    },
+
+    updateBillOfMaterial: (id, bom) => {
+      set((state) => {
+        const updated = state.billOfMaterials.map((b) =>
+          b.id === id ? { ...b, ...bom } : b
+        );
+        saveJson(localBomKey, updated);
+        return { billOfMaterials: updated };
+      });
+    },
+
+    removeBillOfMaterial: (id) => {
+      set((state) => {
+        const updated = state.billOfMaterials.filter((b) => b.id !== id);
+        saveJson(localBomKey, updated);
+        return { billOfMaterials: updated };
+      });
+    },
+
+    // Production batch with atomic RPCs and backflushing
+    createProductionBatch: async (input) => {
+      try {
+        const { SupabaseService } = await import("../services/supabaseService");
+        const data = await SupabaseService.createProductionBatchWithDeduction({
+          businessId: input.businessId,
+          bomId: input.bomId || "",
+          recipeName: input.recipeName,
+          quantityProduced: input.quantityProduced,
+          unit: input.unit,
+          status: input.status === "In Progress" ? "In Progress" : input.status,
+          staffName: input.staffName,
+          date: input.date,
+        });
+
+        const newBatch: ProductionBatch = {
+          id: data.id,
+          businessId: data.business_id,
+          recipeName: data.recipe_name,
+          productId: data.product_id || undefined,
+          bomId: data.bom_id || undefined,
+          quantityProduced: Number(data.quantity_produced),
+          unit: data.unit,
+          status: data.status === "In Progress" ? "In_Progress" : data.status as any,
+          staffName: data.staff_name,
+          referenceNumber: data.reference_number || undefined,
+          date: data.date,
+        };
+
+        set((state) => {
+          const updated = [newBatch, ...state.productionBatches.filter(b => b.id !== newBatch.id)];
+          saveJson(localProductionKey, updated);
+          return { productionBatches: updated };
+        });
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Failed to create production batch." };
+      }
+    },
+
+    updateProductionBatch: async (id, updates) => {
+      try {
+        const { SupabaseService } = await import("../services/supabaseService");
+        
+        let data: any;
+        if (updates.status === 'Completed') {
+          data = await SupabaseService.completeProductionBatch(id, updates.staffName || 'Staff');
+        } else {
+          const { getSupabase } = await import("../services/supabaseClient");
+          const supabase = getSupabase();
+
+          const updateData: any = {};
+          if (updates.status !== undefined) updateData.status = updates.status;
+          if (updates.quantityProduced !== undefined) updateData.quantity_produced = updates.quantityProduced;
+          if (updates.unit !== undefined) updateData.unit = updates.unit;
+          if (updates.staffName !== undefined) updateData.staff_name = updates.staffName;
+
+          const { data: updatedRow, error } = await supabase
+            .from("production_batches")
+            .update(updateData)
+            .eq("id", id)
+            .select()
+            .single();
+
+          if (error) throw error;
+          data = updatedRow;
+        }
+
+        const updatedBatch: ProductionBatch = {
+          id: data.id,
+          businessId: data.business_id,
+          recipeName: data.recipe_name,
+          productId: data.product_id || undefined,
+          bomId: data.bom_id || undefined,
+          quantityProduced: Number(data.quantity_produced),
+          unit: data.unit,
+          status: data.status === "In Progress" ? "In_Progress" : data.status as any,
+          staffName: data.staff_name,
+          referenceNumber: data.reference_number || undefined,
+          date: data.date,
+        };
+
+        set((state) => {
+          const updated = state.productionBatches.map(b => b.id === id ? updatedBatch : b);
+          saveJson(localProductionKey, updated);
+          return { productionBatches: updated };
+        });
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Failed to update production batch." };
+      }
+    },
+
+    cancelProductionBatch: async (id, staffName, returnItems) => {
+      try {
+        const { SupabaseService } = await import("../services/supabaseService");
+        const data = await SupabaseService.cancelProductionBatchWithRestock(id, staffName, returnItems);
+
+        const updatedBatch: ProductionBatch = {
+          id: data.id,
+          businessId: data.business_id,
+          recipeName: data.recipe_name,
+          productId: data.product_id || undefined,
+          bomId: data.bom_id || undefined,
+          quantityProduced: Number(data.quantity_produced),
+          unit: data.unit,
+          status: "Cancelled",
+          staffName: data.staff_name,
+          referenceNumber: data.reference_number || undefined,
+          date: data.date,
+        };
+
+        set((state) => {
+          const updated = state.productionBatches.map(b => b.id === id ? updatedBatch : b);
+          saveJson(localProductionKey, updated);
+          return { productionBatches: updated };
+        });
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Failed to cancel production batch." };
+      }
+    },
   };
 });

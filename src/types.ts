@@ -161,7 +161,14 @@ export interface DbSchedule {
   updatedAt: string;
 }
 
-export type AdjustmentType = 'Restock' | 'Damage' | 'Reconciliation';
+export type AdjustmentType =
+  | 'Restock'
+  | 'Damage'
+  | 'Reconciliation'
+  | 'Production Consumption'
+  | 'Production Output'
+  | 'Production Reversal'
+  | 'Production Waste';
 
 export interface InventoryAdjustment {
   id: string;
@@ -174,6 +181,9 @@ export interface InventoryAdjustment {
   timestamp: string;
   reason: string;
   staffName: string;
+  batchId?: string;
+  referenceNumber?: string;
+  notes?: string;
 }
 
 export interface SyncState {
@@ -334,5 +344,90 @@ export interface Payment {
   created_at?: string;
 }
 
+// ==========================================
+// BILL OF MATERIALS (BOM) - Production Batching
+// ==========================================
 
+export interface BomIngredient {
+  id: string;
+  bomId: string;
+  productId: string;
+  productName?: string;
+  quantityRequired: number;
+  unit: string;
+  wastePercentage: number;
+  createdAt?: string;
+}
+
+export interface BillOfMaterials {
+  id: string;
+  businessId: string;
+  productId: string;
+  productName?: string;
+  recipeId?: string;
+  recipeName?: string;
+  name: string;
+  yieldQuantity: number;
+  yieldUnit: string;
+  ingredients: BomIngredient[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductionBatchInput {
+  businessId: string;
+  recipeId?: string;
+  recipeName: string;
+  productId?: string;
+  bomId?: string;
+  quantityProduced: number;
+  unit: string;
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
+  staffName: string;
+  date?: string;
+}
+
+export interface CancellationReturnItem {
+  productId: string;
+  returnQty: number;
+  wasteReason?: string;
+}
+
+// ==========================================
+// PENDING ACTIONS (AI Copilot Drafts)
+// ==========================================
+
+export type PendingActionType =
+  | 'create_checkout'
+  | 'create_customer'
+  | 'create_product'
+  | 'create_recipe_bom'
+  | 'create_purchase'
+  | 'adjust_stock'
+  | 'create_expense'
+  | 'create_feedback_reply';
+
+export type PendingActionStatus = 'pending_review' | 'verified' | 'rejected' | 'executed';
+
+export interface PendingActionValidation {
+  isValid: boolean;
+  hasPermission: boolean;
+  hasStock: boolean;
+  warnings: string[];
+  errors: string[];
+}
+
+export interface PendingAction {
+  id: string;
+  businessId: string;
+  type: PendingActionType;
+  title: string;
+  summary: string;
+  requiredPermission: string;
+  params: Record<string, any>;
+  status: PendingActionStatus;
+  createdAt: string;
+  createdBy: string;
+  validation: PendingActionValidation;
+}
 

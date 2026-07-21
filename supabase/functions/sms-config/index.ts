@@ -4,7 +4,6 @@
 // share the same Twilio credentials configured by the Owner.
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   handleCors,
@@ -91,13 +90,18 @@ async function sendViaTwilio(cfg: {
   };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
   try {
-    const { action, businessId, activeRole, config, to, body } =
-      await req.json();
+    let reqBody;
+    try {
+      reqBody = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON payload", 400);
+    }
+    const { action, businessId, activeRole, config, to, body } = reqBody;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 

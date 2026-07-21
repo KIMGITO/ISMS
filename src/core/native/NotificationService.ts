@@ -59,6 +59,26 @@ class NotificationService {
         perm = await PushNotifications.requestPermissions();
       }
       if (perm.receive === "granted") {
+        // Create standard channels for Android 8.0+
+        try {
+          await PushNotifications.createChannel({
+            id: "default",
+            name: "General Notifications",
+            description: "Standard system notifications and updates",
+            importance: 3,
+            visibility: 1
+          });
+          await PushNotifications.createChannel({
+            id: "alerts",
+            name: "High Priority Alerts",
+            description: "Critical security and stock alerts",
+            importance: 5,
+            visibility: 1
+          });
+        } catch (e) {
+          console.warn("Could not create notification channels:", e);
+        }
+
         await PushNotifications.register();
         return true;
       }

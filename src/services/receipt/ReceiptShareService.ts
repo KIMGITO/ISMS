@@ -2,6 +2,7 @@ import { ReceiptContent, BusinessReceiptSettings, SharePayload } from "./types";
 import { ReceiptRendererService } from "./ReceiptRenderer";
 import { ReceiptExporterService } from "./ReceiptExporter";
 import { nativePlatformService } from "../../core/native/NativePlatformService";
+import { getFirstName } from "../../utils/stringUtils";
 
 export class ReceiptShareService {
   /**
@@ -156,7 +157,9 @@ export class ReceiptShareService {
       const target = recipientEmail || content.customerEmail || "";
       const subject = `Receipt ${content.receiptNumber} from ${settings.businessName}`;
       const rawText = ReceiptRendererService.generateThermalRawText(content, settings);
-      const body = `Dear Valued Customer,\n\nPlease find your dairy transaction receipt details below:\n\n${rawText}\n\nVerify authenticity securely online at:\n${content.verificationUrl}\n\nWarm regards,\n${settings.businessName}`;
+      
+      const greetingName = getFirstName(content.customerName) || "Valued Customer";
+      const body = `Dear ${greetingName},\n\nPlease find your dairy transaction receipt details below:\n\n${rawText}\n\nVerify authenticity securely online at:\n${content.verificationUrl}\n\nWarm regards,\n${settings.businessName}`;
       
       return this.shareTextViaEmail(target, subject, body);
     } catch (err) {
@@ -183,7 +186,7 @@ export class ReceiptShareService {
       msg += `${bold}PAYMENT:${bold} ${content.paymentMethod.toUpperCase()}${newline}`;
       
       if (content.customerName) {
-        msg += `${bold}CUSTOMER:${bold} ${content.customerName}${newline}`;
+        msg += `${bold}CUSTOMER:${bold} ${getFirstName(content.customerName)}${newline}`;
       }
       
       msg += `--------------------${newline}`;

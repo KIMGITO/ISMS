@@ -4,7 +4,6 @@
 // and returns a structured executive BI report.
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   handleCors,
   jsonResponse,
@@ -88,12 +87,18 @@ function safeParseJson(raw: string): any {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
   try {
-    const { metrics, customQuestion, businessId } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON payload", 400);
+    }
+    const { metrics, customQuestion, businessId } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 

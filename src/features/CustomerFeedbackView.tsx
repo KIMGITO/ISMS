@@ -7,9 +7,13 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../stores/authStore";
 import { useAppStore } from "../stores/appStore";
+import { useNotificationStore } from "../stores/notificationStore";
+import { usePendingActionStore } from "../stores/pendingActionStore";
+import { SupabaseService } from "../services/supabaseService";
 import { hasRolePermission } from "../utils/permissions";
 import { searchMatch } from "../utils/stringUtils";
 import SearchableDropdown from "../components/SearchableDropdown";
+import CommunicationCenterView from "./CommunicationCenterView";
 
 interface CommentReply {
   id: string;
@@ -38,6 +42,7 @@ const INITIAL_COMMENTS: CustomerComment[] = [];
 export default function CustomerFeedbackView() {
   const { currentEmployee } = useAuthStore();
   const { activeBusinessId } = useAppStore();
+  const showToast = useNotificationStore.getState().showToast;
   const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const hasAiPermission = currentEmployee ? hasRolePermission(currentEmployee.role, "ai.use") : false;
 
@@ -47,6 +52,8 @@ export default function CustomerFeedbackView() {
   const [sentimentFilter, setSentimentFilter] = useState<"positive" | "neutral" | "negative" | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "resolved" | "unresolved">("all");
   const [sortBy, setSortBy] = useState<"latest" | "rating-high" | "rating-low">("latest");
+
+  const [activeTab, setActiveTab] = useState<"feedback" | "communication">("feedback");
 
   // New Comment Form (Simulating internal mock addition of customer review)
   const [showAddForm, setShowAddForm] = useState(false);
@@ -74,101 +81,102 @@ export default function CustomerFeedbackView() {
   const [showAiAnalyticsPanel, setShowAiAnalyticsPanel] = useState(false);
 
   const handleAiAnalyze = async (comment: CustomerComment) => {
-    if (!hasAiPermission) return;
+    if (!hasAiPermission || !activeBusinessId) return;
     setAnalyzingCommentId(comment.id);
     try {
-      const response = await fetch("/api/gemini/complaints", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "analyze", comment, businessId: activeBusinessId })
+      const prompt = `Analyze this customer feedback for sentiment, severity, summary, and suggested resolution.
+Customer: ${comment.customerName}
+Rating: ${comment.rating}/5 stars
+Branch: ${comment.branch}
+Comment: "${comment.comment}"`;
+
+      const response = await SupabaseService.callEdgeFunction("chat", {
+        messages: [{ role: "user", content: prompt }],
+        businessId: activeBusinessId,
+        activeRole: currentEmployee?.role || "Staff",
+        permissions: ["ai.use"],
+        employeeName: currentEmployee?.name || "Staff",
       });
-      const data = await response.json();
-      if (data.success && data.analysis) {
-        setAiAnalysisResults(prev => ({ ...prev, [comment.id]: data.analysis }));
-        // Sync local sentiment with AI detected sentiment for accuracy
-        if (data.analysis.sentiment) {
-          const detectedSentiment = data.analysis.sentiment.toLowerCase();
-          if (["positive", "neutral", "negative"].includes(detectedSentiment)) {
-            const updated = comments.map(c => {
-              if (c.id === comment.id) {
-                return { ...c, sentiment: detectedSentiment as any };
-              }
-              return c;
-            });
-            saveToStorage(updated);
-          }
-        }
-      } else {
-        setAiAnalysisResults(prev => ({ 
-          ...prev, 
+
+      if (response && response.reply) {
+        const replyText = response.reply;
+        setAiAnalysisResults(prev => ({
+          ...prev,
           [comment.id]: {
-            sentiment: "neutral",
-            severity: "medium",
-            summary: `${aiName} is not available.`,
-            escalationRecommendation: "N/A",
-            suggestedResolution: `${aiName} is not available.`
+            sentiment: comment.rating >= 4 ? "positive" : comment.rating <= 2 ? "negative" : "neutral",
+            severity: comment.rating <= 2 ? "high" : "low",
+            summary: replyText,
+            escalationRecommendation: comment.rating <= 2 ? "Escalate to Operations Manager" : "Standard Resolution",
+            suggestedResolution: replyText,
           }
         }));
       }
     } catch (err) {
       console.error("AI Analysis error:", err);
-      setAiAnalysisResults(prev => ({ 
-        ...prev, 
-        [comment.id]: {
-          sentiment: "neutral",
-          severity: "medium",
-          summary: `${aiName} is not available.`,
-          escalationRecommendation: "N/A",
-          suggestedResolution: `${aiName} is not available.`
-        }
-      }));
     } finally {
       setAnalyzingCommentId(null);
     }
   };
 
   const handleAiGenerateReply = async (comment: CustomerComment) => {
-    if (!hasAiPermission) return;
+    if (!hasAiPermission || !activeBusinessId) return;
     setGeneratingReplyId(comment.id);
-    const draftText = replyMessage[comment.id] || "";
     try {
-      const response = await fetch("/api/gemini/complaints", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate_reply", comment, draftText, businessId: activeBusinessId })
+      const prompt = `Draft a polite, professional response to customer ${comment.customerName} regarding their feedback: "${comment.comment}" (${comment.rating}/5 stars at ${comment.branch}). Keep it warm, personalized, and under 3 sentences.`;
+
+      const response = await SupabaseService.callEdgeFunction("chat", {
+        messages: [{ role: "user", content: prompt }],
+        businessId: activeBusinessId,
+        activeRole: currentEmployee?.role || "Staff",
+        permissions: ["ai.use"],
+        employeeName: currentEmployee?.name || "Staff",
       });
-      const data = await response.json();
-      if (data.success && data.replyText) {
-        setReplyMessage(prev => ({ ...prev, [comment.id]: data.replyText }));
-      } else {
-        setReplyMessage(prev => ({ ...prev, [comment.id]: `${aiName} is not available.` }));
+
+      if (response && response.reply) {
+        const generatedReply = response.reply.replace(/\[PENDING_ACTION:.*?\]/g, "").trim();
+        setReplyMessage(prev => ({ ...prev, [comment.id]: generatedReply }));
+
+        // Queue a Pending Action Draft for Human-in-the-Loop Verification
+        usePendingActionStore.getState().addPendingAction({
+          type: "create_feedback_reply",
+          title: `Customer Response Draft (${comment.customerName})`,
+          summary: `Suggested response to ${comment.rating}-star review: "${generatedReply.slice(0, 80)}..."`,
+          requiredPermission: "ai.use",
+          params: {
+            commentId: comment.id,
+            customerName: comment.customerName,
+            message: generatedReply,
+          },
+          createdBy: `${aiName} AI Copilot`,
+        });
       }
     } catch (err) {
       console.error("AI Reply generation error:", err);
-      setReplyMessage(prev => ({ ...prev, [comment.id]: `${aiName} is not available.` }));
     } finally {
       setGeneratingReplyId(null);
     }
   };
 
   const handleAiImproveReply = async (comment: CustomerComment) => {
-    if (!hasAiPermission || !replyMessage[comment.id]) return;
+    if (!hasAiPermission || !replyMessage[comment.id] || !activeBusinessId) return;
     setImprovingReplyId(comment.id);
     try {
-      const response = await fetch("/api/gemini/complaints", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "improve_reply", comment, draftText: replyMessage[comment.id], businessId: activeBusinessId })
+      const prompt = `Polish and improve this draft reply to customer ${comment.customerName}: "${replyMessage[comment.id]}". Make it more empathetic, concise, and clear.`;
+
+      const response = await SupabaseService.callEdgeFunction("chat", {
+        messages: [{ role: "user", content: prompt }],
+        businessId: activeBusinessId,
+        activeRole: currentEmployee?.role || "Staff",
+        permissions: ["ai.use"],
+        employeeName: currentEmployee?.name || "Staff",
       });
-      const data = await response.json();
-      if (data.success && data.improvedText) {
-        setReplyMessage(prev => ({ ...prev, [comment.id]: data.improvedText }));
-      } else {
-        setReplyMessage(prev => ({ ...prev, [comment.id]: `${aiName} is not available.` }));
+
+      if (response && response.reply) {
+        const improvedText = response.reply.replace(/\[PENDING_ACTION:.*?\]/g, "").trim();
+        setReplyMessage(prev => ({ ...prev, [comment.id]: improvedText }));
       }
     } catch (err) {
       console.error("AI Reply improvement error:", err);
-      setReplyMessage(prev => ({ ...prev, [comment.id]: `${aiName} is not available.` }));
     } finally {
       setImprovingReplyId(null);
     }
@@ -415,7 +423,37 @@ export default function CustomerFeedbackView() {
         </div>
       </div>
 
-      {/* Dashboard Stats Panel */}
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-app-border pb-4">
+        <button
+          onClick={() => setActiveTab("feedback")}
+          className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === "feedback"
+              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              : "text-app-text-muted hover:bg-app-card border border-transparent"
+          }`}
+        >
+          Reviews & Sentiment
+        </button>
+        <button
+          onClick={() => setActiveTab("communication")}
+          className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === "communication"
+              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              : "text-app-text-muted hover:bg-app-card border border-transparent"
+          }`}
+        >
+          Communication Center
+        </button>
+      </div>
+
+      {activeTab === "communication" ? (
+        <div className="flex-1 -mx-4 -mb-24 h-[calc(100vh-200px)]">
+          <CommunicationCenterView />
+        </div>
+      ) : (
+        <>
+          {/* Dashboard Stats Panel */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Metric 1: Total & Resolved */}
         <div className="bg-app-card border border-app-border rounded-3xl p-4 flex flex-col justify-between shadow-xs">
@@ -979,6 +1017,8 @@ export default function CustomerFeedbackView() {
           })
         )}
       </div>
+        </>
+      )}
 
     </div>
   );

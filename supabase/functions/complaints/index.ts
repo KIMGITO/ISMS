@@ -3,7 +3,6 @@
 // Supports 4 actions: analyze | generate_reply | improve_reply | analytics
 
 // deno-lint-ignore-file no-explicit-any
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   handleCors,
   jsonResponse,
@@ -27,13 +26,18 @@ function safeParseJson(raw: string): any {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
   try {
-    const { action, comment, draftText, comments, businessId } =
-      await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON payload", 400);
+    }
+    const { action, comment, draftText, comments, businessId } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
     if (!action) return errorResponse("action is required.", 400);
