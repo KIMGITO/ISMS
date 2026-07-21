@@ -13,52 +13,14 @@ class PushNotificationService {
 
   constructor() {
     this.checkSupport();
-    this.initNativeListeners();
+    // NOTE: Native push listener registration is handled exclusively by
+    // src/core/native/NotificationService.ts to avoid duplicate listener conflicts.
+    // This service handles web browser Notification API fallback and in-app display only.
   }
 
   private checkSupport() {
     if (typeof window !== "undefined") {
       this.isPushSupported = "Notification" in window || !!(window as any).Capacitor;
-    }
-  }
-
-  private initNativeListeners() {
-    if (typeof window === "undefined") return;
-    const cap = (window as any).Capacitor;
-    if (cap) {
-      try {
-        const { PushNotifications } = cap.Plugins;
-        if (PushNotifications) {
-          PushNotifications.addListener("registration", (token: any) => {
-            console.log("Capacitor FCM/APNs Registration Token:", token.value);
-            this.deviceToken = token.value;
-            SupabaseService.registerDeviceToken(token.value, "capacitor");
-            this.registrationListeners.forEach((listener) => listener(token.value));
-          });
-
-          PushNotifications.addListener("registrationError", (err: any) => {
-            console.error("Capacitor Push Registration Error:", err);
-          });
-
-          PushNotifications.addListener("pushNotificationReceived", (notification: any) => {
-            console.log("Push received while app open / background:", notification);
-            const parsedNotif = this.parseCapacitorPush(notification);
-            if (parsedNotif) {
-              this.handleIncomingPush(parsedNotif);
-            }
-          });
-
-          PushNotifications.addListener("pushNotificationActionPerformed", (action: any) => {
-            console.log("Push action clicked:", action);
-            const parsedNotif = this.parseCapacitorPush(action.notification);
-            if (parsedNotif) {
-              this.handlePushClick(parsedNotif);
-            }
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to initialize Capacitor Push Notification plugins:", err);
-      }
     }
   }
 

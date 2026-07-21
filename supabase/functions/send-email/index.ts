@@ -1,4 +1,5 @@
 import nodemailer from "npm:nodemailer@6.9.13";
+import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +30,7 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
   const appUrl = vars.appUrl || "http://localhost:5173";
 
   let subject = "";
+  let html = "";
   let bodyContent = "";
 
   switch (type) {
@@ -314,6 +316,50 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: false, error: "Missing required fields: to, type" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
+    }
+
+    // Validate user existence and confirmation status
+    if (type === "verification_code" || type === "password_reset") {
+      let userExists = false;
+      let isConfirmed = false;
+
+      if (body.user) {
+        userExists = true;
+        isConfirmed = !!body.user.email_confirmed_at;
+      } else {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        if (supabaseUrl && serviceRoleKey) {
+          const supabase = createClient(supabaseUrl, serviceRoleKey);
+          
+          // Fallback to searching all users if direct call (note: this might be slow for >50 users, 
+          // but works for edge function environments if admin API search isn't straightforward)
+          const { data, error } = await supabase.auth.admin.listUsers();
+          if (!error && data?.users) {
+            const foundUser = data.users.find((u: any) => u.email === to);
+            if (foundUser) {
+              userExists = true;
+              isConfirmed = !!foundUser.email_confirmed_at;
+            }
+          }
+        }
+      }
+
+      if (!userExists) {
+        console.log(`[send-email] Aborting: User ${to} does not exist.`);
+        return new Response(
+          JSON.stringify({ success: false, message: "User does not exist. Email aborted gracefully." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+
+      if (type === "verification_code" && isConfirmed) {
+        console.log(`[send-email] Aborting: User ${to} is already confirmed.`);
+        return new Response(
+          JSON.stringify({ success: false, message: "Email is already confirmed. Verification code not sent." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
     }
 
     // Retrieve environmental settings

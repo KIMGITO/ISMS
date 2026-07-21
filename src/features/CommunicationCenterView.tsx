@@ -20,8 +20,8 @@ import { hasRolePermission } from "../utils/permissions";
 import SearchableDropdown from "../components/SearchableDropdown";
 
 export default function CommunicationCenterView() {
-  const { customers, currentEmployee, showToast, activeBusinessId } = useAppStore();
-  const { currentBusiness } = useBusinessStore();
+  const { customers, currentEmployee, showToast, activeBusinessId, businesses } = useAppStore();
+  const currentBusiness = businesses.find(b => b.id === activeBusinessId);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTier, setFilterTier] = useState<string>("All");
@@ -33,6 +33,7 @@ export default function CommunicationCenterView() {
   
   const [isAiDrafting, setIsAiDrafting] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [aiChatHistory, setAiChatHistory] = useState<{role: 'user'|'assistant'|'system', content: string}[]>([]);
 
   const canViewCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "communication.view") : false;
 
@@ -80,11 +81,17 @@ export default function CommunicationCenterView() {
       showToast("Validation", "Please describe the message you want AI to draft.", undefined, "error");
       return;
     }
+    
     setIsAiDrafting(true);
     try {
+      const userMessage = { role: 'user' as const, content: aiPrompt };
+      const newHistory = [...aiChatHistory, userMessage];
+      setAiChatHistory(newHistory);
+      setAiPrompt("");
+
       const messages = [
-        { role: 'system', content: `Draft a short, professional customer SMS/WhatsApp message. Use placeholders {first_name} and {business_name}. Keep it under 160 characters. Do not include quotes or surrounding conversational text.` },
-        { role: 'user', content: aiPrompt }
+        { role: 'system', content: `You are an SMS/WhatsApp drafting assistant. Keep it under 160 characters. Use placeholders {first_name} and {business_name}. Do not include quotes. Your work is drafting messages only, not doing actions. If the user prompt is unclear or lacks details, ask follow-up questions instead of drafting. If you are providing the final draft, you MUST prefix the message exactly with [DRAFT] so the system can parse it.` },
+        ...newHistory
       ];
       
       const data = await SupabaseService.callEdgeFunction('chat', {
@@ -96,9 +103,14 @@ export default function CommunicationCenterView() {
       });
 
       if (data && data.success) {
-        setMessageTemplate(data.reply.trim());
-        setAiPrompt("");
-        showToast("AI Draft", "Message drafted successfully.", undefined, "success");
+        const reply = data.reply.trim();
+        if (reply.startsWith('[DRAFT]')) {
+          setMessageTemplate(reply.replace('[DRAFT]', '').trim());
+          setAiChatHistory([...newHistory, { role: 'assistant', content: "I've drafted the message for you in the composer below. Feel free to tweak it before sending!" }]);
+          showToast("AI Draft", "Message drafted successfully.", undefined, "success");
+        } else {
+          setAiChatHistory([...newHistory, { role: 'assistant', content: reply }]);
+        }
       } else {
         showToast("Error", data?.error || "Failed to draft message.", undefined, "error");
       }
@@ -172,7 +184,7 @@ export default function CommunicationCenterView() {
   const isAllVisibleSelected = filteredCustomers.length > 0 && filteredCustomers.every(c => selectedCustomerIds.has(c.id));
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-4 md:p-6 overflow-hidden animate-fade-in">
+    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-4 md:p-6 overflow-y-auto animate-fade-in">
       
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 shrink-0">
@@ -188,7 +200,7 @@ export default function CommunicationCenterView() {
       <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
         
         {/* Left Side: Audience Selection */}
-        <div className="flex-1 flex flex-col bg-app-card border border-app-border rounded-3xl p-4 md:p-5 shadow-xs overflow-hidden">
+        <div className="flex-1 lg:flex-[1.4] flex flex-col bg-app-card border border-app-border rounded-3xl p-4 md:p-5 shadow-xs overflow-hidden min-h-[400px]">
           <h2 className="text-sm font-extrabold uppercase tracking-wide mb-4 flex items-center gap-2">
             <span className="w-5 h-5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center text-[10px] font-black">1</span>
             Select Audience
@@ -322,15 +334,28 @@ export default function CommunicationCenterView() {
             <p className="text-[10px] text-app-text-muted font-bold mb-4 ml-7">Available Placeholders: {'{first_name}'}, {'{business_name}'}</p>
             
             {/* AI Assistant Box */}
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-3 mb-4">
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-3 mb-4 flex flex-col">
               <div className="flex items-center gap-1.5 mb-2 text-[10px] font-black text-amber-500 uppercase tracking-wider">
                 <Wand2 size={12} />
-                AI Message Drafter
+                AI Drafting Assistant
               </div>
+              
+              {/* Chat History */}
+              {aiChatHistory.length > 0 && (
+                <div className="mb-3 space-y-2 max-h-[150px] overflow-y-auto p-2 bg-app-bg border border-app-border/50 rounded-xl">
+                  {aiChatHistory.map((msg, idx) => (
+                    <div key={idx} className={`text-[10px] p-2 rounded-lg ${msg.role === 'user' ? 'bg-amber-500/10 text-amber-600 ml-4' : 'bg-slate-100 dark:bg-slate-800 text-app-text-muted mr-4'}`}>
+                      <span className="font-bold opacity-50 block mb-0.5">{msg.role === 'user' ? 'You' : 'Assistant'}</span>
+                      {msg.content}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
                 <input 
                   type="text" 
-                  placeholder="E.g., Remind customers about weekend milk discount..."
+                  placeholder="Ask follow-up questions or describe the message..."
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
                   className="flex-1 bg-app-bg text-[11px] px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none transition font-bold"
@@ -341,7 +366,7 @@ export default function CommunicationCenterView() {
                   disabled={isAiDrafting || !aiPrompt.trim()}
                   className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 font-black rounded-xl text-[10px] uppercase tracking-wider disabled:opacity-50 transition"
                 >
-                  {isAiDrafting ? "Drafting..." : "Draft"}
+                  {isAiDrafting ? "Thinking..." : "Send"}
                 </button>
               </div>
             </div>

@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+  "release": "bash ./release.sh",
   "dev": "vite",
-  "build": "vite build",
+  "build": "bash ./build-prompt.sh",
   "build:linux": "npm run tauri build",
   "preview": "vite preview",
   "tauri": "tauri",

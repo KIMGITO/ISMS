@@ -608,6 +608,16 @@ export const useAuthStore = create<AuthState>((set, get) => {
       try {
         const supabase = getSupabase();
 
+        // 0. Pre-flight check: reject if an Owner already exists
+        //    This prevents raw Supabase errors from leaking to the user.
+        const { data: ownerAlreadyExists } = await supabase.rpc("check_owner_exists");
+        if (ownerAlreadyExists === true) {
+          return {
+            success: false,
+            error: "An Owner account already exists for this workspace. Please sign in instead. If you need access, ask the existing Owner to invite you as a staff member."
+          };
+        }
+
         // 1. SignUp through Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -620,7 +630,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
           }
         });
 
-        if (error) throw error;
+        if (error) {
+          // Map known Supabase error messages to friendly text
+          const msg = error.message || "";
+          if (msg.includes("User already registered") || msg.includes("already been registered")) {
+            return { success: false, error: "This email address is already registered. Please sign in or use a different email." };
+          }
+          if (msg.includes("Password should be")) {
+            return { success: false, error: "Password must be at least 6 characters long." };
+          }
+          throw error;
+        }
 
         // 2. Generate random 6-digit OTP code
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -647,7 +667,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to sign up owner account." };
+        // Never expose raw objects — always return a human-readable string
+        const msg = typeof err?.message === "string" && err.message.length > 0
+          ? err.message
+          : "Registration failed. Please check your connection and try again.";
+        return { success: false, error: msg };
       }
     },
 

@@ -565,26 +565,52 @@ export default function WorkersView() {
                         </div>
                       </div>
 
-                      {inv.status === "Pending" && !isExpired && canDeleteInvite && (
-                        <button
-                          disabled={isRevokingInvite}
-                          onClick={async () => {
-                            if (confirm(`Are you sure you want to revoke invitation for ${titleCase(inv.name)}? This token will immediately expire.`)) {
-                              setIsRevokingInvite(true);
-                              try {
-                                await revokeInvitation(inv.id);
-                              } catch (err: any) {
-                                setErrorMsg(err.message || "Failed to revoke invitation.");
-                              } finally {
-                                setIsRevokingInvite(false);
-                              }
-                            }
-                          }}
-                          className="px-2 py-1 text-[9px] font-bold text-red-500 hover:bg-red-500/5 border border-red-500/10 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
-                        >
-                          Revoke
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {inv.status === "Pending" && !isExpired ? (
+                          canDeleteInvite && (
+                            <button
+                              disabled={isRevokingInvite}
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to revoke invitation for ${titleCase(inv.name)}? This token will immediately expire.`)) {
+                                  setIsRevokingInvite(true);
+                                  try {
+                                    await revokeInvitation(inv.id);
+                                  } catch (err: any) {
+                                    setErrorMsg(err.message || "Failed to revoke invitation.");
+                                  } finally {
+                                    setIsRevokingInvite(false);
+                                  }
+                                }
+                              }}
+                              className="px-2 py-1 text-[9px] font-bold text-red-500 hover:bg-red-500/5 border border-red-500/10 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
+                            >
+                              Revoke
+                            </button>
+                          )
+                        ) : (
+                          canDeleteInvite && (
+                            <button
+                              disabled={isRevokingInvite}
+                              onClick={async () => {
+                                if (confirm(`Remove this ${displayStatus.toLowerCase()} invitation from the list?`)) {
+                                  setIsRevokingInvite(true);
+                                  try {
+                                    await revokeInvitation(inv.id);
+                                  } catch (err: any) {
+                                    setErrorMsg(err.message || "Failed to remove invitation.");
+                                  } finally {
+                                    setIsRevokingInvite(false);
+                                  }
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                              title="Delete from view"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
                   );
                 })

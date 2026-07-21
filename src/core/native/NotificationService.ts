@@ -2,6 +2,7 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { nativePlatformService } from "./NativePlatformService";
+import { SupabaseService } from "../../services/supabaseService";
 
 export interface ScheduledReminder {
   id: number;
@@ -31,20 +32,36 @@ class NotificationService {
     if (!nativePlatformService.isNative()) return;
 
     try {
+      // Token registration success
       PushNotifications.addListener("registration", (token) => {
+        console.log("[PushNotifications] FCM token received:", token.value);
         this.currentPushToken = token.value;
         this.registrationListeners.forEach((l) => l(token.value));
+
+        // Persist the token to Supabase so send-fcm can target this device
+        SupabaseService.registerDeviceToken(token.value, "capacitor")
+          .catch(err => console.error("[PushNotifications] Failed to save FCM token:", err));
       });
 
+      // Token registration failure
       PushNotifications.addListener("registrationError", (error) => {
-        console.error("Push registration failed natively:", error);
+        console.error("[PushNotifications] Push registration failed:", error);
       });
 
+      // Notification received while app is open / in foreground
       PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        console.log("[PushNotifications] Push received in foreground:", notification);
         this.receiveListeners.forEach((l) => l(notification));
       });
+
+      // User tapped a notification that was shown in the system tray
+      PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        console.log("[PushNotifications] Notification tapped:", action.notification);
+        this.receiveListeners.forEach((l) => l(action.notification));
+      });
+
     } catch (e) {
-      console.warn("Failed initializing push notification native listeners:", e);
+      console.warn("[PushNotifications] Failed initializing push notification native listeners:", e);
     }
   }
 
@@ -59,7 +76,7 @@ class NotificationService {
         perm = await PushNotifications.requestPermissions();
       }
       if (perm.receive === "granted") {
-        // Create standard channels for Android 8.0+
+        // Create standard channels for Android 8.0+ BEFORE calling register()
         try {
           await PushNotifications.createChannel({
             id: "default",
@@ -75,8 +92,15 @@ class NotificationService {
             importance: 5,
             visibility: 1
           });
+          await PushNotifications.createChannel({
+            id: "shifts",
+            name: "Shift Notifications",
+            description: "Shift open and close reports",
+            importance: 4,
+            visibility: 1
+          });
         } catch (e) {
-          console.warn("Could not create notification channels:", e);
+          console.warn("[PushNotifications] Could not create notification channels:", e);
         }
 
         await PushNotifications.register();
@@ -84,7 +108,7 @@ class NotificationService {
       }
       return false;
     } catch (e) {
-      console.error("Failed registering push notification permissions:", e);
+      console.error("[PushNotifications] Failed registering push notification permissions:", e);
       return false;
     }
   }
@@ -138,7 +162,7 @@ class NotificationService {
         ]
       });
     } catch (e) {
-      console.error("Native local notification failed:", e);
+      console.error("[LocalNotifications] Native local notification failed:", e);
       this.sendLocalNotificationWeb(title, body);
     }
   }
@@ -171,7 +195,7 @@ class NotificationService {
       });
       return true;
     } catch (e) {
-      console.error("Native local reminder scheduling failed:", e);
+      console.error("[LocalNotifications] Native local reminder scheduling failed:", e);
       return false;
     }
   }
@@ -186,7 +210,7 @@ class NotificationService {
         notifications: ids.map(id => ({ id }))
       });
     } catch (e) {
-      console.error("Native reminder cancelation failed:", e);
+      console.error("[LocalNotifications] Native reminder cancelation failed:", e);
     }
   }
 
@@ -195,7 +219,7 @@ class NotificationService {
       try {
         new Notification(title, { body });
       } catch (e) {
-        console.warn("Browser HTML5 Notification block prevented launch:", e);
+        console.warn("[Notification] Browser HTML5 Notification block prevented launch:", e);
       }
     } else {
       console.log(`[Notification Fallback]: ${title} - ${body}`);
