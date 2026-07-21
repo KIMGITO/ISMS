@@ -1,7 +1,7 @@
 // src/components/PendingActionsDrawer.tsx
 // Pending Actions (Drafts) Review & Human-in-the-Loop Verification Drawer
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { usePendingActionStore } from '../stores/pendingActionStore';
 import { PendingAction, PendingActionType } from '../types';
 import {
@@ -24,6 +24,9 @@ import {
   ShieldAlert,
   Loader2,
   Layers,
+  Edit2Icon,
+  Edit,
+  ActivitySquareIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
@@ -39,7 +42,11 @@ export default function PendingActionsDrawer() {
     clearCompletedActions,
   } = usePendingActionStore();
 
-  useOverlay(isDrawerOpen, () => setDrawerOpen(false), 'drawer');
+  const handleClose = useCallback(() => {
+    setDrawerOpen(false);
+  }, [setDrawerOpen]);
+
+  useOverlay(isDrawerOpen, handleClose, 'drawer');
 
   const [filterType, setFilterType] = useState<string>('all');
   const [editingAction, setEditingAction] = useState<PendingAction | null>(null);
@@ -69,7 +76,7 @@ export default function PendingActionsDrawer() {
       case 'adjust_stock': return <ArrowRightLeft size={15} className="text-indigo-500" />;
       case 'create_expense': return <DollarSign size={15} className="text-red-500" />;
       case 'create_feedback_reply': return <MessageSquare size={15} className="text-teal-500" />;
-      default: return <Sparkles size={15} className="text-amber-500" />;
+      default: return <Edit size={15} className="text-amber-500" />;
     }
   };
 
@@ -125,7 +132,7 @@ export default function PendingActionsDrawer() {
           <div className="p-4 border-b border-app-border flex items-center justify-between shrink-0 bg-app-card">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                <Sparkles size={16} className="text-amber-500" />
+                <ActivitySquareIcon size={16} className="text-amber-500" />
               </div>
               <div>
                 <h2 className="text-sm font-black text-app-text flex items-center gap-2">

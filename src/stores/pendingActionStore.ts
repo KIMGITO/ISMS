@@ -320,7 +320,64 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
             break;
           }
 
+          case 'update_product': {
+            await ProductRepository.update(params.productId, params);
+            break;
+          }
+          case 'delete_product': {
+            await ProductRepository.delete(params.productId);
+            break;
+          }
+          case 'update_customer': {
+            await CustomerRepository.update(params.customerId, params);
+            break;
+          }
+          case 'delete_customer': {
+            await CustomerRepository.delete(params.customerId);
+            break;
+          }
+          case 'create_employee': {
+            // Simplified logic: assume it goes to a StaffRepository or Supabase RPC
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('employees').insert({...params, business_id: activeBizId});
+            break;
+          }
+          case 'update_employee':
+          case 'update_role': {
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('employees').update(params).eq('id', params.employeeId);
+            break;
+          }
+          case 'delete_employee': {
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('employees').update({ deleted_at: new Date().toISOString() }).eq('id', params.employeeId);
+            break;
+          }
+          case 'create_shift': {
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('shifts').insert({...params, business_id: activeBizId});
+            break;
+          }
+          case 'update_shift': {
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('shifts').update(params).eq('id', params.shiftId);
+            break;
+          }
+          case 'delete_shift': {
+            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
+            if(supabase) await supabase.from('shifts').update({ deleted_at: new Date().toISOString() }).eq('id', params.shiftId);
+            break;
+          }
+          case 'adjust_wallet': {
+             await CustomerRepository.update(params.customerId, { walletBalance: params.amount }); // Simplification for AI draft execution
+             break;
+          }
+          case 'settle_debt': {
+             await CustomerRepository.update(params.customerId, { debtBalance: params.amount });
+             break;
+          }
           default:
+            console.warn("Unknown pending action type:", action.type);
             break;
         }
 

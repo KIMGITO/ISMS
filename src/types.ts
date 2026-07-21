@@ -398,14 +398,61 @@ export interface CancellationReturnItem {
 // ==========================================
 
 export type PendingActionType =
+  // Sales & Orders
   | 'create_checkout'
+  | 'create_sale'
+  | 'update_sale'
+  | 'cancel_sale'
+  | 'create_order'
+  | 'update_order'
+  
+  // Customers
   | 'create_customer'
+  | 'update_customer'
+  | 'delete_customer'
+  
+  // Products
   | 'create_product'
-  | 'create_recipe_bom'
-  | 'create_purchase'
+  | 'update_product'
+  | 'delete_product'
+  
+  // Inventory
   | 'adjust_stock'
+  | 'transfer_stock'
+  | 'create_recipe_bom'
+  | 'update_recipe_bom'
+  | 'delete_recipe_bom'
+  
+  // Suppliers & Purchases
+  | 'create_purchase'
+  | 'update_purchase'
+  | 'delete_purchase'
+  | 'create_supplier'
+  | 'update_supplier'
+  | 'delete_supplier'
+  
+  // Employees & Shifts
+  | 'create_employee'
+  | 'update_employee'
+  | 'delete_employee'
+  | 'update_role'
+  | 'create_shift'
+  | 'update_shift'
+  | 'delete_shift'
+  
+  // Finance (Wallets, Debts, Expenses)
   | 'create_expense'
-  | 'create_feedback_reply';
+  | 'update_expense'
+  | 'delete_expense'
+  | 'adjust_wallet'
+  | 'settle_debt'
+  
+  // Communication
+  | 'create_feedback_reply'
+  | 'send_message'
+  
+  // Settings
+  | 'update_settings';
 
 export type PendingActionStatus = 'pending_review' | 'verified' | 'rejected' | 'executed';
 

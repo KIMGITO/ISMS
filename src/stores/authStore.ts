@@ -1260,6 +1260,16 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     updateProfile: async (id, updates) => {
+      // Optimistically update the UI instantly
+      set((state) => ({
+        employees: state.employees.map((emp) =>
+          emp.id === id ? { ...emp, name: updates.name, phone: updates.phone, avatar: updates.avatar || emp.avatar, role: updates.role || emp.role } : emp
+        ),
+        currentEmployee: state.currentEmployee?.id === id
+          ? { ...state.currentEmployee, name: updates.name, phone: updates.phone, avatar: updates.avatar || state.currentEmployee.avatar, role: updates.role || state.currentEmployee.role }
+          : state.currentEmployee
+      }));
+
       const supabase = getSupabase();
       const bizId = get().currentBusinessId;
       await supabase
