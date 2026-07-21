@@ -102,7 +102,8 @@ import {
   Phone,
   RefreshCw,
   Brain,
-  FlaskConical
+  FlaskConical,
+  ActivitySquareIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -3027,7 +3028,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           }`}
                           title="AI Draft Actions Awaiting Verification"
                         >
-                          <Sparkles size={13} className={unexecutedPendingCount > 0 ? "animate-pulse" : ""} />
+                          <ActivitySquareIcon size={13} className={unexecutedPendingCount > 0 ? "animate-pulse" : ""} />
                           {unexecutedPendingCount > 0 && (
                             <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs">
                               {unexecutedPendingCount}

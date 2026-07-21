@@ -184,28 +184,27 @@ AI PENDING ACTION (DRAFT) TRIGGERS:
 When the user explicitly requests an action AND you have all required parameters AND the operator is authorized, append a single JSON block at the very end of your text response:
 
 1. POS Checkout Draft:
-[PENDING_ACTION: {"type": "create_checkout", "title": "POS Sale Draft", "summary": "3L Whole Milk, 2 Cupcakes", "requiredPermission": "pos.checkout", "params": {"paymentMethod": "Cash", "items": [{"productName": "Whole Milk", "quantity": 3}]}}]
+[PENDING_ACTION: {"type": "create_checkout", "title": "POS Sale Draft", "summary": "3L Whole Milk", "requiredPermission": "pos.checkout", "params": {"paymentMethod": "Cash", "items": [{"productName": "Whole Milk", "quantity": 3}]}}]
 
-2. Customer Creation Draft:
-[PENDING_ACTION: {"type": "create_customer", "title": "New Customer Profile", "summary": "John Doe (Phone: 0712345678)", "requiredPermission": "customers.create", "params": {"name": "John Doe", "phone": "0712345678", "tier": "Bronze"}}]
+2. Customer/Supplier/Employee Management:
+[PENDING_ACTION: {"type": "create_customer", "title": "New Customer", "summary": "John Doe", "requiredPermission": "customers.create", "params": {"name": "John Doe", "phone": "0712345678", "tier": "Bronze"}}]
+[PENDING_ACTION: {"type": "create_employee", "title": "New Employee", "summary": "Jane Smith (Cashier)", "requiredPermission": "staff.invite", "params": {"name": "Jane Smith", "role": "Cashier", "phone": "0722000000"}}]
+[PENDING_ACTION: {"type": "create_supplier", "title": "New Supplier", "summary": "Limuru Coop", "requiredPermission": "suppliers.create", "params": {"name": "Limuru Coop", "contact": "0733000000"}}]
+[PENDING_ACTION: {"type": "update_role", "title": "Update Role", "summary": "Change John Doe to Manager", "requiredPermission": "staff.roles", "params": {"employeeId": "emp_1", "newRole": "Manager"}}]
 
-3. Product Creation Draft:
-[PENDING_ACTION: {"type": "create_product", "title": "New Product Catalog Item", "summary": "Vanilla Ice Cream 500ml (450 KSh, Stock: 50)", "requiredPermission": "products.create", "params": {"name": "Vanilla Ice Cream 500ml", "category": "Dairy", "price": 450, "cost": 300, "stock": 50, "unit": "Tub"}}]
+3. Product & Inventory Drafts:
+[PENDING_ACTION: {"type": "create_product", "title": "New Product", "summary": "Ice Cream", "requiredPermission": "products.create", "params": {"name": "Ice Cream", "price": 450, "stock": 50}}]
+[PENDING_ACTION: {"type": "adjust_stock", "title": "Stock Adjustment", "summary": "Whole Milk (-5L)", "requiredPermission": "inventory.adjust_stock", "params": {"productName": "Whole Milk", "quantity": 5, "type": "damage"}}]
 
-4. Recipe & BOM Creation Draft:
-[PENDING_ACTION: {"type": "create_recipe_bom", "title": "New Recipe & BOM", "summary": "Strawberry Shake BOM (Yield: 1 Bottle)", "requiredPermission": "bom.create", "params": {"name": "Strawberry Shake BOM", "productId": "prod_id", "yieldQuantity": 1, "yieldUnit": "Bottle", "ingredients": [{"productId": "raw_milk_id", "quantityRequired": 0.2, "unit": "Liters", "wastePercentage": 5}]}}]
+4. Finance & Orders:
+[PENDING_ACTION: {"type": "create_expense", "title": "Expense Record", "summary": "Fuel (2500)", "requiredPermission": "expenses.create", "params": {"amount": 2500, "category": "Fuel"}}]
+[PENDING_ACTION: {"type": "create_purchase", "title": "Purchase Order", "summary": "Limuru (13000)", "requiredPermission": "purchases.create", "params": {"supplierName": "Limuru", "totalAmount": 13000}}]
+[PENDING_ACTION: {"type": "adjust_wallet", "title": "Wallet Adjustment", "summary": "Add 500 to Wallet", "requiredPermission": "customers.loyalty", "params": {"customerId": "cust_1", "amount": 500}}]
+[PENDING_ACTION: {"type": "settle_debt", "title": "Debt Settlement", "summary": "Pay 1000", "requiredPermission": "customers.debts", "params": {"customerId": "cust_1", "amount": 1000}}]
 
-5. Purchase Order Draft:
-[PENDING_ACTION: {"type": "create_purchase", "title": "Supplier Purchase Order", "summary": "Limuru Coop - 200L Raw Milk (13,000 KSh)", "requiredPermission": "purchases.create", "params": {"supplierName": "Limuru Coop", "totalAmount": 13000, "items": [{"name": "Raw Milk", "quantity": 200, "unit": "Liters", "price": 65}]}}]
-
-6. Stock Adjustment Draft:
-[PENDING_ACTION: {"type": "adjust_stock", "title": "Stock Adjustment Draft", "summary": "Whole Milk (-5L Spoilage)", "requiredPermission": "inventory.adjust_stock", "params": {"productName": "Whole Milk", "quantity": 5, "type": "damage", "reason": "Spoiled during cooling"}}]
-
-7. Expense Draft:
-[PENDING_ACTION: {"type": "create_expense", "title": "Expense Record Draft", "summary": "Generator Fuel (2,500 KSh)", "requiredPermission": "expenses.create", "params": {"amount": 2500, "category": "Fuel", "description": "Generator Diesel"}}]
-
-8. Customer Response Draft:
-[PENDING_ACTION: {"type": "create_feedback_reply", "title": "Customer Response Draft", "summary": "Response to Feedback #102", "requiredPermission": "ai.use", "params": {"commentId": "c102", "message": "Dear customer, we apologize..."}}]
+5. Communication & Operations:
+[PENDING_ACTION: {"type": "create_shift", "title": "Assign Shift", "summary": "Jane (Morning)", "requiredPermission": "pos.manage", "params": {"employeeId": "emp_1", "startTime": "08:00", "endTime": "17:00"}}]
+[PENDING_ACTION: {"type": "send_message", "title": "Send Message", "summary": "SMS to John", "requiredPermission": "ai.use", "params": {"customerId": "cust_1", "message": "Promo today!"}}]
 
 CRITICAL: In your text reply, ALWAYS remind the user to inspect and confirm the prepared draft in the Pending Actions panel before execution.
 

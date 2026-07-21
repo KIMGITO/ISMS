@@ -6,7 +6,7 @@
   "scripts": {
   "release": "bash ./release.sh",
   "dev": "vite",
-  "build": "bash ./build-prompt.sh",
+  "build": "vite build",
   "build:linux": "npm run tauri build",
   "preview": "vite preview",
   "tauri": "tauri",

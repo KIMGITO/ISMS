@@ -496,11 +496,12 @@ export default function WorkspaceAssistantView() {
           response.reply || 'I received your message, but I have no response.';
 
         // Handle AI Pending Action Drafts
-        const pendingActionRegex = /\[PENDING_ACTION:\s*(\{[\s\S]*\})\s*\]/g;
+        const pendingActionRegex = /\[PENDING_ACTION:\s*(\{[\s\S]*?\})\s*\]/g;
         let pMatch;
         while ((pMatch = pendingActionRegex.exec(replyText)) !== null) {
           try {
-            const draftData = JSON.parse(pMatch[1]);
+            const rawJson = pMatch[1].replace(/```json\n?|```\n?/g, '').trim();
+            const draftData = JSON.parse(rawJson);
             if (draftData && draftData.type) {
               // Execute Checkouts immediately (pushes to POS tab)
               if (draftData.type === 'create_checkout') {
@@ -526,11 +527,12 @@ export default function WorkspaceAssistantView() {
         }
 
         // Handle Legacy Action Triggers
-        const actionRegex = /\[ACTION_TRIGGER:\s*(\{[\s\S]*\})\s*\]/g;
+        const actionRegex = /\[ACTION_TRIGGER:\s*(\{[\s\S]*?\})\s*\]/g;
         let match;
         while ((match = actionRegex.exec(replyText)) !== null) {
           try {
-            const actionData = JSON.parse(match[1]);
+            const rawJson = match[1].replace(/```json\n?|```\n?/g, '').trim();
+            const actionData = JSON.parse(rawJson);
             if (actionData && actionData.action) {
               if (actionData.action === 'create_checkout') {
                 executeWorkspaceAction(actionData);
@@ -551,8 +553,8 @@ export default function WorkspaceAssistantView() {
         }
 
         replyText = replyText
-          .replace(/\[PENDING_ACTION:\s*(\{[\s\S]*\})\s*\]/g, '')
-          .replace(/\[ACTION_TRIGGER:\s*(\{[\s\S]*\})\s*\]/g, '')
+          .replace(/\[PENDING_ACTION:\s*(\{[\s\S]*?\})\s*\]/g, '')
+          .replace(/\[ACTION_TRIGGER:\s*(\{[\s\S]*?\})\s*\]/g, '')
           .trim();
 
         // 4. Update history with assistant reply

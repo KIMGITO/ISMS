@@ -24,6 +24,8 @@
   --color-app-border: var(--app-border);
   --color-app-text: var(--app-text);
   --color-app-text-muted: var(--app-text-muted);
+  --color-success: #10b981;
+  --color-error: #ef4444;
 }
 
 :root {

@@ -4,6 +4,7 @@ import { useInventoryStore } from "../stores/inventoryStore";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useExtraModulesStore } from "../stores/extraModulesStore";
+import { useUiStore } from "../stores/uiStore";
 import { ALL_PERMISSIONS, hasRolePermission, getDynamicRoles } from "../utils/permissions";
 import { 
   Search, X, ShoppingBag, User, Receipt, Users, Sliders, 
@@ -59,6 +60,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -155,6 +157,11 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       case "Roles":
       case "Permissions":
         return hasRolePermission(currentEmployee.role, "staff.roles");
+      case "Wallets":
+      case "Debts":
+        return hasRolePermission(currentEmployee.role, "customers.view") || hasRolePermission(currentEmployee.role, "customers.loyalty");
+      case "AI Conversations":
+        return hasRolePermission(currentEmployee.role, "ai.use") || hasRolePermission(currentEmployee.role, "ai.insights");
       case "Notifications":
         return true; // standard alerts
       case "Communication Center":
@@ -992,6 +999,54 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       });
     }
 
+    // 31. Wallets & Debts
+    customers.forEach(c => {
+      if (c.walletBalance && c.walletBalance > 0) {
+        if ("wallet".includes(lower) || getRelevance(c.name, lower) > 0) {
+          matched.push({
+            id: `wallet-${c.id}`,
+            title: `${c.name}'s Wallet`,
+            subtitle: `Current Balance: KSh ${c.walletBalance}`,
+            category: "Wallets",
+            businessName: activeBizName,
+            relevance: 50 + getRelevance(c.name, lower),
+            action: () => { onNavigateTab("customers"); setIsOpen(false); setQuery(""); }
+          });
+        }
+      }
+      if (c.debtBalance && c.debtBalance > 0) {
+        if ("debt".includes(lower) || "credit".includes(lower) || getRelevance(c.name, lower) > 0) {
+          matched.push({
+            id: `debt-${c.id}`,
+            title: `${c.name}'s Debt`,
+            subtitle: `Outstanding Debt: KSh ${c.debtBalance}`,
+            category: "Debts",
+            businessName: activeBizName,
+            status: "Unpaid",
+            relevance: 50 + getRelevance(c.name, lower),
+            action: () => { onNavigateTab("customers"); setIsOpen(false); setQuery(""); }
+          });
+        }
+      }
+    });
+
+    // 32. AI Conversations
+    const aiChatHistory = useUiStore.getState().aiChatHistory || [];
+    aiChatHistory.forEach((msg, idx) => {
+      const score = getRelevance(msg.content, lower);
+      if (score > 0) {
+        matched.push({
+          id: `ai-msg-${idx}`,
+          title: `AI Chat: ${msg.role === 'user' ? 'You' : aiName}`,
+          subtitle: `"${msg.content.substring(0, 50)}..."`,
+          category: "AI Conversations",
+          businessName: activeBizName,
+          relevance: score,
+          action: () => { onNavigateTab("ai"); setIsOpen(false); setQuery(""); }
+        });
+      }
+    });
+
     // Filter results through security check and sort by relevance score
     const permittedResults = matched
       .filter(item => hasAccessToCategory(item.category))
@@ -1007,7 +1062,32 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       }
     });
 
+    // Sort by category to match visual grouping order
+    uniqueResults.sort((a, b) => {
+      if (a.category < b.category) return -1;
+      if (a.category > b.category) return 1;
+      return b.relevance - a.relevance; // Within category, sort by relevance
+    });
+
     setResults(uniqueResults);
+    setActiveIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen || results.length === 0) return;
+    
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < results.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : results.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < results.length) {
+        results[activeIndex].action();
+      }
+    }
   };
 
   // Helper to highlight matched query string in results
@@ -1037,6 +1117,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
           value={query}
           onFocus={() => setIsOpen(true)}
           onChange={(e) => handleSearch(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="w-full bg-app-card text-[11px] font-medium pl-8 pr-8 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-bg text-app-text transition"
         />
         {query && (
@@ -1067,7 +1148,9 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
             ) : (
               // Grouped Results
               <div className="flex flex-col gap-2">
-                {Array.from(new Set(results.map(r => r.category))).map((cat) => (
+                {(() => {
+                  let globalItemIndex = -1;
+                  return Array.from(new Set(results.map(r => r.category))).map((cat) => (
                   <div key={cat} className="flex flex-col gap-1 border-b border-app-border/20 pb-2 last:border-b-0">
                     <span className="text-[9px] font-black text-amber-500 uppercase tracking-wider px-2 pt-1 block">
                       {cat}
@@ -1075,6 +1158,8 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
                     {results
                       .filter(r => r.category === cat)
                       .map((res) => {
+                        globalItemIndex++;
+                        const isActive = globalItemIndex === activeIndex;
                         const Icon = 
                           res.category === "Businesses" ? Briefcase :
                           res.category === "Products" ? ShoppingBag :
@@ -1109,7 +1194,9 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
                           <div
                             key={res.id}
                             onClick={res.action}
-                            className="p-2 hover:bg-app-bg rounded-xl cursor-pointer flex items-start gap-2.5 transition"
+                            className={`p-2 rounded-xl cursor-pointer flex items-start gap-2.5 transition ${
+                              isActive ? 'bg-amber-500/10 border border-amber-500/30' : 'hover:bg-app-bg border border-transparent'
+                            }`}
                           >
                             <div className="p-1.5 bg-app-bg rounded-lg text-app-text shrink-0 border border-app-border/45">
                               <Icon size={12} />
@@ -1146,7 +1233,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
                         );
                       })}
                   </div>
-                ))}
+                ))})()}
               </div>
             )}
           </motion.div>

@@ -16,7 +16,13 @@ const UNSPLASH_PRESETS = [
   { id: "u-3", label: "Vintage Milk Bottle", url: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?auto=format&fit=crop&q=80&w=300" },
   { id: "u-4", label: "Artisanal Cheese Board", url: "https://images.unsplash.com/photo-1486299267070-83823f5448dd?auto=format&fit=crop&q=80&w=300" },
   { id: "u-5", label: "Lush Green Meadow", url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-6", label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" }
+  { id: "u-6", label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" },
+  { id: "u-7", label: "Creamy Yogurt Dessert", url: "https://images.unsplash.com/photo-1571244856341-4f3005953043?auto=format&fit=crop&q=80&w=300" },
+  { id: "u-8", label: "Operator Jane", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
+  { id: "u-9", label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
+  { id: "u-10", label: "Cow Milking Process", url: "https://images.unsplash.com/photo-1596731046162-9745e69e4ce1?auto=format&fit=crop&q=80&w=300" },
+  { id: "u-11", label: "Gourmet Cheese Platter", url: "https://images.unsplash.com/photo-1561043433-aaf687c4ce04?auto=format&fit=crop&q=80&w=300" },
+  { id: "u-12", label: "Milk Splash Abstract", url: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=300" }
 ];
 
 // High-quality local index fallback for offline mode or empty API keys
@@ -559,7 +565,7 @@ export default function UnifiedUploader({
 
     try {
       const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=9`,
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=12`,
         {
           headers: {
             Authorization: `Client-ID ${accessKey}`
@@ -621,7 +627,7 @@ export default function UnifiedUploader({
       }));
 
     if (scored.length > 0) {
-      setUnsplashResults(scored);
+      setUnsplashResults(scored.slice(0, 12));
     } else {
       setUnsplashResults([]);
     }
@@ -647,14 +653,14 @@ export default function UnifiedUploader({
           onClick={() => setIsOpen(true)}
           className={`py-2 px-3 bg-app-bg hover:bg-app-card border border-app-border text-app-text font-black rounded-xl transition cursor-pointer text-[9px] uppercase tracking-wider flex items-center gap-1.5 ${className}`}
         >
-          <Upload size={11} className="text-amber-500" />
+          <Upload size={11} className="text-brand-500" />
           <span>{buttonText}</span>
         </button>
       )}
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-app-text/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -664,7 +670,7 @@ export default function UnifiedUploader({
               {/* Header */}
               <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Upload size={16} className="text-amber-500" />
+                  <Upload size={16} className="text-brand-500" />
                   <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">Unified Media Uploader</h3>
                 </div>
                 <button
@@ -700,7 +706,7 @@ export default function UnifiedUploader({
                     onPointerUp={handlePointerUp}
                     onPointerCancel={handlePointerUp}
                     style={{ width: `${viewportSize}px`, height: `${viewportSize}px` }}
-                    className="relative mx-auto rounded-3xl overflow-hidden bg-slate-900 border-2 border-app-border flex items-center justify-center cursor-move touch-none select-none"
+                    className="relative mx-auto rounded-3xl overflow-hidden bg-app-text/5 border-2 border-app-border flex items-center justify-center cursor-move touch-none select-none"
                   >
                     {/* Rendered Absolute Image */}
                     {editImageSrc && (
@@ -736,9 +742,9 @@ export default function UnifiedUploader({
                         top: `${cropBoxY}px`,
                         width: `${cropBoxWidth}px`,
                         height: `${cropBoxHeight}px`,
-                        boxShadow: "0 0 0 2px rgb(245, 158, 11)"
+                        boxShadow: "0 0 0 2px var(--color-brand-500)"
                       }}
-                      className="border-2 border-dashed border-white/60 pointer-events-none rounded-2xl shadow-lg"
+                      className="border-2 border-dashed border-app-bg/60 pointer-events-none rounded-2xl shadow-lg"
                     />
                   </div>
 
@@ -758,10 +764,10 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => setCompressToggle(!compressToggle)}
                       className={`relative inline-flex h-4 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        compressToggle ? "bg-amber-500" : "bg-app-border"
+                        compressToggle ? "bg-brand-500" : "bg-app-border"
                       }`}
                     >
-                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white dark:bg-slate-900 shadow ring-0 transition duration-200 ease-in-out ${
+                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white dark:bg-app-text/5 shadow ring-0 transition duration-200 ease-in-out ${
                         compressToggle ? "translate-x-5" : "translate-x-0"
                       }`} />
                     </button>
@@ -778,7 +784,7 @@ export default function UnifiedUploader({
                     <button
                       type="button"
                       onClick={handleCropSave}
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                      className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
                     >
                       Crop & Save
                     </button>
@@ -789,14 +795,14 @@ export default function UnifiedUploader({
                 <div className="flex flex-col items-center gap-4 py-6 text-center">
                   {uploadStatus === "uploading" && (
                     <>
-                      <div className="p-4 bg-amber-500/10 text-amber-500 rounded-full animate-spin">
+                      <div className="p-4 bg-brand-500/10 text-brand-500 rounded-full animate-spin">
                         <RefreshCw size={24} />
                       </div>
                       <div>
                         <h4 className="text-[11px] font-black uppercase tracking-wider">Uploading payload...</h4>
                         <div className="w-48 bg-app-border h-1.5 rounded-full overflow-hidden mt-3 mx-auto">
                           <div 
-                            className="bg-amber-500 h-full transition-all duration-300"
+                            className="bg-brand-500 h-full transition-all duration-300"
                             style={{ width: `${uploadProgress}%` }}
                           />
                         </div>
@@ -807,11 +813,11 @@ export default function UnifiedUploader({
 
                   {uploadStatus === "completed" && (
                     <>
-                      <div className="p-4 bg-emerald-500/15 text-emerald-500 rounded-full animate-bounce">
+                      <div className="p-4 bg-success/15 text-success rounded-full animate-bounce">
                         <Check size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-emerald-500">Upload Complete!</h4>
+                        <h4 className="text-[11px] font-black uppercase tracking-wider text-success">Upload Complete!</h4>
                         <p className="text-[9px] text-app-text-muted mt-1 font-medium">Replicating public storage URLs...</p>
                       </div>
                     </>
@@ -819,11 +825,11 @@ export default function UnifiedUploader({
 
                   {uploadStatus === "queued" && (
                     <>
-                      <div className="p-4 bg-amber-500/15 text-amber-500 rounded-full">
+                      <div className="p-4 bg-brand-500/15 text-brand-500 rounded-full">
                         <Check size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-500">Stashed Offline</h4>
+                        <h4 className="text-[11px] font-black uppercase tracking-wider text-brand-500">Stashed Offline</h4>
                         <p className="text-[9px] text-app-text-muted mt-1.5 font-medium px-4">
                           File cached successfully. It will automatically upload to Supabase when returning online.
                         </p>
@@ -834,7 +840,7 @@ export default function UnifiedUploader({
                           setIsOpen(false);
                           resetState();
                         }}
-                        className="py-2 px-4 bg-amber-500 text-slate-950 text-[10px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
+                        className="py-2 px-4 bg-brand-500 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
                       >
                         Got It
                       </button>
@@ -843,12 +849,12 @@ export default function UnifiedUploader({
 
                   {uploadStatus === "failed" && (
                     <>
-                      <div className="p-4 bg-red-500/15 text-red-500 rounded-full">
+                      <div className="p-4 bg-error/15 text-error rounded-full">
                         <AlertCircle size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-red-500">Upload Failed</h4>
-                        <p className="text-[9px] text-red-400 font-mono mt-1 px-4 leading-tight">{errorMessage}</p>
+                        <h4 className="text-[11px] font-black uppercase tracking-wider text-error">Upload Failed</h4>
+                        <p className="text-[9px] text-error font-mono mt-1 px-4 leading-tight">{errorMessage}</p>
                       </div>
                       <div className="flex gap-2 w-full px-8 mt-2">
                         <button
@@ -861,7 +867,7 @@ export default function UnifiedUploader({
                         <button
                           type="button"
                           onClick={handleRetry}
-                          className="flex-1 py-2 bg-amber-500 text-slate-950 text-[9px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                          className="flex-1 py-2 bg-brand-500 text-app-bg text-[9px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           <RetryIcon size={10} />
                           <span>Retry</span>
@@ -879,7 +885,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("device"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "device" ? "bg-amber-500 text-slate-950 font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "device" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       File Drive
@@ -888,7 +894,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { startCamera(); setActiveTab("camera"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "camera" ? "bg-amber-500 text-slate-950 font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "camera" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       Webcam
@@ -897,7 +903,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("url"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "url" ? "bg-amber-500 text-slate-950 font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "url" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       Link
@@ -906,7 +912,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("unsplash"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "unsplash" ? "bg-amber-500 text-slate-950 font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "unsplash" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       Unsplash
@@ -914,7 +920,7 @@ export default function UnifiedUploader({
                   </div>
 
                   {errorMessage && (
-                    <div className="p-2.5 bg-red-500/5 border border-red-500/10 rounded-xl text-red-500 text-[9px] font-semibold text-center leading-tight">
+                    <div className="p-2.5 bg-error/5 border border-error/10 rounded-xl text-error text-[9px] font-semibold text-center leading-tight">
                       {errorMessage}
                     </div>
                   )}
@@ -926,10 +932,10 @@ export default function UnifiedUploader({
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                       className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center text-center gap-3 transition ${
-                        dragOver ? "border-amber-500 bg-amber-500/5 scale-[1.02]" : "border-app-border bg-app-bg/50 hover:bg-app-bg"
+                        dragOver ? "border-brand-500 bg-brand-500/5 scale-[1.02]" : "border-app-border bg-app-bg/50 hover:bg-app-bg"
                       }`}
                     >
-                      <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl">
+                      <div className="p-3 bg-brand-500/10 text-brand-500 rounded-2xl">
                         <Upload size={22} />
                       </div>
                       <div>
@@ -964,7 +970,7 @@ export default function UnifiedUploader({
                     <div className="flex flex-col items-center gap-3">
                       {isCameraActive ? (
                         <>
-                          <div className="relative w-48 h-48 rounded-2xl overflow-hidden border border-amber-500 bg-slate-950 shadow-md">
+                          <div className="relative w-48 h-48 rounded-2xl overflow-hidden border border-brand-500 bg-app-text shadow-md">
                             <video
                               ref={videoRef}
                               autoPlay
@@ -975,21 +981,21 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={capturePhoto}
-                            className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                            className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
                           >
                             Capture Frame
                           </button>
                         </>
                       ) : (
                         <div className="py-8 text-center text-app-text-muted space-y-3">
-                          <Camera size={26} className="mx-auto text-amber-500/60" />
+                          <Camera size={26} className="mx-auto text-brand-500/60" />
                           <p className="text-[10px] px-8 font-medium leading-relaxed">
                             {cameraError || "Webcam access is deactivated. Start live stream coordinates."}
                           </p>
                           <button
                             type="button"
                             onClick={startCamera}
-                            className="py-1.5 px-4 bg-amber-500 text-slate-950 text-[9px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
+                            className="py-1.5 px-4 bg-brand-500 text-app-bg text-[9px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
                           >
                             Activate Camera Feed
                           </button>
@@ -1009,12 +1015,12 @@ export default function UnifiedUploader({
                             value={urlInput}
                             onChange={(e) => setUrlInput(e.target.value)}
                             placeholder="https://example.com/assets/avatar.jpg"
-                            className="flex-1 bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
+                            className="flex-1 bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-brand-500 focus:outline-none text-[11px] font-mono"
                           />
                           <button
                             type="button"
                             onClick={handleUrlLoad}
-                            className="py-2 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0"
+                            className="py-2 px-3 bg-brand-500 hover:bg-brand-600 text-app-bg font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0"
                           >
                             Load URL
                           </button>
@@ -1042,15 +1048,15 @@ export default function UnifiedUploader({
                             }
                           }}
                           placeholder="Search milk shop assets..."
-                          className="flex-1 bg-app-bg text-app-text px-3 py-1.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
+                          className="flex-1 bg-app-bg text-app-text px-3 py-1.5 rounded-xl border border-app-border focus:border-brand-500 focus:outline-none text-[11px]"
                         />
                         <button
                           type="button"
                           onClick={handleUnsplashSearch}
                           disabled={unsplashLoading}
-                          className="py-1.5 px-3 bg-app-border hover:bg-amber-500/10 disabled:opacity-50 text-app-text font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0 flex items-center gap-1"
+                          className="py-1.5 px-3 bg-app-border hover:bg-brand-500/10 disabled:opacity-50 text-app-text font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0 flex items-center gap-1"
                         >
-                          {unsplashLoading && <RefreshCw size={10} className="animate-spin text-amber-500" />}
+                          {unsplashLoading && <RefreshCw size={10} className="animate-spin text-brand-500" />}
                           <span>Find</span>
                         </button>
                       </div>
@@ -1059,17 +1065,17 @@ export default function UnifiedUploader({
                       {unsplashLoading ? (
                         /* SKELETON LOADER GRID */
                         <div className="grid grid-cols-3 gap-2">
-                          {Array.from({ length: 6 }).map((_, i) => (
+                          {Array.from({ length: 12 }).map((_, i) => (
                             <div 
                               key={i} 
-                              className="aspect-square rounded-xl bg-app-border/40  border border-app-border/10"
+                              className="relative w-full aspect-square rounded-xl bg-app-border/40 border border-app-border/10"
                             />
                           ))}
                         </div>
                       ) : unsplashError ? (
                         /* ERROR STATE */
                         <div className="py-6 text-center space-y-2">
-                          <AlertCircle size={20} className="mx-auto text-red-500" />
+                          <AlertCircle size={20} className="mx-auto text-error" />
                           <p className="text-[10px] text-app-text-muted">{unsplashError}</p>
                           <button
                             type="button"
@@ -1088,7 +1094,7 @@ export default function UnifiedUploader({
                         </div>
                       ) : (
                         /* RESULTS GRID */
-                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-0.5 scrollbar-thin">
+                        <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
                           {unsplashResults.map((item) => (
                             <div 
                               key={item.id}
@@ -1110,7 +1116,7 @@ export default function UnifiedUploader({
                                   triggerUpload(mockFile, "image", item.url);
                                 }
                               }}
-                              className="relative aspect-square rounded-xl overflow-hidden cursor-pointer hover:border-amber-500 border border-app-border/40 group bg-slate-900"
+                              className="relative w-full aspect-square rounded-xl overflow-hidden cursor-pointer hover:border-brand-500 border border-app-border/40 group bg-app-text/5"
                             >
                               <img
                                 src={item.url}
@@ -1118,7 +1124,7 @@ export default function UnifiedUploader({
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 loading="lazy"
                               />
-                              <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] text-white text-center font-bold px-1 transition-opacity">
+                              <div className="absolute inset-0 bg-app-text/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] text-app-bg text-center font-bold px-1 transition-opacity">
                                 Select image
                               </div>
                             </div>
