@@ -69,7 +69,7 @@ export default function BusinessDashboard() {
   // Date range filters
   const [filterRange, setFilterRange] = useState<
     "today" | "yesterday" | "last7" | "last30" | "monthly" | "quarterly" | "yearly" | "custom"
-  >("last30");
+  >("monthly");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 

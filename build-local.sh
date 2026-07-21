@@ -18,7 +18,7 @@ rm -rf release-builds/windows/*
 
 # ── 1. Build Vite frontend ──────────────────────
 echo "--> Building Vite frontend..."
-npm run build
+npx vite build
 
 # ── 2. Build Linux App (AppImage / Debian) ────────
 echo "--> Building Linux Desktop Application..."

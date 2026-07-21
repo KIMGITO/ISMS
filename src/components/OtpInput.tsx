@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Clipboard, ClipboardCheck } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 interface OtpInputProps {
   length?: number;
@@ -24,6 +25,9 @@ export function OtpInput({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
+  // Only show the paste button on native Capacitor builds (Android/iOS)
+  const isNative = Capacitor.isNativePlatform();
+
   // Keep inputsRef clean with the correct length
   useEffect(() => {
     inputsRef.current = inputsRef.current.slice(0, length);
@@ -37,6 +41,13 @@ export function OtpInput({
       }
     }, 100);
   }, [disabled]);
+
+  // If the value is cleared externally (e.g. wrong code), focus the first box
+  useEffect(() => {
+    if (value === "" && !disabled) {
+      inputsRef.current[0]?.focus();
+    }
+  }, [value, disabled]);
 
   const handleChange = (index: number, val: string) => {
     // Sanitize input to only accept digits (or alphanumeric if enabled)
@@ -114,42 +125,57 @@ export function OtpInput({
     }
   };
 
+  const processPastedText = (text: string) => {
+    let pastedData = text.trim();
+    
+    // If it starts with INV- or inv-, remove it (for invitation token support)
+    if (pastedData.toUpperCase().startsWith("INV-")) {
+      pastedData = pastedData.slice(4);
+    }
+    
+    // Validate pasted code string matches regex
+    const regex = alphanumeric ? /^[a-zA-Z0-9]+$/ : /^[0-9]+$/;
+    if (!regex.test(pastedData)) {
+      setError("Invalid code format");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    const code = alphanumeric ? pastedData.slice(0, length).toUpperCase() : pastedData.slice(0, length);
+    onChange(code);
+
+    // Focus last input index of pasted code
+    const targetIdx = Math.min(code.length, length - 1);
+    inputsRef.current[targetIdx]?.focus();
+
+    // Show success feedback
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+
+    if (code.length === length && onComplete) {
+      onComplete(code);
+    }
+  };
+
   const handleClipboardPaste = async () => {
     try {
-      const text = await navigator.clipboard.readText();
-      let pastedData = text.trim();
-      
-      // If it starts with INV- or inv-, remove it (for invitation token support)
-      if (pastedData.toUpperCase().startsWith("INV-")) {
-        pastedData = pastedData.slice(4);
-      }
-      
-      // Validate pasted code string matches regex
-      const regex = alphanumeric ? /^[a-zA-Z0-9]+$/ : /^[0-9]+$/;
-      if (!regex.test(pastedData)) {
-        setError("Invalid code format");
-        setTimeout(() => setError(""), 3000);
-        return;
+      let text: string;
+
+      if (isNative) {
+        // Use the Capacitor Clipboard plugin on Android/iOS — avoids permission errors
+        const { Clipboard: CapClipboard } = await import("@capacitor/clipboard");
+        const result = await CapClipboard.read();
+        text = result.value ?? "";
+      } else {
+        // Web fallback — requires HTTPS and clipboard-read permission
+        text = await navigator.clipboard.readText();
       }
 
-      const code = alphanumeric ? pastedData.slice(0, length).toUpperCase() : pastedData.slice(0, length);
-      onChange(code);
-
-      // Focus last input index of pasted code
-      const targetIdx = Math.min(code.length, length - 1);
-      inputsRef.current[targetIdx]?.focus();
-
-      // Show success feedback
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-
-      if (code.length === length && onComplete) {
-        onComplete(code);
-      }
+      processPastedText(text);
     } catch (err) {
       console.error("Failed to read clipboard:", err);
-      setError("Clipboard access denied");
-      setTimeout(() => setError(""), 3000);
+      setError("Could not read clipboard. Try typing or long-pressing to paste.");
+      setTimeout(() => setError(""), 4000);
     }
   };
 
@@ -187,18 +213,21 @@ export function OtpInput({
       {error && (
         <p className="text-red-400 text-xs text-center mt-2">{error}</p>
       )}
-      <div className="flex justify-center mt-3">
-        <button
-          type="button"
-          onClick={handleClipboardPaste}
-          disabled={disabled}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-50 text-slate-200 rounded-lg text-sm font-medium transition-all border border-slate-700 hover:border-amber-500/50 disabled:cursor-not-allowed"
-          title="Paste from clipboard"
-        >
-          {copied ? <ClipboardCheck size={16} className="text-green-400" /> : <Clipboard size={16} />}
-          {copied ? "Pasted!" : "Paste from Clipboard"}
-        </button>
-      </div>
+      {/* Paste button: only shown on native Android/iOS builds, never on web browsers */}
+      {isNative && (
+        <div className="flex justify-center mt-3">
+          <button
+            type="button"
+            onClick={handleClipboardPaste}
+            disabled={disabled}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-50 text-slate-200 rounded-lg text-sm font-medium transition-all border border-slate-700 hover:border-amber-500/50 disabled:cursor-not-allowed"
+            title="Paste from clipboard"
+          >
+            {copied ? <ClipboardCheck size={16} className="text-green-400" /> : <Clipboard size={16} />}
+            {copied ? "Pasted!" : "Paste Code"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

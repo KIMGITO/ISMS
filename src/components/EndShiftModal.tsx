@@ -7,6 +7,7 @@ import { useCustomerStore } from '../stores/customerStore';
 import { useAuthStore } from '../stores/authStore';
 import { useAppStore } from '../stores/appStore';
 import { Shift, Transaction } from '../types';
+import { useOverlay } from '../hooks/useOverlay';
 
 interface EndShiftModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ interface EndShiftModalProps {
 }
 
 export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftModalProps) {
+  useOverlay(isOpen, onClose, 'dialog');
+  
   const { products } = useInventoryStore();
   const { transactions, debtPayments } = useTransactionStore();
   const { customers } = useCustomerStore();

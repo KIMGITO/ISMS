@@ -104,3 +104,44 @@ input[type="number"] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ─── Mobile Responsive Overrides (< 480px) ─── */
+@media (max-width: 480px) {
+  /* Prevent any element from causing horizontal scrolling */
+  * {
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+
+  /* Long words / URLs should wrap instead of overflowing */
+  p, span, label, td, th, li, div {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Reduce button padding on very small screens */
+  button {
+    max-width: 100%;
+  }
+
+  /* Keep tables from blowing out the layout */
+  table {
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  /* Dialogs should not exceed viewport width */
+  [role="dialog"],
+  .modal,
+  .dialog {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px !important;
+  }
+
+  /* Ensure form inputs stay within bounds */
+  input, textarea, select {
+    max-width: 100%;
+  }
+}
+

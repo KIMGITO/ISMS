@@ -6,8 +6,27 @@ class NetworkService {
 
   constructor() {
     if (typeof window !== "undefined") {
-      window.addEventListener("online", () => this.setOnline(true));
+      window.addEventListener("online", () => this.verifyConnection());
       window.addEventListener("offline", () => this.setOnline(false));
+      
+      // Periodic ping just in case navigator.onLine is stuck (common on Linux WebKitGTK)
+      setInterval(() => this.verifyConnection(), 30000);
+      // Initial check
+      setTimeout(() => this.verifyConnection(), 1000);
+    }
+  }
+
+  private async verifyConnection() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      this.setOnline(false);
+      return;
+    }
+    try {
+      // Ping a reliable endpoint
+      await fetch("https://1.1.1.1", { mode: 'no-cors', cache: 'no-store' });
+      this.setOnline(true);
+    } catch {
+      this.setOnline(false);
     }
   }
 

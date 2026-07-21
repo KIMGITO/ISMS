@@ -135,6 +135,7 @@ interface ExtraModulesState {
     staffName: string,
     returnItems: Array<{ productId: string; returnQty: number; wasteReason?: string }>
   ) => Promise<{ success: boolean; error?: string }>;
+  deleteProductionBatch: (id: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const getSavedJson = <T>(key: string, defaultVal: T): T => {
@@ -648,6 +649,30 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message || "Failed to cancel production batch." };
+      }
+    },
+
+    deleteProductionBatch: async (id) => {
+      try {
+        const { getSupabase } = await import("../services/supabaseClient");
+        const supabase = getSupabase();
+
+        const { error } = await supabase
+          .from("production_batches")
+          .delete()
+          .eq("id", id);
+
+        if (error) throw error;
+
+        set((state) => {
+          const updated = state.productionBatches.filter(b => b.id !== id);
+          saveJson(localProductionKey, updated);
+          return { productionBatches: updated };
+        });
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Failed to delete production batch." };
       }
     },
   };

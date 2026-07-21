@@ -26,6 +26,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useOverlay } from '../hooks/useOverlay';
 
 export default function PendingActionsDrawer() {
   const {
@@ -37,6 +38,8 @@ export default function PendingActionsDrawer() {
     verifyPendingAction,
     clearCompletedActions,
   } = usePendingActionStore();
+
+  useOverlay(isDrawerOpen, () => setDrawerOpen(false), 'drawer');
 
   const [filterType, setFilterType] = useState<string>('all');
   const [editingAction, setEditingAction] = useState<PendingAction | null>(null);

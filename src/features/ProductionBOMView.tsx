@@ -46,6 +46,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useOverlay } from '../hooks/useOverlay';
 
 type ViewMode = 'list' | 'create-bom' | 'create-batch' | 'bom-detail';
 
@@ -73,6 +74,8 @@ export default function ProductionBOMView() {
   // Cancellation Modal state
   const [cancellingBatch, setCancellingBatch] = useState<ProductionBatch | null>(null);
   const [cancellationItems, setCancellationItems] = useState<RestockItemState[]>([]);
+
+  useOverlay(cancellingBatch !== null, () => setCancellingBatch(null), 'dialog');
 
   // BOM Creation form state
   const [bomName, setBomName] = useState('');
@@ -246,6 +249,19 @@ export default function ProductionBOMView() {
     }
   };
 
+  const handleDeleteBatch = async (id: string) => {
+    try {
+      const res = await extra.deleteProductionBatch(id);
+      if (res.success) {
+        showToast?.('Deleted', 'Production batch record removed.', undefined, 'success');
+      } else {
+        showToast?.('Error', res.error || 'Failed to delete batch.', undefined, 'error');
+      }
+    } catch (err: any) {
+      showToast?.('Error', err.message || 'An unexpected error occurred.', undefined, 'error');
+    }
+  };
+
   // Update batch status (Completion / In Progress)
   const handleUpdateBatchStatus = async (batchId: string, newStatus: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled') => {
     if (newStatus === 'Cancelled') {
@@ -254,7 +270,6 @@ export default function ProductionBOMView() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to change this batch status to "${newStatus}"?`)) return;
     
     setIsSubmitting(true);
     try {
@@ -313,7 +328,6 @@ export default function ProductionBOMView() {
 
   // Delete BOM
   const handleDeleteBom = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this BOM?')) return;
     try {
       await SupabaseService.deleteBom(id);
       extra.removeBillOfMaterial(id);
@@ -549,7 +563,7 @@ export default function ProductionBOMView() {
                             {getStatusBadge(batch.status)}
                           </div>
                           <p className="text-[10px] text-app-text-muted mt-1 font-mono">
-                            {batch.referenceNumber ? `Ref: ${batch.referenceNumber}` : `ID: ${batch.id}`}
+                            {batch.referenceNumber ? `Ref: ${batch.referenceNumber}` : `ID: ${batch.id.substring(0,8).toUpperCase()}`}
                           </p>
                           <p className="text-[10px] text-app-text-muted mt-0.5">
                             Yield Target: <span className="font-bold text-app-text">{batch.quantityProduced} {batch.unit}</span> · Operator: {batch.staffName}
@@ -558,24 +572,36 @@ export default function ProductionBOMView() {
                             {new Date(batch.date).toLocaleString()}
                           </p>
                         </div>
-                        {canCreateBatch && batch.status !== 'Completed' && batch.status !== 'Cancelled' && (
+                        {canCreateBatch && (
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {(batch.status === 'Pending' || batch.status === 'In_Progress' || batch.status === 'In Progress') && (
+                            {batch.status !== 'Completed' && batch.status !== 'Cancelled' ? (
+                              <>
+                                {(batch.status === 'Pending' || batch.status === 'In_Progress' || batch.status === 'In Progress') && (
+                                  <button
+                                    onClick={() => handleUpdateBatchStatus(batch.id, 'Completed')}
+                                    className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
+                                    title="Mark as Completed (Adds Finished Goods to Stock)"
+                                  >
+                                    <CheckCircle2 size={11} /> Complete Batch
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => openCancelModal(batch)}
+                                  className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
+                                  title="Cancel Batch & Launch Restock Workflow"
+                                >
+                                  <Ban size={11} /> Cancel
+                                </button>
+                              </>
+                            ) : (
                               <button
-                                onClick={() => handleUpdateBatchStatus(batch.id, 'Completed')}
-                                className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
-                                title="Mark as Completed (Adds Finished Goods to Stock)"
+                                onClick={() => handleDeleteBatch(batch.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                title="Delete from view"
                               >
-                                <CheckCircle2 size={11} /> Complete Batch
+                                <Trash2 size={12} />
                               </button>
                             )}
-                            <button
-                              onClick={() => openCancelModal(batch)}
-                              className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
-                              title="Cancel Batch & Launch Restock Workflow"
-                            >
-                              <Ban size={11} /> Cancel
-                            </button>
                           </div>
                         )}
                       </div>
@@ -1004,7 +1030,7 @@ export default function ProductionBOMView() {
                     <RotateCcw size={16} className="text-amber-500" /> Cancel Production Batch Workflow
                   </h3>
                   <p className="text-[10.5px] text-app-text-muted mt-0.5 font-mono">
-                    Ref: {cancellingBatch.referenceNumber || cancellingBatch.id} · {cancellingBatch.recipeName}
+                    Ref: {cancellingBatch.referenceNumber || cancellingBatch.id.substring(0,8).toUpperCase()} · {cancellingBatch.recipeName}
                   </p>
                 </div>
                 <button

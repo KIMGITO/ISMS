@@ -40,11 +40,13 @@ import { useBusinessStore } from "./stores/businessStore";
 import { useKeyboardVisible } from "./hooks/useKeyboardVisible";
 import PendingActionsDrawer from "./components/PendingActionsDrawer";
 import { usePendingActionStore } from "./stores/pendingActionStore";
+import { useOverlayStore } from "./stores/overlayStore";
 import {
   nativePlatformService,
   statusBarService,
   splashScreenService,
-  nativeUiService
+  nativeUiService,
+  notificationService
 } from "./core/native";
 
 
@@ -369,6 +371,26 @@ export default function App() {
     };
   }, []);
 
+  // Initialize FCM push notifications when the user logs in
+  // This must run after currentEmployee is set to ensure the token is linked to a real user.
+  const prevEmployeeId = useRef<string | null>(null);
+  useEffect(() => {
+    const employeeId = currentEmployee?.id ?? null;
+    if (employeeId && employeeId !== prevEmployeeId.current) {
+      prevEmployeeId.current = employeeId;
+      notificationService.registerPush().then((granted) => {
+        if (granted) {
+          console.log("[Push] FCM registration initiated successfully.");
+        }
+      }).catch(err => {
+        console.warn("[Push] FCM registration failed:", err);
+      });
+    }
+    if (!employeeId) {
+      prevEmployeeId.current = null;
+    }
+  }, [currentEmployee]);
+
   // Show connection state change toasts
   const prevOnlineRef = useRef(isOnline);
   useEffect(() => {
@@ -643,6 +665,11 @@ export default function App() {
   }, [currentUser, ownerExists, memberships, authViewTab]);
 
   const handleResendCode = async () => {
+    // Guard: verifyEmail must be set before resending
+    if (!verifyEmail?.trim()) {
+      setAuthError("Email address is missing. Please go back and enter your email.");
+      return;
+    }
     setIsResending(true);
     setAuthError("");
     setAuthSuccess("");
@@ -658,14 +685,19 @@ export default function App() {
       if (rpcErr) throw rpcErr;
 
       const EmailServiceModule = await import("./services/emailService");
-      await EmailServiceModule.EmailService.sendVerificationCode(verifyEmail.trim(), newOtp, regName.trim());
+      // Use regName if available, otherwise fall back to the email prefix as a display name
+      const displayName = regName?.trim() || verifyEmail.split("@")[0] || "User";
+      await EmailServiceModule.EmailService.sendVerificationCode(verifyEmail.trim(), newOtp, displayName);
 
       setVerifyCountdown(60);
       setVerifyCode("");
       setAuthSuccess(`A new verification code has been sent to ${verifyEmail}!`);
     } catch (err: any) {
       console.error("Resend OTP failed:", err);
-      setAuthError(err.message || "Failed to resend verification code. Verify provider setup.");
+      const msg = typeof err?.message === "string" && err.message.length > 0
+        ? err.message
+        : "Failed to resend verification code. Please check your connection and try again.";
+      setAuthError(msg);
     } finally {
       setIsResending(false);
     }
@@ -677,32 +709,50 @@ export default function App() {
       setAuthError("Please enter a valid 6-digit code.");
       return;
     }
+    // Guard: verifyEmail must be set
+    if (!verifyEmail?.trim()) {
+      setAuthError("Email address is missing. Please go back and enter your email.");
+      return;
+    }
     setAuthLoading(true);
     setAuthError("");
     setAuthSuccess("");
     
-    const res = await verifyEmailCode(verifyEmail, code);
-    if (res.success) {
-      setAuthSuccess("Email verified successfully! Logging you in...");
-      try {
-        const loginRes = await loginOnline(verifyEmail, regPassword);
-        if (loginRes.success) {
-          setAuthViewTab("create-biz");
-        } else {
+    try {
+      const res = await verifyEmailCode(verifyEmail, code);
+      if (res.success) {
+        setAuthSuccess("Email verified successfully! Logging you in...");
+        try {
+          const loginRes = await loginOnline(verifyEmail, regPassword);
+          if (loginRes.success) {
+            setAuthViewTab("create-biz");
+          } else {
+            setAuthViewTab("login");
+            setLoginEmail(verifyEmail);
+            setAuthSuccess("Account verified. Please enter your password to login.");
+          }
+        } catch (loginErr: any) {
+          console.error("Auto login failed after verification:", loginErr);
           setAuthViewTab("login");
           setLoginEmail(verifyEmail);
-          setAuthSuccess("Account verified. Please enter your password to login.");
+          setAuthSuccess("Account verified. Please login manually.");
         }
-      } catch (loginErr: any) {
-        console.error("Auto login failed after verification:", loginErr);
-        setAuthViewTab("login");
-        setLoginEmail(verifyEmail);
-        setAuthSuccess("Account verified. Please login manually.");
+      } else {
+        const errMsg = typeof res.error === "string" && res.error.length > 0
+          ? res.error
+          : "Verification failed. Check the code and try again.";
+        setAuthError(errMsg);
+        setVerifyCode(""); // Clear the code so user can re-enter cleanly
       }
-    } else {
-      setAuthError(res.error || "Verification failed. Check the code and try again.");
+    } catch (err: any) {
+      console.error("OTP verification crashed:", err);
+      const msg = typeof err?.message === "string" && err.message.length > 0
+        ? err.message
+        : "Something went wrong. Please try again.";
+      setAuthError(msg);
+    } finally {
+      setAuthLoading(false);
     }
-    setAuthLoading(false);
   };
 
   const [bizNameField, setBizNameField] = useState("");
@@ -894,9 +944,20 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   // Native Android hardware Back Button interception and confirmation flow
   useEffect(() => {
     const unsubscribeBackButton = nativePlatformService.onBackButton(async () => {
+      const { popTopOverlay } = useOverlayStore.getState();
+      
+      // Attempt to close the top-most active overlay (dialog, sheet, etc.)
+      const didCloseOverlay = popTopOverlay();
+      
+      // If an overlay was closed, stop here.
+      if (didCloseOverlay) {
+        return;
+      }
+
+      // If no overlay was closed, confirm exit
       const shouldExit = await nativeUiService.confirm(
         "Exit Application",
-        "Are you sure you want to close KayKay's Milk?"
+        "Exit the application?"
       );
       if (shouldExit) {
         nativePlatformService.exitApp();
