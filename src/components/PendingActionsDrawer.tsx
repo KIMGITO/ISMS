@@ -142,7 +142,7 @@ export default function PendingActionsDrawer() {
                   </span>
                 </h2>
                 <p className="text-[10px] text-app-text-muted">
-                  Human-in-the-Loop Review & Execution Verification
+                  Human Review & Execution Verification
                 </p>
               </div>
             </div>

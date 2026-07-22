@@ -6,6 +6,7 @@ import { CustomerRepository } from "../services/repositories";
 import { normalizePhone } from "../utils/phoneUtils";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
+import { NotificationService } from "../services/notifications/notificationService";
 
 interface CustomerState {
   customers: Customer[];
@@ -203,6 +204,22 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
         recordedBy: cashierName,
         note: note || `Debt payment via ${method}`,
       });
+
+      // 5. Trigger notification
+      NotificationService.createNotification(
+        "Payment Received",
+        {
+          amount: amount.toLocaleString(),
+          paymentMethod: method,
+          txId: id ? id.slice(-8) : "Debt-Payment"
+        },
+        {
+          title: `💰 Debt Repaid: ${cust.name}`,
+          role: "Owner",
+          priority: "medium",
+          payloadExtra: { customerName: cust.name, remainingDebt: newDebt }
+        }
+      );
     },
 
     depositCustomerWallet: async (customerId, amount, cashierName, note, id) => {

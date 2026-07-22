@@ -8,6 +8,7 @@ import { useNotificationStore } from "./notificationStore";
 import { useBusinessStore } from "./businessStore";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
+import { NotificationService } from "../services/notifications/notificationService";
 
 interface CartState {
   cart: CartItem[];
@@ -252,7 +253,21 @@ export const useCartStore = create<CartState>((set, get) => ({
 
       await useTransactionStore.getState().addTransaction(newTransaction);
 
+      // 🔔 Push Notification: Payment Received
+      NotificationService.createNotification(
+        "Payment Received",
+        {
+          amount: finalTotal.toLocaleString(),
+          paymentMethod: paymentMethod.replace("_", " "),
+          txId: newTransaction.id.replace("tx-", ""),
+        },
+        { role: "Owner", priority: "medium" }
+      );
+
       if (isDelivery && riderName) {
+        // 🔔 Push Notification: Delivery Assigned
+        NotificationService.createDeliveryNotification(riderName, selectedCustomer?.name || "Customer", "assigned");
+
         useNotificationStore.getState().showToast(
           "Rider Dispatch",
           `Dispatch Alert: Rider "${riderName}" assigned to deliver Order ${newTransaction.id} (KSh ${finalTotal.toLocaleString()}). Delivery route logged.`,

@@ -10,6 +10,7 @@ import { ProductRepository, InventoryAdjustmentRepository } from "../services/re
 import { getSupabase } from "../services/supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { checkPermissionGate } from "../utils/permissions";
+import { NotificationService } from "../services/notifications/notificationService";
 
 interface InventoryState {
   products: Product[];
@@ -79,7 +80,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
       const previousStock = prod.stock;
       const newStock = Math.max(0, previousStock + quantityAdjusted);
 
-      // Trigger Out of Stock / Low Stock toast notifications dynamically
+      // Trigger Out of Stock / Low Stock toast + push notifications
       if (newStock === 0 && previousStock > 0) {
         useNotificationStore.getState().showToast(
           "Inventory Alert",
@@ -87,6 +88,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
           prod.image || "",
           "error"
         );
+        NotificationService.createInventoryAlert(prod.name, newStock, prod.minStock, prod.unit || "units", true);
       } else if (newStock <= prod.minStock && previousStock > prod.minStock && newStock > 0) {
         useNotificationStore.getState().showToast(
           "Inventory Alert",
@@ -94,6 +96,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
           prod.image || "",
           "info"
         );
+        NotificationService.createInventoryAlert(prod.name, newStock, prod.minStock, prod.unit || "units", false);
       }
 
       const supabase = getSupabase();
@@ -149,6 +152,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
               p.image || "",
               "error"
             );
+            NotificationService.createInventoryAlert(p.name, newStock, p.minStock, p.unit || "units", true);
           } else if (newStock <= p.minStock && previousStock > p.minStock && newStock > 0) {
             useNotificationStore.getState().showToast(
               "Inventory Alert",
@@ -156,6 +160,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
               p.image || "",
               "info"
             );
+            NotificationService.createInventoryAlert(p.name, newStock, p.minStock, p.unit || "units", false);
           }
           
           // Local optimistic memory state feedback

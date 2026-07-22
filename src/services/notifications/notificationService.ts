@@ -37,7 +37,8 @@ export class NotificationService {
       "System Update",
       "AI Business Insight",
       "AI Recommendation",
-      "AI Risk Alert"
+      "AI Risk Alert",
+      "Custom Notification",
     ];
 
     if (!IMPORTANT_TYPES.includes(type)) {

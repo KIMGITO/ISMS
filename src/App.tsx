@@ -2453,7 +2453,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             setAuthLoading(true);
                             setAuthError("");
                             setAuthSuccess("");
-                            const res = await updatePassword(newPassword);
+                            const res = await updatePassword(newPassword, forgotEmail);
                             setAuthLoading(false);
                             if (res.success) {
                               setAuthSuccess("Password changed successfully! Returning to login...");

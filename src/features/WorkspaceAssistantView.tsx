@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { usePendingActionStore } from '../stores/pendingActionStore';
+import { useCustomerStore } from '../stores/customerStore';
 import {
   Send,
   RefreshCw,
@@ -9,8 +10,10 @@ import {
   ChevronUp,
   Sparkles,
   Brain,
+  ActivitySquareIcon,
 } from 'lucide-react';
-import { getDynamicRoles } from '../utils/permissions';
+import { getDynamicRoles, ALL_PERMISSIONS } from '../utils/permissions';
+import { useAuthStore } from '../stores/authStore';
 import { SupabaseService } from '../services/supabaseService';
 import { ProductRepository, CustomerRepository, ExpenseRepository } from '../services/repositories';
 import { useExtraModulesStore } from '../stores/extraModulesStore';
@@ -468,9 +471,12 @@ export default function WorkspaceAssistantView() {
         .map((p) => `${p.name} (SKU: ${p.sku}, Stock: ${p.stock})`)
         .join('\n');
 
-      const loggedInUser = currentEmployee?.name || 'Staff Operator';
-      const currentRole = currentEmployee?.role || 'Staff';
-      const rolePermissions = getDynamicRoles()[currentRole]?.permissions || [];
+      const authUser = useAuthStore.getState().currentUser;
+      const loggedInUser = currentEmployee?.name || authUser?.full_name || 'Owner';
+      const rawRole = currentEmployee?.role || authUser?.role || 'Owner';
+      const isOwner = rawRole.toLowerCase() === 'owner' || !currentEmployee;
+      const currentRole = isOwner ? 'Owner' : rawRole;
+      const rolePermissions = isOwner ? ALL_PERMISSIONS : (getDynamicRoles()[currentRole]?.permissions || []);
 
       // 3. Use the latestHistory variable we just created
       const apiMessages = [
@@ -483,6 +489,26 @@ export default function WorkspaceAssistantView() {
         permissions: rolePermissions,
         employeeName: loggedInUser,
         businessId: activeBusinessId,
+        clientProducts: products.map((p) => ({
+          name: p.name,
+          price: p.price,
+          stock: p.stock,
+          unit: p.unit || 'units',
+          sku: p.sku,
+          category: p.category,
+        })),
+        clientCustomers: useCustomerStore.getState().customers.map((c) => ({
+          name: c.name,
+          phone: c.phone,
+          debtBalance: c.debtBalance,
+          walletBalance: c.walletBalance,
+          loyaltyPoints: c.loyaltyPoints,
+        })),
+        clientEmployees: employees.map((e) => ({
+          name: e.name,
+          role: e.role,
+          phone: e.phone,
+        })),
       });
 
       if (controller.signal.aborted) {
@@ -495,29 +521,32 @@ export default function WorkspaceAssistantView() {
         let replyText =
           response.reply || 'I received your message, but I have no response.';
 
-        // Handle AI Pending Action Drafts
-        const pendingActionRegex = /\[PENDING_ACTION:\s*(\{[\s\S]*?\})\s*\]/g;
+        // Handle AI Pending Action Drafts & Action Triggers
+        const pendingActionRegex = /\[(PENDING_?ACTION|ACTION_TRIGGER):\s*(\{[\s\S]*?\})\s*\]/gi;
         let pMatch;
         while ((pMatch = pendingActionRegex.exec(replyText)) !== null) {
           try {
-            const rawJson = pMatch[1].replace(/```json\n?|```\n?/g, '').trim();
+            const rawJson = pMatch[2].replace(/```json\n?|```\n?/g, '').trim();
             const draftData = JSON.parse(rawJson);
-            if (draftData && draftData.type) {
-              // Execute Checkouts immediately (pushes to POS tab)
-              if (draftData.type === 'create_checkout') {
+            const rawType = (draftData.type || draftData.action || '').toLowerCase().replace(/_/g, '');
+            const normalizedType = draftData.type || draftData.action || 'custom_action';
+            
+            if (rawType) {
+              // 1. ALWAYS route ALL AI actions to Pending Actions Store for human review
+              usePendingActionStore.getState().addPendingAction({
+                type: normalizedType === 'createcheckout' ? 'create_checkout' : normalizedType,
+                title: draftData.title || `${normalizedType.replace(/_/g, ' ').toUpperCase()} Draft`,
+                summary: draftData.summary || 'Draft action queued for human verification',
+                requiredPermission: draftData.requiredPermission || 'pos.create_sale',
+                params: draftData.params || {},
+                createdBy: `${aiName} AI Copilot`,
+              });
+
+              // 2. For POS checkouts, also populate the active POS cart
+              if (rawType === 'createcheckout') {
                 executeWorkspaceAction({
-                  action: draftData.type,
+                  action: 'create_checkout',
                   params: draftData.params || {},
-                });
-              } else {
-                // Route database modifications to Pending Actions Drawer for human review
-                usePendingActionStore.getState().addPendingAction({
-                  type: draftData.type,
-                  title: draftData.title || 'AI Draft Action',
-                  summary: draftData.summary || 'Draft action queued for verification',
-                  requiredPermission: draftData.requiredPermission || 'ai.use',
-                  params: draftData.params || {},
-                  createdBy: `${aiName} AI Copilot`,
                 });
               }
             }
@@ -526,35 +555,9 @@ export default function WorkspaceAssistantView() {
           }
         }
 
-        // Handle Legacy Action Triggers
-        const actionRegex = /\[ACTION_TRIGGER:\s*(\{[\s\S]*?\})\s*\]/g;
-        let match;
-        while ((match = actionRegex.exec(replyText)) !== null) {
-          try {
-            const rawJson = match[1].replace(/```json\n?|```\n?/g, '').trim();
-            const actionData = JSON.parse(rawJson);
-            if (actionData && actionData.action) {
-              if (actionData.action === 'create_checkout') {
-                executeWorkspaceAction(actionData);
-              } else {
-                usePendingActionStore.getState().addPendingAction({
-                  type: actionData.action,
-                  title: `${actionData.action.replace('_', ' ').toUpperCase()} Draft`,
-                  summary: `Legacy action queued for human verification: ${JSON.stringify(actionData.params)}`,
-                  requiredPermission: 'ai.use',
-                  params: actionData.params || {},
-                  createdBy: `${aiName} AI Copilot`,
-                });
-              }
-            }
-          } catch (e) {
-            console.error('Failed to parse action trigger:', e);
-          }
-        }
-
+        // Clean any action triggers or pending action JSON blocks from the chat bubble reply
         replyText = replyText
-          .replace(/\[PENDING_ACTION:\s*(\{[\s\S]*?\})\s*\]/g, '')
-          .replace(/\[ACTION_TRIGGER:\s*(\{[\s\S]*?\})\s*\]/g, '')
+          .replace(/\[(PENDING_?ACTION|ACTION_TRIGGER):\s*\{[\s\S]*?\}\s*\]/gi, '')
           .trim();
 
         // 4. Update history with assistant reply
@@ -624,7 +627,7 @@ export default function WorkspaceAssistantView() {
           onClick={() => setDrawerOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-black transition cursor-pointer"
         >
-          <Sparkles size={13} />
+          <ActivitySquareIcon size={13} />
           <span>Pending Actions ({activePendingCount})</span>
         </button>
       </div>

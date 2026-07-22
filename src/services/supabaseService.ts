@@ -517,7 +517,11 @@ export class SupabaseService {
       body: payload,
     });
 
-    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw new Error("Failed."); }
+    if (error) {
+      console.error(`[callEdgeFunction] "${functionName}" failed:`, error);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw new Error(`Edge function "${functionName}" failed: ${error.message}`);
+    }
     return data;
   }
 
