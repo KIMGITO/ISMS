@@ -3,7 +3,6 @@ import { NotificationTemplates } from "./notificationTemplates";
 import { pushNotificationService } from "./pushNotificationService";
 import { NotificationPreferences } from "./notificationPreferences";
 import { AppNotification, NotificationType, NotificationPriority, NotificationActionTarget } from "../../types";
-import { SupabaseService } from "../supabaseService";
 
 export class NotificationService {
   /**
@@ -90,26 +89,13 @@ export class NotificationService {
     };
 
     // 4. Save to Repository (which automatically syncs to Supabase PostgreSQL database)
+    // NOTE: The Supabase Dashboard Webhook (INSERT on public.notifications) already
+    // calls the send-fcm Edge Function automatically. Do NOT call send-fcm here as well,
+    // that would cause every notification to fire TWICE on the user's device.
     const row = NotificationRepository.add(newNotif);
 
-    // 5. Fire Native Banner Alerts (FCM / APNs / Web Notification) via Edge Function
-    pushNotificationService.handleIncomingPush(row); // Keep local display logic running
-    SupabaseService.callEdgeFunction("send-fcm", {
-      notification: {
-        title: row.title,
-        body: row.message,
-        data: {
-          id: row.id,
-          action_type: row.action_type,
-          action_target: row.action_target,
-        }
-      },
-      target: {
-        business_id: row.business_id === "all" ? undefined : row.business_id,
-        role: row.role,
-        user_id: row.user_id,
-      }
-    }).catch(err => console.error("Failed to invoke send-fcm Edge Function:", err));
+    // 5. Show local in-app banner only (FCM push handled exclusively by DB webhook)
+    pushNotificationService.handleIncomingPush(row);
 
     return row;
   }
