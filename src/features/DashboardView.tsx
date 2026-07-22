@@ -1543,31 +1543,29 @@ export default function DashboardView() {
         isOpen={isEndShiftModalOpen} 
         onClose={() => setIsEndShiftModalOpen(false)} 
         onConfirm={(reportText, customMessage) => {
-          // Punch out the employee
+          const employee = useAuthStore.getState().currentEmployee;
           punchOut();
           setIsEndShiftModalOpen(false);
           showToast('Shift Ended', 'End of shift report sent to owners.');
 
-          // Fix 7: Test FCM notification — fire a push when a shift is closed
-          // This confirms the full notification pipeline: app → Supabase Edge → Firebase → device
-          const employee = useAuthStore.getState().currentEmployee;
-          SupabaseService.callEdgeFunction("send-fcm", {
-            notification: {
-              title: "🔔 Shift Closed",
-              body: `${employee?.name || "A staff member"} has ended their shift. Tap to view the report.`,
-              data: {
-                type: "shift_close",
+          // Dispatch notification to Owner via NotificationService
+          // This saves to the database for the Owner's notification feed AND triggers FCM Push
+          NotificationService.createNotification(
+            "Custom Notification",
+            { message: `Shift Ended by ${employee?.name || "Staff"}.${customMessage ? "\nNotes: " + customMessage : ""}` },
+            {
+              title: `Shift Closed: ${employee?.name || "Staff"}`,
+              role: "Owner",
+              priority: "high",
+              payloadExtra: {
+                reportText,
+                customMessage,
+                employeeName: employee?.name || "Staff",
                 employeeId: employee?.id || "",
-                employeeName: employee?.name || "",
-                timestamp: new Date().toISOString(),
+                closedAt: new Date().toISOString()
               }
-            },
-            target: { role: "Owner" }
-          }).then(() => {
-            console.log("[Shift Close] FCM notification dispatched.");
-          }).catch(err => {
-            console.error("[Shift Close] FCM notification failed:", err);
-          });
+            }
+          );
         }}
       />
     </div>

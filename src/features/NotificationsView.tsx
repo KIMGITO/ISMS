@@ -471,6 +471,25 @@ function NotificationItem({ notif, onMarkRead, onDelete }: NotificationItemProps
               </button>
             )}
 
+            {/* Shift Closure Report Details */}
+            {parsedPayload.reportText && (
+              <div className="bg-slate-950/80 border border-slate-700/60 rounded-2xl p-3.5 space-y-2 font-mono text-[10.5px] text-slate-200 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">
+                <div className="text-[9.5px] font-black uppercase text-amber-400 tracking-wider font-sans mb-1 flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span>📋 Shift Summary Report</span>
+                  {parsedPayload.employeeName && <span className="text-slate-400">Staff: {parsedPayload.employeeName}</span>}
+                </div>
+                {parsedPayload.reportText}
+              </div>
+            )}
+
+            {/* Custom Notes Details (if separate) */}
+            {parsedPayload.customMessage && !parsedPayload.reportText && (
+              <div className="bg-app-bg border border-app-border rounded-xl p-3 text-[11px] text-app-text font-medium leading-relaxed">
+                <span className="font-bold text-amber-500 block text-[9.5px] uppercase tracking-wider mb-1">Note / Message:</span>
+                {parsedPayload.customMessage}
+              </div>
+            )}
+
             {/* Confidence details if AI */}
             {parsedPayload.confidenceScore && (
               <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3 space-y-1.5">

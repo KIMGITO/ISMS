@@ -9,6 +9,7 @@ import { getApiUrl, safeFetch } from "../utils/apiUtils";
 import { EmailService } from "../services/emailService";
 import { nativePlatformService } from "../core/native/NativePlatformService";
 import { notificationService } from "../core/native/NotificationService";
+import { NotificationService } from "../services/notifications/notificationService";
 import { realtimeService } from "../services/realtimeService";
 import { ProductRepository, TransactionRepository, CustomerRepository, ExpenseRepository, ExpenseCategoryRepository, InventoryAdjustmentRepository } from "../services/repositories";
 import { useCartStore } from "./cartStore";
@@ -1185,6 +1186,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
 
       useNotificationStore.getState().showToast("Punched In", `Shift started at ${new Date().toLocaleTimeString()}`, undefined, "success");
+
+      NotificationService.createNotification(
+        "Custom Notification",
+        { message: `${emp.name} clocked in at ${new Date().toLocaleTimeString()}` },
+        { title: `Shift Started: ${emp.name}`, role: "Owner", priority: "medium" }
+      );
     },
 
     punchOut: () => {
@@ -1296,37 +1303,42 @@ export const useAuthStore = create<AuthState>((set, get) => {
     sendPasswordResetOtp: async (email: string) => {
       try {
         const supabase = getSupabase();
-        
-        // 1. Check if the user exists in public.users to get their name
-        const { data: userProfile, error: profileErr } = await supabase
-          .from("users")
-          .select("name")
-          .eq("email", email.trim())
-          .maybeSingle();
+        const cleanEmail = email.trim().toLowerCase();
 
-        if (profileErr) throw profileErr;
-        
-        if (!userProfile) {
+        // 1. Call RPC function (SECURITY DEFINER) to check user existence & generate OTP safely
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("request_password_reset_otp", {
+          p_email: cleanEmail
+        });
+
+        if (rpcErr) {
+          console.warn("request_password_reset_otp RPC failed, using fallback:", rpcErr);
+          const { data: userProfile } = await supabase
+            .from("users")
+            .select("name")
+            .ilike("email", cleanEmail)
+            .maybeSingle();
+
+          const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+          await supabase.rpc("save_otp", {
+            p_email: cleanEmail,
+            p_code: otpCode,
+            p_type: "password_reset"
+          });
+          await EmailService.sendPasswordResetCode(cleanEmail, otpCode, userProfile?.name || "User");
+          return { success: true };
+        }
+
+        const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+        if (!result || !result.user_exists) {
           return { success: false, error: "No account registered with this email address." };
         }
 
-        // 2. Generate random 6-digit OTP code
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // 3. Save OTP in DB via RPC
-        const { error: rpcErr } = await supabase.rpc("save_otp", {
-          p_email: email.trim(),
-          p_code: otpCode,
-          p_type: "recovery"
-        });
-        if (rpcErr) throw rpcErr;
-
-        // 4. Send email via Edge Function
-        await EmailService.sendPasswordResetCode(email.trim(), otpCode, userProfile.name || "User");
+        // 2. Dispatch password reset code via EmailService
+        await EmailService.sendPasswordResetCode(cleanEmail, result.otp_code, result.user_name || "User");
 
         useNotificationStore.getState().showToast(
           "Recovery Code Sent",
-          `A 6-digit password recovery code has been sent to ${email}.`,
+          `A 6-digit password recovery code has been sent to ${cleanEmail}.`,
           undefined,
           "success"
         );
@@ -1341,18 +1353,29 @@ export const useAuthStore = create<AuthState>((set, get) => {
     verifyPasswordResetOtp: async (email: string, code: string) => {
       try {
         const supabase = getSupabase();
-        
-        // Native verifyOtp for recovery
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanCode = code.trim();
+
+        // 1. First try verify_password_reset_otp RPC
+        const { data: isVerified, error: rpcErr } = await supabase.rpc("verify_password_reset_otp", {
+          p_email: cleanEmail,
+          p_code: cleanCode
+        });
+
+        if (!rpcErr && isVerified) {
+          return { success: true };
+        }
+
+        // 2. Native verifyOtp fallback for recovery
         const { data, error } = await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: code.trim(),
+          email: cleanEmail,
+          token: cleanCode,
           type: "recovery"
         });
 
-        if (error) throw error;
+        if (error && !isVerified) throw error;
 
-        // Hydrate session so that the user is logged in
-        if (data.user) {
+        if (data?.user) {
           await get().hydrateAuthSessionData(data.user);
         }
 
@@ -1363,14 +1386,37 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    updatePassword: async (password: string) => {
+    updatePassword: async (password: string, email?: string) => {
       try {
         const supabase = getSupabase();
-        const { error } = await supabase.auth.updateUser({
-          password: password
+        
+        // 1. Try native Supabase auth updateUser if session exists
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase.auth.updateUser({ password });
+          if (!error) {
+            useNotificationStore.getState().showToast(
+              "Password Updated",
+              "Your password has been changed successfully.",
+              undefined,
+              "success"
+            );
+            return { success: true };
+          }
+        }
+
+        // 2. If no active session (or logged-out recovery flow), call SECURITY DEFINER RPC
+        const targetEmail = (email || "").trim().toLowerCase();
+        if (!targetEmail) {
+          throw new Error("Auth session missing. Please specify your email to reset password.");
+        }
+
+        const { error: rpcErr } = await supabase.rpc("update_user_password_by_email", {
+          p_email: targetEmail,
+          p_new_password: password
         });
 
-        if (error) throw error;
+        if (rpcErr) throw rpcErr;
 
         useNotificationStore.getState().showToast(
           "Password Updated",
