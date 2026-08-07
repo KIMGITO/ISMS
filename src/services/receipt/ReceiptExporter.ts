@@ -11,7 +11,7 @@ export class ReceiptExporterService {
       const text = ReceiptRendererService.generateThermalRawText(content, settings);
       const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       link.href = url;
       link.download = `receipt_${content.receiptNumber}.txt`;
@@ -19,7 +19,7 @@ export class ReceiptExporterService {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       return true;
     } catch (err) {
       console.error("Failed to export text receipt:", err);
@@ -28,7 +28,9 @@ export class ReceiptExporterService {
   }
 
   /**
-   * Generates and triggers the browser download of a clean interactive HTML receipt.
+   * Generates and triggers the browser download of a modern, authentic-feeling
+   * interactive HTML receipt (thermal-paper styling: monospace, dashed rules,
+   * torn/zigzag bottom edge).
    */
   public static exportToHtmlFile(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): boolean {
     try {
@@ -39,14 +41,43 @@ export class ReceiptExporterService {
             <meta charset="utf-8">
             <title>Receipt ${content.receiptNumber}</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @media print {
+                body { background: white !important; }
+                .receipt-shell { box-shadow: none !important; }
+                .no-print { display: none !important; }
+              }
+              .receipt-shell {
+                font-family: 'Courier New', ui-monospace, monospace;
+                background: #fffdf8;
+                position: relative;
+              }
+              .receipt-shell::after {
+                content: "";
+                position: absolute;
+                left: 0; right: 0; bottom: -10px;
+                height: 20px;
+                background:
+                  linear-gradient(-45deg, #fffdf8 8px, transparent 0),
+                  linear-gradient(45deg, #fffdf8 8px, transparent 0);
+                background-size: 16px 20px;
+                background-repeat: repeat-x;
+                filter: drop-shadow(0 2px 1px rgba(0,0,0,0.08));
+              }
+              .dashed-rule {
+                border-top: 1.5px dashed #cbd5e1;
+              }
+            </style>
           </head>
-          <body class="bg-slate-100 p-6 flex justify-center items-center min-h-screen">
-            <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-200">
+          <body class="bg-slate-200 p-6 flex justify-center items-start min-h-screen">
+            <div class="receipt-shell p-6 pb-8 rounded-sm shadow-lg w-full max-w-[340px] border border-slate-200 text-slate-800 text-[13px] leading-snug">
               ${htmlSnippet}
-              <button onclick="window.print()" class="mt-6 w-full py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-850 transition">
-                Print Local Ticket
+              <button onclick="window.print()" class="no-print mt-6 w-full py-2 bg-slate-900 text-white font-bold text-xs tracking-wide rounded-md hover:bg-slate-800 transition">
+                PRINT RECEIPT
               </button>
-              <p class="text-[8.5px] text-slate-400 mt-4 text-center">Digitally signed offline receipt verification token: ${content.receiptNumber}</p>
+              <p class="no-print text-[8.5px] text-slate-400 mt-4 text-center tracking-widest">
+                *** ${content.receiptNumber} ***
+              </p>
             </div>
           </body>
         </html>
@@ -54,7 +85,7 @@ export class ReceiptExporterService {
 
       const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       link.href = url;
       link.download = `digital_receipt_${content.receiptNumber}.html`;
@@ -62,7 +93,7 @@ export class ReceiptExporterService {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       return true;
     } catch (err) {
       console.error("Failed to export HTML receipt:", err);
@@ -71,162 +102,259 @@ export class ReceiptExporterService {
   }
 
   /**
-   * Exports a real high-quality PDF (.pdf) file directly using jsPDF.
+   * Pre-measures the exact rendered height of the receipt using the SAME
+   * font/size/splitTextToSize calls the real render pass uses. This is what
+   * guarantees every item actually fits on the page — jsPDF does not
+   * auto-paginate, so an inaccurate estimate silently clips content.
    */
-  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet?: string): boolean {
+  private static measurePdfHeight(
+    content: ReceiptContent,
+    settings: BusinessReceiptSettings,
+    pageWidth: number,
+    margin: number
+  ): number {
+    const printableWidth = pageWidth - margin * 2;
+    // A throwaway doc used only for font-metric measurement (page size here
+    // doesn't matter, only the font metrics do).
+    const m = new jsPDF({ unit: "mm", format: [pageWidth, 1000] });
+
+    let h = 8; // top margin, matches render start
+
+    m.setFont("courier", "bold");
+    m.setFontSize(11);
+    const titleLines = m.splitTextToSize(settings.businessName.toUpperCase(), printableWidth);
+    h += titleLines.length * 5;
+
+    m.setFont("courier", "normal");
+    m.setFontSize(8);
+    if (settings.headerMessage) {
+      h += m.splitTextToSize(settings.headerMessage, printableWidth).length * 3.5;
+    }
+    if (settings.address) {
+      h += m.splitTextToSize(settings.address, printableWidth).length * 3.5;
+    }
+    if (settings.phone) h += 4;
+    if (settings.pinNumber) h += 4;
+    h += 3; // divider
+
+    // transaction info: receipt, date, cashier, payment
+    h += 4 * 4;
+    if (content.customerName) h += 4;
+    h += 3; // divider
+
+    h += 5; // "ITEMS" section header
+
+    m.setFontSize(8);
+    content.items.forEach((item) => {
+      h += 3; // divider above each item
+      const nameLines = m.splitTextToSize(item.name || "Unknown Item", printableWidth);
+      h += nameLines.length * 4;
+      h += 5; // qty x price / total line
+    });
+
+    h += 3; // divider before totals
+    h += 4; // subtotal
+    if (content.overallDiscount > 0) h += 4;
+    if (settings.isTaxEnabled && content.taxTotal > 0) h += 4;
+    if (content.deliveryFee > 0) h += 4;
+    h += 3; // divider
+    h += 7; // grand total line
+    h += 3; // divider
+
+    m.setFontSize(8);
+    const thanks = settings.thankYouMessage || "Thank you for your business";
+    h += m.splitTextToSize(thanks, printableWidth).length * 4;
+    h += 6; // verification line
+    h += 16; // bottom margin + zigzag tear edge clearance
+
+    return h;
+  }
+
+  /**
+   * Exports an authentic 80mm thermal-style POS receipt PDF with Courier
+   * monospaced font, dashed rules, a torn/zigzag tear edge, and an explicit
+   * product item breakdown. Page height is computed from a real measurement
+   * pass so every item is guaranteed to render (nothing gets clipped).
+   */
+  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
     try {
-      // Create a real PDF document (A5 Format: 148mm width x 210mm height)
+      const pageWidth = 80;
+      const margin = 4;
+      const printableWidth = pageWidth - margin * 2;
+
+      const currency = "KSh";
+      
+
+      const formatAmount = (value: number = 0) =>
+        `${currency} ${value.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+
+      // Accurate height, not a character-count guess.
+      const estimatedHeight = this.measurePdfHeight(content, settings, pageWidth, margin);
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
-        format: "a5"
+        format: [pageWidth, Math.max(estimatedHeight, 180)],
       });
 
-      // Background card
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, 148, 210, "F");
+      let y = 8;
 
-      // Brand Header
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text(settings.businessName.toUpperCase(), 74, 15, { align: "center" });
+      const divider = (dashed = true) => {
+        doc.setDrawColor(170);
+        if (dashed) {
+          // @ts-ignore - setLineDashPattern exists on jsPDF instances
+          doc.setLineDashPattern([0.6, 0.6], 0);
+        }
+        doc.line(margin, y, pageWidth - margin, y);
+        // @ts-ignore
+        doc.setLineDashPattern([], 0);
+        y += 3;
+      };
 
-      doc.setFont("helvetica", "italic");
+      const addLine = (label: string, value: string, bold = false) => {
+        doc.setFont("courier", bold ? "bold" : "normal");
+        doc.text(label, margin, y);
+        doc.text(value, pageWidth - margin, y, { align: "right" });
+        y += 4;
+      };
+
+      // ==========================
+      // HEADER
+      // ==========================
+      doc.setFont("courier", "bold");
+      doc.setFontSize(11);
+
+      const titleLines = doc.splitTextToSize(settings.businessName.toUpperCase(), printableWidth);
+      doc.text(titleLines, pageWidth / 2, y, { align: "center" });
+      y += titleLines.length * 5;
+
+      doc.setFont("courier", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139); // slate-500
+
       if (settings.headerMessage) {
-        doc.text(settings.headerMessage, 74, 20, { align: "center" });
+        const lines = doc.splitTextToSize(settings.headerMessage, printableWidth);
+        doc.text(lines, pageWidth / 2, y, { align: "center" });
+        y += lines.length * 3.5;
       }
 
-      // Address & Phone
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      let y = 25;
       if (settings.address) {
-        doc.text(settings.address, 74, y, { align: "center" });
-        y += 4;
+        const lines = doc.splitTextToSize(settings.address, printableWidth);
+        doc.text(lines, pageWidth / 2, y, { align: "center" });
+        y += lines.length * 3.5;
       }
+
       if (settings.phone) {
-        doc.text(`Tel: ${settings.phone}`, 74, y, { align: "center" });
+        doc.text(`Tel: ${settings.phone}`, pageWidth / 2, y, { align: "center" });
         y += 4;
       }
+
       if (settings.pinNumber) {
-        doc.text(`KRA PIN: ${settings.pinNumber}`, 74, y, { align: "center" });
+        doc.text(`PIN: ${settings.pinNumber}`, pageWidth / 2, y, { align: "center" });
         y += 4;
       }
 
-      // Divider line
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.line(10, y + 2, 138, y + 2);
-      y += 8;
+      divider();
 
-      // Voucher details
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("RECEIPT VOUCHER", 10, y);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`No: ${content.receiptNumber}`, 138, y, { align: "right" });
-      y += 5;
+      // ==========================
+      // TRANSACTION INFO
+      // ==========================
+      addLine("Receipt", content.receiptNumber, true);
+      addLine("Date", `${content.transactionDate} ${content.transactionTime}`);
+      addLine("Cashier", content.cashierName || "-");
+      addLine("Payment", content.paymentMethod || "-");
 
-      doc.text(`Date: ${content.transactionDate} ${content.transactionTime}`, 10, y);
-      doc.text(`Cashier: ${content.cashierName}`, 138, y, { align: "right" });
-      y += 5;
-
-      doc.text(`Payment Method: ${content.paymentMethod}`, 10, y);
       if (content.customerName) {
-        doc.text(`Customer: ${content.customerName}`, 138, y, { align: "right" });
+        addLine("Customer", content.customerName);
       }
-      y += 6;
 
-      // Divider
-      doc.line(10, y, 138, y);
+      divider();
+
+      // ==========================
+      // ITEMS — every item in content.items is rendered; height was
+      // pre-measured above so nothing runs off the page.
+      // ==========================
+      doc.setFont("courier", "bold");
+      doc.setFontSize(9);
+      doc.text("ITEMS", margin, y);
       y += 5;
 
-      // Table Header
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(71, 85, 105); // slate-600
-      doc.text("ITEM NAME", 10, y);
-      doc.text("QTY", 80, y, { align: "center" });
-      doc.text("UNIT PRICE", 105, y, { align: "right" });
-      doc.text("TOTAL", 138, y, { align: "right" });
-      y += 4;
-      doc.line(10, y, 138, y);
-      y += 5;
-
-      // Table Rows
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(15, 23, 42);
       content.items.forEach((item) => {
-        doc.text(item.name, 10, y);
-        doc.text(item.quantity.toString(), 80, y, { align: "center" });
-        doc.text(`KSh ${item.unitPrice.toFixed(0)}`, 105, y, { align: "right" });
-        doc.text(`KSh ${item.total.toFixed(0)}`, 138, y, { align: "right" });
+        divider();
+
+        doc.setFont("courier", "bold");
+        doc.setFontSize(8);
+        const nameLines = doc.splitTextToSize(item.name || "Unknown Item", printableWidth);
+        doc.text(nameLines, margin, y);
+        y += nameLines.length * 4;
+
+        doc.setFont("courier", "normal");
+        doc.setFontSize(7.5);
+        doc.text(`${item.quantity} x ${formatAmount(item.unitPrice)}`, margin, y);
+        doc.setFont("courier", "bold");
+        doc.text(formatAmount(item.total), pageWidth - margin, y, { align: "right" });
         y += 5;
       });
 
-      y += 2;
-      doc.line(10, y, 138, y);
+      divider();
+
+      // ==========================
+      // TOTALS
+      // ==========================
+      addLine("Subtotal", formatAmount(content.subtotal));
+
+      if (content.overallDiscount > 0) {
+        addLine("Discount", "-" + formatAmount(content.overallDiscount));
+      }
+
+      if (settings.isTaxEnabled && content.taxTotal > 0) {
+        addLine(`VAT ${settings.taxPercentage}%`, formatAmount(content.taxTotal));
+      }
+
+      if (content.deliveryFee > 0) {
+        addLine("Delivery", formatAmount(content.deliveryFee));
+      }
+
+      divider(false);
+
+      doc.setFont("courier", "bold");
+      doc.setFontSize(10);
+      doc.text("TOTAL", margin, y);
+      doc.text(formatAmount(content.grandTotal), pageWidth - margin, y, { align: "right" });
+      y += 7;
+
+      divider();
+
+      // ==========================
+      // FOOTER
+      // ==========================
+      doc.setFont("courier", "normal");
+      doc.setFontSize(8);
+
+      const thanks = settings.thankYouMessage || "Thank you for your business";
+      const thanksLines = doc.splitTextToSize(thanks, printableWidth);
+      doc.text(thanksLines, pageWidth / 2, y, { align: "center" });
+      y += thanksLines.length * 4;
+
+      doc.setFontSize(7);
+      doc.text(`Verification: ${content.receiptNumber}`, pageWidth / 2, y, { align: "center" });
       y += 6;
 
-      // Summary
-      doc.setFont("helvetica", "normal");
-      doc.text("Subtotal:", 95, y);
-      doc.text(`KSh ${content.subtotal.toFixed(2)}`, 138, y, { align: "right" });
-      y += 5;
-
-      if (content.overallDiscount && content.overallDiscount > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(220, 38, 38); // red-600
-        doc.text("Discount:", 95, y);
-        doc.text(`-KSh ${content.overallDiscount.toFixed(2)}`, 138, y, { align: "right" });
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(15, 23, 42);
-        y += 5;
+      // Torn/zigzag tear edge for an authentic thermal-paper feel.
+      const zig = 3;
+      doc.setDrawColor(190);
+      for (let x = 0; x < pageWidth; x += zig) {
+        doc.line(x, y, x + zig / 2, y + 1.6);
+        doc.line(x + zig / 2, y + 1.6, x + zig, y);
       }
 
-      if (settings.isTaxEnabled && content.taxTotal) {
-        doc.text(`VAT (${settings.taxPercentage}%):`, 95, y);
-        doc.text(`KSh ${content.taxTotal.toFixed(2)}`, 138, y, { align: "right" });
-        y += 5;
-      }
-
-      if (content.deliveryFee) {
-        doc.text("Delivery Fee:", 95, y);
-        doc.text(`+KSh ${content.deliveryFee.toFixed(2)}`, 138, y, { align: "right" });
-        y += 5;
-      }
-
-      doc.line(95, y, 138, y);
-      y += 5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("Total Paid:", 95, y);
-      doc.text(`KSh ${content.grandTotal.toFixed(2)}`, 138, y, { align: "right" });
-      y += 10;
-
-      // Footer
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text(settings.thankYouMessage || "Thank You!", 74, y, { align: "center" });
-      y += 4;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.text("Generated Offline by Secure ReceiptEngine v1.0", 74, y, { align: "center" });
-      y += 4;
-      doc.text(`Token: ${content.receiptNumber}`, 74, y, { align: "center" });
-
-      // Save as actual .pdf binary file
       doc.save(`receipt_${content.receiptNumber}.pdf`);
+
       return true;
     } catch (err) {
-      console.error("PDF generation failed:", err);
+      console.error("PDF Export Error:", err);
       return false;
     }
   }

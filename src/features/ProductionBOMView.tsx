@@ -44,6 +44,9 @@ import {
   Play,
   RotateCcw,
   ShieldAlert,
+  ArrowLeft,
+  FilePlus2,
+  Boxes,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
@@ -425,47 +428,59 @@ export default function ProductionBOMView() {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-app-bg">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-app-border bg-app-card flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-            <FlaskConical size={16} className="text-amber-500" />
-          </div>
-          <div>
-            <h2 className="text-sm font-black text-app-text">Production & BOM</h2>
-            <p className="text-[10px] text-app-text-muted">Recipe Formulations, Real-Time Deduction & Batch Output</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {viewMode === 'list' && (
-            <>
-              {canCreateBatch && (
-                <button
-                  onClick={() => { resetBatchForm(); setViewMode('create-batch'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-black hover:bg-emerald-500/20 transition cursor-pointer"
-                >
-                  <Plus size={12} /> New Batch
-                </button>
-              )}
-              {canCreate && (
-                <button
-                  onClick={() => { resetBomForm(); setViewMode('create-bom'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[10px] font-black hover:bg-amber-500/20 transition cursor-pointer"
-                >
-                  <Plus size={12} /> New BOM
-                </button>
-              )}
-            </>
-          )}
-          {viewMode !== 'list' && (
-            <button
-              onClick={() => setViewMode('list')}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-[10px] font-black hover:bg-slate-700 transition cursor-pointer"
-            >
-              <X size={12} /> Back
-            </button>
-          )}
-        </div>
-      </div>
+      <div className="px-4 py-3 border-b border-app-border bg-app-card flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
+  {/* Left: Section Info & Title */}
+  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+      <FlaskConical size={16} className="text-amber-500" />
+    </div>
+    <div className="min-w-0">
+      <h2 className="text-xs sm:text-sm font-bold text-app-text truncate">Production & BOM</h2>
+      <p className="text-[10px] text-app-text-muted truncate hidden xs:block">
+        Recipe Formulations & Batch Management
+      </p>
+    </div>
+  </div>
+
+  {/* Right: Actions */}
+  <div className="flex items-center gap-1.5 xs:gap-2 shrink-0">
+    {viewMode === 'list' && (
+      <>
+        {canCreateBatch && (
+          <button
+            onClick={() => { resetBatchForm(); setViewMode('create-batch'); }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer whitespace-nowrap"
+          >
+            <Boxes size={14} className="shrink-0" />
+            <span>
+              <span className="hidden xs:inline">New </span>Batch
+            </span>
+          </button>
+        )}
+        {canCreate && (
+          <button
+            onClick={() => { resetBomForm(); setViewMode('create-bom'); }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer whitespace-nowrap"
+          >
+            <FilePlus2 size={14} className="shrink-0" />
+            <span>
+              <span className="hidden xs:inline">New </span>BOM
+            </span>
+          </button>
+        )}
+      </>
+    )}
+    {viewMode !== 'list' && (
+      <button
+        onClick={() => setViewMode('list')}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer whitespace-nowrap"
+      >
+        <ArrowLeft size={14} className="shrink-0" />
+        <span>Back</span>
+      </button>
+    )}
+  </div>
+</div>
 
       {/* Search Bar (list mode only) */}
       {viewMode === 'list' && (
@@ -789,7 +804,7 @@ export default function ProductionBOMView() {
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
                 <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-[10.5px] text-amber-400 font-medium leading-relaxed">
-                  <strong className="font-bold text-amber-300">Immediate Stock Deduction:</strong> Required raw materials will be instantly deducted from inventory upon batch creation, even before production is completed.
+                  <strong className="font-bold text-amber-300">Immediate Stock Deduction:</strong> Required raw materials will be instantly deducted from inventory upon batch creation.
                 </p>
               </div>
 
@@ -932,7 +947,7 @@ export default function ProductionBOMView() {
               <button
                 onClick={handleCreateBatch}
                 disabled={isSubmitting || hasInsufficientIngredients}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {isSubmitting

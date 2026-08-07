@@ -11,14 +11,14 @@ import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { formatName } from "../utils/stringUtils";
 
 const PRESET_AVATARS = [
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150", // Amber / Owner
-  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150", // David
-  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150", // Jane
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150", // John
-  "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150", // Alice
-  "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=150", // Michael
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150", // Sarah
-  "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&q=80&w=150"  // Robert
+  "https://plus.unsplash.com/premium_vector-1721077382049-f4deff3c4cf7?w=352&dpr=1&h=367&auto=format&fit=crop&q=60&ixlib=rb-4.1.0", // Avatar 1
+  "https://images.unsplash.com/photo-1515041219749-89347f83291a?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 2
+  "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 3
+  "https://plus.unsplash.com/premium_photo-1681426472026-60d4bf7b69a1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 4
+  "https://images.unsplash.com/photo-1637858868799-7f26a0640eb6?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 5
+  "https://images.unsplash.com/photo-1620428268482-cf1851a36764?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 6
+  "https://images.unsplash.com/photo-1628260412297-a3377e45006f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGNhcnRvb258ZW58MHx8MHx8fDA%3D", // Avatar 7
+  "https://plus.unsplash.com/premium_photo-1681426478241-11b262dd1d21?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTd8fGNhcnRvb258ZW58MHx8MHx8fDA%3D"  // Avatar 8
 ];
 
 interface ProfileViewProps {
@@ -118,7 +118,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
       {/* Title */}
       <div>
         <h2 className="text-base font-extrabold font-display text-app-text flex items-center gap-1.5">
-          My Operator Profile
+          My Profile
         </h2>
         <p className="text-[11px] text-app-text-muted mt-0.5">
           Manage your personal details, secure login PIN, and audit your digital security privileges.
@@ -178,7 +178,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
               onClick={() => setShowPresetAvatars(!showPresetAvatars)}
               className="w-full flex items-center justify-between text-app-text hover:text-amber-500 transition cursor-pointer"
             >
-              <label className="text-[9.5px] text-app-text-muted font-bold uppercase tracking-wider block cursor-pointer">Choose Preset Avatar</label>
+              <label className="text-[9.5px] text-app-text-muted font-bold uppercase tracking-wider block cursor-pointer">Choose Available Avatar</label>
               <span className="text-[10px] text-amber-500 font-bold hover:underline">
                 {showPresetAvatars ? "Hide Avatars" : "Show Avatars"}
               </span>
@@ -203,7 +203,6 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
 
           {/* Custom Avatar Upload Input */}
           <div className="w-full text-left space-y-2">
-            <label className="text-[9.5px] text-app-text-muted font-bold uppercase tracking-wider block">Upload Custom Photo</label>
             <UnifiedUploader
               onUploadSuccess={(url) => setAvatar(url)}
               allowedTypes={["image"]}

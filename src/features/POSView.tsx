@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, sentenceCase, searchMatch } from '../utils/stringUtils';
 import { formatReceiptNumber } from '../utils/idUtils';
+import { QuantityInput } from '../components/shared/QuantityInput';
 
 export default function POSView() {
   const {
@@ -341,9 +342,7 @@ export default function POSView() {
                   <h2 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
                     POS Shopping Cart
                   </h2>
-                  <span className="text-[10px] text-app-text-muted font-medium">
-                    16% VAT Configured
-                  </span>
+                 
                 </div>
                 <button
                   onClick={clearCart}
@@ -382,36 +381,7 @@ export default function POSView() {
                         {/* Adjust qty & Discount */}
                         <div className="flex items-center gap-3">
                           {/* Qty Counter using theme styles */}
-                          <div className="flex items-center bg-app-card rounded-lg p-1 border border-app-border">
-                            <button
-                              onClick={() => {
-                                if (item.quantity === 1)
-                                  removeFromCart(item.product.id);
-                                else
-                                  updateCartQty(
-                                    item.product.id,
-                                    item.quantity - 1,
-                                  );
-                              }}
-                              className="w-6 h-6 flex items-center justify-center font-bold text-app-text hover:bg-app-bg rounded transition cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <span className="w-8 text-center text-xs font-bold text-app-text">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() =>
-                                updateCartQty(
-                                  item.product.id,
-                                  item.quantity + 1,
-                                )
-                              }
-                              className="w-6 h-6 flex items-center justify-center font-bold text-app-text hover:bg-app-bg rounded transition cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
+                          <QuantityInput item={item} updateCartQty={updateCartQty} removeFromCart={removeFromCart} />
 
                           {/* Item Discount Toggle */}
                           <div className="flex items-center gap-1.5">

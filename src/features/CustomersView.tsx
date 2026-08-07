@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
 import { hasRolePermission } from "../utils/permissions";
-import { formatCurrency } from "../utils/helpers";
+import { formatCurrency, formatDate } from "../utils/helpers";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { titleCase, searchMatch, getFirstName } from "../utils/stringUtils";
 import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
@@ -478,8 +478,8 @@ export default function CustomersView() {
                       <span>{selectedCustomer.tier} MEMBER</span>
                     </span>
                   </div>
-                  <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider mt-0.5">
-                    Account Reference: {formatCustomerNumber(selectedCustomer.id)} · Enrolled on {selectedCustomer.joinDate || "July 2026"}
+                  <p className="text-[10px] text-app-text-muted font-bold capitalize tracking-wider mt-0.5">
+                    Account: {formatCustomerNumber(selectedCustomer.id)} · Enrolled on: { formatDate(selectedCustomer.joinDate) || "July 2026" }
                   </p>
                 </div>
 
@@ -578,7 +578,7 @@ export default function CustomersView() {
                           <label className="text-[9px] font-black text-app-text-muted uppercase">Phone Number</label>
                           <div className="grid  grid-cols-4 gap-1.5">
                             <SearchableDropdown
-                              items={SUPPORTED_COUNTRIES.map((country) => ({ id: country.code, label: `${country.flag} ${country.code}` }))}
+                              items={SUPPORTED_COUNTRIES.map((country) => ({ id: country.code, label: `${country.code}` }))}
                               selectedValue={editCountryCode}
                               onChange={(val) => setEditCountryCode(val)}
                               placeholder="Code"

@@ -29,7 +29,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, AdjustmentType, ProductCategory } from '../types';
 import { useForm } from '../hooks/useForm';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { formatCurrency, formatDate, generateSku } from '../utils/helpers';
 import { hasRolePermission } from '../utils/permissions';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, searchMatch } from '../utils/stringUtils';
@@ -395,6 +395,15 @@ export default function InventoryView() {
     );
   };
 
+  const handleCategoryChange = (newCategory: ProductCategory) => {
+    // 1. Update the category field in state
+    handleCustomChange('category', newCategory);
+
+    // 2. Automatically regenerate SKU with the new category prefix
+    const updatedSku = generateSku(newCategory, values.sku);
+    handleCustomChange('sku', updatedSku);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans">
       {/* SEARCH & ACTIONS RESPONSIVE WRAPPING HEADER */}
@@ -429,10 +438,8 @@ export default function InventoryView() {
                 setProductImage(
                   'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
                 );
-                handleCustomChange(
-                  'sku',
-                  `KK-MILK-${Math.floor(100 + Math.random() * 900)}`,
-                );
+                // Dynamically generates SKU based on default category ('Milk' -> KK-MILK-XXX)
+                handleCustomChange('sku', generateSku('Milk'));
                 setIsAddingProduct(true);
               }}
               className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 transition flex items-center justify-center gap-1 shadow-sm shrink-0 cursor-pointer"
@@ -537,7 +544,10 @@ export default function InventoryView() {
                             perishable: !!p.perishable,
                             expiryDays: p.expiryDays || 7,
                           });
-                          setEditProductImage(p.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D');
+                          setEditProductImage(
+                            p.image ||
+                              'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
+                          );
                           setEditErrors({});
                           setIsEditingProduct(true);
                         }}
@@ -680,20 +690,30 @@ export default function InventoryView() {
                               {adj.productName}
                             </span>
                             {adj.type && (
-                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
-                                adj.type === 'Production Consumption' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                adj.type === 'Production Output' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                adj.type === 'Production Reversal' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                                adj.type === 'Production Waste' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
-                                adj.type === 'Restock' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                              }`}>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                                  adj.type === 'Production Consumption'
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                    : adj.type === 'Production Output'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                    : adj.type === 'Production Reversal'
+                                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                    : adj.type === 'Production Waste'
+                                    ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
+                                    : adj.type === 'Restock'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                    : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                }`}
+                              >
                                 {adj.type}
                               </span>
                             )}
                           </div>
                           <p className="text-[10px] text-app-text-muted mt-0.5 truncate font-medium">
-                            {adj.reason} · By {adj.staffName} {adj.referenceNumber ? `(Ref: ${adj.referenceNumber})` : ''}
+                            {adj.reason} · By {adj.staffName}{' '}
+                            {adj.referenceNumber
+                              ? `(Ref: ${adj.referenceNumber})`
+                              : ''}
                           </p>
                           <span className="text-[9px] font-mono text-app-text-muted block mt-0.5">
                             {new Date(adj.timestamp).toLocaleString()}
@@ -896,7 +916,7 @@ export default function InventoryView() {
                       <span>Adjusting...</span>
                     </>
                   ) : (
-                    "Log Stock Adjustment"
+                    'Log Stock Adjustment'
                   )}
                 </button>
               </div>
@@ -984,13 +1004,10 @@ export default function InventoryView() {
                       Category
                     </label>
                     <SearchableDropdown
-                      source={safeCategories}
                       items={safeCategories.map((c) => ({ id: c, label: c }))}
                       selectedValue={values.category}
                       onChange={(val) =>
-                        handleChange({
-                          target: { name: 'category', value: val },
-                        } as any)
+                        handleCategoryChange(val as ProductCategory)
                       }
                       placeholder="Select category..."
                     />
@@ -1134,7 +1151,7 @@ export default function InventoryView() {
                       className="w-12 h-12 rounded-lg object-cover border border-app-border"
                     />
                     <UnifiedUploader
-                      allowedTypes={["image"]}
+                      allowedTypes={['image']}
                       buttonText="Upload Image"
                       onUploadSuccess={(url) => setProductImage(url)}
                       bucketName="product-images"
@@ -1419,62 +1436,68 @@ export default function InventoryView() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-  <div className="flex items-center gap-3 mt-2">
-    {/* The Custom Switch Container */}
-    <div
-      onClick={() =>
-        setEditValues({ ...editValues, perishable: !editValues.perishable })
-      }
-      className={`
+                  <div className="flex items-center gap-3 mt-2">
+                    {/* The Custom Switch Container */}
+                    <div
+                      onClick={() =>
+                        setEditValues({
+                          ...editValues,
+                          perishable: !editValues.perishable,
+                        })
+                      }
+                      className={`
         relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
         transition-colors duration-200 ease-in-out focus:outline-none
         ${editValues.perishable ? 'bg-amber-500' : 'bg-app-border/40'}
       `}
-    >
-      <span
-        className={`
+                    >
+                      <span
+                        className={`
           pointer-events-none inline-block h-4 w-4 transform rounded-full bg-app-bg shadow ring-0 
           transition duration-200 ease-in-out
           ${editValues.perishable ? 'translate-x-4' : 'translate-x-0'}
         `}
-      />
-    </div>
+                      />
+                    </div>
 
-    {/* Interactive Label */}
-    <label
-      className="text-[10px] font-bold text-app-text-muted uppercase cursor-pointer select-none"
-      onClick={() =>
-        setEditValues({ ...editValues, perishable: !editValues.perishable })
-      }
-    >
-      Perishable Product
-    </label>
-  </div>
-  
-  {editValues.perishable && (
-    <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-bold text-app-text-muted uppercase">
-        Shelf Life (Days) *
-      </label>
-      <input
-        type="number"
-        name="edit-expiryDays"
-        value={
-          editValues.expiryDays === 0
-            ? ''
-            : editValues.expiryDays
-        }
-        onChange={(e) =>
-          setEditValues({
-            ...editValues,
-            expiryDays: Number(e.target.value),
-          })
-        }
-        className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"
-      />
-    </div>
-  )}
-</div>
+                    {/* Interactive Label */}
+                    <label
+                      className="text-[10px] font-bold text-app-text-muted uppercase cursor-pointer select-none"
+                      onClick={() =>
+                        setEditValues({
+                          ...editValues,
+                          perishable: !editValues.perishable,
+                        })
+                      }
+                    >
+                      Perishable Product
+                    </label>
+                  </div>
+
+                  {editValues.perishable && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                        Shelf Life (Days) *
+                      </label>
+                      <input
+                        type="number"
+                        name="edit-expiryDays"
+                        value={
+                          editValues.expiryDays === 0
+                            ? ''
+                            : editValues.expiryDays
+                        }
+                        onChange={(e) =>
+                          setEditValues({
+                            ...editValues,
+                            expiryDays: Number(e.target.value),
+                          })
+                        }
+                        className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-app-text-muted uppercase">
@@ -1504,7 +1527,7 @@ export default function InventoryView() {
                       className="w-12 h-12 rounded-lg object-cover border border-app-border"
                     />
                     <UnifiedUploader
-                      allowedTypes={["image"]}
+                      allowedTypes={['image']}
                       buttonText="Change Image"
                       onUploadSuccess={(url) => setEditProductImage(url)}
                       bucketName="product-images"

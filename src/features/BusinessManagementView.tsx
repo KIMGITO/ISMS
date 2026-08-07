@@ -328,7 +328,7 @@ export default function BusinessManagementView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
           <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
-            <Building size={16} className="text-amber-500" /> Administrative Business Management
+            <Building size={16} className="text-amber-500" /> Admin Business Management
           </h2>
           <p className="text-[9.5px] text-app-text-muted mt-0.5 font-medium leading-normal">
             Configure metadata, contact points, brand representations, and global workspace defaults for your business branches.
@@ -555,43 +555,47 @@ export default function BusinessManagementView() {
             <div className="space-y-5">
               {/* Tab Selector */}
               <div className="flex bg-app-card border border-app-border rounded-2xl p-1 shadow-xs gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab("details")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer ${
-                    activeSubTab === "details"
-                      ? "bg-amber-500 text-slate-950 shadow-sm"
-                      : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-                  }`}
-                >
-                  <Building size={14} />
-                  <span>Business Details</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab("expenses")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer ${
-                    activeSubTab === "expenses"
-                      ? "bg-amber-500 text-slate-950 shadow-sm"
-                      : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-                  }`}
-                >
-                  <Receipt size={14} />
-                  <span>Expenses</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab("payments")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer ${
-                    activeSubTab === "payments"
-                      ? "bg-amber-500 text-slate-950 shadow-sm"
-                      : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-                  }`}
-                >
-                  <CreditCard size={14} />
-                  <span>Payments</span>
-                </button>
-              </div>
+  <button
+    type="button"
+    onClick={() => setActiveSubTab("details")}
+    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+      activeSubTab === "details"
+        ? "bg-amber-500 text-slate-950 shadow-sm"
+        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
+    }`}
+  >
+    <Building size={16} className="shrink-0" />
+    <span>
+      <span className="hidden xs:inline sm:inline">Business </span>Details
+    </span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setActiveSubTab("expenses")}
+    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+      activeSubTab === "expenses"
+        ? "bg-amber-500 text-slate-950 shadow-sm"
+        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
+    }`}
+  >
+    <Receipt size={16} className="shrink-0" />
+    <span>Expenses</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setActiveSubTab("payments")}
+    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+      activeSubTab === "payments"
+        ? "bg-amber-500 text-slate-950 shadow-sm"
+        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
+    }`}
+  >
+    <CreditCard size={16} className="shrink-0" />
+    <span>Payments</span>
+  </button>
+</div>
 
               {activeSubTab === "details" && (
                 <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
@@ -805,7 +809,7 @@ export default function BusinessManagementView() {
 
                       {/* Cover Image Section */}
                       <div className="flex flex-col gap-3 border-t border-app-border/20 pt-4">
-                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">Cover Banner (16:9 Aspect Ratio)</span>
+                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">Cover Banner </span>
                         <UnifiedUploader
                           onUploadSuccess={(url) => setCoverImageUrl(url)}
                           allowedTypes={["image"]}
@@ -841,7 +845,7 @@ export default function BusinessManagementView() {
                       <div className="flex gap-2 items-start text-app-text-muted text-[10px] leading-relaxed font-semibold">
                         <Info size={14} className="text-amber-500 shrink-0 mt-0.5" />
                         <span>
-                          Saving configuration changes will sync live settings parameters to Supabase. All active cache sessions on other staff terminals will be auto-refreshed upon sync.
+                          Saving configuration changes will sync live settings parameters.
                         </span>
                       </div>
 

@@ -80,3 +80,23 @@ export function calculateCartTotals(items: CartItem[]) {
     finalTotal,
   };
 }
+
+
+/**
+ * Generates a unique SKU based on the category name and current SKU
+ * @param categoryName 
+ * @param currentSku 
+ * @returns 
+ */
+
+export const generateSku = (categoryName: string, currentSku: string = ''): string => {
+  const cleanCat = (categoryName || '').trim().toUpperCase();
+  // Use MILK if category is Milk, otherwise take first 4 characters
+  const prefix = cleanCat === 'MILK' ? 'MILK' : cleanCat.substring(0, 4).padEnd(4, 'X');
+
+  // Preserve the existing 3-digit random number if SKU already follows KK-[PREFIX]-[NUM] pattern
+  const existingNumMatch = currentSku.match(/^KK-[A-Z0-9]+-(\d{3})$/);
+  const num = existingNumMatch ? existingNumMatch[1] : Math.floor(100 + Math.random() * 900);
+
+  return `KK-${prefix}-${num}`;
+};

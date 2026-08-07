@@ -233,7 +233,13 @@ export class TransactionRepository {
 
     const { data, error } = await supabase
       .from("transactions")
-      .select("*")
+      .select(`
+        *,
+        transaction_items (
+          *,
+          products (*)
+        )
+      `)
       .eq("business_id", activeBusinessId)
       .is("deleted_at", null)
       .order("timestamp", { ascending: false });
@@ -259,7 +265,22 @@ export class TransactionRepository {
       riderName: t.rider_name || "",
       status: "Synced" as const,
       sync_status: "synced",
-      items: []
+      items: (t.transaction_items || []).map((ti: any) => ({
+        product: {
+          id: ti.products?.id,
+          name: ti.products?.name,
+          category: ti.products?.category,
+          price: Number(ti.products?.price || 0),
+          cost: Number(ti.products?.cost || 0),
+          image: ti.products?.image || "",
+          stock: Number(ti.products?.stock || 0),
+          minStock: Number(ti.products?.min_stock || 0),
+          unit: ti.products?.unit,
+          sku: ti.products?.sku || "",
+        },
+        quantity: Number(ti.quantity || 0),
+        discountPercentage: Number(ti.discount_percentage || 0),
+      })),
     }));
   }
 

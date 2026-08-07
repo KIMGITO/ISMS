@@ -65,7 +65,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     const item = currentCart.find((i) => i.product.id === productId);
     if (!item) return;
 
-    const safeQty = Math.max(1, Math.min(quantity, item.product.stock));
+    const safeQty = Math.max(0, Math.min(quantity, item.product.stock));
     set({
       cart: currentCart.map((i) =>
         i.product.id === productId ? { ...i, quantity: safeQty } : i
