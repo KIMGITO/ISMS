@@ -1224,7 +1224,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     updateEmployeePin: (employeeId, newPin) => {
-      // PIN setting is deprecated
     },
 
     addShiftSale: (finalTotal) => {

@@ -1356,13 +1356,13 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-black text-lg shadow-xl shadow-amber-500/10">
-                    <span>KK</span>
+                    <span>ISMS</span>
                   </div>
                   <h1 className="text-xl font-black font-display tracking-tight text-amber-500 uppercase tracking-widest">
-                    KayKay's Milk Systems
+                    Integrated Shop Management System
                   </h1>
                   <p className="text-[10.5px] text-slate-400 font-bold tracking-wider uppercase">
-                    Centralized Auth & Onboarding Hub
+                    Auth & Onboarding
                   </p>
                 </div>
 

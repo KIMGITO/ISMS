@@ -23,9 +23,7 @@ export function MilkShopTemplate({ content, settings }: TemplateProps) {
       {/* Decorative Milk Theme Top Banner */}
       {!is58 && (
         <div className={`text-center py-1 rounded-xl font-extrabold uppercase text-[8.5px] border mb-3 flex items-center justify-center gap-1 ${bannerColor}`}>
-          <span>🥛</span>
           <span>Fresh Local Farm Milk</span>
-          <span>🥛</span>
         </div>
       )}
 
@@ -42,7 +40,7 @@ export function MilkShopTemplate({ content, settings }: TemplateProps) {
         
         <div className="text-[8px] text-slate-500 mt-1.5 space-y-0.5">
           {settings.address && <p>{settings.address}</p>}
-          {settings.phone && <p>📱 Delivery Hotline: {settings.phone}</p>}
+          {settings.phone && <p> Delivery Hotline: {settings.phone}</p>}
           {settings.email && <p>✉️ {settings.email}</p>}
           {settings.pinNumber && <p className="font-semibold text-[8px]">KRA PIN: {settings.pinNumber}</p>}
         </div>

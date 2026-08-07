@@ -53,6 +53,9 @@ export class ReceiptGenerator {
       };
     });
 
+
+   
+
     // Calculations
     const subtotal = tx.total;
     const grandTotal = tx.finalTotal;
@@ -110,7 +113,7 @@ export class ReceiptGenerator {
       customerName: tx.customerName,
       customerPhone: undefined, // can fetch from dynamic state
       customerEmail: additionalParams?.customerEmail,
-      paymentMethod: tx.paymentMethod || "Cash",
+      paymentMethod: tx.paymentMethod || "Mpesa",
       items,
       subtotal,
       taxTotal,

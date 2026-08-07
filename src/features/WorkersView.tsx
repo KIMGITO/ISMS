@@ -245,13 +245,13 @@ export default function WorkersView() {
                 {/* Phone Number */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">Phone Number *</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-5 gap-2">
                     <SearchableDropdown
-                      items={SUPPORTED_COUNTRIES.map((c) => ({ id: c.code, label: `${c.flag} ${c.code}` }))}
+                      items={SUPPORTED_COUNTRIES.map((c) => ({ id: c.code, label: ` ${c.flag} ${c.code}` }))}
                       selectedValue={selectedCountryCode}
                       onChange={(val) => setSelectedCountryCode(val)}
                       placeholder="Code"
-                      className="w-28 shrink-0"
+                      className="w-28 shrink-0 col-span-2"
                     />
                     <div className="relative col-span-3 flex-1">
                       <input

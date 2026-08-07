@@ -174,7 +174,7 @@ export default function PermissionsView() {
       
       <div>
         <h2 className="text-base font-extrabold font-display text-app-text flex items-center gap-2">
-          Centralized Privilege Settings
+          Privilege Settings
         </h2>
         <p className="text-[11px] text-app-text-muted">
           Configure security credentials and roles dynamically. Grant or restrict specific functional modules. Settings take effect instantly across views and the workspace assistant.
@@ -339,7 +339,7 @@ export default function PermissionsView() {
       </div>
 
       {/* Static Premium Save Bar at Bottom */}
-      <div className="bg-app-card border border-app-border p-4 rounded-2xl flex items-center justify-between gap-4 shadow-lg">
+      <div className="bg-app-card border border-app-border p-4 rounded-2xl flex-col sm:flex-row flex  items-center sm:items-end sm:justify-end justify-between gap-4 shadow-lg">
         <div className="flex items-center gap-2">
           <Info size={14} className="text-amber-500 shrink-0" />
           <span className="text-[10px] text-app-text-muted leading-tight font-medium">
