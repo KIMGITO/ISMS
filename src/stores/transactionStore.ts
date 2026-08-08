@@ -13,7 +13,7 @@ interface TransactionState {
   isSyncing: boolean;
   lastSyncedAt: string | null;
   toggleNetwork: () => void;
-  addTransaction: (tx: Transaction) => Promise<void>;
+  addTransaction: (tx: Transaction) => Promise<Transaction>;
   syncWithServer: () => Promise<void>;
   loadTransactionsFromServer: () => Promise<void>;
 }
@@ -62,7 +62,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => {
 
     addTransaction: async (tx) => {
       // Direct call to TransactionRepository (which writes securely to live Supabase)
-      await TransactionRepository.add(tx);
+      return TransactionRepository.add(tx);
     },
 
     toggleNetwork: () => {

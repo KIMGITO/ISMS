@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS public.receipt_settings (
                                CHECK (tax_percentage >= 0 AND tax_percentage <= 100),
     qr_code_option         TEXT NOT NULL DEFAULT 'verification_url',
     custom_qr_url          TEXT,
-    template_type          TEXT NOT NULL DEFAULT 'milk_shop',
+    template_type          TEXT NOT NULL DEFAULT 'isms_app',
     show_ai_recommendation BOOLEAN NOT NULL DEFAULT FALSE,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
