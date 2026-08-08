@@ -161,6 +161,12 @@ export class ReceiptExporterService {
     h += 7; // grand total line
     h += 3; // divider
 
+    // Outstanding balance (credit sales only)
+    if (content.outstandingBalance !== undefined && content.outstandingBalance > 0) {
+      h += 4; // outstanding balance line
+      h += 3; // divider
+    }
+
     m.setFontSize(8);
     const thanks = settings.thankYouMessage || "Thank you for your business";
     h += m.splitTextToSize(thanks, printableWidth).length * 4;
@@ -326,6 +332,21 @@ export class ReceiptExporterService {
       y += 7;
 
       divider();
+
+      // ==========================
+      // OUTSTANDING BALANCE (credit sales only)
+      // ==========================
+      if (content.outstandingBalance !== undefined && content.outstandingBalance > 0) {
+        doc.setFont("courier", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(220, 38, 38); // red
+        doc.text("OUTSTANDING BAL", margin, y);
+        doc.text(formatAmount(content.outstandingBalance), pageWidth - margin, y, { align: "right" });
+        doc.setTextColor(0, 0, 0); // reset to black
+        y += 4;
+
+        divider();
+      }
 
       // ==========================
       // FOOTER

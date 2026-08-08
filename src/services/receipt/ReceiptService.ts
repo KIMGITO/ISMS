@@ -73,8 +73,8 @@ export class ReceiptService {
     return ReceiptExporterService.exportToHtmlFile(content, settings, htmlSnippet);
   }
 
-  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): boolean {
-    return ReceiptExporterService.exportToPdf(content, settings, htmlSnippet);
+  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
+    return ReceiptExporterService.exportToPdf(content, settings);
   }
 
   /**
