@@ -1,4 +1,4 @@
-# 🥛 KayKay's Milk Business Management App (ISMS)
+# 🥛 ISMS  Business Management App (ISMS)
 
 A production-ready, cross-platform enterprise management application engineered for dairy farms, processing plants, and retail outlets. This system features an **online-first, real-time reactive architecture** linking a modern **React SPA** with a **Supabase (PostgreSQL) backend**, compiled into native desktop applications via **Tauri v2** (Windows/Linux) and mobile apps via **Capacitor v8** (Android).
 
@@ -262,7 +262,7 @@ Run the multi-platform local builder script:
 ```bash
 ./build-local.sh
 ```
-This builds the production React assets, syncs them to the Capacitor Android project, and compiles the unsigned release APK to `release-builds/android/kaykay-release-unsigned.apk`.
+This builds the production React assets, syncs them to the Capacitor Android project, and compiles the unsigned release APK to `release-builds/android/isms-release-unsigned.apk`.
 
 #### 2. Align and Sign the Release APK
 To install a release build on real Android devices, it must be aligned and signed. Run the interactive signing utility:
@@ -273,12 +273,12 @@ When prompted:
 - **Alias**: Enter your key alias (default is `my-key-alias`).
 - **Password**: Enter the decryption password for `my-release.keystore`.
 
-The signed and verified release package will be generated at `release-builds/android/kaykay-release-signed.apk`.
+The signed and verified release package will be generated at `release-builds/android/isms-release-signed.apk`.
 
 #### 3. Deploy and Install on Phone (No ADB Needed)
 To install the APK on your device:
 1. **Uninstall the old app**: Long-press the existing app icon on your phone's screen and tap **Uninstall** (this clears signature conflicts from previous debug builds).
-2. **Send APK**: Share the signed file `release-builds/android/kaykay-release-signed.apk` to your phone via WhatsApp, Google Drive, email, etc.
+2. **Send APK**: Share the signed file `release-builds/android/isms-release-signed.apk` to your phone via WhatsApp, Google Drive, email, etc.
 3. **Install**: Open your phone's File Manager, locate the APK file, and tap it to install the release version directly.
 
 ---

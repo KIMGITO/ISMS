@@ -33,7 +33,7 @@ class PushNotificationService {
         business_id: data.business_id || "all",
         user_id: data.user_id || null,
         role: data.role || null,
-        title: capNotif.title || data.title || "KayKay Dairy Alert",
+        title: capNotif.title || data.title || "ISMS Dairy Alert",
         message: capNotif.body || data.message || "",
         type: data.type || "Custom Notification",
         priority: data.priority || "medium",

@@ -23,7 +23,7 @@ function cleanCodeValue(codeVal: any): string {
  * Modern Responsive Branded Email Template Builder
  */
 function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
-  const brandName = vars.brandName || "KayKay's Milk Systems";
+  const brandName = vars.brandName || "ISMS  Systems";
   const appName = brandName;
   const primaryColor = vars.primaryColor || "#f59e0b"; // Warm Amber Accent
   const code = cleanCodeValue(vars.code || vars.token || vars.otp || vars.verificationCode);
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     const hasSmtp = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
     const { subject, html } = getEmailTemplate(type, { ...variables, to: cleanTo });
-    const senderEmail = SMTP_USER || "operations@kaykaysmilk.com";
+    const senderEmail = SMTP_USER || "operations@isms.com";
 
     // 1. Try Resend if configured
     if (hasResend) {

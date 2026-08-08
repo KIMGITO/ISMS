@@ -3,7 +3,7 @@
 set -e
 
 echo "=================================================="
-echo "         KayKay's Multi-Platform Local Builder   "
+echo "         ISMS Multi-Platform Local Builder   "
 echo "=================================================="
 
 # Create target directories
@@ -38,11 +38,11 @@ cd android
 cd ..
 
 echo "--> Copying Android release APK..."
-cp android/app/build/outputs/apk/release/app-release-unsigned.apk release-builds/android/kaykay-release-unsigned.apk || true
+cp android/app/build/outputs/apk/release/app-release-unsigned.apk release-builds/android/isms-release-unsigned.apk || true
 echo "--> Note: Run ./sign-apk.sh to align and sign the release build with your keystore."
 # Also copy debug apk for convenience
 cd android && ./gradlew assembleDebug && cd ..
-cp android/app/build/outputs/apk/debug/app-debug.apk release-builds/android/kaykay-debug.apk || true
+cp android/app/build/outputs/apk/debug/app-debug.apk release-builds/android/isms-debug.apk || true
 
 # ── 4. Build Windows App (via Docker) ───────────
 echo "--> Building Windows App (.exe) via Docker (no host sudo/toolchain needed)..."

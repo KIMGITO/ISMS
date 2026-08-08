@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_015_views_realtime.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Database Views & Realtime Publications
 -- =============================================================================
 -- Why: This is the final migration and completes the schema.

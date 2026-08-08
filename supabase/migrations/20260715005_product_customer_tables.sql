@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_005_product_customer_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Product & Customer Tables: products, customers, customer_ledger, debt_payments
 -- =============================================================================
 -- Why: Products are the saleable items. Customers are loyalty members.

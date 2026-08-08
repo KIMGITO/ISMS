@@ -41,7 +41,7 @@ export class ReceiptTemplateManager {
     },
     milk_shop: {
       type: "milk_shop",
-      name: "KayKay's Farm Milk Shop",
+      name: "ISMS Farm Milk Shop",
       description: "Charming emerald borders and cow motifs custom crafted for dairy logisticians.",
       component: MilkShopTemplate
     }

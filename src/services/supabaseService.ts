@@ -97,6 +97,11 @@ export class SupabaseService {
     const supabase = getSupabase();
     
     // 1. Insert transaction header (include id if generated on client)
+    // Only credit sales carry an unpaid balance. Fully-paid methods
+    // (Cash, M-Pesa, Card, Bank, Mobile_Wallet) must record amount_paid
+    // = final_total so the DB trigger does NOT create a false debt record.
+    const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
+
     const { data: header, error: headerErr } = await supabase
       .from("transactions")
       .insert({
@@ -106,6 +111,8 @@ export class SupabaseService {
         discount: tx.discount,
         tax: tx.tax,
         final_total: tx.finalTotal,
+        amount_paid: isCreditSale ? 0 : tx.finalTotal,
+        wallet_applied: 0,
         payment_method: tx.paymentMethod,
         customer_id: tx.customerId ? toUuid(tx.customerId) : null,
         customer_name: tx.customerName,

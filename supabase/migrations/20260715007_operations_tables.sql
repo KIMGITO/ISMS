@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_007_operations_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Operations Tables: shifts, schedules, inventory_adjustments,
 --                    expense_categories, expenses, suppliers
 --                    + employees.active_shift_id FK backfill

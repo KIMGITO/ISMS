@@ -51,14 +51,14 @@ Deno.serve(async (req) => {
     }
 
     const systemBase =
-      "You are the Lead CRM and Customer Relations AI for KayKay's Milk (a premium dairy brand in Kenya). You are professional, empathetic, and precise. Return output as raw parseable JSON — no markdown fences.";
+      "You are the Lead CRM and Customer Relations AI for ISMS  (a premium dairy brand in Kenya). You are professional, empathetic, and precise. Return output as raw parseable JSON — no markdown fences.";
 
     // ── 2. Route by action ───────────────────────────────────────────────
 
     if (action === "analyze") {
       if (!comment) return errorResponse("comment payload is required.", 400);
 
-      const prompt = `Analyze this customer feedback for KayKay's Milk:
+      const prompt = `Analyze this customer feedback for ISMS :
 Customer: ${comment.customerName || "Anonymous"}
 Rating: ${comment.rating || "N/A"} / 5 stars
 Branch: ${comment.branch || "N/A"}
@@ -110,7 +110,7 @@ Output raw JSON only.`;
     } else if (action === "generate_reply") {
       if (!comment) return errorResponse("comment payload is required.", 400);
 
-      const prompt = `Write a warm, professional customer service reply from KayKay's Milk management for this review:
+      const prompt = `Write a warm, professional customer service reply from ISMS  management for this review:
 Customer: ${comment.customerName || "Anonymous"}
 Rating: ${comment.rating || "N/A"} / 5 stars
 Branch: ${comment.branch || "N/A"}
@@ -126,7 +126,7 @@ Guidelines:
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are the Voice of KayKay's Milk Management. You write polite, concise, professional customer service messages. Return raw JSON only.",
+          "You are the Voice of ISMS  Management. You write polite, concise, professional customer service messages. Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -164,7 +164,7 @@ Output raw JSON with a single field: improvedText`;
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are a professional copyeditor and customer relations coach for KayKay's Milk. Return raw JSON only.",
+          "You are a professional copyeditor and customer relations coach for ISMS . Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -196,7 +196,7 @@ Output raw JSON with a single field: improvedText`;
         )
         .join("\n");
 
-      const prompt = `Analyse this cohort of ${comments.length} customer reviews for KayKay's Milk:
+      const prompt = `Analyse this cohort of ${comments.length} customer reviews for ISMS :
 
 ${formatted}
 
@@ -210,7 +210,7 @@ Output raw JSON only.`;
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are the Operations & QA Director for KayKay's Milk. You analyse customer review cohorts to identify patterns and recommend process improvements. Return raw JSON only.",
+          "You are the Operations & QA Director for ISMS . You analyse customer review cohorts to identify patterns and recommend process improvements. Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -315,7 +315,7 @@ function getMockAnalysis(c: any) {
 function getMockReply(c: any, draftText: string) {
   const name = c?.customerName || "Customer";
   const branch = c?.branch || "our branch";
-  if (draftText) return `Dear ${name}, thank you for reaching out. ${draftText} We appreciate your loyalty to KayKay's Milk.`;
+  if (draftText) return `Dear ${name}, thank you for reaching out. ${draftText} We appreciate your loyalty to ISMS .`;
   if ((c?.rating || 5) <= 2) {
     return `Dear ${name}, we sincerely apologise for the inconvenience at our ${branch} location. We are investigating this immediately and will make it right for you.`;
   }

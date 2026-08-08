@@ -11,7 +11,7 @@ import SearchableDropdown from "../components/SearchableDropdown";
 import { titleCase } from "../utils/stringUtils";
 
 const COLOR_PRESETS = [
-  { name: "KayKay Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
+  { name: "Isms Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
   { name: "Royal Cobalt", primary: "#2563eb", secondary: "#0f172a", label: "Blue & Navy" },
   { name: "Forest Mint", primary: "#10b981", secondary: "#064e3b", label: "Emerald & Pine" },
   { name: "Crimson Velvet", primary: "#dc2626", secondary: "#450a0a", label: "Ruby & Maroon" },
@@ -328,10 +328,12 @@ export default function BusinessManagementView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
           <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
-            <Building size={16} className="text-amber-500" /> Admin Business Management
+            <Building size={16} className="text-amber-500" /> Admin Business
+            Management
           </h2>
           <p className="text-[9.5px] text-app-text-muted mt-0.5 font-medium leading-normal">
-            Configure metadata, contact points, brand representations, and global workspace defaults for your business branches.
+            Configure metadata, contact points, brand representations, and
+            global workspace defaults for your business branches.
           </p>
         </div>
       </div>
@@ -341,7 +343,9 @@ export default function BusinessManagementView() {
         <div className="xl:col-span-1 flex flex-col gap-4">
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
-              <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Branches Directory</span>
+              <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                Branches Directory
+              </span>
               <span className="text-[8.5px] font-mono text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
                 {businesses.length}/5
               </span>
@@ -359,20 +363,27 @@ export default function BusinessManagementView() {
                     }}
                     className={`p-3 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer ${
                       isActive
-                        ? "bg-amber-500/10 border-amber-500"
-                        : "bg-app-bg border-app-border/60 hover:border-amber-500/25"
+                        ? 'bg-amber-500/10 border-amber-500'
+                        : 'bg-app-bg border-app-border/60 hover:border-amber-500/25'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <img
-                        src={biz.logoUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"}
+                        src={
+                          biz.logoUrl ||
+                          "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"
+                        }
                         alt={biz.name}
                         className="w-8 h-8 rounded-lg object-cover border border-app-border shrink-0"
                         referrerPolicy="no-referrer"
                       />
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-[11px] font-bold text-app-text truncate">{titleCase(biz.name)}</h4>
-                        <p className="text-[8.5px] text-app-text-muted truncate">{biz.businessType || "Retail"}</p>
+                        <h4 className="text-[11px] font-bold text-app-text truncate">
+                          {titleCase(biz.name)}
+                        </h4>
+                        <p className="text-[8.5px] text-app-text-muted truncate">
+                          {biz.businessType || 'Retail'}
+                        </p>
                       </div>
                       {isActive && (
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
@@ -388,19 +399,23 @@ export default function BusinessManagementView() {
               })}
             </div>
 
-            {businesses.length < 5 && hasRolePermission(currentEmployee?.role || 'Guest', "settings.view") && (
-              <button
-                type="button"
-                onClick={() => setIsCreating(true)}
-                className={`w-full py-2 border-2 border-dashed rounded-xl text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                  isCreating
-                    ? "border-amber-500 text-amber-500 bg-amber-500/5"
-                    : "border-app-border text-app-text-muted hover:border-amber-500/50 hover:text-amber-500"
-                }`}
-              >
-                <Plus size={10} /> Add Business Branch
-              </button>
-            )}
+            {businesses.length < 5 &&
+              hasRolePermission(
+                currentEmployee?.role || 'Guest',
+                'settings.view',
+              ) && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreating(true)}
+                  className={`w-full py-2 border-2 border-dashed rounded-xl text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    isCreating
+                      ? 'border-amber-500 text-amber-500 bg-amber-500/5'
+                      : 'border-app-border text-app-text-muted hover:border-amber-500/50 hover:text-amber-500'
+                  }`}
+                >
+                  <Plus size={10} /> Add Business Branch
+                </button>
+              )}
           </div>
         </div>
 
@@ -408,11 +423,16 @@ export default function BusinessManagementView() {
         <div className="xl:col-span-3">
           {isCreating ? (
             /* Creation Form */
-            <form onSubmit={handleCreateBusiness} className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-5">
+            <form
+              onSubmit={handleCreateBusiness}
+              className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-5"
+            >
               <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
                 <div className="flex items-center gap-2">
                   <Building size={14} className="text-amber-500" />
-                  <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Establish New Business Branch</h3>
+                  <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                    Establish New Business Branch
+                  </h3>
                 </div>
                 <button
                   type="button"
@@ -426,11 +446,13 @@ export default function BusinessManagementView() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Branch / Business Name *</label>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                    Branch / Business Name *
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. KayKay's Milk - Syokimau Hub"
+                    placeholder="e.g. ISMS  - Syokimau Hub"
                     value={newBizName}
                     onChange={(e) => setNewBizName(e.target.value)}
                     className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
@@ -439,15 +461,20 @@ export default function BusinessManagementView() {
 
                 {/* Operation Type */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Operation Type</label>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                    Operation Type
+                  </label>
                   <SearchableDropdown
                     items={[
-                      { id: "Retail", label: "Retail Store" },
-                      { id: "Wholesale", label: "Wholesale Depot" },
-                      { id: "Dairy Processing", label: "Dairy Processing Plant" },
-                      { id: "Farm", label: "Dairy Farm" },
-                      { id: "Cooperative", label: "Cooperative Society" },
-                      { id: "Other", label: "Other Retail Business" }
+                      { id: 'Retail', label: 'Retail Store' },
+                      { id: 'Wholesale', label: 'Wholesale Depot' },
+                      {
+                        id: 'Dairy Processing',
+                        label: 'Dairy Processing Plant',
+                      },
+                      { id: 'Farm', label: 'Dairy Farm' },
+                      { id: 'Cooperative', label: 'Cooperative Society' },
+                      { id: 'Other', label: 'Other Retail Business' },
                     ]}
                     selectedValue={newBizType}
                     onChange={(val) => setNewBizType(val)}
@@ -457,15 +484,17 @@ export default function BusinessManagementView() {
 
                 {/* Country Context */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Country Context</label>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                    Country Context
+                  </label>
                   <SearchableDropdown
                     items={[
-                      { id: "Kenya", label: "Kenya 🇰🇪" },
-                      { id: "Uganda", label: "Uganda 🇺🇬" },
-                      { id: "Tanzania", label: "Tanzania 🇹🇿" },
-                      { id: "Rwanda", label: "Rwanda 🇷🇼" },
-                      { id: "United States", label: "United States 🇺🇸" },
-                      { id: "United Kingdom", label: "United Kingdom 🇬🇧" }
+                      { id: 'Kenya', label: 'Kenya 🇰🇪' },
+                      { id: 'Uganda', label: 'Uganda 🇺🇬' },
+                      { id: 'Tanzania', label: 'Tanzania 🇹🇿' },
+                      { id: 'Rwanda', label: 'Rwanda 🇷🇼' },
+                      { id: 'United States', label: 'United States 🇺🇸' },
+                      { id: 'United Kingdom', label: 'United Kingdom 🇬🇧' },
                     ]}
                     selectedValue={newBizCountry}
                     onChange={(val) => setNewBizCountry(val)}
@@ -475,7 +504,9 @@ export default function BusinessManagementView() {
 
                 {/* Currency */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Operational Currency</label>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                    Operational Currency
+                  </label>
                   <input
                     type="text"
                     required
@@ -489,7 +520,9 @@ export default function BusinessManagementView() {
 
               {/* Description */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Operational Description / Notes</label>
+                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                  Operational Description / Notes
+                </label>
                 <textarea
                   rows={2}
                   placeholder="Describe branch inventory limits, wholesale distribution scopes..."
@@ -501,7 +534,9 @@ export default function BusinessManagementView() {
 
               {/* Address */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Physical Address / Location</label>
+                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                  Physical Address / Location
+                </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -510,13 +545,18 @@ export default function BusinessManagementView() {
                     onChange={(e) => setNewBizAddr(e.target.value)}
                     className="w-full bg-app-bg text-app-text border border-app-border pl-8 pr-3 py-2 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-medium"
                   />
-                  <MapPin size={13} className="absolute left-3 top-3 text-app-text-muted" />
+                  <MapPin
+                    size={13}
+                    className="absolute left-3 top-3 text-app-text-muted"
+                  />
                 </div>
               </div>
 
               {/* Logo URL */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Custom Logo URL (Optional)</label>
+                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                  Custom Logo URL (Optional)
+                </label>
                 <input
                   type="text"
                   placeholder="Paste custom Logo image URL..."
@@ -546,7 +586,7 @@ export default function BusinessManagementView() {
                       <span>Creating...</span>
                     </>
                   ) : (
-                    "Establish Branch"
+                    'Establish Branch'
                   )}
                 </button>
               </div>
@@ -555,87 +595,110 @@ export default function BusinessManagementView() {
             <div className="space-y-5">
               {/* Tab Selector */}
               <div className="flex bg-app-card border border-app-border rounded-2xl p-1 shadow-xs gap-1">
-  <button
-    type="button"
-    onClick={() => setActiveSubTab("details")}
-    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-      activeSubTab === "details"
-        ? "bg-amber-500 text-slate-950 shadow-sm"
-        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-    }`}
-  >
-    <Building size={16} className="shrink-0" />
-    <span>
-      <span className="hidden xs:inline sm:inline">Business </span>Details
-    </span>
-  </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('details')}
+                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'details'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
+                  }`}
+                >
+                  <Building size={16} className="shrink-0" />
+                  <span>
+                    <span className="hidden xs:inline sm:inline">
+                      Business{' '}
+                    </span>
+                    Details
+                  </span>
+                </button>
 
-  <button
-    type="button"
-    onClick={() => setActiveSubTab("expenses")}
-    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-      activeSubTab === "expenses"
-        ? "bg-amber-500 text-slate-950 shadow-sm"
-        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-    }`}
-  >
-    <Receipt size={16} className="shrink-0" />
-    <span>Expenses</span>
-  </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('expenses')}
+                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'expenses'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
+                  }`}
+                >
+                  <Receipt size={16} className="shrink-0" />
+                  <span>Expenses</span>
+                </button>
 
-  <button
-    type="button"
-    onClick={() => setActiveSubTab("payments")}
-    className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-      activeSubTab === "payments"
-        ? "bg-amber-500 text-slate-950 shadow-sm"
-        : "text-app-text-muted hover:text-app-text hover:bg-app-bg/50"
-    }`}
-  >
-    <CreditCard size={16} className="shrink-0" />
-    <span>Payments</span>
-  </button>
-</div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('payments')}
+                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
+                    activeSubTab === 'payments'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
+                  }`}
+                >
+                  <CreditCard size={16} className="shrink-0" />
+                  <span>Payments</span>
+                </button>
+              </div>
 
-              {activeSubTab === "details" && (
-                <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
+              {activeSubTab === 'details' && (
+                <form
+                  onSubmit={handleSave}
+                  className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200"
+                >
                   {/* Left 2 Columns: Identity, Contact, Settings */}
                   <div className="lg:col-span-2 flex flex-col gap-5">
-                    
                     {/* Card 1: Core Identity */}
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Building size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Core Workspace Profile</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Core Workspace Profile
+                        </h3>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Business Name */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Business / Branch Name *</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Business / Branch Name *
+                          </label>
                           <input
                             type="text"
                             placeholder="e.g. Westlands Dairy Depot"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${
-                              errors.name ? "border-red-500" : "border-app-border"
+                              errors.name
+                                ? 'border-red-500'
+                                : 'border-app-border'
                             }`}
                           />
-                          {errors.name && <span className="text-[9px] text-red-500 font-medium">{errors.name}</span>}
+                          {errors.name && (
+                            <span className="text-[9px] text-red-500 font-medium">
+                              {errors.name}
+                            </span>
+                          )}
                         </div>
 
                         {/* Business Type */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Operation Type</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Operation Type
+                          </label>
                           <SearchableDropdown
                             items={[
-                              { id: "Retail", label: "Retail Store" },
-                              { id: "Wholesale", label: "Wholesale Depot" },
-                              { id: "Dairy Processing", label: "Dairy Processing Plant" },
-                              { id: "Farm", label: "Dairy Farm" },
-                              { id: "Cooperative", label: "Cooperative Society" },
-                              { id: "Other", label: "Other Retail Business" }
+                              { id: 'Retail', label: 'Retail Store' },
+                              { id: 'Wholesale', label: 'Wholesale Depot' },
+                              {
+                                id: 'Dairy Processing',
+                                label: 'Dairy Processing Plant',
+                              },
+                              { id: 'Farm', label: 'Dairy Farm' },
+                              {
+                                id: 'Cooperative',
+                                label: 'Cooperative Society',
+                              },
+                              { id: 'Other', label: 'Other Retail Business' },
                             ]}
                             selectedValue={businessType}
                             onChange={(val) => setBusinessType(val)}
@@ -645,7 +708,9 @@ export default function BusinessManagementView() {
 
                         {/* Description */}
                         <div className="flex flex-col gap-1 md:col-span-2">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Operational Description</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Operational Description
+                          </label>
                           <textarea
                             rows={3}
                             placeholder="Describe scope, branches, daily handling volume..."
@@ -661,13 +726,17 @@ export default function BusinessManagementView() {
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Phone size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Contact & Communications</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Contact & Communications
+                        </h3>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Address */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Physical Address</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Physical Address
+                          </label>
                           <input
                             type="text"
                             placeholder="e.g. Suite 4B, Woodvale Grove, Westlands"
@@ -679,32 +748,48 @@ export default function BusinessManagementView() {
 
                         {/* Email */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Contact Email</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Contact Email
+                          </label>
                           <input
                             type="email"
-                            placeholder="e.g. branch@kaykaymilk.com"
+                            placeholder="e.g. branch@isms.com"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${
-                              errors.contactEmail ? "border-red-500" : "border-app-border"
+                              errors.contactEmail
+                                ? 'border-red-500'
+                                : 'border-app-border'
                             }`}
                           />
-                          {errors.contactEmail && <span className="text-[9px] text-red-500 font-medium">{errors.contactEmail}</span>}
+                          {errors.contactEmail && (
+                            <span className="text-[9px] text-red-500 font-medium">
+                              {errors.contactEmail}
+                            </span>
+                          )}
                         </div>
 
                         {/* Phone */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Contact Hotline</label>
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Contact Hotline
+                          </label>
                           <input
                             type="tel"
                             placeholder="e.g. +254 712 345 678"
                             value={contactPhone}
                             onChange={(e) => setContactPhone(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${
-                              errors.contactPhone ? "border-red-500" : "border-app-border"
+                              errors.contactPhone
+                                ? 'border-red-500'
+                                : 'border-app-border'
                             }`}
                           />
-                          {errors.contactPhone && <span className="text-[9px] text-red-500 font-medium">{errors.contactPhone}</span>}
+                          {errors.contactPhone && (
+                            <span className="text-[9px] text-red-500 font-medium">
+                              {errors.contactPhone}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -713,7 +798,9 @@ export default function BusinessManagementView() {
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Briefcase size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Tax & VAT Settings</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Tax & VAT Settings
+                        </h3>
                       </div>
 
                       <div className="flex flex-col gap-3">
@@ -723,7 +810,8 @@ export default function BusinessManagementView() {
                               Enable Tax / VAT Tracking
                             </span>
                             <span className="text-[10px] text-app-text-muted font-medium block mt-0.5 leading-tight">
-                              Toggle tax computations during Point of Sale checkouts.
+                              Toggle tax computations during Point of Sale
+                              checkouts.
                             </span>
                           </div>
                           <button
@@ -767,33 +855,41 @@ export default function BusinessManagementView() {
 
                   {/* Right Column: Visual Assets & Save controls */}
                   <div className="lg:col-span-1 flex flex-col gap-5">
-                    
                     {/* Card 4: Branding Graphics */}
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <ImageIcon size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Brand Graphics</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Brand Graphics
+                        </h3>
                       </div>
 
                       {/* Logo Section */}
                       <div className="flex flex-col gap-3">
-                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">Workspace Logo</span>
+                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">
+                          Workspace Logo
+                        </span>
                         <UnifiedUploader
                           onUploadSuccess={(url) => setLogoUrl(url)}
-                          allowedTypes={["image"]}
-                          cropAspect={1/1}
+                          allowedTypes={['image']}
+                          cropAspect={1 / 1}
                           bucketName="business-logos"
                           triggerElement={
                             <div className="relative group cursor-pointer border border-app-border hover:border-amber-500 rounded-full p-1 bg-app-bg transition shadow-sm w-20 h-20 mx-auto">
                               <img
-                                src={logoUrl || "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=150"}
+                                src={
+                                  logoUrl ||
+                                  'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=150'
+                                }
                                 alt="Logo Preview"
                                 className="w-full h-full rounded-full object-cover"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition">
                                 <Edit size={12} className="text-amber-500 " />
-                                <span className="text-[7px] font-black uppercase text-amber-500">Edit</span>
+                                <span className="text-[7px] font-black uppercase text-amber-500">
+                                  Edit
+                                </span>
                               </div>
                             </div>
                           }
@@ -809,23 +905,30 @@ export default function BusinessManagementView() {
 
                       {/* Cover Image Section */}
                       <div className="flex flex-col gap-3 border-t border-app-border/20 pt-4">
-                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">Cover Banner </span>
+                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">
+                          Cover Banner{' '}
+                        </span>
                         <UnifiedUploader
                           onUploadSuccess={(url) => setCoverImageUrl(url)}
-                          allowedTypes={["image"]}
-                          cropAspect={16/9}
+                          allowedTypes={['image']}
+                          cropAspect={16 / 9}
                           bucketName="business-logos"
                           triggerElement={
                             <div className="relative group cursor-pointer border border-app-border hover:border-amber-500 rounded-2xl p-1 bg-app-bg transition shadow-sm w-full">
                               <img
-                                src={coverImageUrl || "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=350"}
+                                src={
+                                  coverImageUrl ||
+                                  'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=350'
+                                }
                                 alt="Cover Preview"
                                 className="w-full h-32 rounded-xl object-cover"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition gap-1">
                                 <Edit size={16} className="text-amber-500" />
-                                <span className="text-[8px] font-black uppercase text-amber-500">Edit Cover Banner</span>
+                                <span className="text-[8px] font-black uppercase text-amber-500">
+                                  Edit Cover Banner
+                                </span>
                               </div>
                             </div>
                           }
@@ -843,9 +946,13 @@ export default function BusinessManagementView() {
                     {/* Card 5: Action Controls */}
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-3.5">
                       <div className="flex gap-2 items-start text-app-text-muted text-[10px] leading-relaxed font-semibold">
-                        <Info size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                        <Info
+                          size={14}
+                          className="text-amber-500 shrink-0 mt-0.5"
+                        />
                         <span>
-                          Saving configuration changes will sync live settings parameters.
+                          Saving configuration changes will sync live settings
+                          parameters.
                         </span>
                       </div>
 
@@ -855,24 +962,35 @@ export default function BusinessManagementView() {
                         className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
                       >
                         <Save size={14} />
-                        <span>{loading ? "Saving Settings..." : "Save Brand Details"}</span>
+                        <span>
+                          {loading
+                            ? 'Saving Settings...'
+                            : 'Save Brand Details'}
+                        </span>
                       </button>
                     </div>
                   </div>
                 </form>
               )}
 
-              {activeSubTab === "expenses" && (
+              {activeSubTab === 'expenses' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
                   {/* Expense Recorder Form */}
-                  <form onSubmit={handleAddExpense} className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
+                  <form
+                    onSubmit={handleAddExpense}
+                    className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
+                  >
                     <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                       <Receipt size={14} className="text-amber-500" />
-                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Record Operational Expense</h3>
+                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                        Record Operational Expense
+                      </h3>
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Amount (KSh) *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Amount (KSh) *
+                      </label>
                       <input
                         type="number"
                         required
@@ -885,16 +1003,24 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Expense Category *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Expense Category *
+                      </label>
                       <SearchableDropdown
                         items={[
-                          { id: "Rent", label: "Rent / Space Lease" },
-                          { id: "Wages", label: "Wages & Shift Salaries" },
-                          { id: "Transport", label: "Transport & Logistics" },
-                          { id: "Utilities", label: "Utilities (Water, Power, Net)" },
-                          { id: "Maintenance", label: "Maintenance & Repairs" },
-                          { id: "Marketing", label: "Marketing & Adverts" },
-                          { id: "Other operating costs", label: "Other Operating Costs" }
+                          { id: 'Rent', label: 'Rent / Space Lease' },
+                          { id: 'Wages', label: 'Wages & Shift Salaries' },
+                          { id: 'Transport', label: 'Transport & Logistics' },
+                          {
+                            id: 'Utilities',
+                            label: 'Utilities (Water, Power, Net)',
+                          },
+                          { id: 'Maintenance', label: 'Maintenance & Repairs' },
+                          { id: 'Marketing', label: 'Marketing & Adverts' },
+                          {
+                            id: 'Other operating costs',
+                            label: 'Other Operating Costs',
+                          },
                         ]}
                         selectedValue={expCategory}
                         onChange={(val) => setExpCategory(val)}
@@ -903,7 +1029,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Date *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Date *
+                      </label>
                       <input
                         type="date"
                         required
@@ -914,7 +1042,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Staff / Recorder Name</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Staff / Recorder Name
+                      </label>
                       <input
                         type="text"
                         placeholder="Staff Name..."
@@ -925,7 +1055,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Description (Optional)</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Description (Optional)
+                      </label>
                       <textarea
                         rows={3}
                         placeholder="Describe the nature of this expense..."
@@ -941,7 +1073,9 @@ export default function BusinessManagementView() {
                       className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
                     >
                       <Save size={14} />
-                      <span>{expenseSubmitting ? "Recording..." : "Record Expense"}</span>
+                      <span>
+                        {expenseSubmitting ? 'Recording...' : 'Record Expense'}
+                      </span>
                     </button>
                   </form>
 
@@ -950,7 +1084,9 @@ export default function BusinessManagementView() {
                     <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
                       <div className="flex items-center gap-2">
                         <Receipt size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Recorded Operational Expenses</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Recorded Operational Expenses
+                        </h3>
                       </div>
                       <span className="text-[9px] font-mono text-app-text-muted font-black">
                         {localExpenses.length} Record(s)
@@ -971,14 +1107,31 @@ export default function BusinessManagementView() {
                           </thead>
                           <tbody className="divide-y divide-app-border/20 text-xs">
                             {localExpenses.map((exp) => (
-                              <tr key={exp.id} className="hover:bg-app-bg/30 transition">
+                              <tr
+                                key={exp.id}
+                                className="hover:bg-app-bg/30 transition"
+                              >
                                 <td className="py-2.5 font-mono text-[10.5px]">
-                                  {new Date(exp.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  {new Date(exp.date).toLocaleDateString(
+                                    undefined,
+                                    {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    },
+                                  )}
                                 </td>
-                                <td className="py-2.5 font-bold text-app-text">{exp.category}</td>
-                                <td className="py-2.5 text-app-text-muted font-semibold">{exp.staffName}</td>
-                                <td className="py-2.5 text-app-text-muted max-w-[200px] truncate" title={exp.description}>
-                                  {exp.description || "—"}
+                                <td className="py-2.5 font-bold text-app-text">
+                                  {exp.category}
+                                </td>
+                                <td className="py-2.5 text-app-text-muted font-semibold">
+                                  {exp.staffName}
+                                </td>
+                                <td
+                                  className="py-2.5 text-app-text-muted max-w-[200px] truncate"
+                                  title={exp.description}
+                                >
+                                  {exp.description || '—'}
                                 </td>
                                 <td className="py-2.5 text-right font-black font-mono text-red-500">
                                   KSh {Number(exp.amount).toLocaleString()}
@@ -990,8 +1143,13 @@ export default function BusinessManagementView() {
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
                           <Receipt size={32} className="text-slate-700 mb-2" />
-                          <p className="text-[10.5px] font-bold">No Operational Expenses Logged</p>
-                          <p className="text-[9.5px] max-w-xs mt-0.5">Expenses recorded using the form on the left will sync here and update analytics in real-time.</p>
+                          <p className="text-[10.5px] font-bold">
+                            No Operational Expenses Logged
+                          </p>
+                          <p className="text-[9.5px] max-w-xs mt-0.5">
+                            Expenses recorded using the form on the left will
+                            sync here and update analytics in real-time.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -999,17 +1157,24 @@ export default function BusinessManagementView() {
                 </div>
               )}
 
-              {activeSubTab === "payments" && (
+              {activeSubTab === 'payments' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
                   {/* Payment Recorder Form */}
-                  <form onSubmit={handleAddPayment} className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
+                  <form
+                    onSubmit={handleAddPayment}
+                    className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
+                  >
                     <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                       <CreditCard size={14} className="text-amber-500" />
-                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Record Business Payment</h3>
+                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                        Record Business Payment
+                      </h3>
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Reference Code *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Reference Code *
+                      </label>
                       <input
                         type="text"
                         required
@@ -1021,7 +1186,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Amount (KSh) *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Amount (KSh) *
+                      </label>
                       <input
                         type="number"
                         required
@@ -1034,13 +1201,15 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Payment Method *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Payment Method *
+                      </label>
                       <SearchableDropdown
                         items={[
-                          { id: "M-Pesa", label: "M-Pesa" },
-                          { id: "Cash", label: "Cash" },
-                          { id: "Card", label: "Card" },
-                          { id: "Bank", label: "Bank Transfer" }
+                          { id: 'M-Pesa', label: 'M-Pesa' },
+                          { id: 'Cash', label: 'Cash' },
+                          { id: 'Card', label: 'Card' },
+                          { id: 'Bank', label: 'Bank Transfer' },
                         ]}
                         selectedValue={payMethod}
                         onChange={(val) => setPayMethod(val as any)}
@@ -1049,7 +1218,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Sender / Payee Name *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Sender / Payee Name *
+                      </label>
                       <input
                         type="text"
                         required
@@ -1061,7 +1232,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Sender Phone (Optional)</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Sender Phone (Optional)
+                      </label>
                       <input
                         type="tel"
                         placeholder="e.g. +254712345678"
@@ -1072,12 +1245,14 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Payment Status</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Payment Status
+                      </label>
                       <SearchableDropdown
                         items={[
-                          { id: "Success", label: "Success / Received" },
-                          { id: "Pending", label: "Pending Verification" },
-                          { id: "Failed", label: "Failed / Declined" }
+                          { id: 'Success', label: 'Success / Received' },
+                          { id: 'Pending', label: 'Pending Verification' },
+                          { id: 'Failed', label: 'Failed / Declined' },
                         ]}
                         selectedValue={payStatus}
                         onChange={(val) => setPayStatus(val as any)}
@@ -1086,7 +1261,9 @@ export default function BusinessManagementView() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Date *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Date *
+                      </label>
                       <input
                         type="date"
                         required
@@ -1102,7 +1279,9 @@ export default function BusinessManagementView() {
                       className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
                     >
                       <Save size={14} />
-                      <span>{paymentSubmitting ? "Recording..." : "Record Payment"}</span>
+                      <span>
+                        {paymentSubmitting ? 'Recording...' : 'Record Payment'}
+                      </span>
                     </button>
                   </form>
 
@@ -1111,7 +1290,9 @@ export default function BusinessManagementView() {
                     <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
                       <div className="flex items-center gap-2">
                         <CreditCard size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Recorded Business Payments</h3>
+                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                          Recorded Business Payments
+                        </h3>
                       </div>
                       <span className="text-[9px] font-mono text-app-text-muted font-black">
                         {localPayments.length} Record(s)
@@ -1133,24 +1314,44 @@ export default function BusinessManagementView() {
                           </thead>
                           <tbody className="divide-y divide-app-border/20 text-xs">
                             {localPayments.map((pay) => (
-                              <tr key={pay.id} className="hover:bg-app-bg/30 transition">
+                              <tr
+                                key={pay.id}
+                                className="hover:bg-app-bg/30 transition"
+                              >
                                 <td className="py-2.5 font-mono text-[10.5px]">
-                                  {new Date(pay.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  {new Date(pay.date).toLocaleDateString(
+                                    undefined,
+                                    {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    },
+                                  )}
                                 </td>
                                 <td className="py-2.5 font-bold text-app-text">
                                   <div>{pay.senderName}</div>
-                                  {pay.senderPhone && <div className="text-[9px] text-app-text-muted font-mono">{pay.senderPhone}</div>}
+                                  {pay.senderPhone && (
+                                    <div className="text-[9px] text-app-text-muted font-mono">
+                                      {pay.senderPhone}
+                                    </div>
+                                  )}
                                 </td>
-                                <td className="py-2.5 font-semibold text-app-text">{pay.method}</td>
-                                <td className="py-2.5 text-app-text-muted font-mono text-[11px] font-semibold">{pay.referenceCode}</td>
+                                <td className="py-2.5 font-semibold text-app-text">
+                                  {pay.method}
+                                </td>
+                                <td className="py-2.5 text-app-text-muted font-mono text-[11px] font-semibold">
+                                  {pay.referenceCode}
+                                </td>
                                 <td className="py-2.5">
-                                  <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider ${
-                                    pay.status === "Success" 
-                                      ? "bg-emerald-500/10 text-emerald-500" 
-                                      : pay.status === "Pending"
-                                      ? "bg-amber-500/10 text-amber-500"
-                                      : "bg-red-500/10 text-red-500"
-                                  }`}>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider ${
+                                      pay.status === 'Success'
+                                        ? 'bg-emerald-500/10 text-emerald-500'
+                                        : pay.status === 'Pending'
+                                        ? 'bg-amber-500/10 text-amber-500'
+                                        : 'bg-red-500/10 text-red-500'
+                                    }`}
+                                  >
                                     {pay.status}
                                   </span>
                                 </td>
@@ -1163,9 +1364,17 @@ export default function BusinessManagementView() {
                         </table>
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
-                          <CreditCard size={32} className="text-slate-700 mb-2" />
-                          <p className="text-[10.5px] font-bold">No Business Payments Logged</p>
-                          <p className="text-[9.5px] max-w-xs mt-0.5">Business payments recorded using the form on the left will sync here and populate financial reports.</p>
+                          <CreditCard
+                            size={32}
+                            className="text-slate-700 mb-2"
+                          />
+                          <p className="text-[10.5px] font-bold">
+                            No Business Payments Logged
+                          </p>
+                          <p className="text-[9.5px] max-w-xs mt-0.5">
+                            Business payments recorded using the form on the
+                            left will sync here and populate financial reports.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1177,9 +1386,12 @@ export default function BusinessManagementView() {
             /* Fallback No Business Selected */
             <div className="bg-app-card border border-app-border rounded-2xl p-8 text-center text-app-text-muted flex flex-col items-center justify-center min-h-[300px]">
               <Building size={48} className="text-slate-600 mb-3 " />
-              <h3 className="text-sm font-extrabold uppercase font-display text-app-text">No Business Selected</h3>
+              <h3 className="text-sm font-extrabold uppercase font-display text-app-text">
+                No Business Selected
+              </h3>
               <p className="text-[10.5px] mt-1 max-w-xs leading-normal">
-                Please select an active business workspace from the Directory or create a new branch.
+                Please select an active business workspace from the Directory or
+                create a new branch.
               </p>
             </div>
           )}

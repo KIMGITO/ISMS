@@ -24,14 +24,14 @@ serve(async (req) => {
       throw new Error("Missing parameters 'to', 'subject', or 'htmlBody'");
     }
 
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "KayKays Milk Operations <operations@kaykaysmilk.com>",
+        from: 'isms <operations@isms.com>',
         to: Array.isArray(to) ? to : [to],
         subject: subject,
         html: htmlBody,

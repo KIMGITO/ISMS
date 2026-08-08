@@ -19,7 +19,7 @@ class ShareService {
     if (nativePlatformService.isNative() || isShareSupported) {
       try {
         await Share.share({
-          title: options.title || "KayKay's Milk",
+          title: options.title || "ISMS ",
           text: options.text || "",
           url: options.url,
           dialogTitle: options.dialogTitle || "Share Item"

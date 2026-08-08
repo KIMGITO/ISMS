@@ -847,7 +847,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (error) throw error;
 
         // Dispatch invitation email using EmailService Edge Function
-        const businessName = useBusinessStore.getState().businesses.find(b => b.id === bizId)?.name || "KayKay's Milk";
+        const businessName = useBusinessStore.getState().businesses.find(b => b.id === bizId)?.name || "ISMS ";
         try {
           await EmailService.sendInvitation(
             email.trim(),

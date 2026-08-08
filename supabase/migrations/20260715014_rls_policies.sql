@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_014_rls_policies.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Row Level Security Policies
 -- =============================================================================
 -- Why: RLS policies must be defined AFTER the helper functions they reference

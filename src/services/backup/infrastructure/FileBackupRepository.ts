@@ -51,7 +51,7 @@ export class FileBackupRepository implements BackupRepository {
           category: "Packaging",
           description: "Biodegradable bottles batch sample testing",
           date: new Date().toISOString(),
-          staffName: "KayKay (Owner)",
+          staffName: "ISMS (Owner)",
         }
       ];
       fs.writeFileSync(EXPENSES_FILE, JSON.stringify(defaultExpenses, null, 2), "utf-8");

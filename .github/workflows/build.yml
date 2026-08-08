@@ -182,7 +182,7 @@ jobs:
             export ZIPALIGN=$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/zipalign
 
             echo "Aligning APK..."
-            $ZIPALIGN -v 4 android/app/build/outputs/apk/release/app-release-unsigned.apk kaykay-release-aligned.apk > /dev/null
+            $ZIPALIGN -v 4 android/app/build/outputs/apk/release/app-release-unsigned.apk isms-release-aligned.apk > /dev/null
 
             echo "Signing APK..."
             # Note: We pass the password environment variables directly
@@ -190,20 +190,20 @@ jobs:
               --ks-key-alias "$ANDROID_KEYSTORE_ALIAS" \
               --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
               --key-pass env:ANDROID_KEY_PASSWORD \
-              --out kaykay-release-signed.apk \
-              kaykay-release-aligned.apk
+              --out isms-release-signed.apk \
+              isms-release-aligned.apk
             
             echo "Verifying Signature..."
-            $APKSIGNER verify kaykay-release-signed.apk
+            $APKSIGNER verify isms-release-signed.apk
           else
             echo "Skipping signing step because my-release.keystore is missing."
-            cp android/app/build/outputs/apk/release/app-release-unsigned.apk kaykay-release-signed.apk
+            cp android/app/build/outputs/apk/release/app-release-unsigned.apk isms-release-signed.apk
           fi
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Android-Artifacts
-          path: kaykay-release-signed.apk
+          path: isms-release-signed.apk
           if-no-files-found: warn
           retention-days: 30

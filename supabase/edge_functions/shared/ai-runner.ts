@@ -1,5 +1,5 @@
 // supabase/edge_functions/shared/ai-runner.ts
-// Provider-agnostic AI runner for KayKay's Milk edge functions.
+// Provider-agnostic AI runner for ISMS  edge functions.
 // Reads per-business API keys + config from the `ai_settings` Supabase table
 // so all devices share the same owner-configured credentials.
 

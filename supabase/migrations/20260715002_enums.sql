@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_002_enums.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Custom Enum Types
 -- =============================================================================
 -- Why: All enum types must exist before any table column references them.

@@ -118,7 +118,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
   "System Update": {
     type: "System Update",
     defaultTitle: "⚡ System Software Update",
-    defaultMessageTemplate: "KayKay Dairy POS has been upgraded to version {version}.",
+    defaultMessageTemplate: "ISMS Dairy POS has been upgraded to version {version}.",
     defaultPriority: "low",
     defaultActionTarget: "none",
   },

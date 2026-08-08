@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_013_triggers.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Triggers
 -- =============================================================================
 -- Why: Triggers must be created AFTER the functions they call (migration 012)
