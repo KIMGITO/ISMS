@@ -8,6 +8,7 @@ import { useNotificationStore } from "./notificationStore";
 import { useBusinessStore } from "./businessStore";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
+import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
 
 interface CartState {
@@ -199,31 +200,17 @@ export const useCartStore = create<CartState>((set, get) => ({
         const currentDebt = Number(selectedCustomer.debtBalance || 0);
 
         if (paymentMethod === 'Credit_Debt') {
-          let resolvedWallet = currentWallet;
-          let resolvedDebt = currentDebt;
-          let walletUsed = 0;
-          let debtCreated = 0;
+          // The DB trigger fn_process_completed_transaction already updated the
+          // customer's debt_balance and wallet_balance atomically when the
+          // transaction was inserted. Re-fetch the fresh balances so the
+          // ledger audit entries below snapshot the true post-trigger values
+          // (avoids double-counting the debt).
+          const freshCustomer = await CustomerRepository.getById(selectedCustomer.id);
+          const freshWallet = Number(freshCustomer?.walletBalance || 0);
+          const freshDebt = Number(freshCustomer?.debtBalance || 0);
 
-          if (currentWallet > 0) {
-            if (finalTotal <= currentWallet) {
-              resolvedWallet = currentWallet - finalTotal;
-              walletUsed = finalTotal;
-            } else {
-              resolvedWallet = 0;
-              resolvedDebt = currentDebt + (finalTotal - currentWallet);
-              walletUsed = currentWallet;
-              debtCreated = finalTotal - currentWallet;
-            }
-          } else {
-            resolvedDebt = currentDebt + finalTotal;
-            debtCreated = finalTotal;
-          }
-
-          await useCustomerStore.getState().updateCustomer({
-            ...selectedCustomer,
-            walletBalance: resolvedWallet,
-            debtBalance: resolvedDebt
-          });
+          const walletUsed = Math.min(currentWallet, finalTotal);
+          const debtCreated = Math.max(0, finalTotal - currentWallet);
 
           if (walletUsed > 0) {
             await SupabaseService.createLedgerEntry({
@@ -231,8 +218,8 @@ export const useCartStore = create<CartState>((set, get) => ({
               customerId: selectedCustomer.id,
               type: 'wallet_usage',
               amount: walletUsed,
-              walletBalance: resolvedWallet,
-              debtBalance: currentDebt, 
+              walletBalance: freshWallet,
+              debtBalance: freshDebt,
               recordedBy: currentEmployee.name,
               note: `Paid for order ${savedTx.id} using wallet credit`,
               transactionId: savedTx.id
@@ -245,8 +232,8 @@ export const useCartStore = create<CartState>((set, get) => ({
               customerId: selectedCustomer.id,
               type: 'debt_creation',
               amount: debtCreated,
-              walletBalance: resolvedWallet,
-              debtBalance: resolvedDebt,
+              walletBalance: freshWallet,
+              debtBalance: freshDebt,
               recordedBy: currentEmployee.name,
               note: `Outstanding balance for order ${savedTx.id} charged to debt`,
               transactionId: savedTx.id
