@@ -1,5 +1,5 @@
 // supabase/edge_functions/shared/cors.ts
-// Shared CORS utilities for all KayKay's Milk edge functions
+// Shared CORS utilities for all ISMS  edge functions
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

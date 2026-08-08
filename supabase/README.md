@@ -1,8 +1,8 @@
-# KayKay's Premium Milk: Supabase Production-Ready Backend
+# ISMS Premium Milk: Supabase Production-Ready Backend
 
 This directory houses the complete **Supabase** backend configuration, database schemas, triggers, PL/pgSQL functions, Row-Level Security (RLS) policies, and Deno-compatible Edge Functions.
 
-The architecture is designed to support both the **KayKay's Milk Business Management App** and the future **Customer Portal App** from a single unified Postgres database.
+The architecture is designed to support both the **ISMS  Business Management App** and the future **Customer Portal App** from a single unified Postgres database.
 
 ---
 

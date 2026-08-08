@@ -1,8 +1,5 @@
 {
-  "name": "KayKay's ",
+  "name": "ISMS ",
   "description": "A business management Application",
-  "requestFramePermissions": [
-    "camera",
-    "geolocation"
-  ]
+  "requestFramePermissions": ["camera", "geolocation"]
 }

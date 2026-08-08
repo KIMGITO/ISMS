@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_008_settings_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Settings & Integration Tables:
 --   mpesa_transactions, notifications, notification_preferences,
 --   integration_configurations, receipt_settings, receipt_verifications,

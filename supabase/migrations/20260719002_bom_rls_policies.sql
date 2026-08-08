@@ -6,6 +6,17 @@
 BEGIN;
 
 -- bill_of_materials policies
+CREATE POLICY "Users can view BOMs for their business"
+    ON public.bill_of_materials
+    FOR SELECT
+    USING (
+        business_id IN (
+            SELECT bm.business_id
+            FROM public.business_memberships bm
+            WHERE bm.user_id = auth.uid()
+        )
+    );
+
 CREATE POLICY "Users can insert BOMs for their business"
     ON public.bill_of_materials
     FOR INSERT
@@ -40,6 +51,18 @@ CREATE POLICY "Users can delete BOMs for their business"
     );
 
 -- bom_ingredients policies
+CREATE POLICY "Users can view BOM ingredients for their business"
+    ON public.bom_ingredients
+    FOR SELECT
+    USING (
+        bom_id IN (
+            SELECT bom.id
+            FROM public.bill_of_materials bom
+            JOIN public.business_memberships bm ON bm.business_id = bom.business_id
+            WHERE bm.user_id = auth.uid()
+        )
+    );
+
 CREATE POLICY "Users can insert BOM ingredients for their business"
     ON public.bom_ingredients
     FOR INSERT

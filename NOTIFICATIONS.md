@@ -1,6 +1,6 @@
 # Notification System Architecture
 
-This document describes the unified notification system implemented in KayKay's Milk Application.
+This document describes the unified notification system implemented in ISMS  Application.
 
 ## Overview
 

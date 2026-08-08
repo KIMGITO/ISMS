@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260708160000_extra_modules.sql
--- KayKay's Milk Business Management System — Extra Modules Schema Parity
+-- integrated Shop Management System — Extra Modules Schema Parity
 -- =============================================================================
 
 -- Add new roles to the employee_role ENUM

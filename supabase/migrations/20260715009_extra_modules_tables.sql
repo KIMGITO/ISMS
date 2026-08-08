@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_009_extra_modules_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Extra Module Tables: recipes, recipe_ingredients, production_batches,
 --   purchases, purchase_items, business_assets, storage_files,
 --   ai_insights, payments

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_004_access_control_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Access Control Tables: business_memberships, invitations, role_permissions, employees
 -- =============================================================================
 -- Why: These tables define who can access which business and with what role.

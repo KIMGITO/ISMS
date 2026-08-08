@@ -7,9 +7,9 @@ SDK_VERSION="35.0.0"
 APKSIGNER="/home/dennis/Android/Sdk/build-tools/${SDK_VERSION}/apksigner"
 ZIPALIGN="/home/dennis/Android/Sdk/build-tools/${SDK_VERSION}/zipalign"
 
-UNSIGNED_APK="release-builds/android/kaykay-release-unsigned.apk"
-ALIGNED_APK="release-builds/android/kaykay-release-aligned.apk"
-SIGNED_APK="release-builds/android/kaykay-release-signed.apk"
+UNSIGNED_APK="release-builds/android/isms-release-unsigned.apk"
+ALIGNED_APK="release-builds/android/isms-release-aligned.apk"
+SIGNED_APK="release-builds/android/isms-release-signed.apk"
 KEYSTORE="my-release.keystore"
 
 echo "=================================================="

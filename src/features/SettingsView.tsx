@@ -969,7 +969,7 @@ export default function SettingsView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full items-start">
               {/* 0. INTERACTIVE GUIDE TOUR SECTION */}
 
-            {hasRolePermission(currentRole, 'settings.tax') && (
+              {hasRolePermission(currentRole, 'settings.tax') && (
                 <div
                   className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm"
                   id="receipt-engine-customization-settings"
@@ -1092,7 +1092,7 @@ export default function SettingsView({
                               },
                               {
                                 id: 'milk_shop',
-                                label: "KayKay's Farm Milk Shop Theme",
+                                label: 'ISMS Farm Milk Shop Theme',
                               },
                             ]}
                             selectedValue={receiptSettings.templateType}
@@ -1270,7 +1270,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                              placeholder="KayKay's Milk Shop"
+                              placeholder="ISMS  Shop"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -1325,7 +1325,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                              placeholder="sales@kaykaysmilk.com"
+                              placeholder="sales@isms.com"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -1342,7 +1342,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                              placeholder="www.kaykaysmilk.com"
+                              placeholder="www.isms.com"
                             />
                           </div>
                         </div>
@@ -1761,8 +1761,8 @@ export default function SettingsView({
                   </div>
                 </div>
               )}
-             
-             {/* Centralized Device Hardware Permissions Card */}
+
+              {/* Centralized Device Hardware Permissions Card */}
               {hasRolePermission(currentRole, 'settings.view') && (
                 <div
                   id="device-permissions-manager-card"
@@ -1903,12 +1903,9 @@ export default function SettingsView({
                   </div>
                 </div>
               )}
-
-              
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full items-start">
-
-               {/* Enterprise AI Platform configuration card */}
+              {/* Enterprise AI Platform configuration card */}
               {hasRolePermission(currentRole, 'settings.integrations') && (
                 <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
@@ -2514,7 +2511,7 @@ export default function SettingsView({
                   </div>
                 </div>
               )}
-              
+
               {/* Google Sheets Backup Integration Card */}
               {hasRolePermission(currentRole, 'settings.storage') && (
                 <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
@@ -2808,9 +2805,6 @@ export default function SettingsView({
                   </div>
                 </div>
               )}
-
-             
-              
 
               {/* Twilio SMS Platform configuration card */}
               {hasRolePermission(currentRole, 'settings.integrations') && (
@@ -3407,8 +3401,6 @@ export default function SettingsView({
                     </div>
                   </div>
                 )}
-
-              
             </div>
             <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in">
               <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_006_transaction_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Transaction Tables: transactions, transaction_items, credit_payments,
 --                     wallet_transactions + customer_ledger FK
 -- =============================================================================

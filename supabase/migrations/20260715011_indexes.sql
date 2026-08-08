@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_011_indexes.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Performance Indexes
 -- =============================================================================
 -- Why: All tables are now created. Indexes on foreign key columns and commonly

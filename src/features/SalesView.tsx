@@ -52,7 +52,11 @@ export default function SalesView() {
       setPhoneNum(cust?.phone || "");
       
       try {
-        const outstandingBalance = cust?.debtBalance || 0;
+        // Outstanding balance = unpaid portion of THIS transaction only.
+        // Only credit sales can carry an outstanding balance; fully-paid
+        // Cash/M-Pesa/Card sales must show zero (no OUTSTANDING BAL line).
+        const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
+        const outstandingBalance = isCreditSale ? tx.finalTotal : 0;
         const receiptData = await ReceiptService.generateReceipt(tx, tx.businessId || "biz-1", {
           customerEmail: cust?.email,
           outstandingBalance,

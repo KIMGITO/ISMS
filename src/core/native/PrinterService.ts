@@ -52,7 +52,7 @@ class PrinterService {
       0x1B, 0x40, // Initialize printer
       0x1B, 0x61, 0x01, // Center alignment
       0x1B, 0x21, 0x30, // Double width/height font
-      ...this.stringToBytes("KAYKAY'S DAIRY\n"),
+      ...this.stringToBytes("ISMS DAIRY\n"),
       0x1B, 0x21, 0x00, // Reset formatting
       ...this.stringToBytes("--------------------------------\n"),
       ...this.stringToBytes("HARDWARE TEST OK\n"),

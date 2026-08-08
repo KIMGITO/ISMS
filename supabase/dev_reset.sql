@@ -1,6 +1,6 @@
 -- =============================================================================
 -- dev_reset.sql
--- KayKay's Milk — Development Database Reset Script
+-- ISMS  — Development Database Reset Script
 -- WARNING: This script DESTROYS all user data and rebuilds from scratch.
 -- Only run this in development/staging environments. NEVER in production.
 -- =============================================================================

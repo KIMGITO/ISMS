@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
         messaging_service_sid: config.messaging_service_sid,
         from_phone_number: config.from_phone_number,
         to: config.owner_phone_number,
-        body: `Test successful! Your KayKay's Milk POS SMS integration via "${config.provider || "twilio"}" is active and validated.`,
+        body: `Test successful! Your ISMS  POS SMS integration via "${config.provider || "twilio"}" is active and validated.`,
       });
 
       return jsonResponse({ success: testResult.success, ...testResult });

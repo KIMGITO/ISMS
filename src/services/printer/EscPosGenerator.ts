@@ -42,7 +42,7 @@ export class EscPosGenerator {
       builder.push(this.BOLD_ON);
       builder.push(this.textToBytes("🥛\n"));
       builder.push(this.SIZE_NORMAL);
-      builder.push(this.textToBytes("KAYKAY'S DAIRY\n"));
+      builder.push(this.textToBytes("ISMS DAIRY\n"));
       builder.push(this.BOLD_OFF);
       builder.push(this.textToBytes("--------------------\n"));
     }
@@ -179,7 +179,7 @@ export class EscPosGenerator {
     builder.push(this.textToBytes("-".repeat(cpl) + "\n"));
     
     builder.push(this.ALIGN_CENTER);
-    builder.push(this.generateQrCodeCmds("https://kaykaysmilk.co.ke/test"));
+    builder.push(this.generateQrCodeCmds("https://isms.co.ke/test"));
     builder.push(this.textToBytes("\n"));
     builder.push(this.generateBarcodeCmds("TEST-12345"));
     builder.push(this.textToBytes("\n\n\n"));

@@ -1,14 +1,10 @@
 -- =============================================================================
 -- 20260715_012_functions.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- SQL Functions & RPCs
 -- =============================================================================
--- Why: All helper functions must be defined before triggers (migration 013)
--- and before RLS policies that call them (migration 014). Using
--- CREATE OR REPLACE ensures idempotent re-application.
--- All functions use SECURITY DEFINER with SET search_path = public
--- to prevent search_path injection attacks.
--- Dependencies: 001–011 (all tables and indexes must exist)
+-- Why: These functions and RPCs are used by triggers and RLS policies to
+-- enforce business logic.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -233,7 +229,10 @@ BEGIN
     END IF;
 
     -- 3. Debt / wallet settlement for credit transactions
-    IF NEW.customer_id IS NOT NULL THEN
+    -- Only credit sales (Credit_Debt / Credit) may create debt. Fully-paid
+    -- methods (Cash, M-Pesa, Card, Bank, Mobile_Wallet) must never create a
+    -- credit record, even if amount_paid is missing/zero.
+    IF NEW.customer_id IS NOT NULL AND NEW.payment_method IN ('Credit_Debt', 'Credit') THEN
         v_debt_amt := NEW.final_total - COALESCE(NEW.amount_paid, 0) - COALESCE(NEW.wallet_applied, 0);
 
         -- 3a. Deduct wallet amount if used at checkout

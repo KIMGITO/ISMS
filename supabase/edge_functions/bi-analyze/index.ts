@@ -110,7 +110,7 @@ serve(async (req) => {
 
     // ── 2. Build BI analysis prompt ──────────────────────────────────────
     const m = metrics;
-    const promptText = `Perform a high-level, executive-grade corporate Business Intelligence (BI) analysis for "KayKay's Milk" (a premium dairy brand in Kenya).
+    const promptText = `Perform a high-level, executive-grade corporate Business Intelligence (BI) analysis for "ISMS " (a premium dairy brand in Kenya).
 
 Here is the real-time dashboard state for the selected period (${m.timeframe || "current period"}):
 
@@ -162,7 +162,7 @@ Generate a comprehensive executive BI report as valid raw JSON matching the sche
     // ── 3. Call AI ───────────────────────────────────────────────────────
     const result = await runAI(settings, {
       systemInstruction:
-        "You are the Principal Business Intelligence Consultant for KayKay's Milk. You specialise in retail analytics, food and beverage supply chains, M-Pesa digital payment systems, and Kenyan SME operations. Return a comprehensive executive report as raw parseable JSON matching the schema exactly. No markdown code fences.",
+        "You are the Principal Business Intelligence Consultant for ISMS . You specialise in retail analytics, food and beverage supply chains, M-Pesa digital payment systems, and Kenyan SME operations. Return a comprehensive executive report as raw parseable JSON matching the schema exactly. No markdown code fences.",
       messages: [{ role: "user", content: promptText }],
       responseMimeType: "application/json",
       responseSchema: biReportSchema,

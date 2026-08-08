@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_001_extensions.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Extensions & Schema Access
 -- =============================================================================
 -- Why: uuid-ossp provides uuid_generate_v4(), pgcrypto provides gen_random_bytes()

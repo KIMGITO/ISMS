@@ -43,7 +43,7 @@ class BluetoothService {
     // Verify Bluetooth permission
     const permGranted = await permissionService.requestPermission("bluetooth", {
       title: "Bluetooth Connection Request",
-      message: "KayKay's Milk requires Bluetooth access to scan and link thermal receipt printers."
+      message: "ISMS  requires Bluetooth access to scan and link thermal receipt printers."
     });
 
     if (!permGranted) {

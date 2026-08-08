@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715016_storage_setup.sql
--- KayKay's Milk Storage Configuration & RLS Setup
+-- ISMS  Storage Configuration & RLS Setup
 -- =============================================================================
 
 -- 1. Create buckets if they do not exist

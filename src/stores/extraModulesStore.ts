@@ -245,7 +245,7 @@ const SEED_PRODUCTION_BATCHES: ProductionBatch[] = [
     quantityProduced: 480,
     unit: "Bottles",
     status: "Completed",
-    staffName: "KayKay (Owner)",
+    staffName: "ISMS (Owner)",
     date: "2026-07-07T11:00:00Z"
   },
   {
@@ -308,7 +308,7 @@ const SEED_FILES: StorageFile[] = [
     size: "1.4 MB",
     type: "application/pdf",
     url: "/storage/kra/vat_june_2026.pdf",
-    uploadedBy: "KayKay (Owner)",
+    uploadedBy: "ISMS (Owner)",
     date: "2026-06-30T16:30:00Z"
   },
   {
@@ -337,7 +337,7 @@ const SEED_AUDIT_LOGS: AuditLog[] = [
   {
     id: "AUD-8912",
     businessId: "biz-1",
-    staffName: "KayKay (Owner)",
+    staffName: "ISMS (Owner)",
     action: "ROLE_PERMISSIONS_UPDATE",
     module: "Roles & Permissions",
     details: "Modified POS Checkout permissions mapping. Granted pos.refund to Cashier role.",

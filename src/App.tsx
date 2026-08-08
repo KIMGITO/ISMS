@@ -131,111 +131,127 @@ const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({ logoUrl, 
 
 const tourSteps: TourStep[] = [
   {
-    title: "Welcome to KayKay's Milk!",
-    content: "Let's take a quick 1-minute interactive tour to explore your daily staff workflows and tool panels.",
-    placement: "bottom"
+    title: 'Welcome to ISMS !',
+    content:
+      "Let's take a quick 1-minute interactive tour to explore your daily staff workflows and tool panels.",
+    placement: 'bottom',
   },
   {
-    targetSelector: "#sidebar-brand-header",
-    title: "Business Workspace",
-    content: "This shows the current active dairy branch. Operators with multiple locations can switch workspaces here.",
-    placement: "right"
+    targetSelector: '#sidebar-brand-header',
+    title: 'Business Workspace',
+    content:
+      'This shows the current active dairy branch. Operators with multiple locations can switch workspaces here.',
+    placement: 'right',
   },
   {
-    targetSelector: "#sidebar-tab-home",
-    title: "Home Dashboard",
-    content: "View your key business KPIs, sales summary chart, active driver list, and product analytics at a glance.",
-    placement: "right",
-    tab: "home"
+    targetSelector: '#sidebar-tab-home',
+    title: 'Home Dashboard',
+    content:
+      'View your key business KPIs, sales summary chart, active driver list, and product analytics at a glance.',
+    placement: 'right',
+    tab: 'home',
   },
   {
-    targetSelector: "#sidebar-tab-dashboard",
-    title: "Shift Controls & Punch",
-    content: "Log your starting/ending mileage, punch clock timing, and manage assigned rider delivery tasks.",
-    placement: "right",
-    tab: "dashboard"
+    targetSelector: '#sidebar-tab-dashboard',
+    title: 'Shift Controls & Punch',
+    content:
+      'Log your starting/ending mileage, punch clock timing, and manage assigned rider delivery tasks.',
+    placement: 'right',
+    tab: 'dashboard',
   },
   {
-    targetSelector: "#sidebar-tab-pos",
-    title: "POS Checkout",
-    content: "This is where you log sales! Search for milk products, add them to cart, and checkout with modern payment methods.",
-    placement: "right",
-    tab: "pos"
+    targetSelector: '#sidebar-tab-pos',
+    title: 'POS Checkout',
+    content:
+      'This is where you log sales! Search for milk products, add them to cart, and checkout with modern payment methods.',
+    placement: 'right',
+    tab: 'pos',
   },
   {
-    targetSelector: "#sidebar-tab-inventory",
-    title: "Inventory stock Reconcile",
-    content: "Manage warehouse/truck stock quantities, log supply adjustments, and configure inventory alerts.",
-    placement: "right",
-    tab: "inventory"
+    targetSelector: '#sidebar-tab-inventory',
+    title: 'Inventory stock Reconcile',
+    content:
+      'Manage warehouse/truck stock quantities, log supply adjustments, and configure inventory alerts.',
+    placement: 'right',
+    tab: 'inventory',
   },
   {
-    targetSelector: "#sidebar-tab-sales",
-    title: "Sales Log & Orders",
-    content: "Review all processed sales orders, customer invoice details, payment receipts, and synchronization status.",
-    placement: "right",
-    tab: "sales"
+    targetSelector: '#sidebar-tab-sales',
+    title: 'Sales Log & Orders',
+    content:
+      'Review all processed sales orders, customer invoice details, payment receipts, and synchronization status.',
+    placement: 'right',
+    tab: 'sales',
   },
   {
-    targetSelector: "#sidebar-tab-customers",
-    title: "Loyalty Club",
-    content: "Register new customers, view loyalty tier ranks (Bronze, Silver, Gold), and manage customer loyalty points.",
-    placement: "right",
-    tab: "customers"
+    targetSelector: '#sidebar-tab-customers',
+    title: 'Loyalty Club',
+    content:
+      'Register new customers, view loyalty tier ranks (Bronze, Silver, Gold), and manage customer loyalty points.',
+    placement: 'right',
+    tab: 'customers',
   },
   {
-    targetSelector: "#sidebar-tab-ai",
-    title: "AI Co-pilot Assistant",
-    content: "Ask questions, write customer reply feedback, auto-generate reports, or resolve errors using the Gemini AI Engine.",
-    placement: "right",
-    tab: "ai"
+    targetSelector: '#sidebar-tab-ai',
+    title: 'AI Co-pilot Assistant',
+    content:
+      'Ask questions, write customer reply feedback, auto-generate reports, or resolve errors using the Gemini AI Engine.',
+    placement: 'right',
+    tab: 'ai',
   },
   {
-    targetSelector: "#sidebar-tab-permissions",
-    title: "Access Permissions & Security",
-    content: "Owners and Administrators can configure cashier, manager, and driver access rights to secure features.",
-    placement: "right",
-    tab: "permissions"
+    targetSelector: '#sidebar-tab-permissions',
+    title: 'Access Permissions & Security',
+    content:
+      'Owners and Administrators can configure cashier, manager, and driver access rights to secure features.',
+    placement: 'right',
+    tab: 'permissions',
   },
   {
-    targetSelector: "#sidebar-tab-business-management",
-    title: "Business Management",
-    content: "Update business contact details, customize logo avatars, add branches, and configure dynamic branding themes.",
-    placement: "right",
-    tab: "business-management"
+    targetSelector: '#sidebar-tab-business-management',
+    title: 'Business Management',
+    content:
+      'Update business contact details, customize logo avatars, add branches, and configure dynamic branding themes.',
+    placement: 'right',
+    tab: 'business-management',
   },
   {
-    targetSelector: "#sidebar-tab-settings",
-    title: "System Settings",
-    content: "Adjust device themes, configure bluetooth thermal printers, customize taxes, and access administrative preferences.",
-    placement: "right",
-    tab: "settings"
+    targetSelector: '#sidebar-tab-settings',
+    title: 'System Settings',
+    content:
+      'Adjust device themes, configure bluetooth thermal printers, customize taxes, and access administrative preferences.',
+    placement: 'right',
+    tab: 'settings',
   },
   {
-    targetSelector: "#sidebar-tab-production",
-    title: "Production & Bill of Materials",
-    content: "Create production recipes (BOMs), manage raw material ingredients, track production batches, and auto-deduct inventory when batches are completed.",
-    placement: "right",
-    tab: "production"
+    targetSelector: '#sidebar-tab-production',
+    title: 'Production & Bill of Materials',
+    content:
+      'Create production recipes (BOMs), manage raw material ingredients, track production batches, and auto-deduct inventory when batches are completed.',
+    placement: 'right',
+    tab: 'production',
   },
   {
-    targetSelector: "#global-search-container",
-    title: "Global Search Engine",
-    content: "Instantly locate customers, check product details, search receipts, or navigate anywhere across the workspace.",
-    placement: "bottom"
+    targetSelector: '#global-search-container',
+    title: 'Global Search Engine',
+    content:
+      'Instantly locate customers, check product details, search receipts, or navigate anywhere across the workspace.',
+    placement: 'bottom',
   },
   {
-    targetSelector: "#header-notification-bell",
-    title: "System Message Center",
-    content: "Read general staff announcements, system notifications, and critical transaction alerts here.",
-    placement: "left"
+    targetSelector: '#header-notification-bell',
+    title: 'System Message Center',
+    content:
+      'Read general staff announcements, system notifications, and critical transaction alerts here.',
+    placement: 'left',
   },
   {
-    targetSelector: "#restart-tour-button",
-    title: "Restart Tour Anytime",
-    content: "You can restart this guided walkthrough tour anytime by clicking this Interactive Tour button or checking Settings.",
-    placement: "right"
-  }
+    targetSelector: '#restart-tour-button',
+    title: 'Restart Tour Anytime',
+    content:
+      'You can restart this guided walkthrough tour anytime by clicking this Interactive Tour button or checking Settings.',
+    placement: 'right',
+  },
 ];
 
 export default function App() {
@@ -297,12 +313,12 @@ export default function App() {
 
   const handleCloseTour = () => {
     setIsTourOpen(false);
-    localStorage.setItem("kaykays-milk-onboarding-completed", "true");
+    localStorage.setItem("isms-onboarding-completed", "true");
   };
 
   useEffect(() => {
     if (currentEmployee) {
-      const completed = localStorage.getItem("kaykays-milk-onboarding-completed");
+      const completed = localStorage.getItem("isms-onboarding-completed");
       if (completed !== "true") {
         const timer = setTimeout(() => {
           setIsTourOpen(true);
@@ -329,11 +345,13 @@ export default function App() {
   const [editBizAddr, setEditBizAddr] = useState("");
   const [editBizLogo, setEditBizLogo] = useState("");
 
-  const activeBusiness = businesses.find(b => b.id === activeBusinessId) || businesses[0] || {
-    id: "biz-1",
-    name: "KayKay's Milk",
-    logoUrl: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"
-  };
+  const activeBusiness = businesses.find((b) => b.id === activeBusinessId) ||
+    businesses[0] || {
+      id: 'biz-1',
+      name: 'ISMS ',
+      logoUrl:
+        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
+    };
 
   const assignableBranchesCount = currentEmployee
     ? hasRolePermission(currentEmployee.role, "settings.view")
@@ -472,12 +490,12 @@ export default function App() {
   
   // Theme state stored in localStorage
   const [themeMode, setThemeMode] = useState<"light" | "dark">(
-    () => (localStorage.getItem("kaykays-theme") as "light" | "dark") || "light"
+    () => (localStorage.getItem("isms-theme") as "light" | "dark") || "light"
   );
 
   // Sidebar collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
-    () => localStorage.getItem("kaykays-sidebar-collapsed") === "true"
+    () => localStorage.getItem("isms-sidebar-collapsed") === "true"
   );
 
   const lastScrollY = useRef(0);
@@ -485,7 +503,7 @@ export default function App() {
   // First-launch onboarding states
   const [supabaseConfiguredState, setSupabaseConfiguredState] = useState(() => isSupabaseConfigured());
   const [termsAccepted, setTermsAccepted] = useState(() => {
-    return localStorage.getItem("kkm_terms_accepted") === "true";
+    return localStorage.getItem("isms_terms_accepted") === "true";
   });
   const [setupDbUrl, setSetupDbUrl] = useState("");
   const [setupDbKey, setSetupDbKey] = useState("");
@@ -1008,7 +1026,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   // Handle dark class toggling on document root & save theme
   useEffect(() => {
-    localStorage.setItem("kaykays-theme", themeMode);
+    localStorage.setItem("isms-theme", themeMode);
     const root = window.document.documentElement;
     if (themeMode === "dark") {
       root.classList.add("dark");
@@ -1080,7 +1098,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   const toggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem("kaykays-sidebar-collapsed", String(next));
+      localStorage.setItem("isms-sidebar-collapsed", String(next));
       return next;
     });
   };
@@ -1090,7 +1108,6 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   return (
     <PreviewFrame>
       <div className="w-full h-full flex flex-col relative bg-app-bg overflow-hidden text-app-text transition-colors duration-200">
-        
         {/* WhatsApp-Style Floating Bottom Popup Notification */}
         <AnimatePresence>
           {toast && (
@@ -1098,61 +1115,78 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
               initial={{ opacity: 0, y: 80, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 80, scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 28 }}
               className={`absolute bottom-16 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-[380px] z-[9999] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-2 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 cursor-pointer select-none group transition-all duration-200 ${
-                toast.type === "error"
-                  ? "border-red-500/50 dark:border-red-500/35 bg-red-50/98 dark:bg-slate-950/98 shadow-red-500/5"
-                  : "border-emerald-500/20 dark:border-emerald-500/10"
+                toast.type === 'error'
+                  ? 'border-red-500/50 dark:border-red-500/35 bg-red-50/98 dark:bg-slate-950/98 shadow-red-500/5'
+                  : 'border-emerald-500/20 dark:border-emerald-500/10'
               }`}
               onClick={clearToast}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="relative shrink-0">
                   <img
-                    src={toast.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
+                    src={
+                      toast.avatar ||
+                      "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
+                    }
                     alt={toast.sender}
                     className={`w-10 h-10 rounded-full object-cover border-2 shadow-sm ${
-                      toast.type === "error" ? "border-red-500/40" : "border-emerald-500/30"
+                      toast.type === 'error'
+                        ? 'border-red-500/40'
+                        : 'border-emerald-500/30'
                     }`}
                     referrerPolicy="no-referrer"
                   />
-                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900  ${
-                    toast.type === "error" ? "bg-red-500" : "bg-emerald-500"
-                  }`} />
+                  <span
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900  ${
+                      toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                    }`}
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider block truncate">
                       {toast.sender}
                     </span>
-                    <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest ${
-                      toast.type === "error" 
-                        ? "bg-red-500/10 text-red-500 " 
-                        : toast.type === "info"
-                        ? "bg-amber-500/10 text-amber-500"
-                        : "bg-emerald-500/10 text-emerald-500"
-                    }`}>
-                      {toast.type === "error" ? "System Alert" : toast.type === "info" ? "Stock Alert" : "Activity Update"}
+                    <span
+                      className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest ${
+                        toast.type === 'error'
+                          ? 'bg-red-500/10 text-red-500 '
+                          : toast.type === 'info'
+                          ? 'bg-amber-500/10 text-amber-500'
+                          : 'bg-emerald-500/10 text-emerald-500'
+                      }`}
+                    >
+                      {toast.type === 'error'
+                        ? 'System Alert'
+                        : toast.type === 'info'
+                        ? 'Stock Alert'
+                        : 'Activity Update'}
                     </span>
                   </div>
-                  <p className={`text-[11px] leading-relaxed mt-0.5 ${
-                    toast.type === "error"
-                      ? "text-red-700 dark:text-red-300 font-semibold break-words whitespace-pre-wrap"
-                      : "text-slate-600 dark:text-slate-300 font-medium truncate"
-                  }`}>
+                  <p
+                    className={`text-[11px] leading-relaxed mt-0.5 ${
+                      toast.type === 'error'
+                        ? 'text-red-700 dark:text-red-300 font-semibold break-words whitespace-pre-wrap'
+                        : 'text-slate-600 dark:text-slate-300 font-medium truncate'
+                    }`}
+                  >
                     {toast.message}
                   </p>
                 </div>
               </div>
               <div className="text-right shrink-0">
                 <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 block">
-                  {toast.time || "now"}
+                  {toast.time || 'now'}
                 </span>
-                <span className={`text-[8px] font-bold block mt-1 uppercase tracking-wider transition-colors ${
-                  toast.type === "error"
-                    ? "text-red-500 group-hover:text-red-400 font-black"
-                    : "text-emerald-500 group-hover:text-amber-500"
-                }`}>
+                <span
+                  className={`text-[8px] font-bold block mt-1 uppercase tracking-wider transition-colors ${
+                    toast.type === 'error'
+                      ? 'text-red-500 group-hover:text-red-400 font-black'
+                      : 'text-emerald-500 group-hover:text-amber-500'
+                  }`}
+                >
                   Dismiss
                 </span>
               </div>
@@ -1184,12 +1218,15 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 </div>
 
                 <p className="text-[10.5px] text-slate-400 font-medium leading-relaxed text-center">
-                  Configure your cloud Supabase database URL and anonymous API keys to synchronize local offline transactions.
+                  Configure your cloud Supabase database URL and anonymous API
+                  keys to synchronize local offline transactions.
                 </p>
 
                 <div className="space-y-3.5">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">Supabase Project URL</label>
+                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">
+                      Supabase Project URL
+                    </label>
                     <input
                       type="text"
                       value={setupDbUrl}
@@ -1200,7 +1237,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">Supabase Anon Key</label>
+                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">
+                      Supabase Anon Key
+                    </label>
                     <input
                       type="text"
                       value={setupDbKey}
@@ -1211,7 +1250,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                   </div>
 
                   {setupDbError && (
-                    <p className="text-[10px] text-red-400 font-bold leading-normal text-center">{setupDbError}</p>
+                    <p className="text-[10px] text-red-400 font-bold leading-normal text-center">
+                      {setupDbError}
+                    </p>
                   )}
 
                   <button
@@ -1220,8 +1261,14 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     disabled={dbConnecting}
                     className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wide cursor-pointer transition flex items-center justify-center gap-1.5"
                   >
-                    {dbConnecting ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                    <span>{dbConnecting ? "Testing Sync..." : "Connect Database"}</span>
+                    {dbConnecting ? (
+                      <RefreshCw size={12} className="animate-spin" />
+                    ) : (
+                      <CheckCircle size={12} />
+                    )}
+                    <span>
+                      {dbConnecting ? 'Testing Sync...' : 'Connect Database'}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1249,16 +1296,56 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 </div>
 
                 <div className="max-h-[160px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-[10px] text-slate-400 font-medium leading-relaxed space-y-2.5 text-left">
-                  <p className="font-bold text-slate-300">1. Authorized Corporate Access Only</p>
-                  <p>This terminal portal is exclusively for authorized staff and logistics agents of KayKay's Milk and partner businesses. Unauthorized access, sharing of staff PINs, or spoofing biometric login credentials is strictly prohibited and subject to disciplinary action.</p>
-                  <p className="font-bold text-slate-300">2. Offline Caching & Secure Sync</p>
-                  <p>Transaction receipts, customer details, and stock audits are cached locally on your device's secure browser sandbox. Data is automatically pushed to Supabase tables once an active network connection is established. Users must ensure pending synchronizations are complete before signing out to prevent data loss.</p>
-                  <p className="font-bold text-slate-300">3. Biometric Security & WebAuthn</p>
-                  <p>Device fingerprinting (TouchID/FaceID) is authenticated locally by your platform's secure enclave (WebAuthn API). Raw biometric templates are never captured, stored, or transmitted to KayKay's servers or any third-party database.</p>
-                  <p className="font-bold text-slate-300">4. Gemini AI Reports & Consultations</p>
-                  <p>The "Kim AI Assistant" relies on the Google Gemini API to analyze store metrics and provide consultative business or KRA tax feedback. AI outputs are advisory only; all financial figures and tax filings must be manually audited before submission.</p>
-                  <p className="font-bold text-slate-300">5. POS Auditability & Accountability</p>
-                  <p>All Point of Sale transactions, discounts applied, inventory adjustments, and customer debt updates are logged in association with the active employee ID. Staff are fully responsible for the accuracy of POS entries relative to actual physical inventory and deliveries.</p>
+                  <p className="font-bold text-slate-300">
+                    1. Authorized Corporate Access Only
+                  </p>
+                  <p>
+                    This terminal portal is exclusively for authorized staff and
+                    logistics agents of ISMS and partner businesses.
+                    Unauthorized access, sharing of staff PINs, or spoofing
+                    biometric login credentials is strictly prohibited and
+                    subject to disciplinary action.
+                  </p>
+                  <p className="font-bold text-slate-300">
+                    2. Offline Caching & Secure Sync
+                  </p>
+                  <p>
+                    Transaction receipts, customer details, and stock audits are
+                    cached locally on your device's secure browser sandbox. Data
+                    is automatically pushed to Supabase tables once an active
+                    network connection is established. Users must ensure pending
+                    synchronizations are complete before signing out to prevent
+                    data loss.
+                  </p>
+                  <p className="font-bold text-slate-300">
+                    3. Biometric Security & WebAuthn
+                  </p>
+                  <p>
+                    Device fingerprinting (TouchID/FaceID) is authenticated
+                    locally by your platform's secure enclave (WebAuthn API).
+                    Raw biometric templates are never captured, stored, or
+                    transmitted to ISMS servers or any third-party database.
+                  </p>
+                  <p className="font-bold text-slate-300">
+                    4. Gemini AI Reports & Consultations
+                  </p>
+                  <p>
+                    The "Kim AI Assistant" relies on the Google Gemini API to
+                    analyze store metrics and provide consultative business or
+                    KRA tax feedback. AI outputs are advisory only; all
+                    financial figures and tax filings must be manually audited
+                    before submission.
+                  </p>
+                  <p className="font-bold text-slate-300">
+                    5. POS Auditability & Accountability
+                  </p>
+                  <p>
+                    All Point of Sale transactions, discounts applied, inventory
+                    adjustments, and customer debt updates are logged in
+                    association with the active employee ID. Staff are fully
+                    responsible for the accuracy of POS entries relative to
+                    actual physical inventory and deliveries.
+                  </p>
                 </div>
 
                 <div className="flex items-start gap-2.5 py-1 text-left">
@@ -1269,8 +1356,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     onChange={(e) => setAgreeChecked(e.target.checked)}
                     className="mt-0.5 w-3.5 h-3.5 accent-amber-500 cursor-pointer rounded shrink-0"
                   />
-                  <label htmlFor="agree-checkbox" className="text-[10.5px] text-slate-300 leading-normal font-semibold cursor-pointer select-none">
-                    I agree to the terms, conditions, and offline caching security policies of KayKay's Milk Staff Portal.
+                  <label
+                    htmlFor="agree-checkbox"
+                    className="text-[10.5px] text-slate-300 leading-normal font-semibold cursor-pointer select-none"
+                  >
+                    I agree to the terms, conditions, and offline caching
+                    security policies of ISMS Staff Portal.
                   </label>
                 </div>
 
@@ -1289,7 +1380,6 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
             /* SLEEK INITIALIZATION SCREEN */
             <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-screen">
               <div className="text-center space-y-4">
-                
                 <div className="flex justify-center mt-4">
                   <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
                 </div>
@@ -1313,7 +1403,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 <div className="mx-auto w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-500 shadow-xl">
                   <WifiOff size={28} className="animate-pulse" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <h2 className="text-lg font-bold font-display tracking-tight text-red-400 uppercase tracking-wider">
                     Connection Check Failed
@@ -1333,7 +1423,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 </button>
               </motion.div>
             </div>
-          ) : !currentUser || !currentUser.isVerified || !currentEmployee || showWorkspaceSwitcher ? (
+          ) : !currentUser ||
+            !currentUser.isVerified ||
+            !currentEmployee ||
+            showWorkspaceSwitcher ? (
             /* ONLINE AUTHENTICATION & ONBOARDING PORTAL */
             <motion.div
               key="auth-portal"
@@ -1344,15 +1437,16 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
             >
               {/* Floating Theme Button */}
               <button
-                onClick={() => setThemeMode(themeMode === "light" ? "dark" : "light")}
+                onClick={() =>
+                  setThemeMode(themeMode === 'light' ? 'dark' : 'light')
+                }
                 className="absolute right-4 top-4 p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition cursor-pointer border border-slate-800 shadow-lg flex items-center justify-center"
                 title="Toggle Theme"
               >
-                {themeMode === "light" ? <Moon size={14} /> : <Sun size={14} />}
+                {themeMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
               </button>
 
               <div className="w-full max-w-lg bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 animate-fade-in relative">
-                
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-black text-lg shadow-xl shadow-amber-500/10">
@@ -1370,18 +1464,30 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 {showWorkspaceSwitcher && currentUser ? (
                   <div className="space-y-4 animate-fade-in">
                     <div className="text-center space-y-1">
-                      <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">Select Business Workspace</h2>
-                      <p className="text-[10px] text-slate-400">Your account is registered across multiple milk retail businesses.</p>
+                      <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
+                        Select Business Workspace
+                      </h2>
+                      <p className="text-[10px] text-slate-400">
+                        Your account is registered across multiple milk retail
+                        businesses.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 max-h-[300px] overflow-y-auto">
                       {memberships
-                        .filter(m => m.userId === currentUser.id && m.status === "Active")
-                        .map(m => {
-                          const biz = businesses.find(b => b.id === m.businessId) || {
+                        .filter(
+                          (m) =>
+                            m.userId === currentUser.id &&
+                            m.status === 'Active',
+                        )
+                        .map((m) => {
+                          const biz = businesses.find(
+                            (b) => b.id === m.businessId,
+                          ) || {
                             id: m.businessId,
-                            name: "Unnamed Workspace Branch",
-                            logoUrl: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"
+                            name: 'Unnamed Workspace Branch',
+                            logoUrl:
+                              "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
                           };
                           return (
                             <button
@@ -1393,7 +1499,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               className="w-full p-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/30 rounded-2xl flex items-center justify-between transition group text-left cursor-pointer"
                             >
                               <div className="flex items-center gap-3">
-                                <WorkspaceLogo logoUrl={biz.logoUrl} name={biz.name} />
+                                <WorkspaceLogo
+                                  logoUrl={biz.logoUrl}
+                                  name={biz.name}
+                                />
                                 <div>
                                   <h4 className="text-xs font-black text-slate-100 group-hover:text-amber-500 transition-colors">
                                     {biz.name}
@@ -1403,7 +1512,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                   </span>
                                 </div>
                               </div>
-                              <ArrowRight size={14} className="text-slate-500 group-hover:text-amber-500 transition-colors" />
+                              <ArrowRight
+                                size={14}
+                                className="text-slate-500 group-hover:text-amber-500 transition-colors"
+                              />
                             </button>
                           );
                         })}
@@ -1434,113 +1546,145 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* Navigation Tabs (Only shown if owner exists and not in verifying or business creation steps) */}
-                    {ownerExists && authViewTab !== "verify" && authViewTab !== "create-biz" && (
-                      <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthViewTab("login");
-                            setAuthError("");
-                            setAuthSuccess("");
-                          }}
-                          className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
-                            authViewTab === "login"
-                              ? "bg-amber-500 text-slate-950 shadow-md"
-                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
-                          }`}
-                        >
-                          Login
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthViewTab("accept-invite");
-                            setAuthError("");
-                            setAuthSuccess("");
-                          }}
-                          className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
-                            authViewTab === "accept-invite"
-                              ? "bg-amber-500 text-slate-950 shadow-md"
-                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
-                          }`}
-                        >
-                          Join Team
-                        </button>
-                      </div>
-                    )}
+                    {ownerExists &&
+                      authViewTab !== 'verify' &&
+                      authViewTab !== 'create-biz' && (
+                        <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthViewTab('login');
+                              setAuthError('');
+                              setAuthSuccess('');
+                            }}
+                            className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
+                              authViewTab === 'login'
+                                ? 'bg-amber-500 text-slate-950 shadow-md'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                            }`}
+                          >
+                            Login
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthViewTab('accept-invite');
+                              setAuthError('');
+                              setAuthSuccess('');
+                            }}
+                            className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
+                              authViewTab === 'accept-invite'
+                                ? 'bg-amber-500 text-slate-950 shadow-md'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                            }`}
+                          >
+                            Join Team
+                          </button>
+                        </div>
+                      )}
 
                     {/* TAB CONTENT: LOGIN */}
-                    {authViewTab === "login" && (
+                    {authViewTab === 'login' && (
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
                           if (!loginEmail.trim() || !loginPassword) {
-                            setAuthError("Email/phone and password are required.");
+                            setAuthError(
+                              'Email/phone and password are required.',
+                            );
                             return;
                           }
                           setAuthLoading(true);
-                          setAuthError("");
-                          setAuthSuccess("");
-                          const res = await loginOnline(loginEmail, loginPassword);
+                          setAuthError('');
+                          setAuthSuccess('');
+                          const res = await loginOnline(
+                            loginEmail,
+                            loginPassword,
+                          );
                           setAuthLoading(false);
                           if (res.success) {
                             const current = useAuthStore.getState().currentUser;
-                            const currentMems = useAuthStore.getState().memberships.filter(m => m.userId === current?.id && m.status === "Active");
+                            const currentMems = useAuthStore
+                              .getState()
+                              .memberships.filter(
+                                (m) =>
+                                  m.userId === current?.id &&
+                                  m.status === 'Active',
+                              );
                             if (currentMems.length > 1) {
                               setShowWorkspaceSwitcher(true);
                             }
                           } else {
                             if (res.emailConfirmRequired) {
                               setVerifyEmail(loginEmail);
-                              setAuthViewTab("verify");
-                              setAuthSuccess("Your email is not confirmed yet. Verification screen loaded.");
-                              
+                              setAuthViewTab('verify');
+                              setAuthSuccess(
+                                'Your email is not confirmed yet. Verification screen loaded.',
+                              );
+
                               // Attempt automatic resend of confirmation OTP
                               try {
                                 const supabase = getSupabase();
-                                const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                                await supabase.rpc("save_otp", {
+                                const newOtp = Math.floor(
+                                  100000 + Math.random() * 900000,
+                                ).toString();
+                                await supabase.rpc('save_otp', {
                                   p_email: loginEmail.trim(),
                                   p_code: newOtp,
-                                  p_type: "signup"
+                                  p_type: 'signup',
                                 });
-                                const EmailServiceModule = await import("./services/emailService");
-                                await EmailServiceModule.EmailService.sendVerificationCode(loginEmail.trim(), newOtp, loginEmail.split("@")[0]);
-                                setAuthSuccess(`Your email is not confirmed. We've sent a new 6-digit verification code to ${loginEmail}.`);
+                                const EmailServiceModule = await import(
+                                  './services/emailService'
+                                );
+                                await EmailServiceModule.EmailService.sendVerificationCode(
+                                  loginEmail.trim(),
+                                  newOtp,
+                                  loginEmail.split('@')[0],
+                                );
+                                setAuthSuccess(
+                                  `Your email is not confirmed. We've sent a new 6-digit verification code to ${loginEmail}.`,
+                                );
                               } catch (err: any) {
-                                console.error("Auto OTP send failed:", err);
+                                console.error('Auto OTP send failed:', err);
                               }
                             } else {
-                              setAuthError(res.error || "Failed to log in.");
+                              setAuthError(res.error || 'Failed to log in.');
                             }
                           }
                         }}
                         className="space-y-4 text-xs"
                       >
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email Address or Phone *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Email Address or Phone *
+                          </label>
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="e.g. owner@kaykaysmilk.com"
+                              placeholder="e.g. owner@isms.com"
                               value={loginEmail}
                               onChange={(e) => setLoginEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Mail size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Mail
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-1">
                           <div className="flex justify-between items-center">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Secure Password *</label>
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              Secure Password *
+                            </label>
                             <button
                               type="button"
                               onClick={() => {
-                                setAuthError("");
-                                setAuthSuccess("");
+                                setAuthError('');
+                                setAuthSuccess('');
                                 setForgotEmail(loginEmail);
-                                setAuthViewTab("forgot-password");
+                                setAuthViewTab('forgot-password');
                               }}
                               className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer bg-transparent border-none outline-none"
                             >
@@ -1555,7 +1699,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               onChange={(e) => setLoginPassword(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Lock
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
@@ -1564,66 +1711,90 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           disabled={authLoading}
                           className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg shadow-amber-500/5 mt-2"
                         >
-                          {authLoading ? "Authenticating Session..." : "Secure Login Session"}
+                          {authLoading
+                            ? 'Authenticating Session...'
+                            : 'Secure Login Session'}
                         </button>
 
                         <div className="text-center mt-3 pt-1 border-t border-slate-900/60">
                           <button
                             type="button"
                             onClick={() => {
-                              setAuthError("");
-                              setAuthSuccess("");
+                              setAuthError('');
+                              setAuthSuccess('');
                               setVerifyEmail(loginEmail);
-                              setAuthViewTab("verify");
+                              setAuthViewTab('verify');
                             }}
                             className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer bg-transparent border-none outline-none"
                           >
                             Have an unverified account? Verify here
                           </button>
                         </div>
-
                       </form>
                     )}
 
                     {/* TAB CONTENT: OWNER ONBOARDING (REGISTER) */}
-                    {authViewTab === "register" && (
+                    {authViewTab === 'register' && (
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword) {
-                            setAuthError("All registration fields are required.");
+                          if (
+                            !regName.trim() ||
+                            !regEmail.trim() ||
+                            !regPhone.trim() ||
+                            !regPassword
+                          ) {
+                            setAuthError(
+                              'All registration fields are required.',
+                            );
                             return;
                           }
                           if (regPassword.length < 6) {
-                            setAuthError("Password must be at least 6 characters.");
+                            setAuthError(
+                              'Password must be at least 6 characters.',
+                            );
                             return;
                           }
                           setAuthLoading(true);
-                          setAuthError("");
-                          setAuthSuccess("");
-                          const res = await signUpOwner(regName, regEmail, regPhone, regPassword);
+                          setAuthError('');
+                          setAuthSuccess('');
+                          const res = await signUpOwner(
+                            regName,
+                            regEmail,
+                            regPhone,
+                            regPassword,
+                          );
                           setAuthLoading(false);
                           if (res.success) {
                             setVerifyEmail(regEmail);
-                            setAuthViewTab("verify");
-                            setAuthSuccess(`Verification email dispatched successfully!`);
+                            setAuthViewTab('verify');
+                            setAuthSuccess(
+                              `Verification email dispatched successfully!`,
+                            );
                           } else {
-                            setAuthError(res.error || "Failed to create account.");
+                            setAuthError(
+                              res.error || 'Failed to create account.',
+                            );
                           }
                         }}
                         className="space-y-4 text-xs"
                       >
                         <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1.5">
                           <h4 className="text-[10.5px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <Building size={12} /> First Person Creating Business
+                            <Building size={12} /> First Person Creating
+                            Business
                           </h4>
                           <p className="text-[9.5px] text-slate-400 leading-normal">
-                            You will register your primary encrypted personal profile. Business creation occurs instantly upon completing secure email verification.
+                            You will register your primary encrypted personal
+                            profile. Business creation occurs instantly upon
+                            completing secure email verification.
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Full Name *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Full Name *
+                          </label>
                           <div className="relative">
                             <input
                               type="text"
@@ -1632,26 +1803,36 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               onChange={(e) => setRegName(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <User size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <User
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email Address *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Email Address *
+                          </label>
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@kaykaysmilk.com"
+                              placeholder="e.g. owner@isms.com"
                               value={regEmail}
                               onChange={(e) => setRegEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Mail size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Mail
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Phone Number (with Country Code) *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Phone Number (with Country Code) *
+                          </label>
                           <div className="relative">
                             <input
                               type="text"
@@ -1660,12 +1841,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               onChange={(e) => setRegPhone(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Phone size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Phone
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Choose Password *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Choose Password *
+                          </label>
                           <div className="relative">
                             <input
                               type="password"
@@ -1674,7 +1860,10 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               onChange={(e) => setRegPassword(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Lock
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
@@ -1683,13 +1872,15 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           disabled={authLoading}
                           className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
                         >
-                          {authLoading ? "Creating Profile..." : "Register Owner Account"}
+                          {authLoading
+                            ? 'Creating Profile...'
+                            : 'Register Owner Account'}
                         </button>
                       </form>
                     )}
 
                     {/* TAB CONTENT: OWNER ONBOARDING (STAGE 2: EMAIL VERIFICATION PENDING) */}
-                    {authViewTab === "verify" && (
+                    {authViewTab === 'verify' && (
                       <div className="space-y-5 text-xs animate-fade-in text-center">
                         <div className="py-4 flex justify-center">
                           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 ">
@@ -1700,20 +1891,22 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest">
                             Confirm Your Email
                           </h3>
-                          
+
                           {!isEditingEmail ? (
                             <div className="space-y-1.5">
                               <p className="text-[10.5px] text-slate-300 leading-relaxed">
                                 We've sent a 6-digit verification code to:
                               </p>
                               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl">
-                                <span className="font-bold text-slate-200">{verifyEmail || "(no email set)"}</span>
+                                <span className="font-bold text-slate-200">
+                                  {verifyEmail || '(no email set)'}
+                                </span>
                                 <button
                                   onClick={() => {
                                     setNewEmailInput(verifyEmail);
                                     setIsEditingEmail(true);
-                                    setAuthError("");
-                                    setAuthSuccess("");
+                                    setAuthError('');
+                                    setAuthSuccess('');
                                   }}
                                   className="text-amber-500 hover:text-amber-400 p-0.5 transition cursor-pointer"
                                   title="Edit Email"
@@ -1727,49 +1920,75 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               onSubmit={async (e) => {
                                 e.preventDefault();
                                 if (!newEmailInput.trim()) {
-                                  setAuthError("Email address cannot be empty.");
+                                  setAuthError(
+                                    'Email address cannot be empty.',
+                                  );
                                   return;
                                 }
                                 setAuthLoading(true);
-                                setAuthError("");
-                                setAuthSuccess("");
-                                
+                                setAuthError('');
+                                setAuthSuccess('');
+
                                 if (currentUser) {
-                                  const res = await updateEmailDuringVerification(newEmailInput);
+                                  const res =
+                                    await updateEmailDuringVerification(
+                                      newEmailInput,
+                                    );
                                   setAuthLoading(false);
                                   if (res.success) {
                                     setVerifyEmail(newEmailInput.trim());
                                     setIsEditingEmail(false);
                                     setVerifyCountdown(60);
-                                    setVerifyCode("");
-                                    setAuthSuccess(`Email updated and verification code sent to ${newEmailInput.trim()}!`);
+                                    setVerifyCode('');
+                                    setAuthSuccess(
+                                      `Email updated and verification code sent to ${newEmailInput.trim()}!`,
+                                    );
                                   } else {
-                                    setAuthError(res.error || "Failed to update email.");
+                                    setAuthError(
+                                      res.error || 'Failed to update email.',
+                                    );
                                   }
                                 } else {
                                   // Guest mode email change - update local state and send new verification code via RPC
                                   try {
                                     const supabase = getSupabase();
-                                    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                                    
-                                    const { error: rpcErr } = await supabase.rpc("save_otp", {
-                                      p_email: newEmailInput.trim(),
-                                      p_code: newOtp,
-                                      p_type: "signup"
-                                    });
+                                    const newOtp = Math.floor(
+                                      100000 + Math.random() * 900000,
+                                    ).toString();
+
+                                    const { error: rpcErr } =
+                                      await supabase.rpc('save_otp', {
+                                        p_email: newEmailInput.trim(),
+                                        p_code: newOtp,
+                                        p_type: 'signup',
+                                      });
                                     if (rpcErr) throw rpcErr;
 
-                                    const EmailServiceModule = await import("./services/emailService");
-                                    await EmailServiceModule.EmailService.sendVerificationCode(newEmailInput.trim(), newOtp, newEmailInput.split("@")[0] || "User");
+                                    const EmailServiceModule = await import(
+                                      './services/emailService'
+                                    );
+                                    await EmailServiceModule.EmailService.sendVerificationCode(
+                                      newEmailInput.trim(),
+                                      newOtp,
+                                      newEmailInput.split('@')[0] || 'User',
+                                    );
 
                                     setVerifyEmail(newEmailInput.trim());
                                     setIsEditingEmail(false);
                                     setVerifyCountdown(60);
-                                    setVerifyCode("");
-                                    setAuthSuccess(`Verification code sent to ${newEmailInput.trim()}!`);
+                                    setVerifyCode('');
+                                    setAuthSuccess(
+                                      `Verification code sent to ${newEmailInput.trim()}!`,
+                                    );
                                   } catch (err: any) {
-                                    console.error("Guest OTP send failed:", err);
-                                    setAuthError(err.message || "Failed to send verification code. Verify provider setup.");
+                                    console.error(
+                                      'Guest OTP send failed:',
+                                      err,
+                                    );
+                                    setAuthError(
+                                      err.message ||
+                                        'Failed to send verification code. Verify provider setup.',
+                                    );
                                   } finally {
                                     setAuthLoading(false);
                                   }
@@ -1778,12 +1997,16 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               className="w-full max-w-sm mx-auto space-y-3 bg-slate-950 p-3.5 border border-slate-800 rounded-2xl animate-fade-in"
                             >
                               <div className="text-left space-y-1">
-                                <label className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider block">Update Email Address</label>
+                                <label className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider block">
+                                  Update Email Address
+                                </label>
                                 <input
                                   type="email"
-                                  placeholder="e.g. owner@kaykaysmilk.com"
+                                  placeholder="e.g. owner@isms.com"
                                   value={newEmailInput}
-                                  onChange={(e) => setNewEmailInput(e.target.value)}
+                                  onChange={(e) =>
+                                    setNewEmailInput(e.target.value)
+                                  }
                                   className="w-full bg-slate-900 text-slate-100 px-3 py-2 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
                               </div>
@@ -1793,7 +2016,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                   disabled={authLoading}
                                   className="flex-1 py-2 bg-amber-500 text-slate-950 font-black rounded-lg transition hover:bg-amber-600 disabled:opacity-50 uppercase tracking-wide cursor-pointer"
                                 >
-                                  {authLoading ? "Saving..." : "Save & Resend"}
+                                  {authLoading ? 'Saving...' : 'Save & Resend'}
                                 </button>
                                 <button
                                   type="button"
@@ -1806,7 +2029,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             </form>
                           )}
                         </div>
- 
+
                         {!isEditingEmail && (
                           <>
                             <div className="py-3 flex justify-center">
@@ -1815,14 +2038,19 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 value={verifyCode}
                                 onChange={setVerifyCode}
                                 disabled={authLoading}
-                                onComplete={(code) => handleVerifyOtpSubmit(code)}
+                                onComplete={(code) =>
+                                  handleVerifyOtpSubmit(code)
+                                }
                               />
                             </div>
- 
+
                             <div className="flex flex-col gap-2.5">
                               {verifyCountdown > 0 ? (
                                 <span className="text-[10px] text-slate-400">
-                                  Resend code in <strong className="text-amber-500">{verifyCountdown}s</strong>
+                                  Resend code in{' '}
+                                  <strong className="text-amber-500">
+                                    {verifyCountdown}s
+                                  </strong>
                                 </span>
                               ) : (
                                 <button
@@ -1831,39 +2059,45 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                   disabled={isResending}
                                   className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer"
                                 >
-                                  {isResending ? "Resending Code..." : "Resend Code"}
+                                  {isResending
+                                    ? 'Resending Code...'
+                                    : 'Resend Code'}
                                 </button>
                               )}
- 
+
                               <button
                                 type="button"
                                 onClick={() => handleVerifyOtpSubmit()}
-                                disabled={authLoading || verifyCode.length !== 6}
+                                disabled={
+                                  authLoading || verifyCode.length !== 6
+                                }
                                 className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer shadow-lg mt-2"
                               >
-                                {authLoading ? "Verifying..." : "Verify Code"}
+                                {authLoading ? 'Verifying...' : 'Verify Code'}
                               </button>
- 
+
                               {!currentUser ? (
                                 <div className="flex justify-center gap-4 mt-2">
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setAuthViewTab("login");
-                                      setAuthError("");
-                                      setAuthSuccess("");
+                                      setAuthViewTab('login');
+                                      setAuthError('');
+                                      setAuthSuccess('');
                                     }}
                                     className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer font-bold bg-transparent border-none outline-none"
                                   >
                                     Return to Login
                                   </button>
-                                  <span className="text-[10px] text-slate-700">|</span>
+                                  <span className="text-[10px] text-slate-700">
+                                    |
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setAuthViewTab("register");
-                                      setAuthError("");
-                                      setAuthSuccess("");
+                                      setAuthViewTab('register');
+                                      setAuthError('');
+                                      setAuthSuccess('');
                                     }}
                                     className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer font-bold bg-transparent border-none outline-none"
                                   >
@@ -1886,14 +2120,15 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* TAB CONTENT: OWNER ONBOARDING (STAGE 3: CREATE BUSINESS) */}
-                    {authViewTab === "create-biz" && (
+                    {authViewTab === 'create-biz' && (
                       <div className="space-y-5 text-xs animate-fade-in">
                         <div className="text-center space-y-1">
                           <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
                             <Building size={16} /> Register Business Hub
                           </h3>
                           <p className="text-[10.5px] text-slate-400">
-                            Configure your initial business workspace and dairy branch metadata.
+                            Configure your initial business workspace and dairy
+                            branch metadata.
                           </p>
                         </div>
 
@@ -1901,46 +2136,68 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           onSubmit={async (e) => {
                             e.preventDefault();
                             if (!bizNameField.trim()) {
-                              setAuthError("Business name is required.");
+                              setAuthError('Business name is required.');
                               return;
                             }
                             setAuthLoading(true);
-                            setAuthError("");
-                            setAuthSuccess("");
-                            const res = await createBusinessWithOwner(bizNameField, bizTypeField, bizCountryField, bizCurrencyField);
+                            setAuthError('');
+                            setAuthSuccess('');
+                            const res = await createBusinessWithOwner(
+                              bizNameField,
+                              bizTypeField,
+                              bizCountryField,
+                              bizCurrencyField,
+                            );
                             setAuthLoading(false);
                             if (res.success) {
-                              setBizNameField("");
+                              setBizNameField('');
                             } else {
-                              setAuthError(res.error || "Failed to create business.");
+                              setAuthError(
+                                res.error || 'Failed to create business.',
+                              );
                             }
                           }}
                           className="space-y-4"
                         >
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Business / Outlet Name *</label>
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              Business / Outlet Name *
+                            </label>
                             <div className="relative">
                               <input
                                 type="text"
-                                placeholder="e.g. KayKay's Milk - Nakuru Outlet"
+                                placeholder="e.g. ISMS  - Nakuru Outlet"
                                 value={bizNameField}
-                                onChange={(e) => setBizNameField(e.target.value)}
+                                onChange={(e) =>
+                                  setBizNameField(e.target.value)
+                                }
                                 className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                               />
-                              <Building size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                              <Building
+                                size={13}
+                                className="absolute left-3 top-3.5 text-slate-500"
+                              />
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Business Type *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Business Type *
+                              </label>
                               <div className="relative">
                                 <SearchableDropdown
                                   items={[
-                                    { id: "Retail", label: "Retail Store" },
-                                    { id: "Wholesale", label: "Wholesale Depot" },
-                                    { id: "Farm", label: "Dairy Farm" },
-                                    { id: "Dairy Processing", label: "Processing Plant" }
+                                    { id: 'Retail', label: 'Retail Store' },
+                                    {
+                                      id: 'Wholesale',
+                                      label: 'Wholesale Depot',
+                                    },
+                                    { id: 'Farm', label: 'Dairy Farm' },
+                                    {
+                                      id: 'Dairy Processing',
+                                      label: 'Processing Plant',
+                                    },
                                   ]}
                                   selectedValue={bizTypeField}
                                   onChange={(val) => setBizTypeField(val)}
@@ -1950,15 +2207,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Country *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Country *
+                              </label>
                               <div className="relative">
                                 <SearchableDropdown
                                   items={[
-                                    { id: "Kenya", label: "Kenya" },
-                                    { id: "Uganda", label: "Uganda" },
-                                    { id: "Tanzania", label: "Tanzania" },
-                                    { id: "Rwanda", label: "Rwanda" },
-                                    { id: "Somalia", label: "Somalia" }
+                                    { id: 'Kenya', label: 'Kenya' },
+                                    { id: 'Uganda', label: 'Uganda' },
+                                    { id: 'Tanzania', label: 'Tanzania' },
+                                    { id: 'Rwanda', label: 'Rwanda' },
+                                    { id: 'Somalia', label: 'Somalia' },
                                   ]}
                                   selectedValue={bizCountryField}
                                   onChange={(val) => setBizCountryField(val)}
@@ -1969,21 +2228,32 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Base Operating Currency *</label>
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              Base Operating Currency *
+                            </label>
                             <div className="relative">
                               <SearchableDropdown
                                 items={[
-                                  { id: "Ksh", label: "Ksh (Kenyan Shilling)" },
-                                  { id: "USh", label: "USh (Ugandan Shilling)" },
-                                  { id: "TSh", label: "TSh (Tanzanian Shilling)" },
-                                  { id: "RWF", label: "RWF (Rwandan Franc)" },
-                                  { id: "USD", label: "USD (US Dollar)" }
+                                  { id: 'Ksh', label: 'Ksh (Kenyan Shilling)' },
+                                  {
+                                    id: 'USh',
+                                    label: 'USh (Ugandan Shilling)',
+                                  },
+                                  {
+                                    id: 'TSh',
+                                    label: 'TSh (Tanzanian Shilling)',
+                                  },
+                                  { id: 'RWF', label: 'RWF (Rwandan Franc)' },
+                                  { id: 'USD', label: 'USD (US Dollar)' },
                                 ]}
                                 selectedValue={bizCurrencyField}
                                 onChange={(val) => setBizCurrencyField(val)}
                                 placeholder="Select currency..."
                               />
-                              <Coins size={13} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
+                              <Coins
+                                size={13}
+                                className="absolute left-3 top-3.5 text-slate-500 pointer-events-none"
+                              />
                             </div>
                           </div>
 
@@ -1992,21 +2262,25 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             disabled={authLoading}
                             className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider font-sans"
                           >
-                            {authLoading ? "Initializing Core Hub..." : "Construct Business Workspace"}
+                            {authLoading
+                              ? 'Initializing Core Hub...'
+                              : 'Construct Business Workspace'}
                           </button>
                         </form>
                       </div>
                     )}
 
                     {/* TAB CONTENT: JOIN TEAM (ACCEPT INVITATION) */}
-                    {authViewTab === "accept-invite" && (
+                    {authViewTab === 'accept-invite' && (
                       <div className="space-y-4 text-xs animate-fade-in">
                         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1">
                           <h4 className="text-[10.5px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
                             <Key size={12} /> Invitation Verification Portal
                           </h4>
                           <p className="text-[9.5px] text-slate-400 leading-normal">
-                            Please verify your secure single-use invitation token sent by your Business Owner or Manager to register and attach membership.
+                            Please verify your secure single-use invitation
+                            token sent by your Business Owner or Manager to
+                            register and attach membership.
                           </p>
                         </div>
 
@@ -2015,16 +2289,18 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             onSubmit={async (e) => {
                               e.preventDefault();
                               let code = inviteTokenInput.trim().toUpperCase();
-                              if (code.startsWith("INV-")) {
+                              if (code.startsWith('INV-')) {
                                 code = code.slice(4);
                               }
                               if (code.length !== 6) {
-                                setAuthError("Invitation Code must be exactly 6 characters.");
+                                setAuthError(
+                                  'Invitation Code must be exactly 6 characters.',
+                                );
                                 return;
                               }
                               setAuthLoading(true);
-                              setAuthError("");
-                              setAuthSuccess("");
+                              setAuthError('');
+                              setAuthSuccess('');
                               const res = await verifyInvitation(code);
                               setAuthLoading(false);
                               if (res.success && res.invitation) {
@@ -2032,41 +2308,62 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 setInviteVerified(true);
                                 setInviteName(res.invitation.name);
                                 setInviteEmail(res.invitation.email);
-                                setInvitePhone(res.invitation.phone || "");
+                                setInvitePhone(res.invitation.phone || '');
                                 setInviteTokenInput(code);
-                                setAuthSuccess(`Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`);
+                                setAuthSuccess(
+                                  `Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`,
+                                );
                               } else {
-                                setAuthError(res.error || "Invalid invitation token.");
+                                setAuthError(
+                                  res.error || 'Invalid invitation token.',
+                                );
                               }
                             }}
                             className="space-y-4"
                           >
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block text-center mb-2">Enter 6-Digit Invitation Code *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block text-center mb-2">
+                                Enter 6-Digit Invitation Code *
+                              </label>
                               <div className="flex justify-center py-2">
                                 <OtpInput
                                   length={6}
                                   alphanumeric={true}
-                                  value={inviteTokenInput.toUpperCase().startsWith("INV-") ? inviteTokenInput.slice(4) : inviteTokenInput}
+                                  value={
+                                    inviteTokenInput
+                                      .toUpperCase()
+                                      .startsWith('INV-')
+                                      ? inviteTokenInput.slice(4)
+                                      : inviteTokenInput
+                                  }
                                   onChange={(val) => setInviteTokenInput(val)}
                                   disabled={authLoading}
                                   onComplete={async (code) => {
                                     const cleanCode = code.toUpperCase();
                                     setAuthLoading(true);
-                                    setAuthError("");
-                                    setAuthSuccess("");
-                                    const res = await verifyInvitation(cleanCode);
+                                    setAuthError('');
+                                    setAuthSuccess('');
+                                    const res = await verifyInvitation(
+                                      cleanCode,
+                                    );
                                     setAuthLoading(false);
                                     if (res.success && res.invitation) {
                                       setValidatedInvite(res.invitation);
                                       setInviteVerified(true);
                                       setInviteName(res.invitation.name);
                                       setInviteEmail(res.invitation.email);
-                                      setInvitePhone(res.invitation.phone || "");
+                                      setInvitePhone(
+                                        res.invitation.phone || '',
+                                      );
                                       setInviteTokenInput(cleanCode);
-                                      setAuthSuccess(`Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`);
+                                      setAuthSuccess(
+                                        `Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`,
+                                      );
                                     } else {
-                                      setAuthError(res.error || "Invalid invitation token.");
+                                      setAuthError(
+                                        res.error ||
+                                          'Invalid invitation token.',
+                                      );
                                     }
                                   }}
                                 />
@@ -2078,71 +2375,101 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                             <button
                               type="submit"
-                              disabled={authLoading || (inviteTokenInput.toUpperCase().startsWith("INV-") ? inviteTokenInput.length !== 10 : inviteTokenInput.length !== 6)}
+                              disabled={
+                                authLoading ||
+                                (inviteTokenInput
+                                  .toUpperCase()
+                                  .startsWith('INV-')
+                                  ? inviteTokenInput.length !== 10
+                                  : inviteTokenInput.length !== 6)
+                              }
                               className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer"
                             >
-                              {authLoading ? "Validating Token..." : "Verify Invitation Credentials"}
+                              {authLoading
+                                ? 'Validating Token...'
+                                : 'Verify Invitation Credentials'}
                             </button>
                           </form>
                         ) : (
                           <form
                             onSubmit={async (e) => {
                               e.preventDefault();
-                              if (!inviteEmail.trim() || !inviteName.trim() || !invitePhone.trim() || !invitePassword || !inviteConfirmPassword) {
-                                setAuthError("All credentials are required.");
+                              if (
+                                !inviteEmail.trim() ||
+                                !inviteName.trim() ||
+                                !invitePhone.trim() ||
+                                !invitePassword ||
+                                !inviteConfirmPassword
+                              ) {
+                                setAuthError('All credentials are required.');
                                 return;
                               }
-                              if (inviteEmail.trim().toLowerCase() !== validatedInvite.email.toLowerCase()) {
-                                setAuthError("Registration email does not match the invited email address.");
+                              if (
+                                inviteEmail.trim().toLowerCase() !==
+                                validatedInvite.email.toLowerCase()
+                              ) {
+                                setAuthError(
+                                  'Registration email does not match the invited email address.',
+                                );
                                 return;
                               }
                               if (invitePassword.length < 6) {
-                                setAuthError("Password must be at least 6 characters.");
+                                setAuthError(
+                                  'Password must be at least 6 characters.',
+                                );
                                 return;
                               }
                               if (invitePassword !== inviteConfirmPassword) {
-                                setAuthError("Passwords do not match.");
+                                setAuthError('Passwords do not match.');
                                 return;
                               }
                               setAuthLoading(true);
-                              setAuthError("");
-                              setAuthSuccess("");
+                              setAuthError('');
+                              setAuthSuccess('');
                               setRegPassword(invitePassword);
                               setVerifyEmail(inviteEmail);
                               const res = await acceptInvitation(
                                 inviteTokenInput,
                                 invitePassword,
                                 inviteName,
-                                invitePhone
+                                invitePhone,
                               );
                               setAuthLoading(false);
                               if (res.success) {
                                 setInviteVerified(false);
                                 setValidatedInvite(null);
-                                setInviteTokenInput("");
-                                setInvitePassword("");
-                                setInviteConfirmPassword("");
-                                setAuthViewTab("verify");
-                                setAuthSuccess(`Invitation accepted! A 6-digit OTP verification code has been sent to ${inviteEmail}.`);
+                                setInviteTokenInput('');
+                                setInvitePassword('');
+                                setInviteConfirmPassword('');
+                                setAuthViewTab('verify');
+                                setAuthSuccess(
+                                  `Invitation accepted! A 6-digit OTP verification code has been sent to ${inviteEmail}.`,
+                                );
                               } else {
                                 if (res.requiresLogin) {
                                   // Direct them to login tab
                                   setAuthError(res.error);
                                   setTimeout(() => {
-                                    setAuthViewTab("login");
+                                    setAuthViewTab('login');
                                     setLoginEmail(validatedInvite.email);
                                   }, 2500);
                                 } else {
-                                  setAuthError(res.error || "Failed to accept invitation.");
+                                  setAuthError(
+                                    res.error || 'Failed to accept invitation.',
+                                  );
                                 }
                               }
                             }}
                             className="space-y-4"
                           >
                             <div className="p-3 bg-slate-950 border border-slate-850 rounded-2xl space-y-1 font-sans">
-                              <span className="text-[8px] font-black uppercase text-amber-500 tracking-wider">Target Workspace:</span>
+                              <span className="text-[8px] font-black uppercase text-amber-500 tracking-wider">
+                                Target Workspace:
+                              </span>
                               <h5 className="text-[11px] font-bold text-slate-200">
-                                {businesses.find(b => b.id === validatedInvite.businessId)?.name || "KayKay's Retail Outlet"}
+                                {businesses.find(
+                                  (b) => b.id === validatedInvite.businessId,
+                                )?.name || "ISMS Retail Outlet"}
                               </h5>
                               <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
                                 Assigned Role: {validatedInvite.role}
@@ -2150,72 +2477,107 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Confirm Pre-registered Email *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Confirm Pre-registered Email *
+                              </label>
                               <div className="relative">
                                 <input
                                   type="email"
                                   placeholder="Enter your invited email address"
                                   value={inviteEmail}
-                                  onChange={(e) => setInviteEmail(e.target.value)}
+                                  onChange={(e) =>
+                                    setInviteEmail(e.target.value)
+                                  }
                                   className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
-                                <Mail size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                                <Mail
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
                               </div>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Full Name *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Full Name *
+                              </label>
                               <div className="relative">
                                 <input
                                   type="text"
                                   placeholder="Confirm your name"
                                   value={inviteName}
-                                  onChange={(e) => setInviteName(e.target.value)}
+                                  onChange={(e) =>
+                                    setInviteName(e.target.value)
+                                  }
                                   className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
-                                <User size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                                <User
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
                               </div>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Phone Number *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Phone Number *
+                              </label>
                               <div className="relative">
                                 <input
                                   type="text"
                                   placeholder="Confirm your phone"
                                   value={invitePhone}
-                                  onChange={(e) => setInvitePhone(e.target.value)}
+                                  onChange={(e) =>
+                                    setInvitePhone(e.target.value)
+                                  }
                                   className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
-                                <Phone size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                                <Phone
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
                               </div>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Secure Password *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Secure Password *
+                              </label>
                               <div className="relative">
                                 <input
                                   type="password"
                                   placeholder="Minimum 6 characters"
                                   value={invitePassword}
-                                  onChange={(e) => setInvitePassword(e.target.value)}
+                                  onChange={(e) =>
+                                    setInvitePassword(e.target.value)
+                                  }
                                   className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
-                                <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                                <Lock
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
                               </div>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Confirm Password *</label>
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Confirm Password *
+                              </label>
                               <div className="relative">
                                 <input
                                   type="password"
                                   placeholder="Re-enter password"
                                   value={inviteConfirmPassword}
-                                  onChange={(e) => setInviteConfirmPassword(e.target.value)}
+                                  onChange={(e) =>
+                                    setInviteConfirmPassword(e.target.value)
+                                  }
                                   className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                                 />
-                                <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                                <Lock
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
                               </div>
                             </div>
 
@@ -2225,8 +2587,8 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 onClick={() => {
                                   setInviteVerified(false);
                                   setValidatedInvite(null);
-                                  setAuthError("");
-                                  setAuthSuccess("");
+                                  setAuthError('');
+                                  setAuthSuccess('');
                                 }}
                                 className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold rounded-xl transition"
                               >
@@ -2237,7 +2599,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 disabled={authLoading}
                                 className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-black rounded-xl transition uppercase tracking-wider"
                               >
-                                {authLoading ? "Joining..." : "Accept & Join"}
+                                {authLoading ? 'Joining...' : 'Accept & Join'}
                               </button>
                             </div>
                           </form>
@@ -2246,25 +2608,30 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* TAB CONTENT: FORGOT PASSWORD */}
-                    {authViewTab === "forgot-password" && (
+                    {authViewTab === 'forgot-password' && (
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
                           if (!forgotEmail.trim()) {
-                            setAuthError("Email address is required.");
+                            setAuthError('Email address is required.');
                             return;
                           }
                           setAuthLoading(true);
-                          setAuthError("");
-                          setAuthSuccess("");
+                          setAuthError('');
+                          setAuthSuccess('');
                           const res = await sendPasswordResetOtp(forgotEmail);
                           setAuthLoading(false);
                           if (res.success) {
-                            setAuthViewTab("verify-reset-code");
+                            setAuthViewTab('verify-reset-code');
                             setResetCountdown(60);
-                            setAuthSuccess(`A 6-digit password recovery code has been sent to ${forgotEmail}.`);
+                            setAuthSuccess(
+                              `A 6-digit password recovery code has been sent to ${forgotEmail}.`,
+                            );
                           } else {
-                            setAuthError(res.error || "Failed to request password reset code.");
+                            setAuthError(
+                              res.error ||
+                                'Failed to request password reset code.',
+                            );
                           }
                         }}
                         className="space-y-4 text-xs animate-fade-in"
@@ -2274,21 +2641,27 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             <Key size={16} /> Recover Password
                           </h3>
                           <p className="text-[10.5px] text-slate-400">
-                            Enter your email address below to receive a 6-digit secure password reset code.
+                            Enter your email address below to receive a 6-digit
+                            secure password reset code.
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email Address *</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Email Address *
+                          </label>
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@kaykaysmilk.com"
+                              placeholder="e.g. owner@isms.com"
                               value={forgotEmail}
                               onChange={(e) => setForgotEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
                             />
-                            <Mail size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            <Mail
+                              size={13}
+                              className="absolute left-3 top-3.5 text-slate-500"
+                            />
                           </div>
                         </div>
 
@@ -2297,15 +2670,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           disabled={authLoading}
                           className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
                         >
-                          {authLoading ? "Sending Recovery Code..." : "Send Recovery Code"}
+                          {authLoading
+                            ? 'Sending Recovery Code...'
+                            : 'Send Recovery Code'}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => {
-                            setAuthViewTab("login");
-                            setAuthError("");
-                            setAuthSuccess("");
+                            setAuthViewTab('login');
+                            setAuthError('');
+                            setAuthSuccess('');
                           }}
                           className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-705 text-slate-400 hover:text-slate-200 font-bold rounded-xl text-xs transition tracking-wide text-center"
                         >
@@ -2315,7 +2690,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* TAB CONTENT: VERIFY RESET CODE */}
-                    {authViewTab === "verify-reset-code" && (
+                    {authViewTab === 'verify-reset-code' && (
                       <div className="space-y-5 text-xs animate-fade-in text-center">
                         <div className="py-4 flex justify-center">
                           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 ">
@@ -2327,7 +2702,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             Verify Recovery Code
                           </h3>
                           <p className="text-[10.5px] text-slate-300 leading-relaxed">
-                            We've sent a 6-digit recovery code to <strong>{forgotEmail}</strong>. Enter it below to verify:
+                            We've sent a 6-digit recovery code to{' '}
+                            <strong>{forgotEmail}</strong>. Enter it below to
+                            verify:
                           </p>
                         </div>
 
@@ -2339,15 +2716,23 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             disabled={authLoading}
                             onComplete={async (code) => {
                               setAuthLoading(true);
-                              setAuthError("");
-                              setAuthSuccess("");
-                              const res = await verifyPasswordResetOtp(forgotEmail, code);
+                              setAuthError('');
+                              setAuthSuccess('');
+                              const res = await verifyPasswordResetOtp(
+                                forgotEmail,
+                                code,
+                              );
                               setAuthLoading(false);
                               if (res.success) {
-                                setAuthViewTab("reset-password");
-                                setAuthSuccess("Code verified! Set your new secure password.");
+                                setAuthViewTab('reset-password');
+                                setAuthSuccess(
+                                  'Code verified! Set your new secure password.',
+                                );
                               } else {
-                                setAuthError(res.error || "Verification failed. Check the code.");
+                                setAuthError(
+                                  res.error ||
+                                    'Verification failed. Check the code.',
+                                );
                               }
                             }}
                           />
@@ -2356,23 +2741,32 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         <div className="flex flex-col gap-2.5">
                           {resetCountdown > 0 ? (
                             <span className="text-[10px] text-slate-400">
-                              Resend code in <strong className="text-amber-500">{resetCountdown}s</strong>
+                              Resend code in{' '}
+                              <strong className="text-amber-500">
+                                {resetCountdown}s
+                              </strong>
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={async () => {
                                 setAuthLoading(true);
-                                setAuthError("");
-                                setAuthSuccess("");
-                                const res = await sendPasswordResetOtp(forgotEmail);
+                                setAuthError('');
+                                setAuthSuccess('');
+                                const res = await sendPasswordResetOtp(
+                                  forgotEmail,
+                                );
                                 setAuthLoading(false);
                                 if (res.success) {
                                   setResetCountdown(60);
-                                  setResetOtpCode("");
-                                  setAuthSuccess(`A new recovery code has been sent to ${forgotEmail}.`);
+                                  setResetOtpCode('');
+                                  setAuthSuccess(
+                                    `A new recovery code has been sent to ${forgotEmail}.`,
+                                  );
                                 } else {
-                                  setAuthError(res.error || "Failed to resend code.");
+                                  setAuthError(
+                                    res.error || 'Failed to resend code.',
+                                  );
                                 }
                               }}
                               className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer"
@@ -2385,33 +2779,43 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             type="button"
                             onClick={async () => {
                               if (resetOtpCode.length !== 6) {
-                                setAuthError("Please enter a valid 6-digit code.");
+                                setAuthError(
+                                  'Please enter a valid 6-digit code.',
+                                );
                                 return;
                               }
                               setAuthLoading(true);
-                              setAuthError("");
-                              setAuthSuccess("");
-                              const res = await verifyPasswordResetOtp(forgotEmail, resetOtpCode);
+                              setAuthError('');
+                              setAuthSuccess('');
+                              const res = await verifyPasswordResetOtp(
+                                forgotEmail,
+                                resetOtpCode,
+                              );
                               setAuthLoading(false);
                               if (res.success) {
-                                setAuthViewTab("reset-password");
-                                setAuthSuccess("Code verified! Set your new secure password.");
+                                setAuthViewTab('reset-password');
+                                setAuthSuccess(
+                                  'Code verified! Set your new secure password.',
+                                );
                               } else {
-                                setAuthError(res.error || "Verification failed. Check the code.");
+                                setAuthError(
+                                  res.error ||
+                                    'Verification failed. Check the code.',
+                                );
                               }
                             }}
                             disabled={authLoading || resetOtpCode.length !== 6}
                             className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer shadow-lg mt-2"
                           >
-                            {authLoading ? "Verifying..." : "Verify Code"}
+                            {authLoading ? 'Verifying...' : 'Verify Code'}
                           </button>
 
                           <button
                             type="button"
                             onClick={() => {
-                              setAuthViewTab("login");
-                              setAuthError("");
-                              setAuthSuccess("");
+                              setAuthViewTab('login');
+                              setAuthError('');
+                              setAuthSuccess('');
                             }}
                             className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer mt-1"
                           >
@@ -2422,158 +2826,245 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* TAB CONTENT: RESET PASSWORD */}
-                    {authViewTab === "reset-password" && (() => {
-                      const hasLength = newPassword.length >= 8;
-                      const hasUpper = /[A-Z]/.test(newPassword);
-                      const hasLower = /[a-z]/.test(newPassword);
-                      const hasNumber = /[0-9]/.test(newPassword);
-                      const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
-                      
-                      const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
-                      
-                      let strengthColor = "bg-red-500";
-                      let strengthText = "Very Weak";
-                      if (strengthScore === 2) { strengthColor = "bg-orange-500"; strengthText = "Weak"; }
-                      else if (strengthScore === 3) { strengthColor = "bg-yellow-500"; strengthText = "Fair"; }
-                      else if (strengthScore === 4) { strengthColor = "bg-lime-500"; strengthText = "Strong"; }
-                      else if (strengthScore === 5) { strengthColor = "bg-emerald-500"; strengthText = "Very Strong"; }
+                    {authViewTab === 'reset-password' &&
+                      (() => {
+                        const hasLength = newPassword.length >= 8;
+                        const hasUpper = /[A-Z]/.test(newPassword);
+                        const hasLower = /[a-z]/.test(newPassword);
+                        const hasNumber = /[0-9]/.test(newPassword);
+                        const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
 
-                      return (
-                        <form
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            if (newPassword !== confirmPassword) {
-                              setAuthError("Passwords do not match.");
-                              return;
-                            }
-                            if (strengthScore < 3) {
-                              setAuthError("Please choose a stronger password matching the minimum requirements.");
-                              return;
-                            }
-                            setAuthLoading(true);
-                            setAuthError("");
-                            setAuthSuccess("");
-                            const res = await updatePassword(newPassword, forgotEmail);
-                            setAuthLoading(false);
-                            if (res.success) {
-                              setAuthSuccess("Password changed successfully! Returning to login...");
-                              // Sign out the recovery session
-                              await logout();
-                              setTimeout(() => {
-                                setAuthViewTab("login");
-                                setAuthSuccess("");
-                              }, 3000);
-                            } else {
-                              setAuthError(res.error || "Failed to update password.");
-                            }
-                          }}
-                          className="space-y-4 text-xs animate-fade-in"
-                        >
-                          <div className="text-center space-y-1">
-                            <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
-                              <Lock size={16} /> Choose New Password
-                            </h3>
-                            <p className="text-[10.5px] text-slate-400">
-                              Establish a strong, encrypted password credentials for your profile.
-                            </p>
-                          </div>
+                        const strengthScore = [
+                          hasLength,
+                          hasUpper,
+                          hasLower,
+                          hasNumber,
+                          hasSpecial,
+                        ].filter(Boolean).length;
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">New Password *</label>
-                            <div className="relative">
-                              <input
-                                type="password"
-                                placeholder="Min. 8 characters"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                              />
-                              <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                        let strengthColor = 'bg-red-500';
+                        let strengthText = 'Very Weak';
+                        if (strengthScore === 2) {
+                          strengthColor = 'bg-orange-500';
+                          strengthText = 'Weak';
+                        } else if (strengthScore === 3) {
+                          strengthColor = 'bg-yellow-500';
+                          strengthText = 'Fair';
+                        } else if (strengthScore === 4) {
+                          strengthColor = 'bg-lime-500';
+                          strengthText = 'Strong';
+                        } else if (strengthScore === 5) {
+                          strengthColor = 'bg-emerald-500';
+                          strengthText = 'Very Strong';
+                        }
+
+                        return (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              if (newPassword !== confirmPassword) {
+                                setAuthError('Passwords do not match.');
+                                return;
+                              }
+                              if (strengthScore < 3) {
+                                setAuthError(
+                                  'Please choose a stronger password matching the minimum requirements.',
+                                );
+                                return;
+                              }
+                              setAuthLoading(true);
+                              setAuthError('');
+                              setAuthSuccess('');
+                              const res = await updatePassword(
+                                newPassword,
+                                forgotEmail,
+                              );
+                              setAuthLoading(false);
+                              if (res.success) {
+                                setAuthSuccess(
+                                  'Password changed successfully! Returning to login...',
+                                );
+                                // Sign out the recovery session
+                                await logout();
+                                setTimeout(() => {
+                                  setAuthViewTab('login');
+                                  setAuthSuccess('');
+                                }, 3000);
+                              } else {
+                                setAuthError(
+                                  res.error || 'Failed to update password.',
+                                );
+                              }
+                            }}
+                            className="space-y-4 text-xs animate-fade-in"
+                          >
+                            <div className="text-center space-y-1">
+                              <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                                <Lock size={16} /> Choose New Password
+                              </h3>
+                              <p className="text-[10.5px] text-slate-400">
+                                Establish a strong, encrypted password
+                                credentials for your profile.
+                              </p>
                             </div>
-                          </div>
 
-                          {/* PASSWORD STRENGTH VISUAL INDICATOR */}
-                          {newPassword && (
-                            <div className="space-y-2 p-3 bg-slate-950/65 border border-slate-800 rounded-2xl text-left">
-                              <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-slate-400 font-semibold">Password Strength:</span>
-                                <span className={`font-black uppercase tracking-wider ${strengthScore >= 3 ? "text-emerald-400" : "text-red-400"}`}>{strengthText}</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full ${strengthColor} transition-all duration-300`} 
-                                  style={{ width: `${(strengthScore / 5) * 100}%` }} 
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                New Password *
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="password"
+                                  placeholder="Min. 8 characters"
+                                  value={newPassword}
+                                  onChange={(e) =>
+                                    setNewPassword(e.target.value)
+                                  }
+                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                />
+                                <Lock
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
                                 />
                               </div>
-                              
-                              <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] text-slate-400 font-medium">
-                                <li className="flex items-center gap-1">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${hasLength ? "bg-emerald-500" : "bg-slate-700"}`} />
-                                  <span>At least 8 chars</span>
-                                </li>
-                                <li className="flex items-center gap-1">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${hasUpper ? "bg-emerald-500" : "bg-slate-700"}`} />
-                                  <span>Uppercase letter</span>
-                                </li>
-                                <li className="flex items-center gap-1">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${hasLower ? "bg-emerald-500" : "bg-slate-700"}`} />
-                                  <span>Lowercase letter</span>
-                                </li>
-                                <li className="flex items-center gap-1">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${hasNumber ? "bg-emerald-500" : "bg-slate-700"}`} />
-                                  <span>Number digit</span>
-                                </li>
-                                <li className="flex items-center gap-2 col-span-2">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${hasSpecial ? "bg-emerald-500" : "bg-slate-700"}`} />
-                                  <span>Special character (e.g. !@#$)</span>
-                                </li>
-                              </ul>
                             </div>
-                          )}
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Confirm New Password *</label>
-                            <div className="relative">
-                              <input
-                                type="password"
-                                placeholder="Re-enter password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                              />
-                              <Lock size={13} className="absolute left-3 top-3.5 text-slate-500" />
+                            {/* PASSWORD STRENGTH VISUAL INDICATOR */}
+                            {newPassword && (
+                              <div className="space-y-2 p-3 bg-slate-950/65 border border-slate-800 rounded-2xl text-left">
+                                <div className="flex justify-between items-center text-[10px]">
+                                  <span className="text-slate-400 font-semibold">
+                                    Password Strength:
+                                  </span>
+                                  <span
+                                    className={`font-black uppercase tracking-wider ${
+                                      strengthScore >= 3
+                                        ? 'text-emerald-400'
+                                        : 'text-red-400'
+                                    }`}
+                                  >
+                                    {strengthText}
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full ${strengthColor} transition-all duration-300`}
+                                    style={{
+                                      width: `${(strengthScore / 5) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] text-slate-400 font-medium">
+                                  <li className="flex items-center gap-1">
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        hasLength
+                                          ? 'bg-emerald-500'
+                                          : 'bg-slate-700'
+                                      }`}
+                                    />
+                                    <span>At least 8 chars</span>
+                                  </li>
+                                  <li className="flex items-center gap-1">
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        hasUpper
+                                          ? 'bg-emerald-500'
+                                          : 'bg-slate-700'
+                                      }`}
+                                    />
+                                    <span>Uppercase letter</span>
+                                  </li>
+                                  <li className="flex items-center gap-1">
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        hasLower
+                                          ? 'bg-emerald-500'
+                                          : 'bg-slate-700'
+                                      }`}
+                                    />
+                                    <span>Lowercase letter</span>
+                                  </li>
+                                  <li className="flex items-center gap-1">
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        hasNumber
+                                          ? 'bg-emerald-500'
+                                          : 'bg-slate-700'
+                                      }`}
+                                    />
+                                    <span>Number digit</span>
+                                  </li>
+                                  <li className="flex items-center gap-2 col-span-2">
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        hasSpecial
+                                          ? 'bg-emerald-500'
+                                          : 'bg-slate-700'
+                                      }`}
+                                    />
+                                    <span>Special character (e.g. !@#$)</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            )}
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                                Confirm New Password *
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="password"
+                                  placeholder="Re-enter password"
+                                  value={confirmPassword}
+                                  onChange={(e) =>
+                                    setConfirmPassword(e.target.value)
+                                  }
+                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                />
+                                <Lock
+                                  size={13}
+                                  className="absolute left-3 top-3.5 text-slate-500"
+                                />
+                              </div>
                             </div>
-                          </div>
 
-                          <button
-                            type="submit"
-                            disabled={authLoading || strengthScore < 3}
-                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
-                          >
-                            {authLoading ? "Updating Password..." : "Update Password Credentials"}
-                          </button>
-                        </form>
-                      );
-                    })()}
+                            <button
+                              type="submit"
+                              disabled={authLoading || strengthScore < 3}
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                            >
+                              {authLoading
+                                ? 'Updating Password...'
+                                : 'Update Password Credentials'}
+                            </button>
+                          </form>
+                        );
+                      })()}
 
                     {/* TAB CONTENT: SESSION EXPIRED */}
-                    {authViewTab === "session-expired" && (
+                    {authViewTab === 'session-expired' && (
                       <div className="space-y-4 text-xs animate-fade-in text-center py-4">
                         <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-500 animate-bounce">
                           <Clock size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">Session Expired</h3>
+                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">
+                            Session Expired
+                          </h3>
                           <p className="text-[10.5px] text-slate-400 leading-normal">
-                            Your secure authenticated session has expired. Please re-authenticate your operator profile.
+                            Your secure authenticated session has expired.
+                            Please re-authenticate your operator profile.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => {
-                            setAuthViewTab("login");
-                            setAuthError("");
-                            setAuthSuccess("");
+                            setAuthViewTab('login');
+                            setAuthError('');
+                            setAuthSuccess('');
                           }}
                           className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition uppercase tracking-wider mt-2 cursor-pointer"
                         >
@@ -2583,24 +3074,27 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
 
                     {/* TAB CONTENT: UNAUTHORIZED */}
-                    {authViewTab === "unauthorized" && (
+                    {authViewTab === 'unauthorized' && (
                       <div className="space-y-4 text-xs animate-fade-in text-center py-4">
                         <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-500">
                           <ShieldCheck size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">Unauthorized Access</h3>
+                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">
+                            Unauthorized Access
+                          </h3>
                           <p className="text-[10.5px] text-slate-400 leading-normal">
-                            You do not have the required permissions to view this business workspace.
+                            You do not have the required permissions to view
+                            this business workspace.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => {
                             logout();
-                            setAuthViewTab("login");
-                            setAuthError("");
-                            setAuthSuccess("");
+                            setAuthViewTab('login');
+                            setAuthError('');
+                            setAuthSuccess('');
                           }}
                           className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition uppercase tracking-wider mt-2 cursor-pointer"
                         >
@@ -2610,7 +3104,6 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     )}
                   </>
                 )}
-
               </div>
             </motion.div>
           ) : (
@@ -2624,296 +3117,433 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
               className="flex-1 flex flex-col md:flex-row overflow-hidden bg-app-bg"
             >
               {/* SIDEBAR NAVIGATION FOR LARGE SCREENS & TABLETS */}
-              <aside 
+              <aside
                 className={`hidden md:flex flex-col bg-app-card border-r border-app-border transition-all duration-300 shrink-0 z-30 select-none ${
-                  isSidebarCollapsed ? "w-[72px]" : "w-64"
+                  isSidebarCollapsed ? 'w-[72px]' : 'w-64'
                 }`}
               >
                 {/* Brand / Expand Toggle Header */}
-                <div 
-  id="sidebar-brand-header"
-  className={`relative border-b border-app-border shrink-0 transition-all duration-300 bg-app-card ${
-    isSidebarCollapsed ? "p-4 flex flex-col items-center justify-center gap-4" : "h-40"
-  }`}
->
-  {isSidebarCollapsed ? (
-    <div className="flex flex-col items-center gap-4 w-full">
-      <div 
-        onClick={() => {
-          if (assignableBranchesCount > 1) {
-            setShowBusinessDropdown(!showBusinessDropdown);
-          }
-        }}
-        className={`select-none group/brand shrink-0 transition-opacity ${
-          assignableBranchesCount > 1 ? "cursor-pointer hover:opacity-90" : "cursor-default"
-        }`}
-        title={assignableBranchesCount > 1 ? "Click to switch dairy branch" : undefined}
-      >
-        {activeBusiness.logoUrl ? (
-          <img
-            src={activeBusiness.logoUrl}
-            alt={activeBusiness.name}
-            className="w-10 h-10 rounded-full object-cover shadow-sm border border-app-border"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-amber-500/20 transition-colors duration-300">
-            <Building size={18} className="text-amber-500" />
-          </div>
-        )}
-      </div>
-      <button
-        onClick={toggleSidebar}
-        className="p-1.5 rounded-lg hover:bg-app-bg text-app-text-muted transition cursor-pointer shrink-0"
-        title="Expand Sidebar"
-      >
-        <ChevronRight size={15} />
-      </button>
-    </div>
-  ) : (
-    <div className="flex flex-col w-full h-full relative">
-      {/* Cover Photo Banner Area */}
-      <div className="relative h-20 w-full shrink-0 bg-gradient-to-r from-amber-500/10 to-amber-600/10 dark:from-amber-500/5 dark:to-amber-600/5">
-        {(activeBusiness as any).coverImageUrl && (
-          <img
-            src={(activeBusiness as any).coverImageUrl}
-            alt="Cover"
-            className="w-full h-full object-cover filter brightness-[0.85] dark:brightness-[0.6] transition-all duration-300"
-            referrerPolicy="no-referrer"
-          />
-        )}
+                <div
+                  id="sidebar-brand-header"
+                  className={`relative border-b border-app-border shrink-0 transition-all duration-300 bg-app-card ${
+                    isSidebarCollapsed
+                      ? 'p-4 flex flex-col items-center justify-center gap-4'
+                      : 'h-40'
+                  }`}
+                >
+                  {isSidebarCollapsed ? (
+                    <div className="flex flex-col items-center gap-4 w-full">
+                      <div
+                        onClick={() => {
+                          if (assignableBranchesCount > 1) {
+                            setShowBusinessDropdown(!showBusinessDropdown);
+                          }
+                        }}
+                        className={`select-none group/brand shrink-0 transition-opacity ${
+                          assignableBranchesCount > 1
+                            ? 'cursor-pointer hover:opacity-90'
+                            : 'cursor-default'
+                        }`}
+                        title={
+                          assignableBranchesCount > 1
+                            ? 'Click to switch dairy branch'
+                            : undefined
+                        }
+                      >
+                        {activeBusiness.logoUrl ? (
+                          <img
+                            src={activeBusiness.logoUrl}
+                            alt={activeBusiness.name}
+                            className="w-10 h-10 rounded-full object-cover shadow-sm border border-app-border"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-amber-500/20 transition-colors duration-300">
+                            <Building size={18} className="text-amber-500" />
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={toggleSidebar}
+                        className="p-1.5 rounded-lg hover:bg-app-bg text-app-text-muted transition cursor-pointer shrink-0"
+                        title="Expand Sidebar"
+                      >
+                        <ChevronRight size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col w-full h-full relative">
+                      {/* Cover Photo Banner Area */}
+                      <div className="relative h-20 w-full shrink-0 bg-gradient-to-r from-amber-500/10 to-amber-600/10 dark:from-amber-500/5 dark:to-amber-600/5">
+                        {(activeBusiness as any).coverImageUrl && (
+                          <img
+                            src={(activeBusiness as any).coverImageUrl}
+                            alt="Cover"
+                            className="w-full h-full object-cover filter brightness-[0.85] dark:brightness-[0.6] transition-all duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
 
-        {/* Top-Right Toggle Button Overlay */}
-        <div className="absolute top-2 right-2 z-10">
-          <button
-            onClick={toggleSidebar}
-            className="p-1.5 rounded-full bg-black/30 hover:bg-black/50 text-white backdrop-blur-sm transition cursor-pointer"
-            title="Collapse Sidebar"
-          >
-            <ChevronLeft size={14} />
-          </button>
-        </div>
-      </div>
+                        {/* Top-Right Toggle Button Overlay */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <button
+                            onClick={toggleSidebar}
+                            className="p-1.5 rounded-full bg-black/30 hover:bg-black/50 text-white backdrop-blur-sm transition cursor-pointer"
+                            title="Collapse Sidebar"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                        </div>
+                      </div>
 
-      {/* Profile Section (Overlapping Logo & Text) */}
-      <div className="relative flex-1 px-3 pb-3 bg-app-card">
-        
-        {/* Overlapping Logo (Twitter-style avatar placement) */}
-        <div className="absolute -top-7 left-3 p-1 bg-app-card rounded-full z-10 shadow-sm">
-          <div
-            onClick={() => {
-              if (assignableBranchesCount > 1) setShowBusinessDropdown(!showBusinessDropdown);
-            }}
-            className={`w-12 h-12 rounded-full overflow-hidden bg-app-bg ${
-              assignableBranchesCount > 1 ? "cursor-pointer hover:opacity-90" : "cursor-default"
-            }`}
-          >
-            {activeBusiness.logoUrl ? (
-              <img
-                src={activeBusiness.logoUrl}
-                alt={activeBusiness.name}
-                className="w-full h-full object-cover border border-app-border/50 rounded-full"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center border border-app-border/50 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900">
-                <Building size={20} className="text-amber-500" />
-              </div>
-            )}
-          </div>
-        </div>
+                      {/* Profile Section (Overlapping Logo & Text) */}
+                      <div className="relative flex-1 px-3 pb-3 bg-app-card">
+                        {/* Overlapping Logo (Twitter-style avatar placement) */}
+                        <div className="absolute -top-7 left-3 p-1 bg-app-card rounded-full z-10 shadow-sm">
+                          <div
+                            onClick={() => {
+                              if (assignableBranchesCount > 1)
+                                setShowBusinessDropdown(!showBusinessDropdown);
+                            }}
+                            className={`w-12 h-12 rounded-full overflow-hidden bg-app-bg ${
+                              assignableBranchesCount > 1
+                                ? 'cursor-pointer hover:opacity-90'
+                                : 'cursor-default'
+                            }`}
+                          >
+                            {activeBusiness.logoUrl ? (
+                              <img
+                                src={activeBusiness.logoUrl}
+                                alt={activeBusiness.name}
+                                className="w-full h-full object-cover border border-app-border/50 rounded-full"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center border border-app-border/50 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900">
+                                <Building
+                                  size={20}
+                                  className="text-amber-500"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
 
-        {/* Branch Badge / Spacer (Pushed to the right of the overlapping logo) */}
-        <div className="flex justify-end pt-2">
-          {assignableBranchesCount > 1 ? (
-            <button
-              onClick={() => setShowBusinessDropdown(!showBusinessDropdown)}
-              className="px-2.5 py-0.5 text-[9px] bg-app-bg border border-app-border hover:border-amber-500/50 text-app-text font-bold rounded-full uppercase tracking-wider transition cursor-pointer"
-            >
-              Switch ▾
-            </button>
-          ) : (
-            <div className="h-5" /> 
-          )}
-        </div>
+                        {/* Branch Badge / Spacer (Pushed to the right of the overlapping logo) */}
+                        <div className="flex justify-end pt-2">
+                          {assignableBranchesCount > 1 ? (
+                            <button
+                              onClick={() =>
+                                setShowBusinessDropdown(!showBusinessDropdown)
+                              }
+                              className="px-2.5 py-0.5 text-[9px] bg-app-bg border border-app-border hover:border-amber-500/50 text-app-text font-bold rounded-full uppercase tracking-wider transition cursor-pointer"
+                            >
+                              Switch ▾
+                            </button>
+                          ) : (
+                            <div className="h-5" />
+                          )}
+                        </div>
 
-        {/* Business Name Block */}
-        <div
-          onClick={() => {
-            if (assignableBranchesCount > 1) setShowBusinessDropdown(!showBusinessDropdown);
-          }}
-          className={`mt-1 min-w-0 flex flex-col select-none group/brand ${
-            assignableBranchesCount > 1 ? "cursor-pointer" : "cursor-default"
-          }`}
-        >
-          <span className="font-display font-black text-[14px] text-app-text whitespace-nowrap leading-tight truncate">
-            {activeBusiness.name}
-          </span>
-          <span className="text-[10px] text-app-text-muted font-medium mt-0.5 truncate">
-            {activeBusiness.address || "Main Workspace"}
-          </span>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
+                        {/* Business Name Block */}
+                        <div
+                          onClick={() => {
+                            if (assignableBranchesCount > 1)
+                              setShowBusinessDropdown(!showBusinessDropdown);
+                          }}
+                          className={`mt-1 min-w-0 flex flex-col select-none group/brand ${
+                            assignableBranchesCount > 1
+                              ? 'cursor-pointer'
+                              : 'cursor-default'
+                          }`}
+                        >
+                          <span className="font-display font-black text-[14px] text-app-text whitespace-nowrap leading-tight truncate">
+                            {activeBusiness.name}
+                          </span>
+                          <span className="text-[10px] text-app-text-muted font-medium mt-0.5 truncate">
+                            {activeBusiness.address || 'Main Workspace'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Profile Badge (Collapsible) */}
                 {!isSidebarCollapsed && currentEmployee && (
-  <div 
-    onClick={() => setActiveTab("profile")} 
-    className="mx-3 my-4 p-2.5 bg-app-card hover:bg-app-bg border border-app-border hover:border-amber-500/40 rounded-2xl flex items-center gap-3 shrink-0 cursor-pointer group transition-all duration-300 shadow-sm animate-fade-in"
-  >
-    {/* Avatar with Status Indicator */}
-    <div className="relative shrink-0">
-      <img
-        src={currentEmployee.avatar}
-        alt={currentEmployee.name}
-        className="w-10 h-10 rounded-xl object-cover border border-app-border group-hover:border-amber-500/50 transition-colors"
-        referrerPolicy="no-referrer"
-      />
-      {/* Green Online/Active Dot */}
-      <span 
-        className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-app-card rounded-full" 
-        title="Active Shift"
-      />
-    </div>
-    
-    {/* User Details */}
-    <div className="min-w-0 flex-1">
-      <h4 className="text-[12px] font-black text-app-text truncate group-hover:text-amber-500 transition-colors">
-        {currentEmployee.name}
-      </h4>
-      <div className="flex items-center gap-1.5 mt-0.5">
-        <span className="text-[8.5px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded font-black uppercase tracking-widest truncate">
-          {currentEmployee.role}
-        </span>
-      </div>
-    </div>
+                  <div
+                    onClick={() => setActiveTab('profile')}
+                    className="mx-3 my-4 p-2.5 bg-app-card hover:bg-app-bg border border-app-border hover:border-amber-500/40 rounded-2xl flex items-center gap-3 shrink-0 cursor-pointer group transition-all duration-300 shadow-sm animate-fade-in"
+                  >
+                    {/* Avatar with Status Indicator */}
+                    <div className="relative shrink-0">
+                      <img
+                        src={currentEmployee.avatar}
+                        alt={currentEmployee.name}
+                        className="w-10 h-10 rounded-xl object-cover border border-app-border group-hover:border-amber-500/50 transition-colors"
+                        referrerPolicy="no-referrer"
+                      />
+                      {/* Green Online/Active Dot */}
+                      <span
+                        className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-app-card rounded-full"
+                        title="Active Shift"
+                      />
+                    </div>
 
-    {/* Hover Action Chevron */}
-    <div className="shrink-0 text-app-text-muted group-hover:text-amber-500 transition-all duration-300 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0">
-      <ChevronRight size={14} />
-    </div>
-  </div>
-)}
+                    {/* User Details */}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[12px] font-black text-app-text truncate group-hover:text-amber-500 transition-colors">
+                        {currentEmployee.name}
+                      </h4>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[8.5px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded font-black uppercase tracking-widest truncate">
+                          {currentEmployee.role}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Hover Action Chevron */}
+                    <div className="shrink-0 text-app-text-muted group-hover:text-amber-500 transition-all duration-300 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0">
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
+                )}
 
                 {/* Navigation items (Sidebar) */}
                 <nav className="flex-1 p-2.5 flex flex-col gap-1 overflow-y-auto">
                   {[
-                    { id: "home", label: "Home Dashboard", icon: Home, desc: "Business KPIs & Analytics", permission: "home.view" as const },
-                    { id: "dashboard", label: "Shift Controls", icon: Clock, desc: "Punch clock & tasks", permission: "dashboard.view" as const },
-                    { id: "pos", label: "POS Checkout", icon: ShoppingCart, desc: "Process delivery sales", permission: "pos.create_sale" as const },
-                    { id: "inventory", label: "Inventory Stock", icon: Boxes, desc: "Reconcile truck stock", permission: "inventory.view" as const },
-                    { id: "sales", label: "Sales Log", icon: Receipt, desc: "View synced orders", permission: "orders.view" as const },
-                    { id: "customers", label: "Loyalty Club", icon: Heart, desc: "Manage members", permission: "customers.view" as const },
-                    { id: "feedback", label: "Customer Reviews", icon: MessageSquare, desc: "Feedback & Sentiment", permission: "complaints.view" as const },
-                    { id: "workers", label: "Workers List", icon: Users, desc: "Register & manage staff", permission: "staff.view" as const },
-                    { id: "permissions", label: "Permissions", icon: Key, desc: "Configure role access", permission: "staff.roles" as const },
-                    { id: "ai", label: `${aiName}`, icon: Brain, desc: "Workspace Assistant", permission: "ai.use" as const },
-                    { id: "profile", label: "My Profile", icon: User, desc: "Manage profile & PIN", permission: "dashboard.view" as const },
-                    { id: "business-management", label: "Business Management", icon: Building, desc: "Name, logo, branding", permission: "business.update" as const },
-                    { id: "production", label: "Production & BOM", icon: FlaskConical, desc: "BOM & Batch Tracking", permission: "bom.view" as const },
-                    { id: "settings", label: "Settings", icon: Settings, desc: "Preferences & Security", permission: "settings.view" as const }
-                  ].filter(tab => currentEmployee ? (tab.id === "profile" || tab.id === "notifications" || hasRolePermission(currentEmployee.role, tab.permission as any)) : false).map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
+                    {
+                      id: 'home',
+                      label: 'Home Dashboard',
+                      icon: Home,
+                      desc: 'Business KPIs & Analytics',
+                      permission: 'home.view' as const,
+                    },
+                    {
+                      id: 'dashboard',
+                      label: 'Shift Controls',
+                      icon: Clock,
+                      desc: 'Punch clock & tasks',
+                      permission: 'dashboard.view' as const,
+                    },
+                    {
+                      id: 'pos',
+                      label: 'POS Checkout',
+                      icon: ShoppingCart,
+                      desc: 'Process delivery sales',
+                      permission: 'pos.create_sale' as const,
+                    },
+                    {
+                      id: 'inventory',
+                      label: 'Inventory Stock',
+                      icon: Boxes,
+                      desc: 'Reconcile truck stock',
+                      permission: 'inventory.view' as const,
+                    },
+                    {
+                      id: 'sales',
+                      label: 'Sales Log',
+                      icon: Receipt,
+                      desc: 'View synced orders',
+                      permission: 'orders.view' as const,
+                    },
+                    {
+                      id: 'customers',
+                      label: 'Loyalty Club',
+                      icon: Heart,
+                      desc: 'Manage members',
+                      permission: 'customers.view' as const,
+                    },
+                    {
+                      id: 'feedback',
+                      label: 'Customer Reviews',
+                      icon: MessageSquare,
+                      desc: 'Feedback & Sentiment',
+                      permission: 'complaints.view' as const,
+                    },
+                    {
+                      id: 'workers',
+                      label: 'Workers List',
+                      icon: Users,
+                      desc: 'Register & manage staff',
+                      permission: 'staff.view' as const,
+                    },
+                    {
+                      id: 'permissions',
+                      label: 'Permissions',
+                      icon: Key,
+                      desc: 'Configure role access',
+                      permission: 'staff.roles' as const,
+                    },
+                    {
+                      id: 'ai',
+                      label: `${aiName}`,
+                      icon: Brain,
+                      desc: 'Workspace Assistant',
+                      permission: 'ai.use' as const,
+                    },
+                    {
+                      id: 'profile',
+                      label: 'My Profile',
+                      icon: User,
+                      desc: 'Manage profile & PIN',
+                      permission: 'dashboard.view' as const,
+                    },
+                    {
+                      id: 'business-management',
+                      label: 'Business Management',
+                      icon: Building,
+                      desc: 'Name, logo, branding',
+                      permission: 'business.update' as const,
+                    },
+                    {
+                      id: 'production',
+                      label: 'Production & BOM',
+                      icon: FlaskConical,
+                      desc: 'BOM & Batch Tracking',
+                      permission: 'bom.view' as const,
+                    },
+                    {
+                      id: 'settings',
+                      label: 'Settings',
+                      icon: Settings,
+                      desc: 'Preferences & Security',
+                      permission: 'settings.view' as const,
+                    },
+                  ]
+                    .filter((tab) =>
+                      currentEmployee
+                        ? tab.id === 'profile' ||
+                          tab.id === 'notifications' ||
+                          hasRolePermission(
+                            currentEmployee.role,
+                            tab.permission as any,
+                          )
+                        : false,
+                    )
+                    .map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
 
-                    return (
-                      <button
-                        key={tab.id}
-                        id={`sidebar-tab-${tab.id}`}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all relative group cursor-pointer text-left ${
-                          isActive
-                            ? "bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold"
-                            : "hover:bg-app-bg text-app-text-muted"
-                        }`}
-                        title={isSidebarCollapsed ? tab.label : undefined}
-                      >
-                        {tab.id === "profile" ? (
-                          <img
-                            src={currentEmployee?.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
-                            alt="Profile"
-                            className={`w-5 h-5 rounded-full object-cover shrink-0 transition-all ${
-                              isActive ? "ring-2 ring-amber-500 shadow-xs" : "border border-app-border/70"
-                            }`}
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <Icon size={18} className={isActive ? "text-amber-500" : ""} />
-                        )}
-                        
-                        {!isSidebarCollapsed ? (
-                          <div className="min-w-0 flex-1">
-                            <span className="text-xs block font-bold text-app-text">{tab.label}</span>
-                            <span className="text-[9px] text-app-text-muted block font-medium mt-0.5 truncate">
-                              {tab.desc}
+                      return (
+                        <button
+                          key={tab.id}
+                          id={`sidebar-tab-${tab.id}`}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all relative group cursor-pointer text-left ${
+                            isActive
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold'
+                              : 'hover:bg-app-bg text-app-text-muted'
+                          }`}
+                          title={isSidebarCollapsed ? tab.label : undefined}
+                        >
+                          {tab.id === 'profile' ? (
+                            <img
+                              src={
+                                currentEmployee?.avatar ||
+                                "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
+                              }
+                              alt="Profile"
+                              className={`w-5 h-5 rounded-full object-cover shrink-0 transition-all ${
+                                isActive
+                                  ? 'ring-2 ring-amber-500 shadow-xs'
+                                  : 'border border-app-border/70'
+                              }`}
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <Icon
+                              size={18}
+                              className={isActive ? 'text-amber-500' : ''}
+                            />
+                          )}
+
+                          {!isSidebarCollapsed ? (
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs block font-bold text-app-text">
+                                {tab.label}
+                              </span>
+                              <span className="text-[9px] text-app-text-muted block font-medium mt-0.5 truncate">
+                                {tab.desc}
+                              </span>
+                            </div>
+                          ) : (
+                            /* Compact Hover Tooltip */
+                            <div className="absolute left-16 bg-slate-950 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap shadow-xl border border-slate-800 z-50">
+                              {tab.label}
+                            </div>
+                          )}
+
+                          {tab.id === 'pos' && cartItemsCount > 0 && (
+                            <span
+                              className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
+                                isSidebarCollapsed
+                                  ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]'
+                                  : 'right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]'
+                              }`}
+                            >
+                              {cartItemsCount}
                             </span>
-                          </div>
-                        ) : (
-                          /* Compact Hover Tooltip */
-                          <div className="absolute left-16 bg-slate-950 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap shadow-xl border border-slate-800 z-50">
-                            {tab.label}
-                          </div>
-                        )}
-                        
-                        {tab.id === "pos" && cartItemsCount > 0 && (
-                          <span className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
-                            isSidebarCollapsed 
-                              ? "top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]" 
-                              : "right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]"
-                          }`}>
-                            {cartItemsCount}
-                          </span>
-                        )}
+                          )}
 
-                        {tab.id === "notifications" && unreadNotificationsCount > 0 && (
-                          <span className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
-                            isSidebarCollapsed 
-                              ? "top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]" 
-                              : "right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]"
-                          }`}>
-                            {unreadNotificationsCount}
-                          </span>
-                        )}
-                        
-                        {isActive && (
-                          <div className="absolute left-0 top-3 bottom-3 w-1 bg-amber-500 rounded-r" />
-                        )}
-                      </button>
-                    );
-                  })}
+                          {tab.id === 'notifications' &&
+                            unreadNotificationsCount > 0 && (
+                              <span
+                                className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
+                                  isSidebarCollapsed
+                                    ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]'
+                                    : 'right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]'
+                                }`}
+                              >
+                                {unreadNotificationsCount}
+                              </span>
+                            )}
+
+                          {isActive && (
+                            <div className="absolute left-0 top-3 bottom-3 w-1 bg-amber-500 rounded-r" />
+                          )}
+                        </button>
+                      );
+                    })}
                 </nav>
 
                 {/* Sidebar Sticky Controls Footer */}
                 <div className="p-3 border-t border-app-border flex flex-col gap-2 shrink-0">
-
-
                   {/* Interactive Tour Onboarding button */}
                   <button
                     id="restart-tour-button"
                     onClick={() => {
                       setIsTourOpen(true);
-                      showToast("Tour Started", "Guided onboarding walkthrough started.", undefined, "success");
+                      showToast(
+                        'Tour Started',
+                        'Guided onboarding walkthrough started.',
+                        undefined,
+                        'success',
+                      );
                     }}
                     className="w-full flex items-center justify-center gap-2.5 p-2 bg-app-bg hover:bg-app-card border border-app-border text-app-text rounded-xl transition text-[11px] font-bold cursor-pointer"
                     title="Interactive User Tour"
                   >
                     <HelpCircle size={13} className="text-amber-500" />
-                    {!isSidebarCollapsed && (
-                      <span>Interactive Tour</span>
-                    )}
+                    {!isSidebarCollapsed && <span>Interactive Tour</span>}
                   </button>
 
                   {/* Dark Mode Theme toggle */}
                   <button
-                    onClick={() => setThemeMode(themeMode === "light" ? "dark" : "light")}
+                    onClick={() =>
+                      setThemeMode(themeMode === 'light' ? 'dark' : 'light')
+                    }
                     className="w-full flex items-center justify-center gap-2.5 p-2 bg-app-bg hover:bg-app-card border border-app-border text-app-text rounded-xl transition text-[11px] font-bold cursor-pointer"
                   >
-                    {themeMode === "light" ? <Moon size={13} /> : <Sun size={13} />}
+                    {themeMode === 'light' ? (
+                      <Moon size={13} />
+                    ) : (
+                      <Sun size={13} />
+                    )}
                     {!isSidebarCollapsed && (
-                      <span>{themeMode === "light" ? "Dark Theme" : "Light Theme"}</span>
+                      <span>
+                        {themeMode === 'light' ? 'Dark Theme' : 'Light Theme'}
+                      </span>
                     )}
                   </button>
                 </div>
@@ -2921,26 +3551,28 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
               {/* MAIN CONTENT SECTION */}
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
-                
                 {/* TOP APPLICATION BAR */}
-                <header 
+                <header
                   className="bg-app-card border-b border-app-border px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
-                  style={{ 
-                    paddingTop: "calc(0.375rem + env(safe-area-inset-top, 0px))",
-                    backgroundImage: activeBusiness?.coverImageUrl 
-                      ? `linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.75)), url(${activeBusiness.coverImageUrl})` 
-                      : "none",
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
+                  style={{
+                    paddingTop:
+                      'calc(0.375rem + env(safe-area-inset-top, 0px))',
+                    backgroundImage: activeBusiness?.coverImageUrl
+                      ? `linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.75)), url(${activeBusiness.coverImageUrl})`
+                      : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                   }}
                 >
                   {showMobileSearch ? (
                     <div className="flex-1 flex items-center gap-2">
                       <div className="flex-1">
-                        <GlobalSearch onNavigateTab={(tab) => {
-                          setActiveTab(tab);
-                          setShowMobileSearch(false);
-                        }} />
+                        <GlobalSearch
+                          onNavigateTab={(tab) => {
+                            setActiveTab(tab);
+                            setShowMobileSearch(false);
+                          }}
+                        />
                       </div>
                       <button
                         onClick={() => setShowMobileSearch(false)}
@@ -2953,7 +3585,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                   ) : (
                     <>
                       {/* Brand Logo or Indicator for mobile/tablet only */}
-                      <div 
+                      <div
                         id="mobile-brand-header"
                         onClick={() => {
                           if (assignableBranchesCount > 1) {
@@ -2961,12 +3593,21 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           }
                         }}
                         className={`flex items-center gap-1.5 shrink-0 md:hidden select-none ${
-                          assignableBranchesCount > 1 ? "cursor-pointer" : "cursor-default"
+                          assignableBranchesCount > 1
+                            ? 'cursor-pointer'
+                            : 'cursor-default'
                         }`}
-                        title={assignableBranchesCount > 1 ? "Click to switch dairy branch" : undefined}
+                        title={
+                          assignableBranchesCount > 1
+                            ? 'Click to switch dairy branch'
+                            : undefined
+                        }
                       >
                         <img
-                          src={activeBusiness.logoUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"}
+                          src={
+                            activeBusiness.logoUrl ||
+                            "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"
+                          }
                           alt={activeBusiness.name}
                           className="w-7 h-7 rounded-lg object-cover shrink-0 shadow-xs border border-amber-500/20"
                           referrerPolicy="no-referrer"
@@ -2983,8 +3624,13 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       <div className="hidden md:block shrink-0" />
 
                       {/* Global Unified Search Bar */}
-                      <div id="global-search-container" className="flex-1 max-w-sm hidden md:block">
-                        <GlobalSearch onNavigateTab={(tab) => setActiveTab(tab)} />
+                      <div
+                        id="global-search-container"
+                        className="flex-1 max-w-sm hidden md:block"
+                      >
+                        <GlobalSearch
+                          onNavigateTab={(tab) => setActiveTab(tab)}
+                        />
                       </div>
 
                       {/* Top Right Action Items */}
@@ -3001,34 +3647,46 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         {/* Notification Bell Icon (Always visible) */}
                         <button
                           id="header-notification-bell"
-                          onClick={() => setActiveTab("notifications")}
+                          onClick={() => setActiveTab('notifications')}
                           className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
-                            activeTab === "notifications"
-                              ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                              : "bg-app-bg border-app-border text-app-text hover:text-app-text"
+                            activeTab === 'notifications'
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                              : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
                           }`}
                           title="System Message Center"
                         >
-                          <Bell size={13} className={unreadNotificationsCount > 0 ? "animate-swing" : ""} />
+                          <Bell
+                            size={13}
+                            className={
+                              unreadNotificationsCount > 0
+                                ? 'animate-swing'
+                                : ''
+                            }
+                          />
                           {unreadNotificationsCount > 0 && (
                             <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center  shadow-sm">
                               {unreadNotificationsCount}
                             </span>
                           )}
                         </button>
-                        
+
                         {/* Pending Actions (Drafts) Badge Icon */}
                         <button
                           id="header-pending-actions-btn"
                           onClick={() => setDrawerOpen(true)}
                           className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
                             unexecutedPendingCount > 0
-                              ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                              : "bg-app-bg border-app-border text-app-text hover:text-app-text"
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                              : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
                           }`}
                           title="AI Draft Actions Awaiting Verification"
                         >
-                          <ActivitySquareIcon size={13} className={unexecutedPendingCount > 0 ? "animate-pulse" : ""} />
+                          <ActivitySquareIcon
+                            size={13}
+                            className={
+                              unexecutedPendingCount > 0 ? 'animate-pulse' : ''
+                            }
+                          />
                           {unexecutedPendingCount > 0 && (
                             <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs">
                               {unexecutedPendingCount}
@@ -3037,31 +3695,41 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </button>
                         <div className="flex items-center gap-1.5 md:hidden">
                           {/* Network Online status toggle */}
-                           <button
-                            onClick={() => setThemeMode(themeMode === "light" ? "dark" : "light")}
+                          <button
+                            onClick={() =>
+                              setThemeMode(
+                                themeMode === 'light' ? 'dark' : 'light',
+                              )
+                            }
                             className="p-1.5 bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
                             title="Toggle Theme"
                           >
-                            {themeMode === "light" ? <Moon size={13} /> : <Sun size={13} />}
+                            {themeMode === 'light' ? (
+                              <Moon size={13} />
+                            ) : (
+                              <Sun size={13} />
+                            )}
                           </button>
-                           <div className="relative">
-              <img
-                src={currentEmployee.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
-                alt="My Profile"
-                className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
-                Me
-              </span>
-              {/* Tooltip */}
-              <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
-                My Profile
-              </div>
-            </div>
+                          <div className="relative">
+                            <img
+                              src={
+                                currentEmployee.avatar ||
+                                "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
+                              }
+                              alt="My Profile"
+                              className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
+                              referrerPolicy="no-referrer"
+                            />
+                            <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
+                              Me
+                            </span>
+                            {/* Tooltip */}
+                            <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
+                              My Profile
+                            </div>
+                          </div>
 
                           {/* Dark Mode toggle */}
-                         
                         </div>
                       </div>
                     </>
@@ -3071,7 +3739,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 {/* CORE VIEWPORT CARDS */}
                 <div className="flex-1 overflow-hidden relative">
                   <AnimatePresence mode="wait">
-                    {activeTab === "pos" && (
+                    {activeTab === 'pos' && (
                       <motion.div
                         key="pos-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3085,7 +3753,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "inventory" && (
+                    {activeTab === 'inventory' && (
                       <motion.div
                         key="inv-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3099,7 +3767,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "sales" && (
+                    {activeTab === 'sales' && (
                       <motion.div
                         key="sales-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3113,7 +3781,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "home" && (
+                    {activeTab === 'home' && (
                       <motion.div
                         key="home-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3127,7 +3795,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    { activeTab === "customers" && (
+                    {activeTab === 'customers' && (
                       <motion.div
                         key="cust-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3141,7 +3809,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "dashboard" && (
+                    {activeTab === 'dashboard' && (
                       <motion.div
                         key="dash-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3155,7 +3823,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "ai" && (
+                    {activeTab === 'ai' && (
                       <motion.div
                         key="ai-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3169,7 +3837,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "workers" && (
+                    {activeTab === 'workers' && (
                       <motion.div
                         key="workers-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3183,7 +3851,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "permissions" && (
+                    {activeTab === 'permissions' && (
                       <motion.div
                         key="permissions-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3197,7 +3865,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "feedback" && (
+                    {activeTab === 'feedback' && (
                       <motion.div
                         key="feedback-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3211,7 +3879,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "profile" && (
+                    {activeTab === 'profile' && (
                       <motion.div
                         key="profile-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3220,10 +3888,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         transition={{ duration: 0.15 }}
                         className="absolute inset-0"
                       >
-                        <ProfileView onRestartTour={() => setIsTourOpen(true)} />
+                        <ProfileView
+                          onRestartTour={() => setIsTourOpen(true)}
+                        />
                       </motion.div>
                     )}
-                    {activeTab === "settings" && (
+                    {activeTab === 'settings' && (
                       <motion.div
                         key="settings-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3233,11 +3903,13 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="settings.view">
-                          <SettingsView onRestartTour={() => setIsTourOpen(true)} />
+                          <SettingsView
+                            onRestartTour={() => setIsTourOpen(true)}
+                          />
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "business-management" && (
+                    {activeTab === 'business-management' && (
                       <motion.div
                         key="business-management-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3251,7 +3923,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "production" && (
+                    {activeTab === 'production' && (
                       <motion.div
                         key="production-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3265,7 +3937,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === "notifications" && (
+                    {activeTab === 'notifications' && (
                       <motion.div
                         key="notifications-view"
                         initial={{ opacity: 0, x: 20 }}
@@ -3284,104 +3956,203 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 {currentEmployee && (
                   <motion.button
                     initial={{ opacity: 0 }}
-                    animate={{ 
+                    animate={{
                       opacity: isKeyboardVisible ? 0 : 1,
-                      pointerEvents: isKeyboardVisible ? "none" : "auto",
+                      pointerEvents: isKeyboardVisible ? 'none' : 'auto',
                     }}
                     onClick={() => setShowNav(!showNav)}
                     className="fixed right-0 bottom-24 z-40 md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md text-amber-500 border-y border-l border-amber-500/20 w-3.5 h-12 rounded-l-md shadow-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:bg-slate-900 transition-colors focus:outline-none"
-                    title={showNav ? "Hide Navigation Menu" : "Show Navigation Menu"}
+                    title={
+                      showNav ? 'Hide Navigation Menu' : 'Show Navigation Menu'
+                    }
                   >
                     <div className="w-[1.5px] h-3 bg-amber-500/80 rounded-full" />
                     <div className="w-[1.5px] h-1 bg-amber-500/80 rounded-full" />
                   </motion.button>
                 )}
 
-                 {/* BOTTOM NAVIGATION BAR (MOBILE ONLY, SLIDES/FADES OUT ON SCROLL) */}
+                {/* BOTTOM NAVIGATION BAR (MOBILE ONLY, SLIDES/FADES OUT ON SCROLL) */}
                 <motion.nav
                   initial={{ y: 0, opacity: 1 }}
-                  animate={{ 
-                    y: isNavVisible ? 0 : 90, 
+                  animate={{
+                    y: isNavVisible ? 0 : 90,
                     opacity: isNavVisible ? 1 : 0,
-                    pointerEvents: isNavVisible ? "auto" : "none"
+                    pointerEvents: isNavVisible ? 'auto' : 'none',
                   }}
-                  transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 24 }}
                   className="fixed bottom-3.5 left-3.5 right-3.5 md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md border border-app-border/80 flex items-center justify-around h-15 shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans overflow-x-auto scrollbar-none px-2 gap-0.5"
                 >
                   {[
-                    { id: "home", label: "Home", icon: Home, permission: "home.view" as const },
-                    { id: "dashboard", label: "Shift", icon: Clock, permission: "dashboard.view" as const },
-                    { id: "pos", label: "POS", icon: ShoppingCart, permission: "pos.create_sale" as const },
-                    { id: "inventory", label: "Inventory", icon: Boxes, permission: "inventory.view" as const },
-                    { id: "sales", label: "Sales Log", icon: Receipt, permission: "orders.view" as const },
-                    { id: "customers", label: "Loyalty", icon: Heart, permission: "customers.view" as const },
-                    { id: "feedback", label: "Feedback", icon: MessageSquare, permission: "complaints.view" as const },
-                    { id: "workers", label: "Workers", icon: Users, permission: "staff.view" as const },
-                    { id: "permissions", label: "Roles", icon: Key, permission: "staff.roles" as const },
-                    { id: "ai", label: "Assistant", icon: Bot, permission: "ai.use" as const },
-                    { id: "profile", label: "Profile", icon: User, permission: "dashboard.view" as const },
-                    { id: "business-management", label: "Business", icon: Building, permission: "business.update" as const },
-                    { id: "production", label: "BOM", icon: FlaskConical, permission: "bom.view" as const },
-                    { id: "settings", label: "Settings", icon: Settings, permission: "settings.view" as const }
-                  ].filter(tab => currentEmployee ? (tab.id === "profile" || tab.id === "notifications" || hasRolePermission(currentEmployee.role, tab.permission as any)) : false).map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
+                    {
+                      id: 'home',
+                      label: 'Home',
+                      icon: Home,
+                      permission: 'home.view' as const,
+                    },
+                    {
+                      id: 'dashboard',
+                      label: 'Shift',
+                      icon: Clock,
+                      permission: 'dashboard.view' as const,
+                    },
+                    {
+                      id: 'pos',
+                      label: 'POS',
+                      icon: ShoppingCart,
+                      permission: 'pos.create_sale' as const,
+                    },
+                    {
+                      id: 'inventory',
+                      label: 'Inventory',
+                      icon: Boxes,
+                      permission: 'inventory.view' as const,
+                    },
+                    {
+                      id: 'sales',
+                      label: 'Sales Log',
+                      icon: Receipt,
+                      permission: 'orders.view' as const,
+                    },
+                    {
+                      id: 'customers',
+                      label: 'Loyalty',
+                      icon: Heart,
+                      permission: 'customers.view' as const,
+                    },
+                    {
+                      id: 'feedback',
+                      label: 'Feedback',
+                      icon: MessageSquare,
+                      permission: 'complaints.view' as const,
+                    },
+                    {
+                      id: 'workers',
+                      label: 'Workers',
+                      icon: Users,
+                      permission: 'staff.view' as const,
+                    },
+                    {
+                      id: 'permissions',
+                      label: 'Roles',
+                      icon: Key,
+                      permission: 'staff.roles' as const,
+                    },
+                    {
+                      id: 'ai',
+                      label: 'Assistant',
+                      icon: Bot,
+                      permission: 'ai.use' as const,
+                    },
+                    {
+                      id: 'profile',
+                      label: 'Profile',
+                      icon: User,
+                      permission: 'dashboard.view' as const,
+                    },
+                    {
+                      id: 'business-management',
+                      label: 'Business',
+                      icon: Building,
+                      permission: 'business.update' as const,
+                    },
+                    {
+                      id: 'production',
+                      label: 'BOM',
+                      icon: FlaskConical,
+                      permission: 'bom.view' as const,
+                    },
+                    {
+                      id: 'settings',
+                      label: 'Settings',
+                      icon: Settings,
+                      permission: 'settings.view' as const,
+                    },
+                  ]
+                    .filter((tab) =>
+                      currentEmployee
+                        ? tab.id === 'profile' ||
+                          tab.id === 'notifications' ||
+                          hasRolePermission(
+                            currentEmployee.role,
+                            tab.permission as any,
+                          )
+                        : false,
+                    )
+                    .map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
 
-                    return (
-                      <button
-                        key={tab.id}
-                        id={`mobile-tab-${tab.id}`}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex flex-col items-center justify-center flex-1 min-w-[40px] max-w-[80px] px-0.5 h-full transition-all relative shrink-0 cursor-pointer ${
-                          isActive 
-                            ? "text-amber-500 font-bold" 
-                            : "text-slate-400 dark:text-slate-500 hover:text-slate-200"
-                        }`}
-                      >
-                        <div className="relative flex items-center justify-center">
-                          {tab.id === "profile" ? (
-                            <img
-                              src={currentEmployee?.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
-                              alt="Profile"
-                              className={`w-4.5 h-4.5 rounded-full object-cover transition-all ${
-                                isActive ? "ring-2 ring-amber-500 shadow-xs" : "border border-app-border/70"
-                              }`}
-                              referrerPolicy="no-referrer"
+                      return (
+                        <button
+                          key={tab.id}
+                          id={`mobile-tab-${tab.id}`}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`flex flex-col items-center justify-center flex-1 min-w-[40px] max-w-[80px] px-0.5 h-full transition-all relative shrink-0 cursor-pointer ${
+                            isActive
+                              ? 'text-amber-500 font-bold'
+                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className="relative flex items-center justify-center">
+                            {tab.id === 'profile' ? (
+                              <img
+                                src={
+                                  currentEmployee?.avatar ||
+                                  "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
+                                }
+                                alt="Profile"
+                                className={`w-4.5 h-4.5 rounded-full object-cover transition-all ${
+                                  isActive
+                                    ? 'ring-2 ring-amber-500 shadow-xs'
+                                    : 'border border-app-border/70'
+                                }`}
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <Icon size={16} />
+                            )}
+
+                            {tab.id === 'pos' && cartItemsCount > 0 && (
+                              <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
+                                {cartItemsCount}
+                              </span>
+                            )}
+
+                            {tab.id === 'notifications' &&
+                              unreadNotificationsCount > 0 && (
+                                <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
+                                  {unreadNotificationsCount}
+                                </span>
+                              )}
+                          </div>
+                          <span
+                            className={`text-[8.5px] mt-0.5 tracking-tight transition-all duration-200 ${
+                              isActive
+                                ? 'opacity-100 scale-100 h-auto'
+                                : 'opacity-0 scale-75 h-0 overflow-hidden'
+                            }`}
+                          >
+                            {tab.label}
+                          </span>
+                          {isActive && (
+                            <motion.div
+                              layoutId="activeTabIndicator"
+                              className="absolute bottom-1 w-6 h-0.5 bg-amber-500 rounded-full"
+                              transition={{
+                                type: 'spring',
+                                stiffness: 380,
+                                damping: 30,
+                              }}
                             />
-                          ) : (
-                            <Icon size={16} />
                           )}
-
-                          {tab.id === "pos" && cartItemsCount > 0 && (
-                            <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
-                              {cartItemsCount}
-                            </span>
-                          )}
-
-                          {tab.id === "notifications" && unreadNotificationsCount > 0 && (
-                            <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
-                              {unreadNotificationsCount}
-                            </span>
-                          )}
-                        </div>
-                        <span className={`text-[8.5px] mt-0.5 tracking-tight transition-all duration-200 ${isActive ? "opacity-100 scale-100 h-auto" : "opacity-0 scale-75 h-0 overflow-hidden"}`}>{tab.label}</span>
-                        {isActive && (
-                          <motion.div
-                            layoutId="activeTabIndicator"
-                            className="absolute bottom-1 w-6 h-0.5 bg-amber-500 rounded-full"
-                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
                 </motion.nav>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        
 
         {/* Multi-Business Management & Switcher Modal Overlay */}
         <AnimatePresence>
@@ -3410,8 +4181,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3.5 shrink-0">
                   <div>
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">Select Active Workspace</h3>
-                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-0.5">Switch or configure your dairy branches (Max 5)</p>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                      Select Active Workspace
+                    </h3>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-0.5">
+                      Switch or configure your dairy branches (Max 5)
+                    </p>
                   </div>
                   <button
                     onClick={() => {
@@ -3431,12 +4206,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     {businesses
                       .filter((biz) => {
                         if (!currentEmployee) return false;
-                        if (hasRolePermission(currentEmployee.role, "settings.view")) {
+                        if (
+                          hasRolePermission(
+                            currentEmployee.role,
+                            'settings.view',
+                          )
+                        ) {
                           return true;
                         }
                         const assigned = currentEmployee.assignedBranches || [];
                         if (assigned.length === 0) {
-                          return biz.id === "biz-1";
+                          return biz.id === 'biz-1';
                         }
                         return assigned.includes(biz.id);
                       })
@@ -3447,8 +4227,8 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             key={biz.id}
                             className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                               isActive
-                                ? "bg-amber-500/10 border-amber-500"
-                                : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-amber-500/25"
+                                ? 'bg-amber-500/10 border-amber-500'
+                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-amber-500/25'
                             }`}
                           >
                             <div
@@ -3458,26 +4238,38 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               }}
                               className="flex-1 flex items-center gap-3 cursor-pointer min-w-0"
                             >
-                              <WorkspaceLogo logoUrl={biz.logoUrl} name={biz.name} />
+                              <WorkspaceLogo
+                                logoUrl={biz.logoUrl}
+                                name={biz.name}
+                              />
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-xs font-black text-slate-900 dark:text-slate-50 truncate">{biz.name}</h4>
-                                <p className="text-[9.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{biz.description || "Dairy Branch"}</p>
+                                <h4 className="text-xs font-black text-slate-900 dark:text-slate-50 truncate">
+                                  {biz.name}
+                                </h4>
+                                <p className="text-[9.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                  {biz.description || 'Dairy Branch'}
+                                </p>
                                 {biz.address && (
-                                  <span className="text-[8px] font-mono text-amber-500 uppercase font-black block mt-1">{biz.address}</span>
+                                  <span className="text-[8px] font-mono text-amber-500 uppercase font-black block mt-1">
+                                    {biz.address}
+                                  </span>
                                 )}
                               </div>
                             </div>
 
                             {/* Quick Edit/Delete Actions for Owner */}
-                            {hasRolePermission(currentEmployee.role, "settings.view") && (
+                            {hasRolePermission(
+                              currentEmployee.role,
+                              'settings.view',
+                            ) && (
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   onClick={() => {
                                     setEditingBizId(biz.id);
                                     setEditBizName(biz.name);
-                                    setEditBizDesc(biz.description || "");
-                                    setEditBizAddr(biz.address || "");
-                                    setEditBizLogo(biz.logoUrl || "");
+                                    setEditBizDesc(biz.description || '');
+                                    setEditBizAddr(biz.address || '');
+                                    setEditBizLogo(biz.logoUrl || '');
                                   }}
                                   className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-800/80 transition text-xs flex items-center justify-center"
                                   title="Edit branch settings"
@@ -3487,19 +4279,26 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 {businesses.length > 1 && (
                                   <button
                                     onClick={async () => {
-                                      const confirmed = await nativeUiService.confirm(
-                                        "Delete Workspace",
-                                        `Are you sure you want to permanently close and delete "${biz.name}"? This will hide all its associated transaction data.`
-                                      );
+                                      const confirmed =
+                                        await nativeUiService.confirm(
+                                          'Delete Workspace',
+                                          `Are you sure you want to permanently close and delete "${biz.name}"? This will hide all its associated transaction data.`,
+                                        );
                                       if (confirmed) {
                                         deleteBusiness(biz.id);
-                                        showToast("System Update", `Branch "${biz.name}" has been deleted.`);
+                                        showToast(
+                                          'System Update',
+                                          `Branch "${biz.name}" has been deleted.`,
+                                        );
                                       }
                                     }}
                                     className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 transition text-xs flex items-center justify-center"
                                     title="Close branch"
                                   >
-                                    <Trash2 size={11} className="text-red-500" />
+                                    <Trash2
+                                      size={11}
+                                      className="text-red-500"
+                                    />
                                   </button>
                                 )}
                               </div>
@@ -3508,19 +4307,23 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         );
                       })}
 
-                    {businesses.length < 5 && hasRolePermission(currentEmployee.role, "settings.view") && (
-                      <button
-                        onClick={() => {
-                          setIsCreatingBusiness(true);
-                          setNewBizName("");
-                          setNewBizDesc("");
-                          setNewBizAddr("");
-                        }}
-                        className="mt-2 py-2.5 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/5 transition cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        ➕ Create Branch ({businesses.length}/5)
-                      </button>
-                    )}
+                    {businesses.length < 5 &&
+                      hasRolePermission(
+                        currentEmployee.role,
+                        'settings.view',
+                      ) && (
+                        <button
+                          onClick={() => {
+                            setIsCreatingBusiness(true);
+                            setNewBizName('');
+                            setNewBizDesc('');
+                            setNewBizAddr('');
+                          }}
+                          className="mt-2 py-2.5 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/5 transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          ➕ Create Branch ({businesses.length}/5)
+                        </button>
+                      )}
                   </div>
                 ) : isCreatingBusiness ? (
                   /* Create Business form */
@@ -3528,15 +4331,38 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     onSubmit={async (e) => {
                       e.preventDefault();
                       if (!newBizName.trim()) {
-                        showToast("Validation Error", "Branch/Business Name is required.", undefined, "error");
+                        showToast(
+                          'Validation Error',
+                          'Branch/Business Name is required.',
+                          undefined,
+                          'error',
+                        );
                         return;
                       }
-                      if (newBizEmail.trim() && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(newBizEmail)) {
-                        showToast("Validation Error", "Please provide a valid contact email address.", undefined, "error");
+                      if (
+                        newBizEmail.trim() &&
+                        !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(
+                          newBizEmail,
+                        )
+                      ) {
+                        showToast(
+                          'Validation Error',
+                          'Please provide a valid contact email address.',
+                          undefined,
+                          'error',
+                        );
                         return;
                       }
-                      if (newBizPhone.trim() && !/^\+[1-9]\d{1,14}$/.test(newBizPhone)) {
-                        showToast("Validation Error", "Contact Phone must be in E.164 format (e.g. +254712345678).", undefined, "error");
+                      if (
+                        newBizPhone.trim() &&
+                        !/^\+[1-9]\d{1,14}$/.test(newBizPhone)
+                      ) {
+                        showToast(
+                          'Validation Error',
+                          'Contact Phone must be in E.164 format (e.g. +254712345678).',
+                          undefined,
+                          'error',
+                        );
                         return;
                       }
 
@@ -3546,28 +4372,28 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         newBizAddr,
                         newBizLogo,
                         newBizType,
-                        "Kenya",
+                        'Kenya',
                         newBizCurrency,
                         newBizCover,
                         newBizEmail,
                         newBizPhone,
                         newBizTimezone,
-                        newBizPaymentMethods
+                        newBizPaymentMethods,
                       );
 
                       if (biz) {
                         setIsCreatingBusiness(false);
-                        setNewBizName("");
-                        setNewBizDesc("");
-                        setNewBizAddr("");
-                        setNewBizLogo("");
-                        setNewBizCover("");
-                        setNewBizPhone("");
-                        setNewBizEmail("");
-                        setNewBizCurrency("Ksh");
-                        setNewBizTimezone("Africa/Nairobi");
-                        setNewBizType("Retail");
-                        setNewBizPaymentMethods(["Cash", "M-Pesa"]);
+                        setNewBizName('');
+                        setNewBizDesc('');
+                        setNewBizAddr('');
+                        setNewBizLogo('');
+                        setNewBizCover('');
+                        setNewBizPhone('');
+                        setNewBizEmail('');
+                        setNewBizCurrency('Ksh');
+                        setNewBizTimezone('Africa/Nairobi');
+                        setNewBizType('Retail');
+                        setNewBizPaymentMethods(['Cash', 'M-Pesa']);
                         setShowBusinessDropdown(false);
                       }
                     }}
@@ -3576,10 +4402,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     <div className="flex-1 overflow-y-auto max-h-[360px] pr-1.5 space-y-3">
                       {/* Name */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Branch / Business Name *</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Branch / Business Name *
+                        </label>
                         <input
                           type="text"
-                          placeholder="e.g. KayKay's Milk - Syokimau Hub"
+                          placeholder="e.g. ISMS  - Syokimau Hub"
                           value={newBizName}
                           onChange={(e) => setNewBizName(e.target.value)}
                           className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-bold"
@@ -3589,7 +4417,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Description */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Description</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Description
+                        </label>
                         <input
                           type="text"
                           placeholder="e.g. Cold room distribution & delivery spot"
@@ -3601,7 +4431,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Address */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Location Address</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Location Address
+                        </label>
                         <input
                           type="text"
                           placeholder="e.g. Airport Road, Nairobi"
@@ -3614,14 +4446,19 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       {/* Row: Type & Currency */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Business Type</label>
+                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                            Business Type
+                          </label>
                           <SearchableDropdown
                             items={[
-                              { id: "Retail", label: "Retail" },
-                              { id: "Wholesale", label: "Wholesale" },
-                              { id: "Farm", label: "Farm" },
-                              { id: "Dairy Processing", label: "Dairy Processing" },
-                              { id: "Other", label: "Other" }
+                              { id: 'Retail', label: 'Retail' },
+                              { id: 'Wholesale', label: 'Wholesale' },
+                              { id: 'Farm', label: 'Farm' },
+                              {
+                                id: 'Dairy Processing',
+                                label: 'Dairy Processing',
+                              },
+                              { id: 'Other', label: 'Other' },
                             ]}
                             selectedValue={newBizType}
                             onChange={(val) => setNewBizType(val)}
@@ -3629,7 +4466,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Currency</label>
+                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                            Currency
+                          </label>
                           <input
                             type="text"
                             placeholder="e.g. Ksh"
@@ -3642,14 +4481,28 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Timezone */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Time Zone</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Time Zone
+                        </label>
                         <SearchableDropdown
                           items={[
-                            { id: "Africa/Nairobi", label: "East Africa Time (EAT - Nairobi)" },
-                            { id: "UTC", label: "Coordinated Universal Time (UTC)" },
-                            { id: "GMT", label: "Greenwich Mean Time (GMT)" },
-                            { id: "Africa/Lagos", label: "West Africa Time (WAT - Lagos)" },
-                            { id: "Africa/Johannesburg", label: "South Africa Time (SAST - Joburg)" }
+                            {
+                              id: 'Africa/Nairobi',
+                              label: 'East Africa Time (EAT - Nairobi)',
+                            },
+                            {
+                              id: 'UTC',
+                              label: 'Coordinated Universal Time (UTC)',
+                            },
+                            { id: 'GMT', label: 'Greenwich Mean Time (GMT)' },
+                            {
+                              id: 'Africa/Lagos',
+                              label: 'West Africa Time (WAT - Lagos)',
+                            },
+                            {
+                              id: 'Africa/Johannesburg',
+                              label: 'South Africa Time (SAST - Joburg)',
+                            },
                           ]}
                           selectedValue={newBizTimezone}
                           onChange={(val) => setNewBizTimezone(val)}
@@ -3660,7 +4513,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       {/* Row: Contact Phone & Email */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Contact Phone</label>
+                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                            Contact Phone
+                          </label>
                           <input
                             type="text"
                             placeholder="e.g. +254712345678"
@@ -3670,7 +4525,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Contact Email</label>
+                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                            Contact Email
+                          </label>
                           <input
                             type="email"
                             placeholder="e.g. info@biz.com"
@@ -3683,24 +4540,34 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Default Payment Methods */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Default Payment Methods</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Default Payment Methods
+                        </label>
                         <div className="grid grid-cols-2 gap-2">
-                          {['Cash', 'M-Pesa', 'Card', 'Bank'].map(method => {
-                            const isChecked = newBizPaymentMethods.includes(method);
+                          {['Cash', 'M-Pesa', 'Card', 'Bank'].map((method) => {
+                            const isChecked =
+                              newBizPaymentMethods.includes(method);
                             return (
                               <button
                                 key={method}
                                 type="button"
                                 onClick={() => {
                                   if (isChecked) {
-                                    setNewBizPaymentMethods(newBizPaymentMethods.filter(m => m !== method));
+                                    setNewBizPaymentMethods(
+                                      newBizPaymentMethods.filter(
+                                        (m) => m !== method,
+                                      ),
+                                    );
                                   } else {
-                                    setNewBizPaymentMethods([...newBizPaymentMethods, method]);
+                                    setNewBizPaymentMethods([
+                                      ...newBizPaymentMethods,
+                                      method,
+                                    ]);
                                   }
                                 }}
                                 className={`py-1.5 px-3 rounded-lg border text-[10px] font-bold uppercase transition flex items-center justify-between cursor-pointer ${
-                                  isChecked 
-                                    ? 'bg-amber-500/10 border-amber-500 text-amber-500' 
+                                  isChecked
+                                    ? 'bg-amber-500/10 border-amber-500 text-amber-500'
                                     : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-400 dark:text-slate-500'
                                 }`}
                               >
@@ -3714,7 +4581,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Logo Image Upload */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Branch Logo Picture</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Branch Logo Picture
+                        </label>
                         <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
                           {newBizLogo ? (
                             <img
@@ -3730,7 +4599,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           )}
                           <UnifiedUploader
                             onUploadSuccess={(url) => setNewBizLogo(url)}
-                            allowedTypes={["image"]}
+                            allowedTypes={['image']}
                             cropAspect={1}
                             buttonText="Upload Logo"
                             bucketName="business-logos"
@@ -3741,7 +4610,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                       {/* Cover Image Upload */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Branch Cover Image</label>
+                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          Branch Cover Image
+                        </label>
                         <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
                           {newBizCover ? (
                             <img
@@ -3757,7 +4628,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           )}
                           <UnifiedUploader
                             onUploadSuccess={(url) => setNewBizCover(url)}
-                            allowedTypes={["image"]}
+                            allowedTypes={['image']}
                             cropAspect={1.6}
                             buttonText="Upload Cover"
                             bucketName="business-logos"
@@ -3772,17 +4643,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         type="button"
                         onClick={() => {
                           setIsCreatingBusiness(false);
-                          setNewBizName("");
-                          setNewBizDesc("");
-                          setNewBizAddr("");
-                          setNewBizLogo("");
-                          setNewBizCover("");
-                          setNewBizPhone("");
-                          setNewBizEmail("");
-                          setNewBizCurrency("Ksh");
-                          setNewBizTimezone("Africa/Nairobi");
-                          setNewBizType("Retail");
-                          setNewBizPaymentMethods(["Cash", "M-Pesa"]);
+                          setNewBizName('');
+                          setNewBizDesc('');
+                          setNewBizAddr('');
+                          setNewBizLogo('');
+                          setNewBizCover('');
+                          setNewBizPhone('');
+                          setNewBizEmail('');
+                          setNewBizCurrency('Ksh');
+                          setNewBizTimezone('Africa/Nairobi');
+                          setNewBizType('Retail');
+                          setNewBizPaymentMethods(['Cash', 'M-Pesa']);
                         }}
                         className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold uppercase text-[9.5px] text-slate-400 dark:text-slate-500 cursor-pointer"
                       >
@@ -3802,20 +4673,36 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!editBizName.trim()) {
-                        showToast("Validation Error", "Branch/Business Name is required.", undefined, "error");
+                        showToast(
+                          'Validation Error',
+                          'Branch/Business Name is required.',
+                          undefined,
+                          'error',
+                        );
                         return;
                       }
                       if (editingBizId) {
-                        updateBusiness(editingBizId, editBizName, editBizDesc, editBizAddr, editBizLogo);
+                        updateBusiness(
+                          editingBizId,
+                          editBizName,
+                          editBizDesc,
+                          editBizAddr,
+                          editBizLogo,
+                        );
                         setEditingBizId(null);
-                        setEditBizLogo("");
-                        showToast("Branch Updated", `Branch details saved successfully.`);
+                        setEditBizLogo('');
+                        showToast(
+                          'Branch Updated',
+                          `Branch details saved successfully.`,
+                        );
                       }
                     }}
                     className="flex flex-col gap-3.5 text-xs font-semibold animate-fade-in"
                   >
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Branch / Business Name *</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        Branch / Business Name *
+                      </label>
                       <input
                         type="text"
                         value={editBizName}
@@ -3824,7 +4711,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Description</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        Description
+                      </label>
                       <input
                         type="text"
                         value={editBizDesc}
@@ -3833,7 +4722,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Location Address</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        Location Address
+                      </label>
                       <input
                         type="text"
                         value={editBizAddr}
@@ -3844,7 +4735,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                     {/* Logo Image Upload / Edit */}
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">Update Logo Picture</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        Update Logo Picture
+                      </label>
                       <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
                         {editBizLogo ? (
                           <img
@@ -3860,7 +4753,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         )}
                         <UnifiedUploader
                           onUploadSuccess={(url) => setEditBizLogo(url)}
-                          allowedTypes={["image"]}
+                          allowedTypes={['image']}
                           cropAspect={1}
                           buttonText="Change Logo"
                           bucketName="business-logos"
@@ -3874,7 +4767,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         type="button"
                         onClick={() => {
                           setEditingBizId(null);
-                          setEditBizLogo("");
+                          setEditBizLogo('');
                         }}
                         className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold uppercase text-[9.5px] text-slate-400 dark:text-slate-500"
                       >

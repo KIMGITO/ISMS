@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_010_analytics_log_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Analytics & Log Tables: backup_history_logs, scheduled_reports,
 --   dashboard_analytics_snapshots, complaints, complaint_replies,
 --   audit_logs, offline_sync_queue

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260720_001_bom_batch_workflow_fix.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Bill of Materials (BOM) & Production Batch Workflow Fixes
 -- Atomic Raw Material Deduction, Completion, Cancellation Restocking & Audit Logs
 -- =============================================================================

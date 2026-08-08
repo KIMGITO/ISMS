@@ -8,7 +8,7 @@ class UpdateService {
   public async checkForUpdates(): Promise<{ hasUpdate: boolean; version?: string; releaseNotes?: string }> {
     try {
       // Simulate checking a remote release endpoint
-      // Future: fetch("https://api.kaykaysmilk.com/version/check")
+      // Future: fetch("https://api.isms.com/version/check")
       await new Promise((resolve) => setTimeout(resolve, 500));
       return {
         hasUpdate: false, // Default to false

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 20260715_003_core_identity_tables.sql
--- KayKay's Milk Business Management System
+-- integrated Shop Management System
 -- Core Identity Tables: businesses, branches, users, otps, device_fcm_tokens
 -- =============================================================================
 -- Why: These are the root entities. Every other table in the system either

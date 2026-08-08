@@ -1,6 +1,6 @@
 -- =============================================================================
 -- dev_clear.sql
--- KayKay's Milk — Development Database Data Clearing Script
+-- ISMS  — Development Database Data Clearing Script
 -- WARNING: This script WIPES ALL USER DATA from the tables but keeps the schema intact.
 -- Only run this in development/staging environments. NEVER in production.
 -- =============================================================================

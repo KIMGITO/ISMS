@@ -19,7 +19,7 @@ export class ReceiptGenerator {
       customNotes?: string;
     }
   ): Promise<ReceiptContent> {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://kaykaysmilk.co.ke";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://isms.co.ke";
     const verificationUrl = `${origin}/verify-receipt?id=${tx.id}`;
 
     // 1. Generate formatted Receipt Number based on rules
@@ -61,6 +61,14 @@ export class ReceiptGenerator {
     const grandTotal = tx.finalTotal;
     const amountPaid = tx.finalTotal; // assuming fully paid for retail, or custom
     const changeGiven = 0.0; // pre-populated or customized
+
+    // Outstanding balance only applies to credit sales. For any fully-paid
+    // method (Cash, M-Pesa, Card, Bank, Mobile_Wallet) it must be 0 so no
+    // erroneous OUTSTANDING BAL line appears on the receipt.
+    const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
+    const computedOutstandingBalance = isCreditSale
+      ? (additionalParams?.outstandingBalance ?? tx.finalTotal)
+      : 0;
     
     // Taxes configuration
     const taxTotal = settings.isTaxEnabled && tx.tax > 0 ? tx.tax : undefined;
@@ -72,7 +80,7 @@ export class ReceiptGenerator {
         qrValue = verificationUrl;
         break;
       case "business_website":
-        qrValue = settings.website ? `https://${settings.website.replace(/^https?:\/\//, "")}` : "https://kaykaysmilk.co.ke";
+        qrValue = settings.website ? `https://${settings.website.replace(/^https?:\/\//, "")}` : "https://isms.co.ke";
         break;
       case "payment_link":
         qrValue = `https://mpesa.co.ke/pay?business=${encodeURIComponent(settings.businessName)}&amount=${grandTotal}`;
@@ -123,7 +131,7 @@ export class ReceiptGenerator {
       grandTotal,
       amountPaid: amountPaid,
       changeGiven: changeGiven,
-      outstandingBalance: additionalParams?.outstandingBalance,
+      outstandingBalance: computedOutstandingBalance,
       customNotes: additionalParams?.customNotes || tx.note,
       verificationUrl,
       barcodeValue: barcodeSvg,

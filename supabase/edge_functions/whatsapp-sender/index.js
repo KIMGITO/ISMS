@@ -33,13 +33,19 @@ serve(async (req) => {
 
     // Dispatches a highly-stylized template or text bubble message to the customer
     const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       to: cleanPhone,
-      type: "text",
+      type: 'text',
       text: {
-        body: `Habari ${customerName}! 🥛\n\nYour order #${orderId || "N/A"} from KayKay's Milk has been confirmed!\nAmount: KES ${finalTotal || "0.00"}\nStatus: ${status || "Confirmed"}\n\nThank you for choosing local organic dairy! For support, reply directly to this chat.`
-      }
+        body: `Habari ${customerName}! 🥛\n\nYour order #${
+          orderId || 'N/A'
+        } from ISMS  has been confirmed!\nAmount: KES ${
+          finalTotal || '0.00'
+        }\nStatus: ${
+          status || 'Confirmed'
+        }\n\nThank you for choosing local organic dairy! For support, reply directly to this chat.`,
+      },
     };
 
     const response = await fetch(
