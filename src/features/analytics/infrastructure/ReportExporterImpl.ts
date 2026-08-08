@@ -1,6 +1,7 @@
 // src/features/analytics/infrastructure/ReportExporterImpl.ts
 import { jsPDF } from "jspdf";
 import { ReportExporterPort, ExporterData } from "../domain/ports";
+import { fileExportService } from "../../../utils/fileExport";
 
 export class ReportExporterImpl implements ReportExporterPort {
   public async exportPDF(data: ExporterData): Promise<boolean> {
@@ -279,8 +280,15 @@ export class ReportExporterImpl implements ReportExporterPort {
         rowY += 6;
       }
 
-      // Save PDF
-      doc.save(`KKM_BI_Report_${data.filter.timeframe}_${Date.now()}.pdf`);
+      // Use platform-aware export
+      const filename = `KKM_BI_Report_${data.filter.timeframe}_${Date.now()}.pdf`;
+      const result = await fileExportService.exportPdf(doc, filename);
+      
+      if (!result.success) {
+        console.error("PDF Export failed:", result.error);
+        return false;
+      }
+
       return true;
     } catch (err) {
       console.error("PDF Export failed:", err);
@@ -329,14 +337,14 @@ export class ReportExporterImpl implements ReportExporterPort {
         csvContent += `"${p.id}","${p.date}","${p.referenceCode}","${p.method}","${p.senderName || "Unknown"}","${p.senderPhone || ""}","${p.status || "Success"}",${p.amount}\n`;
       });
 
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `KKM_BI_Report_${data.filter.timeframe}_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const filename = `KKM_BI_Report_${data.filter.timeframe}_${Date.now()}.csv`;
+      const result = await fileExportService.exportCsv(csvContent, filename);
       
+      if (!result.success) {
+        console.error("CSV Export failed:", result.error);
+        return false;
+      }
+
       return true;
     } catch (err) {
       console.error("CSV Export failed:", err);

@@ -1,54 +1,56 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useAppStore } from "./stores/appStore";
-import { useCartStore } from "./stores/cartStore";
-import PreviewFrame from "./components/PreviewFrame";
-import { InteractiveGuide, TourStep } from "./components/InteractiveGuide";
-import GlobalSearch from "./components/GlobalSearch";
-import POSView from "./features/POSView";
-import InventoryView from "./features/InventoryView";
-import SalesView from "./features/SalesView";
-import CustomersView from "./features/CustomersView";
-import CommunicationCenterView from "./features/CommunicationCenterView";
-import DashboardView from "./features/DashboardView";
-import WorkspaceAssistantView from "./features/WorkspaceAssistantView";
-import WorkersView from "./features/WorkersView";
-import PermissionsView from "./features/PermissionsView";
-import ProfileView from "./features/ProfileView";
-import SettingsView from "./features/SettingsView";
-import NotificationsView from "./features/NotificationsView";
-import BusinessManagementView from "./features/BusinessManagementView";
-import CustomerFeedbackView from "./features/CustomerFeedbackView";
-import HomeView from "./features/HomeView";
-import ProductionBOMView from "./features/ProductionBOMView";
-import { useNotificationStore } from "./stores/notificationStore";
-import SearchableDropdown from "./components/SearchableDropdown";
-import UnifiedUploader from "./components/shared/UnifiedUploader";
-import { LocalPinSetupCard, LocalPinUnlockCard } from "./components/LocalTerminalSecurity";
-import { NotificationRepository } from "./services/notifications/notificationRepository";
-import { OtpInput } from "./components/OtpInput";
-import { hasRolePermission } from "./utils/permissions";
-import SecurityGuard from "./components/SecurityGuard";
-import { isSupabaseConfigured, getSupabase } from "./services/supabaseClient";
-import { configManager } from "./services/configManager";
-import { useSystemHealthStore } from "./stores/systemHealthStore";
-import { SystemHealthService } from "./services/systemHealthService";
-import { SupabaseService } from "./services/supabaseService";
-import { useAuthStore } from "./stores/authStore";
-import { useInventoryStore } from "./stores/inventoryStore";
-import { useCustomerStore } from "./stores/customerStore";
-import { useBusinessStore } from "./stores/businessStore";
-import { useKeyboardVisible } from "./hooks/useKeyboardVisible";
-import PendingActionsDrawer from "./components/PendingActionsDrawer";
-import { usePendingActionStore } from "./stores/pendingActionStore";
-import { useOverlayStore } from "./stores/overlayStore";
+import React, { useState, useEffect, useRef } from 'react';
+import { useAppStore } from './stores/appStore';
+import { useCartStore } from './stores/cartStore';
+import PreviewFrame from './components/PreviewFrame';
+import { InteractiveGuide, TourStep } from './components/InteractiveGuide';
+import GlobalSearch from './components/GlobalSearch';
+import POSView from './features/POSView';
+import InventoryView from './features/InventoryView';
+import SalesView from './features/SalesView';
+import CustomersView from './features/CustomersView';
+import CommunicationCenterView from './features/CommunicationCenterView';
+import DashboardView from './features/DashboardView';
+import WorkspaceAssistantView from './features/WorkspaceAssistantView';
+import WorkersView from './features/WorkersView';
+import PermissionsView from './features/PermissionsView';
+import ProfileView from './features/ProfileView';
+import SettingsView from './features/SettingsView';
+import NotificationsView from './features/NotificationsView';
+import BusinessManagementView from './features/BusinessManagementView';
+import CustomerFeedbackView from './features/CustomerFeedbackView';
+import HomeView from './features/HomeView';
+import ProductionBOMView from './features/ProductionBOMView';
+import { useNotificationStore } from './stores/notificationStore';
+import SearchableDropdown from './components/SearchableDropdown';
+import UnifiedUploader from './components/shared/UnifiedUploader';
+import {
+  LocalPinSetupCard,
+  LocalPinUnlockCard,
+} from './components/LocalTerminalSecurity';
+import { NotificationRepository } from './services/notifications/notificationRepository';
+import { OtpInput } from './components/OtpInput';
+import { hasRolePermission } from './utils/permissions';
+import SecurityGuard from './components/SecurityGuard';
+import { isSupabaseConfigured, getSupabase } from './services/supabaseClient';
+import { configManager } from './services/configManager';
+import { useSystemHealthStore } from './stores/systemHealthStore';
+import { SystemHealthService } from './services/systemHealthService';
+import { SupabaseService } from './services/supabaseService';
+import { useAuthStore } from './stores/authStore';
+import { useInventoryStore } from './stores/inventoryStore';
+import { useCustomerStore } from './stores/customerStore';
+import { useBusinessStore } from './stores/businessStore';
+import { useKeyboardVisible } from './hooks/useKeyboardVisible';
+import PendingActionsDrawer from './components/PendingActionsDrawer';
+import { usePendingActionStore } from './stores/pendingActionStore';
+import { useOverlayStore } from './stores/overlayStore';
 import {
   nativePlatformService,
   statusBarService,
   splashScreenService,
   nativeUiService,
-  notificationService
-} from "./core/native";
-
+  notificationService,
+} from './core/native';
 
 // Lucide Icons
 import {
@@ -103,21 +105,51 @@ import {
   RefreshCw,
   Brain,
   FlaskConical,
-  ActivitySquareIcon
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+  ActivitySquareIcon,
+  Edit3,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import PasswordInput from './components/shared/PasswordInput';
 
-const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({ logoUrl, name }) => {
-  const [error, setError] = useState(false);
+
+  export const BUSINESS_TYPES = [
+    // Core Retail & Sales
+    { id: 'Retail', label: 'Retail Store / Supermarket' },
+    { id: 'Wholesale', label: 'Wholesale Depot / Distributor' },
+    { id: 'Hardware', label: 'Hardware & Building Materials' },
+    { id: 'Electronics', label: 'Electronics & Mobile Shop' },
+    { id: 'Boutique', label: 'Apparel & Clothing Boutique' },
+
+    // Food, Beverage & Bakery
+    { id: 'Bakery', label: 'Bakery & Confectionery' },
+    { id: 'Restaurant', label: 'Restaurant / Eatery / Cafe' },
+    { id: 'Liquor', label: 'Liquor Store & Bar' },
+
+    // Agri & Processing
+    { id: 'Farm', label: 'Dairy / Agricultural Farm' },
+    { id: 'Dairy Processing', label: 'Milk Processing Plant / Hub' },
+    { id: 'Agrovet', label: 'Agrovet & Farm Supplies' },
+
+    // Services & Other
+    { id: 'Pharmacy', label: 'Pharmacy & Chemist' },
+    { id: 'Services', label: 'Services / Repair Shop' },
+    { id: 'Other', label: 'Other (Specify below)' },
+  ];
   
-  if (error || !logoUrl || logoUrl.trim() === "") {
+const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
+  logoUrl,
+  name,
+}) => {
+  const [error, setError] = useState(false);
+
+  if (error || !logoUrl || logoUrl.trim() === '') {
     return (
       <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-750 shrink-0 text-amber-500">
         <Building size={18} />
       </div>
     );
   }
-  
+
   return (
     <img
       src={logoUrl}
@@ -299,27 +331,34 @@ export default function App() {
     sendPasswordResetOtp,
     verifyPasswordResetOtp,
     updatePassword,
-    updateEmailDuringVerification
+    updateEmailDuringVerification,
   } = useAppStore();
 
   const { pendingActions, setDrawerOpen } = usePendingActionStore();
   const unexecutedPendingCount = pendingActions.filter(
-    (a) => a.status === 'pending_review' || a.status === 'verified'
+    (a) => a.status === 'pending_review' || a.status === 'verified',
   ).length;
 
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
+  const [businessType, setBusinessType] = useState('');
+  const [customTypeInput, setCustomTypeInput] = useState('');
+
+  const finalBusinessType = businessType === 'Other' ? customTypeInput : businessType;
+
+
+
   const handleCloseTour = () => {
     setIsTourOpen(false);
-    localStorage.setItem("isms-onboarding-completed", "true");
+    localStorage.setItem('isms-onboarding-completed', 'true');
   };
 
   useEffect(() => {
     if (currentEmployee) {
-      const completed = localStorage.getItem("isms-onboarding-completed");
-      if (completed !== "true") {
+      const completed = localStorage.getItem('isms-onboarding-completed');
+      if (completed !== 'true') {
         const timer = setTimeout(() => {
           setIsTourOpen(true);
         }, 1200);
@@ -328,22 +367,25 @@ export default function App() {
     }
   }, [currentEmployee]);
   const [isCreatingBusiness, setIsCreatingBusiness] = useState(false);
-  const [newBizName, setNewBizName] = useState("");
-  const [newBizDesc, setNewBizDesc] = useState("");
-  const [newBizAddr, setNewBizAddr] = useState("");
-  const [newBizLogo, setNewBizLogo] = useState("");
-  const [newBizCover, setNewBizCover] = useState("");
-  const [newBizPhone, setNewBizPhone] = useState("");
-  const [newBizEmail, setNewBizEmail] = useState("");
-  const [newBizCurrency, setNewBizCurrency] = useState("Ksh");
-  const [newBizTimezone, setNewBizTimezone] = useState("Africa/Nairobi");
-  const [newBizType, setNewBizType] = useState("Retail");
-  const [newBizPaymentMethods, setNewBizPaymentMethods] = useState<string[]>(["Cash", "M-Pesa"]);
+  const [newBizName, setNewBizName] = useState('');
+  const [newBizDesc, setNewBizDesc] = useState('');
+  const [newBizAddr, setNewBizAddr] = useState('');
+  const [newBizLogo, setNewBizLogo] = useState('');
+  const [newBizCover, setNewBizCover] = useState('');
+  const [newBizPhone, setNewBizPhone] = useState('');
+  const [newBizEmail, setNewBizEmail] = useState('');
+  const [newBizCurrency, setNewBizCurrency] = useState('Ksh');
+  const [newBizTimezone, setNewBizTimezone] = useState('Africa/Nairobi');
+  const [newBizType, setNewBizType] = useState('Retail');
+  const [newBizPaymentMethods, setNewBizPaymentMethods] = useState<string[]>([
+    'Cash',
+    'M-Pesa',
+  ]);
   const [editingBizId, setEditingBizId] = useState<string | null>(null);
-  const [editBizName, setEditBizName] = useState("");
-  const [editBizDesc, setEditBizDesc] = useState("");
-  const [editBizAddr, setEditBizAddr] = useState("");
-  const [editBizLogo, setEditBizLogo] = useState("");
+  const [editBizName, setEditBizName] = useState('');
+  const [editBizDesc, setEditBizDesc] = useState('');
+  const [editBizAddr, setEditBizAddr] = useState('');
+  const [editBizLogo, setEditBizLogo] = useState('');
 
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId) ||
     businesses[0] || {
@@ -354,29 +396,30 @@ export default function App() {
     };
 
   const assignableBranchesCount = currentEmployee
-    ? hasRolePermission(currentEmployee.role, "settings.view")
+    ? hasRolePermission(currentEmployee.role, 'settings.view')
       ? businesses.length
       : (currentEmployee.assignedBranches || []).length || 1
     : 1;
 
-
-
   const [showSwitchDeviceModal, setShowSwitchDeviceModal] = useState(false);
-  const [switchAdminPin, setSwitchAdminPin] = useState("");
-  const [switchError, setSwitchError] = useState("");
+  const [switchAdminPin, setSwitchAdminPin] = useState('');
+  const [switchError, setSwitchError] = useState('');
   const [permissionVersion, setPermissionVersion] = useState(0);
 
-  const [isTerminalLocked, setIsTerminalLocked] = useState(() => localStorage.getItem("kkm_terminal_locked") === "true");
+  const [isTerminalLocked, setIsTerminalLocked] = useState(
+    () => localStorage.getItem('kkm_terminal_locked') === 'true',
+  );
 
   useEffect(() => {
     const handleLock = () => {
       setIsTerminalLocked(true);
     };
-    window.addEventListener("terminal-lock", handleLock);
-    return () => window.removeEventListener("terminal-lock", handleLock);
+    window.addEventListener('terminal-lock', handleLock);
+    return () => window.removeEventListener('terminal-lock', handleLock);
   }, []);
 
-  const { dbStatus, aiStatus, internetStatus, sessionStatus } = useSystemHealthStore();
+  const { dbStatus, aiStatus, internetStatus, sessionStatus } =
+    useSystemHealthStore();
   const [showTempOffline, setShowTempOffline] = useState(false);
 
   // Connectivity checking function & Auth State initialization
@@ -397,13 +440,16 @@ export default function App() {
     const employeeId = currentEmployee?.id ?? null;
     if (employeeId && employeeId !== prevEmployeeId.current) {
       prevEmployeeId.current = employeeId;
-      notificationService.registerPush().then((granted) => {
-        if (granted) {
-          console.log("[Push] FCM registration initiated successfully.");
-        }
-      }).catch(err => {
-        console.warn("[Push] FCM registration failed:", err);
-      });
+      notificationService
+        .registerPush()
+        .then((granted) => {
+          if (granted) {
+            console.log('[Push] FCM registration initiated successfully.');
+          }
+        })
+        .catch((err) => {
+          console.warn('[Push] FCM registration failed:', err);
+        });
     }
     if (!employeeId) {
       prevEmployeeId.current = null;
@@ -415,9 +461,19 @@ export default function App() {
   useEffect(() => {
     if (prevOnlineRef.current !== isOnline) {
       if (isOnline) {
-        showToast("Connection Restored", "You're back online.", undefined, "success");
+        showToast(
+          'Connection Restored',
+          "You're back online.",
+          undefined,
+          'success',
+        );
       } else {
-        showToast("Connection Lost", "You're currently offline.", undefined, "info");
+        showToast(
+          'Connection Lost',
+          "You're currently offline.",
+          undefined,
+          'info',
+        );
       }
       prevOnlineRef.current = isOnline;
     }
@@ -433,26 +489,27 @@ export default function App() {
         setShowTempOffline(false);
       }, 6000); // Show for 6 seconds
     };
-    window.addEventListener("network-action-failed", handleActionFailed);
+    window.addEventListener('network-action-failed', handleActionFailed);
     return () => {
-      window.removeEventListener("network-action-failed", handleActionFailed);
+      window.removeEventListener('network-action-failed', handleActionFailed);
       if (timer) clearTimeout(timer);
     };
   }, []);
 
   // Listen to custom permission change event to trigger instant tab reactivity
   useEffect(() => {
-    const handleUpdate = () => setPermissionVersion(v => v + 1);
-    window.addEventListener("permissionChange", handleUpdate);
-    return () => window.removeEventListener("permissionChange", handleUpdate);
+    const handleUpdate = () => setPermissionVersion((v) => v + 1);
+    window.addEventListener('permissionChange', handleUpdate);
+    return () => window.removeEventListener('permissionChange', handleUpdate);
   }, []);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [isSystemServicesExpanded, setIsSystemServicesExpanded] = useState(false);
+  const [isSystemServicesExpanded, setIsSystemServicesExpanded] =
+    useState(false);
 
   useEffect(() => {
     return NotificationRepository.subscribe((rows) => {
-      setUnreadNotificationsCount(rows.filter(r => !r.read_at).length);
+      setUnreadNotificationsCount(rows.filter((r) => !r.read_at).length);
     });
   }, []);
 
@@ -460,118 +517,138 @@ export default function App() {
     const handleNavigate = (e: any) => {
       const targetTab = e.detail?.tab;
       if (targetTab) {
-        if (targetTab === "inventory") {
-          setActiveTab("inventory");
-        } else if (targetTab === "sales") {
-          setActiveTab("sales");
-        } else if (targetTab === "customer_debt") {
-          setActiveTab("customers");
-        } else if (targetTab === "ai_insight") {
-          setActiveTab("ai");
-        } else if (targetTab === "delivery") {
-          setActiveTab("sales");
+        if (targetTab === 'inventory') {
+          setActiveTab('inventory');
+        } else if (targetTab === 'sales') {
+          setActiveTab('sales');
+        } else if (targetTab === 'customer_debt') {
+          setActiveTab('customers');
+        } else if (targetTab === 'ai_insight') {
+          setActiveTab('ai');
+        } else if (targetTab === 'delivery') {
+          setActiveTab('sales');
         }
       }
     };
-    window.addEventListener("navigate-tab", handleNavigate);
-    return () => window.removeEventListener("navigate-tab", handleNavigate);
+    window.addEventListener('navigate-tab', handleNavigate);
+    return () => window.removeEventListener('navigate-tab', handleNavigate);
   }, [setActiveTab]);
 
   const { cart } = useCartStore();
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  
+
   // First-time worker setup pin states
   const [isSetupPinMode, setIsSetupPinMode] = useState(false);
-  const [setupCred, setSetupCred] = useState("");
-  const [setupPin1, setSetupPin1] = useState("");
-  const [setupPin2, setSetupPin2] = useState("");
-  const [setupError, setSetupError] = useState("");
-  const [setupSuccess, setSetupSuccess] = useState("");
-  
+  const [setupCred, setSetupCred] = useState('');
+  const [setupPin1, setSetupPin1] = useState('');
+  const [setupPin2, setSetupPin2] = useState('');
+  const [setupError, setSetupError] = useState('');
+  const [setupSuccess, setSetupSuccess] = useState('');
+
   // Theme state stored in localStorage
-  const [themeMode, setThemeMode] = useState<"light" | "dark">(
-    () => (localStorage.getItem("isms-theme") as "light" | "dark") || "light"
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem('isms-theme') as 'light' | 'dark') || 'light',
   );
 
   // Sidebar collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
-    () => localStorage.getItem("isms-sidebar-collapsed") === "true"
+    () => localStorage.getItem('isms-sidebar-collapsed') === 'true',
   );
 
   const lastScrollY = useRef(0);
 
   // First-launch onboarding states
-  const [supabaseConfiguredState, setSupabaseConfiguredState] = useState(() => isSupabaseConfigured());
+  const [supabaseConfiguredState, setSupabaseConfiguredState] = useState(() =>
+    isSupabaseConfigured(),
+  );
   const [termsAccepted, setTermsAccepted] = useState(() => {
-    return localStorage.getItem("isms_terms_accepted") === "true";
+    return localStorage.getItem('isms_terms_accepted') === 'true';
   });
-  const [setupDbUrl, setSetupDbUrl] = useState("");
-  const [setupDbKey, setSetupDbKey] = useState("");
+  const [setupDbUrl, setSetupDbUrl] = useState('');
+  const [setupDbKey, setSetupDbKey] = useState('');
   const [dbConnecting, setDbConnecting] = useState(false);
-  const [setupDbError, setSetupDbError] = useState("");
+  const [setupDbError, setSetupDbError] = useState('');
   const [agreeChecked, setAgreeChecked] = useState(false);
 
   const handleConnectDatabase = async () => {
     if (!setupDbUrl || !setupDbKey) {
-      setSetupDbError("Provide both a valid Project URL and Anon API key.");
+      setSetupDbError('Provide both a valid Project URL and Anon API key.');
       return;
     }
     setDbConnecting(true);
-    setSetupDbError("");
+    setSetupDbError('');
     try {
-      const { createClient } = await import("@supabase/supabase-js");
+      const { createClient } = await import('@supabase/supabase-js');
       const client = createClient(setupDbUrl, setupDbKey);
       if (client) {
-        localStorage.setItem("kkm_supabase_url", setupDbUrl);
-        localStorage.setItem("kkm_supabase_key", setupDbKey);
+        localStorage.setItem('kkm_supabase_url', setupDbUrl);
+        localStorage.setItem('kkm_supabase_key', setupDbKey);
         setSupabaseConfiguredState(true);
-        showToast("Database Connected", "Supabase sync credentials successfully configured.", undefined, "success");
+        showToast(
+          'Database Connected',
+          'Supabase sync credentials successfully configured.',
+          undefined,
+          'success',
+        );
       }
     } catch (e) {
-      setSetupDbError("Invalid credentials format. Connect attempt failed.");
+      setSetupDbError('Invalid credentials format. Connect attempt failed.');
     } finally {
       setDbConnecting(false);
     }
   };
 
   const handleAcceptTerms = () => {
-    localStorage.setItem("kkm_terms_accepted", "true");
+    localStorage.setItem('kkm_terms_accepted', 'true');
     setTermsAccepted(true);
-    showToast("System Agreement", "Terms accepted. Initialized digital terminal workspace.", undefined, "success");
+    showToast(
+      'System Agreement',
+      'Terms accepted. Initialized digital terminal workspace.',
+      undefined,
+      'success',
+    );
   };
 
   // ==========================================
   // NEW ONLINE AUTH & ONBOARDING STATES
   // ==========================================
   const [authViewTab, setAuthViewTab] = useState<
-    "login" | "register" | "verify" | "create-biz" | "accept-invite" |
-    "forgot-password" | "verify-reset-code" | "reset-password" | "session-expired" | "unauthorized"
-  >("login");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+    | 'login'
+    | 'register'
+    | 'verify'
+    | 'create-biz'
+    | 'accept-invite'
+    | 'forgot-password'
+    | 'verify-reset-code'
+    | 'reset-password'
+    | 'session-expired'
+    | 'unauthorized'
+  >('login');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
-  const [regName, setRegName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regPhone, setRegPhone] = useState("");
-  const [regPassword, setRegPassword] = useState("");
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
 
-  const [verifyEmail, setVerifyEmail] = useState("");
-  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
   const [verifyCountdown, setVerifyCountdown] = useState(60);
   const [isResending, setIsResending] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [newEmailInput, setNewEmailInput] = useState("");
+  const [newEmailInput, setNewEmailInput] = useState('');
 
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [resetOtpCode, setResetOtpCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetOtpCode, setResetOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [resetCountdown, setResetCountdown] = useState(0);
 
   // Recovery code countdown timer
   useEffect(() => {
     let interval: any;
-    if (authViewTab === "verify-reset-code" && resetCountdown > 0) {
+    if (authViewTab === 'verify-reset-code' && resetCountdown > 0) {
       interval = setInterval(() => {
         setResetCountdown((c) => c - 1);
       }, 1000);
@@ -584,7 +661,7 @@ export default function App() {
   // Verification code countdown timer
   useEffect(() => {
     let interval: any;
-    if (authViewTab === "verify" && verifyCountdown > 0) {
+    if (authViewTab === 'verify' && verifyCountdown > 0) {
       interval = setInterval(() => {
         setVerifyCountdown((c) => c - 1);
       }, 1000);
@@ -598,48 +675,67 @@ export default function App() {
   useEffect(() => {
     const handleUrlNavigation = () => {
       const params = new URLSearchParams(window.location.search);
-      const screenParam = params.get("screen");
-      const emailParam = params.get("email");
-      const codeParam = params.get("code") || params.get("token") || params.get("otp");
-      
+      const screenParam = params.get('screen');
+      const emailParam = params.get('email');
+      const codeParam =
+        params.get('code') || params.get('token') || params.get('otp');
+
       if (screenParam) {
         const validScreens = [
-          "login", "register", "verify", "create-biz", "accept-invite",
-          "forgot-password", "verify-reset-code", "reset-password", "session-expired", "unauthorized"
+          'login',
+          'register',
+          'verify',
+          'create-biz',
+          'accept-invite',
+          'forgot-password',
+          'verify-reset-code',
+          'reset-password',
+          'session-expired',
+          'unauthorized',
         ];
         if (validScreens.includes(screenParam)) {
           setAuthViewTab(screenParam as any);
           if (emailParam) {
-            if (screenParam === "verify") setVerifyEmail(emailParam);
-            else if (screenParam === "login") setLoginEmail(emailParam);
-            else if (screenParam === "register") setRegEmail(emailParam);
-            else if (screenParam === "forgot-password" || screenParam === "verify-reset-code") setForgotEmail(emailParam);
-            else if (screenParam === "accept-invite") setInviteEmail(emailParam);
+            if (screenParam === 'verify') setVerifyEmail(emailParam);
+            else if (screenParam === 'login') setLoginEmail(emailParam);
+            else if (screenParam === 'register') setRegEmail(emailParam);
+            else if (
+              screenParam === 'forgot-password' ||
+              screenParam === 'verify-reset-code'
+            )
+              setForgotEmail(emailParam);
+            else if (screenParam === 'accept-invite')
+              setInviteEmail(emailParam);
           }
           if (codeParam) {
             let cleanCode = codeParam.trim().toUpperCase();
-            if (cleanCode.startsWith("INV-")) cleanCode = cleanCode.slice(4);
-            if (screenParam === "verify") setVerifyCode(cleanCode);
-            else if (screenParam === "verify-reset-code") setResetOtpCode(cleanCode);
-            else if (screenParam === "accept-invite" || screenParam === "register") setInviteTokenInput(cleanCode);
+            if (cleanCode.startsWith('INV-')) cleanCode = cleanCode.slice(4);
+            if (screenParam === 'verify') setVerifyCode(cleanCode);
+            else if (screenParam === 'verify-reset-code')
+              setResetOtpCode(cleanCode);
+            else if (
+              screenParam === 'accept-invite' ||
+              screenParam === 'register'
+            )
+              setInviteTokenInput(cleanCode);
           }
         }
       }
     };
 
     handleUrlNavigation();
-    window.addEventListener("popstate", handleUrlNavigation);
-    return () => window.removeEventListener("popstate", handleUrlNavigation);
+    window.addEventListener('popstate', handleUrlNavigation);
+    return () => window.removeEventListener('popstate', handleUrlNavigation);
   }, []);
 
   // Synchronize browser URL query parameter with the active authViewTab
   useEffect(() => {
     if (!currentUser) {
       const url = new URL(window.location.href);
-      const currentScreen = url.searchParams.get("screen");
+      const currentScreen = url.searchParams.get('screen');
       if (currentScreen !== authViewTab) {
-        url.searchParams.set("screen", authViewTab);
-        window.history.pushState(null, "", url.pathname + url.search);
+        url.searchParams.set('screen', authViewTab);
+        window.history.pushState(null, '', url.pathname + url.search);
       }
     }
   }, [authViewTab, currentUser]);
@@ -647,37 +743,39 @@ export default function App() {
   // Synchronize authViewTab based on Supabase session and owner status
   useEffect(() => {
     if (currentUser) {
-      if (authViewTab === "reset-password") {
+      if (authViewTab === 'reset-password') {
         // Keep user on the reset-password page to complete password update
         return;
       }
       if (!currentUser.isVerified) {
         setVerifyEmail(currentUser.email);
-        setAuthViewTab("verify");
+        setAuthViewTab('verify');
       } else {
-        const activeMems = memberships.filter(m => m.userId === currentUser.id && m.status === "Active");
+        const activeMems = memberships.filter(
+          (m) => m.userId === currentUser.id && m.status === 'Active',
+        );
         if (activeMems.length === 0) {
-          setAuthViewTab("create-biz");
+          setAuthViewTab('create-biz');
         }
       }
     } else {
       if (ownerExists === false) {
-        setAuthViewTab("register"); // Create Owner Account
+        setAuthViewTab('register'); // Create Owner Account
       } else {
         // Prevent redirecting away from other guest auth tabs
         const guestTabs = [
-          "login", 
-          "register", 
-          "forgot-password", 
-          "verify-reset-code", 
-          "reset-password", 
-          "accept-invite", 
-          "verify",
-          "session-expired",
-          "unauthorized"
+          'login',
+          'register',
+          'forgot-password',
+          'verify-reset-code',
+          'reset-password',
+          'accept-invite',
+          'verify',
+          'session-expired',
+          'unauthorized',
         ];
         if (!guestTabs.includes(authViewTab)) {
-          setAuthViewTab("login");
+          setAuthViewTab('login');
         }
       }
     }
@@ -686,36 +784,46 @@ export default function App() {
   const handleResendCode = async () => {
     // Guard: verifyEmail must be set before resending
     if (!verifyEmail?.trim()) {
-      setAuthError("Email address is missing. Please go back and enter your email.");
+      setAuthError(
+        'Email address is missing. Please go back and enter your email.',
+      );
       return;
     }
     setIsResending(true);
-    setAuthError("");
-    setAuthSuccess("");
+    setAuthError('');
+    setAuthSuccess('');
     try {
       const supabase = getSupabase();
       const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      const { error: rpcErr } = await supabase.rpc("save_otp", {
+
+      const { error: rpcErr } = await supabase.rpc('save_otp', {
         p_email: verifyEmail.trim(),
         p_code: newOtp,
-        p_type: "signup"
+        p_type: 'signup',
       });
       if (rpcErr) throw rpcErr;
 
-      const EmailServiceModule = await import("./services/emailService");
+      const EmailServiceModule = await import('./services/emailService');
       // Use regName if available, otherwise fall back to the email prefix as a display name
-      const displayName = regName?.trim() || verifyEmail.split("@")[0] || "User";
-      await EmailServiceModule.EmailService.sendVerificationCode(verifyEmail.trim(), newOtp, displayName);
+      const displayName =
+        regName?.trim() || verifyEmail.split('@')[0] || 'User';
+      await EmailServiceModule.EmailService.sendVerificationCode(
+        verifyEmail.trim(),
+        newOtp,
+        displayName,
+      );
 
       setVerifyCountdown(60);
-      setVerifyCode("");
-      setAuthSuccess(`A new verification code has been sent to ${verifyEmail}!`);
+      setVerifyCode('');
+      setAuthSuccess(
+        `A new verification code has been sent to ${verifyEmail}!`,
+      );
     } catch (err: any) {
-      console.error("Resend OTP failed:", err);
-      const msg = typeof err?.message === "string" && err.message.length > 0
-        ? err.message
-        : "Failed to resend verification code. Please check your connection and try again.";
+      console.error('Resend OTP failed:', err);
+      const msg =
+        typeof err?.message === 'string' && err.message.length > 0
+          ? err.message
+          : 'Failed to resend verification code. Please check your connection and try again.';
       setAuthError(msg);
     } finally {
       setIsResending(false);
@@ -725,86 +833,92 @@ export default function App() {
   const handleVerifyOtpSubmit = async (codeToSubmit?: string) => {
     const code = codeToSubmit || verifyCode;
     if (code.length !== 6) {
-      setAuthError("Please enter a valid 6-digit code.");
+      setAuthError('Please enter a valid 6-digit code.');
       return;
     }
     // Guard: verifyEmail must be set
     if (!verifyEmail?.trim()) {
-      setAuthError("Email address is missing. Please go back and enter your email.");
+      setAuthError(
+        'Email address is missing. Please go back and enter your email.',
+      );
       return;
     }
     setAuthLoading(true);
-    setAuthError("");
-    setAuthSuccess("");
-    
+    setAuthError('');
+    setAuthSuccess('');
+
     try {
       const res = await verifyEmailCode(verifyEmail, code);
       if (res.success) {
-        setAuthSuccess("Email verified successfully! Logging you in...");
+        setAuthSuccess('Email verified successfully! Logging you in...');
         try {
           const loginRes = await loginOnline(verifyEmail, regPassword);
           if (loginRes.success) {
-            setAuthViewTab("create-biz");
+            setAuthViewTab('create-biz');
           } else {
-            setAuthViewTab("login");
+            setAuthViewTab('login');
             setLoginEmail(verifyEmail);
-            setAuthSuccess("Account verified. Please enter your password to login.");
+            setAuthSuccess(
+              'Account verified. Please enter your password to login.',
+            );
           }
         } catch (loginErr: any) {
-          console.error("Auto login failed after verification:", loginErr);
-          setAuthViewTab("login");
+          console.error('Auto login failed after verification:', loginErr);
+          setAuthViewTab('login');
           setLoginEmail(verifyEmail);
-          setAuthSuccess("Account verified. Please login manually.");
+          setAuthSuccess('Account verified. Please login manually.');
         }
       } else {
-        const errMsg = typeof res.error === "string" && res.error.length > 0
-          ? res.error
-          : "Verification failed. Check the code and try again.";
+        const errMsg =
+          typeof res.error === 'string' && res.error.length > 0
+            ? res.error
+            : 'Verification failed. Check the code and try again.';
         setAuthError(errMsg);
-        setVerifyCode(""); // Clear the code so user can re-enter cleanly
+        setVerifyCode(''); // Clear the code so user can re-enter cleanly
       }
     } catch (err: any) {
-      console.error("OTP verification crashed:", err);
-      const msg = typeof err?.message === "string" && err.message.length > 0
-        ? err.message
-        : "Something went wrong. Please try again.";
+      console.error('OTP verification crashed:', err);
+      const msg =
+        typeof err?.message === 'string' && err.message.length > 0
+          ? err.message
+          : 'Something went wrong. Please try again.';
       setAuthError(msg);
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const [bizNameField, setBizNameField] = useState("");
-  const [bizTypeField, setBizTypeField] = useState("Retail");
-  const [bizCountryField, setBizCountryField] = useState("Kenya");
-  const [bizCurrencyField, setBizCurrencyField] = useState("Ksh");
+  const [bizNameField, setBizNameField] = useState('');
+  const [bizTypeField, setBizTypeField] = useState('Retail');
+  const [bizCountryField, setBizCountryField] = useState('Kenya');
+  const [bizCurrencyField, setBizCurrencyField] = useState('Ksh');
 
-  const [inviteTokenInput, setInviteTokenInput] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [invitePhone, setInvitePhone] = useState("");
-  const [invitePassword, setInvitePassword] = useState("");
-  const [inviteConfirmPassword, setInviteConfirmPassword] = useState("");
+  const [inviteTokenInput, setInviteTokenInput] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteConfirmPassword, setInviteConfirmPassword] = useState('');
   const [inviteVerified, setInviteVerified] = useState(false);
   const [validatedInvite, setValidatedInvite] = useState<any | null>(null);
 
   const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [authSuccess, setAuthSuccess] = useState("");
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
 
   // Parse secure email invitation links in the URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
+    const token = params.get('invite');
     if (token) {
-      setAuthViewTab("accept-invite");
+      setAuthViewTab('accept-invite');
       setInviteTokenInput(token);
-      
+
       const checkInvite = async () => {
         setAuthLoading(true);
-        setAuthError("");
-        setAuthSuccess("");
+        setAuthError('');
+        setAuthSuccess('');
         const res = await verifyInvitation(token);
         setAuthLoading(false);
         if (res.success && res.invitation) {
@@ -812,23 +926,28 @@ export default function App() {
           setInviteVerified(true);
           setInviteName(res.invitation.name);
           setInvitePhone(res.invitation.phone);
-          setAuthSuccess(`Secure invitation verified for joining as ${res.invitation.role}! Fill in your password to register.`);
+          setAuthSuccess(
+            `Secure invitation verified for joining as ${res.invitation.role}! Fill in your password to register.`,
+          );
         } else {
-          setAuthError(res.error || "The invitation link is invalid or has expired.");
+          setAuthError(
+            res.error || 'The invitation link is invalid or has expired.',
+          );
         }
       };
       checkInvite();
     }
   }, []);
 
-const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
+  const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
- useEffect(() => {
-  if (isOnline) {
-    syncWithServer()
-      .catch((err) => console.error("Live context sync breakdown:", err));
-  }
-}, [isOnline, syncWithServer]);
+  useEffect(() => {
+    if (isOnline) {
+      syncWithServer().catch((err) =>
+        console.error('Live context sync breakdown:', err),
+      );
+    }
+  }, [isOnline, syncWithServer]);
 
   // Load and hydrate all data from Supabase if configured
   useEffect(() => {
@@ -836,15 +955,18 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
       if (!isOnline) return;
       if (isSupabaseConfigured()) {
         try {
-          console.log("Supabase is configured. Synchronizing data...");
-          
+          console.log('Supabase is configured. Synchronizing data...');
+
           // 1. Fetch businesses
           const fetchedBiz = await SupabaseService.fetchBusinesses();
           if (fetchedBiz && fetchedBiz.length > 0) {
             useBusinessStore.getState().setBusinesses(fetchedBiz);
-            
+
             // If active business ID is 'biz-1' (the mock fallback), point it to a real UUID business ID from Supabase
-            if (activeBusinessId === "biz-1" || !fetchedBiz.some(b => b.id === activeBusinessId)) {
+            if (
+              activeBusinessId === 'biz-1' ||
+              !fetchedBiz.some((b) => b.id === activeBusinessId)
+            ) {
               useBusinessStore.getState().setActiveBusinessId(fetchedBiz[0].id);
             }
           }
@@ -857,21 +979,25 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
           // 3. Fetch products and customers for the active business
           const currentBizId = useBusinessStore.getState().activeBusinessId;
-          if (currentBizId && currentBizId !== "biz-1") {
-            const fetchedProds = await SupabaseService.fetchProducts(currentBizId);
+          if (currentBizId && currentBizId !== 'biz-1') {
+            const fetchedProds = await SupabaseService.fetchProducts(
+              currentBizId,
+            );
             if (fetchedProds) {
               useInventoryStore.getState().setProducts(fetchedProds);
             }
 
-            const fetchedCusts = await SupabaseService.fetchCustomers(currentBizId);
+            const fetchedCusts = await SupabaseService.fetchCustomers(
+              currentBizId,
+            );
             if (fetchedCusts) {
               useCustomerStore.getState().setCustomers(fetchedCusts);
             }
           }
-          
-          console.log("Supabase synchronization completed successfully.");
+
+          console.log('Supabase synchronization completed successfully.');
         } catch (err) {
-          console.error("Error during Supabase synchronization:", err);
+          console.error('Error during Supabase synchronization:', err);
         }
       }
     };
@@ -886,9 +1012,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
         const activeEl = document.getElementById(`mobile-tab-${activeTab}`);
         if (activeEl) {
           activeEl.scrollIntoView({
-            behavior: "smooth",
-            inline: "center",
-            block: "nearest"
+            behavior: 'smooth',
+            inline: 'center',
+            block: 'nearest',
           });
         }
       }, 120);
@@ -898,15 +1024,24 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   // Dynamic branding variables mapping to DOM root
   useEffect(() => {
     if (activeBusiness && activeBusiness.primaryColor) {
-      document.documentElement.style.setProperty('--brand-primary', activeBusiness.primaryColor);
-      document.documentElement.style.setProperty('--brand-primary-hover', activeBusiness.primaryColor + 'ee');
+      document.documentElement.style.setProperty(
+        '--brand-primary',
+        activeBusiness.primaryColor,
+      );
+      document.documentElement.style.setProperty(
+        '--brand-primary-hover',
+        activeBusiness.primaryColor + 'ee',
+      );
     } else {
       document.documentElement.style.removeProperty('--brand-primary');
       document.documentElement.style.removeProperty('--brand-primary-hover');
     }
 
     if (activeBusiness && activeBusiness.secondaryColor) {
-      document.documentElement.style.setProperty('--brand-secondary', activeBusiness.secondaryColor);
+      document.documentElement.style.setProperty(
+        '--brand-secondary',
+        activeBusiness.secondaryColor,
+      );
     } else {
       document.documentElement.style.removeProperty('--brand-secondary');
     }
@@ -916,26 +1051,32 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   useEffect(() => {
     if (currentEmployee) {
       const allTabsWithPerms = [
-        { id: "home", permission: "home.view" as const },
-        { id: "pos", permission: "pos.create_sale" as const },
-        { id: "inventory", permission: "inventory.view" as const },
-        { id: "sales", permission: "orders.view" as const },
-        { id: "customers", permission: "customers.view" as const },
-        { id: "dashboard", permission: "dashboard.view" as const },
-        { id: "feedback", permission: "complaints.view" as const },
-        { id: "ai", permission: "ai.use" as const },
-        { id: "workers", permission: "staff.view" as const },
-        { id: "permissions", permission: "staff.roles" as const },
-        { id: "profile", permission: "dashboard.view" as const },
-        { id: "business-management", permission: "business.update" as const },
-        { id: "settings", permission: "settings.view" as const },
-        { id: "production", permission: "bom.view" as const },
-        { id: "notifications", permission: "dashboard.view" as const }
+        { id: 'home', permission: 'home.view' as const },
+        { id: 'pos', permission: 'pos.create_sale' as const },
+        { id: 'inventory', permission: 'inventory.view' as const },
+        { id: 'sales', permission: 'orders.view' as const },
+        { id: 'customers', permission: 'customers.view' as const },
+        { id: 'dashboard', permission: 'dashboard.view' as const },
+        { id: 'feedback', permission: 'complaints.view' as const },
+        { id: 'ai', permission: 'ai.use' as const },
+        { id: 'workers', permission: 'staff.view' as const },
+        { id: 'permissions', permission: 'staff.roles' as const },
+        { id: 'profile', permission: 'dashboard.view' as const },
+        { id: 'business-management', permission: 'business.update' as const },
+        { id: 'settings', permission: 'settings.view' as const },
+        { id: 'production', permission: 'bom.view' as const },
+        { id: 'notifications', permission: 'dashboard.view' as const },
       ];
-      const permitted = allTabsWithPerms.filter(tab => 
-        tab.id === "profile" || tab.id === "notifications" || hasRolePermission(currentEmployee.role, tab.permission as any)
+      const permitted = allTabsWithPerms.filter(
+        (tab) =>
+          tab.id === 'profile' ||
+          tab.id === 'notifications' ||
+          hasRolePermission(currentEmployee.role, tab.permission as any),
       );
-      if (permitted.length > 0 && !permitted.some(tab => tab.id === activeTab)) {
+      if (
+        permitted.length > 0 &&
+        !permitted.some((tab) => tab.id === activeTab)
+      ) {
         setActiveTab(permitted[0].id as any);
       }
     }
@@ -962,26 +1103,28 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   // Native Android hardware Back Button interception and confirmation flow
   useEffect(() => {
-    const unsubscribeBackButton = nativePlatformService.onBackButton(async () => {
-      const { popTopOverlay } = useOverlayStore.getState();
-      
-      // Attempt to close the top-most active overlay (dialog, sheet, etc.)
-      const didCloseOverlay = popTopOverlay();
-      
-      // If an overlay was closed, stop here.
-      if (didCloseOverlay) {
-        return;
-      }
+    const unsubscribeBackButton = nativePlatformService.onBackButton(
+      async () => {
+        const { popTopOverlay } = useOverlayStore.getState();
 
-      // If no overlay was closed, confirm exit
-      const shouldExit = await nativeUiService.confirm(
-        "Exit Application",
-        "Exit the application?"
-      );
-      if (shouldExit) {
-        nativePlatformService.exitApp();
-      }
-    });
+        // Attempt to close the top-most active overlay (dialog, sheet, etc.)
+        const didCloseOverlay = popTopOverlay();
+
+        // If an overlay was closed, stop here.
+        if (didCloseOverlay) {
+          return;
+        }
+
+        // If no overlay was closed, confirm exit
+        const shouldExit = await nativeUiService.confirm(
+          'Exit Application',
+          'Exit the application?',
+        );
+        if (shouldExit) {
+          nativePlatformService.exitApp();
+        }
+      },
+    );
     return unsubscribeBackButton;
   }, []);
 
@@ -992,12 +1135,13 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
       setTimeout(() => {
         const activeEl = document.activeElement;
         if (activeEl) {
-          const isInput = activeEl.tagName === "INPUT" ||
-                          activeEl.tagName === "TEXTAREA" ||
-                          activeEl.tagName === "SELECT" ||
-                          activeEl.closest("[contenteditable='true']");
+          const isInput =
+            activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.closest("[contenteditable='true']");
           if (isInput) {
-            activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }
       }, 150);
@@ -1011,9 +1155,9 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
       });
     } else if (window.visualViewport) {
       const visualViewport = window.visualViewport;
-      visualViewport.addEventListener("resize", handleScrollActiveElement);
+      visualViewport.addEventListener('resize', handleScrollActiveElement);
       return () => {
-        visualViewport.removeEventListener("resize", handleScrollActiveElement);
+        visualViewport.removeEventListener('resize', handleScrollActiveElement);
       };
     }
 
@@ -1026,12 +1170,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   // Handle dark class toggling on document root & save theme
   useEffect(() => {
-    localStorage.setItem("isms-theme", themeMode);
+    localStorage.setItem('isms-theme', themeMode);
     const root = window.document.documentElement;
-    if (themeMode === "dark") {
-      root.classList.add("dark");
+    if (themeMode === 'dark') {
+      root.classList.add('dark');
     } else {
-      root.classList.remove("dark");
+      root.classList.remove('dark');
     }
     statusBarService.setStyle(themeMode);
   }, [themeMode]);
@@ -1042,27 +1186,28 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   useEffect(() => {
     const handleScroll = (e: Event) => {
       // If we are on the AI page or the onboarding tour is open, keep the bottom navigation fully stable and visible
-      if (activeTab === "ai" || isTourOpen) {
+      if (activeTab === 'ai' || isTourOpen) {
         setShowNav(true);
         return;
       }
 
       const target = e.target as HTMLElement;
       if (!target) return;
-      
+
       let currentScrollY = 0;
       if ((target as any) === document || (target as any) === window) {
         currentScrollY = window.scrollY;
-      } else if (typeof target.scrollTop === "number") {
+      } else if (typeof target.scrollTop === 'number') {
         currentScrollY = target.scrollTop;
       } else {
         return;
       }
-      
+
       // We only care about major content scrolls or containers with overflow-y-auto
-      const isScrollable = target.classList?.contains("overflow-y-auto") || 
-                           target.tagName === "MAIN" || 
-                           (target as any) === document;
+      const isScrollable =
+        target.classList?.contains('overflow-y-auto') ||
+        target.tagName === 'MAIN' ||
+        (target as any) === document;
       if (!isScrollable) return;
 
       const prevScrollY = lastScrollPositions.current.get(target) || 0;
@@ -1077,17 +1222,17 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
           setShowNav(true);
         }
       }
-      
+
       // Force show nav ONLY at the absolute top
       if (currentScrollY <= 15) {
         setShowNav(true);
       }
-      
+
       lastScrollPositions.current.set(target, currentScrollY);
     };
 
-    window.addEventListener("scroll", handleScroll, true);
-    return () => window.removeEventListener("scroll", handleScroll, true);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
   }, [activeTab, isTourOpen]);
 
   // Show bottom nav instantly when switching views
@@ -1096,12 +1241,14 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   }, [activeTab]);
 
   const toggleSidebar = () => {
-    setIsSidebarCollapsed(prev => {
+    setIsSidebarCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("isms-sidebar-collapsed", String(next));
+      localStorage.setItem('isms-sidebar-collapsed', String(next));
       return next;
     });
   };
+
+
 
   const isNavVisible = showNav && !isKeyboardVisible;
 
@@ -1295,57 +1442,74 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                   </p>
                 </div>
 
-                <div className="max-h-[160px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-[10px] text-slate-400 font-medium leading-relaxed space-y-2.5 text-left">
-                  <p className="font-bold text-slate-300">
-                    1. Authorized Corporate Access Only
-                  </p>
-                  <p>
-                    This terminal portal is exclusively for authorized staff and
-                    logistics agents of ISMS and partner businesses.
-                    Unauthorized access, sharing of staff PINs, or spoofing
-                    biometric login credentials is strictly prohibited and
-                    subject to disciplinary action.
-                  </p>
-                  <p className="font-bold text-slate-300">
-                    2. Offline Caching & Secure Sync
-                  </p>
-                  <p>
-                    Transaction receipts, customer details, and stock audits are
-                    cached locally on your device's secure browser sandbox. Data
-                    is automatically pushed to Supabase tables once an active
-                    network connection is established. Users must ensure pending
-                    synchronizations are complete before signing out to prevent
-                    data loss.
-                  </p>
-                  <p className="font-bold text-slate-300">
-                    3. Biometric Security & WebAuthn
-                  </p>
-                  <p>
-                    Device fingerprinting (TouchID/FaceID) is authenticated
-                    locally by your platform's secure enclave (WebAuthn API).
-                    Raw biometric templates are never captured, stored, or
-                    transmitted to ISMS servers or any third-party database.
-                  </p>
-                  <p className="font-bold text-slate-300">
-                    4. Gemini AI Reports & Consultations
-                  </p>
-                  <p>
-                    The "Kim AI Assistant" relies on the Google Gemini API to
-                    analyze store metrics and provide consultative business or
-                    KRA tax feedback. AI outputs are advisory only; all
-                    financial figures and tax filings must be manually audited
-                    before submission.
-                  </p>
-                  <p className="font-bold text-slate-300">
-                    5. POS Auditability & Accountability
-                  </p>
-                  <p>
-                    All Point of Sale transactions, discounts applied, inventory
-                    adjustments, and customer debt updates are logged in
-                    association with the active employee ID. Staff are fully
-                    responsible for the accuracy of POS entries relative to
-                    actual physical inventory and deliveries.
-                  </p>
+                <div className="max-h-[220px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-4 text-[10px] text-slate-400 font-medium leading-relaxed space-y-3 text-left">
+                  <div>
+                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
+                      1. Authorized Access & Terminal Security
+                    </p>
+                    <p>
+                      This terminal portal is strictly for authorized staff and
+                      logistics agents of ISMS and partner businesses.
+                      Unauthorized access, sharing of staff PINs, or spoofing
+                      biometric/login credentials is prohibited. All terminal
+                      activity and transactions are logged for security and
+                      auditing purposes.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
+                      2. Client Data Collection & Usage
+                    </p>
+                    <p>
+                      Customer information (including names, contact details,
+                      purchase history, and payment metadata) collected at POS
+                      terminals is stored securely for transaction processing,
+                      digital receipt dispatch, loyalty accounting, and business
+                      analytics. Personal customer data will not be sold or
+                      shared with unauthorized third parties.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
+                      3. Transaction Integrity & Pricing
+                    </p>
+                    <p>
+                      Operators must verify item counts, applied discounts, and
+                      payment totals before finalizing a sale. Completed
+                      transactions are recorded permanently in the store ledger.
+                      Tax calculations, promotional prices, and inventory
+                      deductions are processed according to active terminal
+                      rules at the time of checkout.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
+                      4. Offline Queue & Sync Policy
+                    </p>
+                    <p>
+                      Transactions processed while offline will queue locally on
+                      this device and sync automatically once network
+                      connectivity is restored. Terminal operators remain
+                      responsible for verifying that offline queues sync
+                      successfully before ending shifts.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
+                      5. Kim AI Reports & Consultations
+                    </p>
+                    <p>
+                      The "Kim AI Assistant" uses automated AI models to analyze
+                      store metrics and offer consultative feedback. AI outputs
+                      are strictly advisory; all financial figures, payroll, and
+                      tax filings must be manually audited prior to submission.
+                      AI systems may produce mistakes or errors.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-start gap-2.5 py-1 text-left">
@@ -1781,13 +1945,21 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       >
                         <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1.5">
                           <h4 className="text-[10.5px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <Building size={12} /> First Person Creating
-                            Business
+                            <Building size={12} /> Primary Owner & Manager Setup
                           </h4>
                           <p className="text-[9.5px] text-slate-400 leading-normal">
-                            You will register your primary encrypted personal
-                            profile. Business creation occurs instantly upon
-                            completing secure email verification.
+                            The individual registering this initial account will
+                            be designated as the primary{' '}
+                            <strong className="text-slate-300 font-semibold">
+                              Business Owner
+                            </strong>{' '}
+                            and{' '}
+                            <strong className="text-slate-300 font-semibold">
+                              Overall Manager
+                            </strong>{' '}
+                            with root administrative control. Business
+                            provisioning completes instantly upon email
+                            verification.
                           </p>
                         </div>
 
@@ -1798,7 +1970,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="e.g. Kipchoge Keino"
+                              placeholder="e.g. Dennis Kimanthi"
                               value={regName}
                               onChange={(e) => setRegName(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
@@ -1831,7 +2003,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
                         <div className="space-y-1">
                           <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                            Phone Number (with Country Code) *
+                            Phone Number *
                           </label>
                           <div className="relative">
                             <input
@@ -1848,24 +2020,12 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                           </div>
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                            Choose Password *
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              placeholder="Minimum 6 characters"
-                              value={regPassword}
-                              onChange={(e) => setRegPassword(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                            />
-                            <Lock
-                              size={13}
-                              className="absolute left-3 top-3.5 text-slate-500"
-                            />
-                          </div>
-                        </div>
+                        <PasswordInput
+                          label="Choose Password"
+                          value={regPassword}
+                          onChange={(val) => setRegPassword(val)}
+                          placeholder="Minimum 6 characters"
+                        />
 
                         <button
                           type="submit"
@@ -2002,7 +2162,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 </label>
                                 <input
                                   type="email"
-                                  placeholder="e.g. owner@isms.com"
+                                  placeholder="e.g. codensons@gmail.com"
                                   value={newEmailInput}
                                   onChange={(e) =>
                                     setNewEmailInput(e.target.value)
@@ -2047,7 +2207,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             <div className="flex flex-col gap-2.5">
                               {verifyCountdown > 0 ? (
                                 <span className="text-[10px] text-slate-400">
-                                  Resend code in{' '}
+                                  Can Resend code in{' '}
                                   <strong className="text-amber-500">
                                     {verifyCountdown}s
                                   </strong>
@@ -2127,8 +2287,8 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             <Building size={16} /> Register Business Hub
                           </h3>
                           <p className="text-[10.5px] text-slate-400">
-                            Configure your initial business workspace and dairy
-                            branch metadata.
+                            Configure your initial business workspace and branch
+                            metadata.
                           </p>
                         </div>
 
@@ -2144,7 +2304,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             setAuthSuccess('');
                             const res = await createBusinessWithOwner(
                               bizNameField,
-                              bizTypeField,
+                              finalBusinessType,
                               bizCountryField,
                               bizCurrencyField,
                             );
@@ -2166,7 +2326,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             <div className="relative">
                               <input
                                 type="text"
-                                placeholder="e.g. ISMS  - Nakuru Outlet"
+                                placeholder="e.g. My Shop Nairobi  Branch"
                                 value={bizNameField}
                                 onChange={(e) =>
                                   setBizNameField(e.target.value)
@@ -2185,27 +2345,40 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
                                 Business Type *
                               </label>
-                              <div className="relative">
-                                <SearchableDropdown
-                                  items={[
-                                    { id: 'Retail', label: 'Retail Store' },
-                                    {
-                                      id: 'Wholesale',
-                                      label: 'Wholesale Depot',
-                                    },
-                                    { id: 'Farm', label: 'Dairy Farm' },
-                                    {
-                                      id: 'Dairy Processing',
-                                      label: 'Processing Plant',
-                                    },
-                                  ]}
-                                  selectedValue={bizTypeField}
-                                  onChange={(val) => setBizTypeField(val)}
-                                  placeholder="Select type..."
-                                />
-                              </div>
-                            </div>
 
+                              {/* Searchable Dropdown */}
+                              <SearchableDropdown
+                                items={BUSINESS_TYPES}
+                                selectedValue={businessType}
+                                onChange={(val: string) => {
+                                  setBusinessType(val);
+                                  if (val !== 'Other') {
+                                    setCustomTypeInput('');
+                                  }
+                                }}
+                                placeholder="Select business type..."
+                              />
+
+                              {/* Conditional Input for Custom Business Type */}
+                              {businessType === 'Other' && (
+                                <div className="relative pt-1">
+                                  <input
+                                    type="text"
+                                    placeholder="Specify business type (e.g., Butchery, Logistics)"
+                                    value={customTypeInput}
+                                    onChange={(e) =>
+                                      setCustomTypeInput(e.target.value)
+                                    }
+                                    className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-amber-500/50 focus:border-amber-500 focus:outline-none text-xs placeholder:text-slate-600 animate-in fade-in slide-in-from-top-1 duration-150"
+                                    autoFocus
+                                  />
+                                  <Edit3
+                                    size={13}
+                                    className="absolute left-3 top-4.5 text-amber-500 pointer-events-none"
+                                  />
+                                </div>
+                              )}
+                            </div>
                             <div className="space-y-1">
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
                                 Country *
@@ -2249,10 +2422,6 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                                 selectedValue={bizCurrencyField}
                                 onChange={(val) => setBizCurrencyField(val)}
                                 placeholder="Select currency..."
-                              />
-                              <Coins
-                                size={13}
-                                className="absolute left-3 top-3.5 text-slate-500 pointer-events-none"
                               />
                             </div>
                           </div>
@@ -2469,7 +2638,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                               <h5 className="text-[11px] font-bold text-slate-200">
                                 {businesses.find(
                                   (b) => b.id === validatedInvite.businessId,
-                                )?.name || "ISMS Retail Outlet"}
+                                )?.name || 'ISMS Retail Outlet'}
                               </h5>
                               <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
                                 Assigned Role: {validatedInvite.role}
@@ -2741,7 +2910,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                         <div className="flex flex-col gap-2.5">
                           {resetCountdown > 0 ? (
                             <span className="text-[10px] text-slate-400">
-                              Resend code in{' '}
+                              Can Resend code in{' '}
                               <strong className="text-amber-500">
                                 {resetCountdown}s
                               </strong>
@@ -4185,7 +4354,7 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                       Select Active Workspace
                     </h3>
                     <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-0.5">
-                      Switch or configure your dairy branches (Max 5)
+                      Switch or configure your branches (Max 5)
                     </p>
                   </div>
                   <button
@@ -4450,7 +4619,8 @@ const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
                             Business Type
                           </label>
                           <SearchableDropdown
-                            items={[
+                            items={
+                              [
                               { id: 'Retail', label: 'Retail' },
                               { id: 'Wholesale', label: 'Wholesale' },
                               { id: 'Farm', label: 'Farm' },

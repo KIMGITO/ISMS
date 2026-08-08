@@ -44,6 +44,7 @@ export interface Transaction {
   deliveryFee?: number;
   riderName?: string;
   businessId?: string;
+  referenceId?: string;
 }
 
 export type CustomerTier = 'Bronze' | 'Silver' | 'Gold';
@@ -316,6 +317,7 @@ export interface CustomerLedgerEntry {
   recordedBy: string;
   note?: string;
   transactionId?: string;
+  referenceId?: string;
   created_at?: string;
 }
 

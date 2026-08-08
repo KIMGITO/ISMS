@@ -74,17 +74,150 @@ const biReportSchema = {
 function safeParseJson(raw: string): any {
   if (!raw) return {};
   let cleaned = raw.trim();
+
+  // Strip markdown code fences
   if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/```$/, "")
-      .trim();
+    cleaned = cleaned.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
   }
+
+  // Try direct parse first
   try {
     return JSON.parse(cleaned);
   } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error("Could not parse AI JSON response");
+    // fall through to repair strategies
   }
+
+  // Extract the largest JSON object/array from the text (handles extra prose)
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[0].trim();
+  }
+
+  // Repair strategy 1: strip trailing commas before } or ]
+  const noTrailingCommas = cleaned
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/,\s*$/g, "");
+
+  try {
+    return JSON.parse(noTrailingCommas);
+  } catch {
+    // fall through
+  }
+
+  // Repair strategy 2: fix truncated JSON by balancing braces/brackets
+  const balanceJson = (input: string): string => {
+    let out = input;
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < out.length; i++) {
+      const ch = out[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === "\\") {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === "{" || ch === "[") {
+        stack.push(ch);
+      } else if (ch === "}" || ch === "]") {
+        const open = stack.pop();
+        if ((ch === "}" && open !== "{") || (ch === "]" && open !== "[")) {
+          return input; // mismatched, cannot repair
+        }
+      }
+    }
+
+    // Close any unclosed structures
+    while (stack.length > 0) {
+      const open = stack.pop();
+      out += open === "{" ? "}" : "]";
+    }
+    return out;
+  };
+
+  const balanced = balanceJson(noTrailingCommas);
+  try {
+    return JSON.parse(balanced);
+  } catch {
+    // fall through
+  }
+
+  // Repair strategy 3: try to salvage by finding the deepest valid JSON substring
+  const trySubstrings = (input: string): any => {
+    const candidates: string[] = [];
+    const stack: string[] = [];
+    let start = -1;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === "\\") {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === "{" || ch === "[") {
+        if (stack.length === 0) start = i;
+        stack.push(ch);
+      } else if (ch === "}" || ch === "]") {
+        const open = stack.pop();
+        if ((ch === "}" && open !== "{") || (ch === "]" && open !== "[")) {
+          stack.length = 0;
+          start = -1;
+          continue;
+        }
+        if (stack.length === 0 && start >= 0) {
+          candidates.push(input.slice(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+
+    // Also try progressively shorter prefixes of the input
+    for (let len = input.length; len > 0; len -= 10) {
+      candidates.push(input.slice(0, len));
+    }
+
+    for (const candidate of candidates) {
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        // try next candidate
+      }
+    }
+    return null;
+  };
+
+  const salvaged = trySubstrings(cleaned);
+  if (salvaged) return salvaged;
+
+  // Final fallback: return a minimal valid report so the frontend can still render
+  return {
+    executiveSummary: "AI analysis could not be parsed. Showing local fallback summary.",
+    keyInsights: [],
+    risks: [],
+    opportunities: [],
+    recommendations: [],
+    suggestedActions: [],
+    chartAnnotation: "",
+    predictedSales: [],
+  };
 }
 
 Deno.serve(async (req) => {

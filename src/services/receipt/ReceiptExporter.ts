@@ -1,25 +1,25 @@
 import { ReceiptContent, BusinessReceiptSettings } from "./types";
 import { ReceiptRendererService } from "./ReceiptRenderer";
 import { jsPDF } from "jspdf";
+import { fileExportService } from "../../utils/fileExport";
+
+// Helper to safely access possibly undefined numeric values
+const safeNumber = (value: number | undefined, fallback: number = 0): number => value ?? fallback;
 
 export class ReceiptExporterService {
   /**
    * Generates and triggers the browser download of a clean text-based receipt (.txt).
    */
-  public static exportToTextFile(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
+  public static async exportToTextFile(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
     try {
       const text = ReceiptRendererService.generateThermalRawText(content, settings);
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `receipt_${content.receiptNumber}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      const result = await fileExportService.exportText(text, `receipt_${content.receiptNumber}.txt`);
+      
+      if (!result.success) {
+        console.error("Failed to export text receipt:", result.error);
+        return false;
+      }
+      
       return true;
     } catch (err) {
       console.error("Failed to export text receipt:", err);
@@ -32,7 +32,7 @@ export class ReceiptExporterService {
    * interactive HTML receipt (thermal-paper styling: monospace, dashed rules,
    * torn/zigzag bottom edge).
    */
-  public static exportToHtmlFile(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): boolean {
+  public static async exportToHtmlFile(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): Promise<boolean> {
     try {
       const fullHtml = `
         <!DOCTYPE html>
@@ -83,17 +83,13 @@ export class ReceiptExporterService {
         </html>
       `;
 
-      const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `digital_receipt_${content.receiptNumber}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      const result = await fileExportService.exportHtml(fullHtml, `digital_receipt_${content.receiptNumber}.html`);
+      
+      if (!result.success) {
+        console.error("Failed to export HTML receipt:", result.error);
+        return false;
+      }
+      
       return true;
     } catch (err) {
       console.error("Failed to export HTML receipt:", err);
@@ -154,9 +150,9 @@ export class ReceiptExporterService {
 
     h += 3; // divider before totals
     h += 4; // subtotal
-    if (content.overallDiscount > 0) h += 4;
-    if (settings.isTaxEnabled && content.taxTotal > 0) h += 4;
-    if (content.deliveryFee > 0) h += 4;
+    if (safeNumber(content.overallDiscount) > 0) h += 4;
+    if (settings.isTaxEnabled && safeNumber(content.taxTotal) > 0) h += 4;
+    if (safeNumber(content.deliveryFee) > 0) h += 4;
     h += 3; // divider
     h += 7; // grand total line
     h += 3; // divider
@@ -182,7 +178,7 @@ export class ReceiptExporterService {
    * product item breakdown. Page height is computed from a real measurement
    * pass so every item is guaranteed to render (nothing gets clipped).
    */
-  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
+  public static async exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
     try {
       const pageWidth = 80;
       const margin = 4;
@@ -311,16 +307,16 @@ export class ReceiptExporterService {
       // ==========================
       addLine("Subtotal", formatAmount(content.subtotal));
 
-      if (content.overallDiscount > 0) {
-        addLine("Discount", "-" + formatAmount(content.overallDiscount));
+      if (safeNumber(content.overallDiscount) > 0) {
+        addLine("Discount", "-" + formatAmount(safeNumber(content.overallDiscount)));
       }
 
-      if (settings.isTaxEnabled && content.taxTotal > 0) {
-        addLine(`VAT ${settings.taxPercentage}%`, formatAmount(content.taxTotal));
+      if (settings.isTaxEnabled && safeNumber(content.taxTotal) > 0) {
+        addLine(`VAT ${settings.taxPercentage}%`, formatAmount(safeNumber(content.taxTotal)));
       }
 
-      if (content.deliveryFee > 0) {
-        addLine("Delivery", formatAmount(content.deliveryFee));
+      if (safeNumber(content.deliveryFee) > 0) {
+        addLine("Delivery", formatAmount(safeNumber(content.deliveryFee)));
       }
 
       divider(false);
@@ -336,12 +332,12 @@ export class ReceiptExporterService {
       // ==========================
       // OUTSTANDING BALANCE (credit sales only)
       // ==========================
-      if (content.outstandingBalance !== undefined && content.outstandingBalance > 0) {
+      if (content.outstandingBalance !== undefined && safeNumber(content.outstandingBalance) > 0) {
         doc.setFont("courier", "bold");
         doc.setFontSize(9);
         doc.setTextColor(220, 38, 38); // red
         doc.text("OUTSTANDING BAL", margin, y);
-        doc.text(formatAmount(content.outstandingBalance), pageWidth - margin, y, { align: "right" });
+        doc.text(formatAmount(safeNumber(content.outstandingBalance)), pageWidth - margin, y, { align: "right" });
         doc.setTextColor(0, 0, 0); // reset to black
         y += 4;
 
@@ -371,7 +367,13 @@ export class ReceiptExporterService {
         doc.line(x + zig / 2, y + 1.6, x + zig, y);
       }
 
-      doc.save(`receipt_${content.receiptNumber}.pdf`);
+      // Use platform-aware export
+      const result = await fileExportService.exportPdf(doc, `receipt_${content.receiptNumber}.pdf`);
+      
+      if (!result.success) {
+        console.error("PDF export failed:", result.error);
+        return false;
+      }
 
       return true;
     } catch (err) {

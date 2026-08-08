@@ -9,6 +9,7 @@ import { validatePhone, normalizePhone, SUPPORTED_COUNTRIES } from "../utils/pho
 import { hasRolePermission } from "../utils/permissions";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { titleCase } from "../utils/stringUtils";
+import { BUSINESS_TYPES } from "../App";
 
 const COLOR_PRESETS = [
   { name: "Isms Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
@@ -39,6 +40,7 @@ export default function BusinessManagementView() {
   const [newBizAddr, setNewBizAddr] = useState("");
   const [newBizLogo, setNewBizLogo] = useState("");
   const [newBizType, setNewBizType] = useState("Retail");
+  const [newBizCustomType, setNewBizCustomType] = useState("");
   const [newBizCountry, setNewBizCountry] = useState("Kenya");
   const [newBizCurrency, setNewBizCurrency] = useState("Ksh");
   const [creatingLoading, setCreatingLoading] = useState(false);
@@ -50,11 +52,12 @@ export default function BusinessManagementView() {
   const [logoUrl, setLogoUrl] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [businessType, setBusinessType] = useState("Retail");
+  const [customTypeInput, setCustomTypeInput] = useState("");
   const [country, setCountry] = useState("Kenya");
   const [currency, setCurrency] = useState("Ksh");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [isTaxEnabled, setIsTaxEnabled] = useState(true);
+  const [isTaxEnabled, setIsTaxEnabled] = useState(false);
   const [taxPercentage, setTaxPercentage] = useState(16.0);
   
   // Custom theme colors
@@ -205,6 +208,15 @@ export default function BusinessManagementView() {
       setSecondaryColor(activeBiz.secondaryColor || "#1e293b");
       setIsTaxEnabled(activeBiz.isTaxEnabled !== false);
       setTaxPercentage(typeof activeBiz.taxPercentage === 'number' ? activeBiz.taxPercentage : 16.0);
+      
+      // Check if business type is a custom type (not in the predefined list)
+      const predefinedTypes = ['Retail', 'Wholesale', 'Dairy Processing', 'Farm', 'Cooperative'];
+      if (!predefinedTypes.includes(activeBiz.businessType)) {
+        setBusinessType('Other');
+        setCustomTypeInput(activeBiz.businessType || "");
+      } else {
+        setCustomTypeInput("");
+      }
     }
   }, [activeBiz]);
 
@@ -251,6 +263,7 @@ export default function BusinessManagementView() {
     setLoading(true);
     try {
       const normalizedPhone = contactPhone.trim() ? normalizePhone(contactPhone) : "";
+      const finalBusinessType = businessType === 'Other' ? customTypeInput : businessType;
       
       await updateBusiness(
         activeBusinessId,
@@ -258,7 +271,7 @@ export default function BusinessManagementView() {
         description.trim(),
         address.trim(),
         logoUrl.trim(),
-        businessType,
+        finalBusinessType,
         country,
         currency.trim(),
         coverImageUrl.trim(),
@@ -295,12 +308,13 @@ export default function BusinessManagementView() {
 
     setCreatingLoading(true);
     try {
+      const finalBizType = newBizType === 'Other' ? newBizCustomType : newBizType;
       const created = await addBusiness(
         newBizName.trim(),
         newBizDesc.trim(),
         newBizAddr.trim(),
         newBizLogo.trim(),
-        newBizType,
+        finalBizType,
         newBizCountry,
         newBizCurrency.trim()
       );
@@ -312,6 +326,7 @@ export default function BusinessManagementView() {
         setNewBizAddr("");
         setNewBizLogo("");
         setNewBizType("Retail");
+        setNewBizCustomType("");
         setNewBizCountry("Kenya");
         setNewBizCurrency("Ksh");
       }
@@ -459,28 +474,30 @@ export default function BusinessManagementView() {
                   />
                 </div>
 
-                {/* Operation Type */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                    Operation Type
-                  </label>
-                  <SearchableDropdown
-                    items={[
-                      { id: 'Retail', label: 'Retail Store' },
-                      { id: 'Wholesale', label: 'Wholesale Depot' },
-                      {
-                        id: 'Dairy Processing',
-                        label: 'Dairy Processing Plant',
-                      },
-                      { id: 'Farm', label: 'Dairy Farm' },
-                      { id: 'Cooperative', label: 'Cooperative Society' },
-                      { id: 'Other', label: 'Other Retail Business' },
-                    ]}
-                    selectedValue={newBizType}
-                    onChange={(val) => setNewBizType(val)}
-                    placeholder="Select operation type..."
-                  />
-                </div>
+                 {/* Operation Type */}
+                 <div className="flex flex-col gap-1">
+                   <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                     Operation Type
+                   </label>
+                   <SearchableDropdown
+                     items={
+                     BUSINESS_TYPES
+                    }
+                     selectedValue={newBizType}
+                     onChange={(val) => setNewBizType(val)}
+                     placeholder="Select operation type..."
+                   />
+                   {newBizType === 'Other' && (
+                     <input
+                       type="text"
+                       placeholder="Specify business type (e.g., Butchery, Logistics)"
+                       value={newBizCustomType}
+                       onChange={(e) => setNewBizCustomType(e.target.value)}
+                       className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                       autoFocus
+                     />
+                   )}
+                 </div>
 
                 {/* Country Context */}
                 <div className="flex flex-col gap-1">
@@ -680,31 +697,35 @@ export default function BusinessManagementView() {
                           )}
                         </div>
 
-                        {/* Business Type */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                            Operation Type
-                          </label>
-                          <SearchableDropdown
-                            items={[
-                              { id: 'Retail', label: 'Retail Store' },
-                              { id: 'Wholesale', label: 'Wholesale Depot' },
-                              {
-                                id: 'Dairy Processing',
-                                label: 'Dairy Processing Plant',
-                              },
-                              { id: 'Farm', label: 'Dairy Farm' },
-                              {
-                                id: 'Cooperative',
-                                label: 'Cooperative Society',
-                              },
-                              { id: 'Other', label: 'Other Retail Business' },
-                            ]}
-                            selectedValue={businessType}
-                            onChange={(val) => setBusinessType(val)}
-                            placeholder="Select operation type..."
-                          />
-                        </div>
+                         {/* Business Type */}
+                         <div className="flex flex-col gap-1">
+                           <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                             Operation Type
+                           </label>
+                           <SearchableDropdown
+                             items={
+                              BUSINESS_TYPES
+                            }
+                             selectedValue={businessType}
+                             onChange={(val) => {
+                               setBusinessType(val);
+                               if (val !== 'Other') {
+                                 setCustomTypeInput("");
+                               }
+                             }}
+                             placeholder="Select operation type..."
+                           />
+                           {businessType === 'Other' && (
+                             <input
+                               type="text"
+                               placeholder="Specify business type (e.g., Butchery, Logistics)"
+                               value={customTypeInput}
+                               onChange={(e) => setCustomTypeInput(e.target.value)}
+                               className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                               autoFocus
+                             />
+                           )}
+                         </div>
 
                         {/* Description */}
                         <div className="flex flex-col gap-1 md:col-span-2">

@@ -1119,7 +1119,7 @@ export default function DashboardView() {
                                 .getState()
                                 .showToast(
                                   'Logistics GPS Sync',
-                                  'Nairobi Westlands-Karen logistics route map synchronized with device GPS. Ready for dispatch.',
+                                  'Logistics route map synchronized with device GPS. Ready for dispatch.',
                                   undefined,
                                   'success',
                                 );

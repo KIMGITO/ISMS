@@ -102,6 +102,21 @@ export class SupabaseService {
     // = final_total so the DB trigger does NOT create a false debt record.
     const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
 
+    // For credit sales, compute wallet_applied from the customer's current
+    // wallet balance so the DB trigger can deduct it before adding debt.
+    let walletApplied = 0;
+    if (isCreditSale && tx.customerId) {
+      try {
+        const cust = await this.fetchCustomers(tx.businessId || "");
+        const customer = cust.find(c => c.id === tx.customerId);
+        if (customer) {
+          walletApplied = Math.min(Number(customer.walletBalance || 0), tx.finalTotal);
+        }
+      } catch (err) {
+        console.error("Failed to fetch customer wallet balance for credit sale:", err);
+      }
+    }
+
     const { data: header, error: headerErr } = await supabase
       .from("transactions")
       .insert({
@@ -112,7 +127,7 @@ export class SupabaseService {
         tax: tx.tax,
         final_total: tx.finalTotal,
         amount_paid: isCreditSale ? 0 : tx.finalTotal,
-        wallet_applied: 0,
+        wallet_applied: walletApplied,
         payment_method: tx.paymentMethod,
         customer_id: tx.customerId ? toUuid(tx.customerId) : null,
         customer_name: tx.customerName,
@@ -124,6 +139,7 @@ export class SupabaseService {
         is_delivery: tx.isDelivery,
         delivery_fee: tx.deliveryFee,
         rider_name: tx.riderName,
+        reference_id: tx.referenceId || null,
       })
       .select()
       .single();
@@ -150,6 +166,160 @@ export class SupabaseService {
     }
 
     return header;
+  }
+
+  // ==========================================
+  // ATOMIC CUSTOMER FINANCIAL RPCs
+  // ==========================================
+
+  /**
+   * Process a complete customer sale atomically via RPC.
+   * Handles wallet deduction, debt creation, transaction + items,
+   * credit_payments, customer_ledger, and wallet_transactions in one DB transaction.
+   * Idempotent via reference_id.
+   */
+  static async processCustomerTransaction(params: {
+    businessId: string;
+    customerId: string;
+    customerName: string;
+    staffId: string;
+    staffName: string;
+    total: number;
+    discount: number;
+    tax: number;
+    finalTotal: number;
+    amountPaid: number;
+    paymentMethod: string;
+    timestamp: string;
+    note?: string;
+    isDelivery?: boolean;
+    deliveryFee?: number;
+    riderName?: string;
+    referenceId: string;
+    items: Array<{
+      productId: string;
+      productName: string;
+      unitPrice: number;
+      quantity: number;
+      discountPercentage: number;
+    }>;
+  }): Promise<string> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("process_customer_transaction", {
+      p_business_id: toUuid(params.businessId),
+      p_customer_id: toUuid(params.customerId),
+      p_customer_name: params.customerName,
+      p_staff_id: params.staffId ? toUuid(params.staffId) : null,
+      p_staff_name: params.staffName,
+      p_total: params.total,
+      p_discount: params.discount,
+      p_tax: params.tax,
+      p_final_total: params.finalTotal,
+      p_amount_paid: params.amountPaid,
+      p_payment_method: params.paymentMethod,
+      p_timestamp: params.timestamp,
+      p_note: params.note || null,
+      p_is_delivery: params.isDelivery || false,
+      p_delivery_fee: params.deliveryFee || 0,
+      p_rider_name: params.riderName || null,
+      p_reference_id: params.referenceId,
+      p_items: params.items,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+    return data as string;
+  }
+
+  /**
+   * Process a wallet top-up atomically via RPC.
+   * Handles debt repayment + wallet deposit in one DB transaction.
+   * Idempotent via reference_id.
+   */
+  static async processWalletTopup(params: {
+    businessId: string;
+    customerId: string;
+    amount: number;
+    recordedBy: string;
+    note?: string;
+    referenceId: string;
+  }): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc("process_wallet_topup", {
+      p_business_id: toUuid(params.businessId),
+      p_customer_id: toUuid(params.customerId),
+      p_amount: params.amount,
+      p_recorded_by: params.recordedBy,
+      p_note: params.note || null,
+      p_reference_id: params.referenceId,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+  }
+
+  /**
+   * Process a debt payment atomically via RPC.
+   * Handles debt reduction + credit_payments FIFO + ledger in one DB transaction.
+   * Idempotent via reference_id.
+   */
+  static async processDebtPayment(params: {
+    businessId: string;
+    customerId: string;
+    amount: number;
+    method: string;
+    recordedBy: string;
+    note?: string;
+    referenceId: string;
+  }): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc("process_debt_payment", {
+      p_business_id: toUuid(params.businessId),
+      p_customer_id: toUuid(params.customerId),
+      p_amount: params.amount,
+      p_method: params.method,
+      p_recorded_by: params.recordedBy,
+      p_note: params.note || null,
+      p_reference_id: params.referenceId,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+  }
+
+  /**
+   * Process a wallet spend atomically via RPC.
+   * Handles wallet deduction + ledger in one DB transaction.
+   * Idempotent via reference_id.
+   */
+  static async processWalletSpend(params: {
+    businessId: string;
+    customerId: string;
+    amount: number;
+    recordedBy: string;
+    note?: string;
+    referenceId: string;
+  }): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc("process_wallet_spend", {
+      p_business_id: toUuid(params.businessId),
+      p_customer_id: toUuid(params.customerId),
+      p_amount: params.amount,
+      p_recorded_by: params.recordedBy,
+      p_note: params.note || null,
+      p_reference_id: params.referenceId,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
   }
 
   // ==========================================
@@ -277,6 +447,7 @@ export class SupabaseService {
         recorded_by: entry.recordedBy,
         note: entry.note || "",
         transaction_id: entry.transactionId ? toUuid(entry.transactionId) : null,
+        reference_id: entry.referenceId || null,
       })
       .select()
       .single();

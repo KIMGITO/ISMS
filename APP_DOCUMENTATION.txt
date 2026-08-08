@@ -1,0 +1,389 @@
+================================================================
+ISMS - MILK BUSINESS MANAGEMENT SYSTEM
+================================================================
+Application Documentation
+
+Version: 1.0.0
+Platform: Cross-Platform (Web / Desktop / Android)
+Release Type: Production-Ready Enterprise Application
+
+================================================================
+1. OVERVIEW
+================================================================
+
+ISMS (Inventory & Sales Management System) is a production-ready,
+cross-platform enterprise management application purpose-built for
+dairy farms, milk processing plants, and retail dairy outlets. It
+delivers an online-first, real-time reactive architecture that
+synchronizes business operations across every device in the
+organization instantly.
+
+The application couples a modern React SPA frontend with a Supabase
+(PostgreSQL) real-time backend, wrapped into native desktop
+applications via Tauri v2 (Windows/Linux) and mobile apps via
+Capacitor v8 (Android). It is designed specifically to handle the
+unique operational challenges of the Kenyan dairy industry -
+including perishable inventory, M-Pesa digital payments, cold-chain
+logistics, and multi-branch distribution.
+
+================================================================
+2. CORE PURPOSE
+================================================================
+
+ISMS is engineered to unify the entire dairy business lifecycle into
+a single connected platform:
+
+- Manage Point-of-Sale (POS) operations with full cart, discount,
+  and tax handling.
+- Track perishable dairy inventory with batch/expiry monitoring and
+  spoilage logging.
+- Run customer loyalty programs with tiering, wallet deposits, and
+  credit management.
+- Coordinate field operations including riders, delivery routes,
+  and shift management.
+- Deliver executive analytics with AI-assisted business intelligence
+  reporting.
+- Enforce strict access control via row-level security (RLS) and
+  role-based permissions.
+
+================================================================
+3. TECHNOLOGY STACK
+================================================================
+
+- Frontend Framework : React 19 + TypeScript (Core SPA UI)
+- Build Tool        : Vite 6 (Fast bundling and dev server)
+- Styling           : Tailwind CSS v4 (Utility-first design)
+- State Management  : Zustand 5 (Modular reactive stores)
+- Backend/Database  : Supabase (PostgreSQL 15) + realtime
+- Realtime Sync     : Supabase Realtime (WebSocket)
+- Desktop Wrapper   : Tauri v2 (Rust) - Windows/Linux
+- Mobile Wrapper    : Capacitor v8 - Android
+- AI Engine         : Google Gemini via Edge Functions
+- Charts            : Recharts (Data visualization)
+- PDF Export        : jsPDF (Invoices and reports)
+- QR Codes          : qrcode (Receipt and product encoding)
+- Icons             : lucide-react (Modern iconography)
+- Animations        : motion (UI transitions)
+
+================================================================
+4. FEATURE MODULES
+================================================================
+
+The application is organized into 17 feature viewports navigated via
+a tab-based shell.
+
+----------------------------------------------------------------
+4.1 POS Checkout (POSView)
+----------------------------------------------------------------
+The heart of daily sales operations:
+- Walk-in and Loyalty Transactions: Process sales against registered
+  customer profiles or as anonymous walk-ins.
+- Cart Management: Dynamic quantity adjustment, line-item percentage
+  discounts, and VAT computation.
+- Payment Flexibility: Cash, M-Pesa, Card, Bank Transfer, Mobile
+  Wallet, and Credit/Debt settlement.
+- Delivery Support: Mark orders as deliveries with rider assignment
+  and delivery fee shortcuts (KSh 0/150/250).
+- Credit Sale Handling: Atomic database processing for wallet
+  deduction and debt creation.
+- Real-Time Stock Deduction: Inventory updated at sale completion.
+
+----------------------------------------------------------------
+4.2 Inventory Management (InventoryView)
+----------------------------------------------------------------
+Full dairy stock pipeline control:
+- Product Directory: Name, category, SKU, cost, sale price, unit,
+  and minimum stock thresholds.
+- Expiry & Batch Tracking: Perishable flags, expiry days, and
+  shelf-life risk alerts.
+- Wastage Ledger: Record spillage, souring, and processing losses.
+- Reconciliation Logs: Manual audits, damages, and restock arrivals.
+- Low-Stock Detection: Visual alerts below safety buffer.
+
+----------------------------------------------------------------
+4.3 Sales & Receipt History (SalesView)
+----------------------------------------------------------------
+Complete transaction audit trail:
+- Transaction Logs: Detailed sale history with items and payments.
+- PDF Export: Professional invoice PDFs via jsPDF.
+- Refund Handling: Transaction reversals and credit adjustments.
+- Item-Level Detail: Product names, prices, quantities, and discounts.
+
+----------------------------------------------------------------
+4.4 Customers & Loyalty (CustomersView)
+----------------------------------------------------------------
+Membership and financial profile management:
+- Loyalty Tiering: Automatic Bronze, Silver, Gold classification.
+- Wallet System: Client deposits and wallet-based checkout.
+- Credit / Debt Manager: Pending balances and payment allocations.
+- Loyalty Points: Award on purchases, redeem on future orders.
+- Delivery Subscriptions: Recurring daily/weekly milk deliveries.
+
+----------------------------------------------------------------
+4.5 Executive Analytics (BusinessDashboard)
+----------------------------------------------------------------
+AI-enhanced decision support:
+- KPI Deck: Gross sales, net profit, inventory valuation, loyalty.
+- Financial Matrix: Revenue, COGS, delivery, wages, overhead.
+- Payment Mix: M-Pesa vs Cash vs Card vs Bank breakdown.
+- Sales Trajectory: Area charts of revenue, expenses, profit.
+- Inventory Pipeline: Restock recommendations, top sellers.
+- Branch Performance: Multi-branch revenue comparison.
+- Staff Metrics: Active shifts, checkout velocity, task completion.
+- AI Advisory (bi-analyze): Executive summaries, insights, risks,
+  opportunities. Supports direct Q&A ("How can I improve profits?").
+
+----------------------------------------------------------------
+4.6 Workers & Shift Control (WorkersView)
+----------------------------------------------------------------
+Workforce management:
+- Shift Recorder: Punch-in/out with cash reconciliation.
+- Task Checklists: Duty assignments for staff profiles.
+- Sales Auditing: Per-shift sales totals and metrics.
+
+----------------------------------------------------------------
+4.7 Permissions & RBAC (PermissionsView)
+----------------------------------------------------------------
+Granular access control:
+- Visual Accordion Editor: Toggle role permissions.
+- Granular Codes: pos.create_sale, bom.view, etc.
+- Instant Sync: Push configurations to Supabase in real time.
+
+----------------------------------------------------------------
+4.8 AI Workspace Assistant (WorkspaceAssistantView)
+----------------------------------------------------------------
+Intelligent copilot ("Kim"):
+- Chat Interface: Conversational AI via Gemini.
+- Action Triggers: create_schedule, adjust_stock, create_checkout.
+
+----------------------------------------------------------------
+4.9 Business Management (BusinessManagementView)
+----------------------------------------------------------------
+Tenant and brand administration:
+- Business Profiles: Name, logo, currency, country, timezone.
+- Branch Setup: Physical locations and distribution hubs.
+- Business Type: Predefined or custom types (Butchery, Logistics).
+
+----------------------------------------------------------------
+4.10 Production & BOM (ProductionBOMView)
+----------------------------------------------------------------
+Manufacturing oversight:
+- Bill of Materials: Recipes and production inputs.
+- Production Batches: Batch logs with quantity and status.
+- Recipe Management: Products linked to production recipes.
+
+----------------------------------------------------------------
+4.11 Communication Center (CommunicationCenterView)
+----------------------------------------------------------------
+Business messaging hub:
+- SMS Dispatch: Transactional updates via Twilio.
+- Customer Communications: Targeted messaging.
+- Notification Logs: Outbound communication tracking.
+
+----------------------------------------------------------------
+4.12 Customer Feedback (CustomerFeedbackView)
+----------------------------------------------------------------
+Voice-of-customer management:
+- Review Collection: Ratings and comments.
+- Sentiment Analysis: Positive/neutral/negative classification.
+- Complaint Tracking: Open vs resolved SLA cases.
+
+----------------------------------------------------------------
+4.13 Notifications Center (NotificationsView)
+----------------------------------------------------------------
+Alert management:
+- Push Notifications: Payment, delivery, shift alerts.
+- Real-Time Alerts: System-wide event broadcasts.
+
+----------------------------------------------------------------
+4.14 Settings Dashboard (SettingsView)
+----------------------------------------------------------------
+System configuration:
+- Thermal Printer Setup: ESC/POS hardware configuration.
+- SMS Configuration: Twilio credentials and templates.
+- Receipt Settings: Paper size, QR, barcode, tax breakdown.
+- Auto Backups: Sync to Google Sheets.
+- Device Permissions: Camera, geolocation, Bluetooth, storage.
+
+----------------------------------------------------------------
+4.15 Profile View (ProfileView)
+----------------------------------------------------------------
+User account management:
+- Profile Editing: Name, avatar, contact details.
+- Preferences: App appearance and notifications.
+
+----------------------------------------------------------------
+4.16 Home & Dashboard (HomeView, DashboardView)
+----------------------------------------------------------------
+Entry points and overview:
+- Home View: Quick navigation and recent activity.
+- Dashboard: High-level operational metrics.
+
+================================================================
+5. USER ROLES & ACCESS CONTROL MATRIX
+================================================================
+
+Owner/Admin:
+  Master clearance. Full control over settings, billing, financial
+  profiles, and staff registries. Overrides all system flags.
+
+Manager:
+  Operational management. Oversees sales, stock, staff scheduling,
+  expenses, and analytics. Business views, inventory adjustments,
+  POS sales, customer ledger updates, reports.
+
+Cashier:
+  Daily point-of-sale operator. POS sales, shift open/close,
+  customer registration, wallet deposits, cash verification.
+
+Rider:
+  Logistics and deliveries. Order logs, delivery zones, route
+  status completion, local chat.
+
+All data access is enforced server-side via PostgreSQL Row-Level
+Security (RLS) policies tied to tenant business memberships.
+
+================================================================
+6. ARCHITECTURE & DATA FLOW
+================================================================
+
+Frontend Architecture - Modular Zustand Stores:
+  - appStore: Unified workspace facade.
+  - authStore: Onboarding, multi-tenancy, authentication, shifts.
+  - businessStore: Tenant businesses and branch routing.
+  - cartStore: POS cart manipulation and checkout.
+  - customerStore: Loyalty profiles, credit, wallets.
+  - inventoryStore: Catalog, stock arrivals, wastage.
+  - transactionStore: Transaction and debt-payment records.
+  - notificationStore: App-wide notification routing.
+  - extraModulesStore: Purchases, production, recipes, assets.
+  - uiStore: Global UI state and chat records.
+
+Repository Layer:
+  services/repositories.ts abstracts all database reads/writes with
+  real-time subscription callbacks.
+
+Realtime Data Flow:
+  1. User performs an action (e.g., POS checkout).
+  2. Frontend store calls the repository method.
+  3. Repository writes to Supabase (PostgreSQL).
+  4. Supabase Realtime broadcasts the change via WebSocket.
+  5. All connected devices update their local stores instantly.
+
+AI Pipeline:
+  1. Dashboard collects local metrics (sales, expenses, inventory).
+  2. Frontend invokes the bi-analyze Edge Function with metrics.
+  3. Edge function loads AI settings for the tenant.
+  4. Calls AI provider (Gemini, HuggingFace, OpenRouter).
+  5. Parses structured JSON response and returns executive report.
+  6. Dashboard renders insights, risks, and action checklist.
+
+================================================================
+7. DATABASE SCHEMA
+================================================================
+
+Core Tables:
+  - businesses: Tenant definitions (name, currency, logo).
+  - branches: Physical locations and distribution hubs.
+  - users: Master credential directory.
+  - employees: Staff profiles with shifts and tasks.
+  - business_memberships: User-to-business role assignments.
+  - invitations: Staff invitation tokens.
+  - role_permissions: Role-to-privilege mappings.
+  - products: Catalog with pricing, stock, min-stock.
+  - customers: Profiles with tier, wallet, credit balance.
+  - transactions: Checkout registers (totals, tax, delivery).
+  - transaction_items: Line items with product snapshots.
+  - shifts: Punch-clock durations and cash reconciliation.
+  - inventory_adjustments: Wastage and restock records.
+  - expenses: Operational cost tracking.
+  - suppliers: Raw milk vendor profiles.
+  - notifications: Push notification registry.
+  - receipt_settings: Receipt layout and branding.
+  - sms_settings / ai_settings: Provider credentials.
+  - google_sheets_backup: Cloud spreadsheet backup sync.
+
+SQL Views:
+  - low_stock_products: Products below safety thresholds.
+  - active_credit_debts: Customers with pending balances.
+  - expense_category_summary: Expenses grouped by category.
+  - product_sales_ranking: Products by velocity and revenue.
+  - business_statistics: Real-time dashboard KPIs.
+
+================================================================
+8. GETTING STARTED
+================================================================
+
+Prerequisites:
+  - Node.js v20+
+  - Rust Compiler & Cargo (Tauri desktop builds)
+  - Android Studio & SDK Tools (Capacitor mobile builds)
+  - Supabase CLI (backend management)
+
+Environment Configuration:
+  Create a .env file in the project root:
+    VITE_SUPABASE_URL=your_supabase_project_url
+    VITE_SUPABASE_ANON_KEY=your_supabase_public_anon_key
+    VITE_AI_NAME=Kim
+    VITE_UNSPLASH_ACCESS_KEY=optional_unsplash_api_key
+    GEMINI_API_KEY=your_google_gemini_api_key
+
+Installation:
+  npm install
+
+Running Development Servers:
+  - Web (Vite):       npm run dev  -> http://localhost:3001
+  - Desktop (Tauri):  npm run tauri:dev
+  - Android Emulator: npm run android
+
+================================================================
+9. PRODUCTION BUILDS
+================================================================
+
+Desktop (Tauri):
+  npm run tauri:build
+  - Windows: NSIS .exe installers + .msi packages.
+  - Linux: .AppImage + .deb packages.
+
+Mobile (Capacitor):
+  ./build-local.sh      Compile unsigned release APK
+  ./sign-apk.sh         Align and sign the release APK
+  - Signed APK: release-builds/android/isms-release-signed.apk
+  - Install by sharing and tapping the APK on your phone.
+
+================================================================
+10. BACKEND DEPLOYMENT (SUPABASE)
+================================================================
+
+  supabase link --project-ref your-project-ref-id
+  supabase db push
+  supabase secrets set GEMINI_API_KEY="your-gemini-key"
+  supabase functions deploy bi-analyze
+  supabase functions deploy chat
+  supabase functions deploy mpesa-callback
+
+================================================================
+11. SECURITY & COMPLIANCE
+================================================================
+
+- Row-Level Security (RLS): Every tenant's data is isolated behind
+  PostgreSQL policies.
+- Role-Based Access Control (RBAC): Granular permission codes gate
+  each operation.
+- Multi-Tenancy: Businesses and branches are fully isolated.
+- Real-Time Intent: Online-first architecture for critical operations.
+- Atomic Transactions: Credit sales use single database procedures
+  to prevent inconsistent wallet/debt states.
+
+================================================================
+12. CONCLUSION
+================================================================
+
+ISMS is a modern, enterprise-grade dairy business management platform
+that combines real-time operations, deep analytics, AI-assisted
+decision making, and robust multi-tenant security into a unified
+cross-platform experience. It helps Kenyan dairy businesses - from
+single retail outlets to multi-branch processing enterprises -
+operate more efficiently, track profitability, retain customers, and
+make smarter data-driven decisions.
+================================================================

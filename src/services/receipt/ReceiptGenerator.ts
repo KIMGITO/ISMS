@@ -59,16 +59,34 @@ export class ReceiptGenerator {
     // Calculations
     const subtotal = tx.total;
     const grandTotal = tx.finalTotal;
-    const amountPaid = tx.finalTotal; // assuming fully paid for retail, or custom
+
+    // Determine amount actually paid (not the full total for credit sales).
+    // For credit sales, the customer only paid the wallet portion (or 0 if
+    // no wallet was applied). The outstanding balance is the remaining debt.
+    const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
+    const amountPaid = isCreditSale ? 0 : tx.finalTotal;
     const changeGiven = 0.0; // pre-populated or customized
 
     // Outstanding balance only applies to credit sales. For any fully-paid
     // method (Cash, M-Pesa, Card, Bank, Mobile_Wallet) it must be 0 so no
     // erroneous OUTSTANDING BAL line appears on the receipt.
-    const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
     const computedOutstandingBalance = isCreditSale
       ? (additionalParams?.outstandingBalance ?? tx.finalTotal)
       : 0;
+
+    // Human-readable payment method label
+    const paymentMethodLabel = (() => {
+      switch (tx.paymentMethod) {
+        case 'Cash': return 'Cash';
+        case 'M-Pesa': return 'M-Pesa';
+        case 'Card': return 'Card';
+        case 'Bank': return 'Bank Transfer';
+        case 'Mobile_Wallet': return 'Mobile Wallet';
+        case 'Credit_Debt': return 'Credit Sale';
+        case 'Credit': return 'Credit Sale';
+        default: return tx.paymentMethod || 'Cash';
+      }
+    })();
     
     // Taxes configuration
     const taxTotal = settings.isTaxEnabled && tx.tax > 0 ? tx.tax : undefined;
@@ -121,7 +139,7 @@ export class ReceiptGenerator {
       customerName: tx.customerName,
       customerPhone: undefined, // can fetch from dynamic state
       customerEmail: additionalParams?.customerEmail,
-      paymentMethod: tx.paymentMethod || "Mpesa",
+      paymentMethod: paymentMethodLabel,
       items,
       subtotal,
       taxTotal,
