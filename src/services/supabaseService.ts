@@ -276,7 +276,7 @@ export class SupabaseService {
         debt_balance: entry.debtBalance,
         recorded_by: entry.recordedBy,
         note: entry.note || "",
-        transaction_id: entry.transactionId || null,
+        transaction_id: entry.transactionId ? toUuid(entry.transactionId) : null,
       })
       .select()
       .single();

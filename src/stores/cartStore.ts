@@ -186,6 +186,10 @@ export const useCartStore = create<CartState>((set, get) => ({
       // Update active shift counters
       useAuthStore.getState().addShiftSale(finalTotal);
 
+      // Insert the transaction FIRST so its real UUID exists before creating
+      // any customer_ledger entries that reference it (FK constraint).
+      const savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
+
       // Database trigger safely takes over ledger metrics processing seamlessly inside database transaction wrappers
       if (selectedCustomer) {
         await useCustomerStore.getState().addLoyaltyPoints(selectedCustomer.id, finalTotal);
@@ -230,8 +234,8 @@ export const useCartStore = create<CartState>((set, get) => ({
               walletBalance: resolvedWallet,
               debtBalance: currentDebt, 
               recordedBy: currentEmployee.name,
-              note: `Paid for order ${newTransaction.id} using wallet credit`,
-              transactionId: newTransaction.id
+              note: `Paid for order ${savedTx.id} using wallet credit`,
+              transactionId: savedTx.id
             });
           }
 
@@ -244,14 +248,12 @@ export const useCartStore = create<CartState>((set, get) => ({
               walletBalance: resolvedWallet,
               debtBalance: resolvedDebt,
               recordedBy: currentEmployee.name,
-              note: `Outstanding balance for order ${newTransaction.id} charged to debt`,
-              transactionId: newTransaction.id
+              note: `Outstanding balance for order ${savedTx.id} charged to debt`,
+              transactionId: savedTx.id
             });
           }
         }
       }
-
-      await useTransactionStore.getState().addTransaction(newTransaction);
 
       // 🔔 Push Notification: Payment Received
       NotificationService.createNotification(
@@ -259,7 +261,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         {
           amount: finalTotal.toLocaleString(),
           paymentMethod: paymentMethod.replace("_", " "),
-          txId: newTransaction.id.replace("tx-", ""),
+          txId: savedTx.id.replace(/^tx-/, ""),
         },
         { role: "Owner", priority: "medium" }
       );
@@ -270,14 +272,14 @@ export const useCartStore = create<CartState>((set, get) => ({
 
         useNotificationStore.getState().showToast(
           "Rider Dispatch",
-          `Dispatch Alert: Rider "${riderName}" assigned to deliver Order ${newTransaction.id} (KSh ${finalTotal.toLocaleString()}). Delivery route logged.`,
+          `Dispatch Alert: Rider "${riderName}" assigned to deliver Order ${savedTx.id} (KSh ${finalTotal.toLocaleString()}). Delivery route logged.`,
           "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E",
           "info"
         );
       }
 
       set({ cart: [], selectedCustomer: null });
-      return { success: true, transaction: newTransaction };
+      return { success: true, transaction: savedTx };
     } catch (err: any) {
       return { success: false, error: err.message || "Checkout failed due to database or connection error." };
     }

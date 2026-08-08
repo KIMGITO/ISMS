@@ -1091,7 +1091,7 @@ export default function SettingsView({
                                 label: 'Retail High-Density Ledger',
                               },
                               {
-                                id: 'milk_shop',
+                                id: 'isms_app',
                                 label: 'ISMS Farm Milk Shop Theme',
                               },
                             ]}
@@ -1114,7 +1114,7 @@ export default function SettingsView({
                               'Highly condensed layout, tight margins, tiny font sizes, designed to conserve thermal paper.'}
                             {receiptSettings.templateType === 'retail' &&
                               'Full columns for tax tracking, item descriptions, cashier terminal numbers, return policies.'}
-                            {receiptSettings.templateType === 'milk_shop' &&
+                            {receiptSettings.templateType === 'isms_app' &&
                               'Charming dairy-specific brand theme with custom farm borders and fresh emerald colors.'}
                           </span>
                         </div>

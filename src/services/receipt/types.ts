@@ -14,7 +14,7 @@ export type ReceiptTemplateType =
   | "modern"
   | "compact"
   | "retail"
-  | "milk_shop";
+  | "isms_app";
 
 export interface BusinessReceiptSettings {
   logoUrl: string;

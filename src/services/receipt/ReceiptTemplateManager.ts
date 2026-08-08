@@ -39,8 +39,8 @@ export class ReceiptTemplateManager {
       description: "High density itemization, detailed tax tables, and prominent barcode.",
       component: RetailTemplate
     },
-    milk_shop: {
-      type: "milk_shop",
+    isms_app: {
+      type: "isms_app",
       name: "ISMS Farm Milk Shop",
       description: "Charming emerald borders and cow motifs custom crafted for dairy logisticians.",
       component: MilkShopTemplate
