@@ -713,9 +713,52 @@ export default function BusinessDashboard() {
     if (q) setCustomQuestion("");
 
     try {
+      // Build the full metrics payload required by the bi-analyze edge function
+      const metricsPayload = {
+        timeframe: filterRange,
+        totalSales: salesMetrics.totalSales,
+        orderCount: salesMetrics.orderCount,
+        aov: salesMetrics.aov,
+        revenueTrend: salesMetrics.trend,
+        totalExpenses: paymentMetrics.totalExpenses,
+        cogs: paymentMetrics.cogs,
+        deliveryFees: paymentMetrics.deliveryFees,
+        overheadExpenses: paymentMetrics.overheadExpenses,
+        netProfit: paymentMetrics.netProfit,
+        profitMargin: paymentMetrics.profitMargin,
+        cashReceived: paymentMetrics.cashReceived,
+        cashBalance: paymentMetrics.cashBalance,
+        mpesaCollections: paymentMetrics.mpesaCollections,
+        mpesaShare: paymentMetrics.mpesaShare,
+        mpesaSuccessCount: paymentMetrics.mpesaSuccessCount,
+        mpesaFailedCount: paymentMetrics.mpesaFailedCount,
+        totalProducts: inventoryMetrics.total,
+        inventoryValuation: inventoryMetrics.valuation,
+        lowStockCount: inventoryMetrics.lowStockCount,
+        lowStockProducts: inventoryMetrics.restockRecommendations,
+        topProducts: inventoryMetrics.topProductsRanked,
+        slowProducts: inventoryMetrics.slowMoving,
+        branches: branchesPerformance.branches,
+        topBranch: branchesPerformance.topPerforming,
+        lowestBranch: branchesPerformance.lowestPerforming,
+        activeShiftsCount: staffMetrics.activeShifts,
+        checkoutVelocity: staffMetrics.checkoutVelocity,
+        staffTasksCompletionRate: staffMetrics.taskCompletionRate,
+        totalCustomers: customerMetrics.total,
+        newCustomersCount: customerMetrics.newCustomers,
+        customerGrowthRate: customerMetrics.growth,
+        retentionRate: customerMetrics.retentionRate,
+        feedbackCount: feedbackMetrics.total,
+        averageRating: feedbackMetrics.averageRating,
+        sentimentPositive: feedbackMetrics.positivePct,
+        sentimentNeutral: feedbackMetrics.neutralPct,
+        sentimentNegative: feedbackMetrics.negativePct,
+        openComplaintsCount: feedbackMetrics.openCount,
+      };
+
       const response = await SupabaseService.callEdgeFunction("bi-analyze", {
         businessId: activeBusinessId,
-        filterRange: filterRange,
+        metrics: metricsPayload,
         customQuestion: targetQuestion || null
       });
 

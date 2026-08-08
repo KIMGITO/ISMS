@@ -163,6 +163,9 @@ export const useCartStore = create<CartState>((set, get) => ({
       const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
       const totalDiscount = itemDiscountSum + cartDiscount;
 
+      const activeBusinessId = useBusinessStore.getState().activeBusinessId;
+      const referenceId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
       const newTransaction: Transaction = {
         id: `tx-${Date.now()}`,
         items: [...cart],
@@ -181,64 +184,56 @@ export const useCartStore = create<CartState>((set, get) => ({
         isDelivery,
         deliveryFee: isDelivery ? deliveryFee : 0,
         riderName: isDelivery ? riderName : undefined,
-        businessId: useBusinessStore.getState().activeBusinessId,
+        businessId: activeBusinessId,
+        referenceId,
       };
 
       // Update active shift counters
       useAuthStore.getState().addShiftSale(finalTotal);
 
-      // Insert the transaction FIRST so its real UUID exists before creating
-      // any customer_ledger entries that reference it (FK constraint).
-      const savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
+      let savedTx: any;
 
-      // Database trigger safely takes over ledger metrics processing seamlessly inside database transaction wrappers
-      if (selectedCustomer) {
-        await useCustomerStore.getState().addLoyaltyPoints(selectedCustomer.id, finalTotal);
+      // For credit sales with a registered customer, use the atomic RPC
+      // which handles wallet deduction, debt creation, transaction + items,
+      // credit_payments, customer_ledger, and wallet_transactions in ONE
+      // database transaction. This prevents the chk_not_both_debt_and_wallet
+      // error and duplicate ledger entries.
+      if (selectedCustomer && (paymentMethod === 'Credit_Debt' || paymentMethod === 'Credit')) {
+        const txId = await SupabaseService.processCustomerTransaction({
+          businessId: activeBusinessId,
+          customerId: selectedCustomer.id,
+          customerName: selectedCustomer.name,
+          staffId: currentEmployee.id,
+          staffName: currentEmployee.name,
+          total,
+          discount: totalDiscount,
+          tax,
+          finalTotal,
+          amountPaid: 0,
+          paymentMethod,
+          timestamp: new Date().toISOString(),
+          note,
+          isDelivery,
+          deliveryFee: isDelivery ? deliveryFee : 0,
+          riderName: isDelivery ? riderName : undefined,
+          referenceId,
+          items: cart.map(item => ({
+            productId: item.product.id,
+            productName: item.product.name,
+            unitPrice: item.product.price,
+            quantity: item.quantity,
+            discountPercentage: item.discountPercentage,
+          })),
+        });
 
-        const activeBusinessId = useBusinessStore.getState().activeBusinessId;
-        const currentWallet = Number(selectedCustomer.walletBalance || 0);
-        const currentDebt = Number(selectedCustomer.debtBalance || 0);
+        savedTx = { ...newTransaction, id: txId };
+      } else {
+        // Non-credit or walk-in customer: use the standard transaction flow
+        savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
 
-        if (paymentMethod === 'Credit_Debt') {
-          // The DB trigger fn_process_completed_transaction already updated the
-          // customer's debt_balance and wallet_balance atomically when the
-          // transaction was inserted. Re-fetch the fresh balances so the
-          // ledger audit entries below snapshot the true post-trigger values
-          // (avoids double-counting the debt).
-          const freshCustomer = await CustomerRepository.getById(selectedCustomer.id);
-          const freshWallet = Number(freshCustomer?.walletBalance || 0);
-          const freshDebt = Number(freshCustomer?.debtBalance || 0);
-
-          const walletUsed = Math.min(currentWallet, finalTotal);
-          const debtCreated = Math.max(0, finalTotal - currentWallet);
-
-          if (walletUsed > 0) {
-            await SupabaseService.createLedgerEntry({
-              businessId: activeBusinessId,
-              customerId: selectedCustomer.id,
-              type: 'wallet_usage',
-              amount: walletUsed,
-              walletBalance: freshWallet,
-              debtBalance: freshDebt,
-              recordedBy: currentEmployee.name,
-              note: `Paid for order ${savedTx.id} using wallet credit`,
-              transactionId: savedTx.id
-            });
-          }
-
-          if (debtCreated > 0) {
-            await SupabaseService.createLedgerEntry({
-              businessId: activeBusinessId,
-              customerId: selectedCustomer.id,
-              type: 'debt_creation',
-              amount: debtCreated,
-              walletBalance: freshWallet,
-              debtBalance: freshDebt,
-              recordedBy: currentEmployee.name,
-              note: `Outstanding balance for order ${savedTx.id} charged to debt`,
-              transactionId: savedTx.id
-            });
-          }
+        // Award loyalty points for registered customers
+        if (selectedCustomer) {
+          await useCustomerStore.getState().addLoyaltyPoints(selectedCustomer.id, finalTotal);
         }
       }
 

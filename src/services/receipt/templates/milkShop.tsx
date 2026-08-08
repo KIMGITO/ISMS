@@ -20,12 +20,7 @@ export function MilkShopTemplate({ content, settings }: TemplateProps) {
 
   return (
     <div className={`bg-white text-slate-950 font-mono select-none leading-normal ${widthClass}`}>
-      {/* Decorative Milk Theme Top Banner */}
-      {!is58 && (
-        <div className={`text-center py-1 rounded-xl font-extrabold uppercase text-[8.5px] border mb-3 flex items-center justify-center gap-1 ${bannerColor}`}>
-          <span>Fresh Local Farm Milk</span>
-        </div>
-      )}
+      
 
       {/* Brand Header */}
       <div className="text-center">
@@ -106,7 +101,7 @@ export function MilkShopTemplate({ content, settings }: TemplateProps) {
       {/* Items Section */}
       <div>
         <div className="grid grid-cols-4 font-bold text-[8.5px] text-emerald-900 uppercase border-b border-dashed border-emerald-600/20 pb-1 mb-1.5">
-          <span className="col-span-2">Dairy Product</span>
+          <span className="col-span-2"> Product</span>
           <span className="text-center">Qty</span>
           <span className="text-right">Total</span>
         </div>
@@ -190,7 +185,7 @@ export function MilkShopTemplate({ content, settings }: TemplateProps) {
       <div className="text-center text-slate-400 font-mono tracking-widest text-[8px] select-none flex flex-col items-center">
         {content.barcodeValue && (
           <div className="w-full flex flex-col items-center mb-1 bg-white">
-            <span className="block text-[7.5px] text-emerald-800 font-bold mb-1">DAIRY DIGITAL AUTHENTICATOR</span>
+            <span className="block text-[7.5px] text-emerald-800 font-bold mb-1"> DIGITAL AUTHENTICATOR</span>
             <div 
               className="w-full flex justify-center bg-white" 
               dangerouslySetInnerHTML={{ __html: content.barcodeValue }}

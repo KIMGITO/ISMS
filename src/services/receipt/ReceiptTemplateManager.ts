@@ -41,8 +41,8 @@ export class ReceiptTemplateManager {
     },
     isms_app: {
       type: "isms_app",
-      name: "ISMS Farm Milk Shop",
-      description: "Charming emerald borders and cow motifs custom crafted for dairy logisticians.",
+      name: "ISMS Shop",
+      description: "Charming emerald borders .",
       component: MilkShopTemplate
     }
   };

@@ -142,70 +142,23 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
 
       const newDebt = currentDebt - amount;
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
+      const referenceId = id || `debt-pay-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-      // 1. Process local/offline credit tables update sequence
-      try {
-        const entries = await SupabaseService.fetchCreditSales(customerId);
-        let amountLeft = amount;
-        for (const credit of entries) {
-          if (amountLeft <= 0) break;
-          const creditTotal = Number(credit.final_total);
-          const creditPaid = Number(credit.amount_paid || 0);
-          const creditDue = creditTotal - creditPaid;
-          if (creditDue <= 0) continue;
-
-          if (amountLeft >= creditDue) {
-            amountLeft -= creditDue;
-            await SupabaseService.updateCreditPayment(credit.id, {
-              amount_paid: creditTotal,
-              status: 'Success',
-              settled_at: new Date().toISOString()
-            });
-          } else {
-            const newPaid = creditPaid + amountLeft;
-            amountLeft = 0;
-            await SupabaseService.updateCreditPayment(credit.id, {
-              amount_paid: newPaid,
-              status: 'Partial',
-              settled_at: null
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to update sequential credit payment records", err);
-      }
-
-      // 2. Create debt payment record
-      await SupabaseService.createDebtPayment({
-        id: id ? `${id}-payment` : undefined,
+      // Use the atomic RPC for debt payment. This handles debt reduction,
+      // credit_payments FIFO settlement, and ledger entry in ONE DB transaction.
+      // Idempotent via reference_id — retrying the same operation does not
+      // create a duplicate financial record.
+      await SupabaseService.processDebtPayment({
         businessId: activeBusinessId,
         customerId,
-        amountPaid: amount,
-        remainingDebt: newDebt,
-        paymentMethod: method,
-        recordedBy: cashierName,
-        note: note || "",
-      });
-
-      // 3. Update customer balance
-      await CustomerRepository.update(customerId, {
-        debtBalance: newDebt
-      });
-
-      // 4. Log to customer ledger
-      await SupabaseService.createLedgerEntry({
-        id: id ? `${id}-ledger` : undefined,
-        businessId: activeBusinessId,
-        customerId,
-        type: 'debt_payment',
-        amount: amount,
-        walletBalance: Number(cust.walletBalance || 0),
-        debtBalance: newDebt,
+        amount,
+        method,
         recordedBy: cashierName,
         note: note || `Debt payment via ${method}`,
+        referenceId,
       });
 
-      // 5. Trigger notification
+      // Trigger notification
       NotificationService.createNotification(
         "Payment Received",
         {
@@ -227,62 +180,21 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       if (!cust) throw new Error("Customer profile not found.");
       if (amount <= 0) throw new Error("Amount must be greater than zero.");
 
-      const currentDebt = Number(cust.debtBalance || 0);
-      const currentWallet = Number(cust.walletBalance || 0);
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
+      const referenceId = id || `wallet-topup-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-      let newDebt = currentDebt;
-      let newWallet = currentWallet;
-      let debtPaid = 0;
-      let walletDeposited = 0;
-
-      if (currentDebt > 0) {
-        if (amount <= currentDebt) {
-          newDebt = currentDebt - amount;
-          debtPaid = amount;
-        } else {
-          newDebt = 0;
-          debtPaid = currentDebt;
-          newWallet = currentWallet + (amount - currentDebt);
-          walletDeposited = amount - currentDebt;
-        }
-      } else {
-        newWallet = currentWallet + amount;
-        walletDeposited = amount;
-      }
-
-      await CustomerRepository.update(customerId, {
-        debtBalance: newDebt,
-        walletBalance: newWallet
+      // Use the atomic RPC for wallet top-up. This handles debt repayment
+      // + wallet deposit + ledger entries in ONE DB transaction.
+      // Idempotent via reference_id — retrying the same operation does not
+      // create a duplicate financial record.
+      await SupabaseService.processWalletTopup({
+        businessId: activeBusinessId,
+        customerId,
+        amount,
+        recordedBy: cashierName,
+        note: note || "Wallet top-up",
+        referenceId,
       });
-
-      if (debtPaid > 0) {
-        await SupabaseService.createLedgerEntry({
-          id: id ? `${id}-ledger-pay` : undefined,
-          businessId: activeBusinessId,
-          customerId,
-          type: 'debt_payment',
-          amount: debtPaid,
-          walletBalance: currentWallet,
-          debtBalance: newDebt,
-          recordedBy: cashierName,
-          note: note || `Debt automatically paid off via wallet deposit`,
-        });
-      }
-
-      if (walletDeposited > 0) {
-        await SupabaseService.createLedgerEntry({
-          id: id ? `${id}-ledger-dep` : undefined,
-          businessId: activeBusinessId,
-          customerId,
-          type: 'wallet_topup',
-          amount: walletDeposited,
-          walletBalance: newWallet,
-          debtBalance: newDebt,
-          recordedBy: cashierName,
-          note: note || `Wallet top-up`,
-        });
-      }
     },
 
     spendCustomerWallet: async (customerId, amount, cashierName, note, id) => {
@@ -292,23 +204,18 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       const currentWallet = Number(cust.walletBalance || 0);
       if (amount > currentWallet) throw new Error("Insufficient wallet balance.");
 
-      const newWallet = currentWallet - amount;
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
+      const referenceId = id || `wallet-spend-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-      await CustomerRepository.update(customerId, {
-        walletBalance: newWallet
-      });
-
-      await SupabaseService.createLedgerEntry({
-        id: id ? `${id}-ledger` : undefined,
+      // Use the atomic RPC for wallet spending. Handles wallet deduction +
+      // ledger entry in ONE DB transaction. Idempotent via reference_id.
+      await SupabaseService.processWalletSpend({
         businessId: activeBusinessId,
         customerId,
-        type: 'wallet_usage',
-        amount: amount,
-        walletBalance: newWallet,
-        debtBalance: Number(cust.debtBalance || 0),
+        amount,
         recordedBy: cashierName,
-        note: note || `Wallet credit spent`,
+        note: note || "Wallet credit spent",
+        referenceId,
       });
     },
 
@@ -339,7 +246,6 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
             resolvedAmount = amount - currentWallet;
             
             await SupabaseService.createLedgerEntry({
-              id: id ? `${id}-ledger-pre` : undefined,
               businessId: activeBusinessId,
               customerId,
               type: 'wallet_usage',
@@ -348,6 +254,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
               debtBalance: 0,
               recordedBy: cashierName,
               note: note || `Wallet usage prior to manual debt creation`,
+              referenceId: `${id || 'debt-adj'}-pre-wallet-usage`,
             });
           }
         } else {
@@ -365,7 +272,6 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       });
 
       await SupabaseService.createLedgerEntry({
-        id: id ? `${id}-ledger` : undefined,
         businessId: activeBusinessId,
         customerId,
         type: ledgerType,
@@ -374,6 +280,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
         debtBalance: newDebt,
         recordedBy: cashierName,
         note: note || (operation === 'add' ? `Manual debt increase` : `Manual debt reduction`),
+        referenceId: id || `debt-adj-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
       });
     },
   };

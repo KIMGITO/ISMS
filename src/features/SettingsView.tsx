@@ -1092,7 +1092,7 @@ export default function SettingsView({
                               },
                               {
                                 id: 'isms_app',
-                                label: 'ISMS Farm Milk Shop Theme',
+                                label: 'ISMS Theme',
                               },
                             ]}
                             selectedValue={receiptSettings.templateType}
@@ -1975,7 +1975,7 @@ export default function SettingsView({
                           {
                             id: 'huggingface',
                             label:
-                              'Hugging Face (Server Rotation Tokens - Recommended)',
+                              'Hugging Face ( Recommended)',
                           },
                           { id: 'gemini', label: 'Google Gemini Platform' },
                           { id: 'openai', label: 'OpenAI GPT Engines' },
@@ -2810,7 +2810,7 @@ export default function SettingsView({
               {hasRolePermission(currentRole, 'settings.integrations') && (
                 <div
                   id="sms-gateway-config-card"
-                  className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm"
+                  className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col md:col-span-2 lg:col-span-1 gap-4 shadow-sm"
                 >
                   <div className="flex flex-col gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
                     {/* Row 1: Icon & Title */}

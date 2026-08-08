@@ -1,0 +1,2272 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 6316
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(ISMS - MILK BUSINESS MANAGEMENT SYSTEM) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 765.3545669291338527 Td
+(Application Documentation) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 742.6774015748030706 Td
+(Version: 1.0.0) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 728.5041732283464171 Td
+(Platform: Cross-Platform \(Web / Desktop / Android\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 714.3309448818897636 Td
+(Release Type: Production-Ready Enterprise Application) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 691.6537795275589815 Td
+(1. OVERVIEW) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 663.3073228346456744 Td
+(ISMS \(Inventory & Sales Management System\) is a production-ready,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 649.1340944881889072 Td
+(cross-platform enterprise management application purpose-built for) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 634.9608661417322537 Td
+(dairy farms, milk processing plants, and retail dairy outlets. It) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 620.7876377952754865 Td
+(delivers an online-first, real-time reactive architecture that) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 606.614409448818833 Td
+(synchronizes business operations across every device in the) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 592.4411811023621794 Td
+(organization instantly.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 569.7640157480313974 Td
+(The application couples a modern React SPA frontend with a Supabase) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 555.5907874015747439 Td
+(\(PostgreSQL\) real-time backend, wrapped into native desktop) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 541.4175590551180903 Td
+(applications via Tauri v2 \(Windows/Linux\) and mobile apps via) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 527.2443307086614368 Td
+(Capacitor v8 \(Android\). It is designed specifically to handle the) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 513.0711023622046696 Td
+(unique operational challenges of the Kenyan dairy industry -) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 498.8978740157479592 Td
+(including perishable inventory, M-Pesa digital payments, cold-chain) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 484.7246456692913057 Td
+(logistics, and multi-branch distribution.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 462.0474803149605805 Td
+(2. CORE PURPOSE) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 433.7010236220471597 Td
+(ISMS is engineered to unify the entire dairy business lifecycle into) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 419.5277952755905062 Td
+(a single connected platform:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 396.850629921259781 Td
+(- Manage Point-of-Sale \(POS\) operations with full cart, discount,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 382.6774015748030706 Td
+(and tax handling.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 368.5041732283464171 Td
+(- Track perishable dairy inventory with batch/expiry monitoring and) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 354.3309448818897067 Td
+(spoilage logging.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 340.1577165354329964 Td
+(- Run customer loyalty programs with tiering, wallet deposits, and) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 325.9844881889763428 Td
+(credit management.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 311.8112598425195756 Td
+(- Coordinate field operations including riders, delivery routes,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 297.6380314960629221 Td
+(and shift management.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 283.4648031496062686 Td
+(- Deliver executive analytics with AI-assisted business intelligence) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 269.2915748031495013 Td
+(reporting.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 255.1183464566928478 Td
+(- Enforce strict access control via row-level security \(RLS\) and) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 240.9451181102361943 Td
+(role-based permissions.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 218.2679527559054122 Td
+(3. TECHNOLOGY STACK) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 189.9214960629919915 Td
+(- Frontend Framework : React 19 + TypeScript \(Core SPA UI\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 175.748267716535338 Td
+(- Build Tool        : Vite 6 \(Fast bundling and dev server\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 161.5750393700786844 Td
+(- Styling           : Tailwind CSS v4 \(Utility-first design\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 147.4018110236219172 Td
+(- State Management  : Zustand 5 \(Modular reactive stores\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 133.2285826771652637 Td
+(- Backend/Database  : Supabase \(PostgreSQL 15\) + realtime) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 119.0553543307086102 Td
+(- Realtime Sync     : Supabase Realtime \(WebSocket\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 104.882125984251843 Td
+(- Desktop Wrapper   : Tauri v2 \(Rust\) - Windows/Linux) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 90.7088976377951894 Td
+(- Mobile Wrapper    : Capacitor v8 - Android) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 76.5356692913385359 Td
+(- AI Engine         : Google Gemini via Edge Functions) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 62.3624409448817687 Td
+(- Charts            : Recharts \(Data visualization\)) Tj
+ET
+endstream
+endobj
+5 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 6600
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(- PDF Export        : jsPDF \(Invoices and reports\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 771.0238582677164914 Td
+(- QR Codes          : qrcode \(Receipt and product encoding\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 756.8506299212598378 Td
+(- Icons             : lucide-react \(Modern iconography\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 742.6774015748030706 Td
+(- Animations        : motion \(UI transitions\)) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 720.0002362204724022 Td
+(4. FEATURE MODULES) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 691.6537795275589815 Td
+(The application is organized into 17 feature viewports navigated via) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 677.480551181102328 Td
+(a tab-based shell.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 654.8033858267716596 Td
+(4.1 POS Checkout \(POSView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 637.7955118110235162 Td
+(The heart of daily sales operations:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 623.6222834645668627 Td
+(- Walk-in and Loyalty Transactions: Process sales against registered) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 609.4490551181102092 Td
+(customer profiles or as anonymous walk-ins.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 595.2758267716535556 Td
+(- Cart Management: Dynamic quantity adjustment, line-item percentage) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 581.1025984251967884 Td
+(discounts, and VAT computation.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 566.9293700787401349 Td
+(- Payment Flexibility: Cash, M-Pesa, Card, Bank Transfer, Mobile) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 552.7561417322833677 Td
+(Wallet, and Credit/Debt settlement.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 538.5829133858267141 Td
+(- Delivery Support: Mark orders as deliveries with rider assignment) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 524.4096850393700606 Td
+(and delivery fee shortcuts \(KSh 0/150/250\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 510.2364566929133503 Td
+(- Credit Sale Handling: Atomic database processing for wallet) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 496.0632283464566399 Td
+(deduction and debt creation.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 481.8899999999999295 Td
+(- Real-Time Stock Deduction: Inventory updated at sale completion.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 459.2128346456692611 Td
+(4.2 Inventory Management \(InventoryView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 442.2049606299212314 Td
+(Full dairy stock pipeline control:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 428.0317322834645211 Td
+(- Product Directory: Name, category, SKU, cost, sale price, unit,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 413.8585039370078107 Td
+(and minimum stock thresholds.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 399.6852755905511003 Td
+(- Expiry & Batch Tracking: Perishable flags, expiry days, and) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 385.5120472440944468 Td
+(shelf-life risk alerts.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 371.3388188976377364 Td
+(- Wastage Ledger: Record spillage, souring, and processing losses.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 357.1655905511810261 Td
+(- Reconciliation Logs: Manual audits, damages, and restock arrivals.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 342.9923622047243725 Td
+(- Low-Stock Detection: Visual alerts below safety buffer.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 320.3151968503935905 Td
+(4.3 Sales & Receipt History \(SalesView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 303.3073228346455608 Td
+(Complete transaction audit trail:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 289.1340944881889072 Td
+(- Transaction Logs: Detailed sale history with items and payments.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 274.9608661417322537 Td
+(- PDF Export: Professional invoice PDFs via jsPDF.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 260.7876377952754865 Td
+(- Refund Handling: Transaction reversals and credit adjustments.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 246.614409448818833 Td
+(- Item-Level Detail: Product names, prices, quantities, and discounts.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 223.9372440944881646 Td
+(4.4 Customers & Loyalty \(CustomersView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 206.9293700787401349 Td
+(Membership and financial profile management:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 192.7561417322833677 Td
+(- Loyalty Tiering: Automatic Bronze, Silver, Gold classification.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 178.5829133858267141 Td
+(- Wallet System: Client deposits and wallet-based checkout.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 164.4096850393699469 Td
+(- Credit / Debt Manager: Pending balances and payment allocations.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 150.2364566929132934 Td
+(- Loyalty Points: Award on purchases, redeem on future orders.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 136.0632283464566399 Td
+(- Delivery Subscriptions: Recurring daily/weekly milk deliveries.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 113.3860629921258578 Td
+(4.5 Executive Analytics \(BusinessDashboard\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 96.3781889763778281 Td
+(AI-enhanced decision support:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 82.2049606299211746 Td
+(- KPI Deck: Gross sales, net profit, inventory valuation, loyalty.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 68.0317322834645211 Td
+(- Financial Matrix: Revenue, COGS, delivery, wages, overhead.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 8 0 R
+>>
+endobj
+8 0 obj
+<<
+/Length 6384
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(- Payment Mix: M-Pesa vs Cash vs Card vs Bank breakdown.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 771.0238582677164914 Td
+(- Sales Trajectory: Area charts of revenue, expenses, profit.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 756.8506299212598378 Td
+(- Inventory Pipeline: Restock recommendations, top sellers.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 742.6774015748030706 Td
+(- Branch Performance: Multi-branch revenue comparison.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 728.5041732283464171 Td
+(- Staff Metrics: Active shifts, checkout velocity, task completion.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 714.3309448818897636 Td
+(- AI Advisory \(bi-analyze\): Executive summaries, insights, risks,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 700.15771653543311 Td
+(opportunities. Supports direct Q&A \("How can I improve profits?"\).) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 677.480551181102328 Td
+(4.6 Workers & Shift Control \(WorkersView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 660.4726771653542983 Td
+(Workforce management:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 646.2994488188976447 Td
+(- Shift Recorder: Punch-in/out with cash reconciliation.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 632.1262204724408775 Td
+(- Task Checklists: Duty assignments for staff profiles.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 617.952992125984224 Td
+(- Sales Auditing: Per-shift sales totals and metrics.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 595.2758267716535556 Td
+(4.7 Permissions & RBAC \(PermissionsView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 578.2679527559055259 Td
+(Granular access control:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 564.0947244094487587 Td
+(- Visual Accordion Editor: Toggle role permissions.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 549.9214960629921052 Td
+(- Granular Codes: pos.create_sale, bom.view, etc.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 535.748267716535338 Td
+(- Instant Sync: Push configurations to Supabase in real time.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 513.0711023622046696 Td
+(4.8 AI Workspace Assistant \(WorkspaceAssistantView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 496.0632283464566399 Td
+(Intelligent copilot \("Kim"\):) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 481.8899999999999295 Td
+(- Chat Interface: Conversational AI via Gemini.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 467.716771653543276 Td
+(- Action Triggers: create_schedule, adjust_stock, create_checkout.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 445.0396062992125508 Td
+(4.9 Business Management \(BusinessManagementView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 428.0317322834645211 Td
+(Tenant and brand administration:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 413.8585039370078107 Td
+(- Business Profiles: Name, logo, currency, country, timezone.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 399.6852755905511003 Td
+(- Branch Setup: Physical locations and distribution hubs.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 385.5120472440944468 Td
+(- Business Type: Predefined or custom types \(Butchery, Logistics\).) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 362.8348818897637216 Td
+(4.10 Production & BOM \(ProductionBOMView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 345.8270078740156919 Td
+(Manufacturing oversight:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 331.6537795275589815 Td
+(- Bill of Materials: Recipes and production inputs.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 317.480551181102328 Td
+(- Production Batches: Batch logs with quantity and status.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 303.3073228346455608 Td
+(- Recipe Management: Products linked to production recipes.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 280.6301574803148924 Td
+(4.11 Communication Center \(CommunicationCenterView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 263.6222834645668627 Td
+(Business messaging hub:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 249.4490551181102092 Td
+(- SMS Dispatch: Transactional updates via Twilio.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 235.2758267716534419 Td
+(- Customer Communications: Targeted messaging.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 221.1025984251967884 Td
+(- Notification Logs: Outbound communication tracking.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 198.4254330708660063 Td
+(4.12 Customer Feedback \(CustomerFeedbackView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 181.4175590551179766 Td
+(Voice-of-customer management:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 167.2443307086613231 Td
+(- Review Collection: Ratings and comments.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 153.0711023622046696 Td
+(- Sentiment Analysis: Positive/neutral/negative classification.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 138.8978740157479024 Td
+(- Complaint Tracking: Open vs resolved SLA cases.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 116.220708661417234 Td
+(4.13 Notifications Center \(NotificationsView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 99.2128346456692043 Td
+(Alert management:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 85.0396062992125508 Td
+(- Push Notifications: Payment, delivery, shift alerts.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 70.8663779527557836 Td
+(- Real-Time Alerts: System-wide event broadcasts.) Tj
+ET
+endstream
+endobj
+9 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 10 0 R
+>>
+endobj
+10 0 obj
+<<
+/Length 6031
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(4.14 Settings Dashboard \(SettingsView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 768.1892125984252289 Td
+(System configuration:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 754.0159842519684616 Td
+(- Thermal Printer Setup: ESC/POS hardware configuration.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 739.8427559055118081 Td
+(- SMS Configuration: Twilio credentials and templates.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 725.6695275590550409 Td
+(- Receipt Settings: Paper size, QR, barcode, tax breakdown.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 711.4962992125983874 Td
+(- Auto Backups: Sync to Google Sheets.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 697.3230708661417339 Td
+(- Device Permissions: Camera, geolocation, Bluetooth, storage.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 674.6459055118109518 Td
+(4.15 Profile View \(ProfileView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 657.6380314960629221 Td
+(User account management:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 643.4648031496062686 Td
+(- Profile Editing: Name, avatar, contact details.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 629.291574803149615 Td
+(- Preferences: App appearance and notifications.) Tj
+ET
+BT
+/F2 10.5 Tf
+12.0749999999999993 TL
+0 g
+56.6929133858267775 606.614409448818833 Td
+(4.16 Home & Dashboard \(HomeView, DashboardView\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 589.6065354330708033 Td
+(Entry points and overview:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 575.4333070866141497 Td
+(- Home View: Quick navigation and recent activity.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 561.2600787401574962 Td
+(- Dashboard: High-level operational metrics.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 538.5829133858267141 Td
+(5. USER ROLES & ACCESS CONTROL MATRIX) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 510.2364566929133503 Td
+(Owner/Admin:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 496.0632283464566399 Td
+(Master clearance. Full control over settings, billing, financial) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 481.8899999999999295 Td
+(profiles, and staff registries. Overrides all system flags.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 459.2128346456692611 Td
+(Manager:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 445.0396062992125508 Td
+(Operational management. Oversees sales, stock, staff scheduling,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 430.8663779527558404 Td
+(expenses, and analytics. Business views, inventory adjustments,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 416.69314960629913 Td
+(POS sales, customer ledger updates, reports.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 394.0159842519684616 Td
+(Cashier:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 379.8427559055117513 Td
+(Daily point-of-sale operator. POS sales, shift open/close,) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 365.6695275590550409 Td
+(customer registration, wallet deposits, cash verification.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 342.9923622047243725 Td
+(Rider:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 328.8191338582676053 Td
+(Logistics and deliveries. Order logs, delivery zones, route) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 314.6459055118109518 Td
+(status completion, local chat.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 291.9687401574802834 Td
+(All data access is enforced server-side via PostgreSQL Row-Level) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 277.7955118110235162 Td
+(Security \(RLS\) policies tied to tenant business memberships.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 255.1183464566928478 Td
+(6. ARCHITECTURE & DATA FLOW) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 226.7718897637794271 Td
+(Frontend Architecture - Modular Zustand Stores:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 212.5986614173227736 Td
+(- appStore: Unified workspace facade.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 198.4254330708660063 Td
+(- authStore: Onboarding, multi-tenancy, authentication, shifts.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 184.2522047244093528 Td
+(- businessStore: Tenant businesses and branch routing.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 170.0789763779526993 Td
+(- cartStore: POS cart manipulation and checkout.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 155.9057480314959321 Td
+(- customerStore: Loyalty profiles, credit, wallets.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 141.7325196850392786 Td
+(- inventoryStore: Catalog, stock arrivals, wastage.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 127.559291338582625 Td
+(- transactionStore: Transaction and debt-payment records.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 113.3860629921258578 Td
+(- notificationStore: App-wide notification routing.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 99.2128346456692043 Td
+(- extraModulesStore: Purchases, production, recipes, assets.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 85.0396062992125508 Td
+(- uiStore: Global UI state and chat records.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 62.3624409448817687 Td
+(Repository Layer:) Tj
+ET
+endstream
+endobj
+11 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 12 0 R
+>>
+endobj
+12 0 obj
+<<
+/Length 6500
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(services/repositories.ts abstracts all database reads/writes with) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 771.0238582677164914 Td
+(real-time subscription callbacks.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 748.346692913385823 Td
+(Realtime Data Flow:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 734.1734645669291695 Td
+(1. User performs an action \(e.g., POS checkout\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 720.0002362204724022 Td
+(2. Frontend store calls the repository method.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 705.8270078740157487 Td
+(3. Repository writes to Supabase \(PostgreSQL\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 691.6537795275589815 Td
+(4. Supabase Realtime broadcasts the change via WebSocket.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 677.480551181102328 Td
+(5. All connected devices update their local stores instantly.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 654.8033858267716596 Td
+(AI Pipeline:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 640.6301574803148924 Td
+(1. Dashboard collects local metrics \(sales, expenses, inventory\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 626.4569291338582389 Td
+(2. Frontend invokes the bi-analyze Edge Function with metrics.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 612.2837007874015853 Td
+(3. Edge function loads AI settings for the tenant.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 598.1104724409448181 Td
+(4. Calls AI provider \(Gemini, HuggingFace, OpenRouter\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 583.9372440944881646 Td
+(5. Parses structured JSON response and returns executive report.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 569.7640157480313974 Td
+(6. Dashboard renders insights, risks, and action checklist.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 541.4175590551180903 Td
+(7. DATABASE SCHEMA) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 513.0711023622046696 Td
+(Core Tables:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 498.8978740157479592 Td
+(- businesses: Tenant definitions \(name, currency, logo\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 484.7246456692913057 Td
+(- branches: Physical locations and distribution hubs.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 470.5514173228345953 Td
+(- users: Master credential directory.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 456.378188976377885 Td
+(- employees: Staff profiles with shifts and tasks.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 442.2049606299212314 Td
+(- business_memberships: User-to-business role assignments.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 428.0317322834645211 Td
+(- invitations: Staff invitation tokens.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 413.8585039370078107 Td
+(- role_permissions: Role-to-privilege mappings.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 399.6852755905511003 Td
+(- products: Catalog with pricing, stock, min-stock.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 385.5120472440944468 Td
+(- customers: Profiles with tier, wallet, credit balance.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 371.3388188976377364 Td
+(- transactions: Checkout registers \(totals, tax, delivery\).) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 357.1655905511810261 Td
+(- transaction_items: Line items with product snapshots.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 342.9923622047243725 Td
+(- shifts: Punch-clock durations and cash reconciliation.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 328.8191338582676053 Td
+(- inventory_adjustments: Wastage and restock records.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 314.6459055118109518 Td
+(- expenses: Operational cost tracking.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 300.4726771653542983 Td
+(- suppliers: Raw milk vendor profiles.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 286.2994488188975311 Td
+(- notifications: Push notification registry.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 272.1262204724408775 Td
+(- receipt_settings: Receipt layout and branding.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 257.952992125984224 Td
+(- sms_settings / ai_settings: Provider credentials.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 243.7797637795274568 Td
+(- google_sheets_backup: Cloud spreadsheet backup sync.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 221.1025984251967884 Td
+(SQL Views:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 206.9293700787401349 Td
+(- low_stock_products: Products below safety thresholds.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 192.7561417322833677 Td
+(- active_credit_debts: Customers with pending balances.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 178.5829133858267141 Td
+(- expense_category_summary: Expenses grouped by category.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 164.4096850393699469 Td
+(- product_sales_ranking: Products by velocity and revenue.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 150.2364566929132934 Td
+(- business_statistics: Real-time dashboard KPIs.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 127.559291338582625 Td
+(8. GETTING STARTED) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 99.2128346456692043 Td
+(Prerequisites:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 85.0396062992125508 Td
+(- Node.js v20+) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 70.8663779527557836 Td
+(- Rust Compiler & Cargo \(Tauri desktop builds\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 56.69314960629913 Td
+(- Android Studio & SDK Tools \(Capacitor mobile builds\)) Tj
+ET
+endstream
+endobj
+13 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 14 0 R
+>>
+endobj
+14 0 obj
+<<
+/Length 5679
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(- Supabase CLI \(backend management\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 762.5199212598424765 Td
+(Environment Configuration:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 748.346692913385823 Td
+(Create a .env file in the project root:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 734.1734645669291695 Td
+(VITE_SUPABASE_URL=your_supabase_project_url) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 720.0002362204724022 Td
+(VITE_SUPABASE_ANON_KEY=your_supabase_public_anon_key) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 705.8270078740157487 Td
+(VITE_AI_NAME=Kim) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 691.6537795275589815 Td
+(VITE_UNSPLASH_ACCESS_KEY=optional_unsplash_api_key) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 677.480551181102328 Td
+(GEMINI_API_KEY=your_google_gemini_api_key) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 654.8033858267716596 Td
+(Installation:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 640.6301574803148924 Td
+(npm install) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 617.952992125984224 Td
+(Running Development Servers:) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 603.7797637795274568 Td
+(- Web \(Vite\):       npm run dev  -> http://localhost:3001) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 589.6065354330708033 Td
+(- Desktop \(Tauri\):  npm run tauri:dev) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 575.4333070866141497 Td
+(- Android Emulator: npm run android) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 552.7561417322833677 Td
+(9. PRODUCTION BUILDS) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 524.4096850393700606 Td
+(Desktop \(Tauri\):) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 510.2364566929133503 Td
+(npm run tauri:build) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 496.0632283464566399 Td
+(- Windows: NSIS .exe installers + .msi packages.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 481.8899999999999295 Td
+(- Linux: .AppImage + .deb packages.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 459.2128346456692611 Td
+(Mobile \(Capacitor\):) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 445.0396062992125508 Td
+(./build-local.sh      Compile unsigned release APK) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 430.8663779527558404 Td
+(./sign-apk.sh         Align and sign the release APK) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 416.69314960629913 Td
+(- Signed APK: release-builds/android/isms-release-signed.apk) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 402.5199212598424765 Td
+(- Install by sharing and tapping the APK on your phone.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 379.8427559055117513 Td
+(10. BACKEND DEPLOYMENT \(SUPABASE\)) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 351.4962992125983874 Td
+(supabase link --project-ref your-project-ref-id) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 337.323070866141677 Td
+(supabase db push) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 323.1498425196849666 Td
+(supabase secrets set GEMINI_API_KEY="your-gemini-key") Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 308.9766141732283131 Td
+(supabase functions deploy bi-analyze) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 294.8033858267715459 Td
+(supabase functions deploy chat) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 280.6301574803148924 Td
+(supabase functions deploy mpesa-callback) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 257.952992125984224 Td
+(11. SECURITY & COMPLIANCE) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 229.6065354330708033 Td
+(- Row-Level Security \(RLS\): Every tenant's data is isolated behind) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 215.4333070866141497 Td
+(PostgreSQL policies.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 201.2600787401573825 Td
+(- Role-Based Access Control \(RBAC\): Granular permission codes gate) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 187.086850393700729 Td
+(each operation.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 172.9136220472439618 Td
+(- Multi-Tenancy: Businesses and branches are fully isolated.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 158.7403937007873083 Td
+(- Real-Time Intent: Online-first architecture for critical operations.) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 144.5671653543306547 Td
+(- Atomic Transactions: Credit sales use single database procedures) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 130.3939370078738875 Td
+(to prevent inconsistent wallet/debt states.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+56.6929133858267775 107.7167716535432191 Td
+(12. CONCLUSION) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 79.3703149606297984 Td
+(ISMS is a modern, enterprise-grade dairy business management platform) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 65.1970866141731449 Td
+(that combines real-time operations, deep analytics, AI-assisted) Tj
+ET
+endstream
+endobj
+15 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 16 0 R
+>>
+endobj
+16 0 obj
+<<
+/Length 779
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 785.1970866141732586 Td
+(decision making, and robust multi-tenant security into a unified) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 771.0238582677164914 Td
+(cross-platform experience. It helps Kenyan dairy businesses - from) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 756.8506299212598378 Td
+(single retail outlets to multi-branch processing enterprises -) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 742.6774015748030706 Td
+(operate more efficiently, track profitability, retain customers, and) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0 g
+56.6929133858267775 728.5041732283464171 Td
+(make smarter data-driven decisions.) Tj
+ET
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R ]
+/Count 7
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+19 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+20 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+21 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+22 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+23 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+24 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+25 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+26 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+27 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+28 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+29 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+30 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 17 0 R
+/F2 18 0 R
+/F3 19 0 R
+/F4 20 0 R
+/F5 21 0 R
+/F6 22 0 R
+/F7 23 0 R
+/F8 24 0 R
+/F9 25 0 R
+/F10 26 0 R
+/F11 27 0 R
+/F12 28 0 R
+/F13 29 0 R
+/F14 30 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+31 0 obj
+<<
+/Producer (jsPDF 4.2.1)
+/CreationDate (D:20260808191402+03'00')
+>>
+endobj
+32 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 33
+0000000000 65535 f 
+0000039637 00000 n 
+0000041498 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000006520 00000 n 
+0000006657 00000 n 
+0000013309 00000 n 
+0000013446 00000 n 
+0000019882 00000 n 
+0000020020 00000 n 
+0000026104 00000 n 
+0000026243 00000 n 
+0000032796 00000 n 
+0000032935 00000 n 
+0000038667 00000 n 
+0000038806 00000 n 
+0000039733 00000 n 
+0000039859 00000 n 
+0000039990 00000 n 
+0000040124 00000 n 
+0000040262 00000 n 
+0000040386 00000 n 
+0000040515 00000 n 
+0000040647 00000 n 
+0000040783 00000 n 
+0000040911 00000 n 
+0000041038 00000 n 
+0000041167 00000 n 
+0000041300 00000 n 
+0000041402 00000 n 
+0000041751 00000 n 
+0000041837 00000 n 
+trailer
+<<
+/Size 33
+/Root 32 0 R
+/Info 31 0 R
+/ID [ <411AC6E851AF6E8725B0B80B95509C9A> <411AC6E851AF6E8725B0B80B95509C9A> ]
+>>
+startxref
+41941
+%%EOF

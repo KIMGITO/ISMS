@@ -65,15 +65,15 @@ export class ReceiptService {
   /**
    * Exports the receipt to text or HTML.
    */
-  public static exportToText(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
+  public static async exportToText(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
     return ReceiptExporterService.exportToTextFile(content, settings);
   }
 
-  public static exportToHtml(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): boolean {
+  public static async exportToHtml(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): Promise<boolean> {
     return ReceiptExporterService.exportToHtmlFile(content, settings, htmlSnippet);
   }
 
-  public static exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): boolean {
+  public static async exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
     return ReceiptExporterService.exportToPdf(content, settings);
   }
 
