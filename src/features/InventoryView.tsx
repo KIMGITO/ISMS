@@ -518,11 +518,11 @@ export default function InventoryView() {
                         isLow ? 'text-amber-500' : 'text-app-text'
                       }`}
                     >
-                      {p.stock}
+                      {p.stock} {titleCase(p.unit)}
                     </span>
                     <span className="text-[10px] text-app-text-muted font-medium">
                       {' '}
-                      / {p.minStock} min
+                      / {p.minStock} {titleCase(p.unit)} min
                     </span>
                   </div>
 
@@ -667,6 +667,11 @@ export default function InventoryView() {
                 {visibleAdjustments.map((adj) => {
                   const isPositive = adj.quantityAdjusted > 0;
                   const isChecked = selectedLogIds.includes(adj.id);
+                  // Look up the product unit for this adjustment
+                  const adjProduct = safeProducts.find(
+                    (p) => p.id === adj.productId,
+                  );
+                  const adjUnit = adjProduct?.unit || 'unit';
                   return (
                     <div
                       key={adj.id}
@@ -723,7 +728,8 @@ export default function InventoryView() {
 
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[10.5px] font-mono text-app-text-muted text-right">
-                          {adj.previousStock} → {adj.newStock}
+                          {adj.previousStock} {titleCase(adjUnit)} →{' '}
+                          {adj.newStock} {titleCase(adjUnit)}
                         </span>
                         <div
                           className={`px-2 py-1 rounded font-bold flex items-center gap-0.5 text-[10px] ${
@@ -740,7 +746,8 @@ export default function InventoryView() {
                           <span>
                             {isPositive
                               ? `+${adj.quantityAdjusted}`
-                              : adj.quantityAdjusted}
+                              : adj.quantityAdjusted}{' '}
+                            {titleCase(adjUnit)}
                           </span>
                         </div>
                       </div>
@@ -871,7 +878,7 @@ export default function InventoryView() {
                       }`}
                     >
                       {adjustmentType === 'Damage' ? '-' : '+'}
-                      {adjustQty}
+                      {adjustQty} {selectedProduct.unit}
                     </span>
                   </div>
                   <div className="h-[1px] bg-app-border/40 my-0.5" />

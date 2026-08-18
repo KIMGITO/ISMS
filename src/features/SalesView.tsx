@@ -148,6 +148,20 @@ export default function SalesView() {
 
   const renderTxRow = (tx: Transaction) => {
     const isSynced = tx.status === "Synced";
+    // Aggregate quantities by unit, e.g. "9 Litres" or "5 Litres, 3 Units"
+    const unitTotals = new Map<string, number>();
+    (tx.items || []).forEach((item) => {
+      const unit = item.product?.unit?.trim() || "unit";
+      const key = unit.toLowerCase();
+      unitTotals.set(key, (unitTotals.get(key) || 0) + item.quantity);
+    });
+    const unitSummary = Array.from(unitTotals.entries())
+      .map(([unit, qty]) => {
+        const displayUnit = unit === "unit" ? "unit" : unit;
+        const plural = qty === 1 ? displayUnit : `${displayUnit}s`;
+        return `${qty} ${plural}`;
+      })
+      .join(", ");
     const itemQty = tx.items ? tx.items.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
 
@@ -179,7 +193,7 @@ export default function SalesView() {
             {formatCurrency(tx.finalTotal)}
           </h3>
           <div className="flex items-center gap-2 text-[10px] text-app-text-muted mt-0.5 font-semibold">
-            <span>{itemQty} items</span>
+            <span>{unitSummary || `${itemQty} items`}</span>
             <span>·</span>
             <span>{getPaymentMethodLabel(tx.paymentMethod)}</span>
             {tx.customerName && (
