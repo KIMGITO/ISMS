@@ -165,7 +165,7 @@ const tourSteps: TourStep[] = [
   {
     title: 'Welcome to ISMS !',
     content:
-      "Let's take a quick 1-minute interactive tour to explore your daily staff workflows and tool panels.",
+      "Let's take a quick 1 minute interactive tour to explore your application workflows and tool panels.",
     placement: 'bottom',
   },
   {
@@ -562,13 +562,17 @@ export default function App() {
     isSupabaseConfigured(),
   );
   const [termsAccepted, setTermsAccepted] = useState(() => {
-    return localStorage.getItem('isms_terms_accepted') === 'true';
+    // Check both the current key and legacy key for backward compatibility
+    return (
+      localStorage.getItem('isms_terms_accepted') === 'true' ||
+      localStorage.getItem('kkm_terms_accepted') === 'true'
+    );
   });
   const [setupDbUrl, setSetupDbUrl] = useState('');
   const [setupDbKey, setSetupDbKey] = useState('');
   const [dbConnecting, setDbConnecting] = useState(false);
   const [setupDbError, setSetupDbError] = useState('');
-  const [agreeChecked, setAgreeChecked] = useState(false);
+  const [agreeChecked, setAgreeChecked] = useState(true);
 
   const handleConnectDatabase = async () => {
     if (!setupDbUrl || !setupDbKey) {
@@ -599,7 +603,15 @@ export default function App() {
   };
 
   const handleAcceptTerms = () => {
+    // Persist acceptance to local storage cache so it's remembered on this device
+    localStorage.setItem('isms_terms_accepted', 'true');
+    // Also set the legacy key for backward compatibility with older builds
     localStorage.setItem('kkm_terms_accepted', 'true');
+    // Store acceptance timestamp for audit purposes
+    localStorage.setItem(
+      'isms_terms_accepted_at',
+      new Date().toISOString(),
+    );
     setTermsAccepted(true);
     showToast(
       'System Agreement',
@@ -1535,8 +1547,8 @@ export default function App() {
                   disabled={!agreeChecked}
                   className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wide cursor-pointer transition flex items-center justify-center gap-1.5"
                 >
-                  <CheckCircle2 size={12} />
-                  <span>Accept & Launch Portal</span>
+                  <span>Continue </span>
+                  <ArrowRight size={12} />
                 </button>
               </div>
             </motion.div>
@@ -1620,7 +1632,7 @@ export default function App() {
                     Integrated Shop Management System
                   </h1>
                   <p className="text-[10.5px] text-slate-400 font-bold tracking-wider uppercase">
-                    Auth & Onboarding
+                    Auth & Onboardingpage.  
                   </p>
                 </div>
 
@@ -1820,7 +1832,7 @@ export default function App() {
                       >
                         <div className="space-y-1">
                           <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                            Email Address or Phone *
+                            Email Address *
                           </label>
                           <div className="relative">
                             <input
@@ -1838,10 +1850,8 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                              Secure Password *
-                            </label>
+                          <div className="flex justify-end items-center">
+                         
                             <button
                               type="button"
                               onClick={() => {
@@ -1855,19 +1865,9 @@ export default function App() {
                               Forgot Password?
                             </button>
                           </div>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              placeholder="••••••••"
-                              value={loginPassword}
-                              onChange={(e) => setLoginPassword(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                            />
-                            <Lock
-                              size={13}
-                              className="absolute left-3 top-3.5 text-slate-500"
-                            />
-                          </div>
+                        <PasswordInput label="Secure Password" placeholder='••••••••' value={loginPassword} onChange={setLoginPassword} />
+
+                            
                         </div>
 
                         <button
@@ -2249,20 +2249,7 @@ export default function App() {
                                   >
                                     Return to Login
                                   </button>
-                                  <span className="text-[10px] text-slate-700">
-                                    |
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuthViewTab('register');
-                                      setAuthError('');
-                                      setAuthSuccess('');
-                                    }}
-                                    className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer font-bold bg-transparent border-none outline-none"
-                                  >
-                                    Return to Register
-                                  </button>
+                                 
                                 </div>
                               ) : (
                                 <button
