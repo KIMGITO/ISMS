@@ -150,6 +150,8 @@ export default function SalesView() {
     const isSynced = tx.status === "Synced";
     const itemQty = tx.items ? tx.items.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
+
+    console.log(tx);
     return (
       <div
         key={tx.id}

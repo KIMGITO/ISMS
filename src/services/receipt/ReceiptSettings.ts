@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS: Record<string, BusinessReceiptSettings> = {
     businessName: "ISMS  App",
     address: " Nairobi, Kenya",
     phone: "+254 743 952 173",
-    email: "codensons2gmail.com",
+    email: "codensons@gmail.com",
     website: "www.isms.co.ke",
     pinNumber: "N/A",
     registrationNumber: "N/A",
