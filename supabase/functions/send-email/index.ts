@@ -156,7 +156,6 @@ Deno.serve(async (req) => {
     }
 
     const cleanTo = String(to).trim().toLowerCase();
-    console.log(`[send-email] Received dispatch request for type="${type}" to="${cleanTo}"`);
 
     // Validate user existence and confirmation status
     if (type === "verification_code" || type === "password_reset") {
@@ -190,7 +189,6 @@ Deno.serve(async (req) => {
       }
 
       if (!userExists) {
-        console.log(`[send-email] Aborting: User ${cleanTo} does not exist.`);
         return new Response(
           JSON.stringify({ success: true, message: "User does not exist. Email aborted gracefully." }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -214,7 +212,6 @@ Deno.serve(async (req) => {
     // 1. Try Resend if configured
     if (hasResend) {
       try {
-        console.log(`[send-email] Dispatching email to ${cleanTo} via Resend API`);
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -245,7 +242,6 @@ Deno.serve(async (req) => {
     // 2. Try SMTP if configured
     if (hasSmtp) {
       try {
-        console.log(`[send-email] Dispatching email to ${cleanTo} via SMTP ${SMTP_HOST}`);
         const transporter = nodemailer.createTransport({
           host: SMTP_HOST,
           port: SMTP_PORT,
@@ -273,9 +269,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Simulation Fallback (Dev/Sandbox Mode)
-    console.log(`[send-email] SIMULATION DISPATCH: "${type}" email for ${cleanTo}`);
-    console.log(`[send-email] Code: "${cleanCodeValue(variables.code)}" | Subject: "${subject}"`);
-
+    
     return new Response(
       JSON.stringify({
         success: true,

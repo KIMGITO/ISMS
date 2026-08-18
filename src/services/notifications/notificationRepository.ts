@@ -257,4 +257,13 @@ export class NotificationRepository {
       subscribers.delete(callback);
     };
   }
+
+  /**
+   * Clears the in-memory notification array without touching the database.
+   * Used on logout to prevent stale data from leaking between sessions.
+   */
+  public static clearMemory(): void {
+    notifications = [];
+    notify();
+  }
 }

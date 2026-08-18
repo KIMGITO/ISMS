@@ -399,7 +399,6 @@ Deno.serve(async (req) => {
 
       // ── RUN BACKUP (EXPORT TO GOOGLE SHEETS) ──────────────────────────
       case "run": {
-        console.log(`[backup:run] Starting for business: ${businessId}`);
 
         // 1. Load config
         const { data: cfg, error: cfgErr } = await supabase
@@ -1042,9 +1041,7 @@ Deno.serve(async (req) => {
             })
             .eq("business_id", businessId);
 
-          console.log(
-            `[backup:run] ✅ Success — ${Object.keys(details).length} sheets written for "${bizName}"`
-          );
+        
 
           return jsonResponse({
             success: true,
@@ -1082,7 +1079,6 @@ Deno.serve(async (req) => {
 
       // ── IMPORT (FROM GOOGLE SHEETS) ────────────────────────────────────
       case "import": {
-        console.log(`[backup:import] Starting for business: ${businessId}`);
 
         const { data: cfg, error: cfgErr } = await supabase
           .from("google_sheets_backup")

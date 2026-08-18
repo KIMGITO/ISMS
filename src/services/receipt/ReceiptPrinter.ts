@@ -101,7 +101,6 @@ export class ReceiptPrinterService {
     settings: BusinessReceiptSettings,
     deviceAddress: string
   ): Promise<{ success: boolean; message: string }> {
-    console.log(`[ReceiptPrinter] Transmitting raw ESC/POS payload to BT thermal device ${deviceAddress}`);
     const rawText = ReceiptRendererService.generateThermalRawText(content, settings);
     
     const encoder = new TextEncoder();
@@ -126,7 +125,6 @@ export class ReceiptPrinterService {
     content: ReceiptContent,
     settings: BusinessReceiptSettings
   ): Promise<{ success: boolean; message: string }> {
-    console.log("[ReceiptPrinter] Initiating WebUSB handshake with thermal print unit...");
     const rawText = ReceiptRendererService.generateThermalRawText(content, settings);
     
     await new Promise(r => setTimeout(r, 800));
@@ -146,7 +144,6 @@ export class ReceiptPrinterService {
     ipAddress: string,
     port = 9100
   ): Promise<{ success: boolean; message: string }> {
-    console.log(`[ReceiptPrinter] Routing network print socket packet to ${ipAddress}:${port}`);
     const rawText = ReceiptRendererService.generateThermalRawText(content, settings);
 
     await new Promise(r => setTimeout(r, 1000));

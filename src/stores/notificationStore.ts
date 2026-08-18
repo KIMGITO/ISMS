@@ -108,6 +108,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   
   init: () => {
+    // Proactively load existing notifications from Supabase so the Messages
+    // page is populated on app startup. Without this fix, the in-memory
+    // notifications array starts empty and only fills when a NEW row is
+    // inserted (via the realtime postgres_changes event), so existing
+    // notifications never appear in the UI.
+    const bizId = useBusinessStore.getState().activeBusinessId;
+    if (bizId) {
+      NotificationRepository.loadFromSupabase(bizId).catch(console.error);
+    }
+
     // Subscribe to DB notifications via repository
     NotificationRepository.subscribe((activeNotifications) => {
       // Filter out deleted/archived and update state

@@ -112,4 +112,3 @@ for (let i = 0; i < lines.length; i++) {
 
 // Save PDF
 doc.save(pdfPath);
-console.log(`PDF generated: ${pdfPath}`);
