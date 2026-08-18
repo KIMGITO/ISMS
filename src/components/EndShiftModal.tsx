@@ -6,7 +6,8 @@ import { useTransactionStore } from '../stores/transactionStore';
 import { useCustomerStore } from '../stores/customerStore';
 import { useAuthStore } from '../stores/authStore';
 import { useAppStore } from '../stores/appStore';
-import { Shift, Transaction } from '../types';
+import { useExtraModulesStore, ProductionBatch } from '../stores/extraModulesStore';
+import { Shift, Transaction, BillOfMaterials } from '../types';
 import { useOverlay } from '../hooks/useOverlay';
 
 interface EndShiftModalProps {
@@ -22,6 +23,7 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
   const { transactions, debtPayments } = useTransactionStore();
   const { customers } = useCustomerStore();
   const { activeShift, currentEmployee } = useAuthStore();
+  const { productionBatches, billOfMaterials } = useExtraModulesStore();
 
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
@@ -59,6 +61,33 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
 
     // 5. Deliveries
     let deliveries = 0;
+
+    // 6. Production Batches during this shift (BOM production)
+    const shiftProduction = productionBatches.filter(b => {
+      const bTime = new Date(b.date).getTime();
+      const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
+      return bTime >= shiftStart && bTime <= shiftEnd && b.staffName === currentEmployee.name;
+    });
+
+    // Track BOM raw material consumption per product (e.g., milk consumed for mala)
+    const productionConsumption: Record<string, number> = {};
+    // Track production output (finished goods added to stock, e.g., mala produced)
+    const productionOutput: Record<string, number> = {};
+
+    shiftProduction.forEach(batch => {
+      // Find the BOM recipe to know which raw materials were consumed
+      const bom = billOfMaterials.find(b => b.id === batch.bomId);
+      if (bom && bom.ingredients) {
+        bom.ingredients.forEach(ing => {
+          const consumedQty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced).toFixed(3));
+          productionConsumption[ing.productId] = (productionConsumption[ing.productId] || 0) + consumedQty;
+        });
+      }
+      // Track produced finished goods
+      if (batch.productId) {
+        productionOutput[batch.productId] = (productionOutput[batch.productId] || 0) + batch.quantityProduced;
+      }
+    });
 
     // Populate data
     shiftTransactions.forEach(tx => {
@@ -103,9 +132,13 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
       });
     });
 
-    // Calculate opening stock for sold products
+    // Calculate opening stock for sold products + account for production consumption and output
     Object.values(productSales).forEach(ps => {
-      ps.opening = ps.closing + ps.sold;
+      const pid = Object.keys(productSales).find(key => productSales[key] === ps);
+      const consumed = pid ? (productionConsumption[pid] || 0) : 0;
+      const produced = pid ? (productionOutput[pid] || 0) : 0;
+      // opening = closing + sold + consumedThisShift - producedThisShift
+      ps.opening = Math.max(0, Math.round((ps.closing + ps.sold + consumed - produced) * 100) / 100);
     });
 
     // Format text
@@ -115,6 +148,7 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
     let text = `*SHIFT REPORT - ${currentEmployee.name}*\n`;
     text += `Date: ${dateStr} @ ${timeStr}\n\n`;
     
+    // ========== FINANCIALS ==========
     text += `*FINANCIALS*\n`;
     text += `- Cash: Ksh ${cash.toLocaleString()}\n`;
     text += `- M-Pesa: Ksh ${mpesa.toLocaleString()}\n`;
@@ -125,10 +159,57 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
       text += `- Deliveries completed: ${deliveries}\n\n`;
     }
 
-    if (Object.keys(productSales).length > 0) {
-      text += `*PRODUCT PERFORMANCE*\n`;
-      Object.values(productSales).forEach(ps => {
-        text += `- ${ps.name}: Earned Ksh ${Math.round(ps.earned).toLocaleString()} (Opened: ${ps.opening} -> Sold: ${ps.sold} -> Closed: ${ps.closing})\n`;
+    // ========== PRODUCT PERFORMANCE + INVENTORY ==========
+    if (Object.keys(productSales).length > 0 || Object.keys(productionConsumption).length > 0 || Object.keys(productionOutput).length > 0) {
+      text += `*INVENTORY SUMMARY*\n`;
+      
+      // Track all unique product IDs involved (sold, consumed, or produced)
+      const allProductIds = new Set<string>([
+        ...Object.keys(productSales),
+        ...Object.keys(productionConsumption),
+        ...Object.keys(productionOutput)
+      ]);
+
+      allProductIds.forEach(pid => {
+        const prod = products.find(p => p.id === pid);
+        const name = prod?.name || productSales[pid]?.name || 'Product';
+        const unit = prod?.unit || 'units';
+        
+        const ps = productSales[pid];
+        const sold = ps?.sold || 0;
+        const opened = ps?.opening || 0;
+        const closed = prod?.stock ?? ps?.closing ?? 0;
+        const consumed = productionConsumption[pid] || 0;
+        const produced = productionOutput[pid] || 0;
+        const earnedKsh = Math.round(ps?.earned || 0);
+
+        // Build info line
+        const infoParts: string[] = [];
+        if (opened > 0) infoParts.push(`Opened: ${opened} ${unit}`);
+        if (sold > 0) infoParts.push(`Sold: ${sold} ${unit}`);
+        if (consumed > 0) infoParts.push(`Consumed(BOM): ${consumed} ${unit}`);
+        if (produced > 0) infoParts.push(`Produced: ${produced} ${unit}`);
+        if (closed >= 0) infoParts.push(`Closed: ${closed} ${unit}`);
+        if (earned > 0) infoParts.push(`Earned: Ksh ${earned.toLocaleString()}`);
+
+        if (infoParts.length > 0) {
+          text += `- ${name}: ${infoParts.join(' | ')}\n`;
+        }
+      });
+      text += `\n`;
+    }
+
+    // ========== BOM PRODUCTION LOG ==========
+    if (shiftProduction.length > 0) {
+      text += `*PRODUCTION / BOM*\n`;
+      shiftProduction.forEach(batch => {
+        const bomName = batch.recipeName;
+        const produced = batch.quantityProduced;
+        const unit = batch.unit || 'units';
+        const rawUsed = getRawMaterialSummary(batch, billOfMaterials);
+        text += `- ${bomName}: Produced ${produced} ${unit}`;
+        if (rawUsed) text += ` | Raw: ${rawUsed}`;
+        text += `\n`;
       });
       text += `\n`;
     }
@@ -158,7 +239,8 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
 
     return { reportText: text, reportPreview: text };
 
-  }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, customMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, productionBatches, billOfMaterials, customMessage]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
@@ -262,4 +344,17 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
       </div>
     </AnimatePresence>
   );
+}
+
+
+/** Helper to format raw materials consumed for a production batch */
+function getRawMaterialSummary(batch: ProductionBatch, boms: BillOfMaterials[]): string {
+  const bom = boms.find(b => b.id === batch.bomId);
+  if (!bom || !bom.ingredients || bom.ingredients.length === 0) return '';
+  
+  const parts = bom.ingredients.map(ing => {
+    const qty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced).toFixed(2));
+    return `${qty}${ing.unit} ${ing.productName}`;
+  });
+  return parts.join(', ');
 }

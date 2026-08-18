@@ -15,7 +15,6 @@ export class ProcessUploadUseCase {
     // Auto-listen to window online events to auto-flush queued items
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => {
-        console.log("Device online. Automatically flushing offline upload queue...");
         this.flushQueue();
       });
     }
@@ -171,14 +170,12 @@ export class ProcessUploadUseCase {
       const items = await this.queue.getQueue();
       if (items.length === 0) return;
 
-      console.log(`Processing ${items.length} queued offline uploads...`);
 
       for (const item of items) {
         try {
           const resultUrl = await this.uploadWithRetry(item);
           await this.queue.dequeue(item.id);
           
-          console.log(`Successfully synced offline upload: ${item.name} -> ${resultUrl}`);
           
           // Trigger callbacks
           this.onQueueFlushCallbacks.forEach(cb => cb(item.id, resultUrl));

@@ -3866,19 +3866,19 @@ export default function App() {
                               <Sun size={13} />
                             )}
                           </button>
-                          <div className="relative">
+                          <div className="relative" title='my profile ' onClick={setActiveTab.bind(null, 'profile')}>
                             <img
                               src={
                                 currentEmployee.avatar ||
                                 "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
                               }
                               alt="My Profile"
-                              className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
+                              className="w-7 h-6 md:w-10 md:h-10 rounded object-cover border border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
                               referrerPolicy="no-referrer"
                             />
-                            <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
+                            {/* <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
                               Me
-                            </span>
+                            </span> */}
                             {/* Tooltip */}
                             <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
                               My Profile

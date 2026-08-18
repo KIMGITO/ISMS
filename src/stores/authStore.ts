@@ -10,6 +10,7 @@ import { EmailService } from "../services/emailService";
 import { nativePlatformService } from "../core/native/NativePlatformService";
 import { notificationService } from "../core/native/NotificationService";
 import { NotificationService } from "../services/notifications/notificationService";
+import { NotificationRepository } from "../services/notifications/notificationRepository";
 import { realtimeService } from "../services/realtimeService";
 import { ProductRepository, TransactionRepository, CustomerRepository, ExpenseRepository, ExpenseCategoryRepository, InventoryAdjustmentRepository } from "../services/repositories";
 import { useCartStore } from "./cartStore";
@@ -221,7 +222,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
       get().performInitialization();
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("Supabase Auth Event:", event);
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           if (session?.user) {
             await get().hydrateAuthSessionData(session.user);
@@ -251,13 +251,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // Hydrate all user, membership, and business settings once authenticated
     hydrateAuthSessionData: async (authUser, force = false) => {
       if (get().isHydrating) {
-        console.log("[AuthStore] Hydration already in progress, skipping.");
         return;
       }
       
       const currentUser = get().currentUser;
       if (!force && currentUser && currentUser.id === authUser.id && currentUser.email === authUser.email) {
-        console.log("[AuthStore] Session already hydrated for user:", authUser.id);
         return;
       }
 
@@ -464,7 +462,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
               "postgres_changes",
               { event: "*", schema: "public", table: "business_memberships", filter: userMemFilter },
               async (payload) => {
-                console.log("[AuthStore] User membership real-time update:", payload);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                   await get().hydrateAuthSessionData(user, true);
@@ -480,6 +477,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         // Initialize Realtime subscriptions
         realtimeService.initRealtimeSubscriptions();
+
+        // Load existing notifications for the active business
+        // CRITICAL FIX: Without this, the in-memory notifications array starts empty
+        // on app startup, so the Messages page shows nothing even though rows exist
+        // in the database (which is why push notifications still work — those are
+        // fired by the Supabase DB webhook, completely independent of the client).
+        if (activeBizId) {
+          NotificationRepository.loadFromSupabase(activeBizId).catch(console.error);
+        }
       } catch (err) {
         console.error("Failed to hydrate auth session:", err);
         // Explicitly clear auth states and sign out if database validation fails
@@ -566,8 +572,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
         activeTab: "home"
       });
 
-      // Clear notification store state and notifications list
-      useNotificationStore.getState().clearAllNotifications();
+      // Clear the in-memory notification repository so stale data from the
+      // previous session doesn't leak into the next login. Unlike
+      // clearAllNotifications(), this does NOT soft-delete any rows from
+      // the database, so the user's notification history is preserved.
+      NotificationRepository.clearMemory();
+      useNotificationStore.getState().clearToast();
+      useNotificationStore.setState({ notifications: [], unreadCount: 0 });
 
       // Clear extra modules store state
       useExtraModulesStore.setState({

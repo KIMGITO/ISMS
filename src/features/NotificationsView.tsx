@@ -43,10 +43,17 @@ export default function NotificationsView() {
       setNotifications(rows);
     });
 
+    // Proactively load notifications from Supabase when the Messages page
+    // mounts. This ensures existing notifications are always visible even
+    // if the realtime channel missed an event or the app was restarted.
+    if (activeBusinessId) {
+      NotificationRepository.loadFromSupabase(activeBusinessId).catch(console.error);
+    }
+
     return () => {
       unsubNotifications();
     };
-  }, []);
+  }, [activeBusinessId]);
 
   // Toast auto-dismiss
   useEffect(() => {
