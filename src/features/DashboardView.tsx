@@ -41,6 +41,7 @@ import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import EndShiftModal from '../components/EndShiftModal';
 import NotificationService from '../services/notifications/notificationService';
+import { notificationService } from '../core/native/NotificationService';
 import { useAuthStore } from '../stores/authStore';
 
 interface Schedule {
@@ -179,20 +180,25 @@ export default function DashboardView() {
   }, [activeBusinessId]);
 
   // Reminder: show toast for schedules due today or tomorrow
+  // Only fires for the logged-in employee's own schedules.
   useEffect(() => {
-    if (schedules.length === 0) return;
+    if (schedules.length === 0 || !currentEmployee) return;
     const todayStr = new Date().toISOString().split('T')[0];
     const tomorrowStr = new Date(Date.now() + 86400000)
       .toISOString()
       .split('T')[0];
-    const todaySchedules = schedules.filter((s) => s.date === todayStr);
-    const tomorrowSchedules = schedules.filter((s) => s.date === tomorrowStr);
+    const todaySchedules = schedules.filter(
+      (s) => s.date === todayStr && s.employeeId === currentEmployee.id,
+    );
+    const tomorrowSchedules = schedules.filter(
+      (s) => s.date === tomorrowStr && s.employeeId === currentEmployee.id,
+    );
     if (todaySchedules.length > 0) {
       showToast(
         '🔔 Shifts Today',
         `${todaySchedules.length} shift${
           todaySchedules.length > 1 ? 's' : ''
-        } scheduled today.`,
+        } scheduled for you today.`,
         undefined,
         'info' as any,
       );
@@ -201,7 +207,7 @@ export default function DashboardView() {
         '📅 Reminder',
         `${tomorrowSchedules.length} shift${
           tomorrowSchedules.length > 1 ? 's' : ''
-        } scheduled for tomorrow.`,
+        } scheduled for you tomorrow.`,
         undefined,
         'info' as any,
       );
@@ -345,6 +351,26 @@ export default function DashboardView() {
           `New shift "${title}" assigned.`,
           assignedWorker.avatar,
         );
+
+        // If this device belongs to the assigned employee, schedule a local
+        // device reminder at the shift's start time (works even in background).
+        if (
+          targetEmployeeIds.includes(currentEmployee.id) &&
+          startTime
+        ) {
+          const reminderAt = new Date(`${dateStr}T${startTime}:00`);
+          // If the shift start time has already passed today, target tomorrow.
+          if (reminderAt.getTime() < Date.now()) {
+            reminderAt.setDate(reminderAt.getDate() + 1);
+          }
+          notificationService.scheduleReminder({
+            id: Math.floor(Math.random() * 100000),
+            title: 'Schedule Reminder',
+            body: `You are scheduled for "${title.trim()}" at ${startTime}.`,
+            scheduleAt: reminderAt,
+            extra: { scheduleId: null, employeeId: currentEmployee.id, shiftDate: dateStr, startTime },
+          }).catch(console.error);
+        }
       } catch (err) {
         console.error(err);
         showToast('Error', 'Failed to create shift.');

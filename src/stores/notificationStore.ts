@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { EmployeeRole, NotificationType, NotificationPriority, AppNotification } from "../types";
 import { useAuthStore } from "./authStore";
 import { useBusinessStore } from "./businessStore";
+import { getSupabase } from "../services/supabaseClient";
 import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
 
 export interface ToastMessage {
@@ -92,7 +93,11 @@ interface NotificationState {
   toast: ToastMessage | null;
   notifications: SQLiteRow<AppNotification>[];
   unreadCount: number;
+  scheduleReminders: SQLiteRow<AppNotification>[];
+  unreadReminderCount: number;
   init: () => void;
+  initScheduleReminders: () => void;
+  markReminderAsRead: (id: string) => void;
   // Local UI-only toast (doesn't save to DB)
   showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
   clearToast: () => void;
@@ -106,6 +111,69 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   toast: null,
   notifications: [],
   unreadCount: 0,
+  scheduleReminders: [],
+  unreadReminderCount: 0,
+  
+  initScheduleReminders: () => {
+    // Query only Schedule Reminder notifications for the current user
+    const supabase = getSupabase();
+    const currentUser = useAuthStore.getState().currentUser;
+    if (!supabase || !currentUser) return;
+
+    supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .eq("type", "Schedule Reminder")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load schedule reminders:", error);
+          return;
+        }
+        const rows: SQLiteRow<AppNotification>[] = (data || []).map((r) => r as any);
+        set({
+          scheduleReminders: rows,
+          unreadReminderCount: rows.filter((r) => !r.read_at).length,
+        });
+      });
+
+    // Subscribe to realtime changes on notifications filtered by user,
+    // then retain only Schedule Reminder type in the local list.
+    const channel = supabase
+      .channel("realtime-schedule-reminders")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        async (payload: any) => {
+          const type = payload?.new?.type ?? payload?.old?.type;
+          // Re-fetch whenever anything changes for this user; simplest & safe.
+          const { data } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .eq("type", "Schedule Reminder")
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false });
+          const rows: SQLiteRow<AppNotification>[] = (data || []).map((r) => r as any);
+          set({
+            scheduleReminders: rows,
+            unreadReminderCount: rows.filter((r) => !r.read_at).length,
+          });
+        }
+      )
+      .subscribe();
+
+    // Keep removed on logout
+    const unsub = () => supabase.removeChannel(channel);
+    (window as any).__kkm_reminder_unsub__ = unsub;
+  },
   
   init: () => {
     // Proactively load existing notifications from Supabase so the Messages
@@ -162,6 +230,28 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
       }
     });
+  },
+
+  markReminderAsRead: (id) => {
+    const supabase = getSupabase();
+    const query = supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", id);
+    if (typeof (query as any).then === "function") {
+      (query as unknown as Promise<{ error: any }>).then(({ error }) => {
+        if (error) {
+          console.error("[ScheduleReminder] Failed to mark read:", error);
+          return;
+        }
+        set({
+          scheduleReminders: get().scheduleReminders.map((r) =>
+            r.id === id ? { ...r, read_at: new Date().toISOString() } : r
+          ),
+          unreadReminderCount: Math.max(0, get().unreadReminderCount - 1),
+        });
+      });
+    }
   },
 
   showToast: (sender, message, avatar, type, category) => {

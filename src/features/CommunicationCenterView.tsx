@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { useBusinessStore } from "../stores/businessStore";
+import { useNotificationStore } from "../stores/notificationStore";
 import {
   MessageSquare,
   Search,
@@ -10,7 +11,11 @@ import {
   Send,
   Wand2,
   Phone,
-  ShieldAlert
+  ShieldAlert,
+  Calendar,
+  BellRing,
+  Clock,
+  ChevronRight
 } from "lucide-react";
 import { titleCase, getFirstName, searchMatch } from "../utils/stringUtils";
 import { normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
@@ -20,8 +25,20 @@ import { hasRolePermission } from "../utils/permissions";
 import SearchableDropdown from "../components/SearchableDropdown";
 
 export default function CommunicationCenterView() {
-  const { customers, currentEmployee, showToast, activeBusinessId, businesses } = useAppStore();
+  const { customers, currentEmployee, showToast, activeBusinessId, businesses, setActiveTab } = useAppStore();
   const currentBusiness = businesses.find(b => b.id === activeBusinessId);
+
+  const [activeChannel, setActiveChannel] = useState<"customers" | "reminders">("customers");
+
+  // Staff Reminder feed (in-app) across all shifts/sessions for the current user.
+  const scheduleReminders = useNotificationStore((s) => s.scheduleReminders);
+  const unreadReminderCount = useNotificationStore((s) => s.unreadReminderCount);
+  const markReminderAsRead = useNotificationStore((s) => s.markReminderAsRead);
+
+  // Rehydrate reminders when this view mounts (ensures fresh data + live updates)
+  useEffect(() => {
+    useNotificationStore.getState().initScheduleReminders();
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTier, setFilterTier] = useState<string>("All");
@@ -187,16 +204,126 @@ export default function CommunicationCenterView() {
     <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-4 md:p-6 overflow-y-auto animate-fade-in">
       
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 shrink-0">
+      <div className="flex items-center gap-3 mb-4 shrink-0">
         <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center text-amber-500">
           <MessageSquare size={20} />
         </div>
         <div>
           <h1 className="text-xl font-extrabold font-display uppercase tracking-wide">Communication Center</h1>
-          <p className="text-[11px] text-app-text-muted font-bold mt-0.5">Bulk Customer Messaging Hub</p>
+          <p className="text-[11px] text-app-text-muted font-bold mt-0.5">
+            {activeChannel === "customers" ? "Bulk Customer Messaging Hub" : "Staff Schedule Reminder Feed"}
+          </p>
         </div>
       </div>
 
+      {/* Channel Tabs */}
+      <div className="flex items-center gap-2 mb-5 shrink-0">
+        <button
+          onClick={() => setActiveChannel("customers")}
+          className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+            activeChannel === "customers"
+              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              : "bg-app-card border border-app-border text-app-text-muted hover:border-app-border/80"
+          }`}
+        >
+          <MessageSquare size={13} />
+          Customer Messaging
+        </button>
+        <button
+          onClick={() => setActiveChannel("reminders")}
+          className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+            activeChannel === "reminders"
+              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              : "bg-app-card border border-app-border text-app-text-muted hover:border-app-border/80"
+          }`}
+        >
+          <BellRing size={13} />
+          Staff Reminders
+          {unreadReminderCount > 0 && (
+            <span className="px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[8px] font-black">
+              {unreadReminderCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeChannel === "reminders" ? (
+        /* STAFF REMINDERS FEED — in-app schedule reminders for the current user */
+        <div className="flex-1 flex flex-col bg-app-card border border-app-border rounded-3xl p-4 md:p-5 shadow-xs min-h-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h2 className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-2">
+              <Calendar size={14} className="text-amber-500" />
+              My Shift Reminders
+            </h2>
+            <span className="text-[10px] text-app-text-muted font-bold bg-app-bg px-2 py-1 rounded-lg border border-app-border/40">
+              {scheduleReminders.length} total
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto border border-app-border rounded-xl">
+            {scheduleReminders.length === 0 ? (
+              <div className="p-10 text-center text-xs text-app-text-muted font-bold flex flex-col items-center gap-2">
+                <BellRing size={24} className="opacity-30" />
+                No schedule reminders yet. When a shift is assigned to you,
+                a reminder will appear here automatically.
+              </div>
+            ) : (
+              <div className="divide-y divide-app-border">
+                {scheduleReminders.map((rem) => {
+                  let payload: any = {};
+                  try {
+                    payload = typeof rem.payload === "string" ? JSON.parse(rem.payload) : rem.payload;
+                  } catch(e) {}
+                  const isUnread = !rem.read_at;
+                  const shiftDate = payload?.shift_date || "";
+                  const startTime = payload?.start_time || "";
+
+                  return (
+                    <div
+                      key={rem.id}
+                      onClick={() => {
+                        if (isUnread) markReminderAsRead(rem.id);
+                        // Navigate to the schedule dashboard
+                        setActiveTab("dashboard");
+                      }}
+                      className={`p-4 cursor-pointer transition-colors flex items-center gap-3 hover:bg-app-bg/50 ${
+                        isUnread ? "bg-amber-500/5" : "opacity-70"
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isUnread ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-app-bg text-app-text-muted border border-app-border"
+                      }`}>
+                        <Clock size={15} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-[13px] font-extrabold truncate ${isUnread ? "text-app-text" : "text-app-text-muted"}`}>
+                            {rem.title}
+                          </h4>
+                          {isUnread && (
+                            <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full text-[7px] font-black uppercase tracking-wider shrink-0">
+                              Unread
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-app-text-muted font-medium mt-0.5 leading-relaxed">
+                          {rem.message}
+                        </p>
+                        {(shiftDate || startTime) && (
+                          <p className="text-[10px] font-mono text-amber-500/80 mt-1 font-bold">
+                            📅 {shiftDate || "—"} {startTime ? `at ${startTime}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight size={15} className="text-app-text-muted shrink-0" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
         
         {/* Left Side: Audience Selection */}
@@ -398,6 +525,7 @@ export default function CommunicationCenterView() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

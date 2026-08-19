@@ -549,8 +549,10 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- SCHEDULES: flag_due_schedule_reminders
--- Marks all schedules due today as reminder_sent = TRUE.
--- Called by an Edge Function cron job or pg_cron.
+-- Marks all schedules due today as reminder_sent = TRUE AND creates a
+-- per-employee notification row for each affected schedule so the reminder
+-- reaches the target employee in-app and via push (FCM).
+-- Called by pg_cron (migration 20260819) or externally.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.flag_due_schedule_reminders()
 RETURNS VOID
@@ -558,18 +560,63 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    v_schedule RECORD;
+    v_user_id  UUID;
 BEGIN
-    UPDATE public.schedules
-    SET reminder_sent = TRUE
-    WHERE reminder_sent = FALSE
-      AND deleted_at IS NULL
-      AND (
-          date = CURRENT_DATE
-          OR (repeat = 'Daily' AND date <= CURRENT_DATE)
-          OR (repeat = 'Weekly'
-              AND date <= CURRENT_DATE
-              AND EXTRACT(DOW FROM date) = EXTRACT(DOW FROM CURRENT_DATE))
-      );
+    -- 1. Process every schedule that is due and has not yet been reminded.
+    FOR v_schedule IN
+        SELECT s.id, s.business_id, s.employee_id, s.title, s.date, s.start_time
+        FROM public.schedules s
+        WHERE s.reminder_sent = FALSE
+          AND s.deleted_at IS NULL
+          AND (
+              s.date = CURRENT_DATE
+              OR (s.repeat = 'Daily' AND s.date <= CURRENT_DATE)
+              OR (s.repeat = 'Weekly'
+                  AND s.date <= CURRENT_DATE
+                  AND EXTRACT(DOW FROM s.date) = EXTRACT(DOW FROM CURRENT_DATE))
+          )
+    LOOP
+        -- 2. Resolve the employee's linked user account for targeting
+        --    in-app notifications and FCM push.
+        SELECT e.user_id INTO v_user_id
+        FROM public.employees e
+        WHERE e.id = v_schedule.employee_id
+          AND e.deleted_at IS NULL;
+
+        -- 3. Mark the schedule as reminded (no duplicate processing).
+        UPDATE public.schedules
+        SET reminder_sent = TRUE
+        WHERE id = v_schedule.id;
+
+        -- 4. Create a notification row for the employee (when a user account
+        --    is linked) so the reminder appears in the staff reminder feed
+        --    and can be dispatched via the send-fcm edge function.
+        IF v_user_id IS NOT NULL THEN
+            INSERT INTO public.notifications
+                (business_id, user_id, title, message, type, priority,
+                 action_type, action_target, payload, status)
+            VALUES (
+                v_schedule.business_id,
+                v_user_id,
+                '🗓️ Schedule Reminder: ' || COALESCE(NULLIF(v_schedule.title, ''), 'Shift'),
+                'You are scheduled on ' || to_char(v_schedule.date, 'YYYY-MM-DD') ||
+                    ' at ' || to_char(v_schedule.start_time, 'HH24:MI') || '.',
+                'Schedule Reminder',
+                'high'::public.notification_priority,
+                'navigate'::public.notification_action_type,
+                'schedules',
+                jsonb_build_object(
+                    'schedule_id',  v_schedule.id,
+                    'employee_id',  v_schedule.employee_id,
+                    'shift_date',   to_char(v_schedule.date, 'YYYY-MM-DD'),
+                    'start_time',   to_char(v_schedule.start_time, 'HH24:MI')
+                ),
+                'pending'::public.notification_delivery_status
+            );
+        END IF;
+    END LOOP;
 END;
 $$;
 

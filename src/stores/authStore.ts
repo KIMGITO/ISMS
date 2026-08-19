@@ -122,9 +122,46 @@ const computeEmployeesList = (bizId: string | null, usersList: User[], membershi
   });
 };
 
+// ---------------------------------------------------------------------------
+// PRESENCE HEARTBEAT
+// Updates the employee's last_seen_at column in Supabase every 2 minutes
+// while the app is active. Provides reliable server-side presence tracking.
+// Derived status (consumers):
+//   Online  = last_seen_at within the last 3 minutes
+//   Away    = last_seen_at between 3 and 10 minutes ago
+//   Offline = last_seen_at older than 10 minutes or NULL
+// Returns a cleanup function that stops the interval.
+// ---------------------------------------------------------------------------
+function startPresenceHeartbeat(businessId: string | null, userId: string): () => void {
+  if (!businessId || !userId) return () => {};
+
+  const supabase = getSupabase();
+
+  const sendBeat = () => {
+    supabase
+      .from("employees")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .then(({ error }) => {
+        if (error) {
+          console.warn("[Presence] Heartbeat failed:", error.message);
+        }
+      });
+  };
+
+  // Send an immediate beat so the user appears online right away
+  sendBeat();
+
+  const intervalId = setInterval(sendBeat, 120000); // every 2 minutes
+
+  return () => clearInterval(intervalId);
+}
+
 export const useAuthStore = create<AuthState>((set, get) => {
   let unsubPerms: (() => void) | null = null;
   let unsubMembership: (() => void) | null = null;
+  let unsubPresence: (() => void) | null = null;
 
   return {
     // Basic state
@@ -486,6 +523,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (activeBizId) {
           NotificationRepository.loadFromSupabase(activeBizId).catch(console.error);
         }
+
+        // Initialize the Schedule Reminder feed (in-app staff reminders) filtered
+        // by the current user. Subscribes to realtime on the notifications table.
+        useNotificationStore.getState().initScheduleReminders();
+
+        // Start the server-side presence heartbeat: update employees.last_seen_at
+        // every 2 minutes while the app is active. Derived status:
+        //   Online  = last_seen_at within 3 minutes
+        //   Away    = last_seen_at between 3–10 minutes
+        //   Offline = last_seen_at older than 10 minutes or NULL
+        if (unsubPresence) unsubPresence();
+        unsubPresence = startPresenceHeartbeat(activeBizId, mappedUser.id);
       } catch (err) {
         console.error("Failed to hydrate auth session:", err);
         // Explicitly clear auth states and sign out if database validation fails
@@ -520,6 +569,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       if (unsubMembership) {
         unsubMembership();
         unsubMembership = null;
+      }
+      if (unsubPresence) {
+        unsubPresence();
+        unsubPresence = null;
       }
 
       try {
