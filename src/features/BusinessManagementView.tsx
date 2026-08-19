@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
-  Edit
+  Edit, Wallet, TrendingUp, Smartphone, Banknote, Landmark, User as UserIcon, Store, Search,
+  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { validatePhone, normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
@@ -79,16 +80,25 @@ export default function BusinessManagementView() {
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [localExpenses, setLocalExpenses] = useState<any[]>([]);
 
-  // Payments States
+  // Payments States - Modern Redesigned
   const [payRef, setPayRef] = useState("");
   const [payAmount, setExpPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState<"M-Pesa" | "Cash" | "Card" | "Bank">("M-Pesa");
+  const [payMethod, setPayMethod] = useState<"M-Pesa" | "Cash" | "Card" | "Bank" | "Other">("M-Pesa");
   const [paySenderName, setPaySenderName] = useState("");
   const [paySenderPhone, setPaySenderPhone] = useState("");
   const [payStatus, setPayStatus] = useState<"Success" | "Pending" | "Failed">("Success");
   const [payDate, setPayDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [localPayments, setLocalPayments] = useState<any[]>([]);
+  const [localMoneyAssets, setLocalMoneyAssets] = useState<any[]>([]);
+  const [localCustomers, setLocalCustomers] = useState<any[]>([]);
+  const [payCustomerId, setPayCustomerId] = useState("");
+  const [payDescription, setPayDescription] = useState("");
+  const [payType, setPayType] = useState<"customer" | "walk-in">("walk-in");
+  const [paySearchQuery, setPaySearchQuery] = useState("");
+  const [payCustomerDropdownOpen, setPayCustomerDropdownOpen] = useState(false);
+  const [payMethodDisplay, setPayMethodDisplay] = useState<"modern" | "classic">("modern");
+  const [payFilter, setPayFilter] = useState<"all" | "customer" | "walk-in">("all");
 
   // Sync current employee for default staff name in expense
   useEffect(() => {
@@ -102,6 +112,8 @@ export default function BusinessManagementView() {
     if (!activeBusinessId) return;
     let unsubExp: (() => void) | undefined;
     let unsubPay: (() => void) | undefined;
+    let unsubAssets: (() => void) | undefined;
+    let unsubCust: (() => void) | undefined;
 
     import("../services/repositories").then((mod) => {
       unsubExp = mod.ExpenseRepository.subscribe((exps) => {
@@ -110,11 +122,19 @@ export default function BusinessManagementView() {
       unsubPay = mod.PaymentRepository.subscribe((pays) => {
         setLocalPayments(pays);
       });
+      unsubAssets = mod.MoneyAssetRepository.subscribe((assets) => {
+        setLocalMoneyAssets(assets);
+      });
+      unsubCust = mod.CustomerRepository.subscribe((custs) => {
+        setLocalCustomers(custs);
+      });
     }).catch(err => console.error("Failed to load repositories in BusinessManagementView", err));
 
     return () => {
       if (unsubExp) unsubExp();
       if (unsubPay) unsubPay();
+      if (unsubAssets) unsubAssets();
+      if (unsubCust) unsubCust();
     };
   }, [activeBusinessId]);
 
@@ -162,12 +182,14 @@ export default function BusinessManagementView() {
       return;
     }
     if (!paySenderName.trim()) {
-      showToast("Error", "Sender name is required.", undefined, "error");
+      showToast("Error", "Customer/Sender name is required.", undefined, "error");
       return;
     }
     setPaymentSubmitting(true);
     try {
       const { PaymentRepository } = await import("../services/repositories");
+      const selectedCustomer = localCustomers.find(c => c.id === payCustomerId);
+
       await PaymentRepository.add({
         referenceCode: payRef.trim(),
         amount: amountNum,
@@ -176,13 +198,33 @@ export default function BusinessManagementView() {
         senderPhone: paySenderPhone.trim() ? normalizePhone(paySenderPhone) : undefined,
         status: payStatus,
         date: new Date(payDate).toISOString(),
-        businessId: activeBusinessId
+        businessId: activeBusinessId,
+        customerId: payCustomerId || undefined,
+        paymentType: payType,
+        description: payDescription.trim() || undefined,
+        recordedBy: currentEmployee?.name || "System",
       });
-      showToast("Success", "Business payment recorded successfully.", undefined, "success");
+
+      const appliedMsg = selectedCustomer?.debtBalance > 0
+        ? " Payment applied to outstanding debt balance first."
+        : selectedCustomer?.walletBalance > 0 || selectedCustomer?.walletBalance === 0
+          ? " Wallet credited with any remaining balance."
+          : "";
+
+      showToast(
+        "Payment Received",
+        `Business payment recorded${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}. Money asset updated.${appliedMsg}`,
+        undefined,
+        "success"
+      );
       setPayRef("");
       setExpPayAmount("");
       setPaySenderName("");
       setPaySenderPhone("");
+      setPayCustomerId("");
+      setPayDescription("");
+      setPayType("walk-in");
+      setPaySearchQuery("");
     } catch (err: any) {
       console.error(err);
       showToast("Error", err.message || "Failed to record payment.", undefined, "error");
@@ -298,6 +340,34 @@ export default function BusinessManagementView() {
     showToast("Branding Preset", `Applied theme colors.`, undefined, "info");
   };
 
+  const isOwner = currentEmployee?.role === 'Owner';
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!isOwner) return;
+    if (!confirm("Delete this expense record? This action cannot be undone.")) return;
+    try {
+      const { ExpenseRepository } = await import("../services/repositories");
+      await ExpenseRepository.delete(id);
+      showToast("Deleted", "Expense record deleted successfully.", undefined, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("Error", err.message || "Failed to delete expense.", undefined, "error");
+    }
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    if (!isOwner) return;
+    if (!confirm("Delete this payment record? This action cannot be undone.")) return;
+    try {
+      const { PaymentRepository } = await import("../services/repositories");
+      await PaymentRepository.delete(id);
+      showToast("Deleted", "Payment record deleted successfully.", undefined, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("Error", err.message || "Failed to delete payment.", undefined, "error");
+    }
+  };
+
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -353,9 +423,88 @@ export default function BusinessManagementView() {
         </div>
       </div>
 
+      {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
+      <div className="hidden xl:flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 -mx-1 px-1 min-h-[130px]">
+        {businesses.map((biz) => {
+          const isActive = biz.id === activeBusinessId && !isCreating;
+          return (
+            <button
+              key={biz.id}
+              type="button"
+              onClick={() => {
+                setIsCreating(false);
+                setActiveBusinessId(biz.id);
+              }}
+              className={`relative shrink-0 w-[230px] rounded-2xl border text-left overflow-hidden transition-all cursor-pointer group ${
+                isActive
+                  ? 'border-amber-500 ring-1 ring-amber-500/30 shadow-md'
+                  : 'border-app-border hover:border-amber-500/40 hover:shadow-sm'
+              }`}
+              style={{ minHeight: '110px' }}
+            >
+              {/* Cover Image / Badge Header */}
+              <div className="h-[52px] w-full bg-gradient-to-r from-amber-500/80 to-amber-600/60 relative overflow-hidden">
+                {biz.coverImageUrl && (
+                  <img
+                    src={biz.coverImageUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover opacity-80"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
+                {/* Logo overlapping cover */}
+                <img
+                  src={
+                    biz.logoUrl ||
+                    "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E"
+                  }
+                  alt={biz.name}
+                  className="absolute -bottom-3 left-3 w-10 h-10 rounded-xl border-2 border-app-card object-cover shadow-md"
+                  referrerPolicy="no-referrer"
+                />
+                {isActive && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30" />
+                )}
+              </div>
+
+              {/* Badge Info */}
+              <div className="pt-5 pb-2 px-3 bg-app-card">
+                <h4 className="text-[10px] font-black text-app-text uppercase tracking-wider truncate">
+                  {titleCase(biz.name)}
+                </h4>
+                <p className="text-[8.5px] text-app-text-muted font-bold uppercase tracking-wider truncate mt-0.5">
+                  {biz.businessType || 'Retail'}
+                </p>
+                {biz.address && (
+                  <span className="text-[8px] font-mono text-app-text-muted uppercase truncate flex items-center gap-0.5 mt-1">
+                    <MapPin size={7} /> {biz.address}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+        {/* Add New Branch Quick Button */}
+        {businesses.length < 5 && hasRolePermission(currentEmployee?.role || 'Guest', 'settings.view') && (
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className={`shrink-0 w-[180px] rounded-2xl border-2 border-dashed text-left transition-all cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[110px] ${
+              isCreating
+                ? 'border-amber-500 text-amber-500 bg-amber-500/5'
+                : 'border-app-border text-app-text-muted hover:border-amber-500/50 hover:text-amber-500'
+            }`}
+          >
+            <Plus size={18} />
+            <span className="text-[8.5px] font-black uppercase tracking-wider">Add Branch</span>
+          </button>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Left Column: Businesses & Branches Directory */}
-        <div className="xl:col-span-1 flex flex-col gap-4">
+        <div className="xl:hidden flex flex-col gap-4">
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
               <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
@@ -1124,6 +1273,7 @@ export default function BusinessManagementView() {
                               <th className="py-2.5">Staff</th>
                               <th className="py-2.5">Description</th>
                               <th className="py-2.5 text-right">Amount</th>
+                              {isOwner && <th className="py-2.5 text-center">Actions</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-app-border/20 text-xs">
@@ -1157,6 +1307,18 @@ export default function BusinessManagementView() {
                                 <td className="py-2.5 text-right font-black font-mono text-red-500">
                                   KSh {Number(exp.amount).toLocaleString()}
                                 </td>
+                                {isOwner && (
+                                  <td className="py-2.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteExpense(exp.id)}
+                                      title="Delete expense"
+                                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -1179,225 +1341,611 @@ export default function BusinessManagementView() {
               )}
 
               {activeSubTab === 'payments' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
-                  {/* Payment Recorder Form */}
-                  <form
-                    onSubmit={handleAddPayment}
-                    className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
-                  >
-                    <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
-                      <CreditCard size={14} className="text-amber-500" />
-                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                        Record Business Payment
-                      </h3>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Reference Code *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. QWE123RTY"
-                        value={payRef}
-                        onChange={(e) => setPayRef(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Amount (KSh) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        placeholder="e.g. 15000"
-                        value={payAmount}
-                        onChange={(e) => setExpPayAmount(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Payment Method *
-                      </label>
-                      <SearchableDropdown
-                        items={[
-                          { id: 'M-Pesa', label: 'M-Pesa' },
-                          { id: 'Cash', label: 'Cash' },
-                          { id: 'Card', label: 'Card' },
-                          { id: 'Bank', label: 'Bank Transfer' },
-                        ]}
-                        selectedValue={payMethod}
-                        onChange={(val) => setPayMethod(val as any)}
-                        placeholder="Select method..."
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Sender / Payee Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Dennis Njuguna"
-                        value={paySenderName}
-                        onChange={(e) => setPaySenderName(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Sender Phone (Optional)
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="e.g. +254712345678"
-                        value={paySenderPhone}
-                        onChange={(e) => setPaySenderPhone(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Payment Status
-                      </label>
-                      <SearchableDropdown
-                        items={[
-                          { id: 'Success', label: 'Success / Received' },
-                          { id: 'Pending', label: 'Pending Verification' },
-                          { id: 'Failed', label: 'Failed / Declined' },
-                        ]}
-                        selectedValue={payStatus}
-                        onChange={(val) => setPayStatus(val as any)}
-                        placeholder="Select status..."
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Date *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={payDate}
-                        onChange={(e) => setPayDate(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={paymentSubmitting}
-                      className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
-                    >
-                      <Save size={14} />
-                      <span>
-                        {paymentSubmitting ? 'Recording...' : 'Record Payment'}
-                      </span>
-                    </button>
-                  </form>
-
-                  {/* Payments Directory / List */}
-                  <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col">
-                    <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CreditCard size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Recorded Business Payments
-                        </h3>
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Money Assets Overview Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                    {localMoneyAssets.length === 0 && (
+                      <>
+                        {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Other'] as const).map((m) => (
+                          <div key={m} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              {m === 'M-Pesa' ? (
+                                <Smartphone size={14} className="text-emerald-500" />
+                              ) : m === 'Cash' ? (
+                                <Banknote size={14} className="text-amber-500" />
+                              ) : m === 'Card' ? (
+                                <CreditCard size={14} className="text-blue-500" />
+                              ) : m === 'Bank' ? (
+                                <Landmark size={14} className="text-violet-500" />
+                              ) : (
+                                <Wallet size={14} className="text-slate-500" />
+                              )}
+                              <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
+                                {m}
+                              </span>
+                            </div>
+                            <span className="text-sm font-black font-mono text-app-text">
+                              KSh 0
+                            </span>
+                            <span className="text-[8px] text-app-text-muted font-semibold uppercase">
+                              No payments yet
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {localMoneyAssets.map((asset) => (
+                      <div key={asset.id || asset.method} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          {asset.method === 'M-Pesa' ? (
+                            <Smartphone size={14} className="text-emerald-500" />
+                          ) : asset.method === 'Cash' ? (
+                            <Banknote size={14} className="text-amber-500" />
+                          ) : asset.method === 'Card' ? (
+                            <CreditCard size={14} className="text-blue-500" />
+                          ) : asset.method === 'Bank' ? (
+                            <Landmark size={14} className="text-violet-500" />
+                          ) : (
+                            <Wallet size={14} className="text-slate-500" />
+                          )}
+                          <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
+                            {asset.method}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black font-mono text-emerald-500">
+                          KSh {Number(asset.balance || 0).toLocaleString()}
+                        </span>
+                        {asset.lastPaymentAt && (
+                          <span className="text-[8px] text-app-text-muted font-semibold">
+                            Last: {new Date(asset.lastPaymentAt).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-[9px] font-mono text-app-text-muted font-black">
-                        {localPayments.length} Record(s)
-                      </span>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div className="flex-1 overflow-x-auto min-h-[300px] max-h-[500px]">
-                      {localPayments.length > 0 ? (
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-app-border/40 text-[9px] text-app-text-muted font-bold uppercase tracking-wider">
-                              <th className="py-2.5">Date</th>
-                              <th className="py-2.5">Payee / Sender</th>
-                              <th className="py-2.5">Method</th>
-                              <th className="py-2.5">Reference</th>
-                              <th className="py-2.5">Status</th>
-                              <th className="py-2.5 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-app-border/20 text-xs">
-                            {localPayments.map((pay) => (
-                              <tr
-                                key={pay.id}
-                                className="hover:bg-app-bg/30 transition"
-                              >
-                                <td className="py-2.5 font-mono text-[10.5px]">
-                                  {new Date(pay.date).toLocaleDateString(
-                                    undefined,
-                                    {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    },
-                                  )}
-                                </td>
-                                <td className="py-2.5 font-bold text-app-text">
-                                  <div>{pay.senderName}</div>
-                                  {pay.senderPhone && (
-                                    <div className="text-[9px] text-app-text-muted font-mono">
-                                      {pay.senderPhone}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    {/* Payment Recorder Form - Modern */}
+                    <form
+                      onSubmit={handleAddPayment}
+                      className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <CircleDollarSign size={16} className="text-amber-500" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-black text-app-text uppercase tracking-wider">
+                              Receive Payment
+                            </h3>
+                            <p className="text-[9px] text-app-text-muted font-medium">
+                              Records money asset + customer credit
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Payment Type Toggle */}
+                        <div className="grid grid-cols-2 gap-1.5 bg-app-bg/60 border border-app-border rounded-xl p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayType('customer');
+                              setPaySenderName("");
+                            }}
+                            className={`py-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                              payType === 'customer'
+                                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                                : 'text-app-text-muted hover:text-app-text'
+                            }`}
+                          >
+                            <UserIcon size={12} />
+                            Customer
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayType('walk-in');
+                              setPayCustomerId("");
+                            }}
+                            className={`py-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                              payType === 'walk-in'
+                                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                                : 'text-app-text-muted hover:text-app-text'
+                            }`}
+                          >
+                            <Store size={12} />
+                            Walk-in
+                          </button>
+                        </div>
+
+                        {/* Customer selector (only for customer type) */}
+                        {payType === 'customer' && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              Customer Account *
+                            </label>
+                            <div className="relative">
+                              <Search
+                                size={13}
+                                className="absolute left-3 top-3 text-app-text-muted pointer-events-none"
+                              />
+                              <input
+                                type="text"
+                                value={paySearchQuery}
+                                onChange={(e) => {
+                                  setPaySearchQuery(e.target.value);
+                                  setPayCustomerDropdownOpen(true);
+                                  setPayCustomerId("");
+                                }}
+                                onFocus={() => setPayCustomerDropdownOpen(true)}
+                                placeholder="Search customer by name / phone..."
+                                className="w-full bg-app-bg text-app-text border border-app-border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
+                              />
+                              {payCustomerDropdownOpen && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setPayCustomerDropdownOpen(false)}
+                                  />
+                                  <div className="absolute z-20 mt-1 w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden">
+                                    <div className="max-h-52 overflow-y-auto">
+                                      {localCustomers
+                                        .filter((c) =>
+                                          !paySearchQuery.trim() ||
+                                          c.name.toLowerCase().includes(paySearchQuery.toLowerCase()) ||
+                                          (c.phone || '').includes(paySearchQuery)
+                                        )
+                                        .slice(0, 12)
+                                        .map((c) => (
+                                          <button
+                                            type="button"
+                                            key={c.id}
+                                            onClick={() => {
+                                              setPayCustomerId(c.id);
+                                              setPaySenderName(c.name);
+                                              setPaySenderPhone(c.phone || "");
+                                              setPayCustomerDropdownOpen(false);
+                                              setPaySearchQuery(c.name);
+                                            }}
+                                            className={`w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-amber-500/10 transition cursor-pointer ${
+                                              payCustomerId === c.id ? 'bg-amber-500/5' : ''
+                                            }`}
+                                          >
+                                            <div className="w-7 h-7 rounded-lg bg-app-bg border border-app-border flex items-center justify-center shrink-0">
+                                              <UserIcon size={12} className="text-amber-500" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                              <p className="text-[11px] font-bold text-app-text truncate">
+                                                {c.name}
+                                              </p>
+                                              <div className="flex items-center gap-2 text-[8.5px] text-app-text-muted font-mono">
+                                                {c.phone && <span>{c.phone}</span>}
+                                                {Number(c.debtBalance || 0) > 0 && (
+                                                  <span className="text-red-500 font-black">
+                                                    Debt: KSh {Number(c.debtBalance).toLocaleString()}
+                                                  </span>
+                                                )}
+                                                {Number(c.walletBalance || 0) > 0 && (
+                                                  <span className="text-emerald-500 font-black">
+                                                    Wallet: KSh {Number(c.walletBalance).toLocaleString()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </button>
+                                        ))}
+                                      {localCustomers.length === 0 && (
+                                        <div className="p-3 text-[10px] text-app-text-muted text-center font-medium">
+                                          No registered customers found
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </td>
-                                <td className="py-2.5 font-semibold text-app-text">
-                                  {pay.method}
-                                </td>
-                                <td className="py-2.5 text-app-text-muted font-mono text-[11px] font-semibold">
-                                  {pay.referenceCode}
-                                </td>
-                                <td className="py-2.5">
-                                  <span
-                                    className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider ${
-                                      pay.status === 'Success'
-                                        ? 'bg-emerald-500/10 text-emerald-500'
-                                        : pay.status === 'Pending'
-                                        ? 'bg-amber-500/10 text-amber-500'
-                                        : 'bg-red-500/10 text-red-500'
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            {payCustomerId && (
+                              <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                                <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                                <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                                  Payment will reconcile against this customer's account
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Amount */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Amount Received (KSh) *
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-[11px] font-black text-app-text-muted">
+                              KSh
+                            </span>
+                            <input
+                              type="number"
+                              required
+                              min="1"
+                              placeholder="0.00"
+                              value={payAmount}
+                              onChange={(e) => setExpPayAmount(e.target.value)}
+                              className="w-full bg-app-bg text-app-text border border-app-border rounded-xl pl-11 pr-3 py-2.5 text-sm font-black font-mono focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Payment Method - Modern Cards */}
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              Payment Method *
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setPayMethodDisplay(payMethodDisplay === 'modern' ? 'classic' : 'modern')}
+                              className="text-[8px] font-bold text-app-text-muted hover:text-amber-500 uppercase tracking-wider transition cursor-pointer"
+                            >
+                              {payMethodDisplay === 'modern' ? 'Classic view' : 'Modern view'}
+                            </button>
+                          </div>
+                          {payMethodDisplay === 'modern' ? (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {(['M-Pesa', 'Cash', 'Card', 'Bank'] as const).map((m) => {
+                                const icons: Record<string, React.ReactNode> = {
+                                  'M-Pesa': <Smartphone size={14} className="text-emerald-500" />,
+                                  'Cash': <Banknote size={14} className="text-amber-500" />,
+                                  'Card': <CreditCard size={14} className="text-blue-500" />,
+                                  'Bank': <Landmark size={14} className="text-violet-500" />,
+                                };
+                                return (
+                                  <button
+                                    type="button"
+                                    key={m}
+                                    onClick={() => setPayMethod(m)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                                      payMethod === m
+                                        ? 'border-amber-500 bg-amber-500/5'
+                                        : 'border-app-border bg-app-bg/40 hover:border-amber-500/30'
                                     }`}
                                   >
-                                    {pay.status}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 text-right font-black font-mono text-emerald-500">
-                                  KSh {Number(pay.amount).toLocaleString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
-                          <CreditCard
-                            size={32}
-                            className="text-slate-700 mb-2"
-                          />
-                          <p className="text-[10.5px] font-bold">
-                            No Business Payments Logged
-                          </p>
-                          <p className="text-[9.5px] max-w-xs mt-0.5">
-                            Business payments recorded using the form on the
-                            left will sync here and populate financial reports.
-                          </p>
+                                    {icons[m]}
+                                    <span className={`text-[10px] font-black ${payMethod === m ? 'text-amber-500' : 'text-app-text'}`}>
+                                      {m}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <SearchableDropdown
+                              items={[
+                                { id: 'M-Pesa', label: 'M-Pesa' },
+                                { id: 'Cash', label: 'Cash' },
+                                { id: 'Card', label: 'Card' },
+                                { id: 'Bank', label: 'Bank Transfer' },
+                                { id: 'Other', label: 'Other' },
+                              ]}
+                              selectedValue={payMethod}
+                              onChange={(val) => setPayMethod(val as any)}
+                              placeholder="Select method..."
+                            />
+                          )}
                         </div>
-                      )}
+
+                        {/* Sender Name */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            {payType === 'customer' ? 'Payer Name' : 'Customer / Payer Name *'}
+                          </label>
+                          <div className="relative">
+                            <UserIcon size={13} className="absolute left-3 top-3 text-app-text-muted pointer-events-none" />
+                            <input
+                              type="text"
+                              required
+                              placeholder={payType === 'customer' ? 'Auto-filled from customer' : 'e.g. James Karuri'}
+                              value={paySenderName}
+                              onChange={(e) => setPaySenderName(e.target.value)}
+                              className="w-full bg-app-bg text-app-text border border-app-border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Sender Phone */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Phone (Optional)
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="e.g. +254712345678"
+                            value={paySenderPhone}
+                            onChange={(e) => setPaySenderPhone(e.target.value)}
+                            className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
+                          />
+                        </div>
+
+                        {/* Reference + Status + Date grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1.5 sm:col-span-2">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              Reference Code / M-Pesa ID *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. SXK2M9Q1TZ"
+                              value={payRef}
+                              onChange={(e) => setPayRef(e.target.value)}
+                              className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              Status
+                            </label>
+                            <SearchableDropdown
+                              items={[
+                                { id: 'Success', label: 'Success' },
+                                { id: 'Pending', label: 'Pending' },
+                                { id: 'Failed', label: 'Failed' },
+                              ]}
+                              selectedValue={payStatus}
+                              onChange={(val) => setPayStatus(val as any)}
+                              placeholder="Status..."
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                              Date
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={payDate}
+                              onChange={(e) => setPayDate(e.target.value)}
+                              className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            Notes / Description
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder={payType === 'walk-in' ? 'e.g. Walk-in customer — fuel reimbursement' : 'e.g. August milk order settlement'}
+                            value={payDescription}
+                            onChange={(e) => setPayDescription(e.target.value)}
+                            className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-medium"
+                          />
+                        </div>
+
+                        {/* Info Banner */}
+                        {payCustomerId && localCustomers.find(c => c.id === payCustomerId) && (
+                          <div className="bg-app-bg/50 border border-app-border rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <ShieldCheck size={12} className="text-amber-500 shrink-0" />
+                              <span className="text-[9px] font-black uppercase tracking-wider text-app-text-muted">
+                                Reconciliation Preview
+                              </span>
+                            </div>
+                            {(() => {
+                              const cust = localCustomers.find(c => c.id === payCustomerId)!;
+                              const debt = Number(cust.debtBalance || 0);
+                              const wallet = Number(cust.walletBalance || 0);
+                              const amt = Number(payAmount) || 0;
+                              const debtApplied = Math.min(debt, amt);
+                              const walletApplied = amt > debt ? amt - debt : 0;
+                              return (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-[9.5px]">
+                                    <span className="text-app-text-muted font-semibold">Outstanding Debt</span>
+                                    <span className={`font-black font-mono ${debt > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      KSh {debt.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {amt > 0 && (
+                                    <>
+                                      <div className="flex items-center justify-between text-[9.5px]">
+                                        <span className="text-app-text-muted font-semibold">→ Applied to debt</span>
+                                        <span className="font-black font-mono text-red-500">-KSh {debtApplied.toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[9.5px]">
+                                        <span className="text-app-text-muted font-semibold">→ Credited to wallet</span>
+                                        <span className="font-black font-mono text-emerald-500">+KSh {walletApplied.toLocaleString()}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={paymentSubmitting}
+                          className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md text-xs"
+                        >
+                          {paymentSubmitting ? (
+                            <>
+                              <RefreshCw size={14} className="animate-spin" />
+                              <span>Recording...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CircleDollarSign size={14} />
+                              <span>Record Payment</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Payments Directory / List - Modern */}
+                    <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border/40 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <TrendingUp size={14} className="text-emerald-500" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-black text-app-text uppercase tracking-wider">
+                              Payment Ledger
+                            </h3>
+                            <p className="text-[8.5px] text-app-text-muted font-medium">
+                              All received business payments
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex bg-app-bg/60 border border-app-border rounded-lg p-0.5">
+                            {(['all', 'customer', 'walk-in'] as const).map((f) => (
+                              <button
+                                type="button"
+                                key={f}
+                                onClick={() => setPayFilter(f)}
+                                className={`px-2.5 py-1 rounded-md text-[8.5px] font-black uppercase tracking-wider transition cursor-pointer ${
+                                  payFilter === f
+                                    ? 'bg-amber-500 text-slate-950'
+                                    : 'text-app-text-muted hover:text-app-text'
+                                }`}
+                              >
+                                {f}
+                              </button>
+                            ))}
+                          </div>
+                          <span className="text-[9px] font-mono text-app-text-muted font-black bg-app-bg border border-app-border rounded-lg px-2 py-1 whitespace-nowrap">
+                            {localPayments.length} Payments
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-x-auto min-h-[300px] max-h-[520px]">
+                        {localPayments.length > 0 ? (
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-app-border/40 text-[8.5px] text-app-text-muted font-bold uppercase tracking-wider">
+                                <th className="py-2.5">Date</th>
+                                <th className="py-2.5">Payer</th>
+                                <th className="py-2.5">Type</th>
+                                <th className="py-2.5">Method</th>
+                                <th className="py-2.5">Applied To</th>
+                                <th className="py-2.5 text-right">Amount</th>
+                                {isOwner && <th className="py-2.5 text-center">Actions</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-app-border/20 text-xs">
+                              {localPayments
+                                .filter((p) => payFilter === 'all' || (p.paymentType || 'walk-in') === payFilter)
+                                .map((pay) => (
+                                  <tr key={pay.id} className="hover:bg-app-bg/30 transition">
+                                    <td className="py-2.5 font-mono text-[10px] whitespace-nowrap">
+                                      <div>{new Date(pay.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                      <div className="text-[8px] text-app-text-muted">
+                                        {new Date(pay.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5">
+                                      <div className="font-bold text-app-text">{pay.senderName}</div>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        {pay.senderPhone && (
+                                          <span className="text-[8.5px] text-app-text-muted font-mono">{pay.senderPhone}</span>
+                                        )}
+                                        <span className="text-[8.5px] font-mono text-app-text-muted bg-app-bg border border-app-border rounded px-1.5 py-0.5">
+                                          {pay.referenceCode}
+                                        </span>
+                                      </div>
+                                      {pay.description && (
+                                        <div className="text-[8.5px] text-app-text-muted font-medium mt-0.5 truncate max-w-[180px]" title={pay.description}>
+                                          {pay.description}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${(pay.paymentType || 'walk-in') === 'customer' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                                        {(pay.paymentType || 'walk-in') === 'customer' ? <UserIcon size={8} /> : <Store size={8} />}
+                                        {(pay.paymentType || 'walk-in') === 'customer' ? (pay.customerName || 'Customer') : 'Walk-in'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5">
+                                      <div className="flex items-center gap-1.5">
+                                        {pay.method === 'M-Pesa' ? (
+                                          <Smartphone size={12} className="text-emerald-500" />
+                                        ) : pay.method === 'Cash' ? (
+                                          <Banknote size={12} className="text-amber-500" />
+                                        ) : pay.method === 'Card' ? (
+                                          <CreditCard size={12} className="text-blue-500" />
+                                        ) : pay.method === 'Bank' ? (
+                                          <Landmark size={12} className="text-violet-500" />
+                                        ) : (
+                                          <Wallet size={12} className="text-slate-500" />
+                                        )}
+                                        <span className="font-bold text-app-text text-[10.5px]">{pay.method}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5">
+                                      {(pay.appliedTo && pay.appliedTo !== 'none') ? (
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className={`text-[8px] font-black uppercase ${pay.appliedTo === 'debt' ? 'text-red-500' : pay.appliedTo === 'wallet' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                            {pay.appliedTo === 'mixed' ? 'Mixed' : pay.appliedTo}
+                                          </span>
+                                          {Number(pay.debtApplied || 0) > 0 && (
+                                            <span className="text-[8px] font-mono text-red-500">
+                                              Debt: KSh {Number(pay.debtApplied).toLocaleString()}
+                                            </span>
+                                          )}
+                                          {Number(pay.walletApplied || 0) > 0 && (
+                                            <span className="text-[8px] font-mono text-emerald-500">
+                                              Wallet: KSh {Number(pay.walletApplied).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-[8.5px] text-app-text-muted font-semibold uppercase">N/A</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 text-right">
+                                      <span className={`font-black font-mono ${pay.status === 'Failed' ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        KSh {Number(pay.amount).toLocaleString()}
+                                      </span>
+                                      <span className={`block text-[8px] font-bold uppercase tracking-wider mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : 'text-red-500'}`}>
+                                        {pay.status}
+                                      </span>
+                                    </td>
+                                    {isOwner && (
+                                      <td className="py-2.5 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeletePayment(pay.id)}
+                                          title="Delete payment"
+                                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
+                            <CircleDollarSign size={32} className="text-slate-700 mb-2" />
+                            <p className="text-[10.5px] font-bold">No Payments Recorded Yet</p>
+                            <p className="text-[9.5px] max-w-xs mt-0.5">
+                              Record customer or walk-in payments to track money assets and reconcile customer accounts.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
