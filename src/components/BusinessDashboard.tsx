@@ -93,6 +93,7 @@ export default function BusinessDashboard() {
   const [payments, setPayments] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!activeBusinessId) return;
     let unsubExp: (() => void) | undefined;
     let unsubPay: (() => void) | undefined;
     import("../services/repositories").then((mod) => {
@@ -107,7 +108,7 @@ export default function BusinessDashboard() {
       unsubExp?.();
       unsubPay?.();
     };
-  }, []);
+  }, [activeBusinessId]);
 
   // Safe Store Fallback Guards
   const safeProducts = useMemo(() => Array.isArray(products) ? products : [], [products]);

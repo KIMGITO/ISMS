@@ -333,17 +333,38 @@ export interface DebtPayment {
   created_at?: string;
 }
 
+export type PaymentType = 'customer' | 'walk-in';
+
 export interface Payment {
   id: string;
   businessId: string;
   referenceCode: string;
   amount: number;
-  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank';
+  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Other';
   senderName: string;
   senderPhone?: string;
   status: 'Success' | 'Pending' | 'Failed';
   date: string;
+  customerId?: string;
+  customerName?: string;
+  paymentType?: PaymentType;
+  description?: string;
+  appliedTo?: 'none' | 'debt' | 'wallet' | 'mixed';
+  debtApplied?: number;
+  walletApplied?: number;
+  referenceId?: string;
+  recordedBy?: string;
   created_at?: string;
+}
+
+export interface MoneyAsset {
+  id: string;
+  businessId: string;
+  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Other';
+  balance: number;
+  lastPaymentAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ==========================================

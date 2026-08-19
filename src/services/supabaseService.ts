@@ -322,6 +322,103 @@ export class SupabaseService {
     }
   }
 
+  /**
+   * Process a business payment atomically via RPC.
+   * Records the payment, increments money asset, and applies to
+   * customer debt/wallet in ONE DB transaction.
+   * Idempotent via p_reference_code.
+   */
+  static async processBusinessPayment(params: {
+    businessId: string;
+    referenceCode: string;
+    amount: number;
+    method: string;
+    senderName: string;
+    senderPhone?: string;
+    status?: 'Success' | 'Pending' | 'Failed';
+    date?: string;
+    customerId?: string;
+    paymentType?: 'customer' | 'walk-in';
+    description?: string;
+    recordedBy?: string;
+  }): Promise<string> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("process_business_payment", {
+      p_business_id: toUuid(params.businessId),
+      p_reference_code: params.referenceCode,
+      p_amount: params.amount,
+      p_method: params.method,
+      p_sender_name: params.senderName,
+      p_sender_phone: params.senderPhone || null,
+      p_status: params.status || 'Success',
+      p_date: params.date || new Date().toISOString(),
+      p_customer_id: params.customerId ? toUuid(params.customerId) : null,
+      p_customer_name: params.customerId ? undefined : null,
+      p_payment_type: params.paymentType || 'walk-in',
+      p_description: params.description || null,
+      p_recorded_by: params.recordedBy || null,
+    });
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+    return data as string;
+  }
+
+  /**
+   * Fetch money asset balances for a business.
+   */
+  static async fetchMoneyAssets(businessId: string): Promise<any[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("money_assets")
+      .select("*")
+      .eq("business_id", toUuid(businessId));
+
+    if (error) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+      throw error;
+    }
+
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      businessId: m.business_id,
+      method: m.method,
+      balance: Number(m.balance),
+      lastPaymentAt: m.last_payment_at || undefined,
+      created_at: m.created_at,
+      updated_at: m.updated_at,
+    }));
+  }
+
+  /**
+   * Subscribe to money_assets changes for a business.
+   */
+  static subscribeMoneyAssets(businessId: string, callback: (assets: any[]) => void): () => void {
+    if (!businessId) {
+      callback([]);
+      return () => {};
+    }
+
+    this.fetchMoneyAssets(businessId).then(callback).catch(console.error);
+
+    const supabase = getSupabase();
+    const filterString = `business_id=eq.${businessId}`;
+    const channel = supabase
+      .channel(`realtime-money-assets-${businessId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "money_assets", filter: filterString },
+        () => {
+          this.fetchMoneyAssets(businessId).then(callback).catch(console.error);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }
+
   // ==========================================
   // CUSTOMER LOYALTY OPERATIONS
   // ==========================================

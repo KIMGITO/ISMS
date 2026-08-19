@@ -888,6 +888,15 @@ export class PaymentRepository {
       senderPhone: p.sender_phone || "",
       status: p.status as any,
       date: p.date,
+      customerId: p.customer_id || undefined,
+      customerName: p.customer_name || undefined,
+      paymentType: p.payment_type || 'walk-in',
+      description: p.description || undefined,
+      appliedTo: p.applied_to || 'none',
+      debtApplied: p.debt_applied ? Number(p.debt_applied) : 0,
+      walletApplied: p.wallet_applied ? Number(p.wallet_applied) : 0,
+      referenceId: p.reference_id || undefined,
+      recordedBy: p.recorded_by || undefined,
       sync_status: "synced"
     }));
   }
@@ -915,9 +924,65 @@ export class PaymentRepository {
     return () => { supabase.removeChannel(channel); };
   }
 
+  /**
+   * Add a payment using the atomic `process_business_payment` RPC.
+   * This records the payment, increments money assets, and applies
+   * to customer debt/wallet in a single DB transaction.
+   */
   public static async add(payment: Omit<Payment, "id" | "created_at" | "updated_at">): Promise<SQLiteRow<Payment>> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
+
+    // Use the atomic RPC if a reference code is provided (enables idempotency + money assets)
+    if (payment.referenceCode) {
+      const paymentId = await SupabaseService.processBusinessPayment({
+        businessId: payment.businessId || activeBusinessId,
+        referenceCode: payment.referenceCode,
+        amount: payment.amount,
+        method: payment.method,
+        senderName: payment.senderName,
+        senderPhone: payment.senderPhone,
+        status: payment.status,
+        date: payment.date,
+        customerId: payment.customerId,
+        paymentType: payment.paymentType,
+        description: payment.description,
+        recordedBy: payment.recordedBy,
+      });
+
+      // Fetch the created payment from DB
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("id", paymentId)
+        .single();
+
+      if (error) { triggerNetworkFailureEvent(); throw error; }
+
+      return {
+        id: data.id,
+        businessId: data.business_id,
+        referenceCode: data.reference_code,
+        amount: Number(data.amount),
+        method: data.method as any,
+        senderName: data.sender_name,
+        senderPhone: data.sender_phone || "",
+        status: data.status as any,
+        date: data.date,
+        customerId: data.customer_id || undefined,
+        customerName: data.customer_name || undefined,
+        paymentType: data.payment_type || 'walk-in',
+        description: data.description || undefined,
+        appliedTo: data.applied_to || 'none',
+        debtApplied: data.debt_applied ? Number(data.debt_applied) : 0,
+        walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
+        referenceId: data.reference_id || undefined,
+        recordedBy: data.recorded_by || undefined,
+        sync_status: "synced",
+      };
+    }
+
+    // Fallback direct insert (no reference code path)
     const payload = {
       business_id: toUuid(payment.businessId || activeBusinessId),
       reference_code: normalizeForStorage(payment.referenceCode),
@@ -927,6 +992,14 @@ export class PaymentRepository {
       sender_phone: payment.senderPhone || null,
       status: payment.status || 'Success',
       date: payment.date || new Date().toISOString(),
+      customer_id: payment.customerId ? toUuid(payment.customerId) : null,
+      customer_name: payment.customerName || null,
+      payment_type: payment.paymentType || 'walk-in',
+      description: payment.description || null,
+      applied_to: payment.appliedTo || 'none',
+      debt_applied: payment.debtApplied || 0,
+      wallet_applied: payment.walletApplied || 0,
+      recorded_by: payment.recordedBy || null,
     };
 
     const { data, error } = await supabase.from("payments").insert(payload).select().single();
@@ -942,6 +1015,15 @@ export class PaymentRepository {
       senderPhone: data.sender_phone || "",
       status: data.status as any,
       date: data.date,
+      customerId: data.customer_id || undefined,
+      customerName: data.customer_name || undefined,
+      paymentType: data.payment_type || 'walk-in',
+      description: data.description || undefined,
+      appliedTo: data.applied_to || 'none',
+      debtApplied: data.debt_applied ? Number(data.debt_applied) : 0,
+      walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
+      referenceId: data.reference_id || undefined,
+      recordedBy: data.recorded_by || undefined,
       sync_status: "synced",
     };
   }
@@ -957,6 +1039,14 @@ export class PaymentRepository {
     if (updates.senderPhone !== undefined) payload.sender_phone = updates.senderPhone;
     if (updates.status !== undefined) payload.status = updates.status;
     if (updates.date !== undefined) payload.date = updates.date;
+    if (updates.customerId !== undefined) payload.customer_id = updates.customerId ? toUuid(updates.customerId) : null;
+    if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
+    if (updates.paymentType !== undefined) payload.payment_type = updates.paymentType;
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.appliedTo !== undefined) payload.applied_to = updates.appliedTo;
+    if (updates.debtApplied !== undefined) payload.debt_applied = updates.debtApplied;
+    if (updates.walletApplied !== undefined) payload.wallet_applied = updates.walletApplied;
+    if (updates.recordedBy !== undefined) payload.recorded_by = updates.recordedBy;
 
     const { data, error } = await supabase.from("payments").update(payload).eq("id", id).select().single();
     if (error) { triggerNetworkFailureEvent(); throw error; }
@@ -971,6 +1061,15 @@ export class PaymentRepository {
       senderPhone: data.sender_phone || "",
       status: data.status as any,
       date: data.date,
+      customerId: data.customer_id || undefined,
+      customerName: data.customer_name || undefined,
+      paymentType: data.payment_type || 'walk-in',
+      description: data.description || undefined,
+      appliedTo: data.applied_to || 'none',
+      debtApplied: data.debt_applied ? Number(data.debt_applied) : 0,
+      walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
+      referenceId: data.reference_id || undefined,
+      recordedBy: data.recorded_by || undefined,
       sync_status: "synced",
     };
   }
@@ -980,6 +1079,60 @@ export class PaymentRepository {
     const { error } = await supabase.from("payments").delete().eq("id", id);
     if (error) { triggerNetworkFailureEvent(); throw error; }
     return true;
+  }
+}
+
+// ─────────────────────────────────────────────
+// MONEY ASSET REPOSITORY
+// ─────────────────────────────────────────────
+export class MoneyAssetRepository {
+  public static setAll(_assets: any[]) {}
+
+  public static async getAll(): Promise<SQLiteRow<any>[]> {
+    const supabase = getSupabase();
+    const activeBusinessId = getActiveBusinessId();
+
+    const { data, error } = await supabase
+      .from("money_assets")
+      .select("*")
+      .eq("business_id", activeBusinessId)
+      .order("balance", { ascending: false });
+
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+
+    return (data || []).map(a => ({
+      id: a.id,
+      businessId: a.business_id,
+      method: a.method,
+      balance: Number(a.balance),
+      lastPaymentAt: a.last_payment_at || undefined,
+      created_at: a.created_at,
+      updated_at: a.updated_at,
+      sync_status: "synced"
+    }));
+  }
+
+  public static subscribe(callback: (assets: SQLiteRow<any>[]) => void): () => void {
+    this.getAll().then(callback).catch(console.error);
+
+    if (typeof global !== "undefined" && (global as any).IS_TEST) {
+      return () => {};
+    }
+
+    const activeBusinessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channelId = Math.random().toString(36).substring(2, 10);
+
+    const channel = supabase
+      .channel(`realtime-money-assets-${activeBusinessId}-${channelId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "money_assets", filter: `business_id=eq.${activeBusinessId}` },
+        () => { this.getAll().then(callback).catch(console.error); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }
 }
 
