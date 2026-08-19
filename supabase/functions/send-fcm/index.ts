@@ -31,8 +31,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 2. Fetch device tokens
-    let query = supabaseClient.from('device_fcm_tokens').select('device_token, user_id, id');
+    // 2. Fetch device tokens (including the per-device sound tone)
+    let query = supabaseClient.from('device_fcm_tokens').select('device_token, user_id, id, sound');
 
     if (targetPayload?.user_id) {
       query = query.eq('user_id', targetPayload.user_id);
@@ -92,8 +92,16 @@ Deno.serve(async (req) => {
     // 6. Send to each device, tracking failures for token cleanup
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
 
-    const sendPromises = tokens.map(async ({ device_token: token, user_id: tokenUserId, id: tokenRowId }) => {
+    const sendPromises = tokens.map(async ({ device_token: token, user_id: tokenUserId, id: tokenRowId, sound: tokenSound }) => {
       try {
+        // Per-device tone: stored as e.g. "notification1.mp3" or "notification1".
+        // Normalise:
+        //   - Android raw resource name (no extension, lowercase).
+        //   - iOS / APNs sound filename (with .mp3 extension).
+        const rawSound = (tokenSound && tokenSound !== '' && tokenSound !== 'none') ? tokenSound : 'notification1.mp3';
+        const androidSound = rawSound.replace(/\.mp3$/i, '');
+        const apnsSound = rawSound.endsWith('.mp3') ? rawSound : `${rawSound}.mp3`;
+
         const response = await fetch(fcmUrl, {
           method: 'POST',
           headers: {
@@ -106,6 +114,21 @@ Deno.serve(async (req) => {
               notification: {
                 title: title || "New Notification",
                 body: messageText || "You have a new message.",
+              },
+              // Android uses the bundled raw resource name (no extension).
+              // iOS uses the sound filename in the app bundle.
+              android: {
+                notification: {
+                  sound: androidSound,
+                  channel_id: 'default',
+                },
+              },
+              apns: {
+                payload: {
+                  aps: {
+                    sound: apnsSound,
+                  },
+                },
               },
               data: {
                 type: type || 'info',

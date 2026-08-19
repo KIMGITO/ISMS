@@ -1343,7 +1343,6 @@ function NotificationToneSheet({
         <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-2">
           {tones.map((tone) => {
             const active = toneId === tone.id;
-            const isSilent = tone.id === "none";
             return (
               <button
                 key={tone.id}
@@ -1355,13 +1354,11 @@ function NotificationToneSheet({
                 }`}
               >
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                  isSilent
-                    ? "bg-app-bg text-app-text-muted"
-                    : active
+                  active
                     ? "bg-amber-500/15 text-amber-500"
                     : "bg-app-bg text-app-text-muted"
                 }`}>
-                  {isSilent ? <X size={15} /> : <BellRing size={15} />}
+                  <BellRing size={15} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="text-[13px] font-bold block truncate">{tone.label}</span>
