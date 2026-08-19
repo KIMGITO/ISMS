@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
   "release": "bash ./release.sh",
+  "sounds:sync": "node scripts/sync-notification-sounds.mjs",
+  "android:cap": "npm run sounds:sync && npm run build && npx cap sync android",
   "dev": "vite",
   "build": "vite build",
   "build:linux": "npm run tauri build",

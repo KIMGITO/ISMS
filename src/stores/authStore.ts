@@ -471,13 +471,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
           const pushGranted = await notificationService.registerPush();
           if (pushGranted) {
             notificationService.onPushRegistered(async (token) => {
-              // Upsert the device token for the current user in Supabase
+              // Upsert the device token for the current user in Supabase,
+              // persisting this device's selected notification tone as the
+              // FCM `sound` (per-device, so each device can have its own tone).
+              const { NotificationToneService } = await import("../services/notifications/notificationTone");
+              const toneSound = NotificationToneService.getNativeSoundName();
+
               const { error: tokenErr } = await supabase
                 .from("device_fcm_tokens")
                 .upsert({
                   user_id: mappedUser.id,
                   device_token: token,
-                  device_type: nativePlatformService.isNative() ? "mobile" : "web"
+                  device_type: nativePlatformService.isNative() ? "mobile" : "web",
+                  sound: toneSound
                 }, { onConflict: "user_id, device_token" });
               
               if (tokenErr) {
