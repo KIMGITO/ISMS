@@ -75,6 +75,16 @@ export class NotificationRepository {
     );
   }
 
+  /**
+   * Returns archived (but not deleted) notifications, newest first.
+   * Used by the "Archived" view in the UI so users can restore or delete.
+   */
+  public static getArchived(): SQLiteRow<AppNotification>[] {
+    return notifications
+      .filter((n) => n.archived_at && !n.deleted_at)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
   public static getById(id: string): SQLiteRow<AppNotification> | null {
     const uuidId = toUuid(id);
     return notifications.find((n) => (n.id === id || n.id === uuidId) && !n.deleted_at) || null;

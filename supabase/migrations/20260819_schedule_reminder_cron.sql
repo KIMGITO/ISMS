@@ -46,7 +46,7 @@ BEGIN
         PERFORM cron.schedule(
             'process-schedule-reminders',
             '*/15 * * * *',
-            $$SELECT public.flag_due_schedule_reminders()$$
+            $cron$SELECT public.flag_due_schedule_reminders()$cron$
         );
     END IF;
 END;

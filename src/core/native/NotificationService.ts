@@ -3,6 +3,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { nativePlatformService } from "./NativePlatformService";
 import { SupabaseService } from "../../services/supabaseService";
+import { NotificationToneService } from "../../services/notifications/notificationTone";
 
 export interface ScheduledReminder {
   id: number;
@@ -149,6 +150,8 @@ class NotificationService {
         await LocalNotifications.requestPermissions();
       }
 
+      const selectedSound = NotificationToneService.getNativeSoundName();
+
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -156,7 +159,7 @@ class NotificationService {
             title,
             body,
             schedule: { at: new Date(Date.now() + 50) },
-            sound: "beep.wav",
+            sound: selectedSound,
             actionTypeId: "OPEN_ACTION"
           }
         ]
@@ -182,6 +185,8 @@ class NotificationService {
         await LocalNotifications.requestPermissions();
       }
 
+      const selectedSound = NotificationToneService.getNativeSoundName();
+
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -189,6 +194,7 @@ class NotificationService {
             title: reminder.title,
             body: reminder.body,
             schedule: { at: reminder.scheduleAt },
+            sound: selectedSound,
             extra: reminder.extra
           }
         ]

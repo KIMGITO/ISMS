@@ -625,6 +625,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
         activeTab: "home"
       });
 
+      // Clear the Schedule Reminder realtime channel + feed to prevent
+      // duplicate channel errors on next login.
+      try {
+        const reminderUnsub = (window as any).__kkm_reminder_unsub__;
+        if (typeof reminderUnsub === "function") reminderUnsub();
+        (window as any).__kkm_reminder_unsub__ = null;
+      } catch (e) {
+        console.warn("[AuthStore] Failed to clean Schedule Reminder channel:", e);
+      }
+      useNotificationStore.setState({ scheduleReminders: [], unreadReminderCount: 0 });
+
       // Clear the in-memory notification repository so stale data from the
       // previous session doesn't leak into the next login. Unlike
       // clearAllNotifications(), this does NOT soft-delete any rows from

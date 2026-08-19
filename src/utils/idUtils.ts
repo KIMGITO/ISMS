@@ -19,7 +19,7 @@ export function formatReceiptNumber(txId: string | null | undefined): string {
 
 export function formatCustomerNumber(customerId: string | null | undefined): string {
   if (!customerId) return "";
-  return `CST${getShortId(customerId)}`;
+  return `CST-${getShortId(customerId)}`;
 }
 
 export function formatProductCode(productId: string | null | undefined): string {

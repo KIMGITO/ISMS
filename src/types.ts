@@ -247,7 +247,7 @@ export interface AppNotification {
   expires_at: string | null;
   sent_at: string | null;
   delivered_at: string | null;
-  status: "pending" | "delivered" | "failed";
+  status: "pending" | "sent" | "delivered" | "failed";
   created_by: string;
   archived_at?: string | null;
 }

@@ -4,6 +4,7 @@ import { useAuthStore } from "./authStore";
 import { useBusinessStore } from "./businessStore";
 import { getSupabase } from "../services/supabaseClient";
 import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
+import { NotificationToneService } from "../services/notifications/notificationTone";
 
 export interface ToastMessage {
   id: string;
@@ -107,6 +108,13 @@ interface NotificationState {
   clearAllNotifications: () => void;
 }
 
+// Module-level reference to the schedule-reminder realtime channel, so
+// repeated calls to initScheduleReminders() (authStore hydration + view mount)
+// do NOT create a second channel with the same name. Supabase dedupes channels
+// by name and throws "cannot add postgres_changes callbacks ... after subscribe()"
+// if a new .on() is added to an already-subscribed channel.
+let scheduleReminderChannel: any = null;
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   toast: null,
   notifications: [],
@@ -115,11 +123,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadReminderCount: 0,
   
   initScheduleReminders: () => {
-    // Query only Schedule Reminder notifications for the current user
     const supabase = getSupabase();
     const currentUser = useAuthStore.getState().currentUser;
     if (!supabase || !currentUser) return;
 
+    // Idempotency guard: remove any existing channel BEFORE re-creating it,
+    // otherwise Supabase throws on the second .on() after .subscribe().
+    if (scheduleReminderChannel) {
+      try {
+        supabase.removeChannel(scheduleReminderChannel);
+      } catch (e) {
+        console.warn("[ScheduleReminder] Failed to remove previous channel:", e);
+      }
+      scheduleReminderChannel = null;
+    }
+
+    // Query only Schedule Reminder notifications for the current user
     supabase
       .from("notifications")
       .select("*")
@@ -141,7 +160,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     // Subscribe to realtime changes on notifications filtered by user,
     // then retain only Schedule Reminder type in the local list.
-    const channel = supabase
+    scheduleReminderChannel = supabase
       .channel("realtime-schedule-reminders")
       .on(
         "postgres_changes",
@@ -170,8 +189,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       )
       .subscribe();
 
-    // Keep removed on logout
-    const unsub = () => supabase.removeChannel(channel);
+    // Keep removed on logout / next init
+    const unsub = () => {
+      if (scheduleReminderChannel) {
+        try {
+          supabase.removeChannel(scheduleReminderChannel);
+        } catch (e) {
+          console.warn("[ScheduleReminder] Failed to remove channel on unsub:", e);
+        }
+        scheduleReminderChannel = null;
+      }
+    };
     (window as any).__kkm_reminder_unsub__ = unsub;
   },
   
@@ -323,44 +351,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
 // Helper function to play a synthesized chime
 function playAudioCue(type: "error" | "success" | "info") {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContextClass) {
-      const ctx = new AudioContextClass();
-      if (type === "error") {
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = "sine";
-        osc1.frequency.setValueAtTime(260, ctx.currentTime);
-        gain1.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start();
-        osc1.stop(ctx.currentTime + 0.15);
-      } else if (type === "success") {
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = "triangle";
-        osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
-        gain1.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start();
-        osc1.stop(ctx.currentTime + 0.15);
-      } else {
-        const osc1 = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc1.type = "sine";
-        osc1.frequency.setValueAtTime(440, ctx.currentTime);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        osc1.connect(gain);
-        gain.connect(ctx.destination);
-        osc1.start();
-        osc1.stop(ctx.currentTime + 0.3);
-      }
-    }
-  } catch (e) {}
+  // Per-device tone (respects user-selected tone, incl. silent)
+  NotificationToneService.playWebTone();
 }
