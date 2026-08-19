@@ -191,6 +191,13 @@ export class NotificationService {
   }
 
   /**
+   * Marks notification as unread
+   */
+  public static markAsUnread(id: string): void {
+    NotificationRepository.update(id, { read_at: null });
+  }
+
+  /**
    * Marks notification as clicked
    */
   public static markAsClicked(id: string): void {
@@ -212,7 +219,7 @@ export class NotificationService {
   }
 
   /**
-   * Unarchives a notification
+   * Unarchives / restores a notification to the main feed
    */
   public static unarchive(id: string): void {
     NotificationRepository.update(id, { archived_at: null });
