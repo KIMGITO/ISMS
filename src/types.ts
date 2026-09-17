@@ -275,6 +275,7 @@ export interface Expense {
   date: string;
   staffName: string;
   businessId?: string;
+  paymentMethod?: PaymentMethod;
   created_at?: string;
 }
 
@@ -360,7 +361,7 @@ export interface Payment {
 export interface MoneyAsset {
   id: string;
   businessId: string;
-  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Other';
+  method: PaymentMethod;
   balance: number;
   lastPaymentAt?: string;
   created_at?: string;

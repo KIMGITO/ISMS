@@ -27,18 +27,18 @@ export interface NotificationPref {
 }
 
 export const DEFAULT_PREFS_BY_ROLE: Record<string, NotificationPref> = {
-  Owner: { inventory: true, logistics: true, security: true, sales: true, audit: true },
-  Admin: { inventory: false, logistics: false, security: true, sales: false, audit: true },
-  Manager: { inventory: true, logistics: true, security: true, sales: true, audit: true },
-  Cashier: { inventory: true, logistics: false, security: false, sales: true, audit: false },
-  "Inventory Manager": { inventory: true, logistics: false, security: true, sales: false, audit: false },
-  Staff: { inventory: true, logistics: true, security: false, sales: true, audit: false },
-  Administrator: { inventory: false, logistics: false, security: true, sales: false, audit: true },
-  Rider: { inventory: false, logistics: true, security: false, sales: false, audit: false },
-  "Production Staff": { inventory: true, logistics: false, security: false, sales: false, audit: false },
-  "Inventory Staff": { inventory: true, logistics: false, security: false, sales: false, audit: false },
-  "Delivery Driver": { inventory: false, logistics: true, security: false, sales: false, audit: false },
-  "Customer Support": { inventory: false, logistics: true, security: false, sales: true, audit: false }
+  Owner: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Admin: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Manager: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Cashier: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  "Inventory Manager": { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Staff: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Administrator: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  Rider: { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  "Production Staff": { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  "Inventory Staff": { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  "Delivery Driver": { inventory: false, logistics: false, security: false, sales: false, audit: false },
+  "Customer Support": { inventory: false, logistics: false, security: false, sales: false, audit: false }
 };
 
 export const ROLE_ELIGIBLE_CATEGORIES: Record<string, ("inventory" | "logistics" | "security" | "sales" | "audit")[]> = {
@@ -61,7 +61,7 @@ export const getNotificationPrefs = (employeeId: string, role: EmployeeRole): No
     const saved = localStorage.getItem(`kkm_notif_pref_${employeeId}`);
     if (saved) return JSON.parse(saved);
   } catch {}
-  return DEFAULT_PREFS_BY_ROLE[role] || { inventory: true, logistics: true, security: true, sales: true, audit: true };
+  return DEFAULT_PREFS_BY_ROLE[role] || { inventory: false, logistics: false, security: false, sales: false, audit: false };
 };
 
 export const saveNotificationPrefs = (employeeId: string, prefs: NotificationPref) => {

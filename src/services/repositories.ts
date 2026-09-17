@@ -574,6 +574,7 @@ export class ExpenseRepository {
       date: e.date,
       staffName: e.staff_name,
       businessId: e.business_id,
+      paymentMethod: e.payment_method,
       sync_status: "synced"
     }));
   }
@@ -611,6 +612,7 @@ export class ExpenseRepository {
       date: expense.date,
       staff_name: expense.staffName,
       business_id: toUuid(expense.businessId || activeBusinessId),
+      payment_method: expense.paymentMethod || 'Cash',
     };
 
     const { data, error } = await supabase.from("expenses").insert(payload).select().single();
@@ -624,6 +626,7 @@ export class ExpenseRepository {
       date: data.date,
       staffName: data.staff_name,
       businessId: data.business_id,
+      paymentMethod: data.payment_method,
       sync_status: "synced",
     };
   }
@@ -637,6 +640,7 @@ export class ExpenseRepository {
     if (updates.description !== undefined) payload.description = updates.description ? normalizeForStorage(updates.description) : updates.description;
     if (updates.date !== undefined) payload.date = updates.date;
     if (updates.staffName !== undefined) payload.staff_name = updates.staffName;
+    if (updates.paymentMethod !== undefined) payload.payment_method = updates.paymentMethod;
 
     const { data, error } = await supabase.from("expenses").update(payload).eq("id", id).select().single();
     if (error) { triggerNetworkFailureEvent(); throw error; }
@@ -649,6 +653,7 @@ export class ExpenseRepository {
       date: data.date,
       staffName: data.staff_name,
       businessId: data.business_id,
+      paymentMethod: data.payment_method,
       sync_status: "synced",
     };
   }

@@ -237,7 +237,8 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
       text += `*NOTES*\n${customMessage.trim()}\n`;
     }
 
-    return { reportText: text, reportPreview: text };
+    const whatsappReport = `\`\`\`text\n${text}\n\`\`\``;
+    return { reportText: whatsappReport, reportPreview: text };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, productionBatches, billOfMaterials, customMessage]);
