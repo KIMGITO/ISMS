@@ -59,7 +59,7 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-950 text-slate-100 min-h-screen select-none">
+    <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-950 text-slate-100 min-h-dvh select-none">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative text-center">
         {/* Step Indicator */}
         <div className="mx-auto w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 text-amber-500 shadow-lg">
@@ -273,7 +273,7 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-950 text-slate-100 min-h-screen select-none">
+    <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-950 text-slate-100 min-h-dvh select-none">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 relative text-center">
         
         {/* Switch back and forth between Lock and Reset Panel */}

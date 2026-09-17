@@ -448,7 +448,7 @@ Comment: "${comment.comment}"`;
       </div>
 
       {activeTab === "communication" ? (
-        <div className="flex-1 -mx-4 -mb-24 h-[calc(100vh-200px)]">
+        <div className="flex-1 -mx-4 -mb-24 h-[calc(100dvh-200px)]">
           <CommunicationCenterView />
         </div>
       ) : (

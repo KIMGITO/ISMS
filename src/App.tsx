@@ -1361,7 +1361,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen overflow-y-auto select-none"
+              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none"
             >
               <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
@@ -1439,7 +1439,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen overflow-y-auto select-none"
+              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none"
             >
               <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
@@ -1554,7 +1554,7 @@ export default function App() {
             </motion.div>
           ) : isInitializing ? (
             /* SLEEK INITIALIZATION SCREEN */
-            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-screen">
+            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh">
               <div className="text-center space-y-4">
                 <div className="flex justify-center mt-4">
                   <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -1566,7 +1566,7 @@ export default function App() {
             </div>
           ) : initializationError ? (
             /* SLEEK INITIALIZATION ERROR SCREEN */
-            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-screen p-4">
+            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh p-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1609,7 +1609,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen overflow-y-auto select-none relative"
+              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none relative"
             >
               {/* Floating Theme Button */}
               <button

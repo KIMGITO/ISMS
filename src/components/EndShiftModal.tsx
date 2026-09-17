@@ -270,7 +270,7 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-app-border bg-app-bg/50">
