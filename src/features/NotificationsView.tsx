@@ -1265,7 +1265,7 @@ function NotificationPrefsSheet({ onClose }: { onClose: () => void }) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ duration: 0.18 }}
-        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75vh] flex flex-col"
+        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75dvh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 px-5 pt-4 pb-3 border-b border-app-border/40 flex items-center gap-3">
@@ -1354,7 +1354,7 @@ function NotificationToneSheet({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ duration: reducedMotion ? 0 : 0.18 }}
-        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75vh] flex flex-col"
+        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75dvh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 px-5 pt-4 pb-3 border-b border-app-border/40 flex items-center gap-3">

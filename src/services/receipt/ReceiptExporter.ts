@@ -69,7 +69,7 @@ export class ReceiptExporterService {
               }
             </style>
           </head>
-          <body class="bg-slate-200 p-6 flex justify-center items-start min-h-screen">
+          <body class="bg-slate-200 p-6 flex justify-center items-start min-h-dvh">
             <div class="receipt-shell p-6 pb-8 rounded-sm shadow-lg w-full max-w-[340px] border border-slate-200 text-slate-800 text-[13px] leading-snug">
               ${htmlSnippet}
               <button onclick="window.print()" class="no-print mt-6 w-full py-2 bg-slate-900 text-white font-bold text-xs tracking-wide rounded-md hover:bg-slate-800 transition">
