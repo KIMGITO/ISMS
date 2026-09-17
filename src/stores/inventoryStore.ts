@@ -22,6 +22,15 @@ interface InventoryState {
     type: AdjustmentType,
     reason: string
   ) => Promise<void>;
+    adjustStockBulk: (
+    adjustments: {
+      productId: string;
+      quantityAdjusted: number;
+      type: AdjustmentType;
+      reason: string;
+    }[]
+  ) => Promise<void>;
+
   addProduct: (product: Product) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -73,14 +82,12 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
     adjustStock: async (productId, quantityAdjusted, type, reason) => {
       if (!checkPermissionGate("inventory.adjust_stock")) return;
 
-      // Find item from active live reactive state instead of old local memory array lookups
       const prod = get().products.find(p => p.id === productId);
       if (!prod) return;
 
       const previousStock = prod.stock;
       const newStock = Math.max(0, previousStock + quantityAdjusted);
 
-      // Trigger Out of Stock / Low Stock toast + push notifications
       if (newStock === 0 && previousStock > 0) {
         useNotificationStore.getState().showToast(
           "Inventory Alert",
@@ -119,6 +126,31 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
       
       // Realtime listener catches this adjustment change automatically!
     },
+
+    adjustStockBulk: async (adjustments) => {
+      if (!checkPermissionGate("inventory.adjust_stock")) return;
+
+      const supabase = getSupabase();
+      const staffName = useAuthStore.getState().currentEmployee?.name || "System";
+      const staffId = useAuthStore.getState().currentEmployee?.id;
+
+      const { error } = await supabase.rpc("adjust_stock_bulk", {
+        p_adjustments: adjustments.map(adj => ({
+          product_id: toUuid(adj.productId),
+          type: adj.type,
+          quantity: Math.abs(adj.quantityAdjusted),
+          reason: adj.reason
+        })),
+        p_employee_id: staffId ? toUuid(staffId) : null,
+        p_staff_name: staffName,
+      });
+
+      if (error) {
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+        throw error;
+      }
+    },
+
 
     addProduct: async (product) => {
       if (!checkPermissionGate("products.create")) return;
@@ -179,12 +211,22 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
 
     updateCategory: async (oldCategory, newCategory) => {
       if (!checkPermissionGate("products.manage_categories")) return;
-      const currentProds = get().products;
-      for (const p of currentProds) {
-        if (p.category === oldCategory) {
-          await ProductRepository.update(p.id, { category: newCategory });
-        }
+      
+      const businessId = useBusinessStore.getState().activeBusinessId;
+      const supabase = getSupabase();
+      
+      const { error } = await supabase.rpc("update_product_category_bulk", {
+        p_business_id: toUuid(businessId),
+        p_old_category: oldCategory,
+        p_new_category: newCategory
+      });
+
+      if (error) {
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
+        throw error;
       }
+      
+      // Realtime listener will catch the updates for all products automatically!
     },
 
     setProducts: () => {
