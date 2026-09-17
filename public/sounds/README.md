@@ -28,4 +28,3 @@ For the mobile (Capacitor) build:
 2. Run `npm run sounds:sync` to copy them into `android/app/src/main/res/raw/`
 3. Run `npm run android` (or `npx cap sync android`) to rebuild the native bundle
 
-> If you add more than 12 sounds later, the app only reads the first 12 slots unless `notificationTone.ts` is extended.

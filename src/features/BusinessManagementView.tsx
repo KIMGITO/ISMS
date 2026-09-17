@@ -408,7 +408,7 @@ export default function BusinessManagementView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 pb-24 space-y-5 bg-app-bg text-app-text font-sans">
+    <div className="h-full overflow-y-auto p-4 pb-24  space-y-5 bg-app-bg text-app-text font-sans">
       {/* Title Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
@@ -424,7 +424,7 @@ export default function BusinessManagementView() {
       </div>
 
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
-      <div className="hidden xl:flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 -mx-1 px-1 min-h-[130px]">
+      <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 -mx-1 px-1 min-h-[130px]">
         {businesses.map((biz) => {
           const isActive = biz.id === activeBusinessId && !isCreating;
           return (
@@ -502,7 +502,7 @@ export default function BusinessManagementView() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left Column: Businesses & Branches Directory */}
         <div className="xl:hidden flex flex-col gap-4">
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
