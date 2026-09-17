@@ -313,13 +313,23 @@ Generate a comprehensive executive BI report as valid raw JSON matching the sche
     });
 
     if (!result.success) {
+      console.error("[bi-analyze] AI Runner failed:", result.error);
       return jsonResponse({ success: false, error: result.error }, 503);
     }
 
     const analysis = safeParseJson(result.text);
+    
+    if (!analysis || Object.keys(analysis).length === 0) {
+      console.error("[bi-analyze] AI returned unparseable or empty JSON:", result.text);
+      return jsonResponse({ 
+        success: false, 
+        error: "The AI assistant provided a response that could not be parsed as a structured report. Please try again." 
+      }, 500);
+    }
+
     return jsonResponse({ success: true, analysis });
   } catch (err: any) {
-    console.error("[bi-analyze] Error:", err);
+    console.error("[bi-analyze] Critical error:", err);
     return errorResponse(err.message || "Internal server error", 500);
   }
 });

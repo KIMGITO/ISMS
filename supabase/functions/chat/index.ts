@@ -54,78 +54,31 @@ Deno.serve(async (req) => {
     );
 
     // ── 2. Load all context in parallel ─────────────────────────────────
-    const [
-      aiSettingsResult,
-      bizResult,
-      productsResult,
-      customersResult,
-      membershipsResult,
-      todayTxResult,
-      schedulesResult,
-    ] = await Promise.all([
-      // AI provider config
+    const results = await Promise.allSettled([
       loadAISettings(businessId),
-
-      // Business info
-      supabase
-        .from("businesses")
-        .select("name, currency")
-        .eq("id", businessId)
-        .maybeSingle(),
-
-      // Product catalog (active only)
-      supabase
-        .from("products")
-        .select("name, price, stock, sku, min_stock_level, category, unit")
-        .eq("business_id", businessId)
-        .is("deleted_at", null)
-        .order("name"),
-
-      // Customers directory
-      supabase
-        .from("customers")
-        .select("name, phone, debt_balance, wallet_balance, loyalty_points")
-        .eq("business_id", businessId)
-        .is("deleted_at", null)
-        .order("name")
-        .limit(100),
-
-      // Business memberships / Workers
-      supabase
-        .from("business_memberships")
-        .select("role, status, user_id, users(full_name, phone)")
-        .eq("business_id", businessId)
-        .is("deleted_at", null),
-
-      // Today's transaction summary
-      supabase
-        .from("transactions")
-        .select("total, payment_method")
-        .eq("business_id", businessId)
-        .eq("status", "completed")
-        .is("deleted_at", null)
-        .gte("timestamp", new Date().toISOString().split("T")[0] + "T00:00:00Z"),
-
-      // Active schedules today
-      supabase
-        .from("schedules")
-        .select("id", { count: "exact", head: true })
-        .eq("business_id", businessId)
-        .is("deleted_at", null)
-        .eq("date", new Date().toISOString().split("T")[0]),
+      supabase.from("businesses").select("name, currency").eq("id", businessId).maybeSingle(),
+      supabase.from("products").select("name, price, stock, sku, min_stock_level, category, unit").eq("business_id", businessId).is("deleted_at", null).order("name").limit(200),
+      supabase.from("customers").select("name, phone, debt_balance, wallet_balance, loyalty_points").eq("business_id", businessId).is("deleted_at", null).order("name").limit(100),
+      supabase.from("business_memberships").select("role, status, user_id, users(full_name, phone)").eq("business_id", businessId).is("deleted_at", null),
+      supabase.from("transactions").select("total, payment_method").eq("business_id", businessId).eq("status", "completed").is("deleted_at", null).gte("timestamp", new Date().toISOString().split("T")[0] + "T00:00:00Z"),
+      supabase.from("schedules").select("id", { count: "exact", head: true }).eq("business_id", businessId).is("deleted_at", null).eq("date", new Date().toISOString().split("T")[0]),
     ]);
 
-    const settings = aiSettingsResult;
-    const biz = bizResult.data;
+    const settings = results[0].status === "fulfilled" ? results[0].value : null;
+    const bizData = results[1].status === "fulfilled" ? (results[1].value as any).data : null;
+    const productsResult = results[2].status === "fulfilled" ? (results[2].value as any).data : [];
+    const customersResult = results[3].status === "fulfilled" ? (results[3].value as any).data : [];
+    const membershipsResult = results[4].status === "fulfilled" ? (results[4].value as any).data : [];
+    const todayTxResult = results[5].status === "fulfilled" ? (results[5].value as any).data : [];
+    const schedulesResult = results[6].status === "fulfilled" ? (results[6].value as any).count : 0;
+
+    const biz = bizData;
 
     // Combine DB query results with client payload fallbacks
-    const dbProducts = productsResult.data || [];
-    const products = dbProducts.length > 0 ? dbProducts : (clientProducts || []);
+    const products = (productsResult && productsResult.length > 0) ? productsResult : (clientProducts || []);
+    const customers = (customersResult && customersResult.length > 0) ? customersResult : (clientCustomers || []);
 
-    const dbCustomers = customersResult.data || [];
-    const customers = dbCustomers.length > 0 ? dbCustomers : (clientCustomers || []);
-
-    const dbMembers = (membershipsResult.data || []).map((m: any) => ({
+    const dbMembers = (membershipsResult || []).map((m: any) => ({
       name: m.users?.full_name || "Staff",
       role: m.role || "Staff",
       phone: m.users?.phone || ""
