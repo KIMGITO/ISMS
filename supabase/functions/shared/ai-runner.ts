@@ -72,7 +72,7 @@ export async function loadAISettings(businessId: string): Promise<AISettings> {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runAI(settings: any, options: AIRunnerOptions): Promise<AIRunnerResult> {
-  const safeSettings = settings || { provider: "huggingface", model: "openai/gpt-oss-120b", enabled: true };
+  const safeSettings = settings || { provider: "huggingface", model: "Qwen/Qwen2.5-Coder-32B-Instruct", enabled: true };
 
   if (safeSettings.enabled === false) {
     return { success: false, text: "", error: "AI is currently disabled for this business by the Owner." };
@@ -85,26 +85,34 @@ export async function runAI(settings: any, options: AIRunnerOptions): Promise<AI
     (provider === "deepseek" ? Deno.env.get("DEEPSEEK_API_KEY") : "") || 
     (provider === "anthropic" ? Deno.env.get("ANTHROPIC_API_KEY") : "") || "";
 
+  console.log(`[ai-runner] Executing with provider: ${provider}, model: ${safeSettings.model}`);
+
   // 1. Try primary provider
   let primaryRes = await executeProvider(provider, apiKey, safeSettings, options);
   if (primaryRes.success) return primaryRes;
 
-  console.warn(`[ai-runner] Primary provider [${provider}] failed (${primaryRes.error}). Initiating fallback...`);
+  console.warn(`[ai-runner] Primary provider [${provider}] failed: ${primaryRes.error}. Initiating fallback chain...`);
 
   // 2. Fallback: Try Gemini if key available
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (geminiKey) {
+  if (geminiKey && provider !== "gemini") {
+    console.log("[ai-runner] Attempting Gemini fallback...");
     const geminiRes = await runGemini(geminiKey, { ...safeSettings, model: "gemini-1.5-flash" }, options);
     if (geminiRes.success) return geminiRes;
+    console.warn(`[ai-runner] Gemini fallback failed: ${geminiRes.error}`);
   }
 
   // 3. Fallback: Try HuggingFace free model pool
+  console.log("[ai-runner] Attempting HuggingFace fallback...");
   const hfRes = await runHuggingFaceRotation(apiKey, safeSettings, options);
   if (hfRes.success) return hfRes;
+  console.warn(`[ai-runner] HuggingFace fallback failed: ${hfRes.error}`);
 
   // 4. Fallback: Try OpenRouter free models
+  console.log("[ai-runner] Attempting OpenRouter fallback...");
   const openRouterRes = await runOpenRouterFree(safeSettings, options);
   if (openRouterRes.success) return openRouterRes;
+  console.warn(`[ai-runner] OpenRouter fallback failed: ${openRouterRes.error}`);
 
   return primaryRes;
 }
@@ -132,6 +140,7 @@ async function executeProvider(provider: string, apiKey: string, settings: AISet
   }
 }
 
+
 export function getHuggingFaceTokens(): string[] {
   const envKeys = [
     "HF_TOKEN_A", "HF_TOKEN_B", "HF_TOKEN_C", "HF_TOKEN_D", "HF_TOKEN_E", "HF_TOKEN", "HUGGINGFACE_TOKEN"
@@ -154,28 +163,30 @@ async function runHuggingFaceRotation(dbKey: string, settings: AISettings, optio
     ...envTokens,
   ].filter((t): t is string => Boolean(t && t.trim().length > 0));
 
-  // Only enabled models on user's HuggingFace Router provider account
+  // Models that are likely to be available on HuggingFace Router
   const validChatModels = [
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
     "Qwen/Qwen2.5-72B-Instruct",
-    "deepseek-ai/DeepSeek-V4-Pro",
-    "deepseek-ai/DeepSeek-V4-Flash"
+    "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "meta-llama/Llama-3.1-70B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "deepseek-ai/DeepSeek-V3",
+    "openai/gpt-oss-120b"
   ];
 
   const modelsToTry = Array.from(new Set([
     settings.model,
     ...validChatModels
-  ])).filter((m): m is string => Boolean(m && m.trim().length > 0 && validChatModels.includes(m)));
+  ])).filter((m): m is string => Boolean(m && m.trim().length > 0));
 
-  let lastError = "Tokens exhausted";
+  let lastError = "No tokens or models to try";
 
   for (const targetModel of modelsToTry) {
     for (const activeToken of tokenPool.length > 0 ? tokenPool : [""]) {
-      let retries = 2;
+      let retries = 1;
       let waitTime = 1000;
 
-      while (retries > 0) {
+      while (retries >= 0) {
         try {
           const messages = [
             { role: "system", content: options.systemInstruction },
@@ -203,22 +214,25 @@ async function runHuggingFaceRotation(dbKey: string, settings: AISettings, optio
             body: JSON.stringify(payload),
           });
 
-          if (res.status === 402 || res.status === 429 || res.status === 400 || res.status === 404) {
-            const errData = await res.json().catch(() => ({}));
-            lastError = errData.error?.message || `HF HTTP ${res.status} on ${targetModel}`;
-            break; // Move to next model
+          if (res.status === 402 || res.status === 429) {
+            lastError = `HF HTTP ${res.status} (Rate limited/Payment required) on ${targetModel}`;
+            break; // Try next token or model
           }
 
-          if (res.status === 503) {
+          if (res.status === 503 || res.status === 504) {
             retries--;
-            await delay(waitTime);
-            waitTime += 1000;
-            continue;
+            if (retries >= 0) {
+              await delay(waitTime);
+              waitTime += 1000;
+              continue;
+            }
+            lastError = `HF HTTP ${res.status} (Service unavailable)`;
+            break;
           }
 
           const data = await res.json();
           if (!res.ok) {
-            lastError = data.error?.message || `HF API HTTP ${res.status}`;
+            lastError = data.error?.message || `HF API HTTP ${res.status} on ${targetModel}`;
             break;
           }
 
@@ -242,7 +256,10 @@ async function runOpenRouterFree(settings: AISettings, options: AIRunnerOptions)
     "meta-llama/llama-3.2-3b-instruct:free",
     "qwen/qwen-2.5-coder-32b-instruct:free",
     "google/gemma-2-9b-it:free",
+    "mistralai/pixtral-12b:free",
   ];
+
+  const orApiKey = Deno.env.get("OPENROUTER_API_KEY") || "";
 
   for (const model of freeModels) {
     try {
@@ -251,28 +268,44 @@ async function runOpenRouterFree(settings: AISettings, options: AIRunnerOptions)
         ...options.messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
       ];
 
+      const payload: any = {
+        model,
+        messages,
+        temperature: settings.temperature ?? 0.5,
+        max_tokens: settings.max_tokens ?? 1024,
+      };
+
+      if (options.responseMimeType === "application/json") {
+        // OpenRouter supports response_format for some models
+        payload.response_format = { type: "json_object" };
+      }
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (orApiKey) {
+        headers["Authorization"] = `Bearer ${orApiKey}`;
+      }
+
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: settings.temperature ?? 0.5,
-          max_tokens: settings.max_tokens ?? 1024,
-        }),
+        headers,
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (res.ok && data.choices?.[0]?.message?.content) {
         return { success: true, text: data.choices[0].message.content };
+      } else if (data.error) {
+        console.warn(`[ai-runner] OpenRouter [${model}] error:`, data.error.message);
       }
-    } catch {
+    } catch (err: any) {
+      console.warn(`[ai-runner] OpenRouter [${model}] fetch error:`, err.message);
       continue;
     }
   }
 
   return { success: false, text: "", error: "OpenRouter free pool exhausted" };
 }
+
 
 async function runGemini(apiKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
   const contents = options.messages
@@ -298,7 +331,7 @@ async function runGemini(apiKey: string, settings: AISettings, options: AIRunner
     payload.systemInstruction = { parts: [{ text: options.systemInstruction }] };
   }
 
-  const baseModel = settings.model || "gemini-1.5-flash";
+  const baseModel = settings.model?.includes("gemini") ? settings.model : "gemini-1.5-flash";
   
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${baseModel}:generateContent?key=${apiKey}`;
@@ -388,3 +421,4 @@ async function runAnthropic(apiKey: string, settings: AISettings, options: AIRun
     return { success: false, text: "", error: err.message || "Network error calling Anthropic" };
   }
 }
+
