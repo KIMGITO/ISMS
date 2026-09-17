@@ -181,9 +181,9 @@ export class SupabaseService {
   static async processCustomerTransaction(params: {
     businessId: string;
     customerId: string;
-    customerName: string;
-    staffId: string;
-    staffName: string;
+    customerName?: string;
+    staffId?: string | null;
+    staffName?: string;
     total: number;
     discount: number;
     tax: number;
@@ -208,9 +208,9 @@ export class SupabaseService {
     const { data, error } = await supabase.rpc("process_customer_transaction", {
       p_business_id: toUuid(params.businessId),
       p_customer_id: toUuid(params.customerId),
-      p_customer_name: params.customerName,
+      p_customer_name: params.customerName || "Valued Customer",
       p_staff_id: params.staffId ? toUuid(params.staffId) : null,
-      p_staff_name: params.staffName,
+      p_staff_name: params.staffName || "System",
       p_total: params.total,
       p_discount: params.discount,
       p_tax: params.tax,

@@ -129,7 +129,7 @@ BEGIN
             VALUES (
                 v_tx_id,
                 (v_item->>'product_id')::UUID,
-                v_item->>'product_name',
+                COALESCE(v_item->>'product_name', 'Unknown Product'),
                 COALESCE((v_item->>'unit_price')::NUMERIC, 0),
                 COALESCE((v_item->>'quantity')::NUMERIC, 1),
                 COALESCE((v_item->>'discount_percentage')::NUMERIC, 0),
