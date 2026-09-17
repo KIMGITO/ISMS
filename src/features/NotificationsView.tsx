@@ -1128,6 +1128,8 @@ function MarkdownBlock({ text }: { text: string }) {
   const lines = text.split("\n");
   const blocks: React.ReactNode[] = [];
   let list: string[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
   let key = 0;
 
   const flushList = () => {
@@ -1146,8 +1148,35 @@ function MarkdownBlock({ text }: { text: string }) {
     }
   };
 
+  const flushCodeBlock = () => {
+    if (codeLines.length > 0) {
+      blocks.push(
+        <pre key={key++} className="bg-slate-900/50 p-2 rounded-lg border border-slate-700 font-mono text-[10px] text-emerald-400 overflow-x-auto my-2 whitespace-pre">
+          {codeLines.join('\n')}
+        </pre>
+      );
+      codeLines = [];
+    }
+  };
+
   for (const rawLine of lines) {
     const line = rawLine.trim();
+
+    if (line.startsWith("```")) {
+      if (inCodeBlock) {
+        flushCodeBlock();
+        inCodeBlock = false;
+      } else {
+        flushList();
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(rawLine); // keep original indentation if any
+      continue;
+    }
     if (!line) {
       flushList();
       continue;
@@ -1193,6 +1222,7 @@ function MarkdownBlock({ text }: { text: string }) {
     );
   }
   flushList();
+  flushCodeBlock();
 
   return <>{blocks}</>;
 }

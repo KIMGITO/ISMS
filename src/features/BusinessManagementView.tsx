@@ -79,11 +79,13 @@ export default function BusinessManagementView() {
   const [expStaffName, setExpStaffName] = useState("");
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [localExpenses, setLocalExpenses] = useState<any[]>([]);
+  const [expPaymentMethod, setExpPaymentMethod] = useState<string>("Cash");
+
 
   // Payments States - Modern Redesigned
   const [payRef, setPayRef] = useState("");
   const [payAmount, setExpPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState<"M-Pesa" | "Cash" | "Card" | "Bank" | "Other">("M-Pesa");
+  const [payMethod, setPayMethod] = useState<"M-Pesa" | "Cash" | "Card" | "Bank" | "Mobile_Wallet" | "Other">("M-Pesa");
   const [paySenderName, setPaySenderName] = useState("");
   const [paySenderPhone, setPaySenderPhone] = useState("");
   const [payStatus, setPayStatus] = useState<"Success" | "Pending" | "Failed">("Success");
@@ -156,7 +158,8 @@ export default function BusinessManagementView() {
         description: expDescription.trim(),
         date: new Date(expDate).toISOString(),
         staffName: cashierName,
-        businessId: activeBusinessId
+        businessId: activeBusinessId,
+        paymentMethod: expPaymentMethod as any
       });
       showToast("Success", "Operational expense recorded successfully.", undefined, "success");
       setExpAmount("");
@@ -1227,6 +1230,25 @@ export default function BusinessManagementView() {
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
                         Description (Optional)
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                        Payment Method / Source *
+                      </label>
+                      <select
+                        required
+                        value={expPaymentMethod}
+                        onChange={(e) => setExpPaymentMethod(e.target.value)}
+                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
+                      >
+                        <option value="Cash">Cash</option>
+                        <option value="M-Pesa">M-Pesa</option>
+                        <option value="Card">Card</option>
+                        <option value="Bank">Bank</option>
+                        <option value="Mobile_Wallet">Mobile Wallet</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
                       </label>
                       <textarea
                         rows={3}
@@ -1346,10 +1368,10 @@ export default function BusinessManagementView() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                     {localMoneyAssets.length === 0 && (
                       <>
-                        {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Other'] as const).map((m) => (
+                        {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Mobile_Wallet', 'Other'] as const).map((m) => (
                           <div key={m} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                             <div className="flex items-center gap-2">
-                              {m === 'M-Pesa' ? (
+                              {m === 'M-Pesa' || m === 'Mobile_Wallet' ? (
                                 <Smartphone size={14} className="text-emerald-500" />
                               ) : m === 'Cash' ? (
                                 <Banknote size={14} className="text-amber-500" />
@@ -1377,7 +1399,7 @@ export default function BusinessManagementView() {
                     {localMoneyAssets.map((asset) => (
                       <div key={asset.id || asset.method} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
-                          {asset.method === 'M-Pesa' ? (
+                          {asset.method === 'M-Pesa' || asset.method === 'Mobile_Wallet' ? (
                             <Smartphone size={14} className="text-emerald-500" />
                           ) : asset.method === 'Cash' ? (
                             <Banknote size={14} className="text-amber-500" />
@@ -1593,12 +1615,14 @@ export default function BusinessManagementView() {
                           </div>
                           {payMethodDisplay === 'modern' ? (
                             <div className="grid grid-cols-2 gap-1.5">
-                              {(['M-Pesa', 'Cash', 'Card', 'Bank'] as const).map((m) => {
+                              {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Mobile_Wallet', 'Other'] as const).map((m) => {
                                 const icons: Record<string, React.ReactNode> = {
                                   'M-Pesa': <Smartphone size={14} className="text-emerald-500" />,
                                   'Cash': <Banknote size={14} className="text-amber-500" />,
                                   'Card': <CreditCard size={14} className="text-blue-500" />,
                                   'Bank': <Landmark size={14} className="text-violet-500" />,
+                                  'Mobile_Wallet': <Wallet size={14} className="text-emerald-500" />,
+                                  'Other': <CircleDollarSign size={14} className="text-slate-500" />,
                                 };
                                 return (
                                   <button
@@ -1626,6 +1650,7 @@ export default function BusinessManagementView() {
                                 { id: 'Cash', label: 'Cash' },
                                 { id: 'Card', label: 'Card' },
                                 { id: 'Bank', label: 'Bank Transfer' },
+                                { id: 'Mobile_Wallet', label: 'Mobile Wallet' },
                                 { id: 'Other', label: 'Other' },
                               ]}
                               selectedValue={payMethod}

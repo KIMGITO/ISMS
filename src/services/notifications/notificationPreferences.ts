@@ -5,15 +5,15 @@ const PREFS_LOCAL_KEY = "kkm_notification_prefs_v1";
 const BUSINESS_DEFAULTS_KEY = "kkm_business_default_prefs_v1";
 
 const DEFAULT_PREFERENCES: NotificationPreference[] = [
-  { category: "Stock Alerts", enabled: true },
-  { category: "AI Insights", enabled: true },
-  { category: "Sales Reports", enabled: true },
-  { category: "Debt Reminders", enabled: true },
-  { category: "Delivery Notifications", enabled: true },
-  { category: "Payment Notifications", enabled: true },
-  { category: "Scheduled Reminders", enabled: true },
-  { category: "Announcements", enabled: true },
-  { category: "System Notifications", enabled: true },
+  { category: "Stock Alerts", enabled: false },
+  { category: "AI Insights", enabled: false },
+  { category: "Sales Reports", enabled: false },
+  { category: "Debt Reminders", enabled: false },
+  { category: "Delivery Notifications", enabled: false },
+  { category: "Payment Notifications", enabled: false },
+  { category: "Scheduled Reminders", enabled: false },
+  { category: "Announcements", enabled: false },
+  { category: "System Notifications", enabled: false },
 ];
 
 export class NotificationPreferences {
@@ -102,6 +102,6 @@ export class NotificationPreferences {
     const category = this.getCategoryForType(type);
     const prefs = this.getUserPreferences();
     const pref = prefs.find((p) => p.category === category);
-    return pref ? pref.enabled : true;
+    return pref ? pref.enabled : false;
   }
 }
