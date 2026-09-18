@@ -85,13 +85,13 @@ Deno.serve(async (req) => {
     }));
     const employees = dbMembers.length > 0 ? dbMembers : (clientEmployees || []);
 
-    const todayTx = todayTxResult.data || [];
+    const todayTx = todayTxResult || [];
     const todayRevenue = todayTx.reduce(
       (sum: number, t: any) => sum + (Number(t.total) || 0),
       0
     );
     const todayCount = todayTx.length;
-    const schedulesCount = (schedulesResult as any).count || 0;
+    const schedulesCount = (schedulesResult as number) || 0;
 
     // Low-stock detection
     const lowStockProducts = products.filter(
