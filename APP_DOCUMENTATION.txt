@@ -1,5 +1,5 @@
 ================================================================
-ISMS - MILK BUSINESS MANAGEMENT SYSTEM
+ISMS - Business Management System
 ================================================================
 Application Documentation
 

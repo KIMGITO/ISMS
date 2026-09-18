@@ -4,7 +4,7 @@ import {
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
   X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
   Brain, RefreshCw,
-  Coins
+  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
@@ -16,6 +16,7 @@ import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/pho
 import { formatCustomerNumber, formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
+import { Transaction, DebtPayment, CustomerLedgerEntry } from "../types";
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -71,6 +72,7 @@ export default function CustomersView() {
     updateCustomer, deleteCustomer, products,
     selectedCustomerId, setSelectedCustomerId, 
     activeInvoiceData, setActiveInvoiceData, transactions,
+    debtPayments,
     showToast,activeBusinessId,
     payCustomerDebt, depositCustomerWallet, spendCustomerWallet, adjustCustomerDebt
   } = useAppStore();
@@ -82,6 +84,14 @@ export default function CustomersView() {
   const [adjustNote, setAdjustNote] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
+
+  // Customer History & Event Log State
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'sales' | 'credit' | 'wallet'>('all');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyDateRange, setHistoryDateRange] = useState<'all' | '7days' | '30days'>('all');
+  const [customerDebtPayments, setCustomerDebtPayments] = useState<DebtPayment[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   // Country selector states
   const [selectedCountryCode, setSelectedCountryCode] = useState("+254");
@@ -127,17 +137,29 @@ export default function CustomersView() {
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
 
   useEffect(() => {
-    if (activeDetailTab === "ledger" && selectedCustomerId) {
+    if (selectedCustomerId && (activeDetailTab === "ledger" || activeDetailTab === "history")) {
       setLoadingLedger(true);
-      SupabaseService.fetchCustomerLedger(selectedCustomerId)
-        .then(entries => {
-          setLedgerEntries(entries);
+      setLoadingHistory(true);
+      Promise.all([
+        SupabaseService.fetchCustomerLedger(selectedCustomerId).catch(err => {
+          console.warn("Failed to fetch customer ledger:", err);
+          return [];
+        }),
+        SupabaseService.fetchDebtPayments(selectedCustomerId).catch(err => {
+          console.warn("Failed to fetch debt payments:", err);
+          return [];
+        }),
+      ])
+        .then(([entries, payments]) => {
+          setLedgerEntries(entries || []);
+          setCustomerDebtPayments(payments || []);
         })
         .catch(err => {
-          showToast("Error", `Failed to load ledger: ${err.message}`, undefined, "error");
+          showToast("Error", `Failed to load history: ${err.message}`, undefined, "error");
         })
         .finally(() => {
           setLoadingLedger(false);
+          setLoadingHistory(false);
         });
     }
   }, [activeDetailTab, selectedCustomerId]);
@@ -198,6 +220,180 @@ export default function CustomersView() {
   });
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+
+  // Unified History Event Timeline Builder
+  const historyEvents = React.useMemo(() => {
+    if (!selectedCustomerId) return [];
+
+    const events: Array<{
+      id: string;
+      eventType: 'sale' | 'credit_payment' | 'wallet_ledger';
+      timestamp: string;
+      title: string;
+      subtitle?: string;
+      amount: number;
+      paymentStatusLabel?: string;
+      paymentStatusStyle?: string;
+      paymentMethod?: string;
+      rawSale?: Transaction;
+      rawPayment?: DebtPayment;
+      rawLedger?: CustomerLedgerEntry;
+    }> = [];
+
+    // 1. Sales Done (Transactions)
+    const custTxs = transactions.filter((t) => t.customerId === selectedCustomerId);
+    custTxs.forEach((tx) => {
+      const isCredit = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit' || tx.paymentMethod === 'Account';
+      const isWallet = tx.paymentMethod === 'Wallet' || tx.paymentMethod === 'Mobile_Wallet';
+
+      let statusLabel = `Paid (${tx.paymentMethod || 'Cash'})`;
+      let statusStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
+
+      if (isCredit) {
+        statusLabel = 'Credit Debt (Unpaid)';
+        statusStyle = 'bg-red-500/10 text-red-500 border-red-500/30';
+      } else if (isWallet) {
+        statusLabel = 'Paid via Wallet';
+        statusStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+      } else if (tx.paymentMethod === 'Cash') {
+        statusLabel = 'Paid in Full (Cash)';
+      } else if (tx.paymentMethod === 'M-Pesa') {
+        statusLabel = 'Paid in Full (M-Pesa)';
+      }
+
+      events.push({
+        id: `sale-${tx.id}`,
+        eventType: 'sale',
+        timestamp: tx.timestamp,
+        title: isCredit ? 'Credit Sale Transaction' : 'Sale Transaction',
+        subtitle: `Receipt #${formatReceiptNumber(tx.id)}`,
+        amount: tx.finalTotal,
+        paymentStatusLabel: statusLabel,
+        paymentStatusStyle: statusStyle,
+        paymentMethod: tx.paymentMethod,
+        rawSale: tx,
+      });
+    });
+
+    // 2. Credit Repayments
+    const mergedPaymentsMap = new Map<string, DebtPayment>();
+    (debtPayments || [])
+      .filter((dp) => dp.customerId === selectedCustomerId)
+      .forEach((dp) => mergedPaymentsMap.set(dp.id, dp));
+    (customerDebtPayments || []).forEach((dp) => mergedPaymentsMap.set(dp.id, dp));
+
+    mergedPaymentsMap.forEach((dp) => {
+      events.push({
+        id: `credit-${dp.id}`,
+        eventType: 'credit_payment',
+        timestamp: dp.created_at || new Date().toISOString(),
+        title: 'Credit / Debt Repayment',
+        subtitle: `Paid via ${dp.paymentMethod || 'Cash'}`,
+        amount: dp.amountPaid,
+        paymentStatusLabel: 'Debt Repayment Received',
+        paymentStatusStyle: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
+        paymentMethod: dp.paymentMethod,
+        rawPayment: dp,
+      });
+    });
+
+    // 3. Wallet & Balance Ledger Events
+    (ledgerEntries || []).forEach((entry: CustomerLedgerEntry) => {
+      if (entry.type === 'wallet_deposit' || entry.type === 'wallet_spent' || entry.type === 'adjustment') {
+        let title = 'Wallet & Balance Adjustment';
+        let statusStyle = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+
+        if (entry.type === 'wallet_deposit') {
+          title = 'Wallet Deposit / Top-Up';
+          statusStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        } else if (entry.type === 'wallet_spent') {
+          title = 'Wallet Balance Spent';
+          statusStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        }
+
+        events.push({
+          id: `ledger-${entry.id}`,
+          eventType: 'wallet_ledger',
+          timestamp: entry.created_at || new Date().toISOString(),
+          title,
+          subtitle: entry.recordedBy ? `Recorded by ${entry.recordedBy}` : undefined,
+          amount: entry.amount,
+          paymentStatusLabel: titleCase(entry.type.replace('_', ' ')),
+          paymentStatusStyle: statusStyle,
+          rawLedger: entry,
+        });
+      }
+    });
+
+    // Sort newest first
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return events;
+  }, [selectedCustomerId, transactions, debtPayments, customerDebtPayments, ledgerEntries]);
+
+  // Filtered timeline based on category, date range, and search
+  const filteredHistoryEvents = React.useMemo(() => {
+    return historyEvents.filter((ev) => {
+      // Category filter
+      if (historyFilter === 'sales' && ev.eventType !== 'sale') return false;
+      if (historyFilter === 'credit' && ev.eventType !== 'credit_payment') return false;
+      if (historyFilter === 'wallet' && ev.eventType !== 'wallet_ledger') return false;
+
+      // Date Range filter
+      if (historyDateRange !== 'all') {
+        const evDate = new Date(ev.timestamp).getTime();
+        const now = Date.now();
+        const days = historyDateRange === '7days' ? 7 : 30;
+        if (now - evDate > days * 24 * 60 * 60 * 1000) return false;
+      }
+
+      // Search Query
+      if (historySearch.trim()) {
+        const q = historySearch.toLowerCase();
+        const matchesTitle = ev.title.toLowerCase().includes(q);
+        const matchesSubtitle = ev.subtitle?.toLowerCase().includes(q);
+        const matchesMethod = ev.paymentMethod?.toLowerCase().includes(q);
+
+        let matchesProduct = false;
+        if (ev.rawSale && ev.rawSale.items) {
+          matchesProduct = ev.rawSale.items.some((it: any) =>
+            it.product?.name?.toLowerCase().includes(q)
+          );
+        }
+
+        let matchesNote = false;
+        if (ev.rawSale?.note) matchesNote = ev.rawSale.note.toLowerCase().includes(q);
+        if (ev.rawPayment?.note) matchesNote = ev.rawPayment.note.toLowerCase().includes(q);
+        if (ev.rawLedger?.note) matchesNote = ev.rawLedger.note.toLowerCase().includes(q);
+
+        if (!matchesTitle && !matchesSubtitle && !matchesMethod && !matchesProduct && !matchesNote) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [historyEvents, historyFilter, historyDateRange, historySearch]);
+
+  // History Statistics metrics
+  const historyStats = React.useMemo(() => {
+    const saleEvents = historyEvents.filter((e) => e.eventType === 'sale');
+    const creditPaymentEvents = historyEvents.filter((e) => e.eventType === 'credit_payment');
+
+    const totalSalesAmt = saleEvents.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const creditSalesAmt = saleEvents
+      .filter((e) => e.rawSale?.paymentMethod === 'Credit_Debt' || e.rawSale?.paymentMethod === 'Credit')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    const totalRepaymentsAmt = creditPaymentEvents.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    return {
+      salesCount: saleEvents.length,
+      totalSalesAmt,
+      creditSalesAmt,
+      totalRepaymentsAmt,
+    };
+  }, [historyEvents]);
 
 
   console.log('Selected customer:', selectedCustomer);
@@ -589,8 +785,8 @@ export default function CustomersView() {
               <div className="flex gap-1 border-b border-app-border pb-2.5 mb-3.5 shrink-0 overflow-x-auto scrollbar-none select-none">
                 {[
                   { id: 'overview', label: 'Overview & Profile' },
+                  { id: 'history', label: 'History Events' },
                   { id: 'ledger', label: 'Wallet & Debt Ledger' },
-                  { id: 'history', label: 'Invoice Logs' },
                   { id: 'message', label: 'Outreach & Messages' },
                   { id: 'invoice', label: 'Custom Invoice' },
                 ].map((t) => (
@@ -1269,83 +1465,324 @@ export default function CustomersView() {
                   </div>
                 )}
 
-                {/* 2. PURCHASE HISTORY TAB */}
+                {/* 2. CUSTOMER HISTORY & EVENT LOG TAB */}
                 {activeDetailTab === 'history' && (
-                  <div className="flex flex-col gap-2.5 text-xs">
-                    <h4 className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-wider border-b border-app-border/40 pb-1.5 mb-1">
-                      Shop Utilization Transaction Logs
-                    </h4>
+                  <div className="flex flex-col gap-4 text-xs">
+                    {/* Summary Metric Header */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase text-app-text-muted">Total Sales Done</span>
+                        <span className="text-sm font-black font-mono text-amber-500">{formatCurrency(historyStats.totalSalesAmt)}</span>
+                        <span className="text-[9px] font-semibold text-app-text-muted">{historyStats.salesCount} transaction{historyStats.salesCount === 1 ? '' : 's'}</span>
+                      </div>
+                      <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase text-app-text-muted">Credit Sales (Unpaid)</span>
+                        <span className="text-sm font-black font-mono text-red-500">{formatCurrency(historyStats.creditSalesAmt)}</span>
+                        <span className="text-[9px] font-semibold text-app-text-muted">Purchases on Credit</span>
+                      </div>
+                      <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase text-app-text-muted">Credit Repayments</span>
+                        <span className="text-sm font-black font-mono text-emerald-500">{formatCurrency(historyStats.totalRepaymentsAmt)}</span>
+                        <span className="text-[9px] font-semibold text-app-text-muted">Paid for Debt</span>
+                      </div>
+                      <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase text-app-text-muted">Current Debt / Wallet</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-black font-mono text-red-500">D: {formatCurrency(selectedCustomer.debtBalance || 0)}</span>
+                          <span className="text-[10px] text-app-text-muted">|</span>
+                          <span className="text-xs font-black font-mono text-emerald-500">W: {formatCurrency(selectedCustomer.walletBalance || 0)}</span>
+                        </div>
+                        <span className="text-[9px] font-semibold text-app-text-muted">Live Account Balances</span>
+                      </div>
+                    </div>
 
-                    {transactions.filter(
-                      (t) => t.customerId === selectedCustomer.id,
-                    ).length === 0 ? (
+                    {/* Search & Filter Controls */}
+                    <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                      {/* Category Filter Chips */}
+                      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                        {[
+                          { id: 'all', label: 'All Events' },
+                          { id: 'sales', label: 'Sales & Purchases' },
+                          { id: 'credit', label: 'Credit Repayments' },
+                          { id: 'wallet', label: 'Wallet & Ledger' },
+                        ].map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => setHistoryFilter(f.id as any)}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition cursor-pointer border shrink-0 ${
+                              historyFilter === f.id
+                                ? 'bg-amber-500 text-black border-amber-500 font-black'
+                                : 'bg-app-card border-app-border/60 text-app-text-muted hover:text-app-text'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Date Range & Search Input */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={historyDateRange}
+                          onChange={(e) => setHistoryDateRange(e.target.value as any)}
+                          className="bg-app-card border border-app-border rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-app-text focus:outline-none focus:border-amber-500"
+                        >
+                          <option value="all">All Time</option>
+                          <option value="7days">Last 7 Days</option>
+                          <option value="30days">Last 30 Days</option>
+                        </select>
+
+                        <div className="relative flex-1 sm:w-44">
+                          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                          <input
+                            type="text"
+                            placeholder="Search events, products..."
+                            value={historySearch}
+                            onChange={(e) => setHistorySearch(e.target.value)}
+                            className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-7 py-1.5 text-[10px] text-app-text focus:outline-none focus:border-amber-500 font-semibold"
+                          />
+                          {historySearch && (
+                            <button
+                              onClick={() => setHistorySearch('')}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-app-text-muted hover:text-app-text cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Event Timeline List */}
+                    {loadingHistory ? (
+                      <div className="p-8 text-center text-xs text-app-text-muted bg-app-bg border border-app-border rounded-2xl font-bold flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                        Loading history events...
+                      </div>
+                    ) : filteredHistoryEvents.length === 0 ? (
                       <div className="p-8 text-center text-xs text-app-text-muted bg-app-bg border border-app-border rounded-2xl font-bold">
-                        No transactions recorded yet for this customer in this
-                        session.
+                        {historySearch || historyFilter !== 'all' || historyDateRange !== 'all'
+                          ? 'No history events match your selected filters.'
+                          : 'No history events recorded yet for this customer.'}
                       </div>
                     ) : (
-                      transactions
-                        .filter((t) => t.customerId === selectedCustomer.id)
-                        .map((tx) => (
-                          <div
-                            key={tx.id}
-                            className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-2 shadow-xs"
-                          >
-                            <div className="flex justify-between items-center text-[10.5px]">
-                              <span className="font-mono text-app-text-muted font-bold">
-                                RECEIPT NO: {formatReceiptNumber(tx.id)}
-                              </span>
-                              <span className="text-app-text-muted font-bold">
-                                {new Date(tx.timestamp).toLocaleString()}
-                              </span>
-                            </div>
+                      <div className="flex flex-col gap-3">
+                        {filteredHistoryEvents.map((ev) => {
+                          const evDateStr = new Date(ev.timestamp).toLocaleString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          });
 
-                            <div className="flex flex-col gap-1 my-1">
-                              {tx.items.map((item, index) => (
-                                <div
-                                  key={index}
-                                  className="flex justify-between items-center text-[11px] font-bold"
-                                >
-                                  <span className="text-app-text font-medium">
-                                    {item.product?.name || 'Product'}{' '}
-                                    <span className="text-app-text-muted text-[10px]">
-                                      x{item.quantity}
+                          // RENDER SALE EVENT
+                          if (ev.eventType === 'sale' && ev.rawSale) {
+                            const tx: Transaction = ev.rawSale;
+                            const isExpanded = expandedTxId === tx.id;
+
+                            return (
+                              <div
+                                key={ev.id}
+                                className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-3 shadow-xs hover:border-app-border/80 transition"
+                              >
+                                {/* Event Header */}
+                                <div className="flex flex-wrap justify-between items-start gap-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                                      <ShoppingBag className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${ev.paymentStatusStyle}`}>
+                                          {ev.paymentStatusLabel}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] text-app-text-muted font-mono mt-0.5">
+                                        <span>{ev.subtitle}</span>
+                                        <span>•</span>
+                                        <span>{evDateStr}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-black font-mono text-amber-500">
+                                      {formatCurrency(tx.finalTotal)}
                                     </span>
-                                  </span>
-                                  <span className="font-mono">
-                                    {formatCurrency(
-                                      (item.product?.price || 0) *
-                                        item.quantity,
-                                    )}
-                                  </span>
+                                    <button
+                                      onClick={() => setExpandedTxId(isExpanded ? null : tx.id)}
+                                      className="p-1 text-app-text-muted hover:text-app-text rounded-lg hover:bg-app-card transition cursor-pointer"
+                                      title={isExpanded ? 'Collapse products' : 'Expand products details'}
+                                    >
+                                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                    </button>
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
 
-                            <div className="h-[1px] bg-app-border/50 my-1" />
+                                {/* Products Itemized Table */}
+                                <div className="bg-app-card border border-app-border/60 rounded-xl p-3 flex flex-col gap-2">
+                                  <div className="text-[9.5px] font-black uppercase text-app-text-muted tracking-wider border-b border-app-border/40 pb-1 flex justify-between">
+                                    <span>Products Purchased ({tx.items?.length || 0})</span>
+                                    <span>Amount</span>
+                                  </div>
 
-                            {tx.isDelivery && (
-                              <div className="flex justify-between items-center text-[10px] text-blue-500 font-extrabold uppercase mb-1">
-                                <span>
-                                  Delivery Fee (Rider:{' '}
-                                  {tx.riderName || 'Not assigned'})
-                                </span>
-                                <span>
-                                  {formatCurrency(tx.deliveryFee || 0)}
-                                </span>
+                                  <div className="flex flex-col gap-1.5">
+                                    {tx.items?.map((item, idx) => {
+                                      const lineTotal = (item.product?.price || 0) * item.quantity;
+                                      return (
+                                        <div key={idx} className="flex justify-between items-center text-[11px]">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-bold text-app-text">{item.product?.name || 'Item'}</span>
+                                            <span className="text-[10px] font-extrabold text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded-md">
+                                              x{item.quantity}
+                                            </span>
+                                            <span className="text-[10px] text-app-text-muted font-mono">
+                                              @ {formatCurrency(item.product?.price || 0)}
+                                            </span>
+                                          </div>
+                                          <span className="font-mono font-bold text-app-text">{formatCurrency(lineTotal)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Financial Details (subtotal, tax, discount, delivery) */}
+                                  <div className="border-t border-app-border/40 pt-2 mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-semibold text-app-text-muted">
+                                    <div>Subtotal: <span className="font-mono text-app-text">{formatCurrency(tx.total)}</span></div>
+                                    {tx.discount > 0 && <div>Discount: <span className="font-mono text-emerald-500">-{formatCurrency(tx.discount)}</span></div>}
+                                    {tx.tax > 0 && <div>Tax: <span className="font-mono text-app-text">{formatCurrency(tx.tax)}</span></div>}
+                                    {tx.isDelivery && <div>Delivery: <span className="font-mono text-blue-400">{formatCurrency(tx.deliveryFee || 0)}</span></div>}
+                                  </div>
+                                </div>
+
+                                {/* Footer details: Payment Status & Staff & Receipt Share */}
+                                <div className="flex flex-wrap justify-between items-center text-[10px] text-app-text-muted font-semibold pt-0.5">
+                                  <div className="flex items-center gap-3">
+                                    <span>Method: <strong className="text-app-text font-extrabold">{tx.paymentMethod}</strong></span>
+                                    <span>Staff: <strong className="text-app-text font-extrabold">{tx.staffName || 'Cashier'}</strong></span>
+                                    {tx.riderName && <span>Rider: <strong className="text-blue-400 font-extrabold">{tx.riderName}</strong></span>}
+                                  </div>
+
+                                  <button
+                                    onClick={() => {
+                                      ReceiptShareService.shareReceipt(tx, selectedCustomer, products).catch(err => {
+                                        showToast("Share Failed", err.message, undefined, "error");
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] font-extrabold text-amber-500 hover:text-amber-400 transition cursor-pointer"
+                                  >
+                                    <Share2 className="w-3 h-3" />
+                                    <span>Share Receipt</span>
+                                  </button>
+                                </div>
                               </div>
-                            )}
+                            );
+                          }
 
-                            <div className="flex justify-between items-center font-extrabold text-[11px] pt-1">
-                              <span className="text-app-text-muted uppercase text-[9px]">
-                                Total ({tx.paymentMethod})
-                              </span>
-                              <span className="text-amber-500 font-black font-mono text-xs">
-                                {formatCurrency(tx.finalTotal)}
-                              </span>
-                            </div>
-                          </div>
-                        ))
+                          // RENDER CREDIT / DEBT REPAYMENT EVENT
+                          if (ev.eventType === 'credit_payment' && ev.rawPayment) {
+                            const dp: DebtPayment = ev.rawPayment;
+                            return (
+                              <div
+                                key={ev.id}
+                                className="bg-app-bg p-4 border border-emerald-500/30 rounded-2xl flex flex-col gap-2.5 shadow-xs"
+                              >
+                                <div className="flex flex-wrap justify-between items-start gap-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
+                                      <CreditCard className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                                          Credit Payment
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-app-text-muted font-mono mt-0.5">
+                                        {evDateStr} • Paid via {dp.paymentMethod || 'Cash'}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    <span className="text-sm font-black font-mono text-emerald-500">
+                                      + {formatCurrency(dp.amountPaid)}
+                                    </span>
+                                    <div className="text-[9.5px] font-bold text-app-text-muted font-mono">
+                                      Remaining Debt: {formatCurrency(dp.remainingDebt)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {(dp.note || dp.recordedBy) && (
+                                  <div className="bg-app-card border border-app-border/40 rounded-xl p-2 flex justify-between items-center text-[10px] text-app-text-muted font-medium">
+                                    {dp.note && <span>Note: <i className="text-app-text font-normal">{dp.note}</i></span>}
+                                    {dp.recordedBy && <span className="ml-auto font-bold text-app-text-muted">Recorded By: {dp.recordedBy}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          // RENDER WALLET / LEDGER ADJUSTMENT EVENT
+                          if (ev.eventType === 'wallet_ledger' && ev.rawLedger) {
+                            const entry: CustomerLedgerEntry = ev.rawLedger;
+                            const isDeposit = entry.type === 'wallet_deposit';
+                            const isSpent = entry.type === 'wallet_spent';
+
+                            return (
+                              <div
+                                key={ev.id}
+                                className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-2.5 shadow-xs"
+                              >
+                                <div className="flex flex-wrap justify-between items-start gap-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                      isDeposit ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500' :
+                                      isSpent ? 'bg-purple-500/10 border border-purple-500/20 text-purple-400' :
+                                      'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                                    }`}>
+                                      <Wallet className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${ev.paymentStatusStyle}`}>
+                                          {ev.paymentStatusLabel}
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-app-text-muted font-mono mt-0.5">
+                                        {evDateStr}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    <span className={`text-sm font-black font-mono ${isDeposit ? 'text-emerald-500' : isSpent ? 'text-purple-400' : 'text-blue-400'}`}>
+                                      {isDeposit ? '+' : isSpent ? '-' : ''} {formatCurrency(entry.amount)}
+                                    </span>
+                                    <div className="text-[9.5px] font-bold text-app-text-muted font-mono">
+                                      Wallet: {formatCurrency(entry.walletBalance)} | Debt: {formatCurrency(entry.debtBalance)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {(entry.note || entry.recordedBy) && (
+                                  <div className="bg-app-card border border-app-border/40 rounded-xl p-2 flex justify-between items-center text-[10px] text-app-text-muted font-medium">
+                                    {entry.note && <span>Note: <i className="text-app-text font-normal">{entry.note}</i></span>}
+                                    {entry.recordedBy && <span className="ml-auto font-bold text-app-text-muted">Recorded By: {entry.recordedBy}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })}
+                      </div>
                     )}
                   </div>
                 )}

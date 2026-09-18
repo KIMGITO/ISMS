@@ -1,4 +1,4 @@
-# ISMS — Milk Business Management System
+# ISMS — Business Management System
 
 ## Application Documentation
 
