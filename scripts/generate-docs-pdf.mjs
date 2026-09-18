@@ -56,8 +56,8 @@ for (let i = 0; i < lines.length; i++) {
     continue;
   }
 
-  // Detect section titles (lines like "1. OVERVIEW" or "ISMS - MILK BUSINESS MANAGEMENT SYSTEM")
-  if (/^[0-9]+\.\s+[A-Z]/.test(trimmed) || trimmed === "ISMS - MILK BUSINESS MANAGEMENT SYSTEM") {
+  // Detect section titles (lines like "1. OVERVIEW" or "ISMS - Business Management System")
+  if (/^[0-9]+\.\s+[A-Z]/.test(trimmed) || trimmed === "ISMS - Business Management System") {
     // Check if next non-empty line is a ===== separator
     let next = i + 1;
     while (next < lines.length && lines[next].trim() === "") next++;

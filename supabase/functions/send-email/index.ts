@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 /**
@@ -22,7 +23,9 @@ function cleanCodeValue(codeVal: any): string {
 /**
  * Modern Responsive Branded Email Template Builder
  */
-const LOGO_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAABq1UlEQVR42lz9aZRlWZYWBn5773PuvW+wyc3cPTzCY46MyKGyMquyMmvKqqyJQQV0CQkKRCNAEoiWBI0EC4ToFqsloUbdNDS0WMDqxeoFkhq0gKKauQQqqHnIqqycMzIzIjImDx9tfOO995y9d/8495o58mVh4W727Nl7Z9jDt7/9bfoLPxKiWBTEQEEQBIERBSEgCEJAjFRVVEWKkYMgBJYoIVCILIFESKKwBGJiIRZnZhYSISICwEIIBBaIgC8/IpiJGMQQgURIBEWwgCtw5VwTNy41uAE34AnxFDx3mmD4aAAGBAAI8AzbwlrYFrZCWiJfkK6ga6RzTwvkDdIW1kF7T2uzmYUn+fzTjuiqpknVNZtm02SqyNlUYYqsrsk1e8qU1U2h5qqkGepuRmgSVbnZr/duLt/9ikO63pPCFGpQRXakbO0WXLErDMiKnGGAOdjN3QAH4FT+N34MXwYAEDFAAIHGhQODqPzFARCBiIhBRCAv32UCCJDh8RBAQELEIHESsDhHcAAFcHAOIHYwhl8RQAEUiCpH8PIMFIcPbsBTyHT8SgWKoABEUABXTgKQUyCKQAAxiAAiBNIlb14FN+P7YwBwlDdCNOzquAZuDncHyB3ugPvw1gHtelcN1G3ufsWZ1LwsmhMMMJCqx+n+E9/8KVcHwf1qhQHw8G+He1ksDHvg5WyVr5CDHOw0fGD4LMO7orI3w2cvLw1MxE4CMLxswLiL40Y6BAiOCIpOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQg...=";===";
+const LOGO_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAABq1UlEQVR42lz9aZRlWZYWBn5773PuvW+wyc3cPTzCY46MyKGyMquyMmvKqqyJQQV0CQkKRCNAEoiWBI0EC4ToFqsloUbdNDS0WMDqxeoFkhq0gKKauQQqqHnIqqycMzIzIjImDx9tfOO995y9d/8495o58mVh4W727Nl7Z9jDt7/9bfoLPxKiWBTEQEEQBIERBSEgCEJAjFRVVEWKkYMgBJYoIVCILIFESKKwBGJiIRZnZhYSISICwEIIBBaIgC8/IpiJGMQQgURIBEWwgCtw5VwTNy41uAE34AnxFDx3mmD4aAAGBAAI8AzbwlrYFrZCWiJfkK6ga6RzTwvkDdIW1kF7T2uzmYUn+fzTjuiqpknVNZtm02SqyNlUYYqsrsk1e8qU1U2h5qqkGepuRmgSVbnZr/duLt/9ikO63pPCFGpQRXakbO0WXLErDMiKnGGAOdjN3QAH4FT+N34MXwYAEDFAAIHGhQODqPzFARCBiIhBRCAv32UCCJDh8RBAQELEIHESsDhHcAAFcHAOIHYwhl8RQAEUiCpH8PIMFIcPbsBTyHT8SgWKoABEUABXTgKQUyCKQAAxiAAiBNIlb14FN+P7YwBwlDdCNOzquAZuDncHyB3ugPvw1gHtelcN1G3ufsWZ1LwsmhMMMJCqx+n+E9/8KVcHwf1qhQHw8G+He1ksDHvg5WyVr5CDHOw0fGD4LMO7orI3w2cvLw1MxE4CMLxswLiL40Y6BAiOCIpOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQg/o+A/4A/4C/4C/4C/4C/4C/4A/4A/4A/4D/AIAAAP////4C3L/4B1x6954A/4A=";
+
 function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
   const brandName = vars.brandName || "KayKay's";
   const appName = brandName;
@@ -37,8 +40,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
     case "verification_code":
     case "signup": {
       const name = vars.name || vars.to || "Business Owner";
-      const cleanCode = code;
-
       subject = `Verify your email address - ${appName}`;
       html = `
         <!DOCTYPE html>
@@ -51,7 +52,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
         <body style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <center style="width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-              <!-- Header with Logo -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
                 <tr>
                   <td style="padding: 32px 0; text-align: center;">
@@ -62,7 +62,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                 </tr>
               </table>
 
-              <!-- Main Content -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;">
                 <tr>
                   <td style="padding: 40px 32px;">
@@ -72,10 +71,9 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                       Use the 6-digit verification code below to complete your account setup and access your workspace.
                     </p>
 
-                    <!-- Code Box -->
                     <div style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
                       <span style="font-family: 'Monaco', 'Consolas', monospace; font-size: 42px; font-weight: 800; letter-spacing: 12px; color: ${primaryColor}; display: block; margin-left: 12px;">
-                        ${cleanCode}
+                        ${code}
                       </span>
                       <p style="margin: 16px 0 0; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Verification Code</p>
                     </div>
@@ -88,7 +86,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                 </tr>
               </table>
 
-              <!-- Footer -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; border-top: 1px solid #f1f5f9;">
                 <tr>
                   <td style="padding: 32px; text-align: center;">
@@ -109,8 +106,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
 
     case "password_reset": {
       const name = vars.name || "User";
-      const cleanCode = code;
-
       subject = `Password Recovery Code - ${appName}`;
       html = `
         <!DOCTYPE html>
@@ -123,7 +118,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
         <body style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <center style="width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-              <!-- Header with Logo -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
                 <tr>
                   <td style="padding: 32px 0; text-align: center;">
@@ -134,7 +128,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                 </tr>
               </table>
 
-              <!-- Main Content -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;">
                 <tr>
                   <td style="padding: 40px 32px;">
@@ -144,10 +137,9 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                       We received a request to reset your password. Use the code below to securely update your credentials.
                     </p>
 
-                    <!-- Code Box -->
                     <div style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
                       <span style="font-family: 'Monaco', 'Consolas', monospace; font-size: 42px; font-weight: 800; letter-spacing: 12px; color: ${primaryColor}; display: block; margin-left: 12px;">
-                        ${cleanCode}
+                        ${code}
                       </span>
                       <p style="margin: 16px 0 0; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Security Recovery Code</p>
                     </div>
@@ -160,7 +152,6 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
                 </tr>
               </table>
 
-              <!-- Footer -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; border-top: 1px solid #f1f5f9;">
                 <tr>
                   <td style="padding: 32px; text-align: center;">
@@ -226,23 +217,15 @@ Deno.serve(async (req) => {
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
         if (supabaseUrl && serviceRoleKey) {
           const supabase = createClient(supabaseUrl, serviceRoleKey);
-          
-          // Check auth admin users (case-insensitive)
-          const { data } = await supabase.auth.admin.listUsers();
-          if (data?.users) {
-            const foundUser = data.users.find((u: any) => u.email?.trim().toLowerCase() === cleanTo);
-            if (foundUser) userExists = true;
-          }
 
-          // Fallback to public.users table
-          if (!userExists) {
-            const { data: dbUser } = await supabase
-              .from("users")
-              .select("id")
-              .ilike("email", cleanTo)
-              .maybeSingle();
-            if (dbUser) userExists = true;
-          }
+          // Fast direct check on the public.users table instead of listUsers()
+          const { data: dbUser } = await supabase
+            .from("users")
+            .select("id")
+            .ilike("email", cleanTo)
+            .maybeSingle();
+
+          if (dbUser) userExists = true;
         }
       }
 
@@ -260,12 +243,12 @@ Deno.serve(async (req) => {
     const SMTP_PORT = Number(Deno.env.get("SMTP_PORT")) || 587;
     const SMTP_USER = Deno.env.get("SMTP_USER") || "";
     const SMTP_PASS = Deno.env.get("SMTP_PASS") || "";
+    const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") || SMTP_USER || "noreply@kaykays.com";
 
     const hasResend = !!RESEND_API_KEY;
     const hasSmtp = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
     const { subject, html } = getEmailTemplate(type, { ...variables, to: cleanTo });
-    const senderEmail = SMTP_USER || "operations@kaykays.com";
 
     // 1. Try Resend if configured
     if (hasResend) {
@@ -277,7 +260,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: senderEmail,
+            from: SENDER_EMAIL,
             to: [cleanTo],
             subject: subject,
             html: html,
@@ -311,7 +294,7 @@ Deno.serve(async (req) => {
         });
 
         const info = await transporter.sendMail({
-          from: senderEmail,
+          from: SENDER_EMAIL,
           to: cleanTo,
           subject: subject,
           html: html,
@@ -327,12 +310,11 @@ Deno.serve(async (req) => {
     }
 
     // 3. Simulation Fallback (Dev/Sandbox Mode)
-    
     return new Response(
       JSON.stringify({
         success: true,
         simulated: true,
-        message: `[Dev Sandbox] Dispatched email to ${cleanTo}. Code: ${cleanCodeValue(variables.code)}`
+        message: `[Dev Sandbox] Dispatched email to ${cleanTo}. Code: ${cleanCodeValue(variables.code || variables.token || variables.otp)}`
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
@@ -341,7 +323,7 @@ Deno.serve(async (req) => {
     console.error("[send-email] Unhandled error:", err);
     return new Response(
       JSON.stringify({ success: false, error: err.message || "Internal server error" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
