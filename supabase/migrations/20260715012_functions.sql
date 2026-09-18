@@ -25,7 +25,8 @@ $$;
 -- ---------------------------------------------------------------------------
 -- UTILITY: calculate_customer_tier
 -- Pure function computing customer tier from total loyalty points.
--- Gold >= 400 pts, Silver >= 150 pts, Bronze otherwise.
+-- 1 point is earned per KSh 100 spent.
+-- Gold >= 300 pts (>= KSh 30,000 spend), Silver >= 100 pts (>= KSh 10,000 spend), Bronze otherwise.
 -- IMMUTABLE so PostgreSQL can inline it and cache results.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.calculate_customer_tier(points INTEGER)
@@ -34,9 +35,9 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-    IF points >= 400 THEN
+    IF points >= 300 THEN
         RETURN 'Gold';
-    ELSIF points >= 150 THEN
+    ELSIF points >= 100 THEN
         RETURN 'Silver';
     ELSE
         RETURN 'Bronze';

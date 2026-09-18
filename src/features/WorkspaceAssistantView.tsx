@@ -522,15 +522,50 @@ export default function WorkspaceAssistantView() {
           response.reply || 'I received your message, but I have no response.';
 
         // Handle AI Pending Action Drafts & Action Triggers
-        const pendingActionRegex = /\[(PENDING_?ACTION|ACTION_TRIGGER):\s*(\{[\s\S]*?\})\s*\]/gi;
-        let pMatch;
-        while ((pMatch = pendingActionRegex.exec(replyText)) !== null) {
+        // Supports both [PENDING_ACTION: {...}] and plain PENDING_ACTION: {...}
+        // Uses brace-counting to correctly extract nested JSON objects.
+        const extractPendingActions = (text: string) => {
+          const tagRegex = /\[?(PENDING_?ACTION|ACTION_TRIGGER):\s*\{/gi;
+          const results: { fullMatch: string; jsonStr: string }[] = [];
+          let tagMatch: RegExpExecArray | null;
+          while ((tagMatch = tagRegex.exec(text)) !== null) {
+            // Start of the JSON object is the position of '{'
+            const jsonStart = tagMatch.index + tagMatch[0].length - 1;
+            let depth = 0;
+            let inString = false;
+            let escape = false;
+            let i = jsonStart;
+            for (; i < text.length; i++) {
+              const ch = text[i];
+              if (escape) { escape = false; continue; }
+              if (ch === '\\' && inString) { escape = true; continue; }
+              if (ch === '"') { inString = !inString; continue; }
+              if (inString) continue;
+              if (ch === '{') depth++;
+              else if (ch === '}') {
+                depth--;
+                if (depth === 0) break;
+              }
+            }
+            if (depth === 0) {
+              const jsonStr = text.slice(jsonStart, i + 1);
+              // Include optional closing ] if present
+              const afterJson = text.slice(i + 1);
+              const closingBracket = afterJson.match(/^\s*\]/);
+              const fullMatch = text.slice(tagMatch.index, i + 1 + (closingBracket ? closingBracket[0].length : 0));
+              results.push({ fullMatch, jsonStr });
+            }
+          }
+          return results;
+        };
+
+        const actionMatches = extractPendingActions(replyText);
+        for (const { jsonStr } of actionMatches) {
           try {
-            const rawJson = pMatch[2].replace(/```json\n?|```\n?/g, '').trim();
-            const draftData = JSON.parse(rawJson);
+            const draftData = JSON.parse(jsonStr);
             const rawType = (draftData.type || draftData.action || '').toLowerCase().replace(/_/g, '');
             const normalizedType = draftData.type || draftData.action || 'custom_action';
-            
+
             if (rawType) {
               // 1. ALWAYS route ALL AI actions to Pending Actions Store for human review
               usePendingActionStore.getState().addPendingAction({
@@ -551,14 +586,15 @@ export default function WorkspaceAssistantView() {
               }
             }
           } catch (e) {
-            console.error('Failed to parse pending action trigger:', e);
+            console.error('Failed to parse pending action trigger:', e, jsonStr);
           }
         }
 
-        // Clean any action triggers or pending action JSON blocks from the chat bubble reply
-        replyText = replyText
-          .replace(/\[(PENDING_?ACTION|ACTION_TRIGGER):\s*\{[\s\S]*?\}\s*\]/gi, '')
-          .trim();
+        // Clean all matched action blocks from the visible chat bubble reply
+        for (const { fullMatch } of actionMatches) {
+          replyText = replyText.replace(fullMatch, '');
+        }
+        replyText = replyText.trim();
 
         // 4. Update history with assistant reply
         setAiChatHistory((prev) => [
