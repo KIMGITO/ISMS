@@ -107,11 +107,11 @@ BEGIN
 
         INSERT INTO public.payment_asset_ledger (
             business_id, asset_id, payment_id, type, amount,
-            balance_before, balance_after, description
+            balance_before, balance_after, description, method
         )
         VALUES (
             p_business_id, v_asset_id, v_payment_id, 'Credit', p_amount,
-            v_asset_before, v_asset_after, 'Manual Payment: ' || p_reference_code
+            v_asset_before, v_asset_after, 'Manual Payment: ' || p_reference_code, p_method
         );
     END IF;
     RETURN v_payment_id;
@@ -145,11 +145,11 @@ BEGIN
 
         INSERT INTO public.payment_asset_ledger (
             business_id, asset_id, expense_id, type, amount,
-            balance_before, balance_after, description
+            balance_before, balance_after, description, method
         )
         VALUES (
             NEW.business_id, v_asset_id, NEW.id, 'Debit', -NEW.amount,
-            v_asset_before, v_asset_after, 'Expense: ' || NEW.category
+            v_asset_before, v_asset_after, 'Expense: ' || NEW.category, NEW.payment_method
         );
     END IF;
     RETURN NEW;
@@ -227,11 +227,11 @@ BEGIN
 
         INSERT INTO public.payment_asset_ledger (
             business_id, asset_id, transaction_id, type, amount,
-            balance_before, balance_after, description
+            balance_before, balance_after, description, method
         )
         VALUES (
             NEW.business_id, v_asset_id, NEW.id, 'Credit', NEW.final_total,
-            v_asset_before, v_asset_after, 'POS Sale: ' || NEW.id
+            v_asset_before, v_asset_after, 'POS Sale: ' || NEW.id, v_method
         );
     END IF;
 
