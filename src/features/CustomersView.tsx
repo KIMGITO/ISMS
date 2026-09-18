@@ -114,7 +114,7 @@ export default function CustomersView() {
     {
       role: 'assistant',
       content:
-        'Jambo! I am Kim, your ISMS  CRM Assistant. Click any prompt below or type your message to help manage customer relationships!',
+        'Jambo! I am Kim, your KayKay\'s CRM Assistant. Click any prompt below or type your message to help manage customer relationships!',
     },
   ]);
   const [aiInput, setAiInput] = useState("");
@@ -182,7 +182,7 @@ export default function CustomersView() {
         await addCustomer({
           name: vals.name,
           phone: normalizePhone(vals.phone, selectedCountryCode),
-          email: vals.email || "no-email@isms.com",
+          email: vals.email || "no-email@kaykays.com",
           loyaltyPoints: vals.startingPoints,
           tier: vals.tier,
           description: vals.description,
@@ -276,7 +276,7 @@ export default function CustomersView() {
     let msg = `Hi *${getFirstName(cust.name)}*,\n\n`;
     msg += `This is a friendly statement regarding your outstanding balance of *KSh ${(
       cust.debtBalance || 0
-    ).toFixed(0)}* at ISMS .\n\n`;
+    ).toFixed(0)}* at KayKay's.\n\n`;
     if (itemSummary) {
       msg += `*Included Products:*\n${itemSummary}\n`;
     }
@@ -1406,7 +1406,7 @@ export default function CustomersView() {
                           {[
                             {
                               label: 'Loyalty Bonus Alert',
-                              text: `Hi ${selectedCustomer.name}, thank you for being an amazing customer of ISMS ! We have just credited 50 bonus points to your wallet as part of our Gold member rewards!`,
+                              text: `Hi ${selectedCustomer.name}, thank you for being an amazing customer of KayKay's! We have just credited 50 bonus points to your wallet as part of our Gold member rewards!`,
                             },
                             {
                               label: 'Payment Overdue Note',
@@ -1414,17 +1414,17 @@ export default function CustomersView() {
                                 selectedCustomer.name
                               }, this is a gentle reminder that you have an outstanding debt of ${formatCurrency(
                                 selectedCustomer.debtBalance || 0,
-                              )} at ISMS . Please settle at your earliest convenience. Thank you!`,
+                              )} at KayKay's. Please settle at your earliest convenience. Thank you!`,
                             },
                             {
                               label: 'Promotional Offer',
-                              text: `Hello ${selectedCustomer.name}! Get 10% off on fresh whole Milk deliveries today at ISMS! Use code FRESH10. Call us to book.`,
+                              text: `Hello ${selectedCustomer.name}! Get 10% off on fresh whole Milk deliveries today at KayKay's! Use code FRESH10. Call us to book.`,
                             },
                             {
                               label: 'Wallet Deposit Notice',
                               text: `Hi ${
                                 selectedCustomer.name
-                              }, we received your payment and credited your ISMS  digital wallet. Your new wallet balance is ${formatCurrency(
+                              }, we received your payment and credited your KayKay's digital wallet. Your new wallet balance is ${formatCurrency(
                                 selectedCustomer.walletBalance || 0,
                               )}.`,
                             },
@@ -1474,7 +1474,7 @@ export default function CustomersView() {
                           onClick={() =>
                             ReceiptShareService.shareTextViaEmail(
                               selectedCustomer.email,
-                              'ISMS  Account Update',
+                              'KayKay\'s Account Update',
                               messageText,
                             )
                           }
@@ -1678,13 +1678,13 @@ export default function CustomersView() {
                               })
                               .join('\n');
 
-                            const shareText = `*INVOICE STATEMENT*\n*ISMS  rewards Club*\n\n*Customer Name:* ${
+                            const shareText = `*INVOICE STATEMENT*\n*KayKay's Rewards Club*\n\n*Customer Name:* ${
                               selectedCustomer.name
                             }\n*Reference Phone:* ${
                               selectedCustomer.phone
                             }\n*Date:* ${new Date().toLocaleDateString()}\n\n*Line Breakdown:*\n${itemsText}\n\n----------------------------\n*Grand Invoice Total:* *${formatCurrency(
                               total,
-                            )}*\n----------------------------\n\nThank you for choosing ISMS ! Please settle this invoice.`;
+                            )}*\n----------------------------\n\nThank you for choosing KayKay's! Please settle this invoice.`;
 
                             return (
                               <div className="grid grid-cols-2 gap-3">
@@ -1785,7 +1785,7 @@ export default function CustomersView() {
                 Enroll Loyalty Member
               </h3>
               <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider mt-0.5">
-                Register customer in ISMS rewards program
+                Register customer in KayKay's rewards program
               </p>
 
               <div className="h-[1px] bg-app-border my-3 shrink-0" />

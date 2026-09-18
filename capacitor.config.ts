@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.isms.app',
-  appName: "ISMS",
+  appName: "KayKay's",
   webDir: 'dist',
   server: {
     androidScheme: 'https'

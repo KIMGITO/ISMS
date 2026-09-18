@@ -56,7 +56,7 @@ export default function WorkersView() {
   const canRemoveStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.remove") : false;
   const canDeleteInvite = currentEmployee ? hasRolePermission(currentEmployee.role, "invitations.delete") : false;
   const activeBusinessName =
-    businesses.find((b) => b.id === currentBusinessId)?.name || 'ISMS  Hub';
+    businesses.find((b) => b.id === currentBusinessId)?.name || "KayKay's Hub";
 
   const handleStartEdit = (emp: any) => {
     setEditingEmployeeId(emp.id);
@@ -243,7 +243,7 @@ export default function WorkersView() {
                   <div className="relative">
                     <input
                       type="email"
-                      placeholder="e.g. kid@isms.com"
+                      placeholder="e.g. kid@kaykays.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-app-bg text-app-text pl-8 pr-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/20"

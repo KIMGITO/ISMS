@@ -1092,7 +1092,7 @@ export default function SettingsView({
                               },
                               {
                                 id: 'isms_app',
-                                label: 'ISMS Theme',
+                                label: "KayKay's Theme",
                               },
                             ]}
                             selectedValue={receiptSettings.templateType}
@@ -1115,7 +1115,7 @@ export default function SettingsView({
                             {receiptSettings.templateType === 'retail' &&
                               'Full columns for tax tracking, item descriptions, cashier terminal numbers, return policies.'}
                             {receiptSettings.templateType === 'isms_app' &&
-                              'Charming dairy-specific brand theme with custom farm borders and fresh emerald colors.'}
+                              'Charming fresh milk & dairy brand theme with custom borders and warm amber colors.'}
                           </span>
                         </div>
 
@@ -1270,7 +1270,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                              placeholder="ISMS  Shop"
+                              placeholder="KayKay's Shop"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -1325,7 +1325,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                              placeholder="sales@isms.com"
+                              placeholder="sales@kaykays.com"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -1342,7 +1342,7 @@ export default function SettingsView({
                                 })
                               }
                               className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                              placeholder="www.isms.com"
+                              placeholder="www.kaykays.com"
                             />
                           </div>
                         </div>

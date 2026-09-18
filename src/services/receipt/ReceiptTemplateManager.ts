@@ -41,8 +41,8 @@ export class ReceiptTemplateManager {
     },
     isms_app: {
       type: "isms_app",
-      name: "ISMS Shop",
-      description: "Charming emerald borders .",
+      name: "KayKay's Shop",
+      description: "Charming fresh milk brand borders.",
       component: MilkShopTemplate
     }
   };

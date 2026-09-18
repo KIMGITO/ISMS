@@ -619,7 +619,7 @@ export default function BusinessManagementView() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. ISMS  - Syokimau Hub"
+                    placeholder="e.g. KayKay's - Syokimau Hub"
                     value={newBizName}
                     onChange={(e) => setNewBizName(e.target.value)}
                     className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
@@ -926,7 +926,7 @@ export default function BusinessManagementView() {
                           </label>
                           <input
                             type="email"
-                            placeholder="e.g. branch@isms.com"
+                            placeholder="e.g. branch@kaykays.com"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${

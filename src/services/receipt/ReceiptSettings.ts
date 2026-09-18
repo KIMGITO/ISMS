@@ -4,21 +4,21 @@ import { useBusinessStore } from "../../stores/businessStore";
 
 const DEFAULT_SETTINGS: Record<string, BusinessReceiptSettings> = {
   default: {
-    logoUrl: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
-    businessName: "ISMS  App",
+    logoUrl: "/icon.png",
+    businessName: "KayKay's",
     address: " Nairobi, Kenya",
     phone: "+254 743 952 173",
     email: "codensons@gmail.com",
-    website: "www.isms.co.ke",
+    website: "www.kaykays.co.ke",
     pinNumber: "N/A",
     registrationNumber: "N/A",
     socialMedia: "@codensons",
-    headerMessage: "Welcome to ISMS  App,  Your Trusted App for your business!",
-    footerMessage: "You were served using ISMS POS Application!",
-    termsAndConditions: "Get yourself one for your business,.",
-    returnPolicy: "Contact ISMS via +254743952173.",
-    thankYouMessage: "Asante Sana! from ISMS .",
-    receiptPrefix: "ISMS",
+    headerMessage: "Welcome to KayKay's, Your Trusted App for your business!",
+    footerMessage: "You were served using KayKay's POS Application!",
+    termsAndConditions: "Get yourself one for your business.",
+    returnPolicy: "Contact KayKay's via +254743952173.",
+    thankYouMessage: "Asante Sana! from KayKay's.",
+    receiptPrefix: "KK",
     receiptNumberFormat: "PREFIX-YYYY-INCREMENT",
     paperWidth: "80mm",
     currencyFormat: "KSh",
@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS: Record<string, BusinessReceiptSettings> = {
     isTaxEnabled: false,
     taxPercentage: 16.0,
     qrCodeOption: "verification_url",
-    customQrUrl: "https://isms.co.ke/verify",
+    customQrUrl: "https://kaykays.co.ke/verify",
     templateType: "isms_app"
   }
 };

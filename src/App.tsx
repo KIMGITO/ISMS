@@ -163,7 +163,7 @@ const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
 
 const tourSteps: TourStep[] = [
   {
-    title: 'Welcome to ISMS !',
+    title: "Welcome to KayKay's!",
     content:
       "Let's take a quick 1 minute interactive tour to explore your application workflows and tool panels.",
     placement: 'bottom',
@@ -417,9 +417,8 @@ export default function App() {
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId) ||
     businesses[0] || {
       id: 'biz-1',
-      name: 'ISMS ',
-      logoUrl:
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
+      name: "KayKay's",
+      logoUrl: '/icon.png',
     };
 
   const assignableBranchesCount = currentEmployee
@@ -1488,7 +1487,8 @@ export default function App() {
                     </p>
                     <p>
                       This terminal portal is strictly for authorized staff and
-                      logistics agents of ISMS and partner businesses.
+                      This terminal portal is strictly for authorized staff and
+                      logistics agents of KayKay's and partner businesses.
                       Unauthorized access, sharing of staff PINs, or spoofing
                       biometric/login credentials is prohibited. All terminal
                       activity and transactions are logged for security and
@@ -1564,7 +1564,7 @@ export default function App() {
                     className="text-[10.5px] text-slate-300 leading-normal font-semibold cursor-pointer select-none"
                   >
                     I agree to the terms, conditions, and offline caching
-                    security policies of ISMS Staff Portal.
+                    security policies of KayKay's Staff Portal.
                   </label>
                 </div>
 
@@ -1652,14 +1652,14 @@ export default function App() {
               <div className="w-full max-w-lg bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 animate-fade-in relative">
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
-                  <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-black text-lg shadow-xl shadow-amber-500/10">
-                    <span>ISMS</span>
+                  <div className="mx-auto w-14 h-14 bg-slate-900 border border-amber-500/30 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-500/10 overflow-hidden">
+                    <img src="/icon.png" alt="KayKay's" className="w-full h-full object-cover" />
                   </div>
                   <h1 className="text-xl font-black font-display tracking-tight text-amber-500 uppercase tracking-widest">
-                    Integrated Shop Management System
+                    KayKay's
                   </h1>
                   <p className="text-[10.5px] text-slate-400 font-bold tracking-wider uppercase">
-                    Auth & Onboardingpage.  
+                    Business & Fresh Milk Management Portal
                   </p>
                 </div>
 
@@ -1864,7 +1864,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="e.g. owner@isms.com"
+                              placeholder="e.g. owner@kaykays.com"
                               value={loginEmail}
                               onChange={(e) => setLoginEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
@@ -2016,7 +2016,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@isms.com"
+                              placeholder="e.g. owner@kaykays.com"
                               value={regEmail}
                               onChange={(e) => setRegEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
@@ -2652,7 +2652,7 @@ export default function App() {
                               <h5 className="text-[11px] font-bold text-slate-200">
                                 {businesses.find(
                                   (b) => b.id === validatedInvite.businessId,
-                                )?.name || 'ISMS Retail Outlet'}
+                                )?.name || "KayKay's Retail Outlet"}
                               </h5>
                               <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
                                 Assigned Role: {validatedInvite.role}
@@ -2836,7 +2836,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@isms.com"
+                              placeholder="e.g. owner@kaykays.com"
                               value={forgotEmail}
                               onChange={(e) => setForgotEmail(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
@@ -4590,7 +4590,7 @@ export default function App() {
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. ISMS  - Syokimau Hub"
+                          placeholder="e.g. KayKay's - Syokimau Hub"
                           value={newBizName}
                           onChange={(e) => setNewBizName(e.target.value)}
                           className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-bold"

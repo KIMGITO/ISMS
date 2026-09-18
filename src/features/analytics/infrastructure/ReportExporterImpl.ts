@@ -23,7 +23,7 @@ export class ReportExporterImpl implements ReportExporterPort {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("ISMS ", 15, yPos);
+      doc.text("KayKay's", 15, yPos);
       
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
@@ -301,7 +301,7 @@ export class ReportExporterImpl implements ReportExporterPort {
       let csvContent = "data:text/csv;charset=utf-8,";
       
       // Report metadata
-      csvContent += `Report,ISMS  Business Intelligence Export\n`;
+      csvContent += `Report,KayKay's Business Intelligence Export\n`;
       csvContent += `Timeframe,${data.filter.timeframe}\n`;
       csvContent += `Generated,${new Date().toISOString()}\n\n`;
 
@@ -366,7 +366,7 @@ export class ReportExporterImpl implements ReportExporterPort {
       const html = `
         <html>
           <head>
-            <title>ISMS  - BI Report Print</title>
+            <title>KayKay's - BI Report Print</title>
             <style>
               body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 24px; color: #0f172a; }
               .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 24px; }
@@ -386,7 +386,7 @@ export class ReportExporterImpl implements ReportExporterPort {
           <body>
             <div class="header">
               <div>
-                <div class="title">ISMS </div>
+                <div class="title">KayKay's</div>
                 <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">Executive Reports & Analytics Portal</div>
               </div>
               <div class="meta">
@@ -515,7 +515,7 @@ export class ReportExporterImpl implements ReportExporterPort {
   public async share(data: ExporterData): Promise<boolean> {
     try {
       const totalPayments = (data.payments || []).reduce((acc, p) => acc + p.amount, 0);
-      const summaryText = `ISMS  Business Intelligence Summary (${data.filter.timeframe.toUpperCase()}):\n` +
+      const summaryText = `KayKay's Business Intelligence Summary (${data.filter.timeframe.toUpperCase()}):\n` +
         `- Total Sales: KSh ${data.metrics.totalSales.toLocaleString()}\n` +
         `- Total Expenses: KSh ${data.metrics.totalExpenses.toLocaleString()}\n` +
         `- Business Payments Received: KSh ${totalPayments.toLocaleString()}\n` +
@@ -526,7 +526,7 @@ export class ReportExporterImpl implements ReportExporterPort {
 
       if (navigator.share) {
         await navigator.share({
-          title: "ISMS  BI Report Summary",
+          title: "KayKay's BI Report Summary",
           text: summaryText
         });
         return true;
