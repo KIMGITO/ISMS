@@ -224,6 +224,22 @@ const tourSteps: TourStep[] = [
     tab: 'customers',
   },
   {
+    targetSelector: '#sidebar-tab-feedback',
+    title: 'Customer Reviews & Feedback',
+    content:
+      'Monitor customer satisfaction, track complaints, read sentiment feedback, and manage service quality reviews from clients.',
+    placement: 'right',
+    tab: 'feedback',
+  },
+  {
+    targetSelector: '#sidebar-tab-workers',
+    title: 'Workers & Staff List',
+    content:
+      'Register new employees, assign branch locations, set role designations (Cashier, Manager, Driver), and manage staff credentials.',
+    placement: 'right',
+    tab: 'workers',
+  },
+  {
     targetSelector: '#sidebar-tab-ai',
     title: 'AI Co-pilot Assistant',
     content:
@@ -262,6 +278,14 @@ const tourSteps: TourStep[] = [
       'Create production recipes (BOMs), manage raw material ingredients, track production batches, and auto-deduct inventory when batches are completed.',
     placement: 'right',
     tab: 'production',
+  },
+  {
+    targetSelector: '#sidebar-tab-profile',
+    title: 'My Profile',
+    content:
+      'Update your personal details, change your PIN, manage your avatar, and view your shift history and performance summary.',
+    placement: 'right',
+    tab: 'profile',
   },
   {
     targetSelector: '#global-search-container',
@@ -352,20 +376,23 @@ export default function App() {
 
   const handleCloseTour = () => {
     setIsTourOpen(false);
+    // Mark onboarding as completed so the tour doesn't auto-launch again
     localStorage.setItem('isms-onboarding-completed', 'true');
   };
 
+  // Auto-launch the guided tour on first-ever app interaction (once per device).
+  // The tour fires after a short delay once the user logs in, and only if
+  // they haven't already completed or dismissed it on this device before.
   useEffect(() => {
-    if (currentEmployee) {
-      const completed = localStorage.getItem('isms-onboarding-completed');
-      if (completed !== 'true') {
-        const timer = setTimeout(() => {
-          setIsTourOpen(true);
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [currentEmployee]);
+    if (!currentEmployee) return;
+    const completed = localStorage.getItem('isms-onboarding-completed');
+    if (completed === 'true') return;
+    // Delay slightly so the UI is fully settled before the overlay appears
+    const timer = setTimeout(() => {
+      setIsTourOpen(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [currentEmployee?.id]); // re-check whenever the logged-in user changes
   const [isCreatingBusiness, setIsCreatingBusiness] = useState(false);
   const [newBizName, setNewBizName] = useState('');
   const [newBizDesc, setNewBizDesc] = useState('');
