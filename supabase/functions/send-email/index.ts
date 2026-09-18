@@ -23,7 +23,7 @@ function cleanCodeValue(codeVal: any): string {
  * Modern Responsive Branded Email Template Builder
  */
 function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
-  const brandName = vars.brandName || "ISMS  Systems";
+  const brandName = vars.brandName || "ISMS Systems";
   const appName = brandName;
   const primaryColor = vars.primaryColor || "#f59e0b"; // Warm Amber Accent
   const code = cleanCodeValue(vars.code || vars.token || vars.otp || vars.verificationCode);
@@ -46,31 +46,59 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>${subject}</title>
         </head>
-        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
-              <div style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🥛</div>
-              <div>
-                <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${appName}</h1>
-                <span style="font-size: 11px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Security & Account Verification</span>
-              </div>
+        <body style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <center style="width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+              <!-- Header with Logo -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
+                <tr>
+                  <td style="padding: 40px 0; text-align: center;">
+                    <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); width: 64px; height: 64px; border-radius: 16px; line-height: 64px; font-size: 32px; margin-bottom: 16px;">🥛</div>
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${appName}</h1>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Intelligent Stock Management System</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main Content -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;">
+                <tr>
+                  <td style="padding: 40px 32px;">
+                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #1e293b; text-align: center;">Verify Your Email</h2>
+                    <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #475569; text-align: center;">
+                      Hello <strong>${name}</strong>,<br>
+                      Use the 6-digit verification code below to complete your account setup and access your workspace.
+                    </p>
+
+                    <!-- Code Box -->
+                    <div style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
+                      <span style="font-family: 'Monaco', 'Consolas', monospace; font-size: 42px; font-weight: 800; letter-spacing: 12px; color: ${primaryColor}; display: block; margin-left: 12px;">
+                        ${cleanCode}
+                      </span>
+                      <p style="margin: 16px 0 0; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Verification Code</p>
+                    </div>
+
+                    <p style="margin: 32px 0 0; font-size: 14px; line-height: 22px; color: #64748b; text-align: center;">
+                      This code is valid for <strong>15 minutes</strong>.<br>
+                      If you didn't request this code, you can safely ignore this email.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Footer -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; border-top: 1px solid #f1f5f9;">
+                <tr>
+                  <td style="padding: 32px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                      © 2026 ${appName}. All rights reserved.<br>
+                      Empowering businesses with intelligent data.
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </div>
-
-            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 0 0 24px 0;" />
-
-            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">Hello <strong style="color: #f8fafc;">${name}</strong>,</p>
-            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">Use the verification code below to confirm your email and complete account setup:</p>
-
-            <div style="background-color: #1e293b; border: 2px dashed rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 24px; text-align: center; margin: 28px 0;">
-              <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${primaryColor}; display: block; margin-bottom: 12px;">
-                ${cleanCode}
-              </span>
-              <span style="font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 10px;">Verification Code (Valid for 15 minutes)</span>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0 16px 0;" />
-            <p style="font-size: 11px; color: #64748b; margin: 0; text-align: center;">This code expires in 15 minutes. If you did not request this, please ignore it.</p>
-          </div>
+          </center>
         </body>
         </html>
       `;
@@ -90,31 +118,59 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>${subject}</title>
         </head>
-        <body style="margin: 0; padding: 20px; background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; color: #f8fafc;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
-              <div style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🔑</div>
-              <div>
-                <h1 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${appName}</h1>
-                <span style="font-size: 11px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Password Reset Request</span>
-              </div>
+        <body style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <center style="width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+              <!-- Header with Logo -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
+                <tr>
+                  <td style="padding: 40px 0; text-align: center;">
+                    <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); width: 64px; height: 64px; border-radius: 16px; line-height: 64px; font-size: 32px; margin-bottom: 16px;">🔑</div>
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${appName}</h1>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Security & Account Recovery</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main Content -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;">
+                <tr>
+                  <td style="padding: 40px 32px;">
+                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #1e293b; text-align: center;">Reset Your Password</h2>
+                    <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #475569; text-align: center;">
+                      Hello <strong>${name}</strong>,<br>
+                      We received a request to reset your password. Use the code below to securely update your credentials.
+                    </p>
+
+                    <!-- Code Box -->
+                    <div style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
+                      <span style="font-family: 'Monaco', 'Consolas', monospace; font-size: 42px; font-weight: 800; letter-spacing: 12px; color: ${primaryColor}; display: block; margin-left: 12px;">
+                        ${cleanCode}
+                      </span>
+                      <p style="margin: 16px 0 0; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Security Recovery Code</p>
+                    </div>
+
+                    <p style="margin: 32px 0 0; font-size: 14px; line-height: 22px; color: #64748b; text-align: center;">
+                      This code is valid for <strong>15 minutes</strong>.<br>
+                      If you didn't request a password reset, you can safely ignore this email.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Footer -->
+              <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; border-top: 1px solid #f1f5f9;">
+                <tr>
+                  <td style="padding: 32px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                      © 2026 ${appName}. All rights reserved.<br>
+                      Security is our top priority.
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </div>
-
-            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 0 0 24px 0;" />
-
-            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6; margin-top: 0;">Hello <strong style="color: #f8fafc;">${name}</strong>,</p>
-            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6;">We received a request to reset your password. Use the 6-digit recovery code below to proceed:</p>
-
-            <div style="background-color: #1e293b; border: 2px dashed rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 24px; text-align: center; margin: 28px 0;">
-              <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${primaryColor}; display: block; margin-bottom: 12px;">
-                ${cleanCode}
-              </span>
-              <span style="font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 10px;">Security Recovery Code</span>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0 16px 0;" />
-            <p style="font-size: 11px; color: #64748b; margin: 0; text-align: center;">This recovery code expires in 15 minutes. If you did not request a password reset, please ignore this message.</p>
-          </div>
+          </center>
         </body>
         </html>
       `;
