@@ -218,11 +218,11 @@ export const useCartStore = create<CartState>((set, get) => ({
           riderName: isDelivery ? riderName : undefined,
           referenceId,
           items: cart.map(item => ({
-            productId: item.product.id,
-            productName: item.product.name,
-            unitPrice: item.product.price,
+            product_id: item.product.id,
+            product_name: item.product.name,
+            unit_price: item.product.price,
             quantity: item.quantity,
-            discountPercentage: item.discountPercentage,
+            discount_percentage: item.discountPercentage,
           })),
         });
 
