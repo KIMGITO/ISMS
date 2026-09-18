@@ -2,7 +2,7 @@
 # Exit on any error
 set -e
 
-APP_NAME="ISMS"
+APP_NAME="KayKay's"
 RELEASE_DIR="release"
 
 echo "=================================================="

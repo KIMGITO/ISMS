@@ -22,10 +22,12 @@ function cleanCodeValue(codeVal: any): string {
 /**
  * Modern Responsive Branded Email Template Builder
  */
+const LOGO_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAABq1UlEQVR42lz9aZRlWZYWBn5773PuvW+wyc3cPTzCY46MyKGyMquyMmvKqqyJQQV0CQkKRCNAEoiWBI0EC4ToFqsloUbdNDS0WMDqxeoFkhq0gKKauQQqqHnIqqycMzIzIjImDx9tfOO995y9d/8495o58mVh4W727Nl7Z9jDt7/9bfoLPxKiWBTEQEEQBIERBSEgCEJAjFRVVEWKkYMgBJYoIVCILIFESKKwBGJiIRZnZhYSISICwEIIBBaIgC8/IpiJGMQQgURIBEWwgCtw5VwTNy41uAE34AnxFDx3mmD4aAAGBAAI8AzbwlrYFrZCWiJfkK6ga6RzTwvkDdIW1kF7T2uzmYUn+fzTjuiqpknVNZtm02SqyNlUYYqsrsk1e8qU1U2h5qqkGepuRmgSVbnZr/duLt/9ikO63pPCFGpQRXakbO0WXLErDMiKnGGAOdjN3QAH4FT+N34MXwYAEDFAAIHGhQODqPzFARCBiIhBRCAv32UCCJDh8RBAQELEIHESsDhHcAAFcHAOIHYwhl8RQAEUiCpH8PIMFIcPbsBTyHT8SgWKoABEUABXTgKQUyCKQAAxiAAiBNIlb14FN+P7YwBwlDdCNOzquAZuDncHyB3ugPvw1gHtelcN1G3ufsWZ1LwsmhMMMJCqx+n+E9/8KVcHwf1qhQHw8G+He1ksDHvg5WyVr5CDHOw0fGD4LMO7orI3w2cvLw1MxE4CMLxswLiL40Y6BAiOCIpOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQgOAQg...=";===";
 function getEmailTemplate(type: string, vars: Record<string, any>): { subject: string; html: string } {
-  const brandName = vars.brandName || "ISMS Systems";
+  const brandName = vars.brandName || "KayKay's";
   const appName = brandName;
-  const primaryColor = vars.primaryColor || "#f59e0b"; // Warm Amber Accent
+  const logoUrl = vars.logoUrl || `data:image/png;base64,${LOGO_BASE64}`;
+  const primaryColor = vars.primaryColor || "#f59e0b"; // Warm Amber
   const code = cleanCodeValue(vars.code || vars.token || vars.otp || vars.verificationCode);
 
   let subject = "";
@@ -52,10 +54,10 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
               <!-- Header with Logo -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
                 <tr>
-                  <td style="padding: 40px 0; text-align: center;">
-                    <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); width: 64px; height: 64px; border-radius: 16px; line-height: 64px; font-size: 32px; margin-bottom: 16px;">🥛</div>
+                  <td style="padding: 32px 0; text-align: center;">
+                    <img src="${logoUrl}" alt="${appName}" style="width: 64px; height: 64px; border-radius: 16px; object-fit: cover; margin-bottom: 12px; display: inline-block;" />
                     <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${appName}</h1>
-                    <p style="margin: 4px 0 0; font-size: 12px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Intelligent Stock Management System</p>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Business & Fresh Milk Management</p>
                   </td>
                 </tr>
               </table>
@@ -124,8 +126,8 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
               <!-- Header with Logo -->
               <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; background-color: #0f172a; border-radius: 0 0 20px 20px;">
                 <tr>
-                  <td style="padding: 40px 0; text-align: center;">
-                    <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); width: 64px; height: 64px; border-radius: 16px; line-height: 64px; font-size: 32px; margin-bottom: 16px;">🔑</div>
+                  <td style="padding: 32px 0; text-align: center;">
+                    <img src="${logoUrl}" alt="${appName}" style="width: 64px; height: 64px; border-radius: 16px; object-fit: cover; margin-bottom: 12px; display: inline-block;" />
                     <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">${appName}</h1>
                     <p style="margin: 4px 0 0; font-size: 12px; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Security & Account Recovery</p>
                   </td>
@@ -263,7 +265,7 @@ Deno.serve(async (req) => {
     const hasSmtp = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
     const { subject, html } = getEmailTemplate(type, { ...variables, to: cleanTo });
-    const senderEmail = SMTP_USER || "operations@isms.com";
+    const senderEmail = SMTP_USER || "operations@kaykays.com";
 
     // 1. Try Resend if configured
     if (hasResend) {

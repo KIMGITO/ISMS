@@ -31,7 +31,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'isms <operations@isms.com>',
+        from: "KayKay's <operations@kaykays.com>",
         to: Array.isArray(to) ? to : [to],
         subject: subject,
         html: htmlBody,

@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "ISMS",
+  "productName": "KayKay's",
   "version": "0.1.0",
   "identifier": "com.isms.app",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "ISMS",
+        "title": "KayKay's",
         "width": 800,
         "height": 600,
         "resizable": true,
@@ -28,8 +28,8 @@
     "active": true,
     "targets": "all",
     "category": "Business",
-    "copyright": "2026 ISMS",
-    "publisher": "ISMS",
+    "copyright": "2026 KayKay's",
+    "publisher": "KayKay's",
     "license": "Proprietary",
     "icon": [
       "icons/32x32.png",

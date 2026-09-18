@@ -3,7 +3,7 @@
 set -e
 
 echo "=================================================="
-echo "         ISMS Multi-Platform Local Builder   "
+echo "         KayKay's Multi-Platform Local Builder   "
 echo "=================================================="
 
 # Create target directories

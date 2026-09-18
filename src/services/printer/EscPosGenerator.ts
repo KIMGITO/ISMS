@@ -42,7 +42,7 @@ export class EscPosGenerator {
       builder.push(this.BOLD_ON);
       builder.push(this.textToBytes("🥛\n"));
       builder.push(this.SIZE_NORMAL);
-      builder.push(this.textToBytes("ISMS DAIRY\n"));
+      builder.push(this.textToBytes("KAYKAY'S DAIRY\n"));
       builder.push(this.BOLD_OFF);
       builder.push(this.textToBytes("--------------------\n"));
     }
