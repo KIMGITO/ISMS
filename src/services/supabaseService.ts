@@ -197,11 +197,11 @@ export class SupabaseService {
     riderName?: string;
     referenceId: string;
     items: Array<{
-      productId: string;
-      productName: string;
-      unitPrice: number;
+      product_id: string;
+      product_name: string;
+      unit_price: number;
       quantity: number;
-      discountPercentage: number;
+      discount_percentage: number;
     }>;
   }): Promise<string> {
     const supabase = getSupabase();
