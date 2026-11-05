@@ -103,7 +103,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.verify_password_reset_otp(TEXT, TEXT) TO anon, authenticated;
 
 -- 3. Function: update_user_password_by_email
--- Updates encrypted_password for a user in auth.users by email safely.
+-- Updates encrypted_password in auth.users by email. pgcrypto lives in the
+-- extensions schema, so crypt and gen_salt are schema-qualified.
 CREATE OR REPLACE FUNCTION public.update_user_password_by_email(
     p_email TEXT,
     p_new_password TEXT
@@ -111,15 +112,16 @@ CREATE OR REPLACE FUNCTION public.update_user_password_by_email(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions, auth
 AS $$
 DECLARE
     v_clean_email TEXT;
 BEGIN
     v_clean_email := LOWER(TRIM(p_email));
 
+    -- Update encrypted password in auth.users using extensions.crypt and extensions.gen_salt
     UPDATE auth.users
-    SET encrypted_password = crypt(p_new_password, gen_salt('bf')),
+    SET encrypted_password = extensions.crypt(p_new_password, extensions.gen_salt('bf')),
         updated_at = NOW()
     WHERE LOWER(TRIM(email)) = v_clean_email;
 
@@ -128,5 +130,8 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.update_user_password_by_email(TEXT, TEXT) TO anon, authenticated;
+
+-- Reload PostgREST schema cache to ensure immediate visibility
+NOTIFY pgrst, 'reload schema';
 
 COMMIT;

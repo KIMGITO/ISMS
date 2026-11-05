@@ -104,7 +104,9 @@ CREATE TABLE IF NOT EXISTS public.employees (
     last_modified_by  TEXT NOT NULL DEFAULT 'system',
     deleted_at        TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Server-side presence heartbeat, updated by the client every 2 minutes.
+    last_seen_at      TIMESTAMPTZ
 );
 
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;

@@ -10,17 +10,8 @@ The architecture is designed to support both the **ISMS  Business Management App
 
 ```text
 /supabase
-├── migrations/
-│   ├── 20260705000000_init_schema.sql         # Main table structures, keys, constraints, and views
-│   ├── 20260705100000_rls_policies.sql         # Comprehensive Row Level Security rules
-│   └── 20260705200000_functions_triggers.sql  # PL/pgSQL database logic (stock sync, loyalty, low stock alerts)
-├── edge_functions/
-│   ├── whatsapp-sender/                       # Dispatches templates via Meta WhatsApp Cloud API
-│   ├── twilio-sms/                            # Sends high-speed SMS receipts & delivery tracking
-│   ├── send-email/                            # Transactional emails via Resend or SendGrid
-│   ├── gemini-copilot/                        # Google Gemini AI demand prediction & logs analysis
-│   ├── cloudinary-upload/                     # Offloads secure base64 product asset uploads
-│   └── mpesa-callback/                        # Webhook listener for Safaricom Daraja API STK push payments
+├── migrations/                                # One file per domain; see the root README for the list
+├── functions/                                 # Deno edge functions, one folder each; shared/ holds common helpers
 └── README.md                                  # Setup & Deployment Instructions (This file)
 ```
 

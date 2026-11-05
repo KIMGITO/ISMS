@@ -72,9 +72,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
     last_modified_by TEXT NOT NULL DEFAULT 'system',
     deleted_at       TIMESTAMPTZ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    -- Business rule: wallet and debt are mutually exclusive balances
-    CONSTRAINT chk_not_both_debt_and_wallet CHECK (NOT (debt_balance > 0 AND wallet_balance > 0))
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
@@ -99,7 +97,9 @@ CREATE TABLE IF NOT EXISTS public.customer_ledger (
     recorded_by    TEXT NOT NULL,
     note           TEXT,
     transaction_id UUID,                  -- FK to transactions added in migration 006
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Idempotency key: retrying an operation cannot duplicate a ledger entry.
+    reference_id   TEXT
     -- No updated_at: this table is append-only (ledger integrity)
 );
 

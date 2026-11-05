@@ -1,18 +1,12 @@
 -- =============================================================================
--- 2026_0819_payment_asset_enhancements.sql
+-- 20260819001_money_assets_payments.sql
 -- integrated Shop Management System
--- Enhanced payments with customer reconciliation, walk-in payments,
--- money asset tracking, and atomic debt/wallet application.
+-- Payments, money assets, and the asset ledger
 -- =============================================================================
--- Why: The current `payments` table is a manual reference ledger with no
--- customer linkage, no reconciliation logic, and no money-asset accounting.
--- This migration:
---   1. Adds customer_id, description, payment_type, applied_to columns
---   2. Adds idempotency via reference_id (unique per business)
---   3. Creates `money_assets` table to track money received per method
---   4. Creates a payment asset ledger for immutable audit trail
---   5. Creates an atomic RPC to record a payment + apply to customer
---      debt/wallet + increment money asset in one DB transaction
+-- Why: Links payments to customers, reconciles them against debt and wallet,
+-- and keeps one balance per payment method. Sales and payments credit it and
+-- expenses debit it, each with an immutable ledger row.
+-- fn_process_completed_transaction, which credits sales, is in migration 012.
 -- Dependencies: 001-016
 -- =============================================================================
 
@@ -52,13 +46,12 @@ CREATE INDEX IF NOT EXISTS idx_payments_date
 
 -- ---------------------------------------------------------------------------
 -- 2. TABLE: money_assets
--- Business money received from payments, tracked per payment method.
--- Each successful payment increments the corresponding money asset balance.
+-- Business money received, tracked per payment method.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.money_assets (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_id   UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
-    method        TEXT NOT NULL CHECK (method IN ('M-Pesa', 'Cash', 'Card', 'Bank', 'Other')),
+    method        TEXT NOT NULL CHECK (method IN ('M-Pesa', 'Cash', 'Card', 'Bank', 'Other', 'Mobile_Wallet')),
     balance       NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (balance >= 0),
     last_payment_at TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -70,19 +63,24 @@ ALTER TABLE public.money_assets ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------
 -- 3. TABLE: payment_asset_ledger
--- Immutable funding record per payment. Links manually recorded payments
--- to the money_assets balance movement.
+-- Immutable record of every money_assets movement. payment_id, transaction_id,
+-- and expense_id say what caused it; method is kept for traceability.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.payment_asset_ledger (
     id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_id    UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
-    payment_id     UUID NOT NULL REFERENCES public.payments(id) ON DELETE CASCADE,
-    method         TEXT NOT NULL,
-    amount         NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+    payment_id     UUID REFERENCES public.payments(id) ON DELETE CASCADE,
+    method         TEXT,
+    amount         NUMERIC(14,2) NOT NULL CHECK (amount <> 0),
     balance_before NUMERIC(14,2) NOT NULL DEFAULT 0.00,
     balance_after  NUMERIC(14,2) NOT NULL DEFAULT 0.00,
     recorded_by    TEXT,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    asset_id       UUID NOT NULL REFERENCES public.money_assets(id) ON DELETE CASCADE,
+    transaction_id UUID REFERENCES public.transactions(id) ON DELETE SET NULL,
+    expense_id     UUID REFERENCES public.expenses(id) ON DELETE SET NULL,
+    type           TEXT NOT NULL CHECK (type IN ('Credit', 'Debit')),
+    description    TEXT
     -- No updated_at: append-only ledger
 );
 
@@ -94,25 +92,33 @@ CREATE INDEX IF NOT EXISTS idx_payment_asset_ledger_business_id
     ON public.payment_asset_ledger(business_id);
 
 -- ---------------------------------------------------------------------------
--- 4. RLS POLICIES
+-- 4. ENHANCE expenses TABLE: the method each expense is paid from
 -- ---------------------------------------------------------------------------
--- payments: ALL for business members
+ALTER TABLE public.expenses
+    ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'Cash'
+    CHECK (payment_method IN ('M-Pesa', 'Cash', 'Card', 'Bank', 'Other', 'Mobile_Wallet'));
+
+-- ---------------------------------------------------------------------------
+-- 5. RLS POLICIES
+-- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS pol_payments_all ON public.payments;
 CREATE POLICY pol_payments_all ON public.payments
     FOR ALL USING (business_id = ANY(public.get_user_business_ids()));
 
--- money_assets: ALL for business members
 DROP POLICY IF EXISTS pol_money_assets_all ON public.money_assets;
 CREATE POLICY pol_money_assets_all ON public.money_assets
     FOR ALL USING (business_id = ANY(public.get_user_business_ids()));
 
--- payment_asset_ledger: ALL for business members
 DROP POLICY IF EXISTS pol_payment_asset_ledger_all ON public.payment_asset_ledger;
 CREATE POLICY pol_payment_asset_ledger_all ON public.payment_asset_ledger
     FOR ALL USING (business_id = ANY(public.get_user_business_ids()));
 
+DROP POLICY IF EXISTS pol_payment_asset_ledger_select ON public.payment_asset_ledger;
+CREATE POLICY pol_payment_asset_ledger_select ON public.payment_asset_ledger
+    FOR SELECT USING (business_id = ANY(public.get_user_business_ids()));
+
 -- ---------------------------------------------------------------------------
--- 5. ATOMIC RPC: process_business_payment
+-- 6. ATOMIC RPC: process_business_payment
 -- Records a payment, increments money asset, and applies to customer
 -- debt/wallet if a customer is linked. All in ONE DB transaction.
 -- Idempotent via p_reference_code (unique business + reference code).
@@ -358,7 +364,7 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 6. HELPER: get money asset balances for a business
+-- 7. HELPER: get money asset balances for a business
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.get_money_assets(
     p_business_id UUID
@@ -379,7 +385,7 @@ AS $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- 7. HELPER: get business payment with customer info
+-- 8. HELPER: get business payment with customer info
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.get_business_payments(
     p_business_id UUID,
@@ -419,6 +425,116 @@ AS $$
     ORDER BY p.date DESC
     LIMIT p_limit OFFSET p_offset;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 9. ATOMIC RPC: process_business_payment, without p_customer_name
+-- Writes the full ledger row (asset_id, type, description). A named call that
+-- omits p_customer_name matches both this and section 6, so it fails as ambiguous.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.process_business_payment(
+    p_business_id   UUID,
+    p_reference_code TEXT,
+    p_amount        NUMERIC,
+    p_method        TEXT,
+    p_sender_name   TEXT,
+    p_sender_phone  TEXT DEFAULT NULL,
+    p_status        TEXT DEFAULT 'Success',
+    p_date          TIMESTAMPTZ DEFAULT NOW(),
+    p_customer_id   UUID DEFAULT NULL,
+    p_payment_type  TEXT DEFAULT 'walk-in',
+    p_description   TEXT DEFAULT NULL,
+    p_recorded_by   TEXT DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+    v_payment_id   UUID;
+    v_asset_id     UUID;
+    v_asset_before NUMERIC(14,2);
+    v_asset_after  NUMERIC(14,2);
+BEGIN
+    INSERT INTO public.payments (
+        business_id, reference_code, amount, method, sender_name,
+        sender_phone, status, date, customer_id, payment_type,
+        description, recorded_by, created_at
+    )
+    VALUES (
+        p_business_id, p_reference_code, p_amount, p_method, p_sender_name,
+        p_sender_phone, p_status, p_date, p_customer_id, p_payment_type,
+        p_description, p_recorded_by, NOW()
+    )
+    RETURNING id INTO v_payment_id;
+
+    IF p_status = 'Success' THEN
+        INSERT INTO public.money_assets (business_id, method, balance)
+        VALUES (p_business_id, p_method, 0)
+        ON CONFLICT (business_id, method) DO NOTHING;
+
+        SELECT id, balance INTO v_asset_id, v_asset_before
+        FROM public.money_assets
+        WHERE business_id = p_business_id AND method = p_method;
+
+        v_asset_after := v_asset_before + p_amount;
+
+        UPDATE public.money_assets
+        SET balance = v_asset_after,
+            last_payment_at = p_date,
+            updated_at = NOW()
+        WHERE id = v_asset_id;
+
+        INSERT INTO public.payment_asset_ledger (
+            business_id, asset_id, payment_id, type, amount,
+            balance_before, balance_after, description, method
+        )
+        VALUES (
+            p_business_id, v_asset_id, v_payment_id, 'Credit', p_amount,
+            v_asset_before, v_asset_after, 'Manual Payment: ' || p_reference_code, p_method
+        );
+    END IF;
+    RETURN v_payment_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ---------------------------------------------------------------------------
+-- 10. TRIGGER: debit the matching money asset when an expense is recorded
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.fn_process_expense_asset_update()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_asset_id     UUID;
+    v_asset_before NUMERIC(14,2);
+    v_asset_after  NUMERIC(14,2);
+BEGIN
+    IF NEW.deleted_at IS NULL THEN
+        INSERT INTO public.money_assets (business_id, method, balance)
+        VALUES (NEW.business_id, NEW.payment_method, 0)
+        ON CONFLICT (business_id, method) DO NOTHING;
+
+        SELECT id, balance INTO v_asset_id, v_asset_before
+        FROM public.money_assets
+        WHERE business_id = NEW.business_id AND method = NEW.payment_method;
+
+        v_asset_after := v_asset_before - NEW.amount;
+        
+        UPDATE public.money_assets
+        SET balance = v_asset_after, updated_at = NOW()
+        WHERE id = v_asset_id;
+
+        INSERT INTO public.payment_asset_ledger (
+            business_id, asset_id, expense_id, type, amount,
+            balance_before, balance_after, description, method
+        )
+        VALUES (
+            NEW.business_id, v_asset_id, NEW.id, 'Debit', -NEW.amount,
+            v_asset_before, v_asset_after, 'Expense: ' || NEW.category, NEW.payment_method
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_process_expense_asset_update ON public.expenses;
+CREATE TRIGGER trg_process_expense_asset_update
+AFTER INSERT ON public.expenses
+FOR EACH ROW EXECUTE FUNCTION public.fn_process_expense_asset_update();
 
 -- Force API schema compilation update
 NOTIFY pgrst, 'reload schema';

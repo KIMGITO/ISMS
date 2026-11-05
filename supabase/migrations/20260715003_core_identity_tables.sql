@@ -45,7 +45,9 @@ CREATE TABLE IF NOT EXISTS public.businesses (
     last_modified_by        TEXT NOT NULL DEFAULT 'system',
     deleted_at              TIMESTAMPTZ,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_tax_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
+    tax_percentage   NUMERIC NOT NULL DEFAULT 16.0
 );
 
 ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
@@ -119,6 +121,8 @@ CREATE TABLE IF NOT EXISTS public.device_fcm_tokens (
     device_type  TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Per-device notification tone, read by send-fcm for the FCM `sound` field.
+    sound        TEXT NOT NULL DEFAULT 'beep',
     UNIQUE (user_id, device_token)
 );
 
