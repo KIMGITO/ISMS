@@ -8,6 +8,7 @@ import OrdersTab from './OrdersTab';
 import SchedulesTab from './SchedulesTab';
 import MessagesTab from './MessagesTab';
 import RewardsTab from './RewardsTab';
+import ContactPreferences from './ContactPreferences';
 
 const TABS = [
   { id: 'orders', label: 'Orders', icon: Package },
@@ -69,6 +70,7 @@ function ProfileTab() {
           {busy ? 'Saving…' : 'Save changes'}
         </button>
       </form>
+      <ContactPreferences />
       <button onClick={() => supabase.auth.signOut()} className={`${secondaryButton} mt-8 w-full sm:w-auto`}>
         <LogOut size={18} aria-hidden /> Sign out
       </button>

@@ -48,6 +48,7 @@ export default function CommunicationCenterView() {
 
   const [sendMode, setSendMode] = useState<"auto" | "whatsapp" | "sms" | "email" | "manual">("auto");
   const [manualQueue, setManualQueue] = useState<Customer[]>([]);
+  const [messagePurpose, setMessagePurpose] = useState<"service" | "promotion">("service");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const [messageTemplate, setMessageTemplate] = useState("Hello {first_name}, from {business_name}. ");
 
@@ -150,24 +151,33 @@ export default function CommunicationCenterView() {
       .replace(/{business_name}/g, businessName);
   };
 
+  // The customer's own choice decides, whichever way the message would be sent.
+  const allowsMessage = (customer: Customer) =>
+    messagePurpose === "promotion" ? !!customer.notifyPromotions : customer.notifyService !== false;
+
   const sendThrough = async (channel: "whatsapp" | "sms" | "email", customer: Customer, body: string): Promise<boolean> => {
     if (channel === "email") {
       if (!customer.email || customer.email === "no-email@kaykays.com") return false;
-      await SupabaseService.callEdgeFunction("send-email", {
+      const result = await SupabaseService.callEdgeFunction("send-email", {
         to: customer.email,
         type: "customer_message",
         variables: { body },
+        businessId: activeBusinessId,
+        purpose: messagePurpose,
       });
-      return true;
+      return result?.success !== false;
     }
     const result = await SupabaseService.callEdgeFunction(channel === "whatsapp" ? "whatsapp-config" : "sms-config", {
       action: "send",
       businessId: activeBusinessId,
       to: customer.phone,
       body,
+      purpose: messagePurpose,
     });
     return !!result?.success;
   };
+
+  const selectedOptedIn = customers.filter((c) => selectedCustomerIds.has(c.id) && allowsMessage(c)).length;
 
   const handleSendBulk = async () => {
     if (selectedCustomerIds.size === 0) {
@@ -179,7 +189,18 @@ export default function CommunicationCenterView() {
       return;
     }
 
-    const selectedCustomers = customers.filter(c => selectedCustomerIds.has(c.id));
+    const chosen = customers.filter(c => selectedCustomerIds.has(c.id));
+    const selectedCustomers = chosen.filter(allowsMessage);
+    const skipped = chosen.length - selectedCustomers.length;
+    if (skipped > 0) {
+      showToast(
+        "Some Customers Skipped",
+        `${skipped} ${skipped === 1 ? "customer has" : "customers have"} not agreed to this kind of message.`,
+        undefined,
+        "info",
+      );
+    }
+    if (selectedCustomers.length === 0) return;
 
     if (sendMode === "manual") {
       setManualQueue(selectedCustomers);
@@ -584,6 +605,24 @@ export default function CommunicationCenterView() {
                 {generateMessage({ name: "James Mwangi", phone: "+254700000000" } as any)}
               </div>
             </div>
+
+            <label className="flex flex-col gap-1 text-xs font-medium text-app-text mb-3">
+              Message type
+              <SearchableDropdown
+                items={[
+                  { id: 'service', label: 'Order update or reminder' },
+                  { id: 'promotion', label: 'Offer or promotion' },
+                ]}
+                selectedValue={messagePurpose}
+                onChange={(value) => setMessagePurpose(value as typeof messagePurpose)}
+                placeholder="Message type"
+              />
+              <span className="font-normal text-app-text-muted">
+                {messagePurpose === "promotion"
+                  ? `${selectedOptedIn} of ${selectedCustomerIds.size} selected agreed to offers.`
+                  : `${selectedOptedIn} of ${selectedCustomerIds.size} selected accept updates and reminders.`}
+              </span>
+            </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
               Send by

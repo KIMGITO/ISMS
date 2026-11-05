@@ -11,6 +11,7 @@ import {
   errorResponse,
   verifyUserMembership,
   requirePermission,
+  contactAllowed,
   enforceRateLimit,
 } from "../shared/cors.ts";
 
@@ -103,7 +104,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Invalid JSON payload", 400);
     }
-    const { action, businessId, config, to, body } = reqBody;
+    const { action, businessId, config, to, body, purpose } = reqBody;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 
@@ -262,6 +263,10 @@ Deno.serve(async (req) => {
         (await enforceRateLimit(`sms:user:${userId}`, 200, 3600)) ||
         (await enforceRateLimit(`sms:biz:${businessId}`, 1000, 86400));
       if (limited) return limited;
+
+      if (!(await contactAllowed(businessId, to, null, purpose))) {
+        return jsonResponse({ success: false, optedOut: true });
+      }
 
       const { data: cfg } = await supabase
         .from("sms_settings")

@@ -48,22 +48,15 @@ Deno.serve(async (req) => {
     // Pushes stay inside the notification's own business; there is no all-devices fallback.
     const businessId = targetPayload?.business_id || notificationPayload?.business_id || null;
 
-    if (targetPayload?.user_id) {
-      query = query.eq('user_id', targetPayload.user_id);
-    } else if (businessId) {
-      let membersQuery = supabaseClient
-        .from('business_memberships')
-        .select('user_id')
-        .eq('business_id', businessId);
-      if (targetPayload?.role) membersQuery = membersQuery.ilike('role', targetPayload.role);
-
-      const { data: members } = await membersQuery;
-      const userIds = members?.map((m: any) => m.user_id).filter(Boolean) || [];
-      query = query.in('user_id', userIds);
-    } else {
-      console.warn("[send-fcm] Notification has no user or business target - nothing to send");
-      query = query.in('user_id', []);
-    }
+    // The database applies each person's notification settings and role.
+    const { data: recipients, error: recipientsError } = await supabaseClient.rpc('fn_notification_recipients', {
+      p_business_id: businessId,
+      p_user_id: targetPayload?.user_id ?? null,
+      p_role: targetPayload?.role ?? null,
+      p_type: type ?? '',
+    });
+    if (recipientsError) throw recipientsError;
+    query = query.in('user_id', recipients ?? []);
 
     const { data: tokens, error: tokensError } = await query;
 

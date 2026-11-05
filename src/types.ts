@@ -86,6 +86,8 @@ export interface Customer {
   customerType?: CustomerType;
   paymentTerms?: PaymentTerms;
   deliveryFrequency?: DeliveryFrequency;
+  notifyService?: boolean;
+  notifyPromotions?: boolean;
 }
 
 export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer';

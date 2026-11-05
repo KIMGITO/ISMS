@@ -1,6 +1,6 @@
 import nodemailer from "npm:nodemailer@6.9.13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { enforceRateLimit } from "../shared/cors.ts";
+import { contactAllowed, enforceRateLimit } from "../shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { to, type, variables = {} } = body;
+    const { to, type, variables = {}, businessId, purpose } = body;
 
     // Backend callers use the service role key. App users must be active members of a business,
     // and OTP emails can only come from auth-otp, so nobody can email a code they chose themselves.
@@ -246,6 +246,13 @@ Deno.serve(async (req) => {
     }
 
     const cleanTo = String(to).trim().toLowerCase();
+
+    if (businessId && !(await contactAllowed(businessId, null, cleanTo, purpose))) {
+      return new Response(
+        JSON.stringify({ success: false, optedOut: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
 
     // Validate user existence and confirmation status
     if (type === "verification_code" || type === "password_reset") {

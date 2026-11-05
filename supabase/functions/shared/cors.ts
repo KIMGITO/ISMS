@@ -179,6 +179,36 @@ export async function requirePermission(
  * Returns a 429 response once a key exceeds its limit for the window, or null to continue.
  * A limiter outage must not take the app down, so errors are logged and the request proceeds.
  */
+/**
+ * Whether a bulk message may go to this number or address, given the customer's choices.
+ * Messages with no purpose, such as a receipt a customer asked for, aren't affected.
+ */
+export async function contactAllowed(
+  businessId: string,
+  phone: string | null,
+  email: string | null,
+  purpose: unknown,
+): Promise<boolean> {
+  if (purpose !== "service" && purpose !== "promotion") return true;
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data, error } = await admin.rpc("fn_contact_allowed", {
+    p_business_id: businessId,
+    p_phone: phone,
+    p_email: email,
+    p_purpose: purpose,
+  });
+  if (error) {
+    // Not being able to check must not message someone who opted out.
+    console.error("[contact-allowed] Check failed:", error.message);
+    return false;
+  }
+  return data === true;
+}
+
 export async function enforceRateLimit(
   key: string,
   limit: number,

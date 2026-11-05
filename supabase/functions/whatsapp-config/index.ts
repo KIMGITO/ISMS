@@ -10,6 +10,7 @@ import {
   errorResponse,
   verifyUserMembership,
   requirePermission,
+  contactAllowed,
   enforceRateLimit,
 } from "../shared/cors.ts";
 
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
   if (corsResp) return corsResp;
 
   try {
-    const { action, businessId, config, to, body } = await req.json().catch(() => ({}));
+    const { action, businessId, config, to, body, purpose } = await req.json().catch(() => ({}));
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     const { userId, role, errorResponse: authError } = await verifyUserMembership(req, businessId);
@@ -108,6 +109,10 @@ Deno.serve(async (req) => {
         (await enforceRateLimit(`whatsapp:user:${userId}`, 200, 3600)) ||
         (await enforceRateLimit(`whatsapp:biz:${businessId}`, 1000, 86400));
       if (limited) return limited;
+
+      if (!(await contactAllowed(businessId, to, null, purpose))) {
+        return jsonResponse({ success: false, optedOut: true });
+      }
 
       const res = await fetch(`${GRAPH_URL}/${cfg.phone_number_id}/messages`, {
         method: "POST",

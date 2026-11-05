@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppNotification } from "../types";
 import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
 import { NotificationService } from "../services/notifications/notificationService";
-import { NotificationPreferences } from "../services/notifications/notificationPreferences";
+import NotificationSettingsPanel from "../components/NotificationSettingsPanel";
 import { NotificationToneService, NotificationToneId } from "../services/notifications/notificationTone";
 import { useBusinessStore } from "../stores/businessStore";
 import { useNotificationStore } from "../stores/notificationStore";
@@ -1206,27 +1206,7 @@ function MarkdownBlock({ text }: { text: string }) {
 // Notification Preferences sheet (functional replacement for dead settings button)
 // ---------------------------------------------------------------------------
 
-const PREF_CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  "Stock Alerts": <PackageSearch size={15} />,
-  "AI Insights": <Sparkles size={15} />,
-  "Sales Reports": <Wallet size={15} />,
-  "Debt Reminders": <CircleDollarSign size={15} />,
-  "Delivery Notifications": <Bike size={15} />,
-  "Payment Notifications": <CircleDollarSign size={15} />,
-  "Scheduled Reminders": <CalendarClock size={15} />,
-  "Announcements": <Megaphone size={15} />,
-  "System Notifications": <Settings2 size={15} />,
-};
-
 function NotificationPrefsSheet({ onClose }: { onClose: () => void }) {
-  const [prefs, setPrefs] = useState(NotificationPreferences.getUserPreferences());
-
-  const toggle = (category: string) => {
-    const next = prefs.map((p) => (p.category === category ? { ...p, enabled: !p.enabled } : p));
-    setPrefs(next);
-    NotificationPreferences.saveUserPreferences(next);
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1249,42 +1229,14 @@ function NotificationPrefsSheet({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-[14px] font-extrabold">Notification Preferences</h3>
-            <p className="text-[11px] text-app-text-muted">Choose which categories you receive.</p>
+            <p className="text-[11px] text-app-text-muted">These apply to your account on every device.</p>
           </div>
           <button onClick={onClose} aria-label="Close preferences" className="p-2 rounded-full hover:bg-app-bg shrink-0">
             <X size={16} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-2">
-          {prefs.map((p) => {
-            const enabled = p.enabled;
-            return (
-              <button
-                key={p.category}
-                onClick={() => toggle(p.category)}
-                role="switch"
-                aria-checked={enabled}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-app-bg transition text-left"
-              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                  enabled ? "bg-amber-500/10 text-amber-500" : "bg-app-bg text-app-text-muted"
-                }`}>
-                  {PREF_CATEGORY_ICONS[p.category] || <Bell size={15} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[13px] font-bold block truncate">{p.category}</span>
-                  <span className="text-[10px] text-app-text-muted">{enabled ? "Enabled" : "Muted"}</span>
-                </div>
-                <div className={`w-10 h-6 rounded-full p-0.5 transition-colors shrink-0 ${
-                  enabled ? "bg-amber-500" : "bg-app-border"
-                }`}>
-                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                    enabled ? "translate-x-4" : "translate-x-0"
-                  }`} />
-                </div>
-              </button>
-            );
-          })}
+          <NotificationSettingsPanel />
         </div>
       </motion.div>
     </motion.div>

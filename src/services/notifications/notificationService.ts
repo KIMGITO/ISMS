@@ -45,12 +45,8 @@ export class NotificationService {
       return null;
     }
 
-    // 2. Check if type is enabled in preferences
-    const isEnabled = NotificationPreferences.isTypeEnabled(type);
-    if (!isEnabled) {
-      console.log(`Notification of type "${type}" skipped because it is disabled in preferences.`);
-      return null;
-    }
+    // 2. The row is always saved. Each recipient's own settings decide what they see and get pushed,
+    // so the person whose action caused this can't silence it for the Owner.
 
     // 3. Render Template
     const rendered = NotificationTemplates.render(type, params, {
@@ -95,7 +91,9 @@ export class NotificationService {
     const row = NotificationRepository.add(newNotif);
 
     // 5. Show local in-app banner only (FCM push handled exclusively by DB webhook)
-    pushNotificationService.handleIncomingPush(row);
+    if (NotificationPreferences.isTypeEnabled(type)) {
+      pushNotificationService.handleIncomingPush(row);
+    }
 
     return row;
   }

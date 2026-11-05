@@ -1,107 +1,107 @@
 // src/services/notifications/notificationPreferences.ts
-import { NotificationPreference, NotificationType } from "../../types";
+// Reads and changes this person's notification settings. The database owns the rules and also
+// applies them to pushes; this copy decides what the inbox shows.
 
-const PREFS_LOCAL_KEY = "kkm_notification_prefs_v1";
-const BUSINESS_DEFAULTS_KEY = "kkm_business_default_prefs_v1";
+import { AppNotification } from "../../types";
+import { getSupabase } from "../supabaseClient";
 
-const DEFAULT_PREFERENCES: NotificationPreference[] = [
-  { category: "Stock Alerts", enabled: false },
-  { category: "AI Insights", enabled: false },
-  { category: "Sales Reports", enabled: false },
-  { category: "Debt Reminders", enabled: false },
-  { category: "Delivery Notifications", enabled: false },
-  { category: "Payment Notifications", enabled: false },
-  { category: "Scheduled Reminders", enabled: false },
-  { category: "Announcements", enabled: false },
-  { category: "System Notifications", enabled: false },
-];
+export interface NotificationCategorySetting {
+  category: string;
+  types: string[];
+  locked: boolean;
+  followsRole: boolean;
+  enabled: boolean;
+}
+
+export interface NotificationSettings {
+  userId: string;
+  role: string;
+  paused: boolean;
+  categories: NotificationCategorySetting[];
+  hiddenTypes: string[];
+}
+
+const CACHE_KEY = "kkm_notification_settings_v2";
+
+let settings: NotificationSettings | null = null;
+
+function remember(businessId: string, value: NotificationSettings) {
+  settings = value;
+  try {
+    localStorage.setItem(`${CACHE_KEY}:${businessId}`, JSON.stringify(value));
+  } catch {
+    // The saved copy only helps when offline.
+  }
+}
+
+function recall(businessId: string): NotificationSettings | null {
+  try {
+    const saved = localStorage.getItem(`${CACHE_KEY}:${businessId}`);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
 
 export class NotificationPreferences {
-  /**
-   * Retrieves the current user's preferences, falling back to business defaults or system defaults
-   */
-  public static getUserPreferences(): NotificationPreference[] {
-    try {
-      const userPrefs = localStorage.getItem(PREFS_LOCAL_KEY);
-      if (userPrefs) {
-        return JSON.parse(userPrefs);
+  public static get(): NotificationSettings | null {
+    return settings;
+  }
+
+  public static async load(businessId: string): Promise<NotificationSettings | null> {
+    const { data, error } = await getSupabase().rpc("get_my_notification_settings", {
+      p_business_id: businessId,
+    });
+    if (error) {
+      console.error("Could not load notification settings:", error);
+      settings = settings ?? recall(businessId);
+      return settings;
+    }
+    remember(businessId, data as NotificationSettings);
+    return settings;
+  }
+
+  /** Pass "all" as the category to pause or resume everything that can be turned off. */
+  public static async set(businessId: string, category: string, enabled: boolean): Promise<void> {
+    const { error } = await getSupabase().rpc("set_my_notification_setting", {
+      p_business_id: businessId,
+      p_category: category,
+      p_enabled: enabled,
+    });
+    if (error) throw error;
+    await this.load(businessId);
+  }
+
+  private static categoryFor(type: string, direct: boolean): NotificationCategorySetting | undefined {
+    // A rider's assignment is stored as "Online Store", but to them it's a delivery.
+    if (type === "Online Store" && direct) {
+      return settings?.categories.find((c) => c.category === "deliveries");
+    }
+    return settings?.categories.find((c) => c.types.includes(type));
+  }
+
+  /** Before settings load, nothing is hidden, because a missed alert costs more than an extra one. */
+  public static isTypeEnabled(type: string, direct = false): boolean {
+    if (!settings) return true;
+    if (!direct && settings.hiddenTypes.includes(type)) return false;
+    const category = this.categoryFor(type, direct);
+    if (!category) return true;
+    if (category.locked) return true;
+    return !settings.paused && category.enabled;
+  }
+
+  public static shouldShow(notification: Pick<AppNotification, "type" | "user_id" | "role">): boolean {
+    if (!settings) return true;
+    const direct = !!notification.user_id;
+    if (direct && notification.user_id !== settings.userId) return false;
+    if (!direct && notification.role) {
+      const category = this.categoryFor(notification.type, false);
+      const followsRole = !category || category.followsRole;
+      if (followsRole && !settings.hiddenTypes.includes(notification.type)
+          && notification.role.toLowerCase() !== settings.role.toLowerCase()) {
+        return false;
       }
-      
-      const bizDefaults = localStorage.getItem(BUSINESS_DEFAULTS_KEY);
-      if (bizDefaults) {
-        return JSON.parse(bizDefaults);
-      }
-
-      return [...DEFAULT_PREFERENCES];
-    } catch {
-      return [...DEFAULT_PREFERENCES];
     }
-  }
-
-  /**
-   * Saves the current user's overridden preferences
-   */
-  public static saveUserPreferences(prefs: NotificationPreference[]): void {
-    try {
-      localStorage.setItem(PREFS_LOCAL_KEY, JSON.stringify(prefs));
-    } catch (err) {
-      console.error("Failed to save user notification preferences:", err);
-    }
-  }
-
-  /**
-   * Saves the business default preferences (Owner only)
-   */
-  public static saveBusinessDefaults(prefs: NotificationPreference[]): void {
-    try {
-      localStorage.setItem(BUSINESS_DEFAULTS_KEY, JSON.stringify(prefs));
-    } catch (err) {
-      console.error("Failed to save business default preferences:", err);
-    }
-  }
-
-  /**
-   * Returns which category a given NotificationType maps to
-   */
-  public static getCategoryForType(type: NotificationType): string {
-    switch (type) {
-      case "Stock Almost Finished":
-      case "Out Of Stock":
-        return "Stock Alerts";
-      case "AI Business Insight":
-      case "AI Recommendation":
-      case "AI Risk Alert":
-        return "AI Insights";
-      case "Sales Summary":
-      case "Daily Report":
-      case "Weekly Report":
-      case "Monthly Report":
-        return "Sales Reports";
-      case "Debt Due Reminder":
-        return "Debt Reminders";
-      case "Delivery Assigned":
-      case "Delivery Completed":
-        return "Delivery Notifications";
-      case "Payment Received":
-      case "Low Cash Balance":
-        return "Payment Notifications";
-      case "Scheduled Reminder":
-        return "Scheduled Reminders";
-      case "Business Announcement":
-      case "Role Invitation":
-        return "Announcements";
-      default:
-        return "System Notifications";
-    }
-  }
-
-  /**
-   * Checks if a notification type is enabled for delivery under current user settings
-   */
-  public static isTypeEnabled(type: NotificationType): boolean {
-    const category = this.getCategoryForType(type);
-    const prefs = this.getUserPreferences();
-    const pref = prefs.find((p) => p.category === category);
-    return pref ? pref.enabled : false;
+    return this.isTypeEnabled(notification.type, direct);
   }
 }
