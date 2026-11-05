@@ -11,6 +11,7 @@ import { scrubPersonalData } from "../services/crashReporter";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
 import { hasRolePermission, SYSTEM_ROLES } from "../utils/permissions";
 import { useAuthStore } from "../stores/authStore";
+import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -293,6 +294,24 @@ runTest("Database role permissions match the app's role permissions", () => {
       throw new Error(`${role} permissions differ between the app and the migration`);
     }
   }
+});
+
+runTest("Customer merge preview matches the database rules", () => {
+  const base = { id: "a", name: "A", phone: "0711111111", email: "", joinDate: "", tier: "Silver" as const, purchasesCount: 4 };
+  const preview = previewMerge(
+    { ...base, loyaltyPoints: 250, debtBalance: 500, walletBalance: 0 },
+    { ...base, id: "b", tier: "Bronze", loyaltyPoints: 50, debtBalance: 0, walletBalance: 200, purchasesCount: 1 },
+  );
+  if (preview.debt !== 300 || preview.wallet !== 0 || preview.offset !== 200) throw new Error("Wallet should clear debt first");
+  if (preview.points !== 300 || preview.purchases !== 5) throw new Error("Points and purchases should add together");
+  if (preview.tier !== "Gold") throw new Error("Combined points should raise the tier");
+  for (const phone of ["+254711111111", "254711111111", "0711111111", "711111111", "0711 111 111"]) {
+    if (phoneKey(phone) !== "254711111111") throw new Error(`${phone} should match the same customer`);
+  }
+  if (phoneKey("123") !== null) throw new Error("A short number should not match anyone");
+  const shop = { ...base, id: "shop", loyaltyPoints: 0, purchasesCount: 0 };
+  const online = { ...base, id: "web", loyaltyPoints: 0, purchasesCount: 9 };
+  if (defaultKeepId(online, shop, ["web"]) !== "shop") throw new Error("The shop's record should be kept by default");
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

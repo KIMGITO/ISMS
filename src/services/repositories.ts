@@ -403,6 +403,8 @@ export class CustomerRepository {
       customerType: c.customer_type,
       paymentTerms: c.payment_terms,
       deliveryFrequency: c.delivery_frequency,
+      notifyService: c.notify_service,
+      notifyPromotions: c.notify_promotions,
       sync_status: "synced"
     }));
   }
@@ -435,6 +437,8 @@ export class CustomerRepository {
       customerType: data.customer_type,
       paymentTerms: data.payment_terms,
       deliveryFrequency: data.delivery_frequency,
+      notifyService: data.notify_service,
+      notifyPromotions: data.notify_promotions,
       sync_status: "synced"
     };
   }
@@ -486,6 +490,8 @@ export class CustomerRepository {
       customer_type: customer.customerType || "individual",
       payment_terms: customer.paymentTerms || "pay_now",
       delivery_frequency: customer.deliveryFrequency || "none",
+      notify_service: customer.notifyService ?? true,
+      notify_promotions: customer.notifyPromotions ?? false,
     };
 
     const { data, error } = await supabase.from("customers").insert(payload).select().single();
@@ -507,6 +513,8 @@ export class CustomerRepository {
       customerType: data.customer_type,
       paymentTerms: data.payment_terms,
       deliveryFrequency: data.delivery_frequency,
+      notifyService: data.notify_service,
+      notifyPromotions: data.notify_promotions,
       sync_status: "synced"
     };
   }
@@ -527,6 +535,8 @@ export class CustomerRepository {
     if (updates.customerType !== undefined) payload.customer_type = updates.customerType;
     if (updates.paymentTerms !== undefined) payload.payment_terms = updates.paymentTerms;
     if (updates.deliveryFrequency !== undefined) payload.delivery_frequency = updates.deliveryFrequency;
+    if (updates.notifyService !== undefined) payload.notify_service = updates.notifyService;
+    if (updates.notifyPromotions !== undefined) payload.notify_promotions = updates.notifyPromotions;
     if (updates.description !== undefined) payload.description = updates.description ? normalizeForStorage(updates.description) : "";
 
     const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
@@ -548,6 +558,8 @@ export class CustomerRepository {
       customerType: data.customer_type,
       paymentTerms: data.payment_terms,
       deliveryFrequency: data.delivery_frequency,
+      notifyService: data.notify_service,
+      notifyPromotions: data.notify_promotions,
       sync_status: "synced"
     };
   }

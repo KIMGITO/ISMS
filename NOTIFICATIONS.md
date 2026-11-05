@@ -52,6 +52,26 @@ A Zustand store that bridges the Repository to the UI.
 - Registers tokens and syncs them to the backend upon login.
 - Schedules local device reminders via `LocalNotifications.schedule()`.
 
+## Who Gets What
+
+`fn_notification_catalog()` in migration `20261105016` is the one list of categories. Each person's choices are saved in `notification_preferences`, so they follow them across devices. They change them on the Notifications page or in **Settings > Notifications**.
+
+| Category | Who can have it |
+|---|---|
+| Stock | `inventory.view` |
+| Sales reports | `reports.sales` |
+| Debts | `customers.debts` |
+| Deliveries | `deliveries.view`, and anyone a delivery is assigned to |
+| Payments | `payments.view` or `payments.verify` |
+| Online store | `online_store.view` |
+| AI insights | `ai.insights` |
+| Schedules, announcements | Everyone, limited to the role named on the notification |
+| Account and security | Everyone, and it can't be turned off |
+
+Everything is on by default for the people who can have it. Pausing turns off everything except account and security alerts.
+
+`send-fcm` asks `fn_notification_recipients` who to push to, so a turned-off category sends nothing. The inbox applies the same settings in the app, so reading the table directly through the API can still return rows.
+
 ## FCM Message Type Matrix
 
 The following notification types are emitted into `public.notifications` and dispatched as FCM push via the Supabase Dashboard webhook → `send-fcm` edge function.

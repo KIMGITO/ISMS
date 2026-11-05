@@ -1,4 +1,5 @@
 // src/services/notifications/notificationRepository.ts
+import { NotificationPreferences } from "./notificationPreferences";
 import { AppNotification } from "../../types";
 import { getSupabase } from "../supabaseClient";
 import { toUuid } from "../../utils/idUtils";
@@ -18,7 +19,7 @@ const subscribers = new Set<(notifications: SQLiteRow<AppNotification>[]) => voi
 
 function notify() {
   const active = notifications
-    .filter((n) => !n.archived_at && !n.deleted_at)
+    .filter((n) => !n.archived_at && !n.deleted_at && NotificationPreferences.shouldShow(n))
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   subscribers.forEach((cb) => cb(active));
 }
@@ -29,6 +30,7 @@ export class NotificationRepository {
    */
   public static async loadFromSupabase(businessId: string): Promise<void> {
     try {
+      await NotificationPreferences.load(businessId);
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from("notifications")
@@ -69,8 +71,13 @@ export class NotificationRepository {
     }
   }
 
+  /** Tells screens to re-read the list after notification settings change. */
+  public static refresh(): void {
+    notify();
+  }
+
   public static getAll(): SQLiteRow<AppNotification>[] {
-    return notifications.filter((n) => !n.archived_at && !n.deleted_at).sort(
+    return notifications.filter((n) => !n.archived_at && !n.deleted_at && NotificationPreferences.shouldShow(n)).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }
@@ -81,7 +88,7 @@ export class NotificationRepository {
    */
   public static getArchived(): SQLiteRow<AppNotification>[] {
     return notifications
-      .filter((n) => n.archived_at && !n.deleted_at)
+      .filter((n) => n.archived_at && !n.deleted_at && NotificationPreferences.shouldShow(n))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 

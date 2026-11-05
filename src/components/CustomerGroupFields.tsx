@@ -15,6 +15,8 @@ export interface CustomerGroupValues {
   customerType: CustomerType;
   paymentTerms: PaymentTerms;
   deliveryFrequency: DeliveryFrequency;
+  notifyService: boolean;
+  notifyPromotions: boolean;
 }
 
 const FIELDS = [
@@ -25,11 +27,12 @@ const FIELDS = [
 
 interface Props {
   values: CustomerGroupValues;
-  onChange: (key: keyof CustomerGroupValues, value: string) => void;
+  onChange: (key: keyof CustomerGroupValues, value: string | boolean) => void;
 }
 
 export default function CustomerGroupFields({ values, onChange }: Props) {
   return (
+    <div className="flex flex-col gap-3">
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {FIELDS.map((field) => (
         <label key={field.key} className="flex flex-col gap-1 text-[10px] font-bold text-app-text-muted uppercase">
@@ -45,6 +48,17 @@ export default function CustomerGroupFields({ values, onChange }: Props) {
           </select>
         </label>
       ))}
+    </div>
+    <div className="flex flex-col gap-2 text-xs text-app-text">
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={values.notifyService} onChange={(e) => onChange('notifyService', e.target.checked)} className="accent-amber-500" />
+        Send order updates and reminders
+      </label>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={values.notifyPromotions} onChange={(e) => onChange('notifyPromotions', e.target.checked)} className="accent-amber-500" />
+        Customer agreed to receive offers
+      </label>
+    </div>
     </div>
   );
 }

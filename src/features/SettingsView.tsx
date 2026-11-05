@@ -85,42 +85,15 @@ import {
   PrinterConnectionState,
   PrinterConfig,
 } from '../services/printer/types';
-import {
-  NotificationPref,
-  getNotificationPrefs,
-  saveNotificationPrefs,
-  ROLE_ELIGIBLE_CATEGORIES,
-} from '../stores/notificationStore';
+import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import { SupabaseService } from '../services/supabaseService';
 
-const NOTIF_CAT_DETAILS: Record<string, { label: string; desc: string }> = {
-  inventory: {
-    label: 'Inventory & Stock Alerts',
-    desc: 'Low stock, out of stock notices and audit logs',
-  },
-  logistics: {
-    label: 'Logistics & Rider Dispatches',
-    desc: 'Rider dispatch confirmations, route issues and delivery alerts',
-  },
-  security: {
-    label: 'System Security & PIN Audits',
-    desc: 'PIN updates, biometric actions, and unauthorized clearances',
-  },
-  sales: {
-    label: 'POS Sales Checkouts',
-    desc: 'Register checkout confirmations and transaction receipts',
-  },
-  audit: {
-    label: 'Financial Reconciliation',
-    desc: 'Shift closes, daily sales ledgers, and cash reconciliation',
-  },
-};
 
 interface SettingsViewProps {
   onRestartTour?: () => void;
 }
 
-type SectionId = 'receipts' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'help' | 'session';
+type SectionId = 'receipts' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'notifications' | 'help' | 'session';
 
 const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode })[] = [
   { id: 'receipts', group: 'Shop', label: 'Receipts & printing', description: 'Templates, branding, codes and printers', icon: ReceiptText, keywords: 'tax kra logo printer bluetooth thermal qr barcode', permission: 'settings.tax' },
@@ -130,6 +103,7 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
   { id: 'database', group: 'Data', label: 'Database', description: 'Supabase connection (developers)', icon: Database, keywords: 'supabase', permission: 'settings.integrations' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
+  { id: 'notifications', group: 'Account', label: 'Notifications', description: 'Choose what you get notified about', icon: Bell, keywords: 'alerts mute pause push' },
   { id: 'help', group: 'Account', label: 'Help & tour', description: 'Restart the guided walkthrough', icon: HelpCircle, keywords: 'onboarding guide' },
   { id: 'session', group: 'Account', label: 'Sign out', description: 'End your session on this device', icon: LogOut, keywords: 'log out logout' },
 ];
@@ -879,19 +853,6 @@ export default function SettingsView({
   const [dbSyncEnabled, setDbSyncEnabled] = useState(
     () => localStorage.getItem('kkm_db_sync_enabled') !== 'false',
   );
-
-  // Load current employee notification preferences
-  const [notifPrefs, setNotifPrefs] = useState<NotificationPref>(() => {
-    const empId = currentEmployee ? currentEmployee.id : 'emp-1';
-    const empRole = currentEmployee ? currentEmployee.role : 'Owner';
-    return getNotificationPrefs(empId, empRole);
-  });
-
-  useEffect(() => {
-    const empId = currentEmployee ? currentEmployee.id : 'emp-1';
-    const empRole = currentEmployee ? currentEmployee.role : 'Owner';
-    setNotifPrefs(getNotificationPrefs(empId, empRole));
-  }, [currentEmployee]);
 
   const playChimeTone = (tone: string) => {
     /* Audio implementation */
@@ -3334,6 +3295,14 @@ export default function SettingsView({
                   </div>
                 )}
             </div>
+            {activeSection === 'notifications' && (
+              <div className="bg-app-card border border-app-border rounded-3xl p-4 sm:p-5 shadow-sm min-w-0">
+                <h3 className="text-sm font-bold text-app-text mb-1">Notifications</h3>
+                <p className="text-xs text-app-text-muted mb-3">These apply to your account on every device.</p>
+                <NotificationSettingsPanel />
+              </div>
+            )}
+
             {activeSection === 'help' && (
             <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in">
               <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">

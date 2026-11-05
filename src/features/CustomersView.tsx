@@ -20,6 +20,8 @@ import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
 import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS } from "../types";
 import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
+import DuplicateCustomers from "../components/DuplicateCustomers";
+import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
@@ -70,6 +72,16 @@ const playSfx = (type: "send" | "receive" | "save") => {
   }
 };
 
+const customerGroupLabels = (c: {
+  customerType?: keyof typeof CUSTOMER_TYPE_LABELS;
+  paymentTerms?: keyof typeof PAYMENT_TERMS_LABELS;
+  deliveryFrequency?: keyof typeof DELIVERY_FREQUENCY_LABELS;
+}) => [
+  CUSTOMER_TYPE_LABELS[c.customerType ?? 'individual'],
+  PAYMENT_TERMS_LABELS[c.paymentTerms ?? 'pay_now'],
+  DELIVERY_FREQUENCY_LABELS[c.deliveryFrequency ?? 'none'],
+];
+
 export default function CustomersView() {
   const { 
     customers, addCustomer, currentEmployee, 
@@ -86,11 +98,15 @@ export default function CustomersView() {
     customerType: "individual",
     paymentTerms: "pay_now",
     deliveryFrequency: "none",
+    notifyService: true,
+    notifyPromotions: false,
   });
   const [editGroups, setEditGroups] = useState<CustomerGroupValues>({
     customerType: "individual",
     paymentTerms: "pay_now",
     deliveryFrequency: "none",
+    notifyService: true,
+    notifyPromotions: false,
   });
   const [isAdding, setIsAdding] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
@@ -184,6 +200,18 @@ export default function CustomersView() {
   const canAdjustPoints = currentEmployee ? hasRolePermission(currentEmployee.role, "loyalty.adjust") : false;
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
+  const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [duplicateCount, setDuplicateCount] = useState(0);
+
+  const refreshDuplicateCount = React.useCallback(() => {
+    if (!canMergeCustomers || !activeBusinessId) return;
+    findDuplicateCustomers(activeBusinessId)
+      .then((groups) => setDuplicateCount(groups.length))
+      .catch((err) => console.error("Could not check for duplicate customers:", err));
+  }, [canMergeCustomers, activeBusinessId]);
+
+  useEffect(refreshDuplicateCount, [refreshDuplicateCount, customers.length]);
 
   // New Customer Form handling using custom useForm hook
   const {
@@ -226,6 +254,7 @@ export default function CustomersView() {
           ...newGroups,
         });
         setIsAdding(false);
+        setNewGroups({ customerType: "individual", paymentTerms: "pay_now", deliveryFrequency: "none", notifyService: true, notifyPromotions: false });
         setSuccessBanner(true);
         setTimeout(() => setSuccessBanner(false), 2000);
         showToast("Customer Added", `"${vals.name}" successfully created.`, undefined, "success");
@@ -236,6 +265,9 @@ export default function CustomersView() {
   });
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+
+  const enteredPhoneKey = phoneKey(normalizePhone(values.phone, selectedCountryCode));
+  const samePhoneCustomer = enteredPhoneKey ? customers.find((c) => phoneKey(c.phone) === enteredPhoneKey) : undefined;
 
   // Unified History Event Timeline Builder
   const historyEvents = React.useMemo(() => {
@@ -423,6 +455,8 @@ export default function CustomersView() {
         customerType: selectedCustomer.customerType ?? "individual",
         paymentTerms: selectedCustomer.paymentTerms ?? "pay_now",
         deliveryFrequency: selectedCustomer.deliveryFrequency ?? "none",
+        notifyService: selectedCustomer.notifyService ?? true,
+        notifyPromotions: selectedCustomer.notifyPromotions ?? false,
       });
       setAdjustAmt(0);
       setMessageText("");
@@ -590,6 +624,18 @@ export default function CustomersView() {
               Customer Profiles & Tier Perks
             </span>
           </div>
+          <div className="flex items-center gap-1.5">
+          {canMergeCustomers && (
+            <button
+              onClick={() => setShowDuplicates(true)}
+              className="px-3 py-1.5 border border-app-border text-app-text font-bold rounded-xl text-[10.5px] flex items-center gap-1 hover:bg-app-bg transition cursor-pointer"
+            >
+              <span>Duplicates</span>
+              {duplicateCount > 0 && (
+                <span className="px-1.5 rounded-full bg-amber-500 text-slate-950 font-black">{duplicateCount}</span>
+              )}
+            </button>
+          )}
           {canCreateCustomers && (
             <button
               onClick={() => {
@@ -602,6 +648,7 @@ export default function CustomersView() {
               <span>Enroll</span>
             </button>
           )}
+          </div>
         </div>
 
         {/* Search list inputs */}
@@ -672,6 +719,9 @@ export default function CustomersView() {
                       >
                         <Award size={8} />
                         <span>{c.tier}</span>
+                      </span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-app-bg border border-app-border text-app-text-muted shrink-0">
+                        {CUSTOMER_TYPE_LABELS[c.customerType ?? 'individual']}
                       </span>
                       <span
                         className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${
@@ -758,6 +808,13 @@ export default function CustomersView() {
                       <Award size={9} />
                       <span>{selectedCustomer.tier} MEMBER</span>
                     </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {customerGroupLabels(selectedCustomer).map((label) => (
+                      <span key={label} className="px-1.5 py-0.5 rounded bg-app-bg border border-app-border text-[9px] font-bold text-app-text-muted">
+                        {label}
+                      </span>
+                    ))}
                   </div>
                   <p className="text-[10px] text-app-text-muted font-bold capitalize tracking-wider mt-0.5">
                     Account: {formatCustomerNumber(selectedCustomer.id)} ·
@@ -948,11 +1005,6 @@ export default function CustomersView() {
                           title="Emails are secured for fraud prevention."
                         />
                       </div>
-
-                      <CustomerGroupFields
-                  values={newGroups}
-                  onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
-                />
 
                 <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase">
@@ -2249,6 +2301,18 @@ export default function CustomersView() {
 
       {/* Add Customer Modal */}
       <AnimatePresence>
+        {showDuplicates && activeBusinessId && (
+          <DuplicateCustomers
+            businessId={activeBusinessId}
+            customers={customers}
+            onClose={() => {
+              setShowDuplicates(false);
+              refreshDuplicateCount();
+            }}
+            onMerged={setSelectedCustomerId}
+          />
+        )}
+
         {isAdding && (
           <>
             <motion.div
@@ -2333,6 +2397,21 @@ export default function CustomersView() {
                     Stored E.164:{' '}
                     {normalizePhone(values.phone, selectedCountryCode)}
                   </span>
+                  {samePhoneCustomer && (
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-app-text">
+                      <span>{titleCase(samePhoneCustomer.name)} already has this number. Open their record, or continue if this is someone else.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAdding(false);
+                          setSelectedCustomerId(samePhoneCustomer.id);
+                        }}
+                        className="shrink-0 font-bold text-amber-500 underline cursor-pointer"
+                      >
+                        Open
+                      </button>
+                    </div>
+                  )}
                   {errors.phone && (
                     <span className="text-[9px] text-red-500 font-bold">
                       {errors.phone}
@@ -2375,6 +2454,11 @@ export default function CustomersView() {
                     />
                   </div>
                 </div>
+
+                <CustomerGroupFields
+                  values={newGroups}
+                  onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
+                />
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-app-text-muted uppercase">

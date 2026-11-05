@@ -52,6 +52,26 @@ Deliveries named with a typed-in rider name aren't linked to any account, so nob
 
 To reset balances from sales history, run `supabase/recalculate_loyalty_points.sql`. Older app versions still award extra points, so run it once more after everyone has updated.
 
+## Duplicate customers
+
+A customer added by staff and the same person signing up online start as two records. They are never linked automatically, because a phone number typed at sign-up isn't proof of who someone is. Staff with `customers.manage` review matches under **Customers > Duplicates**, and they are told when a sign-up uses a number already on file.
+
+| Data | When merged |
+|---|---|
+| Debt, wallet, points, purchases | Added together, then wallet money clears debt |
+| Sales, payments, ledger, online logins | Move to the kept record |
+| Tier | The higher one, or higher if the combined points earn it |
+| Customer type, payment terms, delivery schedule, notes | The kept record's |
+| Name, phone, email | Staff choose |
+| Order updates | Off if either record turned them off |
+| Offers | On if either record agreed |
+
+Each merge is saved in `customer_merges` with both records as they were. There's no undo button. A device still using the old record has its new sales moved to the kept record, and its payments are refused until it refreshes. Automatic linking can be added once SMS codes can verify phone numbers.
+
+## Customer messages
+
+Customers choose in their website profile, and staff can record the choice on the customer's form. Order updates and reminders are on by default. Offers need the customer's agreement. The Communication Center asks what kind of message is being sent and skips anyone who hasn't agreed. The SMS, WhatsApp and email functions check again.
+
 ## Known limits
 
 - Any member can read colleagues' names and contact details from `employees`, because the app needs them for assigning and display.
