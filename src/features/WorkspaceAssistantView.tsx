@@ -472,8 +472,8 @@ export default function WorkspaceAssistantView() {
         .join('\n');
 
       const authUser = useAuthStore.getState().currentUser;
-      const loggedInUser = currentEmployee?.name || authUser?.full_name || 'Owner';
-      const rawRole = currentEmployee?.role || authUser?.role || 'Owner';
+      const loggedInUser = currentEmployee?.name || authUser?.name || 'Owner';
+      const rawRole = currentEmployee?.role || 'Owner';
       const isOwner = rawRole.toLowerCase() === 'owner' || !currentEmployee;
       const currentRole = isOwner ? 'Owner' : rawRole;
       const rolePermissions = isOwner ? ALL_PERMISSIONS : (getDynamicRoles()[currentRole]?.permissions || []);

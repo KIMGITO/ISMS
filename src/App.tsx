@@ -5,6 +5,8 @@ import PreviewFrame from './components/PreviewFrame';
 import { InteractiveGuide, TourStep } from './components/InteractiveGuide';
 import GlobalSearch from './components/GlobalSearch';
 import POSView from './features/POSView';
+import QuickSaleView from './features/QuickSaleView';
+import ClockBar from './components/ClockBar';
 import InventoryView from './features/InventoryView';
 import SalesView from './features/SalesView';
 import CustomersView from './features/CustomersView';
@@ -20,6 +22,7 @@ import BusinessManagementView from './features/BusinessManagementView';
 import CustomerFeedbackView from './features/CustomerFeedbackView';
 import HomeView from './features/HomeView';
 import ProductionBOMView from './features/ProductionBOMView';
+import OnlineStoreView from './features/OnlineStoreView';
 import { useNotificationStore } from './stores/notificationStore';
 import SearchableDropdown from './components/SearchableDropdown';
 import UnifiedUploader from './components/shared/UnifiedUploader';
@@ -56,6 +59,7 @@ import {
 import {
   Search,
   X,
+  Zap,
   Smartphone,
   Database,
   Tag,
@@ -109,6 +113,10 @@ import {
   Edit3,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import type { Business } from './types';
+import { AuthOtpService } from './services/authOtpService';
+import { toUserMessage } from './utils/userError';
 import PasswordInput from './components/shared/PasswordInput';
 
 
@@ -414,7 +422,8 @@ export default function App() {
   const [editBizAddr, setEditBizAddr] = useState('');
   const [editBizLogo, setEditBizLogo] = useState('');
 
-  const activeBusiness = businesses.find((b) => b.id === activeBusinessId) ||
+  const activeBusiness: Pick<Business, 'id' | 'name' | 'logoUrl'> & Partial<Business> =
+    businesses.find((b) => b.id === activeBusinessId) ||
     businesses[0] || {
       id: 'biz-1',
       name: "KayKay's",
@@ -831,25 +840,17 @@ export default function App() {
     setAuthError('');
     setAuthSuccess('');
     try {
-      const supabase = getSupabase();
-      const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      const { error: rpcErr } = await supabase.rpc('save_otp', {
-        p_email: verifyEmail.trim(),
-        p_code: newOtp,
-        p_type: 'signup',
-      });
-      if (rpcErr) throw rpcErr;
-
-      const EmailServiceModule = await import('./services/emailService');
       // Use regName if available, otherwise fall back to the email prefix as a display name
       const displayName =
         regName?.trim() || verifyEmail.split('@')[0] || 'User';
-      await EmailServiceModule.EmailService.sendVerificationCode(
+      const otpRes = await AuthOtpService.sendSignupCode(
         verifyEmail.trim(),
-        newOtp,
         displayName,
       );
+      if (!otpRes.success) {
+        setAuthError(otpRes.error || 'Failed to resend verification code.');
+        return;
+      }
 
       setVerifyCountdown(60);
       setVerifyCode('');
@@ -858,11 +859,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Resend OTP failed:', err);
-      const msg =
-        typeof err?.message === 'string' && err.message.length > 0
-          ? err.message
-          : 'Failed to resend verification code. Please check your connection and try again.';
-      setAuthError(msg);
+      setAuthError(toUserMessage(err, 'Failed to resend verification code. Please check your connection and try again.'));
     } finally {
       setIsResending(false);
     }
@@ -916,10 +913,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('OTP verification crashed:', err);
-      const msg =
-        typeof err?.message === 'string' && err.message.length > 0
-          ? err.message
-          : 'Something went wrong. Please try again.';
+      const msg = toUserMessage(err, 'Something went wrong. Please try again.');
       setAuthError(msg);
     } finally {
       setAuthLoading(false);
@@ -1090,12 +1084,14 @@ export default function App() {
     if (currentEmployee) {
       const allTabsWithPerms = [
         { id: 'home', permission: 'home.view' as const },
+        { id: 'sell', permission: 'pos.create_sale' as const },
         { id: 'pos', permission: 'pos.create_sale' as const },
         { id: 'inventory', permission: 'inventory.view' as const },
         { id: 'sales', permission: 'orders.view' as const },
         { id: 'customers', permission: 'customers.view' as const },
         { id: 'dashboard', permission: 'dashboard.view' as const },
         { id: 'feedback', permission: 'complaints.view' as const },
+        { id: 'online-store', permission: 'customers.view' as const },
         { id: 'ai', permission: 'ai.use' as const },
         { id: 'workers', permission: 'staff.view' as const },
         { id: 'permissions', permission: 'staff.roles' as const },
@@ -1827,23 +1823,11 @@ export default function App() {
 
                               // Attempt automatic resend of confirmation OTP
                               try {
-                                const supabase = getSupabase();
-                                const newOtp = Math.floor(
-                                  100000 + Math.random() * 900000,
-                                ).toString();
-                                await supabase.rpc('save_otp', {
-                                  p_email: loginEmail.trim(),
-                                  p_code: newOtp,
-                                  p_type: 'signup',
-                                });
-                                const EmailServiceModule = await import(
-                                  './services/emailService'
-                                );
-                                await EmailServiceModule.EmailService.sendVerificationCode(
+                                const otpRes = await AuthOtpService.sendSignupCode(
                                   loginEmail.trim(),
-                                  newOtp,
                                   loginEmail.split('@')[0],
                                 );
+                                if (!otpRes.success) throw new Error(otpRes.error);
                                 setAuthSuccess(
                                   `Your email is not confirmed. We've sent a new 6-digit verification code to ${loginEmail}.`,
                                 );
@@ -2138,27 +2122,14 @@ export default function App() {
                                 } else {
                                   // Guest mode email change - update local state and send new verification code via RPC
                                   try {
-                                    const supabase = getSupabase();
-                                    const newOtp = Math.floor(
-                                      100000 + Math.random() * 900000,
-                                    ).toString();
-
-                                    const { error: rpcErr } =
-                                      await supabase.rpc('save_otp', {
-                                        p_email: newEmailInput.trim(),
-                                        p_code: newOtp,
-                                        p_type: 'signup',
-                                      });
-                                    if (rpcErr) throw rpcErr;
-
-                                    const EmailServiceModule = await import(
-                                      './services/emailService'
-                                    );
-                                    await EmailServiceModule.EmailService.sendVerificationCode(
+                                    const otpRes = await AuthOtpService.sendSignupCode(
                                       newEmailInput.trim(),
-                                      newOtp,
                                       newEmailInput.split('@')[0] || 'User',
                                     );
+                                    if (!otpRes.success) {
+                                      setAuthError(otpRes.error || 'Failed to send verification code.');
+                                      return;
+                                    }
 
                                     setVerifyEmail(newEmailInput.trim());
                                     setIsEditingEmail(false);
@@ -2173,8 +2144,7 @@ export default function App() {
                                       err,
                                     );
                                     setAuthError(
-                                      err.message ||
-                                        'Failed to send verification code. Verify provider setup.',
+                                      toUserMessage(err, 'Failed to send verification code. Verify provider setup.'),
                                     );
                                   } finally {
                                     setAuthLoading(false);
@@ -3058,10 +3028,10 @@ export default function App() {
                               setAuthLoading(true);
                               setAuthError('');
                               setAuthSuccess('');
-                              const res = await updatePassword(
-                                newPassword,
-                                forgotEmail,
-                              );
+                              const res = await updatePassword(newPassword, {
+                                email: forgotEmail,
+                                code: resetOtpCode,
+                              });
                               setAuthLoading(false);
                               if (res.success) {
                                 setAuthSuccess(
@@ -3510,6 +3480,13 @@ export default function App() {
                       permission: 'dashboard.view' as const,
                     },
                     {
+                      id: 'sell',
+                      label: 'Quick Sale',
+                      icon: Zap,
+                      desc: 'Record a sale in seconds',
+                      permission: 'pos.create_sale' as const,
+                    },
+                    {
                       id: 'pos',
                       label: 'POS Checkout',
                       icon: ShoppingCart,
@@ -3543,6 +3520,13 @@ export default function App() {
                       icon: MessageSquare,
                       desc: 'Feedback & Sentiment',
                       permission: 'complaints.view' as const,
+                    },
+                    {
+                      id: 'online-store',
+                      label: 'Online Store',
+                      icon: Globe,
+                      desc: 'Website orders & messages',
+                      permission: 'customers.view' as const,
                     },
                     {
                       id: 'workers',
@@ -3919,9 +3903,26 @@ export default function App() {
                   )}
                 </header>
 
+                <ClockBar />
+
                 {/* CORE VIEWPORT CARDS */}
                 <div className="flex-1 overflow-hidden relative">
+                  <ErrorBoundary resetKey={activeTab}>
                   <AnimatePresence mode="wait">
+                    {activeTab === 'sell' && (
+                      <motion.div
+                        key="sell-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="pos.create_sale">
+                          <QuickSaleView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === 'pos' && (
                       <motion.div
                         key="pos-view"
@@ -4017,6 +4018,20 @@ export default function App() {
                       >
                         <SecurityGuard permission="ai.use">
                           <WorkspaceAssistantView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'online-store' && (
+                      <motion.div
+                        key="online-store-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="customers.view">
+                          <OnlineStoreView />
                         </SecurityGuard>
                       </motion.div>
                     )}
@@ -4133,6 +4148,7 @@ export default function App() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                  </ErrorBoundary>
                 </div>
 
                 {/* Manual Bottom Navbar Toggle Button (Mobile Only) */}
@@ -4179,6 +4195,12 @@ export default function App() {
                       permission: 'dashboard.view' as const,
                     },
                     {
+                      id: 'sell',
+                      label: 'Sell',
+                      icon: Zap,
+                      permission: 'pos.create_sale' as const,
+                    },
+                    {
                       id: 'pos',
                       label: 'POS',
                       icon: ShoppingCart,
@@ -4207,6 +4229,12 @@ export default function App() {
                       label: 'Feedback',
                       icon: MessageSquare,
                       permission: 'complaints.view' as const,
+                    },
+                    {
+                      id: 'online-store',
+                      label: 'Online Store',
+                      icon: Globe,
+                      permission: 'customers.view' as const,
                     },
                     {
                       id: 'workers',

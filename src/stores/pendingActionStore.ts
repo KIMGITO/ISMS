@@ -1,7 +1,9 @@
 // src/stores/pendingActionStore.ts
 // Intelligent Pending Actions (Drafts) & Human-in-the-Loop Verification Store
 
+import { toUserMessage } from '../utils/userError';
 import { create } from 'zustand';
+import { getSupabase } from '../services/supabaseClient';
 import { PendingAction, PendingActionType, PendingActionValidation } from '../types';
 import { useAuthStore } from './authStore';
 import { useBusinessStore } from './businessStore';
@@ -338,34 +340,34 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
           }
           case 'create_employee': {
             // Simplified logic: assume it goes to a StaffRepository or Supabase RPC
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('employees').insert({...params, business_id: activeBizId});
+            const supabase = getSupabase();
+            await supabase.from('employees').insert({...params, business_id: activeBizId});
             break;
           }
           case 'update_employee':
           case 'update_role': {
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('employees').update(params).eq('id', params.employeeId);
+            const supabase = getSupabase();
+            await supabase.from('employees').update(params).eq('id', params.employeeId);
             break;
           }
           case 'delete_employee': {
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('employees').update({ deleted_at: new Date().toISOString() }).eq('id', params.employeeId);
+            const supabase = getSupabase();
+            await supabase.from('employees').update({ deleted_at: new Date().toISOString() }).eq('id', params.employeeId);
             break;
           }
           case 'create_shift': {
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('shifts').insert({...params, business_id: activeBizId});
+            const supabase = getSupabase();
+            await supabase.from('shifts').insert({...params, business_id: activeBizId});
             break;
           }
           case 'update_shift': {
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('shifts').update(params).eq('id', params.shiftId);
+            const supabase = getSupabase();
+            await supabase.from('shifts').update(params).eq('id', params.shiftId);
             break;
           }
           case 'delete_shift': {
-            const supabase = SupabaseService.getSupabase ? SupabaseService.getSupabase() : null;
-            if(supabase) await supabase.from('shifts').update({ deleted_at: new Date().toISOString() }).eq('id', params.shiftId);
+            const supabase = getSupabase();
+            await supabase.from('shifts').update({ deleted_at: new Date().toISOString() }).eq('id', params.shiftId);
             break;
           }
           case 'adjust_wallet': {
@@ -410,7 +412,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || 'Execution failed.' };
+        return { success: false, error: toUserMessage(err, 'Execution failed.') };
       }
     },
 

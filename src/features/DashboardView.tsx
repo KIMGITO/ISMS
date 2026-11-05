@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
+import OnlineStoreAlerts from '../components/OnlineStoreAlerts';
 import { useNotificationStore } from '../stores/notificationStore';
 import {
   LogOut,
@@ -40,6 +41,7 @@ import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import EndShiftModal from '../components/EndShiftModal';
+import { finishShift } from '../services/shiftReport';
 import NotificationService from '../services/notifications/notificationService';
 import { notificationService } from '../core/native/NotificationService';
 import { useAuthStore } from '../stores/authStore';
@@ -586,6 +588,10 @@ export default function DashboardView() {
         </div>
       )}
 
+      <div className="px-4 pt-4 empty:hidden">
+        <OnlineStoreAlerts />
+      </div>
+
       {/* Main Calendar Space */}
       <div className="flex-1 overflow-y-auto p-4 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left column: Google-Like Calendar Grid */}
@@ -833,362 +839,7 @@ export default function DashboardView() {
           </div>
 
           {/* COMMAND CENTER */}
-          <div className="bg-app-card border border-app-border rounded-2xl shadow-xs overflow-hidden">
-              <button
-                onClick={() => setIsHubExpanded(!isHubExpanded)}
-                className="w-full flex items-center justify-between p-3.5 hover:bg-app-bg/50 transition cursor-pointer text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[10.5px] font-black text-app-text uppercase tracking-wider font-display">
-                    <div className="flex items-center gap-1.5">
-                      {currentEmployee.role === 'Owner' ||
-                      currentEmployee.role === 'Admin' ? (
-                        <Shield
-                          size={14}
-                          className="text-amber-500 "
-                        />
-                      ) : currentEmployee.role === 'Manager' ? (
-                        <Award size={14} className="text-amber-500" />
-                      ) : currentEmployee.role === 'Staff' ? (
-                        <MapPin size={14} className="text-amber-500" />
-                      ) : (
-                        <User size={14} className="text-amber-500" />
-                      )}
-                      <h3 className="text-xs font-black text-app-text uppercase tracking-wider font-display">
-                        {currentEmployee.role.toUpperCase()} COMMAND HUB
-                      </h3>
-                    </div>
-                  </span>
-                </div>
-                {isHubExpanded ? (
-                  <ChevronUp size={14} className="text-app-text-muted" />
-                ) : (
-                  <ChevronDown size={14} className="text-app-text-muted" />
-                )}
-              </button>
-
-              {isHubExpanded && (
-                <div className="p-3.5 bg-app-bg/40 border-t border-app-border/60 space-y-3.5 animate-fadeIn">
-                  <div className="space-y-1.5">
-                    <span className="text-[8px] text-app-text-muted font-black uppercase tracking-wider block">
-                      Live Privilege Sync Status:
-                    </span>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {[
-                        'business.settings',
-                        'dashboard.profit',
-                        'inventory.adjust_stock',
-                        'orders.assign_rider',
-                        'pos.create_sale',
-                        'pos.refund',
-                      ].map((permCode) => {
-                        const isGranted = hasRolePermission(
-                          currentEmployee.role,
-                          permCode as any,
-                        );
-                        return (
-                          <div
-                            key={permCode}
-                            className={`flex items-center gap-1.5 bg-app-card p-1.5 rounded-xl border ${
-                              isGranted
-                                ? 'border-emerald-500/10'
-                                : 'border-red-500/10 opacity-70'
-                            }`}
-                          >
-                            {isGranted ? (
-                              <CheckCircle2
-                                size={10}
-                                className="text-emerald-500 shrink-0"
-                              />
-                            ) : (
-                              <Lock
-                                size={10}
-                                className="text-red-500 shrink-0"
-                              />
-                            )}
-                            <span
-                              className={`text-[8.5px] font-mono truncate ${
-                                isGranted
-                                  ? 'text-slate-300'
-                                  : 'text-slate-500 line-through'
-                              }`}
-                            >
-                              {permCode}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 border-t border-app-border/45 pt-3">
-                    <span className="text-[8px] text-app-text-muted font-black uppercase tracking-wider block">
-                      Interactive Actions:
-                    </span>
-                    <div className="flex flex-col gap-1.5">
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'reports.profit',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            const totalSales = safeTransactions.reduce(
-                              (sum, t) => sum + (t.total || 0),
-                              0,
-                            );
-                            useNotificationStore
-                              .getState()
-                              .showToast(
-                                'Owner Audit Rollup',
-                                `Calculated total sales across system: KSh ${totalSales.toLocaleString()}. All records validated and synchronized to offline ledger.`,
-                                undefined,
-                                'success',
-                              );
-                          }}
-                          className="w-full text-left px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl text-[10px] font-bold text-amber-500 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <TrendingUp size={11} />
-                            <span>Reconcile Financial Totals</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Run Audit
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'settings.security',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            useNotificationStore
-                              .getState()
-                              .showToast(
-                                'Security Integrity',
-                                'Clearance Checksum verified successfully. Security parameters locked & synchronized.',
-                                undefined,
-                                'success',
-                              );
-                          }}
-                          className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-app-border/40 rounded-xl text-[10px] font-bold text-slate-300 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Activity size={11} />
-                            <span>Perform Security Checksum</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Verify
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'production.view',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            useNotificationStore
-                              .getState()
-                              .showToast(
-                                'Cold Room HVAC Audit',
-                                'Nairobi Cold Storage main compressor sensor checked. Reading: 3.4°C. Status: Optimal pasteurization state.',
-                                undefined,
-                                'success',
-                              );
-                          }}
-                          className="w-full text-left px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl text-[10px] font-bold text-amber-500 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Thermometer size={11} />
-                            <span>Verify Milk Storage Temp</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Test
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'inventory.view',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            const lowStock = safeProducts.filter(
-                              (p) => p.stock <= (p.minStock || 10),
-                            );
-                            if (lowStock.length > 0) {
-                              useNotificationStore
-                                .getState()
-                                .showToast(
-                                  'Dairy Stock Alert',
-                                  `Inventory check complete: ${lowStock.length} items require restock (e.g., ${lowStock[0].name}).`,
-                                  undefined,
-                                  'info',
-                                );
-                            } else {
-                              useNotificationStore
-                                .getState()
-                                .showToast(
-                                  'Dairy Stock Status',
-                                  'Inventory check complete: All product stock levels are above minimum safety limits.',
-                                  undefined,
-                                  'success',
-                                );
-                            }
-                          }}
-                          className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-app-border/40 rounded-xl text-[10px] font-bold text-slate-300 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Activity size={11} />
-                            <span>Audit Low-Stock Items</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Audit
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'staff.update',
-                      ) && (
-                        <button
-                          onClick={() => setShowAddForm(true)}
-                          className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-app-border/40 rounded-xl text-[10px] font-bold text-slate-300 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Plus size={11} />
-                            <span>Schedule New Driver Shift</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Open Form
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'pos.create_sale',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            if (
-                              !hasRolePermission(
-                                currentEmployee.role,
-                                'pos.create_sale',
-                              )
-                            ) {
-                              useNotificationStore
-                                .getState()
-                                .showToast(
-                                  'Access Denied',
-                                  'The active role has been dynamically restricted from initiating new sales checkout.',
-                                  undefined,
-                                  'error',
-                                );
-                              return;
-                            }
-                            setActiveTab('pos');
-                          }}
-                          className="w-full text-left px-3 py-2 bg-amber-500 hover:bg-amber-600 rounded-xl text-[10px] font-black text-slate-950 flex items-center justify-between transition cursor-pointer shadow-md"
-                        >
-                          <div className="flex items-center gap-2">
-                            <ShoppingBag size={11} />
-                            <span>Launch POS Register</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold">
-                            Go To POS
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'pos.refund',
-                      ) && (
-                        <button
-                          onClick={() => {
-                            const totalShiftTx = safeTransactions.length;
-                            useNotificationStore
-                              .getState()
-                              .showToast(
-                                'Cash Drawer Reconciliation',
-                                `Shift checkout count: ${totalShiftTx} orders. Local drawer physical cash matches central log perfectly.`,
-                                undefined,
-                                'success',
-                              );
-                          }}
-                          className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-app-border/40 rounded-xl text-[10px] font-bold text-slate-300 flex items-center justify-between transition cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Activity size={11} />
-                            <span>Audit Session Cash Drawer</span>
-                          </div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                            Run Check
-                          </span>
-                        </button>
-                      )}
-
-                      {hasRolePermission(
-                        currentEmployee.role,
-                        'deliveries.complete',
-                      ) && (
-                        <>
-                          <button
-                            onClick={() => {
-                              useNotificationStore
-                                .getState()
-                                .showToast(
-                                  'Logistics GPS Sync',
-                                  'Logistics route map synchronized with device GPS. Ready for dispatch.',
-                                  undefined,
-                                  'success',
-                                );
-                            }}
-                            className="w-full text-left px-3 py-2 bg-amber-500 hover:bg-amber-600 rounded-xl text-[10px] font-black text-slate-950 flex items-center justify-between transition cursor-pointer shadow-md"
-                          >
-                            <div className="flex items-center gap-2">
-                              <MapPin size={11} />
-                              <span>Load Active Dispatch Route</span>
-                            </div>
-                            <span className="text-[8px] uppercase tracking-wider font-extrabold">
-                              Route GPS
-                            </span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              useNotificationStore
-                                .getState()
-                                .showToast(
-                                  'Carrying Seal Validation',
-                                  'Cold-insulated transport box pressure & seal verification: 100% airtight. Temperature stable at 4.0°C.',
-                                  undefined,
-                                  'success',
-                                );
-                            }}
-                            className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-app-border/40 rounded-xl text-[10px] font-bold text-slate-300 flex items-center justify-between transition cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Lock size={11} />
-                              <span>Validate cold Carrying Seal</span>
-                            </div>
-                            <span className="text-[8px] uppercase tracking-wider font-extrabold opacity-60">
-                              Seal Check
-                            </span>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          
 
           {/* Schedule Assignment Creator */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
@@ -1569,29 +1220,8 @@ export default function DashboardView() {
         isOpen={isEndShiftModalOpen} 
         onClose={() => setIsEndShiftModalOpen(false)} 
         onConfirm={(reportText, customMessage) => {
-          const employee = useAuthStore.getState().currentEmployee;
-          punchOut();
           setIsEndShiftModalOpen(false);
-          showToast('Shift Ended', 'End of shift report sent to owners.');
-
-          // Dispatch notification to Owner via NotificationService
-          // This saves to the database for the Owner's notification feed AND triggers FCM Push
-          NotificationService.createNotification(
-            "Custom Notification",
-            { message: `Shift Ended by ${employee?.name || "Staff"}.${customMessage ? "\nNotes: " + customMessage : ""}` },
-            {
-              title: `Shift Closed: ${employee?.name || "Staff"}`,
-              role: "Owner",
-              priority: "high",
-              payloadExtra: {
-                reportText,
-                customMessage,
-                employeeName: employee?.name || "Staff",
-                employeeId: employee?.id || "",
-                closedAt: new Date().toISOString()
-              }
-            }
-          );
+          finishShift(reportText, customMessage);
         }}
       />
     </div>

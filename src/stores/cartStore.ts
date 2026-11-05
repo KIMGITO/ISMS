@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import { create } from "zustand";
 import { CartItem, Customer, Product, Transaction, PaymentMethod } from "../types";
 import { useAuthStore } from "./authStore";
@@ -188,6 +189,11 @@ export const useCartStore = create<CartState>((set, get) => ({
         referenceId,
       };
 
+      // Making a sale proves the person is working, so a forgotten clock-in fixes itself.
+      if (!useAuthStore.getState().activeShift) {
+        await useAuthStore.getState().punchIn();
+      }
+
       // Update active shift counters
       useAuthStore.getState().addShiftSale(finalTotal);
 
@@ -263,7 +269,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       set({ cart: [], selectedCustomer: null });
       return { success: true, transaction: savedTx };
     } catch (err: any) {
-      return { success: false, error: err.message || "Checkout failed due to database or connection error." };
+      return { success: false, error: toUserMessage(err, "Checkout failed due to database or connection error.") };
     }
   },
 }));

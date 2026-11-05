@@ -1,3 +1,4 @@
+import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Product, ProductCategory, PaymentMethod } from '../types';
@@ -149,7 +150,7 @@ export default function POSView() {
         setCheckoutError(result.error);
       }
     } catch (err: any) {
-      setCheckoutError(err.message || 'Checkout failed due to an error.');
+      setCheckoutError(toUserMessage(err, 'Checkout failed due to an error.'));
     } finally {
       setIsCheckingOut(false);
     }

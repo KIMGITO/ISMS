@@ -4,6 +4,8 @@ import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/
 import { EscPosGenerator } from "../services/printer/EscPosGenerator";
 import { PrinterConfig } from "../services/printer/types";
 import { EmailService } from "../services/emailService";
+import { toUserMessage, AppError } from "../utils/userError";
+import { scrubPersonalData } from "../services/crashReporter";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
 import { hasRolePermission } from "../utils/permissions";
 import { useAuthStore } from "../stores/authStore";
@@ -72,8 +74,34 @@ runTest("EmailService class and wrappers structure", () => {
   if (typeof EmailService.sendEmail !== "function") {
     throw new Error("sendEmail is not a function");
   }
-  if (typeof EmailService.sendVerificationCode !== "function") {
-    throw new Error("sendVerificationCode is not a function");
+});
+
+runTest("toUserMessage hides technical text and keeps friendly text", () => {
+  const cases: Array<[unknown, string]> = [
+    [{ code: "23505", message: 'duplicate key value violates unique constraint "x"' }, "This record already exists."],
+    [{ code: "42P01", message: 'relation "public.secret" does not exist' }, "FALLBACK"],
+    [new TypeError("Cannot read properties of undefined (reading 'id')"), "FALLBACK"],
+    [new TypeError("Failed to fetch"), "We couldn't reach the server. Please check your connection and try again."],
+    [new Error('Edge function "chat" failed: non-2xx'), "FALLBACK"],
+    [{ code: "P0001", message: "Insufficient stock for Milk." }, "Insufficient stock for Milk."],
+    [new Error("Invalid login credentials"), "Incorrect email or password."],
+    [new AppError("Only owners can do this."), "Only owners can do this."],
+    [new Error("Please choose a category."), "Please choose a category."],
+    [undefined, "FALLBACK"],
+    [{}, "FALLBACK"],
+  ];
+  for (const [input, expected] of cases) {
+    const actual = toUserMessage(input, "FALLBACK");
+    if (actual !== expected) throw new Error(`Expected "${expected}", got "${actual}"`);
+  }
+});
+
+runTest("scrubPersonalData removes personal details from crash reports", () => {
+  const scrubbed = scrubPersonalData(
+    "failed for jane@x.co +254 712 345 678 id 4f8c9b24-9b21-4f1e-8e81-cf1b54a7c29e token eyJabc.def.ghi"
+  );
+  for (const secret of ["jane@x.co", "712 345", "4f8c9b24", "eyJabc"]) {
+    if (scrubbed.includes(secret)) throw new Error(`Leaked "${secret}" in: ${scrubbed}`);
   }
 });
 

@@ -38,17 +38,16 @@ cd ..
 UNSIGNED_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
 
 # 5. Sign Android App
-if [ -f "my-release.keystore" ]; then
+# The signing key and its password live outside the repository.
+SIGNING_ENV="$HOME/.config/kaykays-signing/credentials.env"
+[ -f "$SIGNING_ENV" ] && source "$SIGNING_ENV"
+
+if [ -n "${ANDROID_KEYSTORE_PATH:-}" ] && [ -f "$ANDROID_KEYSTORE_PATH" ]; then
     echo "=================================================="
     echo "--> Keystore found. Preparing to sign APK automatically..."
     
-    # Load .env for passwords if it exists
-    if [ -f ".env" ]; then
-        source .env
-    fi
-
-    KEY_ALIAS=${ANDROID_KEY_ALIAS:-my-key-alias}
-    KEY_PASS=${ANDROID_KEY_PASS:-}
+    KEY_ALIAS=${ANDROID_KEYSTORE_ALIAS:-}
+    KEY_PASS=${ANDROID_KEYSTORE_PASSWORD:-}
     
     # Locate Android SDK tools
     SDK_PATH="$HOME/Android/Sdk/build-tools"
@@ -66,7 +65,7 @@ if [ -f "my-release.keystore" ]; then
         "$ZIPALIGN" -v 4 "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-aligned.apk" > /dev/null
 
         echo "--> Signing APK with alias '$KEY_ALIAS'..."
-        "$APKSIGNER" sign --ks "my-release.keystore" \
+        "$APKSIGNER" sign --ks "$ANDROID_KEYSTORE_PATH" \
           --ks-key-alias "$KEY_ALIAS" \
           --ks-pass pass:"$KEY_PASS" \
           --key-pass pass:"$KEY_PASS" \
@@ -84,7 +83,7 @@ if [ -f "my-release.keystore" ]; then
         cp "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-unsigned.apk"
     fi
 else
-    echo "--> No my-release.keystore found. Copying unsigned APK..."
+    echo "--> No signing key found (see DOCUMENTATION.md). Copying unsigned APK..."
     cp "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-unsigned.apk"
 fi
 

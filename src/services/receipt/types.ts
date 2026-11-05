@@ -17,6 +17,14 @@ export type ReceiptTemplateType =
   | "isms_app";
 
 export interface BusinessReceiptSettings {
+  barcodeType?: string;
+  showBarcode?: boolean;
+  showQrCode?: boolean;
+  showTaxBreakdown?: boolean;
+  printerConnection?: string;
+  printerAddress?: string;
+  autoPrint?: boolean;
+  openCashDrawer?: boolean;
   logoUrl: string;
   businessName: string;
   address: string;

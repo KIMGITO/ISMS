@@ -5,6 +5,10 @@ import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 
 export type PermissionCode =
+  // Top-level screens
+  | 'home.view'
+  | 'dashboard.view'
+  | 'complaints.view'
   // Business
   | 'business.view'
   | 'business.create'

@@ -9,6 +9,7 @@ import {
   handleCors,
   jsonResponse,
   errorResponse,
+  verifyUserMembership,
 } from "../shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -29,6 +30,9 @@ Deno.serve(async (req) => {
       if (!businessId) {
         return errorResponse("businessId query param is required.", 400);
       }
+
+      const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+      if (authError) return authError;
 
       const { data, error } = await supabase
         .from("offline_sync_queue")
@@ -62,6 +66,10 @@ Deno.serve(async (req) => {
       const { transactions, businessId } = body;
 
       if (!businessId) return errorResponse("businessId is required.", 400);
+
+      const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+      if (authError) return authError;
+
       if (!Array.isArray(transactions)) {
         return errorResponse("transactions must be an array.", 400);
       }
@@ -120,6 +128,6 @@ Deno.serve(async (req) => {
     }
   } catch (err: any) {
     console.error("[sync] Critical error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });

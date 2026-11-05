@@ -64,7 +64,7 @@ export default function SearchableDropdown({
             : "hover:border-amber-500/50 cursor-pointer"
         }`}
       >
-        <span className={selectedItem ? "text-app-text font-bold" : "text-app-text-muted font-medium"}>
+        <span className={selectedItem ? "text-app-text font-bold truncate" : "text-app-text-muted font-medium "}>
           {selectedItem ? selectedItem.label : placeholder}
         </span>
         <ChevronDown size={14} className={`text-app-text-muted transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />

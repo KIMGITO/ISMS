@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import { create } from "zustand";
 import { EmployeeRole, NotificationType, NotificationPriority, AppNotification } from "../types";
 import { useAuthStore } from "./authStore";
@@ -282,7 +283,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  showToast: (sender, message, avatar, type, category) => {
+  showToast: (sender, rawMessage, avatar, type, category) => {
+    // Safety net: an error toast never shows raw database or runtime text.
+    const message = type === "error" ? toUserMessage(rawMessage) : rawMessage;
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     

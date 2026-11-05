@@ -9,6 +9,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  enforceRateLimit,
 } from "../shared/cors.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
 
@@ -27,8 +28,6 @@ Deno.serve(async (req) => {
     const {
       messages,
       businessId,
-      activeRole,
-      permissions,
       employeeName,
       clientProducts,
       clientCustomers,
@@ -40,12 +39,24 @@ Deno.serve(async (req) => {
     }
 
     // Verify tenant membership
-    const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
+
+    // Per person and per business, because every AI call costs the business money.
+    const limited =
+      (await enforceRateLimit(`ai:user:${userId}`, 20, 60)) ||
+      (await enforceRateLimit(`ai:biz:${businessId}`, 500, 86400));
+    if (limited) return limited;
 
     if (!messages || !Array.isArray(messages)) {
       return errorResponse("messages array is required.", 400);
     }
+
+    // Long histories and pasted documents drive up cost without improving answers.
+    const boundedMessages = messages.slice(-20).map((m: any) => ({
+      ...m,
+      content: typeof m?.content === "string" ? m.content.slice(0, 4000) : m?.content,
+    }));
 
     // ── 1. Create service-role Supabase client ──────────────────────────
     const supabase = createClient(
@@ -103,7 +114,21 @@ Deno.serve(async (req) => {
     const aiName = Deno.env.get("VITE_AI_NAME") || "Kim";
     const userRole = activeRole || "Owner";
     const isOwner = userRole.toLowerCase() === "owner";
-    const userPerms: string[] = Array.isArray(permissions) ? permissions : [];
+    const hasFullAccess = ["owner", "admin", "administrator"].includes(userRole.toLowerCase());
+
+    // Permissions come from the database, never from the request. The assistant only sees
+    // what this person may see, because anything in its context can be repeated back to them.
+    const { data: grantedRows } = hasFullAccess
+      ? { data: [] as any[] }
+      : await supabase
+          .from("role_permissions")
+          .select("permission")
+          .eq("business_id", businessId)
+          .eq("role", userRole)
+          .eq("granted", true);
+    const userPerms: string[] = (grantedRows || []).map((r: any) => r.permission);
+    const canSeeCustomers = hasFullAccess || userPerms.includes("customers.view");
+    const canSeeStaff = hasFullAccess || userPerms.includes("staff.view");
     const userName = employeeName || "Operator";
 
     // ── 3. Guard: AI not configured ─────────────────────────────────────
@@ -143,14 +168,14 @@ ${products.length > 0
   : "No products currently listed in catalog."
 }
 
-CUSTOMER DIRECTORY (${customers.length} Registered Customers):
-${customers.length > 0
+CUSTOMER DIRECTORY (${canSeeCustomers ? customers.length : 0} Registered Customers):
+${!canSeeCustomers ? "Not available to this operator. Do not guess customer details." : customers.length > 0
   ? customers.map((c: any, idx: number) => `${idx + 1}. ${c.name} - Phone: ${c.phone || "N/A"} - Debt: ${currency} ${Number(c.debt_balance || c.debtBalance || 0).toLocaleString()} - Wallet: ${currency} ${Number(c.wallet_balance || c.walletBalance || 0).toLocaleString()}`).join("\n")
   : "No registered customers listed."
 }
 
-TEAM WORKERS (${employees.length} Staff Members):
-${employees.length > 0
+TEAM WORKERS (${canSeeStaff ? employees.length : 0} Staff Members):
+${!canSeeStaff ? "Not available to this operator. Do not guess staff details." : employees.length > 0
   ? employees.map((e: any, idx: number) => `${idx + 1}. ${e.name} - Role: ${e.role} ${e.phone ? "- Phone: " + e.phone : ""}`).join("\n")
   : "No staff list available."
 }
@@ -180,7 +205,7 @@ When the user requests an action AND you have parameters AND the operator is aut
     // ── 5. Call the AI ───────────────────────────────────────────────────
     const result = await runAI(settings, {
       systemInstruction,
-      messages: messages as any[],
+      messages: boundedMessages as any[],
     });
 
     if (result.success) {
@@ -194,12 +219,12 @@ When the user requests an action AND you have parameters AND the operator is aut
       console.warn("[chat] AI call failed:", result.error);
       return jsonResponse({
         success: false,
-        error: result.error || "AI provider request failed",
-        reply: `AI Assistant Error: ${result.error || "Please check your AI provider configuration under Settings."}`,
+        error: "The assistant is unavailable right now.",
+        reply: "The assistant is unavailable right now. Please try again shortly. If this continues, ask the Owner to check the AI settings.",
       });
     }
   } catch (err: any) {
     console.error("[chat] Critical error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });

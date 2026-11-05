@@ -12,6 +12,17 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Only backend callers may push: the notifications webhook and other functions.
+  // The webhook must send the service role key or the FCM_WEBHOOK_SECRET value as a bearer token.
+  const bearer = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  const allowedTokens = [Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), Deno.env.get('FCM_WEBHOOK_SECRET')].filter(Boolean);
+  if (!bearer || !allowedTokens.includes(bearer)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await req.json();
 
@@ -34,22 +45,24 @@ Deno.serve(async (req) => {
     // 2. Fetch device tokens (including the per-device sound tone)
     let query = supabaseClient.from('device_fcm_tokens').select('device_token, user_id, id, sound');
 
+    // Pushes stay inside the notification's own business; there is no all-devices fallback.
+    const businessId = targetPayload?.business_id || notificationPayload?.business_id || null;
+
     if (targetPayload?.user_id) {
       query = query.eq('user_id', targetPayload.user_id);
-    } else if (targetPayload?.role) {
-      const { data: members } = await supabaseClient
+    } else if (businessId) {
+      let membersQuery = supabaseClient
         .from('business_memberships')
         .select('user_id')
-        .ilike('role', targetPayload.role);
+        .eq('business_id', businessId);
+      if (targetPayload?.role) membersQuery = membersQuery.ilike('role', targetPayload.role);
 
+      const { data: members } = await membersQuery;
       const userIds = members?.map((m: any) => m.user_id).filter(Boolean) || [];
-      if (userIds.length > 0) {
-        query = query.in('user_id', userIds);
-      } else {
-        console.log(`[send-fcm] No specific user_ids matched role "${targetPayload.role}", delivering to all active device tokens.`);
-      }
+      query = query.in('user_id', userIds);
     } else {
-      console.log("[send-fcm] No user_id or role filter — fetching ALL device tokens");
+      console.warn("[send-fcm] Notification has no user or business target - nothing to send");
+      query = query.in('user_id', []);
     }
 
     const { data: tokens, error: tokensError } = await query;
@@ -159,7 +172,7 @@ Deno.serve(async (req) => {
           }
           return { token, success: false, error: result?.error?.message, tokenRowId };
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error(`[send-fcm] Network error sending to token:`, e);
         return { token, success: false, error: e.message };
       }
@@ -190,9 +203,9 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("[send-fcm] FATAL ERROR:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'Failed to send notification.' }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,6 +1,7 @@
 // src/features/InventoryView.tsx
 // Complete Re-engineered Strict Online-First Inventory & Local Log Hiding Framework
 
+import { toUserMessage } from '../utils/userError';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import {
@@ -222,7 +223,7 @@ export default function InventoryView() {
       } catch (err: any) {
         showToast(
           'Database Error',
-          `Failed to add product: ${err.message}`,
+          toUserMessage(err, "Failed to add product."),
           undefined,
           'error',
         );
@@ -289,7 +290,7 @@ export default function InventoryView() {
     } catch (err: any) {
       showToast(
         'Update Error',
-        `Failed to save catalog edit: ${err.message}`,
+        toUserMessage(err, "Failed to save catalog edit."),
         undefined,
         'error',
       );
@@ -348,7 +349,7 @@ export default function InventoryView() {
     } catch (err: any) {
       showToast(
         'Database Error',
-        `Failed to adjust stock: ${err.message}`,
+        toUserMessage(err, "Failed to adjust stock."),
         undefined,
         'error',
       );
@@ -1347,7 +1348,6 @@ export default function InventoryView() {
                       Category
                     </label>
                     <SearchableDropdown
-                      source={safeCategories}
                       items={safeCategories.map((c) => ({ id: c, label: c }))}
                       selectedValue={editValues.category}
                       onChange={(val) =>

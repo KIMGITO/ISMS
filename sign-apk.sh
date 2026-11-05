@@ -10,7 +10,7 @@ ZIPALIGN="/home/dennis/Android/Sdk/build-tools/${SDK_VERSION}/zipalign"
 UNSIGNED_APK="release-builds/android/isms-release-unsigned.apk"
 ALIGNED_APK="release-builds/android/isms-release-aligned.apk"
 SIGNED_APK="release-builds/android/isms-release-signed.apk"
-KEYSTORE="my-release.keystore"
+KEYSTORE="${ANDROID_KEYSTORE_PATH:-$HOME/.config/kaykays-signing/kaykays-release.jks}"
 
 echo "=================================================="
 echo "          Android APK Alignment & Signing Tool"
@@ -36,8 +36,8 @@ if [ ! -f "$KEYSTORE" ]; then
 fi
 
 # Ask for keystore details
-read -p "Enter Keystore Alias [default: my-key-alias]: " KEY_ALIAS
-KEY_ALIAS=${KEY_ALIAS:-my-key-alias}
+read -p "Enter Keystore Alias [default: kaykays-release]: " KEY_ALIAS
+KEY_ALIAS=${KEY_ALIAS:-kaykays-release}
 
 # Read password securely
 read -s -p "Enter Keystore Password: " KEY_PASS

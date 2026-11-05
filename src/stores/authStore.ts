@@ -7,6 +7,8 @@ import { isSupabaseConfigured, getSupabase } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
 import { getApiUrl, safeFetch } from "../utils/apiUtils";
 import { EmailService } from "../services/emailService";
+import { AuthOtpService } from "../services/authOtpService";
+import { toUserMessage } from "../utils/userError";
 import { nativePlatformService } from "../core/native/NativePlatformService";
 import { notificationService } from "../core/native/NotificationService";
 import { NotificationService } from "../services/notifications/notificationService";
@@ -28,8 +30,9 @@ interface AuthState {
   shifts: Shift[];
   login: (pin: string) => boolean;
   logout: () => void;
-  punchIn: () => void;
-  punchOut: () => void;
+  restoreActiveShift: () => Promise<void>;
+  punchIn: () => Promise<boolean>;
+  punchOut: () => Promise<boolean>;
   toggleTask: (taskId: string) => void;
   updateEmployeePin: (employeeId: string, newPin: string) => void;
   addShiftSale: (finalTotal: number) => void;
@@ -67,7 +70,7 @@ interface AuthState {
   performInitialization: () => Promise<void>;
   sendPasswordResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyPasswordResetOtp: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string, recovery?: { email: string; code: string }) => Promise<{ success: boolean; error?: string }>;
   updateEmailDuringVerification: (newEmail: string) => Promise<{ success: boolean; error?: string }>;
   dbPermissions: { role: string; permission: string; granted: boolean }[];
   loadPermissionsFromDatabase: () => Promise<void>;
@@ -246,7 +249,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         sessionStorage.removeItem("kkm_init_retry_count");
         set({
           isInitializing: false,
-          initializationError: err.message || "Failed to initialize application connection."
+          initializationError: toUserMessage(err, "Failed to initialize application connection.")
         });
       }
     },
@@ -608,6 +611,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
       localStorage.removeItem("kkm_ai_insights_v1");
       localStorage.removeItem("kkm_payments_v1");
       localStorage.removeItem("kkm_notifications_list_v1");
+      localStorage.removeItem("kkm_schedules_v1_store");
+      localStorage.removeItem("kkm_pending_actions_v1");
+      localStorage.removeItem("kkm_notification_scheduled_tasks_v1");
 
       // Clear local repositories to prevent data leaking
       ProductRepository.setAll([]);
@@ -703,7 +709,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // 1. SignUp through Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
-          password: password || "password",
+          password: password,
           options: {
             data: {
               name: name.trim(),
@@ -714,7 +720,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (error) {
           // Map known Supabase error messages to friendly text
-          const msg = error.message || "";
+          const msg = toUserMessage(error, "");
           if (msg.includes("User already registered") || msg.includes("already been registered")) {
             return { success: false, error: "This email address is already registered. Please sign in or use a different email." };
           }
@@ -724,19 +730,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
           throw error;
         }
 
-        // 2. Generate random 6-digit OTP code
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // 3. Save OTP in DB via RPC
-        const { error: rpcErr } = await supabase.rpc("save_otp", {
-          p_email: email.trim(),
-          p_code: otpCode,
-          p_type: "signup"
-        });
-        if (rpcErr) throw rpcErr;
-
-        // 4. Send Email via Edge Function
-        await EmailService.sendVerificationCode(email.trim(), otpCode, name.trim());
+        // 2. Send verification code
+        const otpRes = await AuthOtpService.sendSignupCode(email.trim(), name.trim());
+        if (!otpRes.success) return otpRes;
 
         useNotificationStore.getState().showToast(
           "Verification Code Sent",
@@ -749,51 +745,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
-        // Never expose raw objects — always return a human-readable string
-        const msg = typeof err?.message === "string" && err.message.length > 0
-          ? err.message
-          : "Registration failed. Please check your connection and try again.";
-        return { success: false, error: msg };
+        return { success: false, error: toUserMessage(err, "Registration failed. Please check your connection and try again.") };
       }
     },
 
     // verifyEmailCode stub (Supabase Auth link-clicks verify the email directly)
-    verifyEmailCode: async (email, code) => {
-      try {
-        const supabase = getSupabase();
-        
-        const { data: verified, error: rpcErr } = await supabase.rpc("verify_signup_otp", {
-          p_email: email.trim(),
-          p_code: code.trim()
-        });
-
-        if (rpcErr) throw rpcErr;
-
-        if (!verified) {
-          return { success: false, error: "Invalid or expired verification code." };
-        }
-
-        // Call sendWelcome email asynchronously as a background operation
-        try {
-          const { data: userProfile } = await supabase
-            .from("users")
-            .select("name")
-            .eq("email", email.trim())
-            .maybeSingle();
-          
-          const userName = userProfile?.name || "Owner";
-          EmailService.sendWelcome(email.trim(), userName).catch(e => 
-            console.error("Failed to send welcome email:", e)
-          );
-        } catch (welcomeErr) {
-          console.error("Failed to trigger welcome email:", welcomeErr);
-        }
-
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err.message || "Failed to verify code." };
-      }
-    },
+    verifyEmailCode: async (email, code) => AuthOtpService.verifySignupCode(email.trim(), code.trim()),
 
     // Create Business with Owner (via PostgreSQL RPC to bypass RLS dependencies)
     createBusinessWithOwner: async (name, type, country, currency, logoUrl, description, address) => {
@@ -828,7 +785,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to configure business workspace." };
+        return { success: false, error: toUserMessage(err, "Failed to configure business workspace.") };
       }
     },
 
@@ -838,7 +795,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const supabase = getSupabase();
         const { data, error } = await supabase.auth.signInWithPassword({
           email: emailOrPhone.trim().toLowerCase(),
-          password: password || "password"
+          password
         });
 
         if (error) {
@@ -846,9 +803,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
                               error.message.toLowerCase().includes("email confirmation");
           return { 
             success: false, 
-            error: error.message, 
+            error: toUserMessage(error, "Failed to log in. Please try again."), 
             emailConfirmRequired: isUnconfirmed 
           };
+        }
+
+        // Website customers share Supabase Auth but have nothing to do in the staff app.
+        if (data.user.user_metadata?.account_type === "customer") {
+          await supabase.auth.signOut();
+          return { success: false, error: "This is a customer account. Please sign in on our website instead." };
         }
 
         // Hydrate data
@@ -867,7 +830,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                             err.message?.toLowerCase().includes("email confirmation");
         return { 
           success: false, 
-          error: err.message || "Invalid email or password credentials.",
+          error: toUserMessage(err, "Invalid email or password credentials."),
           emailConfirmRequired: isUnconfirmed
         };
       }
@@ -942,7 +905,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           console.error("EmailService invitation dispatch failed:", err);
           // Delete the invitation from database so we don't have dangling records
           await supabase.from("invitations").delete().eq("id", invite.id);
-          throw new Error(err.message || "Failed to deliver invitation email. Invitation aborted.");
+          throw new Error(toUserMessage(err, "Failed to deliver invitation email. Invitation aborted."));
         }
 
         // Hydrate invitations in store
@@ -987,7 +950,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           }
         };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to issue invitation." };
+        return { success: false, error: toUserMessage(err, "Failed to issue invitation.") };
       }
     },
 
@@ -1029,7 +992,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           }
         };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to verify invitation token." };
+        return { success: false, error: toUserMessage(err, "Failed to verify invitation token.") };
       }
     },
 
@@ -1049,7 +1012,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // 2. Register account in Supabase Auth (without emailRedirectTo to avoid magic links)
         const { data, error } = await supabase.auth.signUp({
           email: invite.email,
-          password: password || "password",
+          password: password,
           options: {
             data: {
               name: name?.trim() || invite.name,
@@ -1070,19 +1033,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (linkErr) throw linkErr;
 
-        // 4. Generate random 6-digit OTP code
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // 5. Save OTP in DB via RPC
-        const { error: rpcErr } = await supabase.rpc("save_otp", {
-          p_email: invite.email.trim(),
-          p_code: otpCode,
-          p_type: "signup"
-        });
-        if (rpcErr) throw rpcErr;
-
-        // 6. Send Email via Edge Function
-        await EmailService.sendVerificationCode(invite.email.trim(), otpCode, name?.trim() || invite.name);
+        // 4. Send verification code
+        const otpRes = await AuthOtpService.sendSignupCode(invite.email.trim(), name?.trim() || invite.name);
+        if (!otpRes.success) return otpRes;
 
         useNotificationStore.getState().showToast(
           "Verification Code Sent",
@@ -1093,7 +1046,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to complete staff onboarding." };
+        return { success: false, error: toUserMessage(err, "Failed to complete staff onboarding.") };
       }
     },
     loadPermissionsFromDatabase: async () => {
@@ -1165,7 +1118,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         console.error("Failed to save role permissions:", err);
         useNotificationStore.getState().showToast(
           "Error",
-          err.message || "Failed to save permissions to database.",
+          toUserMessage(err, "Failed to save permissions to database."),
           undefined,
           "error"
         );
@@ -1245,54 +1198,76 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    // Punch in/out local mock implementations
-    punchIn: () => {
+    // Reloads an open shift so that clock-in state survives restarts and logouts.
+    restoreActiveShift: async () => {
       const emp = get().currentEmployee;
-      if (!emp) return;
-
-      const newShift: Shift = {
-        id: `shift-${Date.now()}`,
-        employeeId: emp.id,
-        startTime: new Date().toISOString(),
-        endTime: null,
-        salesCount: 0,
-        salesTotal: 0,
-        status: "Active",
-      };
-
-      set({
-        activeShift: newShift,
-        shifts: [...get().shifts, newShift],
-        currentEmployee: { ...emp, activeShiftId: newShift.id }
-      });
-
-      useNotificationStore.getState().showToast("Punched In", `Shift started at ${new Date().toLocaleTimeString()}`, undefined, "success");
-
-      NotificationService.createNotification(
-        "Custom Notification",
-        { message: `${emp.name} clocked in at ${new Date().toLocaleTimeString()}` },
-        { title: `Shift Started: ${emp.name}`, role: "Owner", priority: "medium" }
-      );
+      const businessId = useBusinessStore.getState().activeBusinessId;
+      if (!emp || !businessId) return;
+      try {
+        const activeShift = await SupabaseService.fetchActiveShift(businessId, emp.id);
+        set({ activeShift });
+      } catch (err) {
+        console.error("Failed to restore active shift:", err);
+      }
     },
 
-    punchOut: () => {
+    punchIn: async () => {
+      const emp = get().currentEmployee;
+      const businessId = useBusinessStore.getState().activeBusinessId;
+      if (!emp || !businessId) return false;
+      if (get().activeShift) return true;
+
+      try {
+        const newShift = await SupabaseService.createShift({
+          businessId,
+          employeeId: emp.id,
+          startTime: new Date().toISOString(),
+        });
+
+        set({
+          activeShift: newShift,
+          shifts: [...get().shifts, newShift],
+          currentEmployee: { ...emp, activeShiftId: newShift.id }
+        });
+
+        useNotificationStore.getState().showToast("Clocked In", `Shift started at ${new Date().toLocaleTimeString()}.`, undefined, "success");
+
+        NotificationService.createNotification(
+          "Custom Notification",
+          { message: `${emp.name} clocked in at ${new Date().toLocaleTimeString()}` },
+          { title: `Shift Started: ${emp.name}`, role: "Owner", priority: "medium" }
+        );
+        return true;
+      } catch (err) {
+        console.error("punchIn error:", err);
+        useNotificationStore.getState().showToast("Clock In Failed", toUserMessage(err, "Could not clock you in. Please try again."), undefined, "error");
+        return false;
+      }
+    },
+
+    punchOut: async () => {
       const shift = get().activeShift;
       const emp = get().currentEmployee;
-      if (!shift || !emp) return;
+      if (!shift || !emp) return false;
 
-      const completedShift: Shift = {
-        ...shift,
-        endTime: new Date().toISOString(),
-        status: "Closed",
-      };
+      try {
+        const completedShift = await SupabaseService.updateShift({
+          ...shift,
+          endTime: new Date().toISOString(),
+          status: "Closed",
+        });
 
-      set({
-        activeShift: null,
-        shifts: get().shifts.map((s) => (s.id === shift.id ? completedShift : s)),
-        currentEmployee: { ...emp, activeShiftId: null }
-      });
-
-      useNotificationStore.getState().showToast("Punched Out", `Shift closed. Total Sales: Ksh ${shift.salesTotal}`, undefined, "info");
+        set({
+          activeShift: null,
+          shifts: get().shifts.map((s) => (s.id === shift.id ? completedShift : s)),
+          currentEmployee: { ...emp, activeShiftId: null }
+        });
+        return true;
+      } catch (err) {
+        console.error("punchOut error:", err);
+        useNotificationStore.getState().showToast("Clock Out Failed", toUserMessage(err, "Could not clock you out. Please try again."), undefined, "error");
+        return false;
+      }
     },
 
     toggleTask: (taskId) => {
@@ -1321,6 +1296,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
         activeShift: updatedShift,
         shifts: get().shifts.map((s) => (s.id === currentShift.id ? updatedShift : s)),
       });
+
+      SupabaseService.updateShift(updatedShift).catch((err) =>
+        console.error("Failed to save shift totals:", err)
+      );
     },
 
     createWorker: (worker) => {
@@ -1380,123 +1359,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     setEmployees: (employees) => {},
 
-    sendPasswordResetOtp: async (email: string) => {
+    sendPasswordResetOtp: async (email: string) => AuthOtpService.sendPasswordResetCode(email),
+
+    verifyPasswordResetOtp: async (email: string, code: string) =>
+      AuthOtpService.verifyPasswordResetCode(email, code.trim()),
+
+    // Signed-in users change their own password. Recovery requires the emailed code.
+    updatePassword: async (password: string, recovery?: { email: string; code: string }) => {
       try {
-        const supabase = getSupabase();
-        const cleanEmail = email.trim().toLowerCase();
-
-        // 1. Call RPC function (SECURITY DEFINER) to check user existence & generate OTP safely
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("request_password_reset_otp", {
-          p_email: cleanEmail
-        });
-
-        if (rpcErr) {
-          console.warn("request_password_reset_otp RPC failed, using fallback:", rpcErr);
-          const { data: userProfile } = await supabase
-            .from("users")
-            .select("name")
-            .ilike("email", cleanEmail)
-            .maybeSingle();
-
-          const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-          await supabase.rpc("save_otp", {
-            p_email: cleanEmail,
-            p_code: otpCode,
-            p_type: "password_reset"
-          });
-          await EmailService.sendPasswordResetCode(cleanEmail, otpCode, userProfile?.name || "User");
-          return { success: true };
+        if (recovery) {
+          const res = await AuthOtpService.resetPassword(recovery.email, recovery.code.trim(), password);
+          if (!res.success) return res;
+        } else {
+          const { error } = await getSupabase().auth.updateUser({ password });
+          if (error) throw error;
         }
-
-        const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        if (!result || !result.user_exists) {
-          return { success: false, error: "No account registered with this email address." };
-        }
-
-        // 2. Dispatch password reset code via EmailService
-        await EmailService.sendPasswordResetCode(cleanEmail, result.otp_code, result.user_name || "User");
-
-        useNotificationStore.getState().showToast(
-          "Recovery Code Sent",
-          `A 6-digit password recovery code has been sent to ${cleanEmail}.`,
-          undefined,
-          "success"
-        );
-
-        return { success: true };
-      } catch (err: any) {
-        console.error("sendPasswordResetOtp error:", err);
-        return { success: false, error: err.message || "Failed to send recovery code." };
-      }
-    },
-
-    verifyPasswordResetOtp: async (email: string, code: string) => {
-      try {
-        const supabase = getSupabase();
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanCode = code.trim();
-
-        // 1. First try verify_password_reset_otp RPC
-        const { data: isVerified, error: rpcErr } = await supabase.rpc("verify_password_reset_otp", {
-          p_email: cleanEmail,
-          p_code: cleanCode
-        });
-
-        if (!rpcErr && isVerified) {
-          return { success: true };
-        }
-
-        // 2. Native verifyOtp fallback for recovery
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: cleanEmail,
-          token: cleanCode,
-          type: "recovery"
-        });
-
-        if (error && !isVerified) throw error;
-
-        if (data?.user) {
-          await get().hydrateAuthSessionData(data.user);
-        }
-
-        return { success: true };
-      } catch (err: any) {
-        console.error("verifyPasswordResetOtp error:", err);
-        return { success: false, error: err.message || "Invalid or expired recovery code." };
-      }
-    },
-
-    updatePassword: async (password: string, email?: string) => {
-      try {
-        const supabase = getSupabase();
-        
-        // 1. Try native Supabase auth updateUser if session exists
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { error } = await supabase.auth.updateUser({ password });
-          if (!error) {
-            useNotificationStore.getState().showToast(
-              "Password Updated",
-              "Your password has been changed successfully.",
-              undefined,
-              "success"
-            );
-            return { success: true };
-          }
-        }
-
-        // 2. If no active session (or logged-out recovery flow), call SECURITY DEFINER RPC
-        const targetEmail = (email || "").trim().toLowerCase();
-        if (!targetEmail) {
-          throw new Error("Auth session missing. Please specify your email to reset password.");
-        }
-
-        const { error: rpcErr } = await supabase.rpc("update_user_password_by_email", {
-          p_email: targetEmail,
-          p_new_password: password
-        });
-
-        if (rpcErr) throw rpcErr;
 
         useNotificationStore.getState().showToast(
           "Password Updated",
@@ -1508,7 +1385,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return { success: true };
       } catch (err: any) {
         console.error("updatePassword error:", err);
-        return { success: false, error: err.message || "Failed to update password." };
+        return { success: false, error: toUserMessage(err, "Failed to update password.") };
       }
     },
 
@@ -1533,16 +1410,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
           .eq("id", currentUser.id);
         if (dbErr) throw dbErr;
 
-        // 3. Generate new OTP and save/send it
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const { error: rpcErr } = await supabase.rpc("save_otp", {
-          p_email: newEmail.trim(),
-          p_code: otpCode,
-          p_type: "signup"
-        });
-        if (rpcErr) throw rpcErr;
-
-        await EmailService.sendVerificationCode(newEmail.trim(), otpCode, currentUser.name);
+        // 3. Send a verification code to the new address
+        const otpRes = await AuthOtpService.sendSignupCode(newEmail.trim(), currentUser.name);
+        if (!otpRes.success) return otpRes;
 
         // Update current user state email
         set({
@@ -1562,7 +1432,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return { success: true };
       } catch (err: any) {
         console.error("updateEmailDuringVerification error:", err);
-        return { success: false, error: err.message || "Failed to change verification email." };
+        return { success: false, error: toUserMessage(err, "Failed to change verification email.") };
       }
     }
   };

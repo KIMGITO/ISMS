@@ -51,12 +51,12 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Invalid JSON payload", 400);
     }
-    const { action, businessId, activeRole, config } = body;
+    const { action, businessId, config } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     // Verify tenant membership
-    const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
     if (!action) return errorResponse("action is required.", 400);
@@ -190,6 +190,6 @@ Deno.serve(async (req) => {
     }
   } catch (err: any) {
     console.error("[ai-config] Critical error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });

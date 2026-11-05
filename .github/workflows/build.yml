@@ -1,5 +1,6 @@
 name: Build App Installers
 
+# Pushes and manual runs produce installers. A "v*" tag also publishes them as a GitHub Release.
 on:
   push:
     branches:
@@ -9,13 +10,45 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+env:
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
+  VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────
-  # JOB 1: DESKTOP BUILDS (Windows & Linux)
-  # ─────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────
+  # JOB 1: CHECKS (everything below depends on it)
+  # ──────────────────────────────────────────
+  verify:
+    name: Type check and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # Pull requests from forks get no secrets, so only real builds insist on them.
+      - name: Refuse to build an installer that cannot connect
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Set the VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+
+  # ──────────────────────────────────────────
+  # JOB 2: DESKTOP BUILDS (Windows & Linux)
+  # ──────────────────────────────────────────
   build-desktop:
     name: Build Desktop (${{ matrix.os-name }})
+    needs: verify
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -23,10 +56,11 @@ jobs:
         include:
           - runner: windows-latest
             os-name: Windows
-            rust-target: x86_64-pc-windows-msvc
+            # The NSIS .exe compiler is broken on this runner image, so Windows ships an MSI.
+            bundles: msi
           - runner: ubuntu-22.04
             os-name: Linux
-            rust-target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
 
     steps:
       - name: Checkout repository
@@ -38,7 +72,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev \
-            libwebkit2gtk-4.0-dev \
             librsvg2-dev \
             patchelf \
             libssl-dev \
@@ -55,8 +88,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -72,36 +103,16 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      - name: Build frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
-          VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
-          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
-        run: npm run build
+      # MSI upgrades only replace an older install when the version number goes up.
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          node -e "const f='src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.version=process.env.GITHUB_REF_NAME.slice(1);fs.writeFileSync(f,JSON.stringify(c,null,2))"
 
-      # For Windows, we ONLY build the MSI bundle to bypass the broken NSIS 3.11 .exe compiler.
-      - name: Build Tauri Desktop (Windows MSI Only)
-        if: matrix.os-name == 'Windows'
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
-          VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
-          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
-        run: npx tauri build --bundles msi
-
-      # For Linux, we build default bundles (AppImage, deb).
-      - name: Build Tauri Desktop (Linux)
-        if: matrix.os-name == 'Linux'
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
-          VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
-          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
-        run: npx tauri build
+      # Tauri builds the frontend itself through beforeBuildCommand.
+      - name: Build Tauri Desktop
+        run: npx tauri build --bundles ${{ matrix.bundles }}
 
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
@@ -111,24 +122,26 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # JOB 2: ANDROID (APK) BUILD
-  # ─────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────
+  # JOB 3: ANDROID (APK) BUILD
+  # ──────────────────────────────────────────
   build-android:
     name: Build Android APK
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java (Temurin JDK 17)
+      # Capacitor 8 requires JDK 21.
+      - name: Setup Java (Temurin JDK 21)
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -143,67 +156,73 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder' }}
-          VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
-          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY || 'placeholder' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'placeholder' }}
         run: npm run build
 
-      - name: Decode Android Keystore
+      - name: Restore Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON is not set, so this build has no push notifications."
+          fi
+
+      - name: Decode signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 --decode > my-release.keystore
-            echo "Keystore decoded successfully to my-release.keystore."
-          else
-            echo "Warning: Keystore secret not found. App will not be signed."
+            echo "$ANDROID_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 --decode > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          elif [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "::error::Set the ANDROID_KEYSTORE_BASE64 repository secret."
+            exit 1
           fi
 
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build Android Release APK (Unsigned)
+      - name: Build Android Release APK
+        env:
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '1.0' }}
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Sign APK
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS || 'my-key-alias' }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Collect APK
         run: |
-          if [ -f "my-release.keystore" ]; then
-            export BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools | sort -rn | head -1)
-            export APKSIGNER=$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner
-            export ZIPALIGN=$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/zipalign
-
-            echo "Aligning APK..."
-            $ZIPALIGN -v 4 android/app/build/outputs/apk/release/app-release-unsigned.apk isms-release-aligned.apk > /dev/null
-
-            echo "Signing APK..."
-            # Note: We pass the password environment variables directly
-            $APKSIGNER sign --ks my-release.keystore \
-              --ks-key-alias "$ANDROID_KEYSTORE_ALIAS" \
-              --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
-              --key-pass env:ANDROID_KEY_PASSWORD \
-              --out isms-release-signed.apk \
-              isms-release-aligned.apk
-            
-            echo "Verifying Signature..."
-            $APKSIGNER verify isms-release-signed.apk
-          else
-            echo "Skipping signing step because my-release.keystore is missing."
-            cp android/app/build/outputs/apk/release/app-release-unsigned.apk isms-release-signed.apk
-          fi
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/*.apk out/
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Android-Artifacts
-          path: isms-release-signed.apk
-          if-no-files-found: warn
+          path: out/*.apk
+          if-no-files-found: error
           retention-days: 30
+
+  # ──────────────────────────────────────────
+  # JOB 4: PUBLISH (version tags only)
+  # ──────────────────────────────────────────
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-desktop, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes \
+            $(find artifacts -type f \( -name '*.msi' -o -name '*.apk' -o -name '*.AppImage' -o -name '*.deb' \))

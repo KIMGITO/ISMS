@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import React, { useState } from "react";
 import { useAppStore } from "../stores/appStore";
 import { 
@@ -100,7 +101,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
       setSuccess("Your profile details have been updated successfully!");
       showToast("Profile Settings", "Profile updated successfully!", avatar);
     } catch (err: any) {
-      setError(err.message || "An error occurred while saving profile.");
+      setError(toUserMessage(err, "An error occurred while saving profile."));
     } finally {
       setIsSaving(false);
     }

@@ -1,4 +1,5 @@
 // src/components/shared/UnifiedUploader.tsx
+import { toUserMessage } from "../../utils/userError";
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
@@ -271,7 +272,7 @@ export default function UnifiedUploader({
       }
     } catch (err: any) {
       console.error("Camera access failed:", err);
-      setCameraError(err.message || "Failed to access camera stream. Grant camera permissions.");
+      setCameraError(toUserMessage(err, "Failed to access camera stream. Grant camera permissions."));
       setIsCameraActive(false);
     }
   };
@@ -509,8 +510,8 @@ export default function UnifiedUploader({
     } catch (err: any) {
       console.error("Upload failed:", err);
       setUploadStatus("failed");
-      setErrorMessage(err.message || "Failed to complete upload.");
-      onUploadError?.(err.message || "Upload failed");
+      setErrorMessage(toUserMessage(err, "Failed to complete upload."));
+      onUploadError?.(toUserMessage(err, "Upload failed"));
     }
   };
 

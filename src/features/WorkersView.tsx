@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import React, { useState } from "react";
 import { useAppStore } from "../stores/appStore";
 import { UserPlus, Trash2, CheckCircle2, AlertCircle, Shield, Mail, Phone, User, Edit, X, Camera, Search, Send, Copy, Clock, RefreshCw } from "lucide-react";
@@ -139,7 +140,7 @@ export default function WorkersView() {
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "An error occurred.");
+      setErrorMsg(toUserMessage(err, "An error occurred."));
     } finally {
       setIsSubmitting(false);
     }
@@ -549,7 +550,7 @@ export default function WorkersView() {
                                     }
                                   } catch (err: any) {
                                     setErrorMsg(
-                                      err.message || 'Failed to remove worker.',
+                                      toUserMessage(err, 'Failed to remove worker.'),
                                     );
                                   } finally {
                                     setIsDeletingWorker(false);
@@ -658,8 +659,7 @@ export default function WorkersView() {
                                       await revokeInvitation(inv.id);
                                     } catch (err: any) {
                                       setErrorMsg(
-                                        err.message ||
-                                          'Failed to revoke invitation.',
+                                        toUserMessage(err, 'Failed to revoke invitation.'),
                                       );
                                     } finally {
                                       setIsRevokingInvite(false);
@@ -685,8 +685,7 @@ export default function WorkersView() {
                                       await revokeInvitation(inv.id);
                                     } catch (err: any) {
                                       setErrorMsg(
-                                        err.message ||
-                                          'Failed to remove invitation.',
+                                        toUserMessage(err, 'Failed to remove invitation.'),
                                       );
                                     } finally {
                                       setIsRevokingInvite(false);

@@ -5,9 +5,17 @@ dist/
 src-tauri/target/
 target/
 coverage/
-android/
 data/
 .DS_Store
 *.log
 .env*
 !.env.example
+
+# Signing material and built installers
+*.keystore
+*.jks
+*.apk
+*.aab
+
+# Firebase config is supplied to CI through the GOOGLE_SERVICES_JSON secret
+android/app/google-services.json
