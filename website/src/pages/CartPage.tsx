@@ -6,13 +6,14 @@ import { useAuth, useCart, useStorefront } from '../store';
 import { cardClass, ErrorText, fieldClass, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, secondaryButton } from '../ui';
 
 export default function CartPage() {
-  const { products, business, settings } = useStorefront();
+  const { products, business, settings, deliveryZones } = useStorefront();
   const { lines, setQuantity, remove, clear } = useCart();
   const session = useAuth((s) => s.session);
   const account = useAuth((s) => s.account);
 
   const [fulfilment, setFulfilment] = useState<'delivery' | 'pickup'>(settings.deliveryEnabled ? 'delivery' : 'pickup');
   const [address, setAddress] = useState('');
+  const [zoneId, setZoneId] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +35,8 @@ export default function CartPage() {
   }
 
   const subtotal = rows.reduce((sum, { line, product }) => sum + product.price * line.quantity, 0);
-  const fee = fulfilment === 'delivery' ? Number(settings.deliveryFee) : 0;
+  const zone = deliveryZones.find((z) => z.id === zoneId);
+  const fee = fulfilment !== 'delivery' ? 0 : Number(deliveryZones.length > 0 ? zone?.fee ?? 0 : settings.deliveryFee);
   // M-Pesa only takes whole shillings, so the server rounds the total down the same way.
   const total = Math.floor(subtotal + fee);
   const belowMinimum = subtotal < settings.minOrder;
@@ -44,7 +46,7 @@ export default function CartPage() {
     setError('');
     setBusy(true);
     try {
-      const orderId = await placeOrder(lines, fulfilment, address, notes);
+      const orderId = await placeOrder(lines, fulfilment, address, notes, zoneId || null);
       clear();
       navigate(`/account/orders/${orderId}`);
     } catch (err) {
@@ -145,6 +147,17 @@ export default function CartPage() {
             </div>
           </fieldset>
 
+          {fulfilment === 'delivery' && deliveryZones.length > 0 && (
+            <label className="mt-4 block font-medium">
+              Delivery area
+              <select required value={zoneId} onChange={(e) => setZoneId(e.target.value)} className={fieldClass}>
+                <option value="">Choose your area</option>
+                {deliveryZones.map((z) => (
+                  <option key={z.id} value={z.id}>{z.name} ({formatPrice(business.currency, z.fee)})</option>
+                ))}
+              </select>
+            </label>
+          )}
           {fulfilment === 'delivery' && (
             <label className="block font-medium">
               Delivery location

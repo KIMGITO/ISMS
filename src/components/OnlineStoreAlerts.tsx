@@ -19,7 +19,7 @@ export default function OnlineStoreAlerts() {
   const { activeBusinessId } = useBusinessStore();
   const [counts, setCounts] = useState({ orders: 0, messages: 0 });
 
-  const allowed = !!currentEmployee && hasRolePermission(currentEmployee.role, 'customers.view');
+  const allowed = !!currentEmployee && hasRolePermission(currentEmployee.role, 'online_store.view');
 
   useEffect(() => {
     if (!allowed || !activeBusinessId) return;

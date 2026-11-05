@@ -50,6 +50,7 @@ export interface Storefront {
     minOrder: number;
     assistantEnabled: boolean;
   };
+  deliveryZones: DeliveryZone[];
   branches: { name: string; address: string | null }[];
   products: Product[];
   articles: Article[];
@@ -185,6 +186,24 @@ export const submitFeedback = (input: FeedbackInput) =>
 export const askAssistant = (message: string, pendingProductId: string | null) =>
   callFunction<AssistantReply>('customer-assistant', { slug: WEBSITE_SLUG, message, pendingProductId });
 
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  fee: number;
+}
+
+export interface Rewards {
+  points: number;
+  tier: string;
+  wallet: number;
+  debt: number;
+  pointValue: number;
+  minRedeem: number;
+}
+
+export const fetchRewards = () => rpc<Rewards | null>('get_my_rewards', {});
+export const redeemPoints = (points: number) => rpc('redeem_my_points', { p_points: points });
+
 export async function fetchAccount(): Promise<Account | null> {
   const { data, error } = await supabase
     .from('customer_accounts')
@@ -200,8 +219,8 @@ export const createAccount = (name: string, phone: string) =>
 export const updateAccount = (name: string, phone: string, address: string, notes: string) =>
   rpc('update_my_account', { p_name: name, p_phone: phone, p_address: address, p_notes: notes });
 
-export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string) =>
-  rpc<string>('place_online_order', { p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes });
+export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null) =>
+  rpc<string>('place_online_order', { p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId });
 
 export const cancelOrder = (orderId: string) => rpc('cancel_my_order', { p_order_id: orderId });
 

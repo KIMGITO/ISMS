@@ -9,6 +9,7 @@ export type PermissionCode =
   | 'home.view'
   | 'dashboard.view'
   | 'complaints.view'
+  | 'online_store.view'
   // Business
   | 'business.view'
   | 'business.create'
@@ -187,6 +188,12 @@ export interface PermissionDetails {
 }
 
 export const ALL_PERMISSIONS: PermissionDetails[] = [
+  // Top-level screens
+  { code: 'home.view', category: 'Screens', description: 'Open Home and business figures' },
+  { code: 'dashboard.view', category: 'Screens', description: 'Open the shifts calendar and own schedule' },
+  { code: 'complaints.view', category: 'Screens', description: 'Open customer reviews and complaints' },
+  { code: 'online_store.view', category: 'Screens', description: 'Open website orders and customer messages' },
+
   // Business & Settings
   { code: 'business.view', category: 'Business & Settings', description: 'View company details' },
   { code: 'business.create', category: 'Business & Settings', description: 'Create new business units' },
@@ -378,11 +385,12 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
     name: 'Manager',
     description: 'Business supervisor. Oversees operations, inventory, customers and deliveries.',
     permissions: [
+      'home.view', 'dashboard.view', 'complaints.view', 'online_store.view',
       'business.view', 'business.switch', 'settings.view', 'settings.update', 'settings.theme', 'settings.tax',
       'products.view', 'products.create', 'products.update', 'products.import', 'products.export', 'products.manage_categories',
       'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.transfer_stock', 'inventory.stock_count', 'inventory.stock_history', 'inventory.wastage', 'inventory.expiry',
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.walkin_customer',
-      'customers.view', 'customers.create', 'customers.update', 'customers.loyalty', 'customers.schedules',
+      'customers.view', 'customers.create', 'customers.update', 'customers.debts', 'customers.loyalty', 'customers.schedules',
       'orders.view', 'orders.create', 'orders.update', 'orders.complete', 'orders.assign_rider',
       'deliveries.view', 'deliveries.create', 'deliveries.assign', 'deliveries.complete', 'deliveries.cancel',
       'suppliers.view', 'suppliers.create', 'suppliers.update', 'suppliers.import', 'suppliers.export',
@@ -401,10 +409,11 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
     name: 'Cashier',
     description: 'Point of Sale operator. Reconciles registers and runs milk sales.',
     permissions: [
+      'dashboard.view', 'complaints.view', 'online_store.view',
       'business.view', 'settings.theme',
       'products.view', 'inventory.view',
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.cancel_sale', 'pos.discount', 'pos.walkin_customer',
-      'customers.view', 'customers.create', 'customers.loyalty', 'customers.schedules',
+      'customers.view', 'customers.create', 'customers.debts', 'customers.loyalty', 'customers.schedules',
       'orders.view', 'orders.create', 'orders.update',
       'payments.cash', 'payments.mpesa', 'payments.verify',
       'notifications.view', 'ai.use'
@@ -414,8 +423,9 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
     name: 'Rider',
     description: 'Delivery personnel. Navigates routes, processes cashouts, and completes dispatches.',
     permissions: [
+      'dashboard.view',
       'business.view', 'settings.theme',
-      'customers.view', 'customers.schedules',
+      'customers.schedules',
       'orders.view', 'orders.update',
       'deliveries.view', 'deliveries.complete', 'deliveries.cancel',
       'notifications.view', 'ai.use'

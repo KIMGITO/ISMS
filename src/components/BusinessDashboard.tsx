@@ -21,6 +21,7 @@ import { useBusinessStore } from "../stores/businessStore";
 import { useAuthStore } from "../stores/authStore";
 import { SupabaseService } from "../services/supabaseService";
 import { useAppStore } from "../stores/appStore";
+import TrackedReports from "./TrackedReports";
 
 interface AiAnalysisReport {
   executiveSummary: string;
@@ -967,6 +968,14 @@ export default function BusinessDashboard() {
           )}
         </div>
       </div>
+
+      <TrackedReports
+        businessId={activeBusinessId}
+        transactions={filteredTransactions}
+        customers={customers}
+        products={safeProducts}
+        formatCurrency={(amount) => `KSh ${amount.toLocaleString()}`}
+      />
 
       <div 
           id="kpi_cards_deck"

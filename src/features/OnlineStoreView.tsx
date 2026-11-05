@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -602,12 +602,148 @@ function GuidesTab({ businessId }: { businessId: string }) {
   );
 }
 
+interface DeliveryZoneRow {
+  id: string;
+  name: string;
+  fee: number;
+}
+
+function DeliveryZonesCard({ businessId }: { businessId: string }) {
+  const reportError = useReportError();
+  const [zones, setZones] = useState<DeliveryZoneRow[]>([]);
+  const [name, setName] = useState('');
+  const [fee, setFee] = useState('');
+
+  const load = useCallback(async () => {
+    const { data, error } = await getSupabase()
+      .from('delivery_zones')
+      .select('id, name, fee')
+      .eq('business_id', businessId)
+      .order('name');
+    if (error) throw error;
+    setZones(data as DeliveryZoneRow[]);
+  }, [businessId]);
+
+  useEffect(() => {
+    load().catch((err) => reportError(err, 'Could not load delivery areas.'));
+  }, [load, reportError]);
+
+  const handleAdd = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await getSupabase()
+        .from('delivery_zones')
+        .insert({ business_id: businessId, name: name.trim(), fee: Number(fee) || 0 });
+      if (error) throw error;
+      setName('');
+      setFee('');
+      await load();
+    } catch (err) {
+      reportError(err, 'Could not add this delivery area.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await getSupabase().from('delivery_zones').delete().eq('id', id);
+      if (error) throw error;
+      await load();
+    } catch (err) {
+      reportError(err, 'Could not delete this delivery area.');
+    }
+  };
+
+  return (
+    <div className={`${cardClass} space-y-3`}>
+      <div>
+        <h3 className="text-sm font-semibold text-app-text">Delivery areas (optional)</h3>
+        <p className="text-xs text-app-text-muted">
+          With no areas, every delivery uses the delivery fee. Once you add one, customers must choose an area
+          and pay its price. Past orders keep the price they were charged.
+        </p>
+      </div>
+      {zones.length > 0 && (
+        <ul className="divide-y divide-app-border">
+          {zones.map((zone) => (
+            <li key={zone.id} className="flex items-center justify-between gap-3 py-2 text-sm text-app-text">
+              <span className="min-w-0 truncate">{zone.name}: Ksh {zone.fee}</span>
+              <button type="button" onClick={() => handleDelete(zone.id)} className="text-xs font-medium text-red-500">
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
+        <input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Area name" aria-label="Area name" className={inputClass} />
+        <input required type="number" min="0" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="Price (Ksh)" aria-label="Price in Ksh" className={inputClass} />
+        <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Add</button>
+      </form>
+    </div>
+  );
+}
+
+function PointsSettingsCard({ businessId }: { businessId: string }) {
+  const reportError = useReportError();
+  const showToast = useNotificationStore((s) => s.showToast);
+  const [pointValue, setPointValue] = useState('1');
+  const [minRedeem, setMinRedeem] = useState('100');
+
+  useEffect(() => {
+    getSupabase()
+      .from('loyalty_settings')
+      .select('point_value, min_redeem_points')
+      .eq('business_id', businessId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) reportError(error, 'Could not load points settings.');
+        if (data) {
+          setPointValue(String(data.point_value));
+          setMinRedeem(String(data.min_redeem_points));
+        }
+      });
+  }, [businessId, reportError]);
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await getSupabase().from('loyalty_settings').upsert({
+        business_id: businessId,
+        point_value: Number(pointValue),
+        min_redeem_points: Number(minRedeem),
+      });
+      if (error) throw error;
+      showToast('Points Saved', 'Your points settings are saved.', undefined, 'success');
+    } catch (err) {
+      reportError(err, 'Could not save points settings.');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} className={`${cardClass} space-y-3`}>
+      <div>
+        <h3 className="text-sm font-semibold text-app-text">Loyalty points</h3>
+        <p className="text-xs text-app-text-muted">Customers earn 1 point for every Ksh 100 they spend.</p>
+      </div>
+      <label className="block text-sm font-medium text-app-text">
+        Value of one point (Ksh)
+        <input required type="number" min="0.01" step="0.01" value={pointValue} onChange={(e) => setPointValue(e.target.value)} className={inputClass} />
+      </label>
+      <label className="block text-sm font-medium text-app-text">
+        Fewest points that can be redeemed
+        <input required type="number" min="1" value={minRedeem} onChange={(e) => setMinRedeem(e.target.value)} className={inputClass} />
+      </label>
+      <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Save</button>
+    </form>
+  );
+}
+
 function SettingsTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
   const [slug, setSlug] = useState('');
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
-  const [deliveryFee, setDeliveryFee] = useState('150');
+  const [deliveryFee, setDeliveryFee] = useState('0');
   const [minOrder, setMinOrder] = useState('0');
   const [assistantEnabled, setAssistantEnabled] = useState(true);
   const [products, setProducts] = useState<{ id: string; name: string; price: number; show_on_website: boolean }[]>([]);
@@ -680,6 +816,8 @@ function SettingsTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <DeliveryZonesCard businessId={businessId} />
+      <PointsSettingsCard businessId={businessId} />
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
         <label className="block text-sm font-medium text-app-text">

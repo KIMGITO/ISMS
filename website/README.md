@@ -25,7 +25,7 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
 4. In Supabase Auth, add the website's address to the allowed redirect URLs and set up an email provider, so confirmation and password reset emails can be sent.
 5. In the staff app, open **Online Store > Website**:
    - Set the website name to `kaykays`. The site stays hidden until this is set.
-   - Confirm the delivery fee. It starts at Ksh 150.
+   - Set the delivery fee, which starts at 0, or add delivery areas with their own prices.
    - Untick any products customers shouldn't see. Every product priced above 0 is shown by default.
 6. In **Online Store > Guides**, add the starter guides, check them, then publish them.
 7. Fill in the business description, address, phone and email in **Business Management**.

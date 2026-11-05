@@ -17,7 +17,9 @@ import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/pho
 import { formatCustomerNumber, formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
-import { Transaction, DebtPayment, CustomerLedgerEntry } from "../types";
+import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS } from "../types";
+import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
+import CustomerRewards from "../components/CustomerRewards";
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -78,6 +80,17 @@ export default function CustomersView() {
     payCustomerDebt, depositCustomerWallet, spendCustomerWallet, adjustCustomerDebt
   } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [newGroups, setNewGroups] = useState<CustomerGroupValues>({
+    customerType: "individual",
+    paymentTerms: "pay_now",
+    deliveryFrequency: "none",
+  });
+  const [editGroups, setEditGroups] = useState<CustomerGroupValues>({
+    customerType: "individual",
+    paymentTerms: "pay_now",
+    deliveryFrequency: "none",
+  });
   const [isAdding, setIsAdding] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<"overview" | "history" | "invoice" | "message" | "ledger">("overview");
@@ -209,6 +222,7 @@ export default function CustomersView() {
           loyaltyPoints: vals.startingPoints,
           tier: vals.tier,
           description: vals.description,
+          ...newGroups,
         });
         setIsAdding(false);
         setSuccessBanner(true);
@@ -404,6 +418,11 @@ export default function CustomersView() {
       setEditTier(selectedCustomer.tier);
       setEditPoints(selectedCustomer.loyaltyPoints);
       setEditDescription(selectedCustomer.description || "");
+      setEditGroups({
+        customerType: selectedCustomer.customerType ?? "individual",
+        paymentTerms: selectedCustomer.paymentTerms ?? "pay_now",
+        deliveryFrequency: selectedCustomer.deliveryFrequency ?? "none",
+      });
       setAdjustAmt(0);
       setMessageText("");
       setSuccessMsg("");
@@ -435,12 +454,21 @@ export default function CustomersView() {
     }
   }, [products, selectedInvoiceProdId]);
 
-  const filteredCustomers = customers.filter(c =>
+  // groupFilter is "field:value", such as "paymentTerms:weekly".
+  const matchesGroup = (c: typeof customers[number]) => {
+    if (groupFilter === "all") return true;
+    const [field, value] = groupFilter.split(":");
+    if (field === "customerType") return (c.customerType ?? "individual") === value;
+    if (field === "paymentTerms") return (c.paymentTerms ?? "pay_now") === value;
+    return (c.deliveryFrequency ?? "none") === value;
+  };
+
+  const filteredCustomers = customers.filter(c => matchesGroup(c) && (
     searchMatch(c.name, searchQuery) || 
     searchMatch(c.phone, searchQuery) ||
     searchMatch(c.email, searchQuery) ||
     searchMatch(c.tier, searchQuery)
-  );
+  ));
 
   // Generate automated debt breakdown text for WhatsApp
   const getDebtBreakdownMessage = (cust: typeof selectedCustomer) => {
@@ -590,6 +618,23 @@ export default function CustomersView() {
               className="w-full bg-app-bg text-xs pl-9 pr-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-app-text transition"
             />
           </div>
+          <select
+            aria-label="Filter customers by group"
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="mt-2 w-full bg-app-bg text-xs px-3 py-2.5 rounded-xl border border-app-border text-app-text"
+          >
+            <option value="all">All customers</option>
+            <optgroup label="Customer type">
+              {Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => <option key={value} value={`customerType:${value}`}>{label}</option>)}
+            </optgroup>
+            <optgroup label="Payment terms">
+              {Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => <option key={value} value={`paymentTerms:${value}`}>{label}</option>)}
+            </optgroup>
+            <optgroup label="Delivery schedule">
+              {Object.entries(DELIVERY_FREQUENCY_LABELS).map(([value, label]) => <option key={value} value={`deliveryFrequency:${value}`}>{label}</option>)}
+            </optgroup>
+          </select>
         </div>
 
         {/* Member list scroll container */}
@@ -735,6 +780,8 @@ export default function CustomersView() {
                 </div>
               </div>
 
+              <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
+
               {/* Balances Dashboard Grid */}
               <div className="grid grid-cols-3 gap-2 md:gap-3 bg-app-bg p-3 rounded-2xl border border-app-border/80 mt-4">
                 <div className="flex flex-col items-center justify-center p-1 text-center">
@@ -865,6 +912,11 @@ export default function CustomersView() {
                         </div>
                       </div>
 
+                      <CustomerGroupFields
+                        values={editGroups}
+                        onChange={(key, value) => setEditGroups((prev) => ({ ...prev, [key]: value }))}
+                      />
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
@@ -910,7 +962,12 @@ export default function CustomersView() {
                         />
                       </div>
 
-                      <div className="flex flex-col gap-1">
+                      <CustomerGroupFields
+                  values={newGroups}
+                  onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
+                />
+
+                <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase">
                           Customer Description / Notes
                         </label>
@@ -958,6 +1015,7 @@ export default function CustomersView() {
                               tier: editTier,
                               loyaltyPoints: editPoints,
                               description: editDescription,
+                              ...editGroups,
                             });
                             playSfx('save');
                             setSuccessMsg(
