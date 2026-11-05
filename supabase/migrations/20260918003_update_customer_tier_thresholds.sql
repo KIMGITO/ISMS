@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- MIGRATION: 20260918001_update_customer_tier_thresholds
+-- MIGRATION: 20260918003_update_customer_tier_thresholds
 -- Updates customer tier thresholds to match KSh purchase volume milestones.
 --   Bronze : 0  – KSh  9,999  (0   – 99  pts)
 --   Silver : KSh 10,000 – 29,999 (100 – 299 pts)

@@ -379,3 +379,11 @@ CREATE INDEX IF NOT EXISTS idx_sync_queue_business_id
 CREATE INDEX IF NOT EXISTS idx_sync_queue_unsynced
     ON public.offline_sync_queue(business_id, synced_at)
     WHERE synced_at IS NULL;
+
+-- Idempotency: unique reference per business, for retry-safe financial writes
+CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_ledger_reference
+    ON public.customer_ledger(business_id, reference_id)
+    WHERE reference_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_transactions_reference
+    ON public.transactions(business_id, reference_id)
+    WHERE reference_id IS NOT NULL;

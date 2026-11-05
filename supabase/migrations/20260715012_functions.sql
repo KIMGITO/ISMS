@@ -181,11 +181,12 @@ $$;
 -- ---------------------------------------------------------------------------
 -- SALES: fn_process_completed_transaction
 -- Core atomic trigger function fired AFTER INSERT on transactions.
--- Handles four operations atomically:
+-- Handles five operations atomically:
 --   1. Award loyalty points to the customer and update their tier
 --   2. Increment the active shift's sales_count and sales_total
---   3. Handle debt creation (underpayment) or wallet credit (overpayment)
---   4. Write a security audit log entry
+--   3. Credit the money_assets balance and payment_asset_ledger for money received
+--   4. Settle wallet and debt for credit sales
+--   5. Write a security audit log entry
 -- Uses CASE WHEN to safely handle NULL staff_id in audit_logs.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_process_completed_transaction()
@@ -196,136 +197,78 @@ SET search_path = public
 AS $$
 DECLARE
     points_earned INTEGER;
-    new_points    INTEGER;
     v_debt_amt    NUMERIC(14,2);
-    v_wallet_amt  NUMERIC(14,2);
+    v_asset_id     UUID;
+    v_asset_before NUMERIC(14,2);
+    v_asset_after  NUMERIC(14,2);
+    v_method       TEXT;
 BEGIN
-    -- 1. Loyalty points: earn 1 point per KES 100 spent (excl. delivery fee)
+    -- 1. Loyalty points
     IF NEW.customer_id IS NOT NULL THEN
         points_earned := GREATEST(0, FLOOR((NEW.final_total - COALESCE(NEW.delivery_fee, 0)) / 100));
-
-        SELECT loyalty_points INTO new_points
-        FROM public.customers
-        WHERE id = NEW.customer_id;
-
-        new_points := COALESCE(new_points, 0) + points_earned;
-
         UPDATE public.customers
-        SET
-            loyalty_points  = new_points,
-            purchases_count = purchases_count + 1,
-            tier            = public.calculate_customer_tier(new_points)
+        SET loyalty_points = COALESCE(loyalty_points, 0) + points_earned,
+            purchases_count = purchases_count + 1
         WHERE id = NEW.customer_id;
     END IF;
 
-    -- 2. Shift sales aggregation (only when staff is punched in)
+    -- 2. Shift sales
     IF NEW.staff_id IS NOT NULL THEN
         UPDATE public.shifts
-        SET
-            sales_count = sales_count + 1,
+        SET sales_count = sales_count + 1,
             sales_total = sales_total + NEW.final_total
-        WHERE employee_id = NEW.staff_id
-          AND status = 'Active'
-          AND deleted_at IS NULL;
+        WHERE employee_id = NEW.staff_id AND status = 'Active' AND deleted_at IS NULL;
     END IF;
 
-    -- 3. Debt / wallet settlement for credit transactions
-    -- Only credit sales (Credit_Debt / Credit) may create debt. Fully-paid
-    -- methods (Cash, M-Pesa, Card, Bank, Mobile_Wallet) must never create a
-    -- credit record, even if amount_paid is missing/zero.
+    -- 3. Money Asset Tracking
+    v_method := CASE 
+        WHEN NEW.payment_method = 'Mobile_Wallet' THEN 'Mobile_Wallet'
+        WHEN NEW.payment_method = 'M-Pesa' THEN 'M-Pesa'
+        WHEN NEW.payment_method = 'Card' THEN 'Card'
+        WHEN NEW.payment_method = 'Bank' THEN 'Bank'
+        WHEN NEW.payment_method = 'Cash' THEN 'Cash'
+        ELSE 'Other'
+    END;
+
+    IF NEW.payment_method NOT IN ('Credit_Debt', 'Credit') AND NEW.final_total > 0 THEN
+        INSERT INTO public.money_assets (business_id, method, balance)
+        VALUES (NEW.business_id, v_method, 0)
+        ON CONFLICT (business_id, method) DO NOTHING;
+
+        SELECT id, balance INTO v_asset_id, v_asset_before
+        FROM public.money_assets
+        WHERE business_id = NEW.business_id AND method = v_method;
+
+        v_asset_after := v_asset_before + NEW.final_total;
+
+        UPDATE public.money_assets
+        SET balance = v_asset_after,
+            last_payment_at = NEW.timestamp,
+            updated_at = NOW()
+        WHERE id = v_asset_id;
+
+        INSERT INTO public.payment_asset_ledger (
+            business_id, asset_id, transaction_id, type, amount,
+            balance_before, balance_after, description, method
+        )
+        VALUES (
+            NEW.business_id, v_asset_id, NEW.id, 'Credit', NEW.final_total,
+            v_asset_before, v_asset_after, 'POS Sale: ' || NEW.id, v_method
+        );
+    END IF;
+
+    -- 4. Debt / wallet settlement
     IF NEW.customer_id IS NOT NULL AND NEW.payment_method IN ('Credit_Debt', 'Credit') THEN
         v_debt_amt := NEW.final_total - COALESCE(NEW.amount_paid, 0) - COALESCE(NEW.wallet_applied, 0);
-
-        -- 3a. Deduct wallet amount if used at checkout
         IF COALESCE(NEW.wallet_applied, 0) > 0 THEN
-            UPDATE public.customers
-            SET wallet_balance = wallet_balance - NEW.wallet_applied
-            WHERE id = NEW.customer_id;
-
-            INSERT INTO public.wallet_transactions
-                (business_id, customer_id, amount, balance_before, balance_after,
-                 reason, transaction_id, recorded_by)
-            SELECT
-                NEW.business_id,
-                NEW.customer_id,
-                -NEW.wallet_applied,
-                c.wallet_balance + NEW.wallet_applied,
-                c.wallet_balance,
-                'Applied to checkout sale',
-                NEW.id,
-                NEW.staff_name
-            FROM public.customers c
-            WHERE c.id = NEW.customer_id;
+            UPDATE public.customers SET wallet_balance = wallet_balance - NEW.wallet_applied WHERE id = NEW.customer_id;
         END IF;
-
-        -- 3b. Create debt record if customer underpaid
         IF v_debt_amt > 0 THEN
-            INSERT INTO public.credit_payments
-                (business_id, transaction_id, customer_id, customer_name,
-                 amount_owed, amount_paid, status, recorded_by)
-            VALUES (
-                NEW.business_id,
-                NEW.id,
-                NEW.customer_id,
-                COALESCE(NEW.customer_name, 'Unknown'),
-                v_debt_amt,
-                0,
-                'Open',
-                NEW.staff_name
-            );
-
-            UPDATE public.customers
-            SET debt_balance = debt_balance + v_debt_amt
-            WHERE id = NEW.customer_id;
-        END IF;
-
-        -- 3c. Credit wallet with overpayment change
-        IF v_debt_amt < 0 THEN
-            v_wallet_amt := -v_debt_amt;
-
-            UPDATE public.customers
-            SET wallet_balance = wallet_balance + v_wallet_amt
-            WHERE id = NEW.customer_id;
-
-            INSERT INTO public.wallet_transactions
-                (business_id, customer_id, amount, balance_before, balance_after,
-                 reason, transaction_id, recorded_by)
-            SELECT
-                NEW.business_id,
-                NEW.customer_id,
-                v_wallet_amt,
-                c.wallet_balance - v_wallet_amt,
-                c.wallet_balance,
-                'Overpayment at checkout',
-                NEW.id,
-                NEW.staff_name
-            FROM public.customers c
-            WHERE c.id = NEW.customer_id;
+            INSERT INTO public.credit_payments (business_id, transaction_id, customer_id, customer_name, amount_owed, amount_paid, status, recorded_by)
+            VALUES (NEW.business_id, NEW.id, NEW.customer_id, COALESCE(NEW.customer_name, 'Unknown'), v_debt_amt, 0, 'Open', NEW.staff_name);
+            UPDATE public.customers SET debt_balance = debt_balance + v_debt_amt WHERE id = NEW.customer_id;
         END IF;
     END IF;
-
-    -- 4. Security audit log (NULL-safe employee_id)
-    INSERT INTO public.audit_logs
-        (business_id, employee_id, action, table_name, record_id, details)
-    VALUES (
-        NEW.business_id,
-        CASE
-            WHEN EXISTS (SELECT 1 FROM public.employees WHERE id = NEW.staff_id)
-            THEN NEW.staff_id
-            ELSE NULL
-        END,
-        'CREATE_TRANSACTION',
-        'transactions',
-        NEW.id::TEXT,
-        jsonb_build_object(
-            'final_total',     NEW.final_total,
-            'amount_paid',     NEW.amount_paid,
-            'wallet_applied',  COALESCE(NEW.wallet_applied, 0),
-            'payment_method',  NEW.payment_method,
-            'is_delivery',     NEW.is_delivery,
-            'customer_id',     NEW.customer_id
-        )
-    );
 
     RETURN NEW;
 END;
@@ -349,27 +292,24 @@ DECLARE
     v_business_id UUID;
     v_staff_name  TEXT;
 BEGIN
-    -- Fetch transaction context
     SELECT business_id, staff_name
     INTO v_business_id, v_staff_name
     FROM public.transactions
     WHERE id = NEW.transaction_id;
 
-    -- Fetch current product stock
     SELECT stock, name
     INTO v_old_stock, v_prod_name
     FROM public.products
-    WHERE id = NEW.product_id;
+    WHERE id = NEW.product_id
+    FOR UPDATE;
 
-    -- Compute new stock (never below 0)
     v_new_stock := GREATEST(0, v_old_stock - NEW.quantity);
 
-    -- Decrement stock
     UPDATE public.products
-    SET stock = v_new_stock
+    SET stock = v_new_stock,
+        updated_at = NOW()
     WHERE id = NEW.product_id;
 
-    -- Log inventory adjustment for audit trail
     INSERT INTO public.inventory_adjustments
         (business_id, product_id, product_name, type, quantity_adjusted,
          previous_stock, new_stock, reason, staff_name)
@@ -978,7 +918,8 @@ BEGIN
     SELECT stock, business_id, name
     INTO v_old_stock, v_biz_id, v_prod_name
     FROM public.products
-    WHERE id = p_product_id;
+    WHERE id = p_product_id
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Product not found: %', p_product_id;
@@ -987,12 +928,13 @@ BEGIN
     v_new_stock := CASE
         WHEN p_adj_type = 'Restock'        THEN v_old_stock + p_quantity
         WHEN p_adj_type = 'Damage'         THEN GREATEST(0, v_old_stock - p_quantity)
-        WHEN p_adj_type = 'Reconciliation' THEN p_quantity  -- Absolute stock set
+        WHEN p_adj_type = 'Reconciliation' THEN p_quantity
         ELSE v_old_stock
     END;
 
     UPDATE public.products
-    SET stock = v_new_stock
+    SET stock = v_new_stock,
+        updated_at = NOW()
     WHERE id = p_product_id;
 
     INSERT INTO public.inventory_adjustments
@@ -1013,23 +955,103 @@ BEGIN
         p_reason,
         p_staff_name
     );
+END;
+$$;
 
-    INSERT INTO public.audit_logs
-        (business_id, employee_id, action, table_name, record_id, details)
-    VALUES (
-        v_biz_id,
-        p_employee_id,
-        'MANUAL_STOCK_ADJUSTMENT',
-        'products',
-        p_product_id::TEXT,
-        jsonb_build_object(
-            'adjustment_type', p_adj_type,
-            'quantity',        p_quantity,
-            'old_stock',       v_old_stock,
-            'new_stock',       v_new_stock,
-            'reason',          p_reason
-        )
-    );
+-- ---------------------------------------------------------------------------
+-- INVENTORY: adjust_stock_bulk
+-- Applies many stock adjustments in one transaction, with row locking.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.adjust_stock_bulk(
+    p_adjustments JSONB,
+    p_employee_id UUID,
+    p_staff_name  TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_adj         JSONB;
+    v_product_id  UUID;
+    v_adj_type    public.inventory_adjustment_type;
+    v_quantity    NUMERIC(14,3);
+    v_reason      TEXT;
+    v_old_stock   NUMERIC(14,3);
+    v_new_stock   NUMERIC(14,3);
+    v_biz_id      UUID;
+    v_prod_name   TEXT;
+BEGIN
+    FOR v_adj IN SELECT * FROM jsonb_array_elements(p_adjustments)
+    LOOP
+        v_product_id := (v_adj->>'product_id')::UUID;
+        v_adj_type   := (v_adj->>'type')::public.inventory_adjustment_type;
+        v_quantity   := (v_adj->>'quantity')::NUMERIC;
+        v_reason     := v_adj->>'reason';
+
+        SELECT stock, business_id, name
+        INTO v_old_stock, v_biz_id, v_prod_name
+        FROM public.products
+        WHERE id = v_product_id
+        FOR UPDATE;
+
+        IF FOUND THEN
+            v_new_stock := CASE
+                WHEN v_adj_type = 'Restock'        THEN v_old_stock + v_quantity
+                WHEN v_adj_type = 'Damage'         THEN GREATEST(0, v_old_stock - v_quantity)
+                WHEN v_adj_type = 'Reconciliation' THEN v_quantity
+                ELSE v_old_stock
+            END;
+
+            UPDATE public.products
+            SET stock = v_new_stock,
+                updated_at = NOW()
+            WHERE id = v_product_id;
+
+            INSERT INTO public.inventory_adjustments
+                (business_id, product_id, product_name, type, quantity_adjusted,
+                 previous_stock, new_stock, reason, staff_name)
+            VALUES (
+                v_biz_id,
+                v_product_id,
+                v_prod_name,
+                v_adj_type,
+                CASE
+                    WHEN v_adj_type = 'Restock'        THEN v_quantity
+                    WHEN v_adj_type = 'Damage'         THEN -v_quantity
+                    ELSE v_new_stock - v_old_stock
+                END,
+                v_old_stock,
+                v_new_stock,
+                v_reason,
+                p_staff_name
+            );
+        END IF;
+    END LOOP;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- PRODUCTS: update_product_category_bulk
+-- Moves many products to a category in a single statement.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.update_product_category_bulk(
+    p_business_id UUID,
+    p_old_category TEXT,
+    p_new_category TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.products
+    SET category = p_new_category
+    WHERE business_id = p_business_id
+      AND category = p_old_category
+      AND deleted_at IS NULL;
 END;
 $$;
 

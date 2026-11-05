@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     last_modified_by TEXT NOT NULL DEFAULT 'system',
     deleted_at       TIMESTAMPTZ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Idempotency key: retrying a sale cannot duplicate the record.
+    reference_id     TEXT
 );
 
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
