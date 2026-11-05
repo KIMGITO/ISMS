@@ -225,17 +225,22 @@ Deno.serve(async (req) => {
       return errorResponse("Invalid or missing JSON payload.", 400);
     }
 
-    const { action, businessId, activeRole, config } = body;
+    const { action, businessId, config } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
     if (!action) return errorResponse("action is required.", 400);
 
     // ── AUTH: verify user session & business membership ──────────────────
-    const { userId, errorResponse: authError } = await verifyUserMembership(
+    const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(
       req,
       businessId
     );
     if (authError) return authError;
+
+    // Backup settings hold a Google private key, and a run exports all business data.
+    if (activeRole !== "Owner" && activeRole !== "Admin") {
+      return errorResponse("Only the Owner or an Admin can manage backups.", 403);
+    }
 
     // Create an authenticated Supabase client using user JWT + anon key (RLS)
     const supabase = createUserClient(req);
@@ -428,7 +433,7 @@ Deno.serve(async (req) => {
           .from("backup_history_logs")
           .insert({
             business_id: businessId,
-            type: "manual",
+            type: userId === "service_role" ? "auto" : "manual",
             status: "running",
             details: { initiated_by: userId },
           })
@@ -1276,6 +1281,6 @@ Deno.serve(async (req) => {
     }
   } catch (err: any) {
     console.error("[backup-config] Fatal error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });
