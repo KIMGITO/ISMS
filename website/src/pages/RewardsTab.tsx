@@ -55,7 +55,8 @@ export default function RewardsTab() {
         <h2 className="text-xl font-bold">Redeem points</h2>
         <p className="mt-1 text-muted">
           Each point is worth Ksh {rewards.pointValue}. You can redeem from {rewards.minRedeem} points.
-          The value clears anything you owe first, then goes to your wallet, which you can spend at our shop.
+          You can also use points in your cart to pay part of an order. Redeeming here clears anything you
+          owe first, then goes to your wallet for spending at our shop. Points can't be exchanged for cash.
         </p>
         <label className="mt-4 block font-medium">
           Points to redeem

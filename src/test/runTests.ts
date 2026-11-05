@@ -1,4 +1,5 @@
 // src/test/runTests.ts
+import { readFileSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
 import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/idUtils";
@@ -8,7 +9,7 @@ import { EmailService } from "../services/emailService";
 import { toUserMessage, AppError } from "../utils/userError";
 import { scrubPersonalData } from "../services/crashReporter";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
-import { hasRolePermission } from "../utils/permissions";
+import { hasRolePermission, SYSTEM_ROLES } from "../utils/permissions";
 import { useAuthStore } from "../stores/authStore";
 
 function runTest(name: string, fn: () => void) {
@@ -279,6 +280,19 @@ runTest("USSD menu registers, orders and checks balances", () => {
   const noDelivery = { ...ctx, deliveryEnabled: false };
   check(respond("1*1*2", noDelivery).text.includes("Total Ksh 160"), "skips the question without delivery");
   check(respond("3", ctx).text === "END Gold: 5 points", "shows the balance");
+});
+
+runTest("Database role permissions match the app's role permissions", () => {
+  const migration = readFileSync("supabase/migrations/20261105014_role_enforcement.sql", "utf8");
+  for (const role of ["Manager", "Cashier", "Rider"]) {
+    const match = migration.match(new RegExp(`\\('${role}', ARRAY\\[(.*?)\\]\\)`));
+    if (!match) throw new Error(`${role} is missing from the migration`);
+    const inDatabase = [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+    const inApp = [...new Set<string>(SYSTEM_ROLES[role].permissions)].sort();
+    if (JSON.stringify(inDatabase) !== JSON.stringify(inApp)) {
+      throw new Error(`${role} permissions differ between the app and the migration`);
+    }
+  }
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

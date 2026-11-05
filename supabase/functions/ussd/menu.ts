@@ -64,7 +64,8 @@ function orderFlow(steps: string[], ctx: UssdContext): UssdReply {
   if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000) {
     return end("That amount isn't valid. Please dial again.");
   }
-  if (quantity > product.stock) return end(`We only have ${product.stock} ${product.unit} right now.`);
+  // Customers are never told exact stock.
+  if (quantity > product.stock) return end(`We don't have that much ${product.name} right now. Please try a smaller amount.`);
   const subtotal = product.price * quantity;
 
   // Without delivery there's nothing to ask, so an empty answer stands for pickup.

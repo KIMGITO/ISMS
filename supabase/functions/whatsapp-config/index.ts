@@ -9,6 +9,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
 
@@ -99,6 +100,9 @@ Deno.serve(async (req) => {
     if (action === "send") {
       if (!to || !body) return errorResponse("A number and a message are required.", 400);
       if (!isConnected(cfg)) return errorResponse("WhatsApp is not connected.", 400, "NOT_CONNECTED");
+
+      const forbidden = await requirePermission(req, businessId, "communication.send");
+      if (forbidden) return forbidden;
 
       const limited =
         (await enforceRateLimit(`whatsapp:user:${userId}`, 200, 3600)) ||

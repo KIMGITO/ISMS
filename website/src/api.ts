@@ -219,8 +219,8 @@ export const createAccount = (name: string, phone: string) =>
 export const updateAccount = (name: string, phone: string, address: string, notes: string) =>
   rpc('update_my_account', { p_name: name, p_phone: phone, p_address: address, p_notes: notes });
 
-export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null) =>
-  rpc<string>('place_online_order', { p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId });
+export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number) =>
+  rpc<string>('place_online_order', { p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId, p_points: points });
 
 export const cancelOrder = (orderId: string) => rpc('cancel_my_order', { p_order_id: orderId });
 

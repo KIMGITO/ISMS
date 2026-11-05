@@ -476,7 +476,7 @@ export class CustomerRepository {
       name: normalizeForStorage(customer.name),
       phone: customer.phone,
       email: customer.email ? normalizeForStorage(customer.email) : "",
-      loyalty_points: customer.loyaltyPoints || 10,
+      loyalty_points: customer.loyaltyPoints || 0,
       join_date: customer.joinDate || new Date().toISOString().split("T")[0],
       tier: customer.tier || "Bronze",
       purchases_count: customer.purchasesCount || 0,

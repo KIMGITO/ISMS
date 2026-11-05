@@ -61,6 +61,7 @@ interface CustomerComment {
 export default function CustomerFeedbackView() {
   const { currentEmployee } = useAuthStore();
   const { activeBusinessId } = useAppStore();
+  const canReply = currentEmployee ? hasRolePermission(currentEmployee.role, 'complaints.reply') : false;
   const showToast = useNotificationStore.getState().showToast;
   const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
   const hasAiPermission = currentEmployee
@@ -1090,7 +1091,7 @@ Comment: "${comment.comment}"`;
                         <button
                           type="button"
                           onClick={() => handleAddReply(comment.id)}
-                          disabled={isAddingReply[comment.id]}
+                          disabled={isAddingReply[comment.id] || !canReply}
                           className="p-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 rounded-xl transition cursor-pointer shrink-0"
                           title="Send response"
                         >

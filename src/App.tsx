@@ -23,6 +23,7 @@ import CustomerFeedbackView from './features/CustomerFeedbackView';
 import HomeView from './features/HomeView';
 import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
+import RiderDeliveriesView from './features/RiderDeliveriesView';
 import { useNotificationStore } from './stores/notificationStore';
 import SearchableDropdown from './components/SearchableDropdown';
 import UnifiedUploader from './components/shared/UnifiedUploader';
@@ -111,6 +112,7 @@ import {
   FlaskConical,
   ActivitySquareIcon,
   Edit3,
+  Truck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -1089,6 +1091,7 @@ export default function App() {
         { id: 'inventory', permission: 'inventory.view' as const },
         { id: 'sales', permission: 'orders.view' as const },
         { id: 'customers', permission: 'customers.view' as const },
+        { id: 'deliveries', permission: 'deliveries.view' as const },
         { id: 'dashboard', permission: 'dashboard.view' as const },
         { id: 'feedback', permission: 'complaints.view' as const },
         { id: 'online-store', permission: 'online_store.view' as const },
@@ -3515,6 +3518,13 @@ export default function App() {
                       permission: 'customers.view' as const,
                     },
                     {
+                      id: 'deliveries',
+                      label: 'My Deliveries',
+                      icon: Truck,
+                      desc: 'Assigned deliveries & history',
+                      permission: 'deliveries.view' as const,
+                    },
+                    {
                       id: 'feedback',
                       label: 'Customer Reviews',
                       icon: MessageSquare,
@@ -4035,6 +4045,20 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
+                    {activeTab === 'deliveries' && (
+                      <motion.div
+                        key="deliveries-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="deliveries.view">
+                          <RiderDeliveriesView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === 'workers' && (
                       <motion.div
                         key="workers-view"
@@ -4235,6 +4259,12 @@ export default function App() {
                       label: 'Online Store',
                       icon: Globe,
                       permission: 'customers.view' as const,
+                    },
+                    {
+                      id: 'deliveries',
+                      label: 'Deliveries',
+                      icon: Truck,
+                      permission: 'deliveries.view' as const,
                     },
                     {
                       id: 'workers',

@@ -29,14 +29,21 @@ async function findAccount(admin: any, msisdn: string) {
 }
 
 async function registerCustomer(admin: any, slug: string, msisdn: string, name: string) {
-  const { data, error } = await admin.auth.admin.createUser({
-    phone: msisdn,
-    phone_confirm: true,
-    user_metadata: { name, account_type: "customer" },
-  });
-  if (error) throw error;
+  // Someone who started phone sign-in on the website has a login but no account yet.
+  const { data: existingId, error: findError } = await admin.rpc("find_auth_user_by_phone", { p_phone: msisdn });
+  if (findError) throw findError;
+  let userId: string | null = existingId;
+  if (!userId) {
+    const { data, error } = await admin.auth.admin.createUser({
+      phone: msisdn,
+      phone_confirm: true,
+      user_metadata: { name, account_type: "customer" },
+    });
+    if (error) throw error;
+    userId = data.user.id;
+  }
   const { error: accountError } = await admin.rpc("fn_create_customer_account", {
-    p_uid: data.user.id,
+    p_uid: userId,
     p_slug: slug,
     p_name: name,
     p_phone: msisdn,
@@ -112,34 +119,44 @@ Deno.serve(async (req) => {
     if (shopError) throw shopError;
     if (!shop) return reply("END This shop isn't available right now.");
 
+    // The storefront only says in or out of stock; the menu needs the amount to refuse too much.
+    const { data: stockRows, error: stockError } = await admin
+      .from("products")
+      .select("id, stock")
+      .in("id", (shop.products ?? []).map((p: any) => p.id));
+    if (stockError) throw stockError;
+    const stockById = new Map((stockRows ?? []).map((p: any) => [p.id, Number(p.stock)]));
+
     const accountId = await findAccount(admin, msisdn);
     const ctx: UssdContext = {
       shopName: shop.business.name,
       registered: !!accountId,
-      products: shop.products ?? [],
+      products: (shop.products ?? []).map((p: any) => ({ ...p, stock: stockById.get(p.id) ?? 0 })),
       zones: shop.deliveryZones ?? [],
       deliveryEnabled: !!shop.settings.deliveryEnabled,
       deliveryFee: Number(shop.settings.deliveryFee),
     };
 
     if (accountId && text === "2") {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("online_orders")
         .select("order_number, status, total")
         .eq("account_id", accountId)
         .order("created_at", { ascending: false })
         .limit(3);
+      if (error) throw error;
       ctx.orders = (data ?? [])
         .map((o: any) => `#${o.order_number} Ksh ${o.total}: ${STATUS_LABELS[o.status] ?? o.status}`)
         .join("\n");
     }
 
     if (accountId && text === "3") {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("customer_accounts")
         .select("customers(loyalty_points, tier, wallet_balance, debt_balance)")
         .eq("id", accountId)
         .maybeSingle();
+      if (error) throw error;
       const c: any = data?.customers;
       if (c) {
         ctx.summary = `${c.tier}: ${c.loyalty_points} points\nWallet Ksh ${c.wallet_balance}\nOwed Ksh ${c.debt_balance}`;
@@ -151,7 +168,15 @@ Deno.serve(async (req) => {
     if (result.action?.type === "register") {
       await registerCustomer(admin, slug, msisdn, result.action.name);
     } else if (result.action?.type === "order" && accountId) {
-      await placeOrder(admin, accountId, msisdn, result.action);
+      // A gateway retry of the last step must not place a second order and prompt.
+      const sessionId = String(form.get("sessionId") ?? "");
+      const { data: firstTry, error: limitError } = await admin.rpc("check_rate_limit", {
+        p_key: `ussd-order:${sessionId}`,
+        p_limit: 1,
+        p_window_seconds: 600,
+      });
+      if (limitError) throw limitError;
+      if (firstTry) await placeOrder(admin, accountId, msisdn, result.action);
     }
 
     return reply(result.text);

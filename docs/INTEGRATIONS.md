@@ -19,7 +19,7 @@ No server of our own is needed. External services call the edge functions direct
 | System | Used for | Without it | Status |
 |---|---|---|---|
 | Safaricom Daraja | M-Pesa payment prompts, on the website and by dial code | Online orders can't be paid | Tested against a mock only |
-| Africa's Talking | Dial code for phones without internet | No dial-code ordering | Menu unit tested; gateway never called |
+| Africa's Talking | Dial code for phones without internet | No dial-code ordering | Tested with simulated gateway requests; the real gateway has never been called |
 | WhatsApp Cloud API | Automatic WhatsApp messages | Staff open each chat by hand | Never run against Meta |
 | Twilio | SMS from the staff app | Staff use WhatsApp or email | Never run |
 | SMS provider in Supabase Auth | Phone number sign-in codes | Phone sign-in stays hidden | Never run |
@@ -47,11 +47,31 @@ Safaricom calls `https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?to
 
 ### Dial code (Africa's Talking)
 
-1. Create an [Africa's Talking](https://africastalking.com) account and request a USSD code. A shared code such as `*384*123#` is the usual start; a dedicated one costs more. Approval goes through the mobile networks and can take weeks.
-2. Set the secrets: `supabase secrets set USSD_CALLBACK_TOKEN=<long random string> USSD_SHOP_SLUG=kaykays`.
-3. Deploy with `supabase functions deploy ussd` and set the callback URL in Africa's Talking to `https://<project-ref>.supabase.co/functions/v1/ussd?token=<USSD_CALLBACK_TOKEN>`.
+**Try it free first, in the sandbox:**
 
-Callers can create an account with just their name, order, pay through an M-Pesa prompt, and check their orders, points and balances. It shows the first 7 products in stock. Payment needs M-Pesa on that line.
+1. Create an account at [africastalking.com](https://africastalking.com) and open the [sandbox](https://help.africastalking.com/en/articles/1170660-how-do-i-get-started-on-the-africa-s-talking-sandbox). Its username is always `sandbox`.
+2. Generate a long random token with `openssl rand -hex 32`, then set the secrets and deploy:
+
+   ```bash
+   supabase secrets set USSD_CALLBACK_TOKEN=<token> USSD_SHOP_SLUG=kaykays
+   supabase functions deploy ussd
+   ```
+
+3. In **USSD > Create Channel**, choose a test channel and set the callback URL to `https://<project-ref>.supabase.co/functions/v1/ussd?token=<token>`.
+4. Dial it on the Africa's Talking simulator. Sandbox sessions only reach the simulator, not real phones.
+
+**Go live:**
+
+1. Switch to your live Africa's Talking account and request a service code. A shared code such as `*384*123#` is the usual start; a dedicated one costs more. Approval goes through the mobile networks and can take weeks, so allow for it.
+2. Top up the account, since sessions are charged. Check current prices with Africa's Talking.
+3. Set the same callback URL on the live channel, then test one order from a real phone.
+
+**How it behaves:**
+
+- Africa's Talking sends `sessionId`, `serviceCode`, `phoneNumber` and `text`, with each answer so far joined by `*`. Every reply starts with `CON` to continue or `END` to finish.
+- The gateway [expects a reply within 10 seconds](https://developers.africastalking.com/docs/ussd/overview). Placing an order calls M-Pesa inside that time, so a slow M-Pesa response can show callers a network error. Test this on the live service, because the mock can't show it.
+- Callers create an account with just their name, then order, pay through an M-Pesa prompt, and check their orders, points and balances. It offers the first 7 products in stock, and paying needs M-Pesa on that line.
+- The network supplies the phone number, so it identifies the caller. Someone with a website account under another login gets a separate dial-code account.
 
 ### WhatsApp
 
@@ -76,17 +96,51 @@ Email is limited to 30 per hour per person, so it doesn't suit large lists.
 
 ### Website sign-in
 
-Email works without further setup. Turn on the others in **Supabase > Authentication > Providers**, then list them in `VITE_AUTH_PROVIDERS` and rebuild the website. Buttons only appear for options on that list.
+Email works without further setup. For the others, finish the steps below, then add the option to `VITE_AUTH_PROVIDERS` (for example `phone,google,apple`) and rebuild the website. Buttons only appear for options on that list.
 
-| Option | Needs |
-|---|---|
-| Phone | An SMS provider supported by Supabase Auth, such as Twilio. Each code is a paid SMS. |
-| Google | An OAuth client in [Google Cloud](https://console.cloud.google.com), with the Supabase callback URL added |
-| Apple | A paid Apple Developer account, a Services ID and a signing key. Its secret expires and must be renewed about every 6 months. |
+First, in **Supabase > Authentication > URL Configuration**, set the Site URL and add `https://kaykays.com/account` to the Redirect URLs. Add the address you test from too.
+
+Google and Apple both send customers back to the same Supabase address, shown on each provider's page in the dashboard:
+
+```text
+https://<project-ref>.supabase.co/auth/v1/callback
+```
 
 Customers who sign in with Google, Apple or a phone number are asked for any missing name and M-Pesa number the first time.
 
-Add `https://kaykays.com/account` to **Authentication > URL Configuration > Redirect URLs** once the domain is connected.
+#### Google
+
+Full reference: [Supabase Google guide](https://supabase.com/docs/guides/auth/social-login/auth-google).
+
+1. Create a project in the [Google Cloud Console](https://console.cloud.google.com) and open the **Google Auth Platform**.
+2. Under **Branding**, set the app name and logo. Brand verification can take a few business days.
+3. Under **Audience**, choose who can sign in.
+4. Under **Data Access**, add the `openid` scope. The email and profile scopes are there by default. Don't add others, because they can trigger a long review.
+5. Under **Clients**, create an OAuth client of type **Web application**:
+   - **Authorized JavaScript origins:** `https://kaykays.com`
+   - **Authorized redirect URIs:** the Supabase address above
+6. Copy the Client ID and Client Secret into **Supabase > Authentication > Providers > Google**, then save.
+
+#### Apple
+
+Full reference: [Supabase Apple guide](https://supabase.com/docs/guides/auth/social-login/auth-apple). This needs a paid Apple Developer account.
+
+1. Note your **Team ID**, the 10-character code in the Apple Developer account.
+2. Create an **App ID** with **Sign in with Apple** turned on. Leave the server-to-server notification address blank.
+3. Create a **Services ID**, such as `com.kaykays.app.web`, and link it to the App ID. Under its website settings, set:
+   - **Domain:** `<project-ref>.supabase.co`
+   - **Redirect URL:** the Supabase address above
+4. Under **Keys**, create a Sign in with Apple key and download its `AuthKey_XXXXXXXXXX.p8` file. Keep it offline, because Apple only lets you download it once.
+5. Generate the client secret from the `.p8` file with the generator in the Supabase guide. It doesn't work in Safari.
+6. In **Supabase > Authentication > Providers > Apple**, enter the Services ID as the client ID and the generated secret as the secret key.
+7. To have Apple's private relay addresses receive your emails, register your sending domain under **Sign in with Apple for Email Communication**.
+
+**Renew the secret every 6 months.** Apple requires it, and sign-in stops if it lapses. Set a recurring calendar reminder now.
+
+#### Phone number
+
+1. In **Supabase > Authentication > Providers > Phone**, turn on phone sign-in and enter an SMS provider's details. Check that the provider delivers to Kenyan numbers.
+2. Each code is a paid SMS, and Supabase's own rate limits apply. Review them under **Authentication > Rate Limits**.
 
 ### Backups, push notifications and AI
 

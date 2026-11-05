@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
-import { friendlyError, placeOrder } from '../api';
+import { fetchRewards, friendlyError, placeOrder, Rewards } from '../api';
 import { navigate } from '../router';
 import { useAuth, useCart, useStorefront } from '../store';
 import { cardClass, ErrorText, fieldClass, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, secondaryButton } from '../ui';
@@ -14,9 +14,15 @@ export default function CartPage() {
   const [fulfilment, setFulfilment] = useState<'delivery' | 'pickup'>(settings.deliveryEnabled ? 'delivery' : 'pickup');
   const [address, setAddress] = useState('');
   const [zoneId, setZoneId] = useState('');
+  const [rewards, setRewards] = useState<Rewards | null>(null);
+  const [points, setPoints] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (account) fetchRewards().then(setRewards).catch(() => setRewards(null));
+  }, [account]);
 
   useEffect(() => {
     if (account?.delivery_address) setAddress((current) => current || account.delivery_address!);
@@ -38,7 +44,9 @@ export default function CartPage() {
   const zone = deliveryZones.find((z) => z.id === zoneId);
   const fee = fulfilment !== 'delivery' ? 0 : Number(deliveryZones.length > 0 ? zone?.fee ?? 0 : settings.deliveryFee);
   // M-Pesa only takes whole shillings, so the server rounds the total down the same way.
-  const total = Math.floor(subtotal + fee);
+  const pointsUsed = Number(points) > 0 ? Math.floor(Number(points)) : 0;
+  const pointsValue = rewards ? pointsUsed * rewards.pointValue : 0;
+  const total = Math.floor(subtotal + fee - pointsValue);
   const belowMinimum = subtotal < settings.minOrder;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -46,7 +54,7 @@ export default function CartPage() {
     setError('');
     setBusy(true);
     try {
-      const orderId = await placeOrder(lines, fulfilment, address, notes, zoneId || null);
+      const orderId = await placeOrder(lines, fulfilment, address, notes, zoneId || null, pointsUsed);
       clear();
       navigate(`/account/orders/${orderId}`);
     } catch (err) {
@@ -178,6 +186,21 @@ export default function CartPage() {
             <input maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} className={fieldClass} />
           </label>
 
+          {rewards && rewards.points >= rewards.minRedeem && (
+            <label className="mb-4 block font-medium">
+              Use points ({rewards.points} available, each worth {formatPrice(business.currency, rewards.pointValue)})
+              <input
+                type="number"
+                inputMode="numeric"
+                min={rewards.minRedeem}
+                max={rewards.points}
+                value={points}
+                onChange={(e) => setPoints(e.target.value)}
+                placeholder={`From ${rewards.minRedeem} points`}
+                className={fieldClass}
+              />
+            </label>
+          )}
           <dl className="space-y-1.5 border-t border-line pt-4">
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Products</dt>
@@ -187,6 +210,12 @@ export default function CartPage() {
               <div className="flex justify-between gap-3">
                 <dt className="text-muted">Delivery</dt>
                 <dd>{formatPrice(business.currency, fee)}</dd>
+              </div>
+            )}
+            {pointsValue > 0 && (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted">Points</dt>
+                <dd>-{formatPrice(business.currency, pointsValue)}</dd>
               </div>
             )}
             <div className="flex justify-between gap-3 text-xl font-bold">

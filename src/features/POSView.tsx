@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, sentenceCase, searchMatch } from '../utils/stringUtils';
 import { formatReceiptNumber } from '../utils/idUtils';
+import { getSupabase } from '../services/supabaseClient';
 import { QuantityInput } from '../components/shared/QuantityInput';
 
 export default function POSView() {
@@ -39,6 +40,7 @@ export default function POSView() {
     showToast,
     businesses,
     activeBusinessId,
+    currentEmployee,
   } = useAppStore();
 
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'All'>(
@@ -67,10 +69,12 @@ export default function POSView() {
   const [isDelivery, setIsDelivery] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [riderName, setRiderName] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState('');
+  const [pointsToUse, setPointsToUse] = useState('');
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const riders = employees.filter((emp) => emp.role === 'Staff');
+  const riders = employees.filter((emp) => emp.role === 'Rider');
 
   const categories: (ProductCategory | 'All')[] = ['All', ...productCategories];
 
@@ -110,17 +114,42 @@ export default function POSView() {
   const tax = subtotal * taxRate;
   const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
 
+  const refundPoints = async (redemptionId: string | null) => {
+    if (!redemptionId) return;
+    const { error } = await getSupabase().rpc('refund_till_points', { p_redemption_id: redemptionId });
+    if (error) console.error('Could not return points after a failed sale:', error.code);
+  };
+
   const handleCheckout = async () => {
     if (isCheckingOut) return;
     setIsCheckingOut(true);
     setCheckoutError(null);
+    let redemptionId: string | null = null;
     try {
+      // Points come off first and count as a discount; if the sale fails they're given back.
+      let discountType = cartDiscountType;
+      let discountValue = cartDiscountValue;
+      const points = Number(pointsToUse);
+      if (selectedCustomer && points > 0) {
+        const { data, error } = await getSupabase().rpc('spend_points_at_till', {
+          p_customer_id: selectedCustomer.id,
+          p_points: points,
+          p_recorded_by: currentEmployee?.name ?? 'Staff',
+        });
+        if (error) throw error;
+        redemptionId = data.redemptionId;
+        discountType = 'amount';
+        discountValue = cartDiscount + Number(data.value);
+      }
+      const saleNote = isDelivery && deliveryLocation.trim()
+        ? [`Deliver to: ${deliveryLocation.trim()}`, note].filter(Boolean).join('. ')
+        : note;
       const result = await checkout(
         paymentMethod,
-        note,
+        saleNote,
         taxRate,
-        cartDiscountType,
-        cartDiscountValue,
+        discountType,
+        discountValue,
         isDelivery,
         deliveryFee,
         isDelivery ? riderName : '',
@@ -136,6 +165,8 @@ export default function POSView() {
         setDeliveryFee(0);
         setRiderName('');
         setSelectedRiderId('');
+        setDeliveryLocation('');
+        setPointsToUse('');
 
         // Send a professional toast popup notification on completed checkout action
         showToast(
@@ -146,10 +177,12 @@ export default function POSView() {
           undefined,
           'success',
         );
-      } else if (result.error) {
-        setCheckoutError(result.error);
+      } else {
+        await refundPoints(redemptionId);
+        if (result.error) setCheckoutError(result.error);
       }
     } catch (err: any) {
+      await refundPoints(redemptionId);
       setCheckoutError(toUserMessage(err, 'Checkout failed due to an error.'));
     } finally {
       setIsCheckingOut(false);
@@ -579,6 +612,16 @@ export default function POSView() {
                         </div>
                       </div>
 
+                      <label className="flex flex-col gap-1 text-[9px] font-black text-app-text-muted uppercase">
+                        Delivery Location
+                        <input
+                          value={deliveryLocation}
+                          onChange={(e) => setDeliveryLocation(e.target.value)}
+                          placeholder="Estate, street or landmark"
+                          className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-medium normal-case text-app-text"
+                        />
+                      </label>
+
                       <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase">
                           Select Rider or Write Name
@@ -626,6 +669,22 @@ export default function POSView() {
                     </div>
                   )}
                 </div>
+
+                {selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
+                  <label className="flex flex-col gap-1 p-3 bg-app-bg/50 border border-app-border rounded-2xl text-xs font-medium text-app-text">
+                    Use points ({selectedCustomer.loyaltyPoints} available)
+                    <input
+                      type="number"
+                      min="0"
+                      max={selectedCustomer.loyaltyPoints}
+                      inputMode="numeric"
+                      value={pointsToUse}
+                      onChange={(e) => setPointsToUse(e.target.value)}
+                      placeholder="Points to take off this sale"
+                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                    />
+                  </label>
+                )}
 
                 {/* Additional Checkout Controls: Tax & Discount */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-app-bg/50 border border-app-border/60 rounded-2xl">
