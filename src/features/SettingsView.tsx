@@ -1,3 +1,4 @@
+import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useBusinessStore } from '../stores/businessStore';
@@ -366,7 +367,7 @@ export default function SettingsView({
           }
         } catch (jsonErr: any) {
           throw new Error(
-            `Invalid Google Service Account JSON: ${jsonErr.message}`,
+            'That Google Service Account file is not valid JSON. Please check it and try again.',
           );
         }
       }
@@ -392,7 +393,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Save Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );
@@ -453,7 +454,7 @@ export default function SettingsView({
       } else {
         showToast(
           'Backup Failed',
-          err.message || 'Network Error',
+          toUserMessage(err, 'Network Error'),
           undefined,
           'error',
         );
@@ -498,7 +499,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Import Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );
@@ -543,7 +544,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Retry Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );
@@ -624,7 +625,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'SMS Save Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );
@@ -668,11 +669,11 @@ export default function SettingsView({
     } catch (err: any) {
       setSmsTestResult({
         success: false,
-        message: err.message || 'Network Error',
+        message: toUserMessage(err, 'Network Error'),
       });
       showToast(
         'Test SMS Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );
@@ -735,7 +736,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Save Failed',
-        err.message || 'Failed to save AI config',
+        toUserMessage(err, 'Failed to save AI config'),
         undefined,
         'error',
       );
@@ -779,11 +780,11 @@ export default function SettingsView({
     } catch (err: any) {
       setAiTestResult({
         success: false,
-        message: err.message || 'Network Error',
+        message: toUserMessage(err, 'Network Error'),
       });
       showToast(
         'Connection Failed',
-        err.message || 'Network Error',
+        toUserMessage(err, 'Network Error'),
         undefined,
         'error',
       );

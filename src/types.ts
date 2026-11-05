@@ -341,7 +341,7 @@ export interface Payment {
   businessId: string;
   referenceCode: string;
   amount: number;
-  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Other';
+  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Mobile_Wallet' | 'Other';
   senderName: string;
   senderPhone?: string;
   status: 'Success' | 'Pending' | 'Failed';

@@ -1,5 +1,6 @@
 import nodemailer from "npm:nodemailer@6.9.13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enforceRateLimit } from "../shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -197,6 +198,39 @@ Deno.serve(async (req) => {
     }
 
     const { to, type, variables = {} } = body;
+
+    // Backend callers use the service role key. App users must be active members of a business,
+    // and OTP emails can only come from auth-otp, so nobody can email a code they chose themselves.
+    const supabaseUrlForAuth = Deno.env.get("SUPABASE_URL") || "";
+    const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const isBackendCaller = !!bearer && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!isBackendCaller) {
+      const denied = (status: number, error: string) =>
+        new Response(JSON.stringify({ success: false, error }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status,
+        });
+      if (["verification_code", "password_reset", "welcome"].includes(type)) {
+        return denied(403, "This email can't be sent from here.");
+      }
+      const userClient = createClient(supabaseUrlForAuth, Deno.env.get("SUPABASE_ANON_KEY") || "", {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return denied(401, "Your session has expired. Please log in again.");
+      const { data: memberships } = await userClient
+        .from("business_memberships")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "Active")
+        .limit(1);
+      if (!memberships?.length) return denied(403, "You don't have permission to send email.");
+
+      const limited = await enforceRateLimit(`mail:${user.id}`, 30, 3600);
+      if (limited) return limited;
+    }
+
     if (!to) {
       return new Response(
         JSON.stringify({ success: false, error: "Recipient 'to' email is required" }),
@@ -309,20 +343,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Simulation Fallback (Dev/Sandbox Mode)
+    // 3. No provider configured or every provider failed
+    console.error("[send-email] No email provider delivered the message");
     return new Response(
-      JSON.stringify({
-        success: true,
-        simulated: true,
-        message: `[Dev Sandbox] Dispatched email to ${cleanTo}. Code: ${cleanCodeValue(variables.code || variables.token || variables.otp)}`
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      JSON.stringify({ success: false, error: "Email could not be sent. Please try again later." }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 503 }
     );
 
   } catch (err: any) {
     console.error("[send-email] Unhandled error:", err);
     return new Response(
-      JSON.stringify({ success: false, error: err.message || "Internal server error" }),
+      JSON.stringify({ success: false, error: "Email could not be sent. Please try again later." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

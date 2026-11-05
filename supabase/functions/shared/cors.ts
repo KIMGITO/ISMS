@@ -42,7 +42,7 @@ export function errorResponse(message: string, status = 500, code?: string): Res
 export async function verifyUserMembership(
   req: Request,
   businessId: string
-): Promise<{ userId?: string; errorResponse?: Response }> {
+): Promise<{ userId?: string; role?: string; errorResponse?: Response }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
@@ -71,26 +71,10 @@ export async function verifyUserMembership(
 
   const rawToken = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-  // 1. If invoked with project Anon Key or Service Role Key (e.g. employee PIN login, API client, background sync)
-  if (rawToken === supabaseAnonKey || (serviceRoleKey && rawToken === serviceRoleKey)) {
-    const adminClient = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
-    const { data: biz, error: bizErr } = await adminClient
-      .from("businesses")
-      .select("id")
-      .eq("id", businessId)
-      .maybeSingle();
-
-    if (bizErr || !biz) {
-      return {
-        errorResponse: errorResponse(
-          "Business not found or access denied.",
-          404,
-          "BUSINESS_NOT_FOUND"
-        ),
-      };
-    }
-
-    return { userId: "api_client_user" };
+  // 1. Backend callers (cron jobs, other edge functions) use the service role key.
+  //    The anon key is public and never proves identity, so it falls through to the JWT check.
+  if (serviceRoleKey && rawToken === serviceRoleKey) {
+    return { userId: "service_role", role: "Owner" };
   }
 
   // 2. User JWT validation
@@ -106,18 +90,6 @@ export async function verifyUserMembership(
     } = await supabaseUserClient.auth.getUser();
 
     if (authError || !user) {
-      console.warn("[cors] User JWT check failed, attempting fallback business validation:", authError?.message);
-      const adminClient = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
-      const { data: biz } = await adminClient
-        .from("businesses")
-        .select("id")
-        .eq("id", businessId)
-        .maybeSingle();
-
-      if (biz) {
-        return { userId: "authenticated_business_user" };
-      }
-
       return {
         errorResponse: errorResponse(
           "Your session has expired. Please log in again to continue.",
@@ -131,7 +103,7 @@ export async function verifyUserMembership(
     // RLS on business_memberships allows users to read only their own records.
     const { data: membership, error: memError } = await supabaseUserClient
       .from("business_memberships")
-      .select("id")
+      .select("id, role")
       .eq("business_id", businessId)
       .eq("user_id", user.id)
       .eq("status", "Active")
@@ -158,12 +130,12 @@ export async function verifyUserMembership(
       };
     }
 
-    return { userId: user.id };
+    return { userId: user.id, role: membership.role };
   } catch (err: any) {
     console.error("[cors] verifyUserMembership exception:", err);
     return {
       errorResponse: errorResponse(
-        `Auth verification error: ${err.message}`,
+        "Could not verify your access. Please try again.",
         500,
         "AUTH_EXCEPTION"
       ),
@@ -184,4 +156,34 @@ export function createUserClient(req: Request) {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/**
+ * Returns a 429 response once a key exceeds its limit for the window, or null to continue.
+ * A limiter outage must not take the app down, so errors are logged and the request proceeds.
+ */
+export async function enforceRateLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<Response | null> {
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data, error } = await admin.rpc("check_rate_limit", {
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) throw error;
+    if (data === false) {
+      return errorResponse("Too many requests. Please wait a moment and try again.", 429, "RATE_LIMITED");
+    }
+  } catch (err) {
+    console.error("[rate-limit] Check failed:", err);
+  }
+  return null;
 }

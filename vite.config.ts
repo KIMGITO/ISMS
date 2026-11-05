@@ -3,9 +3,13 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
+    // Production builds keep console.warn/error only, so routine logs can't expose business data.
+    esbuild: {
+      pure: mode === 'production' ? ['console.log', 'console.info', 'console.debug'] : [],
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

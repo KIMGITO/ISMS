@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import { create } from "zustand";
 import { BillOfMaterials, BomIngredient, ProductionBatchInput } from "../types";
 
@@ -563,7 +564,7 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to create production batch." };
+        return { success: false, error: toUserMessage(err, "Failed to create production batch.") };
       }
     },
 
@@ -617,7 +618,7 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to update production batch." };
+        return { success: false, error: toUserMessage(err, "Failed to update production batch.") };
       }
     },
 
@@ -648,7 +649,7 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to cancel production batch." };
+        return { success: false, error: toUserMessage(err, "Failed to cancel production batch.") };
       }
     },
 
@@ -672,7 +673,7 @@ export const useExtraModulesStore = create<ExtraModulesState>((set) => {
 
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Failed to delete production batch." };
+        return { success: false, error: toUserMessage(err, "Failed to delete production batch.") };
       }
     },
   };

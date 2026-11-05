@@ -9,6 +9,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  enforceRateLimit,
 } from "../shared/cors.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
 
@@ -236,8 +237,14 @@ Deno.serve(async (req) => {
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     // Verify tenant membership
-    const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
+
+    // Per person and per business, because every AI call costs the business money.
+    const limited =
+      (await enforceRateLimit(`ai:user:${userId}`, 20, 60)) ||
+      (await enforceRateLimit(`ai:biz:${businessId}`, 500, 86400));
+    if (limited) return limited;
 
     if (!metrics) return errorResponse("metrics payload is required.", 400);
 
@@ -330,6 +337,6 @@ Generate a comprehensive executive BI report as valid raw JSON matching the sche
     return jsonResponse({ success: true, analysis });
   } catch (err: any) {
     console.error("[bi-analyze] Critical error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });

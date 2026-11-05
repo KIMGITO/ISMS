@@ -62,13 +62,21 @@ A production-ready, cross-platform enterprise management application engineered 
 │   │   ├── 20260715013_triggers.sql            # Table automation triggers
 │   │   ├── 20260715014_rls_policies.sql        # Row-Level Security Access Control Policies
 │   │   ├── 20260715015_views_realtime.sql      # Database SQL views & Realtime publication setup
-│   │   └── 20260715016_storage_setup.sql       # S3 Storage buckets & security policies
-│   ├── edge_functions/        # Deno Cloud Functions
-│   │   ├── chat/              # Chat endpoint calling Gemini API with database parameters
-│   │   ├── twilio-sms/        # Twilio gateway for transactional updates
-│   │   └── mpesa-callback/    # Safaricom Daraja API STK push transaction webhook listener
-│   ├── dev_reset.sql          # Development database cleanup script
-│   └── dev_reset.sql          # Database reset & schema loader script
+│   │   ├── 20260715016_storage_setup.sql       # S3 Storage buckets & security policies
+│   │   ├── 20260719001_bom_production.sql      # Bill of Materials & production batch workflow
+│   │   ├── 20260722001_password_reset_functions.sql # Password reset OTP & update RPCs
+│   │   ├── 20260808001_customer_wallet_rpcs.sql # Atomic sale, wallet & debt RPCs
+│   │   ├── 20260819001_money_assets_payments.sql # Payments, money assets & asset ledger
+│   │   ├── 20260819002_schedule_reminder_cron.sql # pg_cron schedule reminder job
+│   │   ├── 20260918003_update_customer_tier_thresholds.sql # Tier thresholds & customer backfill
+│   │   ├── 20261105002_security_hardening.sql  # Function privileges & tenant checks
+│   │   ├── 20261105003_rate_limits_crash_reports.sql # Rate limits & crash reports
+│   │   ├── 20261105010_customer_portal.sql     # Customer portal schema & RPCs
+│   │   ├── 20261105011_fix_process_business_payment.sql # One working payment RPC
+│   │   └── 20261105012_scheduled_jobs.sql      # pg_cron jobs, including due backups
+│   ├── functions/             # Deno edge functions, one folder each
+│   ├── dev_clear.sql          # Wipes all data, keeps the schema (development only)
+│   └── dev_reset.sql          # Drops the schema and data (development only)
 └── vite.config.ts             # Vite project configuration (React, Tailwind setup)
 ```
 

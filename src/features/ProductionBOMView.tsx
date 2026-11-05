@@ -1,6 +1,7 @@
 // src/features/ProductionBOMView.tsx
 // Production Batching & Bill of Materials Management View
 
+import { toUserMessage } from '../utils/userError';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useExtraModulesStore, ProductionBatch } from '../stores/extraModulesStore';
@@ -246,7 +247,7 @@ export default function ProductionBOMView() {
         showToast?.('Error', result.error || 'Failed to cancel batch.', undefined, 'error');
       }
     } catch (err: any) {
-      showToast?.('Error', err.message || 'An unexpected error occurred.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'An unexpected error occurred.'), undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -261,7 +262,7 @@ export default function ProductionBOMView() {
         showToast?.('Error', res.error || 'Failed to delete batch.', undefined, 'error');
       }
     } catch (err: any) {
-      showToast?.('Error', err.message || 'An unexpected error occurred.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'An unexpected error occurred.'), undefined, 'error');
     }
   };
 
@@ -283,7 +284,7 @@ export default function ProductionBOMView() {
         showToast?.('Error', result.error || 'Failed to update batch status.', undefined, 'error');
       }
     } catch (err: any) {
-      showToast?.('Error', err.message || 'An unexpected error occurred.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'An unexpected error occurred.'), undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -323,7 +324,7 @@ export default function ProductionBOMView() {
       resetBomForm();
       setViewMode('list');
     } catch (err: any) {
-      showToast?.('Error', err.message || 'Failed to create BOM.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'Failed to create BOM.'), undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -336,7 +337,7 @@ export default function ProductionBOMView() {
       extra.removeBillOfMaterial(id);
       showToast?.('Deleted', 'BOM removed successfully.', undefined, 'success');
     } catch (err: any) {
-      showToast?.('Error', err.message || 'Failed to delete BOM.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'Failed to delete BOM.'), undefined, 'error');
     }
   };
 
@@ -378,7 +379,7 @@ export default function ProductionBOMView() {
         showToast?.('Error', result.error || 'Failed to create batch.', undefined, 'error');
       }
     } catch (err: any) {
-      showToast?.('Error', err.message || 'An unexpected error occurred.', undefined, 'error');
+      showToast?.('Error', toUserMessage(err, 'An unexpected error occurred.'), undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }

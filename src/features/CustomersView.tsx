@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { 
@@ -155,7 +156,7 @@ export default function CustomersView() {
           setCustomerDebtPayments(payments || []);
         })
         .catch(err => {
-          showToast("Error", `Failed to load history: ${err.message}`, undefined, "error");
+          showToast("Error", toUserMessage(err, "Failed to load history."), undefined, "error");
         })
         .finally(() => {
           setLoadingLedger(false);
@@ -214,7 +215,7 @@ export default function CustomersView() {
         setTimeout(() => setSuccessBanner(false), 2000);
         showToast("Customer Added", `"${vals.name}" successfully created.`, undefined, "success");
       } catch (err: any) {
-        showToast("Database Error", `Failed to add customer: ${err.message}`, undefined, "error");
+        showToast("Database Error", toUserMessage(err, "Failed to add customer."), undefined, "error");
       }
     },
   });
@@ -243,8 +244,8 @@ export default function CustomersView() {
     // 1. Sales Done (Transactions)
     const custTxs = transactions.filter((t) => t.customerId === selectedCustomerId);
     custTxs.forEach((tx) => {
-      const isCredit = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit' || tx.paymentMethod === 'Account';
-      const isWallet = tx.paymentMethod === 'Wallet' || tx.paymentMethod === 'Mobile_Wallet';
+      const isCredit = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit' || (tx.paymentMethod as string) === 'Account';
+      const isWallet = (tx.paymentMethod as string) === 'Wallet' || tx.paymentMethod === 'Mobile_Wallet';
 
       let statusLabel = `Paid (${tx.paymentMethod || 'Cash'})`;
       let statusStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
@@ -299,14 +300,14 @@ export default function CustomersView() {
 
     // 3. Wallet & Balance Ledger Events
     (ledgerEntries || []).forEach((entry: CustomerLedgerEntry) => {
-      if (entry.type === 'wallet_deposit' || entry.type === 'wallet_spent' || entry.type === 'adjustment') {
+      if (entry.type === 'wallet_topup' || entry.type === 'wallet_usage' || entry.type === 'debt_adjustment') {
         let title = 'Wallet & Balance Adjustment';
         let statusStyle = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
 
-        if (entry.type === 'wallet_deposit') {
+        if (entry.type === 'wallet_topup') {
           title = 'Wallet Deposit / Top-Up';
           statusStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-        } else if (entry.type === 'wallet_spent') {
+        } else if (entry.type === 'wallet_usage') {
           title = 'Wallet Balance Spent';
           statusStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
         }
@@ -396,7 +397,6 @@ export default function CustomersView() {
   }, [historyEvents]);
 
 
-  console.log('Selected customer:', selectedCustomer);
   useEffect(() => {
     if (selectedCustomer) {
       setEditName(selectedCustomer.name);
@@ -973,7 +973,7 @@ export default function CustomersView() {
                           } catch (err: any) {
                             showToast(
                               'Database Error',
-                              `Failed to update customer: ${err.message}`,
+                              toUserMessage(err, "Failed to update customer."),
                               undefined,
                               'error',
                             );
@@ -1096,7 +1096,7 @@ export default function CustomersView() {
                               } catch (err: any) {
                                 showToast(
                                   'Database Error',
-                                  `Failed to adjust debt: ${err.message}`,
+                                  toUserMessage(err, "Failed to adjust debt."),
                                   undefined,
                                   'error',
                                 );
@@ -1147,7 +1147,7 @@ export default function CustomersView() {
                               } catch (err: any) {
                                 showToast(
                                   'Database Error',
-                                  `Failed to adjust debt: ${err.message}`,
+                                  toUserMessage(err, "Failed to adjust debt."),
                                   undefined,
                                   'error',
                                 );
@@ -1197,7 +1197,7 @@ export default function CustomersView() {
                               } catch (err: any) {
                                 showToast(
                                   'Database Error',
-                                  `Failed to adjust wallet: ${err.message}`,
+                                  toUserMessage(err, "Failed to adjust wallet."),
                                   undefined,
                                   'error',
                                 );
@@ -1249,7 +1249,7 @@ export default function CustomersView() {
                               } catch (err: any) {
                                 showToast(
                                   'Database Error',
-                                  `Failed to adjust wallet: ${err.message}`,
+                                  toUserMessage(err, "Failed to adjust wallet."),
                                   undefined,
                                   'error',
                                 );
@@ -1302,7 +1302,7 @@ export default function CustomersView() {
                               } catch (err: any) {
                                 showToast(
                                   'Database Error',
-                                  `Failed to delete customer: ${err.message}`,
+                                  toUserMessage(err, "Failed to delete customer."),
                                   undefined,
                                   'error',
                                 );
@@ -1667,8 +1667,11 @@ export default function CustomersView() {
 
                                   <button
                                     onClick={() => {
-                                      ReceiptShareService.shareReceipt(tx, selectedCustomer, products).catch(err => {
-                                        showToast("Share Failed", err.message, undefined, "error");
+                                      ReceiptShareService.shareTextViaWhatsApp(
+                                        selectedCustomer.phone,
+                                        `Receipt ${formatReceiptNumber(tx.id)}\nTotal: KSh ${tx.finalTotal.toLocaleString()}\nThank you for your business!`
+                                      ).catch(err => {
+                                        showToast("Share Failed", toUserMessage(err, "Could not share this receipt."), undefined, "error");
                                       });
                                     }}
                                     className="flex items-center gap-1 text-[10px] font-extrabold text-amber-500 hover:text-amber-400 transition cursor-pointer"
@@ -1730,8 +1733,8 @@ export default function CustomersView() {
                           // RENDER WALLET / LEDGER ADJUSTMENT EVENT
                           if (ev.eventType === 'wallet_ledger' && ev.rawLedger) {
                             const entry: CustomerLedgerEntry = ev.rawLedger;
-                            const isDeposit = entry.type === 'wallet_deposit';
-                            const isSpent = entry.type === 'wallet_spent';
+                            const isDeposit = entry.type === 'wallet_topup';
+                            const isSpent = entry.type === 'wallet_usage';
 
                             return (
                               <div

@@ -95,11 +95,9 @@ class PermissionService {
           return true; // Auto-approved for platform security boundaries
         case "bluetooth": {
           if (Capacitor.getPlatform() === 'android') {
-            const { Permissions } = await import('@capawesome/capacitor-permissions');
-            const scanResult = await Permissions.request({ name: 'bluetoothScan' as any });
-            if (scanResult.state !== 'granted') return false;
-            const connectResult = await Permissions.request({ name: 'bluetoothConnect' as any });
-            if (connectResult.state !== 'granted') return false;
+            const { BluetoothSerial } = await import('./BluetoothService');
+            const { granted } = await BluetoothSerial.ensureAccess();
+            if (!granted) return false;
           }
           return true;
         }

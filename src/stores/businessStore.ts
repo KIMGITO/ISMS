@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import { create } from "zustand";
 import { useNotificationStore } from "./notificationStore";
 import { Business } from "../types";
@@ -214,7 +215,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       } catch (err: any) {
         useNotificationStore.getState().showToast(
           "Error",
-          err.message || "Failed to configure business workspace.",
+          toUserMessage(err, "Failed to configure business workspace."),
           undefined,
           "error"
         );
@@ -292,7 +293,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       } catch (err: any) {
         useNotificationStore.getState().showToast(
           "Error",
-          err.message || "Failed to update business.",
+          toUserMessage(err, "Failed to update business."),
           undefined,
           "error"
         );
@@ -339,7 +340,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       } catch (err: any) {
         useNotificationStore.getState().showToast(
           "Error",
-          err.message || "Failed to delete business.",
+          toUserMessage(err, "Failed to delete business."),
           undefined,
           "error"
         );

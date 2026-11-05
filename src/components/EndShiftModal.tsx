@@ -190,7 +190,7 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
         if (consumed > 0) infoParts.push(`Consumed(BOM): ${consumed} ${unit}`);
         if (produced > 0) infoParts.push(`Produced: ${produced} ${unit}`);
         if (closed >= 0) infoParts.push(`Closed: ${closed} ${unit}`);
-        if (earned > 0) infoParts.push(`Earned: Ksh ${earned.toLocaleString()}`);
+        if (earnedKsh > 0) infoParts.push(`Earned: Ksh ${earnedKsh.toLocaleString()}`);
 
         if (infoParts.length > 0) {
           text += `- ${name}: ${infoParts.join(' | ')}\n`;

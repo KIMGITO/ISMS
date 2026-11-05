@@ -7,6 +7,8 @@ import {
   handleCors,
   jsonResponse,
   errorResponse,
+  verifyUserMembership,
+  enforceRateLimit,
 } from "../shared/cors.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
 
@@ -40,6 +42,17 @@ Deno.serve(async (req) => {
     const { action, comment, draftText, comments, businessId } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
+
+    // Verify tenant membership
+    const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
+    if (authError) return authError;
+
+    // Per person and per business, because every AI call costs the business money.
+    const limited =
+      (await enforceRateLimit(`ai:user:${userId}`, 20, 60)) ||
+      (await enforceRateLimit(`ai:biz:${businessId}`, 500, 86400));
+    if (limited) return limited;
+
     if (!action) return errorResponse("action is required.", 400);
 
     // ── 1. Load AI settings ──────────────────────────────────────────────
@@ -261,7 +274,7 @@ Output raw JSON only.`;
     }
   } catch (err: any) {
     console.error("[complaints] Error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });
 

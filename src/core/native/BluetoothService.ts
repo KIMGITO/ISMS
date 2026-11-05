@@ -1,4 +1,5 @@
 // src/core/native/BluetoothService.ts
+import { registerPlugin } from "@capacitor/core";
 import { nativePlatformService } from "./NativePlatformService";
 import { permissionService } from "./PermissionService";
 
@@ -8,6 +9,18 @@ export interface BluetoothDeviceDetails {
   rssi?: number;
   connected: boolean;
 }
+
+interface BluetoothSerialPlugin {
+  ensureAccess(): Promise<{ granted: boolean }>;
+  isEnabled(): Promise<{ value: boolean }>;
+  list(): Promise<{ list: Array<{ name?: string; address: string }> }>;
+  connect(options: { address: string }): Promise<void>;
+  write(options: { value: string }): Promise<void>;
+  disconnect(): Promise<void>;
+}
+
+/** Implemented by android/app/src/main/java/com/kaykays/app/BluetoothSerialPlugin.java */
+export const BluetoothSerial = registerPlugin<BluetoothSerialPlugin>("BluetoothSerial");
 
 export type BluetoothStateListener = (devices: BluetoothDeviceDetails[]) => void;
 const SPP_SERVICE_UUID = "00001101-0000-1000-8000-00805f9b34fb";
@@ -57,8 +70,6 @@ class BluetoothService {
       } else {
         await this.scanWeb();
       }
-    } catch (e) {
-      console.error("Bluetooth scan failed:", e);
     } finally {
       this.isScanningState = false;
     }
@@ -117,69 +128,33 @@ class BluetoothService {
   // NATIVE IMPLEMENTATIONS
   // ==========================================
 
-  private getPlugin(): any {
-    const cap = (window as any).Capacitor;
-    return cap?.Plugins?.BluetoothSerial || cap?.Plugins?.BluetoothLE || null;
-  }
-
   private async scanNative(): Promise<void> {
-    const plugin = this.getPlugin();
-    if (!plugin) throw new Error("No native Bluetooth Capacitor plugins discovered.");
+    const { value: enabled } = await BluetoothSerial.isEnabled();
+    if (!enabled) throw new Error("Bluetooth is turned off. Please turn it on and try again.");
 
-    if (plugin.isEnabled) {
-      const isEnabled = await plugin.isEnabled();
-      if (!isEnabled.value && plugin.enable) {
-        await plugin.enable();
-      }
-    }
-
-    if (plugin.discoverUnpaired) {
-      const unpaired = await plugin.discoverUnpaired();
-      const paired = plugin.list ? await plugin.list() : { list: [] };
-      const combined = [...(paired.list || []), ...(unpaired.list || [])];
-      
-      this.discoveredDevices = combined.map((d: any) => ({
-        name: d.name || "Thermal Printer",
-        address: d.address || d.id,
-        rssi: d.rssi,
-        connected: false
-      }));
-
-      this.stateListeners.forEach((l) => l(this.discoveredDevices));
-    }
+    // Thermal printers are paired once in Android settings, then listed here.
+    const { list } = await BluetoothSerial.list();
+    this.discoveredDevices = list.map((d) => ({
+      name: d.name || "Thermal Printer",
+      address: d.address,
+      connected: false
+    }));
+    this.stateListeners.forEach((l) => l(this.discoveredDevices));
   }
 
   private async connectNative(address: string): Promise<boolean> {
-    const plugin = this.getPlugin();
-    if (!plugin || !plugin.connect) return false;
-
-    return new Promise((resolve) => {
-      plugin.connect({ address }).subscribe(
-        () => resolve(true),
-        () => resolve(false)
-      );
-    });
+    await BluetoothSerial.connect({ address });
+    return true;
   }
 
   private async disconnectNative(): Promise<void> {
-    const plugin = this.getPlugin();
-    if (plugin && plugin.disconnect) {
-      await plugin.disconnect();
-    }
+    await BluetoothSerial.disconnect();
   }
 
   private async writeNative(data: Uint8Array): Promise<boolean> {
-    const plugin = this.getPlugin();
-    if (!plugin || !plugin.write) return false;
-
-    try {
-      const binary = Array.from(data).map((b) => String.fromCharCode(b)).join("");
-      const base64 = window.btoa(binary);
-      await plugin.write({ value: base64 });
-      return true;
-    } catch {
-      return false;
-    }
+    const binary = Array.from(data).map((b) => String.fromCharCode(b)).join("");
+    await BluetoothSerial.write({ value: window.btoa(binary) });
+    return true;
   }
 
   // ==========================================

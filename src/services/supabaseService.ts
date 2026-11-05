@@ -1,4 +1,5 @@
 // src/services/supabaseService.ts
+import { AppError } from "../utils/userError";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { Product, Transaction, Customer, Employee, Shift, DbSchedule, CustomerLedgerEntry, DebtPayment } from "../types";
@@ -795,7 +796,8 @@ export class SupabaseService {
     if (error) {
       console.error(`[callEdgeFunction] "${functionName}" failed:`, error);
       if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
-      throw new Error(`Edge function "${functionName}" failed: ${error.message}`);
+      const serverMessage = await (error as any).context?.json?.().then((d: any) => d?.error).catch(() => null);
+      throw serverMessage ? new AppError(serverMessage) : error;
     }
     return data;
   }
@@ -1053,6 +1055,31 @@ export class SupabaseService {
     }));
   }
 
+  static async fetchActiveShift(businessId: string, employeeId: string): Promise<Shift | null> {
+    const { data, error } = await getSupabase()
+      .from('shifts')
+      .select('*')
+      .eq('business_id', toUuid(businessId))
+      .eq('employee_id', employeeId)
+      .eq('status', 'Active')
+      .is('end_time', null)
+      .is('deleted_at', null)
+      .order('start_time', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id,
+      employeeId: data.employee_id,
+      startTime: data.start_time,
+      endTime: data.end_time,
+      salesCount: Number(data.sales_count),
+      salesTotal: Number(data.sales_total),
+      status: data.status,
+    };
+  }
+
   static async createShift(payload: { id?: string; businessId: string; employeeId: string; startTime: string; title?: string; notes?: string; color?: string; }): Promise<Shift> {
     const supabase = getSupabase();
     const insertPayload = {
@@ -1062,9 +1089,7 @@ export class SupabaseService {
   start_time: payload.startTime,
   end_time: null,
   status: 'Active',
-  title: payload.title || null,
-  notes: payload.notes || null,
-  // color is UI only; not stored in DB
+  // title, notes and color are UI only; not stored in DB
 };
     const { data, error } = await supabase
       .from('shifts')

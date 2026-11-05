@@ -10,6 +10,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  enforceRateLimit,
 } from "../shared/cors.ts";
 
 /** Masks a Twilio auth token: first 4 + •••••••• + last 4 */
@@ -101,12 +102,12 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Invalid JSON payload", 400);
     }
-    const { action, businessId, activeRole, config, to, body } = reqBody;
+    const { action, businessId, config, to, body } = reqBody;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     // Verify tenant membership
-    const { errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
     if (!action) return errorResponse("action is required.", 400);
@@ -244,13 +245,19 @@ Deno.serve(async (req) => {
         body: `Test successful! Your ISMS  POS SMS integration via "${config.provider || "twilio"}" is active and validated.`,
       });
 
-      return jsonResponse({ success: testResult.success, ...testResult });
+      return jsonResponse(testResult);
 
     // ── SEND ─────────────────────────────────────────────────────────────
     } else if (action === "send") {
       if (!to || !body) {
         return errorResponse("'to' and 'body' are required to send an SMS.", 400);
       }
+
+      // Every SMS costs money, so a compromised or careless account can't drain the balance.
+      const limited =
+        (await enforceRateLimit(`sms:user:${userId}`, 200, 3600)) ||
+        (await enforceRateLimit(`sms:biz:${businessId}`, 1000, 86400));
+      if (limited) return limited;
 
       const { data: cfg } = await supabase
         .from("sms_settings")
@@ -271,13 +278,13 @@ Deno.serve(async (req) => {
         body,
       });
 
-      return jsonResponse({ success: sendResult.success, ...sendResult });
+      return jsonResponse(sendResult);
 
     } else {
       return errorResponse(`Unknown action: "${action}"`, 400);
     }
   } catch (err: any) {
     console.error("[sms-config] Critical error:", err);
-    return errorResponse(err.message || "Internal server error", 500);
+    return errorResponse("Something went wrong. Please try again.", 500);
   }
 });

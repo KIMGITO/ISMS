@@ -763,8 +763,6 @@ export default function BusinessDashboard() {
         customQuestion: targetQuestion || null
       });
 
-      console.log("AI Raw Payload Intercepted:", response);
-
       let resData = response;
       if (response && typeof response.json === "function") {
         resData = await response.json();
@@ -880,11 +878,11 @@ export default function BusinessDashboard() {
             Executive BI Intelligence
           </h1>
           <p className="text-xs text-app-text-muted mt-1 leading-relaxed">
-            Real-time revenues, operational logs, stock pipelines, active cashier shifts, and customer metrics.
+            Real time revenues, operational logs, stock , active  shifts, and customer metrics.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex  items-end gap-2 w-full md:w-auto">
           <button 
             id="refresh_metrics"
             onClick={handlePullToRefresh}
@@ -947,7 +945,6 @@ export default function BusinessDashboard() {
       <div className="bg-app-card border border-app-border rounded-3xl p-4 flex flex-col sm:flex-row items-center gap-3.5 shadow-xs">
         <div className="flex items-center gap-2 text-app-text font-extrabold text-xs shrink-0">
           <Search size={14} className="text-brand-500" />
-          Report Filter:
         </div>
         <div className="relative w-full">
           <input
@@ -1102,7 +1099,7 @@ export default function BusinessDashboard() {
           { id: "financials", label: "Financial Matrix", icon: CreditCard },
           { id: "inventory", label: "Stock & Pipeline", icon: Store },
           { id: "customers", label: "Customers & Reviews", icon: Users },
-          { id: "operations", label: "Staff & Sister Branches", icon: Briefcase }
+          { id: "operations", label: "Staff &  Branches", icon: Briefcase }
         ].map(tab => {
           const Icon = tab.icon;
           return (
@@ -1391,80 +1388,6 @@ export default function BusinessDashboard() {
                 </div>
               </div>
 
-              <div className="bg-app-card border border-app-border rounded-3xl p-5 shadow-xs space-y-4">
-                <div className="flex items-center gap-2 border-b border-app-border/40 pb-3">
-                  <MessageSquare className="text-brand-500 shrink-0" size={16} />
-                  <div>
-                    <h3 className="text-xs font-black text-app-text uppercase tracking-wider font-display">
-                      Interactive Corporate Q&A
-                    </h3>
-                    <p className="text-[10px] text-app-text-muted">
-                      Ask any questions about sales trends, restocking buffers, branch locations performance, or customer feedback.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    "Why are sales lower this month?",
-                    "Which products need restocking?",
-                    "Which branch is performing best?",
-                    "Why has customer growth slowed?",
-                    "How can I improve profits?"
-                  ].map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleAnalyzeWithAI(q)}
-                      className="px-3 py-2 bg-app-bg hover:bg-brand-500/10 hover:text-brand-500 border border-app-border hover:border-brand-500/20 text-app-text text-[10.5px] font-bold rounded-xl transition cursor-pointer"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-
-                {chatMessages.length > 0 && (
-                  <div className="bg-app-bg border border-app-border rounded-2xl p-4 max-h-[300px] overflow-y-auto space-y-3">
-                    {chatMessages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] rounded-2xl p-3 text-[11px] leading-relaxed ${
-                          msg.role === "user" 
-                            ? "bg-brand-500 text-slate-950 font-extrabold" 
-                            : "bg-app-card border border-app-border text-app-text font-medium"
-                        }`}>
-                          <span className="block text-[8.5px] uppercase tracking-widest opacity-60 mb-1 font-black">
-                            {msg.role === "user" ? "Me (Owner)" : "Kim AI Consultant"}
-                          </span>
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (customQuestion.trim()) handleAnalyzeWithAI();
-                  }}
-                  className="flex gap-2"
-                >
-                  <input
-                    id="qa_custom_input"
-                    type="text"
-                    placeholder="Type custom advisory question (e.g., 'What trends should I be concerned about?')..."
-                    value={customQuestion}
-                    onChange={(e) => setCustomQuestion(e.target.value)}
-                    className="w-full bg-app-bg text-[11px] font-medium px-4 py-3 rounded-2xl border border-app-border focus:border-brand-500 focus:outline-none text-app-text transition"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isAnalyzing || !customQuestion.trim()}
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-5 py-3 rounded-2xl transition shrink-0"
-                  >
-                    Ask
-                  </button>
-                </form>
-              </div>
             </div>
           )}
 
@@ -1476,18 +1399,18 @@ export default function BusinessDashboard() {
                   <h3 className="text-xs font-black text-app-text uppercase tracking-wider font-display mb-3">
                     Corporate Revenue & Payouts Ledger
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-3 grid  grid-cols-3 sm:grid-cols-1 gap-3">
                     <div className="flex items-center justify-between p-3 bg-app-bg border border-app-border rounded-xl text-xs">
                       <div>
-                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Gross Sales Revenue</span>
+                        <span className="text-app-text-muted  font-bold block uppercase text-[9px] tracking-wider">G. Revenue</span>
                         <span className="font-extrabold text-app-text font-mono mt-0.5 block">KSh {salesMetrics.totalSales.toLocaleString()}</span>
                       </div>
-                      <span className="text-emerald-500 font-extrabold font-sans">Credit Inflow</span>
+                      <span className="text-emerald-500 font-extrabold font-sans"> Inflow</span>
                     </div>
 
                     <div className="flex items-center justify-between p-3 bg-app-bg border border-app-border rounded-xl text-xs">
                       <div>
-                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Cost of Goods Sold (COGS)</span>
+                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">COGS</span>
                         <span className="font-extrabold text-red-500 font-mono mt-0.5 block">KSh {paymentMetrics.cogs.toLocaleString()}</span>
                       </div>
                       <span className="text-app-text-muted font-bold">Procurements</span>
@@ -1495,7 +1418,7 @@ export default function BusinessDashboard() {
 
                     <div className="flex items-center justify-between p-3 bg-app-bg border border-app-border rounded-xl text-xs">
                       <div>
-                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Logistics & Rider Payouts</span>
+                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Logistics </span>
                         <span className="font-extrabold text-red-500 font-mono mt-0.5 block">KSh {paymentMetrics.deliveryFees.toLocaleString()}</span>
                       </div>
                       <span className="text-app-text-muted font-bold">Delivery</span>
@@ -1503,7 +1426,7 @@ export default function BusinessDashboard() {
 
                     <div className="flex items-center justify-between p-3 bg-app-bg border border-app-border rounded-xl text-xs">
                       <div>
-                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Wages & Shift Salaries</span>
+                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Wages </span>
                         <span className="font-extrabold text-red-500 font-mono mt-0.5 block">KSh {paymentMetrics.wagesExpenses.toLocaleString()}</span>
                       </div>
                       <span className="text-app-text-muted font-bold">Labor</span>
@@ -1511,7 +1434,7 @@ export default function BusinessDashboard() {
 
                     <div className="flex items-center justify-between p-3 bg-app-bg border border-app-border rounded-xl text-xs">
                       <div>
-                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Utilities & Rent Reserve</span>
+                        <span className="text-app-text-muted font-bold block uppercase text-[9px] tracking-wider">Utilities </span>
                         <span className="font-extrabold text-red-500 font-mono mt-0.5 block">KSh {paymentMetrics.overheadExpenses.toLocaleString()}</span>
                       </div>
                       <span className="text-app-text-muted font-bold">Fixed Costs</span>
@@ -1801,7 +1724,7 @@ export default function BusinessDashboard() {
                           <Star key={star} size={12} fill={star <= Math.round(parseFloat(feedbackMetrics.averageRating)) ? "currentColor" : "none"} />
                         ))}
                       </div>
-                      <span className="text-[9.5px] text-app-text-muted block mt-1 font-bold">Based on {feedbackMetrics.total} comments</span>
+                      <span className="text-[9.5px] text-app-text-muted block mt-1 font-base">Based on {feedbackMetrics.total} comments</span>
                     </div>
                   </div>
 
@@ -1833,7 +1756,7 @@ export default function BusinessDashboard() {
 
                   <div className="grid grid-cols-2 gap-3 my-4">
                     <div className="bg-red-500/5 border border-red-500/10 rounded-2xl p-3 text-center">
-                      <span className="text-[8.5px] font-black text-red-500 uppercase tracking-wider block">Open Complaints</span>
+                      <span className="text-[8.5px] font-black text-red-500 uppercase tracking-wider block"> Complaints</span>
                       <span className="text-2xl font-extrabold text-red-500 font-mono block mt-1">{feedbackMetrics.openCount}</span>
                     </div>
                     <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-3 text-center">
@@ -1843,7 +1766,7 @@ export default function BusinessDashboard() {
                   </div>
 
                   <span className="text-[9px] text-app-text-muted block font-bold leading-relaxed">
-                    SLA policy: target resolution within 12 hours of callback logging.
+                    SLA policy: target resolution within 48 hours of registration.
                   </span>
                 </div>
               </div>
@@ -1970,7 +1893,7 @@ export default function BusinessDashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-app-border/40 pb-3 mb-4">
                   <div>
                     <h3 className="text-xs font-black text-app-text uppercase tracking-wider font-display">
-                      Workforce & Cashier Shift Activity
+                      Workforce &  Shift Activity
                     </h3>
                     <p className="text-[10px] text-app-text-muted mt-0.5">
                       Shift punch-ins, staff checkout speed logs, and daily duty checklist completions.

@@ -1,3 +1,4 @@
+import { toUserMessage } from "../utils/userError";
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { 
@@ -166,7 +167,7 @@ export default function BusinessManagementView() {
       setExpDescription("");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", err.message || "Failed to record expense.", undefined, "error");
+      showToast("Error", toUserMessage(err, "Failed to record expense."), undefined, "error");
     } finally {
       setExpenseSubmitting(false);
     }
@@ -180,7 +181,7 @@ export default function BusinessManagementView() {
       showToast("Error", "Amount must be a positive number.", undefined, "error");
       return;
     }
-    if (!payRef.trim()) {
+    if (!payRef.trim() && payMethod !== 'Cash') {
       showToast("Error", "Reference code is required.", undefined, "error");
       return;
     }
@@ -230,7 +231,7 @@ export default function BusinessManagementView() {
       setPaySearchQuery("");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", err.message || "Failed to record payment.", undefined, "error");
+      showToast("Error", toUserMessage(err, "Failed to record payment."), undefined, "error");
     } finally {
       setPaymentSubmitting(false);
     }
@@ -331,7 +332,7 @@ export default function BusinessManagementView() {
       showToast("Workspace Synced", "Business configuration has been updated.", undefined, "success");
     } catch (err: any) {
       console.error("Failed to update business configuration:", err);
-      showToast("Update Failed", err.message || "Failed to update business details.", undefined, "error");
+      showToast("Update Failed", toUserMessage(err, "Failed to update business details."), undefined, "error");
     } finally {
       setLoading(false);
     }
@@ -354,7 +355,7 @@ export default function BusinessManagementView() {
       showToast("Deleted", "Expense record deleted successfully.", undefined, "success");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", err.message || "Failed to delete expense.", undefined, "error");
+      showToast("Error", toUserMessage(err, "Failed to delete expense."), undefined, "error");
     }
   };
 
@@ -367,7 +368,7 @@ export default function BusinessManagementView() {
       showToast("Deleted", "Payment record deleted successfully.", undefined, "success");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", err.message || "Failed to delete payment.", undefined, "error");
+      showToast("Error", toUserMessage(err, "Failed to delete payment."), undefined, "error");
     }
   };
 
@@ -1621,7 +1622,6 @@ export default function BusinessManagementView() {
                                   'Cash': <Banknote size={14} className="text-amber-500" />,
                                   'Card': <CreditCard size={14} className="text-blue-500" />,
                                   'Bank': <Landmark size={14} className="text-violet-500" />,
-                                  'Mobile_Wallet': <Wallet size={14} className="text-emerald-500" />,
                                   'Other': <CircleDollarSign size={14} className="text-slate-500" />,
                                 };
                                 return (
@@ -1696,11 +1696,11 @@ export default function BusinessManagementView() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div className="flex flex-col gap-1.5 sm:col-span-2">
                             <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                              Reference Code / M-Pesa ID *
+                              Reference Code / M-Pesa ID 
                             </label>
                             <input
                               type="text"
-                              required
+                              required={payMethod != 'Cash'}
                               placeholder="e.g. SXK2M9Q1TZ"
                               value={payRef}
                               onChange={(e) => setPayRef(e.target.value)}

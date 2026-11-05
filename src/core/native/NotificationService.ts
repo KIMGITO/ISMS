@@ -35,7 +35,7 @@ class NotificationService {
     try {
       // Token registration success
       PushNotifications.addListener("registration", (token) => {
-        console.log("[PushNotifications] FCM token received:", token.value);
+        console.log("[PushNotifications] Device registered for push.");
         this.currentPushToken = token.value;
         this.registrationListeners.forEach((l) => l(token.value));
 

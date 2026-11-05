@@ -735,14 +735,14 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
 
     // 21. Search Notifications
     notifications.forEach(n => {
-      const matchSender = getRelevance(n.sender || "System", lower);
+      const matchSender = getRelevance(n.title || "System", lower);
       const matchMsg = getRelevance(n.message, lower);
       const score = Math.max(matchSender, matchMsg);
       if (score > 0) {
         matched.push({
           id: `notif-${n.id}`,
-          title: `Alert: ${n.sender || "System"}`,
-          subtitle: `"${n.message.slice(0, 75)}..." · Time: ${new Date(n.timestamp).toLocaleTimeString()}`,
+          title: `Alert: ${n.title || "System"}`,
+          subtitle: `"${n.message.slice(0, 75)}..." · Time: ${new Date(n.created_at).toLocaleTimeString()}`,
           category: "Notifications",
           businessName: activeBizName,
           relevance: score,
