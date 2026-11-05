@@ -80,7 +80,8 @@ export default function SearchableDropdown({
             transition={{ duration: 0.15 }}
             className="absolute z-[100] mt-1.5 w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-60"
           >
-            {/* Search Input Box */}
+            {/* Short lists don't need searching. */}
+            {items.length > 6 && (
             <div className="p-2 border-b border-app-border/40 flex items-center gap-2 bg-app-bg/50 shrink-0">
               <Search size={13} className="text-app-text-muted shrink-0" />
               <input
@@ -92,6 +93,7 @@ export default function SearchableDropdown({
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
+            )}
 
             {/* Scrollable List */}
             <div className="flex-1 overflow-y-auto max-h-48 py-1">

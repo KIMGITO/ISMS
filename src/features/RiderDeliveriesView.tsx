@@ -1,6 +1,7 @@
 // src/features/RiderDeliveriesView.tsx
 // A rider's own deliveries and history. The database only returns deliveries assigned to them.
 
+import { Tabs } from '../components/TabOptions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapPin, Phone, Truck } from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
@@ -116,21 +117,14 @@ export default function RiderDeliveriesView() {
           </div>
         </dl>
 
-        <div className="grid grid-cols-2 gap-2">
-          {(['active', 'history'] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              aria-pressed={tab === id}
-              className={`min-h-11 rounded-xl border text-sm font-semibold ${
-                tab === id ? 'border-amber-500 bg-amber-500/10' : 'border-app-border'
-              }`}
-            >
-              {id === 'active' ? `To deliver (${active.length})` : `History (${history.length})`}
-            </button>
-          ))}
-        </div>
+        <Tabs<typeof tab>
+          tabs={[
+            { id: 'active' as const, label: 'To deliver', badge: active.length },
+            { id: 'history' as const, label: 'History', badge: history.length },
+          ]}
+          activeTab={tab}
+          onChange={setTab}
+        />
 
         {deliveries === null && <p className="text-sm text-app-text-muted">Loading deliveries…</p>}
         {deliveries !== null && visible.length === 0 && (

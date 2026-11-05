@@ -12,6 +12,7 @@ import { useForm } from "../hooks/useForm";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency, formatDate } from "../utils/helpers";
 import SearchableDropdown from "../components/SearchableDropdown";
+import { Tabs } from "../components/TabOptions";
 import { titleCase, searchMatch, getFirstName } from "../utils/stringUtils";
 import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { formatCustomerNumber, formatReceiptNumber } from "../utils/idUtils";
@@ -618,23 +619,19 @@ export default function CustomersView() {
               className="w-full bg-app-bg text-xs pl-9 pr-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-app-text transition"
             />
           </div>
-          <select
-            aria-label="Filter customers by group"
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
-            className="mt-2 w-full bg-app-bg text-xs px-3 py-2.5 rounded-xl border border-app-border text-app-text"
-          >
-            <option value="all">All customers</option>
-            <optgroup label="Customer type">
-              {Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => <option key={value} value={`customerType:${value}`}>{label}</option>)}
-            </optgroup>
-            <optgroup label="Payment terms">
-              {Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => <option key={value} value={`paymentTerms:${value}`}>{label}</option>)}
-            </optgroup>
-            <optgroup label="Delivery schedule">
-              {Object.entries(DELIVERY_FREQUENCY_LABELS).map(([value, label]) => <option key={value} value={`deliveryFrequency:${value}`}>{label}</option>)}
-            </optgroup>
-          </select>
+          <SearchableDropdown
+            className="mt-2"
+            items={[
+              { id: 'all', label: 'All customers' },
+              ...Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => ({ id: `customerType:${value}`, label, sublabel: 'Customer type' })),
+              ...Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => ({ id: `paymentTerms:${value}`, label, sublabel: 'Payment terms' })),
+              ...Object.entries(DELIVERY_FREQUENCY_LABELS).map(([value, label]) => ({ id: `deliveryFrequency:${value}`, label, sublabel: 'Delivery schedule' })),
+            ]}
+            selectedValue={groupFilter}
+            onChange={setGroupFilter}
+            placeholder="Filter customers by group"
+            searchPlaceholder="Search groups"
+          />
         </div>
 
         {/* Member list scroll container */}
@@ -828,36 +825,25 @@ export default function CustomersView() {
 
             {/* Tabbed workspace panels */}
             <div className="bg-app-card border border-app-border rounded-3xl p-4 flex-1 flex flex-col overflow-y-auto lg:overflow-hidden shadow-xs">
-              {/* Navigation Tabs Bar */}
-              <div className="flex gap-1 border-b border-app-border pb-2.5 mb-3.5 shrink-0 overflow-x-auto scrollbar-none select-none">
-                {[
+              <Tabs<typeof activeDetailTab>
+                tabs={[
                   { id: 'overview', label: 'Overview & Profile' },
                   { id: 'history', label: 'History Events' },
                   { id: 'ledger', label: 'Wallet & Debt Ledger' },
                   { id: 'message', label: 'Outreach & Messages' },
-                  { id: 'invoice', label: 'Custom Invoice' },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setActiveDetailTab(t.id as any);
-                      setSuccessMsg('');
-                    }}
-                    className={`px-3.5 py-2 rounded-xl text-[10.5px] font-extrabold uppercase tracking-wide shrink-0 transition border cursor-pointer ${
-                      activeDetailTab === t.id
-                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/25'
-                        : 'bg-app-bg border-transparent text-app-text-muted hover:text-app-text hover:bg-app-bg'
-                    }`}
-                  >
-                    {t.id === 'invoice' &&
-                      activeInvoiceData &&
-                      activeInvoiceData.customerId === selectedCustomer.id && (
-                        <span className="inline-block w-1.5 h-1.5 bg-red-500 rounded-full animate-ping mr-1.5" />
-                      )}
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+                  {
+                    id: 'invoice',
+                    label: 'Custom Invoice',
+                    dot: !!activeInvoiceData && activeInvoiceData.customerId === selectedCustomer.id,
+                  },
+                ]}
+                activeTab={activeDetailTab}
+                onChange={(tab) => {
+                  setActiveDetailTab(tab);
+                  setSuccessMsg('');
+                }}
+                className="!pb-2.5 mb-3.5 shrink-0"
+              />
 
               {/* Scrollable Viewport */}
               <div className="flex-1 overflow-y-auto pb-12 font-semibold">
@@ -1581,15 +1567,17 @@ export default function CustomersView() {
 
                       {/* Date Range & Search Input */}
                       <div className="flex items-center gap-2">
-                        <select
-                          value={historyDateRange}
-                          onChange={(e) => setHistoryDateRange(e.target.value as any)}
-                          className="bg-app-card border border-app-border rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-app-text focus:outline-none focus:border-amber-500"
-                        >
-                          <option value="all">All Time</option>
-                          <option value="7days">Last 7 Days</option>
-                          <option value="30days">Last 30 Days</option>
-                        </select>
+                        <SearchableDropdown
+                          className="sm:w-36"
+                          items={[
+                            { id: 'all', label: 'All Time' },
+                            { id: '7days', label: 'Last 7 Days' },
+                            { id: '30days', label: 'Last 30 Days' },
+                          ]}
+                          selectedValue={historyDateRange}
+                          onChange={(value) => setHistoryDateRange(value as typeof historyDateRange)}
+                          placeholder="Date range"
+                        />
 
                         <div className="relative flex-1 sm:w-44">
                           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted" />

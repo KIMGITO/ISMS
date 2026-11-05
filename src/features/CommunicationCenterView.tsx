@@ -587,17 +587,18 @@ export default function CommunicationCenterView() {
 
             <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
               Send by
-              <select
-                value={sendMode}
-                onChange={(e) => setSendMode(e.target.value as typeof sendMode)}
-                className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
-              >
-                <option value="auto">Automatic: WhatsApp API, then SMS</option>
-                <option value="whatsapp">WhatsApp API</option>
-                <option value="sms">SMS</option>
-                <option value="email">Email</option>
-                <option value="manual">By hand: open each WhatsApp chat</option>
-              </select>
+              <SearchableDropdown
+                items={[
+                  { id: 'auto', label: 'Automatic: WhatsApp API, then SMS' },
+                  { id: 'whatsapp', label: 'WhatsApp API' },
+                  { id: 'sms', label: 'SMS' },
+                  { id: 'email', label: 'Email' },
+                  { id: 'manual', label: 'By hand: open each WhatsApp chat' },
+                ]}
+                selectedValue={sendMode}
+                onChange={(value) => setSendMode(value as typeof sendMode)}
+                placeholder="How to send"
+              />
             </label>
 
             <button

@@ -1,24 +1,25 @@
 import { ReactNode } from 'react';
-import { BookOpen } from 'lucide-react';
 import { Article } from '../api';
+import { articlePhoto, PHOTOS, photoUrl } from '../images';
 import { useStorefront } from '../store';
-import { cardClass, formatDate, Notice, pageClass } from '../ui';
+import { cardClass, formatDate, Notice, PageHero, pageClass } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 export function ArticleCard({ article }: { article: Article }) {
   return (
-    <li className={`${cardClass} overflow-hidden`}>
+    <li className={`${cardClass} card-lift overflow-hidden`}>
       <a href={`/articles/${article.slug}`} className="flex h-full flex-col">
-        {article.coverImageUrl ? (
-          <img src={article.coverImageUrl} alt="" loading="lazy" className="aspect-[16/9] w-full object-cover" />
-        ) : (
-          <div className="grid aspect-[16/9] place-items-center bg-amber-50">
-            <BookOpen size={36} className="text-brand/60" aria-hidden />
-          </div>
-        )}
+        <div className="aspect-[4/3] overflow-hidden bg-sand">
+          <img
+            src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 800, 600)}
+            alt=""
+            loading="lazy"
+            className="size-full object-cover"
+          />
+        </div>
         <div className="p-5">
-          <p className="text-sm font-medium text-brand-deep">{article.category}</p>
-          <h3 className="mt-1 text-xl font-semibold">{article.title}</h3>
+          <p className="eyebrow">{article.category}</p>
+          <h3 className="mt-2 font-display text-2xl leading-tight">{article.title}</h3>
           <p className="mt-2 line-clamp-3 text-muted">{article.summary}</p>
         </div>
       </a>
@@ -55,7 +56,7 @@ function ArticleBody({ body }: { body: string }) {
     }
   }
   flush();
-  return <div className="mt-6 space-y-4 text-lg leading-relaxed">{blocks}</div>;
+  return <div className="article-body mt-6 space-y-4 text-lg leading-relaxed">{blocks}</div>;
 }
 
 export default function ArticlesPage({ slug }: { slug?: string }) {
@@ -73,10 +74,14 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
     return (
       <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides', href: '/articles' }, { label: article.title }]} />
-        <p className="mt-4 text-sm font-medium text-brand-deep">{article.category}</p>
-        <h1 className="mt-1 text-4xl font-bold leading-tight sm:text-5xl">{article.title}</h1>
+        <p className="eyebrow mt-4">{article.category}</p>
+        <h1 className="display-lg mt-2">{article.title}</h1>
         {article.publishedAt && <p className="mt-3 text-muted">{formatDate(article.publishedAt)}</p>}
-        {article.coverImageUrl && <img src={article.coverImageUrl} alt="" className="mt-6 w-full rounded-xl" />}
+        <img
+          src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 1200, 700)}
+          alt=""
+          className="mt-6 aspect-[12/7] w-full bg-sand object-cover"
+        />
         {article.summary && <p className="mt-6 text-xl leading-relaxed text-muted">{article.summary}</p>}
         <ArticleBody body={article.body} />
       </article>
@@ -84,10 +89,16 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
   }
 
   return (
-    <div className={pageClass}>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides' }]} />
-      <h1 className="mt-2 text-4xl font-bold">Milk guides</h1>
-      <p className="mt-3 max-w-2xl text-lg text-muted">How to store, handle and enjoy your milk.</p>
+    <>
+      <PageHero
+        eyebrow="Milk care"
+        title="Milk Guides"
+        body="How to store, handle and enjoy your milk."
+        photo={PHOTOS.bottleTray}
+      >
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides' }]} />
+      </PageHero>
+      <div className={pageClass}>
       {articles.length > 0 ? (
         <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {articles.map((article) => <ArticleCard key={article.id} article={article} />)}
@@ -97,6 +108,7 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
           Our first guides are coming soon.
         </p>
       )}
-    </div>
+      </div>
+    </>
   );
 }

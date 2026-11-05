@@ -10,6 +10,7 @@ import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { validatePhone, normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { hasRolePermission } from "../utils/permissions";
 import SearchableDropdown from "../components/SearchableDropdown";
+import { Tabs } from "../components/TabOptions";
 import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
 
@@ -763,52 +764,15 @@ export default function BusinessManagementView() {
             </form>
           ) : activeBiz ? (
             <div className="space-y-5">
-              {/* Tab Selector */}
-              <div className="flex bg-app-card border border-app-border rounded-2xl p-1 shadow-xs gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('details')}
-                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-                    activeSubTab === 'details'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
-                  }`}
-                >
-                  <Building size={16} className="shrink-0" />
-                  <span>
-                    <span className="hidden xs:inline sm:inline">
-                      Business{' '}
-                    </span>
-                    Details
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('expenses')}
-                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-                    activeSubTab === 'expenses'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
-                  }`}
-                >
-                  <Receipt size={16} className="shrink-0" />
-                  <span>Expenses</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('payments')}
-                  className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap ${
-                    activeSubTab === 'payments'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-app-text-muted hover:text-app-text hover:bg-app-bg/50'
-                  }`}
-                >
-                  <CreditCard size={16} className="shrink-0" />
-                  <span>Payments</span>
-                </button>
-              </div>
+              <Tabs<typeof activeSubTab>
+                tabs={[
+                  { id: 'details', label: 'Details', icon: <Building size={14} /> },
+                  { id: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
+                  { id: 'payments', label: 'Payments', icon: <CreditCard size={14} /> },
+                ]}
+                activeTab={activeSubTab}
+                onChange={setActiveSubTab}
+              />
 
               {activeSubTab === 'details' && (
                 <form
@@ -1235,19 +1199,19 @@ export default function BusinessManagementView() {
                       <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
                         Payment Method / Source *
                       </label>
-                      <select
-                        required
-                        value={expPaymentMethod}
-                        onChange={(e) => setExpPaymentMethod(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      >
-                        <option value="Cash">Cash</option>
-                        <option value="M-Pesa">M-Pesa</option>
-                        <option value="Card">Card</option>
-                        <option value="Bank">Bank</option>
-                        <option value="Mobile_Wallet">Mobile Wallet</option>
-                        <option value="Other">Other</option>
-                      </select>
+                      <SearchableDropdown
+                        items={[
+                          { id: 'Cash', label: 'Cash' },
+                          { id: 'M-Pesa', label: 'M-Pesa' },
+                          { id: 'Card', label: 'Card' },
+                          { id: 'Bank', label: 'Bank' },
+                          { id: 'Mobile_Wallet', label: 'Mobile Wallet' },
+                          { id: 'Other', label: 'Other' },
+                        ]}
+                        selectedValue={expPaymentMethod}
+                        onChange={setExpPaymentMethod}
+                        placeholder="Choose a payment method"
+                      />
                     </div>
 
                       </label>

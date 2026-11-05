@@ -1,4 +1,5 @@
 // src/features/NotificationsView.tsx
+import { Tabs } from "../components/TabOptions";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppNotification } from "../types";
 import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
@@ -568,38 +569,12 @@ export default function NotificationsView() {
       {/* ===================== Tabs ===================== */}
       {view === "feed" ? (
         <div className="shrink-0 px-3 md:px-6 pb-2">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {TAB_DEFS.map((t) => {
-              const active = tab === t.id;
-              const count = tabCount(t.id);
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  aria-pressed={active}
-                  className={`relative shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
-                    active ? "text-amber-500" : "text-app-text-muted hover:text-app-text"
-                  }`}
-                >
-                  {t.label}
-                  {count > 0 && (
-                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${
-                      active ? "bg-amber-500/15 text-amber-500" : "bg-app-card text-app-text-muted"
-                    }`}>
-                      {count > 99 ? "99+" : count}
-                    </span>
-                  )}
-                  {active && (
-                    <motion.div
-                      layoutId="notif-tab-pill"
-                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                      className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full bg-amber-500"
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <Tabs<TabId>
+            tabs={TAB_DEFS.map((t) => ({ id: t.id, label: t.label, badge: tabCount(t.id) }))}
+            activeTab={tab}
+            onChange={setTab}
+            className="!pb-2"
+          />
         </div>
       ) : null}
 
