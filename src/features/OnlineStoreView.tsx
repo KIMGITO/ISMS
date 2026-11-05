@@ -84,6 +84,9 @@ interface StaffOrder {
   needs_attention: boolean;
   attention_reason: string | null;
   created_at: string;
+  rider_id: string | null;
+  points_used: number;
+  points_value: number;
   online_order_items: { id: string; product_name: string; unit: string; quantity: number }[];
 }
 
@@ -140,6 +143,9 @@ function useReportError() {
 
 function OrdersTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
+  const riders = useAuthStore((s) => s.employees).filter((e) => e.role === 'Rider');
+  const role = useAuthStore((s) => s.currentEmployee?.role);
+  const canAssignRider = role ? hasRolePermission(role, 'orders.assign_rider') : false;
   const [orders, setOrders] = useState<StaffOrder[] | null>(null);
   const [filter, setFilter] = useState<'active' | 'unpaid' | 'all'>('active');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -206,6 +212,27 @@ function OrdersTab({ businessId }: { businessId: string }) {
                   {STATUS_LABELS[order.status] ?? order.status}
                 </span>
               </div>
+              {order.fulfilment === 'delivery' && ['paid', 'preparing', 'out_for_delivery'].includes(order.status) && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-app-text">
+                  Rider
+                  <select
+                    value={order.rider_id ?? ''}
+                    disabled={!canAssignRider || busyId === order.id}
+                    onChange={(e) =>
+                      runAction(order.id, () =>
+                        getSupabase().rpc('staff_assign_rider', { p_order_id: order.id, p_rider_id: e.target.value || null }),
+                      )
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Not assigned</option>
+                    {riders.map((rider) => <option key={rider.id} value={rider.id}>{rider.name}</option>)}
+                  </select>
+                </label>
+              )}
+              {order.points_used > 0 && (
+                <p className="mt-2 text-sm text-app-text-muted">Paid {order.points_used} points (Ksh {order.points_value}) towards this order.</p>
+              )}
               <p className="mt-1 text-xs text-app-text-muted">{formatWhen(order.created_at)}</p>
               <p className="mt-2 text-sm text-app-text">
                 {order.customer_name} · <a className="underline" href={`tel:${order.customer_phone}`}>{order.customer_phone}</a>

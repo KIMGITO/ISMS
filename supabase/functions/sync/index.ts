@@ -10,6 +10,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  requirePermission,
 } from "../shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -33,6 +34,9 @@ Deno.serve(async (req) => {
 
       const { errorResponse: authError } = await verifyUserMembership(req, businessId);
       if (authError) return authError;
+
+      const forbidden = await requirePermission(req, businessId, "pos.create_sale");
+      if (forbidden) return forbidden;
 
       const { data, error } = await supabase
         .from("offline_sync_queue")
@@ -69,6 +73,9 @@ Deno.serve(async (req) => {
 
       const { errorResponse: authError } = await verifyUserMembership(req, businessId);
       if (authError) return authError;
+
+      const forbidden = await requirePermission(req, businessId, "pos.create_sale");
+      if (forbidden) return forbidden;
 
       if (!Array.isArray(transactions)) {
         return errorResponse("transactions must be an array.", 400);

@@ -9,6 +9,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
@@ -41,6 +42,9 @@ Deno.serve(async (req) => {
     // Verify tenant membership
     const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
+
+    const forbidden = await requirePermission(req, businessId, "ai.use");
+    if (forbidden) return forbidden;
 
     // Per person and per business, because every AI call costs the business money.
     const limited =

@@ -10,6 +10,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
 
@@ -252,6 +253,9 @@ Deno.serve(async (req) => {
       if (!to || !body) {
         return errorResponse("'to' and 'body' are required to send an SMS.", 400);
       }
+
+      const forbidden = await requirePermission(req, businessId, "communication.send", "pos.create_sale");
+      if (forbidden) return forbidden;
 
       // Every SMS costs money, so a compromised or careless account can't drain the balance.
       const limited =

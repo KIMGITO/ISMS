@@ -87,7 +87,7 @@ export async function verifyUserMembership(
     const {
       data: { user },
       error: authError,
-    } = await supabaseUserClient.auth.getUser();
+    } = await supabaseUserClient.auth.getUser(rawToken);
 
     if (authError || !user) {
       return {
@@ -156,6 +156,23 @@ export function createUserClient(req: Request) {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/** Returns a 403 response unless the caller's role holds one of these permissions, or null to continue. */
+export async function requirePermission(
+  req: Request,
+  businessId: string,
+  ...permissions: string[]
+): Promise<Response | null> {
+  const { data, error } = await createUserClient(req).rpc("has_permission", {
+    p_business_id: businessId,
+    p_permissions: permissions,
+  });
+  if (error) {
+    console.error("[cors] Permission check failed:", error.code);
+    return errorResponse("We couldn't check your access. Please try again.", 500, "PERMISSION_CHECK_ERROR");
+  }
+  return data === true ? null : errorResponse("Your role does not allow this.", 403, "FORBIDDEN");
 }
 
 /**

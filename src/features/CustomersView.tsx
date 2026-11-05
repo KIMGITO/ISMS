@@ -180,6 +180,7 @@ export default function CustomersView() {
 
   // Centralized permission validations
   const canViewCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.view") : false;
+  const canAdjustPoints = currentEmployee ? hasRolePermission(currentEmployee.role, "loyalty.adjust") : false;
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
 
@@ -197,7 +198,6 @@ export default function CustomersView() {
       phone: "",
       email: "",
       tier: "Bronze" as "Bronze" | "Silver" | "Gold",
-      startingPoints: 10,
       description: "",
     },
     validate: (vals) => {
@@ -219,7 +219,7 @@ export default function CustomersView() {
           name: vals.name,
           phone: normalizePhone(vals.phone, selectedCountryCode),
           email: vals.email || "no-email@kaykays.com",
-          loyaltyPoints: vals.startingPoints,
+          loyaltyPoints: 0,
           tier: vals.tier,
           description: vals.description,
           ...newGroups,
@@ -925,6 +925,7 @@ export default function CustomersView() {
                           <input
                             type="number"
                             value={editPoints}
+                            disabled={!canAdjustPoints}
                             onChange={(e) =>
                               setEditPoints(parseInt(e.target.value) || 0)
                             }
@@ -2383,20 +2384,6 @@ export default function CustomersView() {
                         } as any)
                       }
                       placeholder="Select starting tier..."
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
-                      Starting Points
-                    </label>
-                    <input
-                      type="number"
-                      name="startingPoints"
-                      inputMode="numeric"
-                      value={values.startingPoints}
-                      onChange={handleChange}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 h-[38px] font-mono font-bold"
                     />
                   </div>
                 </div>
