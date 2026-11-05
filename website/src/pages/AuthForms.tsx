@@ -4,7 +4,15 @@ import { createAccount, friendlyError, supabase } from '../api';
 import { useAuth } from '../store';
 import { ErrorText, fieldClass, pageClass, primaryButton, secondaryButton } from '../ui';
 
-type Mode = 'signin' | 'signup' | 'forgot';
+type Mode = 'signin' | 'signup' | 'forgot' | 'phone';
+
+// Each sign-in option only works once it's set up in Supabase, so it's listed here when it is.
+const ENABLED_PROVIDERS = (import.meta.env.VITE_AUTH_PROVIDERS ?? '').split(',').map((p: string) => p.trim());
+
+const toE164 = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  return digits.startsWith('254') ? `+${digits}` : `+254${digits.replace(/^0/, '')}`;
+};
 
 /** Same rule as fn_normalize_ke_phone in the database. */
 const isKenyanMobile = (phone: string) => /^(254|0)?[17]\d{8}$/.test(phone.replace(/\D/g, ''));
@@ -18,6 +26,42 @@ export function AuthForms() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+
+  const signInWith = async (provider: 'google' | 'apple') => {
+    setError('');
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/account` },
+    });
+    if (authError) setError("We couldn't open that sign-in. Please try another way.");
+  };
+
+  const handlePhone = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!isKenyanMobile(phone)) {
+      setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (!codeSent) {
+        const { error: authError } = await supabase.auth.signInWithOtp({
+          phone: toE164(phone),
+          options: { data: { account_type: 'customer' } },
+        });
+        if (authError) setError("We couldn't send the code. Please try again shortly.");
+        else setCodeSent(true);
+      } else {
+        const { error: authError } = await supabase.auth.verifyOtp({ phone: toE164(phone), token: code, type: 'sms' });
+        if (authError) setError('That code is not right, or it has expired.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -61,7 +105,7 @@ export function AuthForms() {
     }
   };
 
-  const titles = { signin: 'Sign in', signup: 'Create your account', forgot: 'Reset your password' };
+  const titles = { signin: 'Sign in', signup: 'Create your account', forgot: 'Reset your password', phone: 'Use your phone number' };
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-10 sm:px-6 sm:py-14">
@@ -77,6 +121,23 @@ export function AuthForms() {
             Back to sign in
           </button>
         </div>
+      ) : mode === 'phone' ? (
+        <form onSubmit={handlePhone} className="mt-8 space-y-4">
+          <label className="block font-medium">
+            Phone number
+            <input required type="tel" autoComplete="tel" placeholder="0712 345 678" value={phone} disabled={codeSent} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          </label>
+          {codeSent && (
+            <label className="block font-medium">
+              Code we sent you
+              <input required inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} className={fieldClass} />
+            </label>
+          )}
+          <ErrorText>{error}</ErrorText>
+          <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>
+            {busy ? 'Please wait…' : codeSent ? 'Sign in' : 'Send me a code'}
+          </button>
+        </form>
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {mode === 'signup' && (
@@ -114,6 +175,19 @@ export function AuthForms() {
             {busy ? 'Please wait…' : titles[mode]}
           </button>
         </form>
+      )}
+      {!done && (mode === 'signin' || mode === 'signup') && (
+        <div className="mt-6 space-y-2">
+          {ENABLED_PROVIDERS.includes('phone') && (
+            <button onClick={() => setMode('phone')} className={`${secondaryButton} w-full`}>Continue with phone number</button>
+          )}
+          {ENABLED_PROVIDERS.includes('google') && (
+            <button onClick={() => signInWith('google')} className={`${secondaryButton} w-full`}>Continue with Google</button>
+          )}
+          {ENABLED_PROVIDERS.includes('apple') && (
+            <button onClick={() => signInWith('apple')} className={`${secondaryButton} w-full`}>Continue with Apple</button>
+          )}
+        </div>
       )}
       {!done && (
         <div className="mt-6 space-y-1 text-center">

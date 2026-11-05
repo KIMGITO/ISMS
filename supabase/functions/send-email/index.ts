@@ -171,6 +171,13 @@ function getEmailTemplate(type: string, vars: Record<string, any>): { subject: s
       break;
     }
 
+    case "customer_message": {
+      const escaped = String(vars.body ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      subject = `A message from ${appName}`;
+      html = `<p style="white-space:pre-wrap;font-family:sans-serif">${escaped}</p>`;
+      break;
+    }
+
     default: {
       subject = `${appName} Notification`;
       html = `<p>You have a new notification from ${appName}.</p>`;

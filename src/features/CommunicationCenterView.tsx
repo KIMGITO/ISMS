@@ -1,3 +1,4 @@
+import { Customer } from "../types";
 import React, { useState, useMemo, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { useBusinessStore } from "../stores/businessStore";
@@ -45,6 +46,8 @@ export default function CommunicationCenterView() {
   const [filterDebt, setFilterDebt] = useState<string>("All");
   const [filterActive, setFilterActive] = useState<string>("All");
 
+  const [sendMode, setSendMode] = useState<"auto" | "whatsapp" | "sms" | "email" | "manual">("auto");
+  const [manualQueue, setManualQueue] = useState<Customer[]>([]);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const [messageTemplate, setMessageTemplate] = useState("Hello {first_name}, from {business_name}. ");
 
@@ -147,6 +150,25 @@ export default function CommunicationCenterView() {
       .replace(/{business_name}/g, businessName);
   };
 
+  const sendThrough = async (channel: "whatsapp" | "sms" | "email", customer: Customer, body: string): Promise<boolean> => {
+    if (channel === "email") {
+      if (!customer.email || customer.email === "no-email@kaykays.com") return false;
+      await SupabaseService.callEdgeFunction("send-email", {
+        to: customer.email,
+        type: "customer_message",
+        variables: { body },
+      });
+      return true;
+    }
+    const result = await SupabaseService.callEdgeFunction(channel === "whatsapp" ? "whatsapp-config" : "sms-config", {
+      action: "send",
+      businessId: activeBusinessId,
+      to: customer.phone,
+      body,
+    });
+    return !!result?.success;
+  };
+
   const handleSendBulk = async () => {
     if (selectedCustomerIds.size === 0) {
       showToast("Validation", "Select at least one customer.", undefined, "error");
@@ -159,43 +181,45 @@ export default function CommunicationCenterView() {
 
     const selectedCustomers = customers.filter(c => selectedCustomerIds.has(c.id));
 
-    // SMS sends the whole list. Without SMS, WhatsApp needs a tap per customer on the device.
+    if (sendMode === "manual") {
+      setManualQueue(selectedCustomers);
+      handleDeselectAll();
+      return;
+    }
+
+    // Automatic tries WhatsApp then SMS. Whoever can't be reached goes to the by-hand list.
+    const channels: ("whatsapp" | "sms" | "email")[] = sendMode === "auto" ? ["whatsapp", "sms"] : [sendMode];
+    const unsent: Customer[] = [];
     let sent = 0;
-    let smsAvailable = true;
     showToast("Sending Messages", `Sending to ${selectedCustomers.length} customers...`, undefined, "info");
 
     for (const customer of selectedCustomers) {
-      try {
-        const result = await SupabaseService.callEdgeFunction("sms-config", {
-          action: "send",
-          businessId: activeBusinessId,
-          to: customer.phone,
-          body: generateMessage(customer),
-        });
-        if (result?.success) sent++;
-      } catch (err) {
-        console.error("Bulk SMS failed:", err);
-        smsAvailable = false;
-        break;
+      let delivered = false;
+      for (const channel of channels) {
+        try {
+          delivered = await sendThrough(channel, customer, generateMessage(customer));
+        } catch (err) {
+          console.error(`Sending by ${channel} failed:`, err);
+        }
+        if (delivered) break;
       }
+      if (delivered) sent++;
+      else unsent.push(customer);
     }
 
-    if (!smsAvailable && sent === 0) {
-      const first = selectedCustomers[0];
-      await ReceiptShareService.shareTextViaWhatsApp(first.phone, generateMessage(first));
-      showToast(
-        "SMS Not Available",
-        `Opened WhatsApp for ${first.name} only. Set up SMS in Settings to message everyone at once.`,
-        undefined,
-        "info",
-      );
-    } else if (sent === selectedCustomers.length) {
+    setManualQueue(unsent);
+    if (unsent.length === 0) {
       showToast("Messages Sent", `Sent ${sent} messages.`, undefined, "success");
     } else {
-      showToast("Some Messages Failed", `Sent ${sent} of ${selectedCustomers.length} messages.`, undefined, "error");
+      showToast("Some Need Sending by Hand", `Sent ${sent}. ${unsent.length} are listed below to send yourself.`, undefined, "info");
     }
 
     handleDeselectAll();
+  };
+
+  const handleManualSend = async (customer: Customer) => {
+    await ReceiptShareService.shareTextViaWhatsApp(customer.phone, generateMessage(customer));
+    setManualQueue((queue) => queue.filter((c) => c.id !== customer.id));
   };
 
   if (!canViewCustomers) {
@@ -561,6 +585,21 @@ export default function CommunicationCenterView() {
               </div>
             </div>
 
+            <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
+              Send by
+              <select
+                value={sendMode}
+                onChange={(e) => setSendMode(e.target.value as typeof sendMode)}
+                className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+              >
+                <option value="auto">Automatic: WhatsApp API, then SMS</option>
+                <option value="whatsapp">WhatsApp API</option>
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+                <option value="manual">By hand: open each WhatsApp chat</option>
+              </select>
+            </label>
+
             <button
               onClick={handleSendBulk}
               disabled={selectedCustomerIds.size === 0 || !messageTemplate.trim()}
@@ -569,6 +608,23 @@ export default function CommunicationCenterView() {
               <Send size={16} />
               Dispatch to {selectedCustomerIds.size} Customer {selectedCustomerIds.size === 1 ? "" : "s"}
             </button>
+
+            {manualQueue.length > 0 && (
+              <div className="flex flex-col gap-2 border-t border-app-border pt-3">
+                <p className="text-xs font-semibold text-app-text">Send these yourself ({manualQueue.length} left)</p>
+                {manualQueue.map((customer) => (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => handleManualSend(customer)}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-left text-xs text-app-text"
+                  >
+                    <span className="min-w-0 truncate">{customer.name}</span>
+                    <span className="shrink-0 font-semibold text-amber-500">Open WhatsApp</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

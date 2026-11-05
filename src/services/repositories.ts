@@ -400,6 +400,9 @@ export class CustomerRepository {
       walletBalance: Number(c.wallet_balance),
       businessId: c.business_id,
       description: c.description || "",
+      customerType: c.customer_type,
+      paymentTerms: c.payment_terms,
+      deliveryFrequency: c.delivery_frequency,
       sync_status: "synced"
     }));
   }
@@ -429,6 +432,9 @@ export class CustomerRepository {
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
       description: data.description || "",
+      customerType: data.customer_type,
+      paymentTerms: data.payment_terms,
+      deliveryFrequency: data.delivery_frequency,
       sync_status: "synced"
     };
   }
@@ -477,6 +483,9 @@ export class CustomerRepository {
       debt_balance: customer.debtBalance || 0,
       wallet_balance: customer.walletBalance || 0,
       description: customer.description ? normalizeForStorage(customer.description) : "",
+      customer_type: customer.customerType || "individual",
+      payment_terms: customer.paymentTerms || "pay_now",
+      delivery_frequency: customer.deliveryFrequency || "none",
     };
 
     const { data, error } = await supabase.from("customers").insert(payload).select().single();
@@ -495,6 +504,9 @@ export class CustomerRepository {
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
       description: data.description || "",
+      customerType: data.customer_type,
+      paymentTerms: data.payment_terms,
+      deliveryFrequency: data.delivery_frequency,
       sync_status: "synced"
     };
   }
@@ -512,6 +524,9 @@ export class CustomerRepository {
     if (updates.purchasesCount !== undefined) payload.purchases_count = updates.purchasesCount;
     if (updates.debtBalance !== undefined) payload.debt_balance = updates.debtBalance;
     if (updates.walletBalance !== undefined) payload.wallet_balance = updates.walletBalance;
+    if (updates.customerType !== undefined) payload.customer_type = updates.customerType;
+    if (updates.paymentTerms !== undefined) payload.payment_terms = updates.paymentTerms;
+    if (updates.deliveryFrequency !== undefined) payload.delivery_frequency = updates.deliveryFrequency;
     if (updates.description !== undefined) payload.description = updates.description ? normalizeForStorage(updates.description) : "";
 
     const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
@@ -530,6 +545,9 @@ export class CustomerRepository {
       walletBalance: Number(data.wallet_balance),
       businessId: data.business_id,
       description: data.description || "",
+      customerType: data.customer_type,
+      paymentTerms: data.payment_terms,
+      deliveryFrequency: data.delivery_frequency,
       sync_status: "synced"
     };
   }

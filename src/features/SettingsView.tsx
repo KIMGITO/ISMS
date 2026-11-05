@@ -1,3 +1,4 @@
+import WhatsAppSettingsPanel from "../components/WhatsAppSettingsPanel";
 import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -2805,6 +2806,10 @@ export default function SettingsView({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {hasRolePermission(currentRole, 'settings.integrations') && activeBusinessId && (
+                <WhatsAppSettingsPanel businessId={activeBusinessId} />
               )}
 
               {/* Twilio SMS Platform configuration card */}

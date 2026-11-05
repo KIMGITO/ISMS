@@ -1,4 +1,5 @@
 // src/test/runTests.ts
+import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
 import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/idUtils";
 import { EscPosGenerator } from "../services/printer/EscPosGenerator";
@@ -232,6 +233,52 @@ runTest("Hugging Face Default Provider & Token Rotation Logic", () => {
   if (tokens.length !== 2 || tokens[0] !== "hf_token_a_12345") {
     throw new Error(`Expected 2 tokens collected from pool, got ${tokens.length}`);
   }
+});
+
+runTest("USSD menu registers, orders and checks balances", () => {
+  const ctx: UssdContext = {
+    shopName: "KayKay's",
+    registered: true,
+    products: [
+      { id: "p1", name: "Milk", unit: "L", price: 80, stock: 10 },
+      { id: "p2", name: "Empty", unit: "L", price: 50, stock: 0 },
+    ],
+    zones: [],
+    deliveryEnabled: true,
+    deliveryFee: 50,
+    summary: "Gold: 5 points",
+  };
+  const check = (condition: boolean, label: string) => {
+    if (!condition) throw new Error(label);
+  };
+
+  const unknown = { ...ctx, registered: false };
+  check(respond("", unknown).text.startsWith("CON"), "asks a new caller for a name");
+  const registered = respond("Asha", unknown);
+  check(registered.text.startsWith("END") && registered.action?.type === "register", "registers the caller");
+
+  check(respond("", ctx).text.includes("1. Order"), "shows the main menu");
+  check(!respond("1", ctx).text.includes("Empty"), "hides products with no stock");
+  check(respond("1*1*99", ctx).text.startsWith("END"), "refuses more than the stock");
+  check(respond("1*9", ctx).text.startsWith("END"), "refuses a choice not on the list");
+
+  check(respond("1*1*2*2", ctx).text.includes("Total Ksh 160"), "pickup has no fee");
+  const pickup = respond("1*1*2*2*1", ctx);
+  check(pickup.action?.type === "order" && pickup.action.fulfilment === "pickup", "places a pickup order");
+  check(respond("1*1*2*2*2", ctx).action === undefined, "cancelling places nothing");
+
+  check(respond("1*1*2*1", ctx).text.includes("delivery location"), "delivery asks for a location");
+  check(respond("1*1*2*1*Kasarani", ctx).text.includes("Total Ksh 210"), "delivery adds the flat fee");
+
+  const zoned = { ...ctx, zones: [{ id: "z1", name: "Town", fee: 30 }] };
+  check(respond("1*1*2*1", zoned).text.includes("Town"), "delivery lists the areas");
+  check(respond("1*1*2*1*1*Kasarani", zoned).text.includes("Total Ksh 190"), "the area sets the fee");
+  const zonedOrder = respond("1*1*2*1*1*Kasarani*1", zoned);
+  check(zonedOrder.action?.type === "order" && zonedOrder.action.zoneId === "z1", "the order carries the area");
+
+  const noDelivery = { ...ctx, deliveryEnabled: false };
+  check(respond("1*1*2", noDelivery).text.includes("Total Ksh 160"), "skips the question without delivery");
+  check(respond("3", ctx).text === "END Gold: 5 points", "shows the balance");
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

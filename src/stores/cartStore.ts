@@ -237,9 +237,9 @@ export const useCartStore = create<CartState>((set, get) => ({
         // Non-credit or walk-in customer: use the standard transaction flow
         savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
 
-        // Award loyalty points for registered customers
+        // The database trigger awards points and counts the purchase; this picks up the new balance.
         if (selectedCustomer) {
-          await useCustomerStore.getState().addLoyaltyPoints(selectedCustomer.id, finalTotal);
+          await useCustomerStore.getState().refreshCustomer(selectedCustomer.id);
         }
       }
 

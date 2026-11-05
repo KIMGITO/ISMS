@@ -48,6 +48,27 @@ export interface Transaction {
 }
 
 export type CustomerTier = 'Bronze' | 'Silver' | 'Gold';
+export type CustomerType = 'individual' | 'institution' | 'business' | 'other';
+export type PaymentTerms = 'pay_now' | 'weekly' | 'monthly';
+export type DeliveryFrequency = 'none' | 'daily' | 'weekly' | 'monthly';
+
+export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  individual: 'Individual',
+  institution: 'Institution',
+  business: 'Business',
+  other: 'Other',
+};
+export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
+  pay_now: 'Pays on purchase',
+  weekly: 'Pays weekly',
+  monthly: 'Pays monthly',
+};
+export const DELIVERY_FREQUENCY_LABELS: Record<DeliveryFrequency, string> = {
+  none: 'No regular delivery',
+  daily: 'Daily delivery',
+  weekly: 'Weekly delivery',
+  monthly: 'Monthly delivery',
+};
 
 export interface Customer {
   id: string;
@@ -62,6 +83,9 @@ export interface Customer {
   walletBalance?: number;
   businessId?: string;
   description?: string;
+  customerType?: CustomerType;
+  paymentTerms?: PaymentTerms;
+  deliveryFrequency?: DeliveryFrequency;
 }
 
 export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer';

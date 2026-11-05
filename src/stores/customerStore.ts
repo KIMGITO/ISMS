@@ -6,6 +6,7 @@ import { CustomerRepository } from "../services/repositories";
 import { normalizePhone } from "../utils/phoneUtils";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
+import { getSupabase } from "../services/supabaseClient";
 import { NotificationService } from "../services/notifications/notificationService";
 
 interface CustomerState {
@@ -13,7 +14,12 @@ interface CustomerState {
   addCustomer: (
     customer: Omit<Customer, "id" | "purchasesCount" | "joinDate">
   ) => Promise<Customer>;
-  addLoyaltyPoints: (customerId: string, finalTotal: number) => Promise<void>;
+  refreshCustomer: (customerId: string) => Promise<void>;
+  redeemPoints: (
+    customerId: string,
+    points: number,
+    recordedBy: string
+  ) => Promise<{ value: number; toDebt: number; toWallet: number; points: number }>;
   updateCustomer: (customer: Customer) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   setCustomers: (customers: Customer[]) => void;
@@ -97,21 +103,24 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       return added;
     },
 
-    addLoyaltyPoints: async (customerId, finalTotal) => {
-      const cust = await CustomerRepository.getById(customerId);
-      if (!cust) return;
+    refreshCustomer: async (customerId) => {
+      const fresh = await CustomerRepository.getById(customerId);
+      if (!fresh) return;
+      set((state) => ({
+        customers: state.customers.map((c) => (c.id === customerId ? fresh : c)),
+      }));
+    },
 
-      const pointsEarned = Math.floor(finalTotal);
-      const newPoints = cust.loyaltyPoints + pointsEarned;
-      let tier = cust.tier;
-      if (newPoints > 300) tier = "Gold";
-      else if (newPoints > 100) tier = "Silver";
-
-      await CustomerRepository.update(customerId, {
-        loyaltyPoints: newPoints,
-        purchasesCount: cust.purchasesCount + 1,
-        tier,
+    redeemPoints: async (customerId, points, recordedBy) => {
+      if (!checkPermissionGate("customers.loyalty")) throw new Error("Permission denied");
+      const { data, error } = await getSupabase().rpc("redeem_customer_points", {
+        p_customer_id: customerId,
+        p_points: points,
+        p_recorded_by: recordedBy,
       });
+      if (error) throw error;
+      await get().refreshCustomer(customerId);
+      return data as { value: number; toDebt: number; toWallet: number; points: number };
     },
 
     updateCustomer: async (customer) => {

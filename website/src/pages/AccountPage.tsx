@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { CalendarClock, LogOut, MessageSquare, Package, UserRound } from 'lucide-react';
+import { CalendarClock, Gift, LogOut, MessageSquare, Package, UserRound } from 'lucide-react';
 import { fetchMessages, friendlyError, supabase, updateAccount } from '../api';
 import { useAuth } from '../store';
 import { ErrorText, fieldClass, Loading, pageClass, primaryButton, secondaryButton } from '../ui';
@@ -7,11 +7,13 @@ import { AuthForms, FinishAccountForm } from './AuthForms';
 import OrdersTab from './OrdersTab';
 import SchedulesTab from './SchedulesTab';
 import MessagesTab from './MessagesTab';
+import RewardsTab from './RewardsTab';
 
 const TABS = [
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'schedules', label: 'Schedules', icon: CalendarClock },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
+  { id: 'rewards', label: 'Rewards', icon: Gift },
   { id: 'profile', label: 'Profile', icon: UserRound },
 ];
 
@@ -60,7 +62,7 @@ function ProfileTab() {
           Delivery notes
           <input maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="For example, call when you arrive" className={fieldClass} />
         </label>
-        <p className="text-muted">Email: {account.email}</p>
+        {account.email && <p className="text-muted">Email: {account.email}</p>}
         <ErrorText>{error}</ErrorText>
         {saved && <p role="status" className="font-medium text-emerald-700">Your details are saved.</p>}
         <button type="submit" disabled={busy} className={`${primaryButton} w-full sm:w-auto`}>
@@ -116,6 +118,7 @@ export default function AccountPage({ route }: { route: string[] }) {
         {tab === 'orders' && <OrdersTab orderId={route[1]} />}
         {tab === 'schedules' && <SchedulesTab />}
         {tab === 'messages' && <MessagesTab onRead={() => setUnread(0)} />}
+        {tab === 'rewards' && <RewardsTab />}
         {tab === 'profile' && <ProfileTab />}
       </div>
     </div>

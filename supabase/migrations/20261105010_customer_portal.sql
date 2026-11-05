@@ -30,11 +30,23 @@ ALTER TABLE public.products
 CREATE TABLE IF NOT EXISTS public.website_settings (
     business_id       UUID PRIMARY KEY REFERENCES public.businesses(id) ON DELETE CASCADE,
     delivery_enabled  BOOLEAN NOT NULL DEFAULT TRUE,
-    delivery_fee      NUMERIC(14,2) NOT NULL DEFAULT 150.00 CHECK (delivery_fee >= 0),
+    delivery_fee      NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (delivery_fee >= 0),
     min_order         NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (min_order >= 0),
     assistant_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Optional delivery areas, added and deleted by staff. With none active, orders use the flat fee.
+CREATE TABLE IF NOT EXISTS public.delivery_zones (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    fee         NUMERIC(14,2) NOT NULL DEFAULT 0.00 CHECK (fee >= 0),
+    active      BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (business_id, name)
 );
 
 -- customer_id starts as a new customers row. It is never matched to an existing
@@ -49,6 +61,7 @@ CREATE TABLE IF NOT EXISTS public.customer_accounts (
     email            TEXT,
     delivery_address TEXT,
     delivery_notes   TEXT,
+    delivery_zone_id UUID REFERENCES public.delivery_zones(id) ON DELETE SET NULL,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -83,6 +96,8 @@ CREATE TABLE IF NOT EXISTS public.online_orders (
                          'out_for_delivery', 'ready_for_pickup', 'completed', 'cancelled')),
     fulfilment       TEXT NOT NULL CHECK (fulfilment IN ('delivery', 'pickup')),
     delivery_address TEXT,
+    -- A copy of the area's name, so deleting a zone can't change past orders.
+    delivery_zone    TEXT,
     notes            TEXT,
     subtotal         NUMERIC(14,2) NOT NULL CHECK (subtotal >= 0),
     delivery_fee     NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (delivery_fee >= 0),
@@ -226,6 +241,14 @@ CREATE POLICY pol_website_settings_select ON public.website_settings FOR SELECT
 CREATE POLICY pol_website_settings_write ON public.website_settings FOR ALL
     USING (public.is_owner_or_admin(business_id))
     WITH CHECK (public.is_owner_or_admin(business_id));
+ALTER TABLE public.delivery_zones ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.delivery_zones FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.delivery_zones TO authenticated;
+CREATE POLICY pol_delivery_zones_select ON public.delivery_zones FOR SELECT
+    USING (business_id = ANY(public.get_user_business_ids()));
+CREATE POLICY pol_delivery_zones_write ON public.delivery_zones FOR ALL
+    USING (public.is_owner_or_admin(business_id))
+    WITH CHECK (public.is_owner_or_admin(business_id));
 
 -- ---------------------------------------------------------------------------
 -- HELPERS (internal)
@@ -294,7 +317,8 @@ CREATE OR REPLACE FUNCTION public.fn_build_online_order(
     p_fulfilment TEXT,
     p_address    TEXT,
     p_notes      TEXT,
-    p_schedule_id UUID
+    p_schedule_id UUID,
+    p_zone_id    UUID DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -310,6 +334,7 @@ DECLARE
     v_fee      NUMERIC(14,2) := 0;
     v_raw      NUMERIC(14,2);
     v_address  TEXT := NULLIF(trim(COALESCE(p_address, '')), '');
+    v_zone     public.delivery_zones%ROWTYPE;
 BEGIN
     SELECT * INTO v_account FROM public.customer_accounts WHERE id = p_account_id;
     IF NOT FOUND THEN
@@ -327,7 +352,7 @@ BEGIN
 
     SELECT * INTO v_settings FROM public.website_settings WHERE business_id = v_account.business_id;
     v_settings.delivery_enabled := COALESCE(v_settings.delivery_enabled, TRUE);
-    v_settings.delivery_fee := COALESCE(v_settings.delivery_fee, 150);
+    v_settings.delivery_fee := COALESCE(v_settings.delivery_fee, 0);
     v_settings.min_order := COALESCE(v_settings.min_order, 0);
 
     IF p_fulfilment = 'delivery' THEN
@@ -338,14 +363,27 @@ BEGIN
             RAISE EXCEPTION 'Please enter your delivery location.';
         END IF;
         v_fee := v_settings.delivery_fee;
+
+        IF EXISTS (SELECT 1 FROM public.delivery_zones z WHERE z.business_id = v_account.business_id AND z.active) THEN
+            SELECT * INTO v_zone FROM public.delivery_zones z
+            WHERE z.id = COALESCE(p_zone_id, v_account.delivery_zone_id)
+              AND z.business_id = v_account.business_id
+              AND z.active;
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'Please choose your delivery area.';
+            END IF;
+            v_fee := v_zone.fee;
+            -- Scheduled orders reuse the area the customer last chose.
+            UPDATE public.customer_accounts SET delivery_zone_id = v_zone.id WHERE id = v_account.id;
+        END IF;
     END IF;
 
     INSERT INTO public.online_orders
         (business_id, account_id, schedule_id, customer_name, customer_phone, fulfilment,
-         delivery_address, notes, subtotal, delivery_fee, total)
+         delivery_address, delivery_zone, notes, subtotal, delivery_fee, total)
     VALUES
         (v_account.business_id, v_account.id, p_schedule_id, v_account.name, v_account.phone, p_fulfilment,
-         CASE WHEN p_fulfilment = 'delivery' THEN v_address END,
+         CASE WHEN p_fulfilment = 'delivery' THEN v_address END, v_zone.name,
          left(NULLIF(trim(COALESCE(p_notes, '')), ''), 500), 0, v_fee, 1)
     RETURNING id INTO v_order_id;
 
@@ -428,10 +466,15 @@ AS $$
         ),
         'settings', jsonb_build_object(
             'deliveryEnabled', COALESCE(s.delivery_enabled, TRUE),
-            'deliveryFee', COALESCE(s.delivery_fee, 150),
+            'deliveryFee', COALESCE(s.delivery_fee, 0),
             'minOrder', COALESCE(s.min_order, 0),
             'assistantEnabled', COALESCE(s.assistant_enabled, TRUE)
         ),
+        'deliveryZones', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('id', z.id, 'name', z.name, 'fee', z.fee) ORDER BY z.name)
+            FROM public.delivery_zones z
+            WHERE z.business_id = b.id AND z.active
+        ), '[]'::jsonb),
         'branches', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('name', br.name, 'address', br.address) ORDER BY br.name)
             FROM public.branches br
@@ -562,14 +605,14 @@ $$;
 -- ---------------------------------------------------------------------------
 -- CUSTOMER: account
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.create_customer_account(p_slug TEXT, p_name TEXT, p_phone TEXT)
+CREATE OR REPLACE FUNCTION public.fn_create_customer_account(p_uid UUID, p_slug TEXT, p_name TEXT, p_phone TEXT)
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_uid UUID := auth.uid();
+    v_uid UUID := p_uid;
     v_business_id UUID;
     v_customer_id UUID;
     v_email TEXT;
@@ -611,6 +654,15 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.create_customer_account(p_slug TEXT, p_name TEXT, p_phone TEXT)
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT public.fn_create_customer_account(auth.uid(), p_slug, p_name, p_phone);
+$$;
+
 CREATE OR REPLACE FUNCTION public.update_my_account(p_name TEXT, p_phone TEXT, p_address TEXT, p_notes TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -649,7 +701,7 @@ $$;
 -- CUSTOMER: orders
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.place_online_order(
-    p_items JSONB, p_fulfilment TEXT, p_address TEXT, p_notes TEXT
+    p_items JSONB, p_fulfilment TEXT, p_address TEXT, p_notes TEXT, p_zone_id UUID DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -666,7 +718,7 @@ BEGIN
     ) >= 5 THEN
         RAISE EXCEPTION 'You have several unpaid orders. Please pay or cancel one first.';
     END IF;
-    RETURN public.fn_build_online_order(auth.uid(), p_items, p_fulfilment, p_address, p_notes, NULL);
+    RETURN public.fn_build_online_order(auth.uid(), p_items, p_fulfilment, p_address, p_notes, NULL, p_zone_id);
 END;
 $$;
 
@@ -1246,7 +1298,7 @@ BEGIN
     FOREACH fn IN ARRAY ARRAY[
         'fn_normalize_ke_phone(TEXT)', 'fn_nairobi_today()', 'fn_next_schedule_date(INTEGER[], DATE)',
         'fn_notify_staff(UUID, TEXT, TEXT, JSONB)', 'fn_customer_message(UUID, UUID, TEXT)',
-        'fn_build_online_order(UUID, JSONB, TEXT, TEXT, TEXT, UUID)', 'run_customer_portal_daily()',
+        'fn_build_online_order(UUID, JSONB, TEXT, TEXT, TEXT, UUID, UUID)', 'fn_create_customer_account(UUID, TEXT, TEXT, TEXT)', 'run_customer_portal_daily()',
         'begin_order_payment(UUID, UUID)', 'record_order_checkout(UUID, TEXT, TEXT, TEXT)',
         'confirm_online_order_payment(TEXT, INTEGER, NUMERIC, TEXT, JSONB)', 'consume_assistant_quota(UUID, TEXT)',
         'flag_order_payment_unconfirmed(UUID, TEXT)'
@@ -1257,14 +1309,15 @@ BEGIN
     FOREACH fn IN ARRAY ARRAY[
         'begin_order_payment(UUID, UUID)', 'record_order_checkout(UUID, TEXT, TEXT, TEXT)',
         'confirm_online_order_payment(TEXT, INTEGER, NUMERIC, TEXT, JSONB)', 'consume_assistant_quota(UUID, TEXT)',
-        'flag_order_payment_unconfirmed(UUID, TEXT)'
+        'flag_order_payment_unconfirmed(UUID, TEXT)',
+        'fn_build_online_order(UUID, JSONB, TEXT, TEXT, TEXT, UUID, UUID)', 'fn_create_customer_account(UUID, TEXT, TEXT, TEXT)'
     ] LOOP
         EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', fn);
     END LOOP;
 
     FOREACH fn IN ARRAY ARRAY[
         'create_customer_account(TEXT, TEXT, TEXT)', 'update_my_account(TEXT, TEXT, TEXT, TEXT)',
-        'place_online_order(JSONB, TEXT, TEXT, TEXT)', 'cancel_my_order(UUID)',
+        'place_online_order(JSONB, TEXT, TEXT, TEXT, UUID)', 'cancel_my_order(UUID)',
         'save_order_schedule(UUID, JSONB, INTEGER[], TEXT, TEXT, TEXT, BOOLEAN)', 'delete_order_schedule(UUID)',
         'send_customer_message(TEXT)', 'mark_my_messages_read()',
         'staff_update_online_order(UUID, TEXT)', 'staff_clear_order_attention(UUID)',

@@ -1091,7 +1091,7 @@ export default function App() {
         { id: 'customers', permission: 'customers.view' as const },
         { id: 'dashboard', permission: 'dashboard.view' as const },
         { id: 'feedback', permission: 'complaints.view' as const },
-        { id: 'online-store', permission: 'customers.view' as const },
+        { id: 'online-store', permission: 'online_store.view' as const },
         { id: 'ai', permission: 'ai.use' as const },
         { id: 'workers', permission: 'staff.view' as const },
         { id: 'permissions', permission: 'staff.roles' as const },
@@ -3526,7 +3526,7 @@ export default function App() {
                       label: 'Online Store',
                       icon: Globe,
                       desc: 'Website orders & messages',
-                      permission: 'customers.view' as const,
+                      permission: 'online_store.view' as const,
                     },
                     {
                       id: 'workers',
@@ -4030,7 +4030,7 @@ export default function App() {
                         transition={{ duration: 0.15 }}
                         className="absolute inset-0"
                       >
-                        <SecurityGuard permission="customers.view">
+                        <SecurityGuard permission="online_store.view">
                           <OnlineStoreView />
                         </SecurityGuard>
                       </motion.div>
