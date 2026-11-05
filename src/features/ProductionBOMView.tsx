@@ -921,15 +921,16 @@ export default function ProductionBOMView() {
               {/* Status */}
               <div className="space-y-1">
                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Initial Batch Status</label>
-                <select
-                  value={batchStatus}
-                  onChange={(e) => setBatchStatus(e.target.value as any)}
-                  className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
-                >
-                  <option value="In Progress">In Progress (Deducts raw materials now)</option>
-                  <option value="Pending">Pending (Deducts raw materials now)</option>
-                  <option value="Completed">Completed (Deducts raw materials & adds finished good)</option>
-                </select>
+                <SearchableDropdown
+                  items={[
+                    { id: 'In Progress', label: 'In Progress (Deducts raw materials now)' },
+                    { id: 'Pending', label: 'Pending (Deducts raw materials now)' },
+                    { id: 'Completed', label: 'Completed (Deducts raw materials & adds finished good)' },
+                  ]}
+                  selectedValue={batchStatus}
+                  onChange={(value) => setBatchStatus(value as typeof batchStatus)}
+                  placeholder="Batch status"
+                />
               </div>
 
               {/* Staff Name */}

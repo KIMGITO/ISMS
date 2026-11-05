@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useStorefront } from '../store';
-import { pageClass } from '../ui';
+import { PHOTOS } from '../images';
+import { PageHero, pageClass } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import ProductCard from './ProductCard';
 
@@ -30,10 +31,17 @@ export default function ShopPage({ initialQuery }: { initialQuery: string }) {
   }, [products, query, category]);
 
   return (
-    <div className={pageClass}>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Shop' }]} />
-      <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-4xl font-bold">Shop</h1>
+    <>
+      <PageHero
+        eyebrow="Our dairy"
+        title="Shop"
+        body="Order online, pay with M-Pesa, and choose delivery or pickup."
+        photo={PHOTOS.pour}
+      >
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Shop' }]} />
+      </PageHero>
+      <div className={pageClass}>
+      <div className="flex justify-end">
         {products.length > 0 && (
           <label className="relative block w-full sm:w-72">
             <span className="sr-only">Search products</span>
@@ -67,7 +75,7 @@ export default function ShopPage({ initialQuery }: { initialQuery: string }) {
       )}
 
       {visible.length > 0 ? (
-        <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           {visible.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
@@ -79,6 +87,7 @@ export default function ShopPage({ initialQuery }: { initialQuery: string }) {
             : 'No products match your search.'}
         </p>
       )}
-    </div>
+      </div>
+    </>
   );
 }

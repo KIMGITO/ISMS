@@ -1,9 +1,18 @@
 import WhatsAppSettingsPanel from "../components/WhatsAppSettingsPanel";
 import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Bot,
+  CloudUpload,
+  MessageCircle,
+  MessageSquareText,
+} from 'lucide-react';
+import { Tabs } from '../components/TabOptions';
+import { PasswordInput } from '../components/shared/PasswordInput';
+import { NavSection, SectionNav } from '../components/shared/SectionNav';
 import { useAppStore } from '../stores/appStore';
 import { useBusinessStore } from '../stores/businessStore';
-import { hasRolePermission } from '../utils/permissions';
+import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import {
   Settings,
   Bell,
@@ -110,6 +119,28 @@ const NOTIF_CAT_DETAILS: Record<string, { label: string; desc: string }> = {
 interface SettingsViewProps {
   onRestartTour?: () => void;
 }
+
+type SectionId = 'receipts' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'help' | 'session';
+
+const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode })[] = [
+  { id: 'receipts', group: 'Shop', label: 'Receipts & printing', description: 'Templates, branding, codes and printers', icon: ReceiptText, keywords: 'tax kra logo printer bluetooth thermal qr barcode', permission: 'settings.tax' },
+  { id: 'sms', group: 'Connections', label: 'SMS', description: 'Text messages through Twilio', icon: MessageSquareText, keywords: 'twilio phone text', permission: 'settings.integrations' },
+  { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
+  { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
+  { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
+  { id: 'database', group: 'Data', label: 'Database', description: 'Supabase connection (developers)', icon: Database, keywords: 'supabase', permission: 'settings.integrations' },
+  { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
+  { id: 'help', group: 'Account', label: 'Help & tour', description: 'Restart the guided walkthrough', icon: HelpCircle, keywords: 'onboarding guide' },
+  { id: 'session', group: 'Account', label: 'Sign out', description: 'End your session on this device', icon: LogOut, keywords: 'log out logout' },
+];
+
+const RECEIPT_TABS: { id: 'design' | 'branding' | 'messages' | 'codes' | 'printers'; label: string }[] = [
+  { id: 'design', label: 'Design' },
+  { id: 'branding', label: 'Branding' },
+  { id: 'messages', label: 'Messages' },
+  { id: 'codes', label: 'Codes' },
+  { id: 'printers', label: 'Printers' },
+];
 
 export default function SettingsView({
   onRestartTour,
@@ -229,7 +260,6 @@ export default function SettingsView({
     enabled: true,
     api_key: '',
   });
-  const [showAiKey, setShowAiKey] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{
@@ -249,7 +279,6 @@ export default function SettingsView({
     owner_phone_number: '',
     enabled: false,
   });
-  const [showSmsToken, setShowSmsToken] = useState(false);
   const [testingSms, setTestingSms] = useState(false);
   const [savingSms, setSavingSms] = useState(false);
   const [smsTestResult, setSmsTestResult] = useState<{
@@ -850,8 +879,6 @@ export default function SettingsView({
   const [dbSyncEnabled, setDbSyncEnabled] = useState(
     () => localStorage.getItem('kkm_db_sync_enabled') !== 'false',
   );
-  const [showDbPass, setShowDbPass] = useState(false);
-  const [showKeyPass, setShowKeyPass] = useState(false);
 
   // Load current employee notification preferences
   const [notifPrefs, setNotifPrefs] = useState<NotificationPref>(() => {
@@ -873,6 +900,14 @@ export default function SettingsView({
     /* Audio testing implementation */
   };
 
+  const allowedSections = SETTINGS_SECTIONS.filter(
+    (section) =>
+      (!section.permission || hasRolePermission(currentRole, section.permission)) &&
+      (section.id !== 'database' || configManager.getActiveEnvironment() === 'Developer Mode'),
+  );
+  const [selectedSection, setActiveSection] = useState<SectionId | null>(null);
+  const activeSection = selectedSection ?? allowedSections[0].id;
+
   // Save changes feedback
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -889,10 +924,10 @@ export default function SettingsView({
             className="cursor-pointer select-none"
           >
             <h2 className="text-sm font-extrabold font-display text-app-text flex items-center gap-1.5">
-              <span>Admin & Preferences Panel</span>
+              <span>Settings</span>
             </h2>
             <span className="text-[10px] text-app-text-muted font-medium">
-              Configure global environment & account smart security
+              Your shop, connections, data and this device
             </span>
           </div>
         </div>
@@ -945,7 +980,13 @@ export default function SettingsView({
             </div>
           </div>
         ) : (
-          <>
+          <SectionNav<SectionId>
+            sections={allowedSections}
+            active={activeSection}
+            onSelect={setActiveSection}
+            searchPlaceholder="Search settings"
+          >
+          <div className="flex flex-col gap-5">
             {/* Banner Alert if NOT Owner/Admin */}
             {!isAdminOrOwner && (
               <div className="p-3.5 bg-amber-500/5 border border-amber-500/15 rounded-2xl flex gap-2.5 items-start">
@@ -968,10 +1009,10 @@ export default function SettingsView({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full items-start">
+            <div className="flex flex-col gap-5 w-full">
               {/* 0. INTERACTIVE GUIDE TOUR SECTION */}
 
-              {hasRolePermission(currentRole, 'settings.tax') && (
+              {activeSection === 'receipts' && hasRolePermission(currentRole, 'settings.tax') && (
                 <div
                   className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm"
                   id="receipt-engine-customization-settings"
@@ -1007,64 +1048,12 @@ export default function SettingsView({
                     barcodes/QR outputs for high-performance terminal printing.
                   </p>
 
-                  {/* Scrollable Sub-tab buttons (No longer squeezed on 3-col layouts) */}
-                  <div className="flex items-center gap-1 bg-app-bg p-1 rounded-xl border border-app-border/40 text-[10px] overflow-x-auto scrollbar-none min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => setReceiptSubTab('design')}
-                      className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-center font-bold transition cursor-pointer whitespace-nowrap ${
-                        receiptSubTab === 'design'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-app-text-muted hover:text-app-text'
-                      }`}
-                    >
-                      Design
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReceiptSubTab('branding')}
-                      className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-center font-bold transition cursor-pointer whitespace-nowrap ${
-                        receiptSubTab === 'branding'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-app-text-muted hover:text-app-text'
-                      }`}
-                    >
-                      Branding
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReceiptSubTab('messages')}
-                      className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-center font-bold transition cursor-pointer whitespace-nowrap ${
-                        receiptSubTab === 'messages'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-app-text-muted hover:text-app-text'
-                      }`}
-                    >
-                      Messages
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReceiptSubTab('codes')}
-                      className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-center font-bold transition cursor-pointer whitespace-nowrap ${
-                        receiptSubTab === 'codes'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-app-text-muted hover:text-app-text'
-                      }`}
-                    >
-                      Codes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReceiptSubTab('printers')}
-                      className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-center font-bold transition cursor-pointer whitespace-nowrap ${
-                        receiptSubTab === 'printers'
-                          ? 'bg-amber-500 text-slate-950 font-black'
-                          : 'text-app-text-muted hover:text-app-text'
-                      }`}
-                    >
-                      Printers
-                    </button>
-                  </div>
+                  <Tabs<typeof receiptSubTab>
+                    tabs={RECEIPT_TABS}
+                    activeTab={receiptSubTab}
+                    onChange={setReceiptSubTab}
+                    className="!pb-2"
+                  />
 
                   <div className="mt-1 space-y-3.5">
                     {/* TAB 1: DESIGN & FORMATS */}
@@ -1765,7 +1754,7 @@ export default function SettingsView({
               )}
 
               {/* Centralized Device Hardware Permissions Card */}
-              {hasRolePermission(currentRole, 'settings.view') && (
+              {activeSection === 'device' && hasRolePermission(currentRole, 'settings.view') && (
                 <div
                   id="device-permissions-manager-card"
                   className="bg-app-card border border-app-border rounded-3xl p-4 sm:p-5 flex flex-col gap-3.5 shadow-sm min-w-0"
@@ -1906,9 +1895,9 @@ export default function SettingsView({
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full items-start">
+            <div className="contents">
               {/* Enterprise AI Platform configuration card */}
-              {hasRolePermission(currentRole, 'settings.integrations') && (
+              {activeSection === 'ai' && hasRolePermission(currentRole, 'settings.integrations') && (
                 <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
                     {/* Left: Icon & Title */}
@@ -2026,27 +2015,8 @@ export default function SettingsView({
                             ? '(Optional Override)'
                             : '*'}
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => setShowAiKey(!showAiKey)}
-                          className="text-[9.5px] font-bold text-amber-500 hover:underline"
-                        >
-                          {showAiKey ? 'Hide Key' : 'Show Key'}
-                        </button>
-                      </div>
-                      <input
-                        type={showAiKey ? 'text' : 'password'}
-                        value={aiConfig.api_key}
-                        onChange={(e) =>
-                          setAiConfig({ ...aiConfig, api_key: e.target.value })
-                        }
-                        placeholder={
-                          aiConfig.provider === 'huggingface'
-                            ? ''
-                            : 'Enter provider secret key...'
-                        }
-                        className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                      />
+                        </div>
+                      <PasswordInput variant="app" label="" required={false} autoComplete="off" value={aiConfig.api_key} onChange={(api_key) => setAiConfig({ ...aiConfig, api_key })} placeholder={aiConfig.provider === 'huggingface' ? '' : 'Enter provider secret key...'} />
                     </div>
 
                     {/* Model input and quick selector badges */}
@@ -2515,7 +2485,7 @@ export default function SettingsView({
               )}
 
               {/* Google Sheets Backup Integration Card */}
-              {hasRolePermission(currentRole, 'settings.storage') && (
+              {activeSection === 'backup' && hasRolePermission(currentRole, 'settings.storage') && (
                 <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
                     {/* Left: Icon & Title */}
@@ -2808,12 +2778,12 @@ export default function SettingsView({
                 </div>
               )}
 
-              {hasRolePermission(currentRole, 'settings.integrations') && activeBusinessId && (
+              {activeSection === 'whatsapp' && hasRolePermission(currentRole, 'settings.integrations') && activeBusinessId && (
                 <WhatsAppSettingsPanel businessId={activeBusinessId} />
               )}
 
               {/* Twilio SMS Platform configuration card */}
-              {hasRolePermission(currentRole, 'settings.integrations') && (
+              {activeSection === 'sms' && hasRolePermission(currentRole, 'settings.integrations') && (
                 <div
                   id="sms-gateway-config-card"
                   className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col md:col-span-2 lg:col-span-1 gap-4 shadow-sm"
@@ -2965,26 +2935,8 @@ export default function SettingsView({
                             <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
                               Twilio Auth Token
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => setShowSmsToken(!showSmsToken)}
-                              className="text-[9.5px] font-bold text-amber-500 hover:underline"
-                            >
-                              {showSmsToken ? 'Hide Secret' : 'Show Secret'}
-                            </button>
-                          </div>
-                          <input
-                            type={showSmsToken ? 'text' : 'password'}
-                            value={smsConfig.auth_token}
-                            onChange={(e) =>
-                              setSmsConfig({
-                                ...smsConfig,
-                                auth_token: e.target.value,
-                              })
-                            }
-                            placeholder="Enter secret auth token..."
-                            className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                          />
+                            </div>
+                          <PasswordInput variant="app" label="" required={false} autoComplete="off" value={smsConfig.auth_token} onChange={(auth_token) => setSmsConfig({ ...smsConfig, auth_token })} placeholder="Enter secret auth token..." />
                         </div>
 
                         {/* Messaging SID or Sender Phone Number Selection */}
@@ -3242,7 +3194,7 @@ export default function SettingsView({
               {/* Section Divider */}
 
               {/* Supabase & Cloud Database Integrations (Admins & Owners only) */}
-              {hasRolePermission(currentRole, 'settings.integrations') &&
+              {activeSection === 'database' && hasRolePermission(currentRole, 'settings.integrations') &&
                 configManager.getActiveEnvironment() === 'Developer Mode' && (
                   <div
                     id="database-integrations-card"
@@ -3311,21 +3263,8 @@ export default function SettingsView({
                       <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider flex justify-between">
                           <span>Supabase Anon Key</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowKeyPass(!showKeyPass)}
-                            className="text-amber-500 hover:underline"
-                          >
-                            {showKeyPass ? 'Hide' : 'Show'}
-                          </button>
-                        </label>
-                        <input
-                          type={showKeyPass ? 'text' : 'password'}
-                          value={supabaseKey}
-                          onChange={(e) => setSupabaseKey(e.target.value)}
-                          placeholder="eyJhbGciOiJIUzI1NiIsIn..."
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                        />
+                          </label>
+                        <PasswordInput variant="app" label="" required={false} autoComplete="off" value={supabaseKey} onChange={setSupabaseKey} placeholder="eyJhbGciOiJIUzI1NiIsIn..." />
                       </div>
 
                       {/* DB Host */}
@@ -3388,26 +3327,14 @@ export default function SettingsView({
                       <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider flex justify-between">
                           <span>DB Password</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowDbPass(!showDbPass)}
-                            className="text-amber-500 hover:underline"
-                          >
-                            {showDbPass ? 'Hide' : 'Show'}
-                          </button>
-                        </label>
-                        <input
-                          type={showDbPass ? 'text' : 'password'}
-                          value={dbPass}
-                          onChange={(e) => setDbPass(e.target.value)}
-                          placeholder="Your Database Password"
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                        />
+                          </label>
+                        <PasswordInput variant="app" label="" required={false} autoComplete="off" value={dbPass} onChange={setDbPass} placeholder="Your Database Password" />
                       </div>
                     </div>
                   </div>
                 )}
             </div>
+            {activeSection === 'help' && (
             <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in">
               <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
                 <HelpCircle size={16} className="text-amber-500" />
@@ -3440,7 +3367,9 @@ export default function SettingsView({
                 </button>
               </div>
             </div>
+            )}
             {/* 4. OPERATOR SESSION (Available to all) */}
+            {activeSection === 'session' && (
             <div className="bg-red-500/5 border border-red-500/10 rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
               <div className="flex items-center gap-2 border-b border-red-500/10 pb-2.5">
                 <LogOut size={16} className="text-red-500" />
@@ -3462,14 +3391,15 @@ export default function SettingsView({
                       'Operator session closed successfully.',
                     );
                   }}
-                  className="w-full py-2.5 bg-red-550 hover:bg-red-650 text-white font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider text-[10px]"
+                  className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider text-[10px]"
                 >
                   <LogOut size={13} />
                   <span>Log Out of Account</span>
                 </button>
               </div>
-            </div>
-          </>
+            </div>)}
+          </div>
+          </SectionNav>
         )}
       </div>
 

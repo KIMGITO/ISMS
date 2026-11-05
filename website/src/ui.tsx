@@ -1,15 +1,13 @@
 import { ReactNode, useState } from 'react';
 import { Milk } from 'lucide-react';
 import { Order, OrderStatus, Product } from './api';
+import { photoUrl, productPhoto } from './images';
 
-export const primaryButton =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand px-5 py-2.5 font-semibold text-on-brand transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-600';
-export const secondaryButton =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-5 py-2.5 font-semibold text-ink transition hover:border-brand-deep disabled:cursor-not-allowed disabled:opacity-60';
-export const fieldClass =
-  'mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-base font-normal text-ink placeholder:text-muted/70';
-export const pageClass = 'mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12';
-export const cardClass = 'rounded-xl border border-line bg-white';
+export const primaryButton = 'btn btn-primary';
+export const secondaryButton = 'btn btn-secondary';
+export const fieldClass = 'field';
+export const pageClass = 'site-gutter py-8 sm:py-12';
+export const cardClass = 'card';
 
 export const formatPrice = (currency: string, price: number) =>
   `${currency} ${Number(price).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
@@ -56,23 +54,43 @@ export function StatusBadge({ status }: { status: Order['status'] }) {
   );
 }
 
-export function ProductImage({ product }: { product: Pick<Product, 'image' | 'name'> }) {
+export function ProductImage({ product, width = 640 }: { product: Pick<Product, 'image' | 'name'> & { category?: string }; width?: number }) {
   const [failed, setFailed] = useState(false);
-  if (!product.image || failed) {
-    return (
-      <div className="grid size-full place-items-center bg-amber-50">
-        <Milk size={40} className="text-brand/60" aria-hidden />
-      </div>
-    );
-  }
+  const photo = productPhoto(`${product.name} ${product.category ?? ''}`);
   return (
     <img
-      src={product.image}
+      src={product.image && !failed ? product.image : photoUrl(photo, width, width)}
       alt={product.name}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="size-full object-cover"
+      className="size-full bg-sand object-cover"
     />
+  );
+}
+
+/** The banner at the top of inner pages. */
+export function PageHero({ eyebrow, title, body, photo, children }: {
+  eyebrow?: string;
+  title: string;
+  body?: string;
+  photo: Parameters<typeof photoUrl>[0];
+  children?: ReactNode;
+}) {
+  return (
+    <section className="relative isolate overflow-hidden bg-sand">
+      <img
+        src={photoUrl(photo, 1000, 560)}
+        alt=""
+        className="photo-warm absolute inset-y-0 right-0 -z-20 hidden h-full w-1/2 object-cover sm:block"
+      />
+      <div className="absolute inset-y-0 right-0 -z-10 hidden w-1/2 bg-gradient-to-r from-sand to-transparent sm:block" />
+      <div className="site-gutter py-10 sm:py-16">
+        {children}
+        {eyebrow && <p className="eyebrow mt-3">{eyebrow}</p>}
+        <h1 className="display-lg mt-2 max-w-xl">{title}</h1>
+        {body && <p className="mt-4 max-w-md text-lg leading-relaxed text-muted">{body}</p>}
+      </div>
+    </section>
   );
 }
 

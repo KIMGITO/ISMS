@@ -2695,47 +2695,9 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                                Secure Password *
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="password"
-                                  placeholder="Minimum 6 characters"
-                                  value={invitePassword}
-                                  onChange={(e) =>
-                                    setInvitePassword(e.target.value)
-                                  }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                                />
-                                <Lock
-                                  size={13}
-                                  className="absolute left-3 top-3.5 text-slate-500"
-                                />
-                              </div>
-                            </div>
+                            <PasswordInput label="Secure Password" placeholder="Minimum 6 characters" value={invitePassword} onChange={setInvitePassword} />
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                                Confirm Password *
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="password"
-                                  placeholder="Re-enter password"
-                                  value={inviteConfirmPassword}
-                                  onChange={(e) =>
-                                    setInviteConfirmPassword(e.target.value)
-                                  }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                                />
-                                <Lock
-                                  size={13}
-                                  className="absolute left-3 top-3.5 text-slate-500"
-                                />
-                              </div>
-                            </div>
+                            <PasswordInput label="Confirm Password" placeholder="Re-enter password" value={inviteConfirmPassword} onChange={setInviteConfirmPassword} />
 
                             <div className="flex gap-2.5">
                               <button
@@ -3064,26 +3026,7 @@ export default function App() {
                               </p>
                             </div>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                                New Password *
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="password"
-                                  placeholder="Min. 8 characters"
-                                  value={newPassword}
-                                  onChange={(e) =>
-                                    setNewPassword(e.target.value)
-                                  }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                                />
-                                <Lock
-                                  size={13}
-                                  className="absolute left-3 top-3.5 text-slate-500"
-                                />
-                              </div>
-                            </div>
+                            <PasswordInput label="New Password" placeholder="Min. 8 characters" value={newPassword} onChange={setNewPassword} />
 
                             {/* PASSWORD STRENGTH VISUAL INDICATOR */}
                             {newPassword && (
@@ -3166,26 +3109,7 @@ export default function App() {
                               </div>
                             )}
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                                Confirm New Password *
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="password"
-                                  placeholder="Re-enter password"
-                                  value={confirmPassword}
-                                  onChange={(e) =>
-                                    setConfirmPassword(e.target.value)
-                                  }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
-                                />
-                                <Lock
-                                  size={13}
-                                  className="absolute left-3 top-3.5 text-slate-500"
-                                />
-                              </div>
-                            </div>
+                            <PasswordInput label="Confirm New Password" placeholder="Re-enter password" value={confirmPassword} onChange={setConfirmPassword} />
 
                             <button
                               type="submit"

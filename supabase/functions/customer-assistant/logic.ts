@@ -195,7 +195,7 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
   if (has(text, /\b(deliver|delivery|shipping|bring)/)) {
     return {
       reply: ctx.deliveryEnabled
-        ? `Yes, we deliver. The delivery fee is ${money(ctx, ctx.deliveryFee)}. You can also pick up your order.`
+        ? `Yes, we deliver. ${ctx.deliveryFee > 0 ? `The delivery fee is ${money(ctx, ctx.deliveryFee)}.` : "You'll see the delivery price for your area at checkout."} You can also pick up your order.`
         : "Delivery isn't available right now, but you can pick up your order.",
       pendingProductId: pending?.id ?? null,
     };

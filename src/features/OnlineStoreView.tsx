@@ -14,6 +14,7 @@ import {
   Settings,
   Star,
 } from 'lucide-react';
+import SearchableDropdown from '../components/SearchableDropdown';
 import { Tabs } from '../components/TabOptions';
 import { getSupabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
@@ -213,22 +214,20 @@ function OrdersTab({ businessId }: { businessId: string }) {
                 </span>
               </div>
               {order.fulfilment === 'delivery' && ['paid', 'preparing', 'out_for_delivery'].includes(order.status) && (
-                <label className="mt-2 flex items-center gap-2 text-sm text-app-text">
+                <div className="mt-2 flex items-center gap-2 text-sm text-app-text">
                   Rider
-                  <select
-                    value={order.rider_id ?? ''}
+                  <SearchableDropdown
+                    items={[{ id: '', label: 'Not assigned' }, ...riders.map((rider) => ({ id: rider.id, label: rider.name }))]}
+                    selectedValue={order.rider_id ?? ''}
                     disabled={!canAssignRider || busyId === order.id}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       runAction(order.id, () =>
-                        getSupabase().rpc('staff_assign_rider', { p_order_id: order.id, p_rider_id: e.target.value || null }),
+                        getSupabase().rpc('staff_assign_rider', { p_order_id: order.id, p_rider_id: value || null }),
                       )
                     }
-                    className={inputClass}
-                  >
-                    <option value="">Not assigned</option>
-                    {riders.map((rider) => <option key={rider.id} value={rider.id}>{rider.name}</option>)}
-                  </select>
-                </label>
+                    placeholder="Not assigned"
+                  />
+                </div>
               )}
               {order.points_used > 0 && (
                 <p className="mt-2 text-sm text-app-text-muted">Paid {order.points_used} points (Ksh {order.points_value}) towards this order.</p>

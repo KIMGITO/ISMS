@@ -46,6 +46,12 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
 
 **Rebuild and upload the site after adding products or guides, or changing prices**, so search results stay current. Customers always see live data either way.
 
+## Look and photos
+
+`src/theme.css` holds the whole public look: colours, fonts (Italiana and Manrope), buttons, fields and corners. The staff app's styles are separate, in `src/index.css`.
+
+`src/images.ts` holds the temporary Unsplash photos, each with its credit shown in the footer. A product or guide with its own image never uses them, so adding real photos in the staff app replaces them. Replace the hero photo by setting a cover image on the business.
+
 ## How it works
 
 **Data access.** Customers sign in through Supabase Auth and have no business membership, so staff policies exclude them. They read their own rows through RLS and write only through database functions. Don't add anon or customer policies on `products` or `businesses`, because a policy can't hide columns such as `products.cost`.

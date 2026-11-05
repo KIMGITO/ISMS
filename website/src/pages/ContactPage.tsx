@@ -1,6 +1,7 @@
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useStorefront } from '../store';
-import { pageClass } from '../ui';
+import { PHOTOS } from '../images';
+import { PageHero, pageClass } from '../ui';
 
 const mapUrl = (address: string) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
@@ -11,8 +12,9 @@ export default function ContactPage() {
   const locations = branches.some((b) => b.address) ? branches.filter((b) => b.address) : address ? [{ name, address }] : [];
 
   return (
-    <div className={pageClass}>
-      <h1 className="text-4xl font-bold">Find us</h1>
+    <>
+      <PageHero eyebrow="Contact" title="Find Us" body="Visit us, call, or send a message." photo={PHOTOS.pasture} />
+      <div className={pageClass}>
       <div className="mt-8 grid gap-10 md:grid-cols-2">
         {locations.length > 0 && (
           <ul className="space-y-6">
@@ -61,6 +63,7 @@ export default function ContactPage() {
           </a>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

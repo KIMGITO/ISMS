@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CheckCircle2, Star } from 'lucide-react';
 import { FeedbackInput, friendlyError, submitFeedback } from '../api';
 import { useAuth, useStorefront } from '../store';
-import { ErrorText, fieldClass, primaryButton, secondaryButton } from '../ui';
+import { PHOTOS } from '../images';
+import { ErrorText, fieldClass, primaryButton, secondaryButton, PageHero } from '../ui';
 
 const TYPES: { id: FeedbackInput['type']; label: string; prompt: string }[] = [
   { id: 'feedback', label: 'Feedback', prompt: 'How was your milk?' },
@@ -64,10 +65,9 @@ export default function FeedbackPage() {
   const current = TYPES.find((t) => t.id === type)!;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="text-4xl font-bold">Tell us what you think</h1>
-      <p className="mt-3 text-lg text-muted">Your feedback helps us look after your milk better.</p>
-
+    <>
+      <PageHero eyebrow="Feedback" title="Tell Us What You Think" body="Your feedback helps us look after your milk better." photo={PHOTOS.glassLight} />
+      <div className="mx-auto w-full max-w-2xl px-4 pb-14 pt-4 sm:px-6">
       {state === 'sent' ? (
         <div role="status" className="mt-8 rounded-xl border border-line bg-white p-8 text-center">
           <CheckCircle2 size={40} className="mx-auto text-emerald-700" aria-hidden />
@@ -151,6 +151,7 @@ export default function FeedbackPage() {
           </button>
         </form>
       )}
-    </div>
+      </div>
+    </>
   );
 }

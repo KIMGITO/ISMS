@@ -9,6 +9,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { config } from 'dotenv';
 import type { Storefront } from '../src/api';
+import { HERO_SHARE_IMAGE } from '../src/images';
 import { metaForRoute, PageMeta, productPaths } from '../src/seo';
 
 const root = join(import.meta.dirname, '..');
@@ -38,7 +39,7 @@ async function fetchStorefront(): Promise<Storefront | null> {
 
 function headTags(meta: PageMeta, businessName: string): string {
   const url = SITE_URL ? `${SITE_URL}${meta.path}` : null;
-  const image = meta.image?.startsWith('http') ? meta.image : `${SITE_URL}/hero.jpg`;
+  const image = meta.image?.startsWith('http') ? meta.image : HERO_SHARE_IMAGE;
   const title = escapeHtml(meta.title);
   const description = escapeHtml(meta.description);
   return [

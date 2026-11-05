@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { PasswordInput } from './shared/PasswordInput';
 import { SupabaseService } from '../services/supabaseService';
 import { useAppStore } from '../stores/appStore';
 import { toUserMessage } from '../utils/userError';
@@ -69,13 +70,14 @@ export default function WhatsAppSettingsPanel({ businessId }: { businessId: stri
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
         Access token
-        <input
-          type="password"
+        <PasswordInput
+          variant="app"
+          label=""
+          required={false}
           autoComplete="off"
           value={accessToken}
-          onChange={(e) => setAccessToken(e.target.value)}
+          onChange={setAccessToken}
           placeholder={hasToken ? 'Saved. Enter a new one to replace it.' : ''}
-          className={inputClass}
         />
       </label>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

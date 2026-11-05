@@ -29,12 +29,12 @@ export default function ProductPage({ path }: { path: string }) {
     <div className={pageClass}>
       <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Shop', href: '/shop' }, { label: product.name }]} />
       <div className="mt-4 grid gap-8 md:grid-cols-2 lg:gap-12">
-        <div className="aspect-square overflow-hidden rounded-xl border border-line bg-white">
-          <ProductImage product={product} />
+        <div className="aspect-square overflow-hidden bg-sand">
+          <ProductImage product={product} width={1000} />
         </div>
         <div>
           <p className="font-medium text-brand-deep">{product.category}</p>
-          <h1 className="mt-1 text-3xl font-bold sm:text-4xl">{product.name}</h1>
+          <h1 className="display-lg mt-1">{product.name}</h1>
           <p className="mt-4 text-3xl font-bold">
             {formatPrice(business.currency, product.price)}
             <span className="text-base font-normal text-muted"> per {perUnit(product.unit)}</span>
@@ -92,9 +92,11 @@ export default function ProductPage({ path }: { path: string }) {
             <li className="flex items-center gap-2.5"><CreditCard size={19} className="shrink-0" aria-hidden /> Pay securely with M-Pesa</li>
             <li className="flex items-center gap-2.5">
               <Truck size={19} className="shrink-0" aria-hidden />
-              {settings.deliveryEnabled
-                ? `Delivery for ${formatPrice(business.currency, settings.deliveryFee)}, or pick up in store`
-                : 'Pick up in store'}
+              {!settings.deliveryEnabled
+                ? 'Pick up in store'
+                : settings.deliveryFee > 0
+                  ? `Delivery for ${formatPrice(business.currency, settings.deliveryFee)}, or pick up in store`
+                  : 'Delivery or pick up in store'}
             </li>
           </ul>
         </div>
