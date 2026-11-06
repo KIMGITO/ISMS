@@ -50,6 +50,8 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
 
 `src/theme.css` holds the whole public look: colours, fonts (Italiana and Manrope), buttons, fields and corners. The staff app's styles are separate, in `src/index.css`.
 
+The home page hero is a carousel in `src/pages/HeroCarousel.tsx`. Scroll and hover animations are in the Motion block of `theme.css`, and anyone whose device asks for reduced motion gets a still page. Italiana draws a nearly invisible hyphen, so wrap display text that may contain one in `DisplayText`.
+
 `src/images.ts` holds the temporary Unsplash photos, each with its credit shown in the footer. A product or guide with its own image never uses them, so adding real photos in the staff app replaces them. Replace the hero photo by setting a cover image on the business.
 
 ## How it works

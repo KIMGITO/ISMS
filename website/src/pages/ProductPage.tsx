@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, CreditCard, Minus, Plus, ShoppingCart, Truck } from 'lucide-react';
 import { productPaths } from '../seo';
 import { useCart, useStorefront } from '../store';
-import { formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, secondaryButton } from '../ui';
+import { DisplayText, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, secondaryButton } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import ProductCard from './ProductCard';
 
@@ -34,7 +34,7 @@ export default function ProductPage({ path }: { path: string }) {
         </div>
         <div>
           <p className="font-medium text-brand-deep">{product.category}</p>
-          <h1 className="display-lg mt-1">{product.name}</h1>
+          <h1 className="display-lg mt-1"><DisplayText>{product.name}</DisplayText></h1>
           <p className="mt-4 text-3xl font-bold">
             {formatPrice(business.currency, product.price)}
             <span className="text-base font-normal text-muted"> per {perUnit(product.unit)}</span>

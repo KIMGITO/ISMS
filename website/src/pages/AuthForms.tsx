@@ -1,13 +1,15 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { createAccount, friendlyError, supabase } from '../api';
-import { useAuth } from '../store';
-import { ErrorText, fieldClass, pageClass, primaryButton, secondaryButton } from '../ui';
+import { createAccount, friendlyError, isProviderEnabled, supabase } from '../api';
+import { PHOTOS, photoUrl } from '../images';
+import { useAuth, useStorefront } from '../store';
+import { ErrorText, fieldClass, primaryButton, secondaryButton } from '../ui';
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'phone';
 
-// Each sign-in option only works once it's set up in Supabase, so it's listed here when it is.
-const ENABLED_PROVIDERS = (import.meta.env.VITE_AUTH_PROVIDERS ?? '').split(',').map((p: string) => p.trim());
+// Google shows by default and explains itself if it isn't set up yet. Phone and Apple only
+// appear once listed here, after they work in Supabase.
+const ENABLED_PROVIDERS = (import.meta.env.VITE_AUTH_PROVIDERS ?? 'google').split(',').map((p: string) => p.trim());
 
 const toE164 = (phone: string) => {
   const digits = phone.replace(/\D/g, '');
@@ -16,6 +18,43 @@ const toE164 = (phone: string) => {
 
 /** Same rule as fn_normalize_ke_phone in the database. */
 const isKenyanMobile = (phone: string) => /^(254|0)?[17]\d{8}$/.test(phone.replace(/\D/g, ''));
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+/** The photo panel beside every sign-in form. It drops away on phones. */
+function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  const { business } = useStorefront();
+  return (
+    <div className="grid lg:min-h-[44rem] lg:grid-cols-2">
+      <div className="relative isolate hidden overflow-hidden bg-hero text-cream lg:block">
+        <img src={photoUrl(PHOTOS.pour, 1100, 1300)} alt="" className="hero-photo absolute inset-0 -z-20 size-full object-cover" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
+        <div className="rise-in flex h-full flex-col justify-end p-12 xl:p-16">
+          <p className="display-lg max-w-md font-display leading-[1.08]">Your milk, a few taps away.</p>
+          <p className="mt-4 max-w-sm text-lg leading-relaxed text-cream/85">
+            Order from {business.name}, follow your deliveries, and set up regular orders.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-center px-4 py-10 sm:px-6 sm:py-14">
+        <div className="rise-in w-full max-w-md">
+          <h1 className="display-lg">{title}</h1>
+          {subtitle && <p className="mt-3 text-lg text-muted">{subtitle}</p>}
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AuthForms() {
   const [mode, setMode] = useState<Mode>('signin');
@@ -29,14 +68,35 @@ export function AuthForms() {
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
 
+  // Someone who declines on Google's page comes back with an error in the address.
+  useEffect(() => {
+    const params = new URLSearchParams(`${window.location.search}&${window.location.hash.replace(/^#/, '')}`);
+    if (params.get('error')) {
+      setError("That sign-in didn't finish. Please try again, or use your email.");
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const signInWith = async (provider: 'google' | 'apple') => {
     setError('');
+    setBusy(true);
+    const label = provider === 'google' ? 'Google' : 'Apple';
+    if (!(await isProviderEnabled(provider))) {
+      setError(`${label} sign-in isn't available yet. Please use your email for now.`);
+      setBusy(false);
+      return;
+    }
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/account` },
     });
-    if (authError) setError("We couldn't open that sign-in. Please try another way.");
+    if (authError) {
+      setError(`We couldn't open ${label} sign-in. Please try another way.`);
+      setBusy(false);
+    }
   };
+
+  const showProviders = !done && (mode === 'signin' || mode === 'signup');
 
   const handlePhone = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,13 +165,39 @@ export function AuthForms() {
     }
   };
 
-  const titles = { signin: 'Sign in', signup: 'Create your account', forgot: 'Reset your password', phone: 'Use your phone number' };
+  const titles = { signin: 'Welcome Back', signup: 'Create Your Account', forgot: 'Reset Your Password', phone: 'Use Your Phone Number' };
+  const actions = { signin: 'Sign in', signup: 'Create account', forgot: 'Send reset link', phone: 'Send me a code' };
+  const subtitles = {
+    signin: 'Sign in to order and follow your deliveries.',
+    signup: 'It only takes a minute.',
+    forgot: "Enter your email and we'll send you a link.",
+    phone: "We'll text you a code to sign in.",
+  };
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="text-4xl font-bold">{titles[mode]}</h1>
+    <AuthLayout title={titles[mode]} subtitle={subtitles[mode]}>
+      {showProviders && (
+        <div className="mt-8 space-y-2">
+          {ENABLED_PROVIDERS.includes('google') && (
+            <button type="button" disabled={busy} onClick={() => signInWith('google')} className={`${secondaryButton} w-full`}>
+              <GoogleMark /> Continue with Google
+            </button>
+          )}
+          {ENABLED_PROVIDERS.includes('apple') && (
+            <button type="button" disabled={busy} onClick={() => signInWith('apple')} className={`${secondaryButton} w-full`}>Continue with Apple</button>
+          )}
+          {ENABLED_PROVIDERS.includes('phone') && (
+            <button type="button" onClick={() => setMode('phone')} className={`${secondaryButton} w-full`}>Continue with phone number</button>
+          )}
+          {ENABLED_PROVIDERS.some((p: string) => ['google', 'apple', 'phone'].includes(p)) && (
+            <p className="flex items-center gap-3 pt-3 text-sm text-muted">
+              <span className="h-px flex-1 bg-line" /> or use your email <span className="h-px flex-1 bg-line" />
+            </p>
+          )}
+        </div>
+      )}
       {done ? (
-        <div role="status" className="mt-8 rounded-xl border border-line bg-white p-6 text-center">
+        <div role="status" className="card mt-8 p-6 text-center">
           <CheckCircle2 size={36} className="mx-auto text-emerald-700" aria-hidden />
           <p className="mt-3 text-lg">{done}</p>
           <button
@@ -139,7 +225,7 @@ export function AuthForms() {
           </button>
         </form>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <form onSubmit={handleSubmit} className={`${showProviders ? 'mt-4' : 'mt-8'} space-y-4`}>
           {mode === 'signup' && (
             <>
               <label className="block font-medium">
@@ -172,22 +258,9 @@ export function AuthForms() {
           )}
           <ErrorText>{error}</ErrorText>
           <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>
-            {busy ? 'Please wait…' : titles[mode]}
+            {busy ? 'Please wait…' : actions[mode]}
           </button>
         </form>
-      )}
-      {!done && (mode === 'signin' || mode === 'signup') && (
-        <div className="mt-6 space-y-2">
-          {ENABLED_PROVIDERS.includes('phone') && (
-            <button onClick={() => setMode('phone')} className={`${secondaryButton} w-full`}>Continue with phone number</button>
-          )}
-          {ENABLED_PROVIDERS.includes('google') && (
-            <button onClick={() => signInWith('google')} className={`${secondaryButton} w-full`}>Continue with Google</button>
-          )}
-          {ENABLED_PROVIDERS.includes('apple') && (
-            <button onClick={() => signInWith('apple')} className={`${secondaryButton} w-full`}>Continue with Apple</button>
-          )}
-        </div>
       )}
       {!done && (
         <div className="mt-6 space-y-1 text-center">
@@ -202,14 +275,14 @@ export function AuthForms() {
           )}
         </div>
       )}
-    </div>
+    </AuthLayout>
   );
 }
 
-/** Asks for the details a confirmed login is missing. */
+/** Asks for the details a confirmed login is missing, which Google doesn't provide. */
 export function FinishAccountForm() {
   const session = useAuth((s) => s.session);
-  const [name, setName] = useState(session?.user.user_metadata?.name ?? '');
+  const [name, setName] = useState(session?.user.user_metadata?.name ?? session?.user.user_metadata?.full_name ?? '');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -229,8 +302,7 @@ export function FinishAccountForm() {
   };
 
   return (
-    <div className={`${pageClass} max-w-md`}>
-      <h1 className="text-4xl font-bold">Finish your account</h1>
+    <AuthLayout title="One Last Step" subtitle="Add the M-Pesa number you'll pay with.">
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <label className="block font-medium">
           Your name
@@ -243,7 +315,7 @@ export function FinishAccountForm() {
         <ErrorText>{error}</ErrorText>
         <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>Continue</button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }
 
@@ -266,8 +338,7 @@ export function NewPasswordForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="text-4xl font-bold">Choose a new password</h1>
+    <AuthLayout title="Choose a New Password">
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <label className="block font-medium">
           New password
@@ -276,6 +347,6 @@ export function NewPasswordForm() {
         <ErrorText>{error}</ErrorText>
         <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>Save password</button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

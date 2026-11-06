@@ -84,7 +84,7 @@
     padding: 0.625rem 1.5rem;
     font-weight: 600;
     letter-spacing: -0.01em;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
   }
 
   .btn:disabled {
@@ -194,6 +194,178 @@
     padding-top: 0.75rem;
     font-size: 1.875rem;
   }
+}
+
+/* ------------------------------ Motion ------------------------------
+ * Everything that hides content before animating it sits inside this block,
+ * so anyone who asks for reduced motion just sees the page.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.75rem);
+    transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-list > * {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .reveal-list.is-visible > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-list > *:nth-child(2) { transition-delay: 0.08s; }
+  .reveal-list > *:nth-child(3) { transition-delay: 0.16s; }
+  .reveal-list > *:nth-child(4) { transition-delay: 0.24s; }
+  .reveal-list > *:nth-child(5) { transition-delay: 0.32s; }
+  .reveal-list > *:nth-child(6) { transition-delay: 0.4s; }
+
+  .page-enter {
+    animation: page-enter 0.5s ease both;
+  }
+
+  /* Inner page banners and the login panel. */
+  .rise-in {
+    animation: rise-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .rise-in-late {
+    animation: rise-in 0.8s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  /* Hero carousel */
+  .hero-slide {
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+
+  .hero-slide.is-active {
+    opacity: 1;
+    z-index: 1;
+  }
+
+  .hero-photo {
+    transform: scale(1.09);
+    transition: transform 9s linear;
+  }
+
+  .hero-slide.is-active .hero-photo {
+    transform: scale(1);
+  }
+
+  .hero-rise {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .hero-slide.is-active .hero-rise {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.9s ease 0.25s, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s;
+  }
+
+  .hero-slide.is-active p.hero-rise { transition-delay: 0.45s; }
+  .hero-slide.is-active div.hero-rise { transition-delay: 0.6s; }
+
+  .hero-progress {
+    animation: hero-progress linear both;
+  }
+
+  .marquee-track {
+    animation: marquee 34s linear infinite;
+  }
+
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* Small responses */
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .card-lift {
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 34px -20px rgb(36 23 16 / 0.5);
+  }
+
+  .plus-button {
+    transition: background-color 0.2s, color 0.2s, rotate 0.3s ease;
+  }
+
+  .plus-button:hover {
+    rotate: 90deg;
+  }
+
+  .nav-link {
+    background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+    transition: background-size 0.3s ease, color 0.2s;
+  }
+
+  .nav-link:hover {
+    background-size: 100% 1px;
+  }
+
+  .count-pop {
+    animation: count-pop 0.35s ease;
+  }
+
+  .assistant-enter {
+    animation: rise-in 0.3s ease both;
+  }
+}
+
+/* The carousel still changes slide without motion, so the inactive ones must stay hidden. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide:not(.is-active) {
+    visibility: hidden;
+  }
+
+  .marquee-track {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes hero-progress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes count-pop {
+  40% { transform: scale(1.35); }
 }
 
 @media (prefers-reduced-motion: reduce) {

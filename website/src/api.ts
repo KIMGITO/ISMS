@@ -169,6 +169,17 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
   return json as T;
 }
 
+/** Whether a sign-in provider is switched on in Supabase. Assumes yes if the check itself fails. */
+export async function isProviderEnabled(provider: 'google' | 'apple'): Promise<boolean> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    const settings = await res.json();
+    return settings.external?.[provider] !== false;
+  } catch {
+    return true;
+  }
+}
+
 /** Returns null when the slug isn't published. */
 export const fetchStorefront = () => rpc<Storefront | null>('get_public_storefront', { p_slug: WEBSITE_SLUG });
 

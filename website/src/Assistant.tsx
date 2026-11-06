@@ -80,7 +80,7 @@ export default function Assistant() {
   return (
     <section
       aria-label="Shop assistant"
-      className="fixed inset-0 z-40 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(36rem,calc(100dvh-3rem))] sm:w-96 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-2xl"
+      className="assistant-enter fixed inset-0 z-40 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(36rem,calc(100dvh-3rem))] sm:w-96 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-2xl"
     >
       <header className="flex items-center justify-between gap-3 bg-brand-deep px-4 py-3 text-white">
         <div className="min-w-0">
