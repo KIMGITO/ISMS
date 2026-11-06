@@ -141,6 +141,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        # The default list includes "tools", which Google removed; that fails on current runners.
+        with:
+          packages: platform-tools
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

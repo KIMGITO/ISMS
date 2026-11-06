@@ -283,6 +283,9 @@ jobs:
           java-version: "21"
 
       - uses: android-actions/setup-android@v3
+        # The default list includes "tools", which Google removed; that fails on current runners.
+        with:
+          packages: platform-tools
 
       - uses: actions/setup-node@v4
         with:
