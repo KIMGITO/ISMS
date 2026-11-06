@@ -104,7 +104,10 @@ export default function App() {
   return (
     <>
       <Layout section={route.parts[0] ?? ''}>
-        <Page route={route} />
+        {/* Account tabs keep their shell, so only other page changes fade in. */}
+        <div key={route.parts[0] === 'account' ? 'account' : route.parts.join('/')} className="page-enter">
+          <Page route={route} />
+        </div>
       </Layout>
       {site.settings.assistantEnabled && <Assistant />}
     </>

@@ -34,7 +34,7 @@ export default function ProductCard({ product }: { product: Product }) {
               setJustAdded(true);
               setTimeout(() => setJustAdded(false), 1500);
             }}
-            className="absolute -bottom-0 left-1/2 grid size-12 -translate-x-1/2 translate-y-1/3 place-items-center rounded-full border border-line bg-white text-ink shadow-md transition hover:bg-ink hover:text-cream"
+            className="plus-button absolute -bottom-0 left-1/2 grid size-12 -translate-x-1/2 translate-y-1/3 place-items-center rounded-full border border-line bg-white text-ink shadow-md hover:bg-ink hover:text-cream"
           >
             {justAdded ? <Check size={19} aria-hidden /> : <Plus size={19} strokeWidth={1.6} aria-hidden />}
           </button>

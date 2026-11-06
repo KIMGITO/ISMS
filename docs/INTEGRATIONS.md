@@ -23,7 +23,8 @@ No server of our own is needed. External services call the edge functions direct
 | WhatsApp Cloud API | Automatic WhatsApp messages | Staff open each chat by hand | Never run against Meta |
 | Twilio | SMS from the staff app | Staff use WhatsApp or email | Never run |
 | SMS provider in Supabase Auth | Phone number sign-in codes | Phone sign-in stays hidden | Never run |
-| Google, Apple | Website sign-in | Those buttons stay hidden | Never run |
+| Google | Website sign-in | The button shows, and says it isn't available yet | Never run against real Google |
+| Apple | Website sign-in | The button stays hidden | Never run |
 | Resend or SendGrid | Email | Sign-in emails and email messages fail | Never run |
 | Google Sheets | Nightly backups | No Sheets backup | Scheduling tested; a real backup hasn't run |
 | Firebase | Push notifications | No pushes | Never run |
@@ -96,7 +97,7 @@ Email is limited to 30 per hour per person, so it doesn't suit large lists.
 
 ### Website sign-in
 
-Email works without further setup. For the others, finish the steps below, then add the option to `VITE_AUTH_PROVIDERS` (for example `phone,google,apple`) and rebuild the website. Buttons only appear for options on that list.
+Email works without further setup. The Google button shows by default and tells customers it isn't available until the steps below are done. For phone and Apple, finish the steps below, then add the option to `VITE_AUTH_PROVIDERS` (for example `google,phone,apple`) and rebuild the website. Buttons only appear for options on that list.
 
 First, in **Supabase > Authentication > URL Configuration**, set the Site URL and add `https://kaykays.com/account` to the Redirect URLs. Add the address you test from too.
 

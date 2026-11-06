@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Article } from '../api';
 import { articlePhoto, PHOTOS, photoUrl } from '../images';
 import { useStorefront } from '../store';
-import { cardClass, formatDate, Notice, PageHero, pageClass } from '../ui';
+import { cardClass, DisplayText, formatDate, Notice, PageHero, pageClass, RevealList } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 export function ArticleCard({ article }: { article: Article }) {
@@ -19,7 +19,7 @@ export function ArticleCard({ article }: { article: Article }) {
         </div>
         <div className="p-5">
           <p className="eyebrow">{article.category}</p>
-          <h3 className="mt-2 font-display text-2xl leading-tight">{article.title}</h3>
+          <h3 className="mt-2 font-display text-2xl leading-tight"><DisplayText>{article.title}</DisplayText></h3>
           <p className="mt-2 line-clamp-3 text-muted">{article.summary}</p>
         </div>
       </a>
@@ -75,7 +75,7 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
       <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides', href: '/articles' }, { label: article.title }]} />
         <p className="eyebrow mt-4">{article.category}</p>
-        <h1 className="display-lg mt-2">{article.title}</h1>
+        <h1 className="display-lg mt-2"><DisplayText>{article.title}</DisplayText></h1>
         {article.publishedAt && <p className="mt-3 text-muted">{formatDate(article.publishedAt)}</p>}
         <img
           src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 1200, 700)}
@@ -100,9 +100,9 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
       </PageHero>
       <div className={pageClass}>
       {articles.length > 0 ? (
-        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <RevealList className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {articles.map((article) => <ArticleCard key={article.id} article={article} />)}
-        </ul>
+        </RevealList>
       ) : (
         <p className="mt-10 rounded-xl border border-dashed border-line p-10 text-center text-muted">
           Our first guides are coming soon.

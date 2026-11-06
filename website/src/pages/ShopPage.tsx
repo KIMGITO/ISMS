@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useStorefront } from '../store';
 import { PHOTOS } from '../images';
-import { PageHero, pageClass } from '../ui';
+import { PageHero, pageClass, RevealList } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import ProductCard from './ProductCard';
 
@@ -75,11 +75,11 @@ export default function ShopPage({ initialQuery }: { initialQuery: string }) {
       )}
 
       {visible.length > 0 ? (
-        <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <RevealList className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           {visible.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </ul>
+        </RevealList>
       ) : (
         <p className="mt-10 rounded-xl border border-dashed border-line p-10 text-center text-muted">
           {products.length === 0

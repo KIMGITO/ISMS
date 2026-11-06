@@ -19,7 +19,7 @@ function CartLink() {
     <a href="/cart" aria-label={count ? `Cart, ${count} items` : 'Cart'} className={iconLink}>
       <ShoppingBag size={21} strokeWidth={1.6} aria-hidden />
       {count > 0 && (
-        <span className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-brand-deep text-xs font-bold text-white">
+        <span key={count} className="count-pop absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-brand-deep text-xs font-bold text-white">
           {count}
         </span>
       )}
@@ -97,7 +97,7 @@ function Header({ section }: { section: string }) {
               key={link.href}
               href={link.href}
               aria-current={section === link.match ? 'page' : undefined}
-              className={`py-2 text-[0.9375rem] font-medium transition hover:text-brand-deep ${
+              className={`nav-link py-2 text-[0.9375rem] font-medium hover:text-brand-deep ${
                 section === link.match ? 'text-brand-deep underline underline-offset-8' : 'text-ink'
               }`}
             >
