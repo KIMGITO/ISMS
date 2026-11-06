@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { uploadService } from "../../services/uploadService";
 import { MediaType, UploadItem } from "../../services/upload/domain/entities";
 import { devicePermissionService } from "../../services/devicePermissionService";
+import { Switch } from './Switch';
 
 // Unsplash presets for Milk Shop theme
 const UNSPLASH_PRESETS = [
@@ -761,17 +762,7 @@ export default function UnifiedUploader({
                       <span className="font-extrabold text-app-text text-[10px] block">WebP Lossless Compression</span>
                       <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">Optimizes loading speed & storage size</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setCompressToggle(!compressToggle)}
-                      className={`relative inline-flex h-4 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        compressToggle ? "bg-brand-500" : "bg-app-border"
-                      }`}
-                    >
-                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white dark:bg-app-text/5 shadow ring-0 transition duration-200 ease-in-out ${
-                        compressToggle ? "translate-x-5" : "translate-x-0"
-                      }`} />
-                    </button>
+                    <Switch checked={compressToggle} onChange={setCompressToggle} ariaLabel="WebP lossless compression" />
                   </div>
 
                   <div className="flex gap-2">

@@ -38,11 +38,11 @@ cd android
 cd ..
 
 echo "--> Copying Android release APK..."
-cp android/app/build/outputs/apk/release/app-release-unsigned.apk release-builds/android/isms-release-unsigned.apk || true
-echo "--> Note: Run ./sign-apk.sh to align and sign the release build with your keystore."
-# Also copy debug apk for convenience
-cd android && ./gradlew assembleDebug && cd ..
-cp android/app/build/outputs/apk/debug/app-debug.apk release-builds/android/isms-debug.apk || true
+# AGP signs the APK in place (when signing env vars are set) but keeps the
+# "-unsigned" filename, so copy it as a plain release APK and let sign-apk.sh
+# (re-)align/sign it when a keystore is configured.
+cp android/app/build/outputs/apk/release/app-release-unsigned.apk release-builds/android/isms-release.apk || true
+echo "--> Note: Run ./sign-apk.sh to align and sign the release APK with your keystore."
 
 # ── 4. Build Windows App (via Docker) ───────────
 echo "--> Building Windows App (.exe) via Docker (no host sudo/toolchain needed)..."

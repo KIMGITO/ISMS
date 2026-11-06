@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getSupabase } from "../services/supabaseClient";
+import { SCREENS, canOpenScreen, type ScreenId } from "../utils/screens";
+import { formatReceiptNumber } from "../utils/idUtils";
 
 interface SearchResult {
   id: string;
@@ -28,27 +30,12 @@ interface SearchResult {
 }
 
 interface GlobalSearchProps {
-  onNavigateTab: (
-    tab: 
-      | "home" 
-      | "pos" 
-      | "inventory" 
-      | "sales" 
-      | "customers" 
-      | "feedback" 
-      | "workers" 
-      | "permissions" 
-      | "ai" 
-      | "profile" 
-      | "settings" 
-      | "dashboard" 
-      | "notifications"
-      | "business-management"
-      | "production"
-  ) => void;
+  onNavigateTab: (tab: ScreenId) => void;
+  /** Focus the box as soon as it appears, e.g. after tapping the search icon on a phone. */
+  autoFocus?: boolean;
 }
 
-export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
+export default function GlobalSearch({ onNavigateTab, autoFocus = false }: GlobalSearchProps) {
   const { products, customers, transactions, employees, businesses, activeBusinessId, toggleNetwork } = useAppStore();
   const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const { shifts, activeShift, currentEmployee, invitations, users } = useAuthStore();
@@ -140,7 +127,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       case "Sales":
       case "Sale Items":
       case "Payments":
-        return hasRolePermission(currentEmployee.role, "orders.view") || hasRolePermission(currentEmployee.role, "payments.view");
+        return canOpenScreen(currentEmployee.role, "money");
       case "Purchases":
       case "Purchase Items":
         return hasRolePermission(currentEmployee.role, "purchases.view");
@@ -178,6 +165,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
         return hasRolePermission(currentEmployee.role, "files.view");
       case "Business Assets":
         return hasRolePermission(currentEmployee.role, "assets.view");
+      case "Screens": // already limited to screens this role can open
       case "Quick Actions":
       case "Home Dashboard":
       case "Shifts":
@@ -208,41 +196,17 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
 
     const activeBizName = businesses.find(b => b.id === activeBusinessId)?.name || "Primary Business";
 
-    // Static pages shortcuts
-    const staticPages = [
-      {
-        id: "nav-settings",
-        title: "Settings & System Configuration",
-        subtitle: "Manage Twilio SMS, Google Sheets backups, Firebase notifications, and system presets",
-        category: "Settings",
-        tab: "settings" as const,
-        keywords: ["settings", "twilio", "sms", "backup", "firebase", "notifications", "printer", "fcm"]
-      },
-      {
-        id: "nav-permissions",
-        title: "Staff Roles & Access Permissions Registry",
-        subtitle: "Configure cashier, manager, owner, driver roles and manage security privileges",
-        category: "Permissions",
-        tab: "permissions" as const,
-        keywords: ["permissions", "roles", "privileges", "access", "clearance", "security"]
-      },
-      {
-        id: "nav-profile",
-        title: "Personal Profile details & Shift logs",
-        subtitle: "Check shift history, reset employee PIN code, update profile info",
-        category: "Profile",
-        tab: "profile" as const,
-        keywords: ["profile", "pin", "shift", "personal", "employee", "account"]
-      },
-      {
-        id: "nav-business-management",
-        title: "Business Management (Multi-Tenant & Branding)",
-        subtitle: "Configure business details, tenant branches, dynamic brand colors, and logos",
-        category: "Business Management",
-        tab: "business-management" as const,
-        keywords: ["business", "management", "branches", "tenant", "branding", "colors", "logo"]
-      }
-    ];
+    // Screens this person can open
+    const staticPages = SCREENS
+      .filter((screen) => canOpenScreen(currentEmployee?.role, screen.id))
+      .map((screen) => ({
+        id: `nav-${screen.id}`,
+        title: screen.title,
+        subtitle: screen.description,
+        category: "Screens",
+        tab: screen.id,
+        keywords: screen.keywords,
+      }));
 
     staticPages.forEach(p => {
       const matchTitle = getRelevance(p.title, lower);
@@ -386,12 +350,13 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       const matchName = getRelevance(c.name, lower);
       const matchPhone = getRelevance(c.phone, lower);
       const matchEmail = getRelevance(c.email || "", lower);
-      const score = Math.max(matchName, matchPhone, matchEmail);
+      const matchAccount = c.accountNumber ? getRelevance(c.accountNumber, lower) : 0;
+      const score = Math.max(matchName, matchPhone, matchEmail, matchAccount);
       if (score > 0) {
         matched.push({
           id: `cust-${c.id}`,
           title: c.name,
-          subtitle: `${c.tier} Tier Customer · Points: ${c.loyaltyPoints} · Phone: ${c.phone} · Balance: KSh ${c.debtBalance || 0}`,
+          subtitle: `${c.accountNumber ? `Account ${c.accountNumber} · ` : ""}${c.tier} Tier · Points: ${c.loyaltyPoints} · Phone: ${c.phone} · Owes: KSh ${c.debtBalance || 0}`,
           category: "Customers",
           businessName: activeBizName,
           relevance: score + 10,
@@ -429,14 +394,15 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
 
     // 8. Search Sales
     transactions.forEach(t => {
-      const matchId = getRelevance(t.id, lower);
+      const receipt = formatReceiptNumber(t.id);
+      const matchId = getRelevance(receipt, lower);
       const matchCust = t.customerName ? getRelevance(t.customerName, lower) : 0;
       const matchMethod = getRelevance(t.paymentMethod, lower);
       const score = Math.max(matchId, matchCust, matchMethod);
       if (score > 0) {
         matched.push({
           id: `sale-${t.id}`,
-          title: `Sale Reference #${t.id}`,
+          title: `Receipt ${receipt}${t.customerName ? ` · ${t.customerName}` : ""}`,
           subtitle: `Total: KSh ${t.finalTotal.toFixed(2)} · Method: ${t.paymentMethod} · Operator: ${t.staffName} · Status: ${t.status}`,
           category: "Sales",
           businessName: activeBizName,
@@ -458,7 +424,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
         if (score > 0) {
           matched.push({
             id: `sale-item-${t.id}-${index}`,
-            title: `Item: ${item.product.name} (in Sale #${t.id})`,
+            title: `Item: ${item.product.name} (receipt ${formatReceiptNumber(t.id)})`,
             subtitle: `Quantity sold: ${item.quantity} · Discount: ${item.discountPercentage}% · Total: KSh ${(item.product.price * item.quantity).toFixed(2)}`,
             category: "Sale Items",
             businessName: activeBizName,
@@ -476,13 +442,11 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
     // 10. Search Purchases (Bulk milk orders)
     const purchases = extra.purchases || [];
     purchases.forEach(p => {
-      const matchId = getRelevance(p.id, lower);
-      const matchSup = getRelevance(p.supplierName, lower);
-      const score = Math.max(matchId, matchSup);
+      const score = getRelevance(p.supplierName, lower);
       if (score > 0) {
         matched.push({
           id: `pur-${p.id}`,
-          title: `Purchase Order ${p.id}`,
+          title: `Purchase from ${p.supplierName} · ${new Date(p.date).toLocaleDateString()}`,
           subtitle: `Supplier: ${p.supplierName} · Cost: KSh ${p.totalAmount.toFixed(2)} · Status: ${p.status} · Date: ${new Date(p.date).toLocaleDateString()}`,
           category: "Purchases",
           businessName: activeBizName,
@@ -504,7 +468,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
         if (score > 0) {
           matched.push({
             id: `pur-item-${p.id}-${idx}`,
-            title: `Item: ${item.name} (Purchase Order ${p.id})`,
+            title: `Item: ${item.name} (purchase from ${p.supplierName})`,
             subtitle: `Quantity Ordered: ${item.quantity} ${item.unit} · Unit Price: KSh ${item.price} · Subtotal: KSh ${(item.quantity * item.price).toFixed(2)}`,
             category: "Purchase Items",
             businessName: activeBizName,
@@ -522,20 +486,20 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
     // 12. Search Production Batches
     const batches = extra.productionBatches || [];
     batches.forEach(b => {
-      const matchId = getRelevance(b.id, lower);
+      const matchRef = b.referenceNumber ? getRelevance(b.referenceNumber, lower) : 0;
       const matchRecipe = getRelevance(b.recipeName, lower);
-      const score = Math.max(matchId, matchRecipe);
+      const score = Math.max(matchRef, matchRecipe);
       if (score > 0) {
         matched.push({
           id: `batch-${b.id}`,
-          title: `Production Batch: ${b.id}`,
+          title: `Production batch: ${b.recipeName}${b.referenceNumber ? ` · Ref ${b.referenceNumber}` : ""}`,
           subtitle: `Formula: ${b.recipeName} · Yield: ${b.quantityProduced} ${b.unit} · Operator: ${b.staffName} · Status: ${b.status}`,
           category: "Production Batches",
           businessName: activeBizName,
           status: b.status,
           relevance: score + 10,
           action: () => {
-            onNavigateTab("inventory");
+            onNavigateTab("production");
             setIsOpen(false);
             setQuery("");
           }
@@ -604,7 +568,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
           status: pay.status,
           relevance: score + 15,
           action: () => {
-            onNavigateTab("sales");
+            onNavigateTab("money");
             setIsOpen(false);
             setQuery("");
           }
@@ -909,7 +873,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
     // 28. Shifts
     shifts.forEach(s => {
       const emp = employees.find(e => e.id === s.employeeId);
-      const empName = emp ? emp.name : `Employee ID: ${s.employeeId}`;
+      const empName = emp ? emp.name : "Former staff member";
       const scoreName = getRelevance(empName, lower);
       const scoreStatus = getRelevance(s.status, lower);
       const score = Math.max(scoreName, scoreStatus);
@@ -1112,8 +1076,11 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-app-text-muted" />
         <input
-          type="text"
-          placeholder="Search products, orders, BOM recipes, payments, suppliers, invitations..."
+          type="search"
+          enterKeyHint="search"
+          autoFocus={autoFocus}
+          aria-label="Search the app"
+          placeholder="Search screens, products, customers, payments..."
           value={query}
           onFocus={() => setIsOpen(true)}
           onChange={(e) => handleSearch(e.target.value)}
@@ -1139,7 +1106,7 @@ export default function GlobalSearch({ onNavigateTab }: GlobalSearchProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute top-11 left-0 right-0 md:-left-16 md:-right-16 max-h-[450px] bg-app-card rounded-2xl border border-app-border shadow-2xl overflow-y-auto z-50 p-3.5 flex flex-col gap-1.5 scrollbar-thin"
+            className="absolute top-11 left-0 right-0 md:-left-16 md:-right-16 max-h-[min(450px,calc(100dvh-8rem))] bg-app-card rounded-2xl border border-app-border shadow-2xl overflow-y-auto z-50 p-3.5 flex flex-col gap-1.5 scrollbar-thin"
           >
             {results.length === 0 ? (
               <div className="p-6 text-center text-xs text-app-text-muted">

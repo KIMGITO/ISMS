@@ -19,6 +19,7 @@ import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-
 // @ts-ignore plain JS module shared with the release workflow
 import { buildManifest } from "../../scripts/update-manifest.mjs";
 import { compareVersions } from "../utils/semver";
+import { SCREENS, canOpenScreen } from "../utils/screens";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -416,6 +417,29 @@ runTest("App versions compare numerically", () => {
   const cases: [string, string, number][] = [["1.10.0", "1.9.9", 1], ["1.0.0", "1.0.0", 0], ["v2.0.0", "1.99.99", 1], ["1.0", "1.0.1", -1]];
   for (const [a, b, want] of cases) {
     if (compareVersions(a, b) !== want) throw new Error(`${a} vs ${b} gave ${compareVersions(a, b)}`);
+  }
+});
+
+runTest("Screen access follows the roles' permissions", () => {
+  const expect = (role: string, screen: string, want: boolean) => {
+    if (canOpenScreen(role, screen) !== want) throw new Error(`${role} ${want ? "should" : "should not"} open ${screen}`);
+  };
+  // Payments & Expenses used to sit inside Business Management, which only owners and admins reach.
+  expect("Cashier", "money", true);
+  expect("Manager", "money", true);
+  expect("Rider", "money", false);
+  expect("Manager", "business-management", false);
+  expect("Cashier", "online-store", true);
+  expect("Rider", "settings", false);
+  for (const role of Object.keys(SYSTEM_ROLES)) {
+    for (const id of ["profile", "about", "notifications"]) expect(role, id, true);
+  }
+  const ids = SCREENS.map((sc) => sc.id);
+  if (new Set(ids).size !== ids.length) throw new Error("A screen is listed twice");
+  // Every screen the app renders must be listed, or search and the tour miss it.
+  const app = readFileSync("src/App.tsx", "utf8");
+  for (const [, tab] of app.matchAll(/activeTab === '([a-z-]+)' && \(/g)) {
+    if (!ids.includes(tab as any)) throw new Error(`Screen "${tab}" is missing from utils/screens.ts`);
   }
 });
 

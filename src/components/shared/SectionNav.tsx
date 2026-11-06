@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useOverlay } from '../../hooks/useOverlay';
 import { ArrowLeft, ChevronRight, Search } from 'lucide-react';
 
 export interface NavSection<T extends string> {
@@ -32,6 +33,7 @@ export function SectionNav<T extends string>({
 }: SectionNavProps<T>) {
   const [query, setQuery] = useState('');
   const [openOnPhone, setOpenOnPhone] = useState(false);
+  useOverlay(openOnPhone, () => setOpenOnPhone(false), 'screen');
 
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();

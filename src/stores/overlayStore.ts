@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type OverlayType = "dialog" | "bottom-sheet" | "drawer" | "other";
+export type OverlayType = "dialog" | "bottom-sheet" | "drawer" | "dropdown" | "screen" | "other";
 
 export interface Overlay {
   id: string;
@@ -16,11 +16,15 @@ interface OverlayState {
 }
 
 // Priority order for closing overlays (lower index = higher priority to close)
+// A dropdown sits on top of whatever opened it; a "screen" is a step inside a page,
+// such as a customer's details, and goes last, before leaving the page itself.
 const priorityOrder: Record<OverlayType, number> = {
+  "dropdown": -1,
   "dialog": 0,
   "bottom-sheet": 1,
   "drawer": 2,
   "other": 3,
+  "screen": 4,
 };
 
 export const useOverlayStore = create<OverlayState>((set, get) => ({

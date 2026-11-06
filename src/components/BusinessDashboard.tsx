@@ -22,6 +22,7 @@ import { useAuthStore } from "../stores/authStore";
 import { SupabaseService } from "../services/supabaseService";
 import { useAppStore } from "../stores/appStore";
 import TrackedReports from "./TrackedReports";
+import SearchableDropdown from "./SearchableDropdown";
 
 interface AiAnalysisReport {
   executiveSummary: string;
@@ -894,23 +895,22 @@ export default function BusinessDashboard() {
             <RefreshCw size={14} className={`${isRefreshing ? "animate-spin text-brand-500" : ""}`} />
           </button>
 
-          <div className="relative inline-block w-full sm:w-auto">
-            <select
-              id="timeframe_filter"
-              value={filterRange}
-              onChange={(e: any) => setFilterRange(e.target.value)}
-              className="w-full sm:w-auto bg-app-bg text-xs font-black uppercase tracking-wider text-app-text pl-3 pr-10 py-2.5 rounded-2xl border border-app-border appearance-none cursor-pointer focus:outline-none"
-            >
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="last7">Last 7 Days</option>
-              <option value="last30">30 Days</option>
-              <option value="monthly">Monthly (MTD)</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
-              <option value="custom">Custom Range</option>
-            </select>
-            <Calendar size={13} className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-app-text-muted pointer-events-none" />
+          <div id="timeframe_filter" className="w-full sm:w-48">
+            <SearchableDropdown
+              items={[
+                { id: "today", label: "Today" },
+                { id: "yesterday", label: "Yesterday" },
+                { id: "last7", label: "Last 7 days" },
+                { id: "last30", label: "Last 30 days" },
+                { id: "monthly", label: "This month" },
+                { id: "quarterly", label: "This quarter" },
+                { id: "yearly", label: "This year" },
+                { id: "custom", label: "Custom range" },
+              ]}
+              selectedValue={filterRange}
+              onChange={(value) => setFilterRange(value as any)}
+              placeholder="Time range"
+            />
           </div>
         </div>
       </div>

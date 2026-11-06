@@ -1,4 +1,5 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useOverlay } from '../hooks/useOverlay';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -23,6 +24,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { STARTER_GUIDES } from './onlineStoreStarterGuides';
+import { Switch } from '../components/shared/Switch';
 
 type TabId = 'orders' | 'messages' | 'feedback' | 'guides' | 'settings';
 
@@ -300,6 +302,7 @@ function MessagesTab({ businessId }: { businessId: string }) {
   const staffName = useAuthStore((s) => s.currentEmployee?.name ?? 'Staff');
   const [messages, setMessages] = useState<StaffMessage[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  useOverlay(selected !== null, () => setSelected(null), 'screen');
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -582,10 +585,12 @@ function GuidesTab({ businessId }: { businessId: string }) {
           <span className="block font-normal text-app-text-muted">Start a line with ## for a heading, or - for a list item.</span>
           <textarea required rows={14} value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} className={`${inputClass} mt-1`} />
         </label>
-        <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-app-text">
-          <input type="checkbox" checked={editing.published} onChange={(e) => setEditing({ ...editing, published: e.target.checked })} />
-          Published on the website
-        </label>
+        <Switch
+          className="min-h-10"
+          checked={editing.published}
+          onChange={(published) => setEditing({ ...editing, published })}
+          label={<span className="text-sm font-medium">Published on the website</span>}
+        />
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={busy} className={primaryClass}><Save size={16} /> Save</button>
           <button type="button" onClick={() => setEditing(null)} className={secondaryClass}>Cancel</button>
@@ -851,9 +856,12 @@ function SettingsTab({ businessId }: { businessId: string }) {
           <span className="block font-normal text-app-text-muted">Your website stays hidden while this is empty. It must match the name the website was built with.</span>
           <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="kaykays" className={`${inputClass} mt-1`} />
         </label>
-        <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-app-text">
-          <input type="checkbox" checked={deliveryEnabled} onChange={(e) => setDeliveryEnabled(e.target.checked)} /> Offer delivery
-        </label>
+        <Switch
+          className="min-h-10"
+          checked={deliveryEnabled}
+          onChange={setDeliveryEnabled}
+          label={<span className="text-sm font-medium">Offer delivery</span>}
+        />
         <label className="block text-sm font-medium text-app-text">
           Delivery fee (Ksh)
           <input type="number" min="0" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} className={`${inputClass} mt-1`} />
@@ -862,9 +870,12 @@ function SettingsTab({ businessId }: { businessId: string }) {
           Minimum order (Ksh)
           <input type="number" min="0" value={minOrder} onChange={(e) => setMinOrder(e.target.value)} className={`${inputClass} mt-1`} />
         </label>
-        <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-app-text">
-          <input type="checkbox" checked={assistantEnabled} onChange={(e) => setAssistantEnabled(e.target.checked)} /> Show the AI assistant
-        </label>
+        <Switch
+          className="min-h-10"
+          checked={assistantEnabled}
+          onChange={setAssistantEnabled}
+          label={<span className="text-sm font-medium">Show the AI assistant</span>}
+        />
         <button type="submit" disabled={saving} className={primaryClass}><Save size={16} /> {saving ? 'Saving…' : 'Save'}</button>
       </form>
 
@@ -876,11 +887,10 @@ function SettingsTab({ businessId }: { businessId: string }) {
             <li key={product.id}>
               <label className="flex min-h-11 items-center justify-between gap-3 text-sm text-app-text">
                 <span className="min-w-0 truncate">{product.name}</span>
-                <input
-                  type="checkbox"
-                  aria-label={`Show ${product.name} on the website`}
+                <Switch
+                  ariaLabel={`Show ${product.name} on the website`}
                   checked={product.show_on_website}
-                  onChange={(e) => toggleProduct(product.id, e.target.checked)}
+                  onChange={(on) => toggleProduct(product.id, on)}
                 />
               </label>
             </li>

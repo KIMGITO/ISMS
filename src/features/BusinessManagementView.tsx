@@ -1,5 +1,6 @@
 import { toUserMessage } from "../utils/userError";
 import React, { useState, useEffect } from "react";
+import { useOverlay } from '../hooks/useOverlay';
 import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
@@ -15,6 +16,7 @@ import { Tabs } from "../components/TabOptions";
 import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
 import type { ExpenseCategory } from "../types";
+import { Switch } from '../components/shared/Switch';
 
 // Shown only until the business's own list has loaded.
 const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
@@ -28,7 +30,13 @@ const COLOR_PRESETS = [
   { name: "Monochrome Sleek", primary: "#94a3b8", secondary: "#0f172a", label: "Silver & Charcoal" }
 ];
 
-export default function BusinessManagementView() {
+type MoneyTab = "payments" | "expenses" | "mpesa";
+
+/**
+ * section "business": branches and business details (business.update).
+ * section "money": payments, expenses and M-Pesa, each shown to the roles that hold its permissions.
+ */
+export default function BusinessManagementView({ section = "business" }: { section?: "business" | "money" }) {
   const { 
     businesses, 
     activeBusinessId, 
@@ -43,6 +51,7 @@ export default function BusinessManagementView() {
 
   // Creation States
   const [isCreating, setIsCreating] = useState(false);
+  useOverlay(isCreating, () => setIsCreating(false), 'screen');
   const [newBizName, setNewBizName] = useState("");
   const [newBizDesc, setNewBizDesc] = useState("");
   const [newBizAddr, setNewBizAddr] = useState("");
@@ -76,7 +85,16 @@ export default function BusinessManagementView() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Tab State
-  const [activeSubTab, setActiveSubTab] = useState<"details" | "expenses" | "payments" | "mpesa">("details");
+  const role = currentEmployee?.role || "Guest";
+  const moneyTabs = ([
+    { id: "payments", label: "Payments", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.view") || hasRolePermission(role, "payments.cash") || hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") },
+    { id: "mpesa", label: "M-Pesa", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") || hasRolePermission(role, "settings.integrations") },
+    { id: "expenses", label: "Expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
+  ] as { id: MoneyTab; label: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
+  const [activeSubTab, setActiveSubTab] = useState<"details" | MoneyTab>(
+    section === "money" ? moneyTabs[0]?.id ?? "payments" : "details",
+  );
+  const isMoney = section === "money";
 
   // Expenses States
   const [expAmount, setExpAmount] = useState("");
@@ -476,17 +494,22 @@ export default function BusinessManagementView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
           <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
-            <Building size={16} className="text-amber-500" /> Admin Business
-            Management
+            {isMoney ? (
+              <><Wallet size={16} className="text-amber-500" /> Payments &amp; Expenses</>
+            ) : (
+              <><Building size={16} className="text-amber-500" /> Admin Business Management</>
+            )}
           </h2>
           <p className="text-[9.5px] text-app-text-muted mt-0.5 font-medium leading-normal">
-            Configure metadata, contact points, brand representations, and
-            global workspace defaults for your business branches.
+            {isMoney
+              ? "Record money coming in and going out, and handle M-Pesa payments."
+              : "Configure metadata, contact points, brand representations, and global workspace defaults for your business branches."}
           </p>
         </div>
       </div>
 
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
+      {!isMoney && (
       <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 -mx-1 px-1 min-h-[130px]">
         {businesses.map((biz) => {
           const isActive = biz.id === activeBusinessId && !isCreating;
@@ -564,10 +587,11 @@ export default function BusinessManagementView() {
           </button>
         )}
       </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left Column: Businesses & Branches Directory */}
-        <div className="xl:hidden flex flex-col gap-4">
+        <div className={`xl:hidden flex flex-col gap-4 ${isMoney ? "hidden" : ""}`}>
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
               <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
@@ -648,7 +672,7 @@ export default function BusinessManagementView() {
 
         {/* Right Columns: Forms (active biz profile or creation form) */}
         <div className="xl:col-span-3">
-          {isCreating ? (
+          {isCreating && !isMoney ? (
             /* Creation Form */
             <form
               onSubmit={handleCreateBusiness}
@@ -822,18 +846,18 @@ export default function BusinessManagementView() {
             </form>
           ) : activeBiz ? (
             <div className="space-y-5">
-              <Tabs<typeof activeSubTab>
-                tabs={[
-                  { id: 'details', label: 'Details', icon: <Building size={14} /> },
-                  { id: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
-                  { id: 'payments', label: 'Payments', icon: <CreditCard size={14} /> },
-                  { id: 'mpesa', label: 'M-Pesa', icon: <Smartphone size={14} /> },
-                ]}
-                activeTab={activeSubTab}
-                onChange={setActiveSubTab}
-              />
+              {isMoney && moneyTabs.length > 1 && (
+                <Tabs<typeof activeSubTab>
+                  tabs={moneyTabs.map(({ id, label, icon }) => ({ id, label, icon }))}
+                  activeTab={activeSubTab}
+                  onChange={setActiveSubTab}
+                />
+              )}
+              {isMoney && moneyTabs.length === 0 && (
+                <p className="text-sm text-app-text-muted">Your role doesn't include payments or expenses.</p>
+              )}
 
-              {activeSubTab === 'details' && (
+              {!isMoney && activeSubTab === 'details' && (
                 <form
                   onSubmit={handleSave}
                   className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200"
@@ -1011,19 +1035,11 @@ export default function BusinessManagementView() {
                               checkouts.
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setIsTaxEnabled(!isTaxEnabled)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                              isTaxEnabled ? 'bg-amber-500' : 'bg-app-border'
-                            }`}
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                                isTaxEnabled ? 'translate-x-5' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
+                          <Switch
+                            checked={isTaxEnabled}
+                            onChange={() => setIsTaxEnabled(!isTaxEnabled)}
+                            ariaLabel="Charge tax"
+                          />
                         </div>
 
                         {isTaxEnabled && (
@@ -1170,7 +1186,7 @@ export default function BusinessManagementView() {
                 </form>
               )}
 
-              {activeSubTab === 'expenses' && (
+              {isMoney && activeSubTab === 'expenses' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
                   {/* Expense Recorder Form */}
                   <form
@@ -1412,11 +1428,11 @@ export default function BusinessManagementView() {
                 </div>
               )}
 
-              {activeSubTab === 'mpesa' && (
+              {isMoney && activeSubTab === 'mpesa' && (
                 <MpesaPaymentsPanel customers={localCustomers} />
               )}
 
-              {activeSubTab === 'payments' && (
+              {isMoney && activeSubTab === 'payments' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
                   {/* Money Assets Overview Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">

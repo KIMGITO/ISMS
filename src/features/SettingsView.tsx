@@ -87,6 +87,7 @@ import {
 } from '../services/printer/types';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import { SupabaseService } from '../services/supabaseService';
+import { Switch } from '../components/shared/Switch';
 
 
 interface SettingsViewProps {
@@ -1892,24 +1893,15 @@ export default function SettingsView({
                           complaints analyzer
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
+                      <Switch
+                        checked={aiConfig.enabled}
+                        onChange={() =>
                           setAiConfig({
                             ...aiConfig,
                             enabled: !aiConfig.enabled,
-                          })
-                        }
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          aiConfig.enabled ? 'bg-amber-500' : 'bg-app-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            aiConfig.enabled ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+                          })}
+                        ariaLabel="Enable the assistant"
+                      />
                     </div>
 
                     {/* Provider selection */}
@@ -2487,28 +2479,15 @@ export default function SettingsView({
                           Toggle live nightly schedule execution
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
+                      <Switch
+                        checked={sheetsConfig.enabled}
+                        onChange={() =>
                           setSheetsConfig((prev) => ({
                             ...prev,
                             enabled: !prev.enabled,
-                          }))
-                        }
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          sheetsConfig.enabled
-                            ? 'bg-amber-500'
-                            : 'bg-app-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            sheetsConfig.enabled
-                              ? 'translate-x-5'
-                              : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+                          }))}
+                        ariaLabel="Back up to Google Sheets"
+                      />
                     </div>
 
                     {/* Google Sheets URL */}
@@ -2795,26 +2774,15 @@ export default function SettingsView({
                           alerts to staff and owner
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
+                      <Switch
+                        checked={smsConfig.enabled}
+                        onChange={() =>
                           setSmsConfig({
                             ...smsConfig,
                             enabled: !smsConfig.enabled,
-                          })
-                        }
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          smsConfig.enabled ? 'bg-amber-500' : 'bg-app-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            smsConfig.enabled
-                              ? 'translate-x-5'
-                              : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+                          })}
+                        ariaLabel="Enable SMS"
+                      />
                     </div>
 
                     {/* Provider selection */}
@@ -3178,9 +3146,9 @@ export default function SettingsView({
                             Toggle live background replication and auth syncing
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        <Switch
+                          checked={dbSyncEnabled}
+                          onChange={() => {
                             const newVal = !dbSyncEnabled;
                             setDbSyncEnabled(newVal);
                             localStorage.setItem(
@@ -3194,16 +3162,8 @@ export default function SettingsView({
                               }.`,
                             );
                           }}
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            dbSyncEnabled ? 'bg-amber-500' : 'bg-app-border'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-slate-900 shadow-lg ring-0 transition duration-200 ease-in-out ${
-                              dbSyncEnabled ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
+                          ariaLabel="Live database sync"
+                        />
                       </div>
 
                       {/* Supabase URL */}

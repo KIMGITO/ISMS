@@ -35,6 +35,7 @@ import { hasRolePermission } from '../utils/permissions';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, searchMatch } from '../utils/stringUtils';
 import UnifiedUploader from '../components/shared/UnifiedUploader';
+import { Switch } from '../components/shared/Switch';
 
 export default function InventoryView() {
   const {
@@ -93,6 +94,8 @@ export default function InventoryView() {
   // Dynamic category management state
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [editingCategoryName, setEditingCategoryName] = useState<string | null>(
     null,
   );
@@ -1090,24 +1093,12 @@ export default function InventoryView() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-3 mt-2">
                     {/* The Custom Switch Container */}
-                    <div
-                      onClick={() =>
-                        setValues({ ...values, perishable: !values.perishable })
-                      }
-                      className={`
-      relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-      transition-colors duration-200 ease-in-out focus:outline-none
-      ${values.perishable ? 'bg-amber-500' : 'bg-app-border/40'}
-    `}
-                    >
-                      <span
-                        className={`
-          pointer-events-none inline-block h-4 w-4 transform rounded-full bg-app-bg shadow ring-0 
-          transition duration-200 ease-in-out
-          ${values.perishable ? 'translate-x-4' : 'translate-x-0'}
-        `}
-                      />
-                    </div>
+                    <Switch
+                      checked={values.perishable}
+                      onChange={() =>
+                        setValues({ ...values, perishable: !values.perishable })}
+                      ariaLabel="Perishable"
+                    />
 
                     {/* Interactive Label */}
                     <label
@@ -1242,10 +1233,9 @@ export default function InventoryView() {
                   className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none"
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newCategoryName.trim()) return;
-                    addCategory(newCategoryName.trim());
-                    setNewCategoryName('');
+                    if (await addCategory(newCategoryName.trim())) setNewCategoryName('');
                   }}
                   className="px-4 py-2 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 transition"
                 >
@@ -1258,16 +1248,45 @@ export default function InventoryView() {
                     key={cat}
                     className="bg-app-bg border border-app-border rounded-xl p-2.5 flex items-center justify-between text-xs font-bold text-app-text"
                   >
-                    <span>{cat}</span>
-                    <button
-                      onClick={() => {
-                        const val = prompt('Rename category:', cat);
-                        if (val?.trim()) updateCategory(cat, val.trim());
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-amber-500"
-                    >
-                      <Pencil size={12} />
-                    </button>
+                    {renamingCategory === cat ? (
+                      <form
+                        className="flex flex-1 gap-2"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const next = renameValue.trim();
+                          if (!next || next === cat) { setRenamingCategory(null); return; }
+                          try {
+                            await updateCategory(cat, next);
+                            setRenamingCategory(null);
+                          } catch (err) {
+                            showToast('Could Not Rename', toUserMessage(err, 'Please try again.'), undefined, 'error');
+                          }
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Escape') setRenamingCategory(null); }}
+                          aria-label={`New name for ${cat}`}
+                          className="flex-1 min-w-0 bg-app-card border border-amber-500 rounded-lg px-2 py-1 text-xs text-app-text focus:outline-none"
+                        />
+                        <button type="submit" className="px-2.5 py-1 bg-amber-500 text-slate-950 rounded-lg text-[11px] font-black cursor-pointer">Save</button>
+                        <button type="button" onClick={() => setRenamingCategory(null)} aria-label="Cancel" className="p-1 text-slate-400 cursor-pointer"><X size={12} /></button>
+                      </form>
+                    ) : (
+                      <>
+                        <span>{titleCase(cat)}</span>
+                        <button
+                          type="button"
+                          aria-label={`Rename ${cat}`}
+                          onClick={() => { setRenamingCategory(cat); setRenameValue(titleCase(cat)); }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 cursor-pointer"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1445,27 +1464,15 @@ export default function InventoryView() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-3 mt-2">
                     {/* The Custom Switch Container */}
-                    <div
-                      onClick={() =>
+                    <Switch
+                      checked={editValues.perishable}
+                      onChange={() =>
                         setEditValues({
                           ...editValues,
                           perishable: !editValues.perishable,
-                        })
-                      }
-                      className={`
-        relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-        transition-colors duration-200 ease-in-out focus:outline-none
-        ${editValues.perishable ? 'bg-amber-500' : 'bg-app-border/40'}
-      `}
-                    >
-                      <span
-                        className={`
-          pointer-events-none inline-block h-4 w-4 transform rounded-full bg-app-bg shadow ring-0 
-          transition duration-200 ease-in-out
-          ${editValues.perishable ? 'translate-x-4' : 'translate-x-0'}
-        `}
-                      />
-                    </div>
+                        })}
+                      ariaLabel="Perishable"
+                    />
 
                     {/* Interactive Label */}
                     <label

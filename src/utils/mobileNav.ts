@@ -21,7 +21,7 @@ const ROLE_PRIORITY: Record<string, string[]> = {
 const DEFAULT_PRIORITY = [
   'home', 'dashboard', 'sell', 'pos', 'sales', 'inventory', 'customers', 'deliveries',
   'online-store', 'production', 'feedback', 'workers', 'ai', 'permissions',
-  'business-management', 'profile', 'settings', 'about',
+  'money', 'business-management', 'profile', 'settings', 'about',
 ];
 
 function rank(order: string[], id: string): number {

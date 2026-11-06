@@ -14,6 +14,7 @@ import {
 import { getSupabase } from '../services/supabaseClient';
 import { toUserMessage } from '../utils/userError';
 import { useAppStore } from '../stores/appStore';
+import SearchableDropdown from './SearchableDropdown';
 
 type ItemType = 'customer' | 'product' | 'customer_type' | 'payment_terms' | 'delivery_frequency';
 
@@ -130,23 +131,23 @@ export default function TrackedReports({ businessId, transactions, customers, pr
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
-        <select
-          aria-label="What to track"
-          value={type}
-          onChange={(e) => { setType(e.target.value as ItemType); setKey(''); }}
-          className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
-        >
-          {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-        <select
-          aria-label="Item to track"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          className="flex-1 min-w-0 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
-        >
-          <option value="">Choose…</option>
-          {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
+        <div className="sm:w-48">
+          <SearchableDropdown
+            items={Object.entries(TYPE_LABELS).map(([value, label]) => ({ id: value, label }))}
+            selectedValue={type}
+            onChange={(value) => { setType(value as ItemType); setKey(''); }}
+            placeholder="What to track"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <SearchableDropdown
+            items={options.map(([value, label]) => ({ id: value, label }))}
+            selectedValue={key}
+            onChange={setKey}
+            placeholder="Choose…"
+            searchPlaceholder="Search items"
+          />
+        </div>
         <button
           type="button"
           onClick={handleAdd}

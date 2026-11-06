@@ -337,9 +337,17 @@ jobs:
             echo "::error::Expected one release APK, found ${#apks[@]}."
             exit 1
           fi
-          if [[ "${apks[0]}" == *unsigned* ]]; then
-            echo "::error::The APK is unsigned, so it can't update installed apps. Check the keystore secrets."
+          # AGP signs the release APK in place but keeps the "-unsigned" filename,
+          # so the keystore env var (which gates signingConfig in build.gradle)
+          # is the source of truth for whether the APK is signed.
+          if [ -z "${ANDROID_KEYSTORE_PATH:-}" ] || [ ! -f "${ANDROID_KEYSTORE_PATH}" ]; then
+            echo "::error::No signing keystore configured, so the APK is unsigned and can't update installed apps. Set ANDROID_KEYSTORE_BASE64."
             exit 1
+          fi
+          # Best-effort cryptographic verification of the signature.
+          if command -v apksigner >/dev/null 2>&1; then
+            apksigner verify --verbose "${apks[0]}" >/dev/null \
+              || { echo "::error::APK signature verification failed."; exit 1; }
           fi
           cp "${apks[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-android.apk"
           ls -l out
