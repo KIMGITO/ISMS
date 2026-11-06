@@ -1,11 +1,11 @@
 // Decides which tabs sit on the mobile bottom bar and which go to the "More" sheet.
 // The bar holds at most 5 slots. When a role can reach more tabs than fit, the
-// fifth slot is "More". Settings always goes to More, never on the bar.
+// fifth slot is "More". Settings and About always go to More, never on the bar.
 
 export const MAX_BOTTOM_TABS = 5;
 export const MORE_TAB_ID = 'more';
 
-const NEVER_ON_BAR = new Set(['settings']);
+const NEVER_ON_BAR = new Set(['settings', 'about']);
 
 // Most-used first for each role. Tabs a role can't reach are skipped.
 const ROLE_PRIORITY: Record<string, string[]> = {
@@ -21,7 +21,7 @@ const ROLE_PRIORITY: Record<string, string[]> = {
 const DEFAULT_PRIORITY = [
   'home', 'dashboard', 'sell', 'pos', 'sales', 'inventory', 'customers', 'deliveries',
   'online-store', 'production', 'feedback', 'workers', 'ai', 'permissions',
-  'business-management', 'profile', 'settings',
+  'business-management', 'profile', 'settings', 'about',
 ];
 
 function rank(order: string[], id: string): number {

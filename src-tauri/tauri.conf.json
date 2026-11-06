@@ -42,6 +42,18 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDMzYyRjM0MTIyODc1OEEKUldTS2RTZ1NOQzgyN004WVBUcHpjVStUbW54S0paL0NZNXpWUUI5Mmp5UG5NQ2c0ZUFuOUtLQ3QK",
+      "endpoints": [
+        "https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

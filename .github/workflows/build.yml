@@ -1,12 +1,12 @@
 name: Build App Installers
 
-# Pushes and manual runs produce installers. A "v*" tag also publishes them as a GitHub Release.
+# Pull requests are checked and built for Windows, Linux and Android before merging.
+# Pushes to main build only the Android APK. Windows builds and GitHub Releases come
+# from release-and-deploy.yml. A manual run builds everything.
 on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
   pull_request:
     branches:
       - main
@@ -46,9 +46,11 @@ jobs:
   # ──────────────────────────────────────────
   # JOB 2: DESKTOP BUILDS (Windows & Linux)
   # ──────────────────────────────────────────
+  # On main, release-and-deploy.yml builds and publishes Windows instead.
   build-desktop:
     name: Build Desktop (${{ matrix.os-name }})
     needs: verify
+    if: github.event_name != 'push'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -103,16 +105,10 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      # MSI upgrades only replace an older install when the version number goes up.
-      - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          node -e "const f='src-tauri/tauri.conf.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.version=process.env.GITHUB_REF_NAME.slice(1);fs.writeFileSync(f,JSON.stringify(c,null,2))"
-
       # Tauri builds the frontend itself through beforeBuildCommand.
+      # Checks don't need signed update files, so they build without the signing key.
       - name: Build Tauri Desktop
-        run: npx tauri build --bundles ${{ matrix.bundles }}
+        run: npx tauri build --bundles ${{ matrix.bundles }} --config src-tauri/tauri.unsigned.conf.json
 
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
@@ -187,7 +183,7 @@ jobs:
         env:
           ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '1.0' }}
+          ANDROID_VERSION_NAME: "1.0"
         run: |
           cd android
           chmod +x gradlew
@@ -205,24 +201,3 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 30
-
-  # ──────────────────────────────────────────
-  # JOB 4: PUBLISH (version tags only)
-  # ──────────────────────────────────────────
-  release:
-    name: Publish GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-desktop, build-android]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes \
-            $(find artifacts -type f \( -name '*.msi' -o -name '*.apk' -o -name '*.AppImage' -o -name '*.deb' \))

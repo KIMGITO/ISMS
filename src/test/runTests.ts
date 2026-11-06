@@ -14,6 +14,11 @@ import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
+// @ts-ignore plain JS module shared with the release workflow
+import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-version.mjs";
+// @ts-ignore plain JS module shared with the release workflow
+import { buildManifest } from "../../scripts/update-manifest.mjs";
+import { compareVersions } from "../utils/semver";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -345,6 +350,72 @@ runTest("M-Pesa prompts accept Kenyan numbers in any common format", () => {
   ];
   for (const [input, expected] of cases) {
     if (toMsisdn(input) !== expected) throw new Error(`${input} gave ${toMsisdn(input)}, expected ${expected}`);
+  }
+});
+
+runTest("Release versioning reads emoji commit types", () => {
+  const cases: [string, string, string][] = [
+    ["🚀 feat!: drop old sync", "", "major"],
+    ["🐛 fix!: change receipt format", "", "major"],
+    ["🐛 fix(payments)!: void instead of delete", "", "major"],
+    ["📚 docs!: rename every setting", "", "major"],
+    ["🔧 chore: bump deps", "BREAKING CHANGE: needs Node 22", "major"],
+    ["🚀 feat: M-Pesa till queue", "", "minor"],
+    ["🚀 feat(website): portal", "", "minor"],
+    ["🐛 fix: cash payments", "", "patch"],
+    ["⚡ perf: faster search", "", "patch"],
+    ["♻️ refactor: split repository", "", "patch"],
+    ["♻ refactor: no variation selector", "", "patch"],
+    ["feat: no emoji", "", "minor"],
+    ["🚧 wip: halfway", "", "none"],
+    ["📚 docs: readme", "", "none"],
+    ["🎨 style: spacing", "", "none"],
+    ["✅ test: more cases", "", "none"],
+    ["🔧 chore: tidy", "", "none"],
+    ["📦 build: vite config", "", "none"],
+    ["🤖 ci: cache cargo", "", "none"],
+    ["⏪ revert: undo feat", "", "none"],
+    ["Update README.md", "", "none"],
+  ];
+  for (const [subject, body, expected] of cases) {
+    const got = classifyCommit(subject, body).bump;
+    if (got !== expected) throw new Error(`"${subject}" gave ${got}, expected ${expected}`);
+  }
+  const bump = highestBump([{ bump: "patch" }, { bump: "minor" }, { bump: "none" }]);
+  if (bump !== "minor") throw new Error(`highest bump was ${bump}`);
+  const versions: [string, string, string][] = [["1.4.2", "major", "2.0.0"], ["1.4.2", "minor", "1.5.0"], ["1.4.2", "patch", "1.4.3"], ["1.4.2", "none", "1.4.2"]];
+  for (const [prev, b, want] of versions) {
+    if (nextVersion(prev, b) !== want) throw new Error(`${prev} + ${b} gave ${nextVersion(prev, b)}`);
+  }
+});
+
+runTest("Update manifest lists signed desktop installers and the Android APK", () => {
+  const files = [
+    "KayKays-1.2.0-windows-x64.exe", "KayKays-1.2.0-windows-x64-setup.msi", "KayKays-1.2.0-windows-x64-setup.msi.sig",
+    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-x86_64.AppImage.sig", "KayKays-1.2.0-linux-amd64.deb",
+    "KayKays-1.2.0-android.apk",
+  ];
+  const m = buildManifest({
+    version: "1.2.0", tag: "v1.2.0", repo: "KIMGITO/ISMS", notes: "### Features\n- x\n", files,
+    readText: (name: string) => `sig-of-${name}\n`, sha256: () => "abc123",
+  });
+  const base = "https://github.com/KIMGITO/ISMS/releases/download/v1.2.0/";
+  if (m.version !== "1.2.0") throw new Error("version");
+  if (m.platforms["windows-x86_64"].url !== base + "KayKays-1.2.0-windows-x64-setup.msi") throw new Error("windows url");
+  if (m.platforms["windows-x86_64"].signature !== "sig-of-KayKays-1.2.0-windows-x64-setup.msi.sig") throw new Error("windows sig");
+  if (m.platforms["linux-x86_64"].url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("linux url");
+  if (m.android.url !== base + "KayKays-1.2.0-android.apk" || m.android.sha256 !== "abc123") throw new Error("android");
+  let threw = false;
+  try {
+    buildManifest({ version: "1", tag: "v1", repo: "a/b", notes: "", files: ["KayKays-1-windows-x64-setup.msi"], readText: () => "", sha256: () => "" });
+  } catch { threw = true; }
+  if (!threw) throw new Error("An unsigned installer must be refused");
+});
+
+runTest("App versions compare numerically", () => {
+  const cases: [string, string, number][] = [["1.10.0", "1.9.9", 1], ["1.0.0", "1.0.0", 0], ["v2.0.0", "1.99.99", 1], ["1.0", "1.0.1", -1]];
+  for (const [a, b, want] of cases) {
+    if (compareVersions(a, b) !== want) throw new Error(`${a} vs ${b} gave ${compareVersions(a, b)}`);
   }
 });
 
