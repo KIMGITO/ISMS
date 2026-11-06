@@ -179,11 +179,17 @@ jobs:
           cp "$EXE_PATH" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64.exe"
           shopt -s nullglob
           msis=($MSI_GLOB)
-          if [ ${#msis[@]} -ne 1 ]; then
-            echo "::error::Expected one .msi, found ${#msis[@]}."
+          if [ ${#msis[@]} -eq 0 ]; then
+            echo "::error::No .msi found in $MSI_GLOB."
             exit 1
           fi
-          cp "${msis[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi"
+          # Prefer an x64 MSI if multiple are produced.
+          msi=""
+          for m in "${msis[@]}"; do
+            if [[ "$m" == *x64* ]]; then msi="$m"; break; fi
+          done
+          [ -z "$msi" ] && msi="${msis[0]}"
+          cp "$msi" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi"
           ls -l out
 
       - uses: actions/upload-artifact@v4

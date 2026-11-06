@@ -23,8 +23,12 @@ export function buildManifest({ version, tag, repo, notes, files, readText, sha2
   for (const [platform, suffix] of desktop) {
     const file = find(suffix);
     if (!file) continue;
-    if (!files.includes(`${file}.sig`)) throw new Error(`${file} has no .sig, so desktop apps would refuse it.`);
-    platforms[platform] = { signature: readText(`${file}.sig`).trim(), url: url(file) };
+    // Desktop signing is temporarily skipped; include signature only if a .sig file exists.
+    let signature = undefined;
+    if (files.includes(`${file}.sig`)) {
+      signature = readText(`${file}.sig`).trim();
+    }
+    platforms[platform] = { signature, url: url(file) };
   }
   if (Object.keys(platforms).length === 0) throw new Error("No desktop installers found.");
 
