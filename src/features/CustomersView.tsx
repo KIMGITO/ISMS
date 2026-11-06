@@ -817,7 +817,7 @@ export default function CustomersView() {
                     ))}
                   </div>
                   <p className="text-[10px] text-app-text-muted font-bold capitalize tracking-wider mt-0.5">
-                    Account: {formatCustomerNumber(selectedCustomer.id)} ·
+                    <span title="Customers quote this number when paying by M-Pesa">Account no. {selectedCustomer.accountNumber || formatCustomerNumber(selectedCustomer.id)}</span> ·
                     Enrolled on:{' '}
                     {formatDate(selectedCustomer.joinDate) || 'July 2026'}
                   </p>
