@@ -4,7 +4,7 @@ Each role's access is enforced in three places, so hiding a screen is never the 
 
 | Layer | What it does | Where |
 |---|---|---|
-| App | Hides screens and buttons | `SYSTEM_ROLES` in `src/utils/permissions.ts` |
+| App | Hides screens and buttons | `SYSTEM_ROLES` in `src/utils/permissions.ts`; which screen needs which permission is in `src/utils/screens.ts` |
 | Database | Refuses rows and functions, even for direct API calls | `has_permission()` in migration `20261105014` |
 | Edge functions | Refuse the call before doing paid or sensitive work | `requirePermission()` in `supabase/functions/shared/cors.ts` |
 
@@ -23,11 +23,17 @@ Each role's access is enforced in three places, so hiding a screen is never the 
 | Profit | Yes | Yes | No | No |
 | Complaints | Reply | Reply | View, log | No |
 | Expenses | Yes | Yes, no delete | No | No |
+| Payments & Expenses screen | All tabs, void payments | Payments (record), Expenses, M-Pesa (assign till payments) | Payments (record), M-Pesa (send prompts, assign till payments) | No |
+| M-Pesa till number and registration | Yes | No | No | No |
+| Product categories | Add, rename | Add, rename | View | No |
+| Business Management (branches, branding) | Yes | No | No | No |
 | Staff | Full | View, schedule | No | No |
 | Settings, backups, API keys | Yes | Some settings, no keys | No | No |
 | Set points or tiers by hand | Yes | Yes | No | No |
 | Set wallet or debt balances by hand | Yes | Yes | No | No |
 | Deliveries assigned to them | Yes | Yes | Yes, by assigning | Yes |
+
+Navigation, global search and the guided tour all read `src/utils/screens.ts`, so a role only sees, finds and is shown the screens it can open. `npm test` fails if a screen the app renders is missing from that list.
 
 ## Changing access
 

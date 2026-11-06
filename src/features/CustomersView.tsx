@@ -1,5 +1,6 @@
 import { toUserMessage } from "../utils/userError";
 import React, { useState, useEffect } from "react";
+import { useOverlay } from "../hooks/useOverlay";
 import { useAppStore } from "../stores/appStore";
 import { 
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
@@ -15,7 +16,7 @@ import SearchableDropdown from "../components/SearchableDropdown";
 import { Tabs } from "../components/TabOptions";
 import { titleCase, searchMatch, getFirstName } from "../utils/stringUtils";
 import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
-import { formatCustomerNumber, formatReceiptNumber } from "../utils/idUtils";
+import { formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
 import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS } from "../types";
@@ -92,6 +93,8 @@ export default function CustomersView() {
     showToast,activeBusinessId,
     payCustomerDebt, depositCustomerWallet, spendCustomerWallet, adjustCustomerDebt
   } = useAppStore();
+  // The phone's back button closes a customer's details before leaving the screen.
+  useOverlay(!!selectedCustomerId, () => setSelectedCustomerId(null), 'screen');
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("all");
   const [newGroups, setNewGroups] = useState<CustomerGroupValues>({
@@ -817,7 +820,9 @@ export default function CustomersView() {
                     ))}
                   </div>
                   <p className="text-[10px] text-app-text-muted font-bold capitalize tracking-wider mt-0.5">
-                    <span title="Customers quote this number when paying by M-Pesa">Account no. {selectedCustomer.accountNumber || formatCustomerNumber(selectedCustomer.id)}</span> ·
+                    {selectedCustomer.accountNumber && (
+                      <><span title="Customers quote this number when paying by M-Pesa">Account no. {selectedCustomer.accountNumber}</span> · </>
+                    )}
                     Enrolled on:{' '}
                     {formatDate(selectedCustomer.joinDate) || 'July 2026'}
                   </p>

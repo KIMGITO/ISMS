@@ -38,29 +38,32 @@ cd ..
 UNSIGNED_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
 
 # 5. Sign Android App
-# The signing key and its password live outside the repository.
+# Signing credentials are read from .env (and
+# $HOME/.config/kaykays-signing/credentials.env as an override). These names
+# match build.gradle, sign-apk.sh and CI.
 SIGNING_ENV="$HOME/.config/kaykays-signing/credentials.env"
+[ -f .env ] && source .env
 [ -f "$SIGNING_ENV" ] && source "$SIGNING_ENV"
 
 if [ -n "${ANDROID_KEYSTORE_PATH:-}" ] && [ -f "$ANDROID_KEYSTORE_PATH" ]; then
     echo "=================================================="
-    echo "--> Keystore found. Preparing to sign APK automatically..."
+    echo "--> Keystore found at $ANDROID_KEYSTORE_PATH. Preparing to sign APK automatically..."
     
-    KEY_ALIAS=${ANDROID_KEYSTORE_ALIAS:-}
-    KEY_PASS=${ANDROID_KEYSTORE_PASSWORD:-}
+    KEY_ALIAS="${ANDROID_KEYSTORE_ALIAS:-}"
+    KEY_PASS="${ANDROID_KEYSTORE_PASSWORD:-}"
     
     # Locate Android SDK tools
-    SDK_PATH="$HOME/Android/Sdk/build-tools"
+    SDK_PATH="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools"
     if [ -d "$SDK_PATH" ]; then
-        SDK_VERSION=$(ls "$SDK_PATH" | sort -rn | head -1)
-        APKSIGNER="$SDK_PATH/${SDK_VERSION}/apksigner"
-        ZIPALIGN="$SDK_PATH/${SDK_VERSION}/zipalign"
+        SDK_VERSION=$(ls -1 "$SDK_PATH" | sort -V | tail -n 1)
+        APKSIGNER="$SDK_PATH/$SDK_VERSION/apksigner"
+        ZIPALIGN="$SDK_PATH/$SDK_VERSION/zipalign"
     else
         echo "Error: Could not find Android SDK at $SDK_PATH"
         exit 1
     fi
 
-    if [ -n "$KEY_PASS" ]; then
+    if [ -n "$KEY_PASS" ] && [ -n "$KEY_ALIAS" ]; then
         echo "--> Aligning APK..."
         "$ZIPALIGN" -v 4 "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-aligned.apk" > /dev/null
 
@@ -78,12 +81,12 @@ if [ -n "${ANDROID_KEYSTORE_PATH:-}" ] && [ -f "$ANDROID_KEYSTORE_PATH" ]; then
         # Cleanup temp aligned
         rm -f "$RELEASE_DIR/${APP_NAME}-aligned.apk"
     else
-        echo "--> Warning: No ANDROID_KEY_PASS found in .env file. Copying unsigned APK instead."
-        echo "--> (Add ANDROID_KEY_PASS='yourpassword' to .env to enable auto-signing)."
+        echo "--> Warning: ANDROID_KEYSTORE_ALIAS/PASSWORD not set. Copying unsigned APK instead."
+        echo "--> (Add them to .env to enable auto-signing)."
         cp "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-unsigned.apk"
     fi
 else
-    echo "--> No signing key found (see DOCUMENTATION.md). Copying unsigned APK..."
+    echo "--> No signing key found (set ANDROID_KEYSTORE_PATH/ALIAS/PASSWORD in .env). Copying unsigned APK..."
     cp "$UNSIGNED_APK" "$RELEASE_DIR/${APP_NAME}-unsigned.apk"
 fi
 

@@ -6,7 +6,9 @@ import { Product, InventoryAdjustment, AdjustmentType } from "../types";
 import { useAuthStore } from "./authStore";
 import { useNotificationStore } from "./notificationStore";
 import { useBusinessStore } from "./businessStore";
-import { ProductRepository, InventoryAdjustmentRepository } from "../services/repositories";
+import { ProductRepository, InventoryAdjustmentRepository, ProductCategoryRepository } from "../services/repositories";
+import { toUserMessage } from "../utils/userError";
+import { normalizeForStorage } from "../utils/stringUtils";
 import { getSupabase } from "../services/supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { checkPermissionGate } from "../utils/permissions";
@@ -35,7 +37,7 @@ interface InventoryState {
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   deductStock: (items: { product: Product; quantity: number }[]) => Promise<void>;
-  addCategory: (category: string) => void;
+  addCategory: (category: string) => Promise<boolean>;
   updateCategory: (oldCategory: string, newCategory: string) => Promise<void>;
   setProducts: (products: Product[]) => void;
 }
@@ -43,10 +45,18 @@ interface InventoryState {
 export const useInventoryStore = create<InventoryState>((set, get) => {
   let unsubProducts: (() => void) | null = null;
   let unsubAdjustments: (() => void) | null = null;
+  let unsubCategories: (() => void) | null = null;
+  // Saved categories, plus any a product uses, so neither list can hide the other.
+  let savedCategories: string[] = [];
+  const mergeCategories = (prods: Product[]) =>
+    Array.from(new Set([...savedCategories, ...prods.map((p) => p.category)].filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b));
 
   const setupSubscriptions = (businessId: string) => {
     if (unsubProducts) unsubProducts();
     if (unsubAdjustments) unsubAdjustments();
+    if (unsubCategories) unsubCategories();
+    savedCategories = [];
 
     if (!businessId) {
       set({ products: [], adjustments: [], categories: [] });
@@ -54,10 +64,12 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
     }
 
     unsubProducts = ProductRepository.subscribe((prods) => {
-      set({ 
-        products: prods,
-        categories: Array.from(new Set(prods.map(p => p.category).filter(Boolean)))
-      });
+      set({ products: prods, categories: mergeCategories(prods) });
+    });
+
+    unsubCategories = ProductCategoryRepository.subscribe((names) => {
+      savedCategories = names;
+      set({ categories: mergeCategories(get().products) });
     });
 
     unsubAdjustments = InventoryAdjustmentRepository.subscribe((adjs) => {
@@ -203,10 +215,20 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
       }
     },
 
-    addCategory: (category) => {
-      const current = get().categories;
-      if (current.map((c) => c.toLowerCase()).includes(category.toLowerCase())) return;
-      set({ categories: [...current, category] });
+    addCategory: async (category) => {
+      if (!checkPermissionGate("products.manage_categories")) return false;
+      const name = category.trim();
+      if (!name) return false;
+      if (get().categories.some((c) => c.toLowerCase() === name.toLowerCase())) return true;
+      try {
+        await ProductCategoryRepository.add(name, useAuthStore.getState().currentEmployee?.name || "Staff");
+        savedCategories = [...savedCategories, name.toLowerCase()];
+        set({ categories: mergeCategories(get().products) });
+        return true;
+      } catch (err) {
+        useNotificationStore.getState().showToast("Could Not Add Category", toUserMessage(err, "Please try again."), undefined, "error");
+        return false;
+      }
     },
 
     updateCategory: async (oldCategory, newCategory) => {
@@ -218,15 +240,16 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
       const { error } = await supabase.rpc("update_product_category_bulk", {
         p_business_id: toUuid(businessId),
         p_old_category: oldCategory,
-        p_new_category: newCategory
+        // Products store categories in lowercase; the screen shows them in title case.
+        p_new_category: normalizeForStorage(newCategory)
       });
 
       if (error) {
         if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed"));
         throw error;
       }
-      
-      // Realtime listener will catch the updates for all products automatically!
+      // Products were renamed by the call above; the saved category follows.
+      await ProductCategoryRepository.rename(oldCategory, normalizeForStorage(newCategory));
     },
 
     setProducts: () => {

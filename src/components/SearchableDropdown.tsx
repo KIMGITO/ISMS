@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { useOverlay } from "../hooks/useOverlay";
 import { Search, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -29,7 +30,55 @@ export default function SearchableDropdown({
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [openUp, setOpenUp] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const showSearch = items.length > 6;
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setSearchQuery("");
+  }, []);
+
+  // Android back and Escape close the list before anything else.
+  useOverlay(isOpen, close, "dropdown");
+
+  // Open upwards when the space left below (above the keyboard, if it is up) is too small.
+  const placePanel = useCallback(() => {
+    const el = dropdownRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const below = viewportHeight - rect.bottom;
+    const above = rect.top;
+    setOpenUp(below < 280 && above > below);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (isOpen) placePanel();
+  }, [isOpen, placePanel]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // Focus the search box so typing starts straight away, and keep the list in view
+    // once the keyboard has finished opening.
+    const focusTimer = setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 60);
+    const keepInView = () => {
+      placePanel();
+      dropdownRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", keepInView);
+    const settleTimer = setTimeout(keepInView, 350);
+    // Show the chosen item rather than the top of a long list.
+    listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    return () => {
+      clearTimeout(focusTimer);
+      clearTimeout(settleTimer);
+      viewport?.removeEventListener("resize", keepInView);
+    };
+  }, [isOpen, placePanel]);
 
   const selectedItem = items.find(item => item.id === selectedValue);
 
@@ -39,13 +88,13 @@ export default function SearchableDropdown({
   );
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: PointerEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
   return (
@@ -54,9 +103,17 @@ export default function SearchableDropdown({
       <button
         type="button"
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         onClick={() => {
           setIsOpen(!isOpen);
           setSearchQuery("");
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && isOpen) {
+            e.preventDefault();
+            close();
+          }
         }}
         className={`w-full flex items-center justify-between bg-app-bg border border-app-border p-2.5 rounded-xl text-xs text-app-text transition focus:outline-none focus:ring-1 focus:ring-amber-500 text-left ${
           disabled 
@@ -74,29 +131,43 @@ export default function SearchableDropdown({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: openUp ? 4 : -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            exit={{ opacity: 0, y: openUp ? 4 : -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-[100] mt-1.5 w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-60"
+            className={`absolute z-[100] w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden flex max-h-60 ${
+              openUp ? "bottom-full mb-1.5 flex-col-reverse" : "top-full mt-1.5 flex-col"
+            }`}
           >
             {/* Short lists don't need searching. */}
-            {items.length > 6 && (
+            {showSearch && (
             <div className="p-2 border-b border-app-border/40 flex items-center gap-2 bg-app-bg/50 shrink-0">
               <Search size={13} className="text-app-text-muted shrink-0" />
               <input
-                type="text"
+                ref={searchRef}
+                type="search"
+                enterKeyHint="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { e.preventDefault(); close(); }
+                  // Enter picks the only match, so a quick search needs no extra tap.
+                  if (e.key === "Enter" && filteredItems.length === 1) {
+                    e.preventDefault();
+                    onChange(filteredItems[0].id);
+                    close();
+                  }
+                }}
                 placeholder={searchPlaceholder}
-                className="w-full bg-transparent text-xs text-app-text placeholder-app-text-muted focus:outline-none"
+                aria-label={searchPlaceholder}
+                className="w-full bg-transparent text-sm text-app-text placeholder-app-text-muted focus:outline-none"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
             )}
 
             {/* Scrollable List */}
-            <div className="flex-1 overflow-y-auto max-h-48 py-1">
+            <div ref={listRef} role="listbox" className="flex-1 overflow-y-auto max-h-48 py-1 overscroll-contain">
               {filteredItems.length === 0 ? (
                 <div className="p-3 text-[11px] text-app-text-muted text-center font-medium">
                   No matches found
@@ -108,6 +179,8 @@ export default function SearchableDropdown({
                     <button
                       key={item.id}
                       type="button"
+                      role="option"
+                      aria-selected={isSelected}
                       onClick={() => {
                         onChange(item.id);
                         setIsOpen(false);

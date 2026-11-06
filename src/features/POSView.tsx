@@ -20,6 +20,7 @@ import { titleCase, sentenceCase, searchMatch } from '../utils/stringUtils';
 import { formatReceiptNumber } from '../utils/idUtils';
 import { getSupabase } from '../services/supabaseClient';
 import { QuantityInput } from '../components/shared/QuantityInput';
+import { Switch } from '../components/shared/Switch';
 
 export default function POSView() {
   const {
@@ -554,18 +555,17 @@ export default function POSView() {
                       <Truck size={13} />
                       <span>Set as Delivery Order</span>
                     </span>
-                    <input
-                      type="checkbox"
+                    <Switch
+                      ariaLabel="Set as delivery order"
                       checked={isDelivery}
-                      onChange={(e) => {
-                        setIsDelivery(e.target.checked);
-                        if (!e.target.checked) {
+                      onChange={(on) => {
+                        setIsDelivery(on);
+                        if (!on) {
                           setDeliveryFee(0);
                           setRiderName('');
                           setSelectedRiderId('');
                         }
                       }}
-                      className="w-4 h-4 text-amber-500 bg-app-bg border-app-border rounded focus:ring-amber-500 accent-amber-500 cursor-pointer"
                     />
                   </div>
 

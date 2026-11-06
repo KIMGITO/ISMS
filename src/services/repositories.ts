@@ -1358,3 +1358,70 @@ export class MpesaRepository {
     return () => { supabase.removeChannel(channel); };
   }
 }
+
+// ─────────────────────────────────────────────
+// PRODUCT CATEGORY REPOSITORY
+// Categories are saved on their own, so one can exist before any product uses it.
+// The database also adds any category a product is saved with.
+// ─────────────────────────────────────────────
+export class ProductCategoryRepository {
+  public static async getAll(): Promise<string[]> {
+    const { data, error } = await getSupabase()
+      .from("product_categories")
+      .select("name")
+      .eq("business_id", getActiveBusinessId())
+      .order("name");
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return (data || []).map((r) => r.name);
+  }
+
+  public static subscribe(callback: (names: string[]) => void): () => void {
+    this.getAll().then(callback).catch(console.error);
+
+    if (typeof global !== "undefined" && (global as any).IS_TEST) {
+      return () => {};
+    }
+
+    const activeBusinessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channelId = Math.random().toString(36).substring(2, 10);
+    const channel = supabase
+      .channel(`realtime-product-categories-${activeBusinessId}-${channelId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_categories", filter: `business_id=eq.${activeBusinessId}` },
+        () => { this.getAll().then(callback).catch(console.error); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }
+
+  public static async add(name: string, createdBy: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from("product_categories")
+      .insert({ business_id: toUuid(getActiveBusinessId()), name: normalizeForStorage(name.trim()), created_by: createdBy });
+    // Already there under the same name: nothing to do.
+    if (error && error.code !== "23505") { triggerNetworkFailureEvent(); throw error; }
+  }
+
+  public static async rename(oldName: string, newName: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from("product_categories")
+      .update({ name: normalizeForStorage(newName.trim()), updated_at: new Date().toISOString() })
+      .eq("business_id", getActiveBusinessId())
+      .eq("name", oldName);
+    if (!error) return;
+    // Renaming the products already added the new name, so the old one just goes.
+    if (error.code === "23505") {
+      const { error: deleteError } = await getSupabase()
+        .from("product_categories")
+        .delete()
+        .eq("business_id", getActiveBusinessId())
+        .eq("name", oldName);
+      if (!deleteError) return;
+    }
+    triggerNetworkFailureEvent();
+    throw error;
+  }
+}

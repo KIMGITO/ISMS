@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
+import { Checkbox } from '../components/shared/Checkbox';
 
 type ViewMode = 'list' | 'create-bom' | 'create-batch' | 'bom-detail';
 
@@ -71,6 +72,7 @@ export default function ProductionBOMView() {
   const { currentEmployee: authEmployee } = useAuthStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  useOverlay(viewMode !== 'list', () => setViewMode('list'), 'screen');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBom, setSelectedBom] = useState<BillOfMaterials | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -579,7 +581,7 @@ export default function ProductionBOMView() {
                             {getStatusBadge(batch.status)}
                           </div>
                           <p className="text-[10px] text-app-text-muted mt-1 font-mono">
-                            {batch.referenceNumber ? `Ref: ${batch.referenceNumber}` : `ID: ${batch.id.substring(0,8).toUpperCase()}`}
+                            {batch.referenceNumber ? `Ref: ${batch.referenceNumber}` : new Date(batch.date).toLocaleDateString()}
                           </p>
                           <p className="text-[10px] text-app-text-muted mt-0.5">
                             Yield Target: <span className="font-bold text-app-text">{batch.quantityProduced} {batch.unit}</span> · Operator: {batch.staffName}
@@ -1047,7 +1049,7 @@ export default function ProductionBOMView() {
                     <RotateCcw size={16} className="text-amber-500" /> Cancel Production Batch Workflow
                   </h3>
                   <p className="text-[10.5px] text-app-text-muted mt-0.5 font-mono">
-                    Ref: {cancellingBatch.referenceNumber || cancellingBatch.id.substring(0,8).toUpperCase()} · {cancellingBatch.recipeName}
+                    {cancellingBatch.referenceNumber ? `Ref: ${cancellingBatch.referenceNumber} · ` : ''}{cancellingBatch.recipeName} · {new Date(cancellingBatch.date).toLocaleDateString()}
                   </p>
                 </div>
                 <button
@@ -1116,24 +1118,19 @@ export default function ProductionBOMView() {
                         </div>
 
                         <div className="flex items-center justify-end pt-4">
-                          <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] text-slate-400 hover:text-slate-300">
-                            <input
-                              type="checkbox"
-                              checked={item.isDamaged}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setCancellationItems(prev => {
-                                  const copy = [...prev];
-                                  copy[idx].isDamaged = checked;
-                                  if (checked) copy[idx].returnQty = 0;
-                                  else copy[idx].returnQty = copy[idx].consumedQty;
-                                  return copy;
-                                });
-                              }}
-                              className="rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-0"
-                            />
-                            <span>Mark as Damaged/Wasted</span>
-                          </label>
+                          <Checkbox
+                            checked={item.isDamaged}
+                            onChange={(checked) => {
+                              setCancellationItems(prev =>
+                                prev.map((row, i) =>
+                                  i === idx
+                                    ? { ...row, isDamaged: checked, returnQty: checked ? 0 : row.consumedQty }
+                                    : row,
+                                ),
+                              );
+                            }}
+                            label={<span className="text-[11px] text-app-text-muted">Mark as damaged or wasted</span>}
+                          />
                         </div>
                       </div>
 

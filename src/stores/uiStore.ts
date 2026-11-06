@@ -17,8 +17,13 @@ interface UiState {
   setSelectedCustomerId: (id: string | null) => void;
   activeInvoiceData: any | null;
   setActiveInvoiceData: (data: any | null) => void;
-  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about";
-  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell") => void;
+  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money";
+  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money") => void;
+  /** Screens visited before the current one, oldest first. */
+  tabHistory: UiState["activeTab"][];
+  /** Returns to the previous screen. False when there is none. */
+  goBack: () => boolean;
+  resetTabHistory: () => void;
 }
 
 const localChatHistoryKey = "kkm_ai_chat_history_v1";
@@ -63,5 +68,18 @@ export const useUiStore = create<UiState>((set, get) => ({
   activeInvoiceData: null,
   setActiveInvoiceData: (data) => set({ activeInvoiceData: data }),
   activeTab: "home",
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  tabHistory: [],
+  setActiveTab: (tab) => {
+    const current = get().activeTab;
+    if (tab === current) return;
+    // Remembered so the phone's back button returns here instead of closing the app.
+    set({ activeTab: tab, tabHistory: [...get().tabHistory.filter((t) => t !== tab), current].slice(-30) });
+  },
+  goBack: () => {
+    const history = get().tabHistory;
+    if (history.length === 0) return false;
+    set({ activeTab: history[history.length - 1], tabHistory: history.slice(0, -1) });
+    return true;
+  },
+  resetTabHistory: () => set({ tabHistory: [] }),
 }));

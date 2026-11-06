@@ -45,6 +45,7 @@ import { finishShift } from '../services/shiftReport';
 import NotificationService from '../services/notifications/notificationService';
 import { notificationService } from '../core/native/NotificationService';
 import { useAuthStore } from '../stores/authStore';
+import { Checkbox } from '../components/shared/Checkbox';
 
 interface Schedule {
   id: string;
@@ -913,8 +914,8 @@ export default function DashboardView() {
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
+                            <Checkbox
+                              ariaLabel={`Choose ${emp.name}`}
                               disabled={disabled}
                               checked={isSelected && !disabled}
                               onChange={() => {
@@ -932,7 +933,7 @@ export default function DashboardView() {
                                   ]);
                                 }
                               }}
-                              className="accent-amber-500 shrink-0"
+                              className="shrink-0"
                             />
                             <span className="font-bold truncate max-w-[120px]">
                               {emp.name}

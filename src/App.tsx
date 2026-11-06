@@ -44,6 +44,7 @@ import { useSystemHealthStore } from './stores/systemHealthStore';
 import { SystemHealthService } from './services/systemHealthService';
 import { SupabaseService } from './services/supabaseService';
 import { useAuthStore } from './stores/authStore';
+import { useUiStore } from './stores/uiStore';
 import { useInventoryStore } from './stores/inventoryStore';
 import { useCustomerStore } from './stores/customerStore';
 import { useBusinessStore } from './stores/businessStore';
@@ -51,6 +52,7 @@ import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import PendingActionsDrawer from './components/PendingActionsDrawer';
 import { usePendingActionStore } from './stores/pendingActionStore';
 import { useOverlayStore } from './stores/overlayStore';
+import { useOverlay } from './hooks/useOverlay';
 import {
   nativePlatformService,
   statusBarService,
@@ -118,14 +120,20 @@ import {
   Truck,
   LayoutGrid,
   Info,
+  Wallet,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
+import { canOpenScreen, SCREEN_BY_ID } from './utils/screens';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Business } from './types';
 import { AuthOtpService } from './services/authOtpService';
 import { toUserMessage } from './utils/userError';
 import PasswordInput from './components/shared/PasswordInput';
+import { Checkbox } from './components/shared/Checkbox';
+
+// Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
+const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
 
 // Every tab the mobile bar or its "More" sheet can show. Order and placement come from arrangeMobileNav.
 const MOBILE_TABS = [
@@ -144,6 +152,7 @@ const MOBILE_TABS = [
   { id: 'ai', label: 'Assistant', icon: Bot, permission: 'ai.use' },
   { id: 'profile', label: 'Profile', icon: User, permission: 'dashboard.view' },
   { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
+  { id: 'money', label: 'Payments', icon: Wallet, permission: MONEY_PERMISSIONS },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
   { id: 'about', label: 'About', icon: Info, permission: 'about' },
@@ -200,154 +209,194 @@ const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
   );
 };
 
+// Each step with a tab is only shown to roles that can open that screen (see utils/screens.ts).
 const tourSteps: TourStep[] = [
   {
     title: "Welcome to KayKay's!",
-    content:
-      "Let's take a quick 1 minute interactive tour to explore your application workflows and tool panels.",
+    content: "A one-minute tour of the screens your role can use. You can leave it at any time.",
     placement: 'bottom',
   },
   {
     targetSelector: '#sidebar-brand-header',
-    title: 'Business Workspace',
-    content:
-      'This shows the current active dairy branch. Operators with multiple locations can switch workspaces here.',
+    title: 'Your business',
+    content: 'The branch you are working in. If you work at more than one, switch here.',
     placement: 'right',
   },
   {
+    targetSelector: '#clock-bar',
+    title: 'Clock in and out',
+    content: 'This bar shows whether you are on shift. Clock in when you start and clock out when you finish; it sends the shift report.',
+    placement: 'bottom',
+  },
+  {
     targetSelector: '#sidebar-tab-home',
-    title: 'Home Dashboard',
-    content:
-      'View your key business KPIs, sales summary chart, active driver list, and product analytics at a glance.',
+    title: 'Home',
+    content: 'Sales, stock and customer figures at a glance.',
     placement: 'right',
     tab: 'home',
   },
   {
     targetSelector: '#sidebar-tab-dashboard',
-    title: 'Shift Controls & Punch',
-    content:
-      'Log your starting/ending mileage, punch clock timing, and manage assigned rider delivery tasks.',
+    title: 'Shift',
+    content: 'Your shift so far: time on shift, sales and deliveries.',
     placement: 'right',
     tab: 'dashboard',
   },
   {
+    targetSelector: '#sidebar-tab-sell',
+    title: 'Quick Sale',
+    content: 'Sell in a few taps: pick products, choose how the customer pays, done.',
+    placement: 'right',
+    tab: 'sell',
+  },
+  {
     targetSelector: '#sidebar-tab-pos',
-    title: 'POS Checkout',
-    content:
-      'This is where you log sales! Search for milk products, add them to cart, and checkout with modern payment methods.',
+    title: 'POS',
+    content: 'The full checkout, with a cart, discounts, customers and credit.',
     placement: 'right',
     tab: 'pos',
   },
   {
     targetSelector: '#sidebar-tab-inventory',
-    title: 'Inventory stock Reconcile',
-    content:
-      'Manage warehouse/truck stock quantities, log supply adjustments, and configure inventory alerts.',
+    title: 'Inventory',
+    content: 'Products, stock levels and categories. Record restocks, wastage and counts here.',
     placement: 'right',
     tab: 'inventory',
   },
   {
     targetSelector: '#sidebar-tab-sales',
-    title: 'Sales Log & Orders',
-    content:
-      'Review all processed sales orders, customer invoice details, payment receipts, and synchronization status.',
+    title: 'Sales Log',
+    content: 'Every sale and its receipt. Reprint or share a receipt from here.',
     placement: 'right',
     tab: 'sales',
   },
   {
     targetSelector: '#sidebar-tab-customers',
-    title: 'Loyalty Club',
-    content:
-      'Register new customers, view loyalty tier ranks (Bronze, Silver, Gold), and manage customer loyalty points.',
+    title: 'Loyalty',
+    content: 'Customers, their points, debts and wallets. Each customer has an account number for M-Pesa.',
     placement: 'right',
     tab: 'customers',
   },
   {
+    targetSelector: '#sidebar-tab-money',
+    title: 'Payments & Expenses',
+    content: 'Record payments and expenses. M-Pesa sends payment prompts and lists money paid to the till for you to assign. A mistaken payment is voided, which puts every balance back.',
+    placement: 'right',
+    tab: 'money',
+  },
+  {
+    targetSelector: '#sidebar-tab-deliveries',
+    title: 'Deliveries',
+    content: 'Delivery tasks assigned to riders, and their progress.',
+    placement: 'right',
+    tab: 'deliveries',
+  },
+  {
+    targetSelector: '#sidebar-tab-online-store',
+    title: 'Online Store',
+    content: 'Orders and messages from customers using the website.',
+    placement: 'right',
+    tab: 'online-store',
+  },
+  {
     targetSelector: '#sidebar-tab-feedback',
-    title: 'Customer Reviews & Feedback',
-    content:
-      'Monitor customer satisfaction, track complaints, read sentiment feedback, and manage service quality reviews from clients.',
+    title: 'Feedback',
+    content: 'Reviews, suggestions and complaints from customers.',
     placement: 'right',
     tab: 'feedback',
   },
   {
     targetSelector: '#sidebar-tab-workers',
-    title: 'Workers & Staff List',
-    content:
-      'Register new employees, assign branch locations, set role designations (Cashier, Manager, Driver), and manage staff credentials.',
+    title: 'Workers',
+    content: 'Your team, invitations and schedules.',
     placement: 'right',
     tab: 'workers',
   },
   {
     targetSelector: '#sidebar-tab-ai',
-    title: 'AI Co-pilot Assistant',
-    content:
-      'Ask questions, write customer reply feedback, auto-generate reports, or resolve errors using the Gemini AI Engine.',
+    title: 'Assistant',
+    content: 'Ask questions about your sales, stock and customers.',
     placement: 'right',
     tab: 'ai',
   },
   {
     targetSelector: '#sidebar-tab-permissions',
-    title: 'Access Permissions & Security',
-    content:
-      'Owners and Administrators can configure cashier, manager, and driver access rights to secure features.',
+    title: 'Roles',
+    content: 'What each role can see and do.',
     placement: 'right',
     tab: 'permissions',
   },
   {
+    targetSelector: '#sidebar-tab-production',
+    title: 'Production & BOM',
+    content: 'Recipes and production batches.',
+    placement: 'right',
+    tab: 'production',
+  },
+  {
     targetSelector: '#sidebar-tab-business-management',
     title: 'Business Management',
-    content:
-      'Update business contact details, customize logo avatars, add branches, and configure dynamic branding themes.',
+    content: 'Branches, business details, logo, colours and tax.',
     placement: 'right',
     tab: 'business-management',
   },
   {
     targetSelector: '#sidebar-tab-settings',
-    title: 'System Settings',
-    content:
-      'Adjust device themes, configure bluetooth thermal printers, customize taxes, and access administrative preferences.',
+    title: 'Settings',
+    content: 'Receipts, printers, SMS, WhatsApp and backups.',
     placement: 'right',
     tab: 'settings',
   },
   {
-    targetSelector: '#sidebar-tab-production',
-    title: 'Production & Bill of Materials',
-    content:
-      'Create production recipes (BOMs), manage raw material ingredients, track production batches, and auto-deduct inventory when batches are completed.',
-    placement: 'right',
-    tab: 'production',
-  },
-  {
     targetSelector: '#sidebar-tab-profile',
     title: 'My Profile',
-    content:
-      'Update your personal details, change your PIN, manage your avatar, and view your shift history and performance summary.',
+    content: 'Your name, photo and password.',
     placement: 'right',
     tab: 'profile',
   },
   {
+    targetSelector: '#sidebar-tab-about',
+    title: 'About this app',
+    content: 'The version you have. Updates install by themselves; if one fails, check for updates here.',
+    placement: 'right',
+    tab: 'about',
+  },
+  {
+    targetSelector: '#mobile-tab-more',
+    title: 'More',
+    content: 'On a phone, screens that do not fit on the bar are here, including Settings and About.',
+    placement: 'top',
+  },
+  {
     targetSelector: '#global-search-container',
-    title: 'Global Search Engine',
-    content:
-      'Instantly locate customers, check product details, search receipts, or navigate anywhere across the workspace.',
+    title: 'Search',
+    content: 'Find any screen, product, customer, receipt or payment by typing a few letters.',
     placement: 'bottom',
   },
   {
     targetSelector: '#header-notification-bell',
-    title: 'System Message Center',
-    content:
-      'Read general staff announcements, system notifications, and critical transaction alerts here.',
+    title: 'Notifications',
+    content: 'Alerts such as low stock, M-Pesa payments and shift reports.',
     placement: 'left',
   },
   {
     targetSelector: '#restart-tour-button',
-    title: 'Restart Tour Anytime',
-    content:
-      'You can restart this guided walkthrough tour anytime by clicking this Interactive Tour button or checking Settings.',
+    title: 'Take the tour again',
+    content: 'Start this tour again any time from here.',
     placement: 'right',
   },
 ];
+
+/** The tour for one role: steps for screens it can't open are left out. */
+function tourStepsFor(role: string | undefined): TourStep[] {
+  const onPhone = typeof window !== 'undefined' && window.innerWidth < 768;
+  return tourSteps.filter((step) => {
+    if (step.tab && !canOpenScreen(role, step.tab)) return false;
+    // "More" only exists on phones.
+    if (step.targetSelector === '#mobile-tab-more' && !onPhone) return false;
+    return true;
+  });
+}
 
 export default function App() {
   const isKeyboardVisible = useKeyboardVisible();
@@ -1186,6 +1235,21 @@ export default function App() {
           return;
         }
 
+        // Then step back through the screens visited, like a browser.
+        const ui = useUiStore.getState();
+        if (ui.goBack()) return;
+
+        // With no history left, the first screen of this role's bar comes before exiting.
+        const role = useAuthStore.getState().currentEmployee?.role;
+        if (role) {
+          const allowed = MOBILE_TABS.filter((tab) => canOpenScreen(role, tab.id)).map((tab) => tab.id);
+          const startTab = arrangeMobileNav(allowed, role).primary.find((id) => id !== MORE_TAB_ID);
+          if (startTab && ui.activeTab !== startTab) {
+            useUiStore.setState({ activeTab: startTab as any, tabHistory: [] });
+            return;
+          }
+        }
+
         // If no overlay was closed, confirm exit
         const shouldExit = await nativeUiService.confirm(
           'Exit Application',
@@ -1323,6 +1387,8 @@ export default function App() {
 
   const isNavVisible = showNav && !isKeyboardVisible;
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  useOverlay(isMoreOpen, () => setIsMoreOpen(false), 'bottom-sheet');
+  useOverlay(showMobileSearch, () => setShowMobileSearch(false), 'other');
 
   return (
     <PreviewFrame>
@@ -1585,22 +1651,17 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2.5 py-1 text-left">
-                  <input
-                    type="checkbox"
-                    id="agree-checkbox"
-                    checked={agreeChecked}
-                    onChange={(e) => setAgreeChecked(e.target.checked)}
-                    className="mt-0.5 w-3.5 h-3.5 accent-amber-500 cursor-pointer rounded shrink-0"
-                  />
-                  <label
-                    htmlFor="agree-checkbox"
-                    className="text-[10.5px] text-slate-300 leading-normal font-semibold cursor-pointer select-none"
-                  >
-                    I agree to the terms, conditions, and offline caching
-                    security policies of KayKay's Staff Portal.
-                  </label>
-                </div>
+                <Checkbox
+                  className="py-1 text-left"
+                  checked={agreeChecked}
+                  onChange={setAgreeChecked}
+                  label={
+                    <span className="text-[10.5px] text-slate-300 leading-normal font-semibold">
+                      I agree to the terms, conditions, and offline caching
+                      security policies of KayKay's Staff Portal.
+                    </span>
+                  }
+                />
 
                 <button
                   type="button"
@@ -3533,6 +3594,13 @@ export default function App() {
                       permission: 'business.update' as const,
                     },
                     {
+                      id: 'money',
+                      label: 'Payments & Expenses',
+                      icon: Wallet,
+                      desc: 'Payments, M-Pesa, expenses',
+                      permission: MONEY_PERMISSIONS,
+                    },
+                    {
                       id: 'production',
                       label: 'Production & BOM',
                       icon: FlaskConical,
@@ -3556,13 +3624,7 @@ export default function App() {
                   ]
                     .filter((tab) =>
                       currentEmployee
-                        ? tab.id === 'profile' ||
-                          tab.id === 'about' ||
-                          tab.id === 'notifications' ||
-                          hasRolePermission(
-                            currentEmployee.role,
-                            tab.permission as any,
-                          )
+                        ? canOpenScreen(currentEmployee.role, tab.id)
                         : false,
                     )
                     .map((tab) => {
@@ -3713,6 +3775,7 @@ export default function App() {
                     <div className="flex-1 flex items-center gap-2">
                       <div className="flex-1">
                         <GlobalSearch
+                          autoFocus
                           onNavigateTab={(tab) => {
                             setActiveTab(tab);
                             setShowMobileSearch(false);
@@ -4113,6 +4176,20 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
+                    {activeTab === 'money' && (
+                      <motion.div
+                        key="money-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={MONEY_PERMISSIONS as any}>
+                          <BusinessManagementView section="money" />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === 'production' && (
                       <motion.div
                         key="production-view"
@@ -4178,10 +4255,7 @@ export default function App() {
                 {(() => {
                   if (!currentEmployee) return null;
                   const allowed = MOBILE_TABS.filter(
-                    (tab) =>
-                      tab.id === 'profile' ||
-                      tab.id === 'about' ||
-                      hasRolePermission(currentEmployee.role, tab.permission as any),
+                    (tab) => canOpenScreen(currentEmployee.role, tab.id),
                   );
                   const byId = new Map<string, (typeof allowed)[number]>(allowed.map((tab) => [tab.id, tab]));
                   const { primary, overflow } = arrangeMobileNav(
@@ -4992,7 +5066,7 @@ export default function App() {
         {/* Interactive Onboarding Tour Guide */}
         <InteractiveGuide
           isOpen={isTourOpen}
-          steps={tourSteps}
+          steps={tourStepsFor(currentEmployee?.role)}
           onClose={handleCloseTour}
           onStepChange={(tab) => setActiveTab(tab as any)}
         />

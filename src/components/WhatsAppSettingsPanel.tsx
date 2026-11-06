@@ -7,6 +7,7 @@ import { PasswordInput } from './shared/PasswordInput';
 import { SupabaseService } from '../services/supabaseService';
 import { useAppStore } from '../stores/appStore';
 import { toUserMessage } from '../utils/userError';
+import { Switch } from './shared/Switch';
 
 const inputClass = 'bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text';
 
@@ -60,10 +61,7 @@ export default function WhatsAppSettingsPanel({ businessId }: { businessId: stri
         When this is off, staff open each WhatsApp chat by hand. WhatsApp requires an approved template to
         message customers who haven't written in the last 24 hours.
       </p>
-      <label className="flex items-center gap-2 text-xs font-medium text-app-text">
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-        Send messages automatically through WhatsApp
-      </label>
+      <Switch checked={enabled} onChange={setEnabled} label="Send messages automatically through WhatsApp" />
       <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
         Phone number ID
         <input value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className={inputClass} />

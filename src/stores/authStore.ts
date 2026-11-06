@@ -634,7 +634,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         showNav: true,
         selectedCustomerId: null,
         activeInvoiceData: null,
-        activeTab: "home"
+        activeTab: "home",
+        tabHistory: []
       });
 
       // Clear the Schedule Reminder realtime channel + feed to prevent

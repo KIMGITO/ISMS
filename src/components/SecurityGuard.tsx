@@ -4,19 +4,22 @@ import { PermissionCode, ALL_PERMISSIONS, hasRolePermission } from "../utils/per
 import { useAuthStore } from "../stores/authStore";
 
 interface SecurityGuardProps {
-  permission: PermissionCode;
+  /** One permission, or a list where any one is enough. */
+  permission: PermissionCode | PermissionCode[];
   children: React.ReactNode;
 }
 
-export default function SecurityGuard({ permission, children }: SecurityGuardProps) {
+export default function SecurityGuard({ permission: required, children }: SecurityGuardProps) {
   const { currentEmployee } = useAuthStore();
   const activeRoleName = currentEmployee?.role || "Guest";
-  const isGranted = currentEmployee ? hasRolePermission(currentEmployee.role, permission) : false;
+  const codes = Array.isArray(required) ? required : [required];
+  const isGranted = currentEmployee ? codes.some((code) => hasRolePermission(currentEmployee.role, code)) : false;
 
   if (isGranted) {
     return <>{children}</>;
   }
 
+  const permission = codes[0];
   const pDetails = ALL_PERMISSIONS.find(p => p.code === permission);
 
   return (

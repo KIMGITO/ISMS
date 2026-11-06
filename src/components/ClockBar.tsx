@@ -47,7 +47,7 @@ export default function ClockBar() {
 
   if (!activeShift) {
     return (
-      <div className="shrink-0 flex items-center justify-between gap-3 px-3 py-2 bg-amber-500/15 border-b border-amber-500/30">
+      <div id="clock-bar" className="shrink-0 flex items-center justify-between gap-3 px-3 py-2 bg-amber-500/15 border-b border-amber-500/30">
         <span className="flex items-center gap-2 text-sm font-semibold text-app-text min-w-0">
           <Clock size={18} className="shrink-0 text-amber-600" aria-hidden="true" />
           <span className="truncate">You're not clocked in</span>
@@ -71,6 +71,7 @@ export default function ClockBar() {
   return (
     <>
       <div
+        id="clock-bar"
         className={`shrink-0 flex items-center justify-between gap-3 px-3 py-1.5 border-b ${
           isLong ? 'bg-amber-500/15 border-amber-500/30' : 'bg-emerald-500/10 border-emerald-500/20'
         }`}
