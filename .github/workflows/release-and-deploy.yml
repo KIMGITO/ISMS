@@ -44,8 +44,8 @@ env:
   RELEASE_NAME_PREFIX: "KayKays"
   # ────────────────────────────────────────────────────────────────────────────
   # Build-time settings the app reads.
-  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
   VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
   VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
 
