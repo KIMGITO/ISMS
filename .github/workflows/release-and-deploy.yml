@@ -34,8 +34,8 @@ env:
   # Tauri builds the frontend itself through beforeBuildCommand in tauri.conf.json.
   # Other stacks: "cargo build --release", "go build -o dist/app.exe ./cmd/app",
   # "dotnet publish -c Release -r win-x64 --self-contained", "npx electron-builder --win".
-  WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi"
-  LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb"
+  WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi --config src-tauri/tauri.unsigned.conf.json"
+  LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb --config src-tauri/tauri.unsigned.conf.json"
   # Where the builds land.
   EXE_PATH: "src-tauri/target/release/app.exe"
   MSI_GLOB: "src-tauri/target/release/bundle/msi/*.msi"
@@ -90,13 +90,11 @@ jobs:
       - name: Check required secrets
         if: steps.calc.outputs.bump != 'none'
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           missing=""
           [ -z "$VITE_SUPABASE_URL" ] && missing="$missing VITE_SUPABASE_URL"
           [ -z "$VITE_SUPABASE_ANON_KEY" ] && missing="$missing VITE_SUPABASE_ANON_KEY"
-          [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] && missing="$missing TAURI_SIGNING_PRIVATE_KEY"
           [ -z "$ANDROID_KEYSTORE_BASE64" ] && missing="$missing ANDROID_KEYSTORE_BASE64"
           if [ -n "$missing" ]; then
             echo "::error::Set these repository secrets:$missing"
@@ -133,9 +131,6 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.version.outputs.version }}
-      # Signs the update files the installed app checks before installing.
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -184,12 +179,11 @@ jobs:
           cp "$EXE_PATH" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64.exe"
           shopt -s nullglob
           msis=($MSI_GLOB)
-          if [ ${#msis[@]} -ne 1 ] || [ ! -f "${msis[0]}.sig" ]; then
-            echo "::error::Expected one .msi and its .sig. Is TAURI_SIGNING_PRIVATE_KEY set?"
+          if [ ${#msis[@]} -ne 1 ]; then
+            echo "::error::Expected one .msi, found ${#msis[@]}."
             exit 1
           fi
           cp "${msis[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi"
-          cp "${msis[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi.sig"
           ls -l out
 
       - uses: actions/upload-artifact@v4
@@ -209,8 +203,6 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       VERSION: ${{ needs.version.outputs.version }}
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -247,12 +239,11 @@ jobs:
           shopt -s nullglob
           mkdir -p out
           images=($APPIMAGE_GLOB)
-          if [ ${#images[@]} -ne 1 ] || [ ! -f "${images[0]}.sig" ]; then
-            echo "::error::Expected one .AppImage and its .sig. Is TAURI_SIGNING_PRIVATE_KEY set?"
+          if [ ${#images[@]} -ne 1 ]; then
+            echo "::error::Expected one .AppImage, found ${#images[@]}."
             exit 1
           fi
           cp "${images[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage"
-          cp "${images[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage.sig"
           for deb in $DEB_GLOB; do cp "$deb" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb"; done
           ls -l out
 
