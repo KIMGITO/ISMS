@@ -392,6 +392,9 @@ verify_jwt = false
 [functions.mpesa-webhook]
 verify_jwt = false
 
+[functions.till-callback]
+verify_jwt = false
+
 [functions.ussd]
 verify_jwt = false
 

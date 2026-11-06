@@ -81,6 +81,8 @@ export interface Customer {
   purchasesCount: number;
   debtBalance?: number;
   walletBalance?: number;
+  /** Given by the database; customers quote it when paying by M-Pesa. */
+  accountNumber?: string;
   businessId?: string;
   description?: string;
   customerType?: CustomerType;
@@ -302,6 +304,7 @@ export interface Expense {
   staffName: string;
   businessId?: string;
   paymentMethod?: PaymentMethod;
+  categoryId?: string;
   created_at?: string;
 }
 
@@ -370,8 +373,11 @@ export interface Payment {
   method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Mobile_Wallet' | 'Other';
   senderName: string;
   senderPhone?: string;
-  status: 'Success' | 'Pending' | 'Failed';
+  status: 'Success' | 'Pending' | 'Failed' | 'Voided';
   date: string;
+  voidedAt?: string;
+  voidedBy?: string;
+  voidReason?: string;
   customerId?: string;
   customerName?: string;
   paymentType?: PaymentType;
@@ -528,3 +534,36 @@ export interface PendingAction {
   validation: PendingActionValidation;
 }
 
+
+/** Money sent straight to the till, waiting for staff to say what it was. */
+export interface TillPayment {
+  id: string;
+  transId: string;
+  amount: number;
+  msisdn?: string;
+  payerName?: string;
+  billRef?: string;
+  transTime: string;
+  status: 'unclaimed' | 'recorded' | 'matched_sale' | 'ignored';
+  customerId?: string;
+  paymentId?: string;
+  handledBy?: string;
+  handledAt?: string;
+  note?: string;
+}
+
+/** A payment prompt (STK push) sent from the app. */
+export interface MpesaPrompt {
+  id: string;
+  checkoutRequestId: string;
+  phone: string;
+  amount: number;
+  status: 'Pending' | 'Completed' | 'Failed';
+  receiptNumber?: string;
+  customerId?: string;
+  accountReference?: string;
+  description?: string;
+  requestedBy?: string;
+  paymentId?: string;
+  createdAt: string;
+}

@@ -46,6 +46,21 @@ No server of our own is needed. External services call the edge functions direct
 
 Safaricom calls `https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?token=<MPESA_CALLBACK_TOKEN>`. The app builds this address itself.
 
+4. Deploy `mpesa-webhook`, `mpesa-payments` and `till-callback`, then apply migration `20261106001_void_payments_expenses_mpesa_till.sql`.
+5. In the app, open **Business Management > M-Pesa**, enter the till number and press **Register till with Safaricom**. Each branch with its own till does this once.
+
+How payments reach the app:
+
+| How the customer pays | What happens |
+| --- | --- |
+| Online order or dial code | A prompt goes to their phone and the order settles when they pay. |
+| Staff press **Send M-Pesa prompt** | A prompt goes to their phone. When they pay, the payment is recorded by itself, against the customer's debt and then their wallet, or as a walk-in. |
+| They pay the till from their own phone | A till payment carries no account number, so it waits under **Paid to the till** until staff assign it to a customer, mark it as a sale already rung up, record it as a walk-in, or ignore it with a note. |
+
+Every customer has an account number (from 100001). It appears on the customer's page and goes out as the account reference on prompts. If the business ever adds a paybill, payments quoting the number will be matched automatically.
+
+Safaricom refuses till callback addresses containing words like "mpesa", which is why that function is called `till-callback`. It calls `https://<project-ref>.supabase.co/functions/v1/till-callback?type=confirmation&token=<MPESA_CALLBACK_TOKEN>`. Set `MPESA_C2B_SHORTCODE` if Safaricom registers your till under a different short code than `MPESA_SHORTCODE`.
+
 ### Dial code (Africa's Talking)
 
 **Try it free first, in the sandbox:**

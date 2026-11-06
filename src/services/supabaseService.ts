@@ -445,6 +445,7 @@ export class SupabaseService {
       purchasesCount: c.purchases_count,
       debtBalance: Number(c.debt_balance),
       walletBalance: Number(c.wallet_balance),
+      accountNumber: c.account_number || undefined,
       businessId: c.business_id,
       description: c.description || "",
     }));
@@ -467,6 +468,7 @@ export class SupabaseService {
       type: d.type as any,
       amount: Number(d.amount),
       walletBalance: Number(d.wallet_balance),
+      accountNumber: d.account_number || undefined,
       debtBalance: Number(d.debt_balance),
       recordedBy: d.recorded_by,
       note: d.note || "",

@@ -4,8 +4,9 @@ import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
   Edit, Wallet, TrendingUp, Smartphone, Banknote, Landmark, User as UserIcon, Store, Search,
-  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight
+  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban
 } from "lucide-react";
+import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { validatePhone, normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { hasRolePermission } from "../utils/permissions";
@@ -13,6 +14,10 @@ import SearchableDropdown from "../components/SearchableDropdown";
 import { Tabs } from "../components/TabOptions";
 import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
+import type { ExpenseCategory } from "../types";
+
+// Shown only until the business's own list has loaded.
+const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
 
 const COLOR_PRESETS = [
   { name: "Isms Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
@@ -71,7 +76,7 @@ export default function BusinessManagementView() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Tab State
-  const [activeSubTab, setActiveSubTab] = useState<"details" | "expenses" | "payments">("details");
+  const [activeSubTab, setActiveSubTab] = useState<"details" | "expenses" | "payments" | "mpesa">("details");
 
   // Expenses States
   const [expAmount, setExpAmount] = useState("");
@@ -82,6 +87,14 @@ export default function BusinessManagementView() {
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [localExpenses, setLocalExpenses] = useState<any[]>([]);
   const [expPaymentMethod, setExpPaymentMethod] = useState<string>("Cash");
+  const [localCategories, setLocalCategories] = useState<ExpenseCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+
+  // Voiding a payment
+  const [voidingId, setVoidingId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [isVoiding, setIsVoiding] = useState(false);
 
 
   // Payments States - Modern Redesigned
@@ -118,6 +131,7 @@ export default function BusinessManagementView() {
     let unsubPay: (() => void) | undefined;
     let unsubAssets: (() => void) | undefined;
     let unsubCust: (() => void) | undefined;
+    let unsubCat: (() => void) | undefined;
 
     import("../services/repositories").then((mod) => {
       unsubExp = mod.ExpenseRepository.subscribe((exps) => {
@@ -132,6 +146,9 @@ export default function BusinessManagementView() {
       unsubCust = mod.CustomerRepository.subscribe((custs) => {
         setLocalCustomers(custs);
       });
+      unsubCat = mod.ExpenseCategoryRepository.subscribe((cats) => {
+        setLocalCategories(cats);
+      });
     }).catch(err => console.error("Failed to load repositories in BusinessManagementView", err));
 
     return () => {
@@ -139,6 +156,7 @@ export default function BusinessManagementView() {
       if (unsubPay) unsubPay();
       if (unsubAssets) unsubAssets();
       if (unsubCust) unsubCust();
+      if (unsubCat) unsubCat();
     };
   }, [activeBusinessId]);
 
@@ -157,6 +175,7 @@ export default function BusinessManagementView() {
       await ExpenseRepository.add({
         amount: amountNum,
         category: expCategory,
+        categoryId: localCategories.find((c) => c.name === expCategory)?.id,
         description: expDescription.trim(),
         date: new Date(expDate).toISOString(),
         staffName: cashierName,
@@ -210,15 +229,18 @@ export default function BusinessManagementView() {
         recordedBy: currentEmployee?.name || "System",
       });
 
-      const appliedMsg = selectedCustomer?.debtBalance > 0
-        ? " Payment applied to outstanding debt balance first."
-        : selectedCustomer?.walletBalance > 0 || selectedCustomer?.walletBalance === 0
-          ? " Wallet credited with any remaining balance."
-          : "";
+      // Only a successful payment moves money balances or a customer's account.
+      const appliedMsg = payStatus !== "Success"
+        ? ` Saved as ${payStatus.toLowerCase()}, so no balances changed.`
+        : selectedCustomer && Number(selectedCustomer.debtBalance || 0) > 0
+          ? " It paid down their debt first; anything left went to their wallet."
+          : selectedCustomer
+            ? " It went to their wallet."
+            : "";
 
       showToast(
-        "Payment Received",
-        `Business payment recorded${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}. Money asset updated.${appliedMsg}`,
+        "Payment Recorded",
+        `Payment recorded${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
         undefined,
         "success"
       );
@@ -360,18 +382,54 @@ export default function BusinessManagementView() {
     }
   };
 
-  const handleDeletePayment = async (id: string) => {
-    if (!isOwner) return;
-    if (!confirm("Delete this payment record? This action cannot be undone.")) return;
+  const canVoidPayments = hasRolePermission(currentEmployee?.role || 'Guest', 'payments.manage');
+  const canAddCategories = hasRolePermission(currentEmployee?.role || 'Guest', 'expenses.create');
+
+  const handleVoidPayment = async (id: string) => {
+    if (!voidReason.trim()) {
+      showToast("Reason Needed", "Say why this payment is being voided.", undefined, "error");
+      return;
+    }
+    setIsVoiding(true);
     try {
       const { PaymentRepository } = await import("../services/repositories");
-      await PaymentRepository.delete(id);
-      showToast("Deleted", "Payment record deleted successfully.", undefined, "success");
+      await PaymentRepository.void(id, voidReason.trim(), currentEmployee?.name || "Staff");
+      showToast("Payment Voided", "The money balance and the customer's account have been put back.", undefined, "success");
+      setVoidingId(null);
+      setVoidReason("");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", toUserMessage(err, "Failed to delete payment."), undefined, "error");
+      showToast("Could Not Void", toUserMessage(err, "Failed to void payment."), undefined, "error");
+    } finally {
+      setIsVoiding(false);
     }
   };
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name || !activeBusinessId) return;
+    if (localCategories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      setExpCategory(localCategories.find((c) => c.name.toLowerCase() === name.toLowerCase())!.name);
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+      return;
+    }
+    try {
+      const { ExpenseCategoryRepository } = await import("../services/repositories");
+      const created = await ExpenseCategoryRepository.add({ name, status: "Enabled", isCustom: true, businessId: activeBusinessId });
+      setLocalCategories((cats) => [...cats, created]);
+      setExpCategory(created.name);
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+    } catch (err: any) {
+      showToast("Could Not Add", toUserMessage(err, "Failed to add category."), undefined, "error");
+    }
+  };
+
+  const categoryItems = (localCategories.length > 0
+    ? localCategories.filter((c) => c.status === "Enabled").map((c) => c.name)
+    : DEFAULT_EXPENSE_CATEGORIES
+  ).map((name) => ({ id: name, label: name }));
 
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -769,6 +827,7 @@ export default function BusinessManagementView() {
                   { id: 'details', label: 'Details', icon: <Building size={14} /> },
                   { id: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
                   { id: 'payments', label: 'Payments', icon: <CreditCard size={14} /> },
+                  { id: 'mpesa', label: 'M-Pesa', icon: <Smartphone size={14} /> },
                 ]}
                 activeTab={activeSubTab}
                 onChange={setActiveSubTab}
@@ -1145,25 +1204,51 @@ export default function BusinessManagementView() {
                         Expense Category *
                       </label>
                       <SearchableDropdown
-                        items={[
-                          { id: 'Rent', label: 'Rent / Space Lease' },
-                          { id: 'Wages', label: 'Wages & Shift Salaries' },
-                          { id: 'Transport', label: 'Transport & Logistics' },
-                          {
-                            id: 'Utilities',
-                            label: 'Utilities (Water, Power, Net)',
-                          },
-                          { id: 'Maintenance', label: 'Maintenance & Repairs' },
-                          { id: 'Marketing', label: 'Marketing & Adverts' },
-                          {
-                            id: 'Other operating costs',
-                            label: 'Other Operating Costs',
-                          },
-                        ]}
+                        items={categoryItems}
                         selectedValue={expCategory}
                         onChange={(val) => setExpCategory(val)}
                         placeholder="Select category..."
                       />
+                      {canAddCategories && (isAddingCategory ? (
+                        <div className="flex gap-2 mt-1">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); }
+                              if (e.key === 'Escape') setIsAddingCategory(false);
+                            }}
+                            placeholder="New category name"
+                            className="flex-1 min-w-0 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCategory}
+                            disabled={!newCategoryName.trim()}
+                            className="px-3 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingCategory(false)}
+                            aria-label="Cancel"
+                            className="px-2 py-2 border border-app-border rounded-xl text-app-text-muted cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingCategory(true)}
+                          className="self-start mt-1 text-[10px] font-bold text-amber-500 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus size={10} /> Add a category
+                        </button>
+                      ))}
                     </div>
 
                     <div className="flex flex-col gap-1">
@@ -1325,6 +1410,10 @@ export default function BusinessManagementView() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {activeSubTab === 'mpesa' && (
+                <MpesaPaymentsPanel customers={localCustomers} />
               )}
 
               {activeSubTab === 'payments' && (
@@ -1828,14 +1917,15 @@ export default function BusinessManagementView() {
                                 <th className="py-2.5">Method</th>
                                 <th className="py-2.5">Applied To</th>
                                 <th className="py-2.5 text-right">Amount</th>
-                                {isOwner && <th className="py-2.5 text-center">Actions</th>}
+                                {canVoidPayments && <th className="py-2.5 text-center">Actions</th>}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-app-border/20 text-xs">
                               {localPayments
                                 .filter((p) => payFilter === 'all' || (p.paymentType || 'walk-in') === payFilter)
                                 .map((pay) => (
-                                  <tr key={pay.id} className="hover:bg-app-bg/30 transition">
+                                  <React.Fragment key={pay.id}>
+                                  <tr className={`hover:bg-app-bg/30 transition ${pay.status === 'Voided' ? 'opacity-60' : ''}`}>
                                     <td className="py-2.5 font-mono text-[10px] whitespace-nowrap">
                                       <div>{new Date(pay.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                                       <div className="text-[8px] text-app-text-muted">
@@ -1902,26 +1992,74 @@ export default function BusinessManagementView() {
                                       )}
                                     </td>
                                     <td className="py-2.5 text-right">
-                                      <span className={`font-black font-mono ${pay.status === 'Failed' ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      <span className={`font-black font-mono ${pay.status === 'Failed' ? 'text-red-500' : pay.status === 'Voided' ? 'text-app-text-muted line-through' : 'text-emerald-500'}`}>
                                         KSh {Number(pay.amount).toLocaleString()}
                                       </span>
-                                      <span className={`block text-[8px] font-bold uppercase tracking-wider mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : 'text-red-500'}`}>
+                                      <span className={`block text-[8px] font-bold uppercase tracking-wider mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : pay.status === 'Voided' ? 'text-app-text-muted' : 'text-red-500'}`}>
                                         {pay.status}
                                       </span>
+                                      {pay.status === 'Voided' && pay.voidReason && (
+                                        <span className="block text-[8.5px] text-app-text-muted mt-0.5 max-w-[160px] ml-auto truncate" title={`${pay.voidReason}${pay.voidedBy ? ` (by ${pay.voidedBy})` : ''}`}>
+                                          {pay.voidReason}
+                                        </span>
+                                      )}
                                     </td>
-                                    {isOwner && (
+                                    {canVoidPayments && (
                                       <td className="py-2.5 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeletePayment(pay.id)}
-                                          title="Delete payment"
-                                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
+                                        {pay.status !== 'Voided' && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setVoidingId(voidingId === pay.id ? null : pay.id);
+                                              setVoidReason("");
+                                            }}
+                                            title="Void payment"
+                                            className="px-2 py-1 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer text-[10px] font-bold inline-flex items-center gap-1"
+                                          >
+                                            <Ban size={12} /> Void
+                                          </button>
+                                        )}
                                       </td>
                                     )}
                                   </tr>
+                                  {voidingId === pay.id && (
+                                    <tr className="bg-red-500/5">
+                                      <td colSpan={7} className="p-3">
+                                        <p className="text-[11px] text-app-text mb-2">
+                                          Voiding takes KSh {Number(pay.amount).toLocaleString()} back out of the {pay.method} balance
+                                          {Number(pay.debtApplied || 0) > 0 && ` and puts KSh ${Number(pay.debtApplied).toLocaleString()} back on the customer's debt`}
+                                          {Number(pay.walletApplied || 0) > 0 && ` and removes KSh ${Number(pay.walletApplied).toLocaleString()} from their wallet`}.
+                                          The record stays, marked Voided.
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                          <input
+                                            type="text"
+                                            autoFocus
+                                            value={voidReason}
+                                            onChange={(e) => setVoidReason(e.target.value)}
+                                            placeholder="Reason, e.g. entered twice"
+                                            className="flex-1 min-w-[180px] bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-red-500"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => handleVoidPayment(pay.id)}
+                                            disabled={isVoiding || !voidReason.trim()}
+                                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
+                                          >
+                                            {isVoiding ? 'Voiding…' : 'Void payment'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setVoidingId(null)}
+                                            className="px-3 py-2 border border-app-border rounded-xl text-xs text-app-text cursor-pointer"
+                                          >
+                                            Keep it
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                  </React.Fragment>
                                 ))}
                             </tbody>
                           </table>

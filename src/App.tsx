@@ -113,13 +113,37 @@ import {
   ActivitySquareIcon,
   Edit3,
   Truck,
+  LayoutGrid,
 } from 'lucide-react';
+import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Business } from './types';
 import { AuthOtpService } from './services/authOtpService';
 import { toUserMessage } from './utils/userError';
 import PasswordInput from './components/shared/PasswordInput';
+
+// Every tab the mobile bar or its "More" sheet can show. Order and placement come from arrangeMobileNav.
+const MOBILE_TABS = [
+  { id: 'home', label: 'Home', icon: Home, permission: 'home.view' },
+  { id: 'dashboard', label: 'Shift', icon: Clock, permission: 'dashboard.view' },
+  { id: 'sell', label: 'Sell', icon: Zap, permission: 'pos.create_sale' },
+  { id: 'pos', label: 'POS', icon: ShoppingCart, permission: 'pos.create_sale' },
+  { id: 'inventory', label: 'Inventory', icon: Boxes, permission: 'inventory.view' },
+  { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
+  { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
+  { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
+  { id: 'deliveries', label: 'Deliveries', icon: Truck, permission: 'deliveries.view' },
+  { id: 'workers', label: 'Workers', icon: Users, permission: 'staff.view' },
+  { id: 'permissions', label: 'Roles', icon: Key, permission: 'staff.roles' },
+  { id: 'ai', label: 'Assistant', icon: Bot, permission: 'ai.use' },
+  { id: 'profile', label: 'Profile', icon: User, permission: 'dashboard.view' },
+  { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
+  { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
+  { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
+] as const;
+
 
 
   export const BUSINESS_TYPES = [
@@ -1288,6 +1312,7 @@ export default function App() {
 
 
   const isNavVisible = showNav && !isKeyboardVisible;
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   return (
     <PreviewFrame>
@@ -4119,201 +4144,177 @@ export default function App() {
                 )}
 
                 {/* BOTTOM NAVIGATION BAR (MOBILE ONLY, SLIDES/FADES OUT ON SCROLL) */}
-                <motion.nav
-                  initial={{ y: 0, opacity: 1 }}
-                  animate={{
-                    y: isNavVisible ? 0 : 90,
-                    opacity: isNavVisible ? 1 : 0,
-                    pointerEvents: isNavVisible ? 'auto' : 'none',
-                  }}
-                  transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-                  className="fixed bottom-3.5 left-3.5 right-3.5 md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md border border-app-border/80 flex items-center justify-around h-15 shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans overflow-x-auto scrollbar-none px-2 gap-0.5"
-                >
-                  {[
-                    {
-                      id: 'home',
-                      label: 'Home',
-                      icon: Home,
-                      permission: 'home.view' as const,
-                    },
-                    {
-                      id: 'dashboard',
-                      label: 'Shift',
-                      icon: Clock,
-                      permission: 'dashboard.view' as const,
-                    },
-                    {
-                      id: 'sell',
-                      label: 'Sell',
-                      icon: Zap,
-                      permission: 'pos.create_sale' as const,
-                    },
-                    {
-                      id: 'pos',
-                      label: 'POS',
-                      icon: ShoppingCart,
-                      permission: 'pos.create_sale' as const,
-                    },
-                    {
-                      id: 'inventory',
-                      label: 'Inventory',
-                      icon: Boxes,
-                      permission: 'inventory.view' as const,
-                    },
-                    {
-                      id: 'sales',
-                      label: 'Sales Log',
-                      icon: Receipt,
-                      permission: 'orders.view' as const,
-                    },
-                    {
-                      id: 'customers',
-                      label: 'Loyalty',
-                      icon: Heart,
-                      permission: 'customers.view' as const,
-                    },
-                    {
-                      id: 'feedback',
-                      label: 'Feedback',
-                      icon: MessageSquare,
-                      permission: 'complaints.view' as const,
-                    },
-                    {
-                      id: 'online-store',
-                      label: 'Online Store',
-                      icon: Globe,
-                      permission: 'customers.view' as const,
-                    },
-                    {
-                      id: 'deliveries',
-                      label: 'Deliveries',
-                      icon: Truck,
-                      permission: 'deliveries.view' as const,
-                    },
-                    {
-                      id: 'workers',
-                      label: 'Workers',
-                      icon: Users,
-                      permission: 'staff.view' as const,
-                    },
-                    {
-                      id: 'permissions',
-                      label: 'Roles',
-                      icon: Key,
-                      permission: 'staff.roles' as const,
-                    },
-                    {
-                      id: 'ai',
-                      label: 'Assistant',
-                      icon: Bot,
-                      permission: 'ai.use' as const,
-                    },
-                    {
-                      id: 'profile',
-                      label: 'Profile',
-                      icon: User,
-                      permission: 'dashboard.view' as const,
-                    },
-                    {
-                      id: 'business-management',
-                      label: 'Business',
-                      icon: Building,
-                      permission: 'business.update' as const,
-                    },
-                    {
-                      id: 'production',
-                      label: 'BOM',
-                      icon: FlaskConical,
-                      permission: 'bom.view' as const,
-                    },
-                    {
-                      id: 'settings',
-                      label: 'Settings',
-                      icon: Settings,
-                      permission: 'settings.view' as const,
-                    },
-                  ]
-                    .filter((tab) =>
-                      currentEmployee
-                        ? tab.id === 'profile' ||
-                          tab.id === 'notifications' ||
-                          hasRolePermission(
-                            currentEmployee.role,
-                            tab.permission as any,
-                          )
-                        : false,
-                    )
-                    .map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.id;
+                {(() => {
+                  if (!currentEmployee) return null;
+                  const allowed = MOBILE_TABS.filter(
+                    (tab) =>
+                      tab.id === 'profile' ||
+                      hasRolePermission(currentEmployee.role, tab.permission as any),
+                  );
+                  const byId = new Map<string, (typeof allowed)[number]>(allowed.map((tab) => [tab.id, tab]));
+                  const { primary, overflow } = arrangeMobileNav(
+                    allowed.map((tab) => tab.id),
+                    currentEmployee.role,
+                  );
+                  const overflowTabs = overflow.map((id) => byId.get(id)!);
+                  const isOverflowActive = overflow.includes(activeTab as string);
+                  const avatarSrc =
+                    currentEmployee.avatar ||
+                    "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E";
 
-                      return (
-                        <button
-                          key={tab.id}
-                          id={`mobile-tab-${tab.id}`}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={`flex flex-col items-center justify-center flex-1 min-w-[40px] max-w-[80px] px-0.5 h-full transition-all relative shrink-0 cursor-pointer ${
-                            isActive
-                              ? 'text-amber-500 font-bold'
-                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-200'
-                          }`}
-                        >
-                          <div className="relative flex items-center justify-center">
-                            {tab.id === 'profile' ? (
-                              <img
-                                src={
-                                  currentEmployee?.avatar ||
-                                  "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
+                  return (
+                    <>
+                      <motion.nav
+                        initial={{ y: 0, opacity: 1 }}
+                        animate={{
+                          y: isNavVisible ? 0 : 90,
+                          opacity: isNavVisible ? 1 : 0,
+                          pointerEvents: isNavVisible ? 'auto' : 'none',
+                        }}
+                        transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+                        className="fixed bottom-3.5 left-3.5 right-3.5 md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md border border-app-border/80 flex items-center justify-around h-15 shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans px-2 gap-0.5"
+                      >
+                        {primary.map((id) => {
+                          const isMore = id === MORE_TAB_ID;
+                          const tab = isMore
+                            ? { id, label: 'More', icon: LayoutGrid }
+                            : byId.get(id)!;
+                          const Icon = tab.icon;
+                          const isActive = isMore ? isMoreOpen || isOverflowActive : activeTab === id;
+                          const isCenterSell = id === 'sell' && currentEmployee.role === 'Cashier';
+
+                          return (
+                            <button
+                              key={id}
+                              id={`mobile-tab-${id}`}
+                              onClick={() => {
+                                if (isMore) {
+                                  setIsMoreOpen(!isMoreOpen);
+                                } else {
+                                  setIsMoreOpen(false);
+                                  setActiveTab(id as any);
                                 }
-                                alt="Profile"
-                                className={`w-4.5 h-4.5 rounded-full object-cover transition-all ${
-                                  isActive
-                                    ? 'ring-2 ring-amber-500 shadow-xs'
-                                    : 'border border-app-border/70'
-                                }`}
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <Icon size={16} />
-                            )}
-
-                            {tab.id === 'pos' && cartItemsCount > 0 && (
-                              <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
-                                {cartItemsCount}
-                              </span>
-                            )}
-
-                            {tab.id === 'notifications' &&
-                              unreadNotificationsCount > 0 && (
-                                <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
-                                  {unreadNotificationsCount}
-                                </span>
-                              )}
-                          </div>
-                          <span
-                            className={`text-[8.5px] mt-0.5 tracking-tight transition-all duration-200 ${
-                              isActive
-                                ? 'opacity-100 scale-100 h-auto'
-                                : 'opacity-0 scale-75 h-0 overflow-hidden'
-                            }`}
-                          >
-                            {tab.label}
-                          </span>
-                          {isActive && (
-                            <motion.div
-                              layoutId="activeTabIndicator"
-                              className="absolute bottom-1 w-6 h-0.5 bg-amber-500 rounded-full"
-                              transition={{
-                                type: 'spring',
-                                stiffness: 380,
-                                damping: 30,
                               }}
+                              aria-label={tab.label}
+                              aria-expanded={isMore ? isMoreOpen : undefined}
+                              className={`flex flex-col items-center justify-center flex-1 min-w-0 h-full transition-all relative cursor-pointer ${
+                                isActive
+                                  ? 'text-amber-500 font-bold'
+                                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-200'
+                              }`}
+                            >
+                              <div
+                                className={`relative flex items-center justify-center ${
+                                  isCenterSell
+                                    ? `w-11 h-11 -mt-5 rounded-full shadow-lg border-4 border-slate-950 dark:border-slate-900 ${
+                                        isActive ? 'bg-amber-500 text-slate-950' : 'bg-amber-500/90 text-slate-950'
+                                      }`
+                                    : ''
+                                }`}
+                              >
+                                {id === 'profile' ? (
+                                  <img
+                                    src={avatarSrc}
+                                    alt=""
+                                    className={`w-5 h-5 rounded-full object-cover transition-all ${
+                                      isActive ? 'ring-2 ring-amber-500 shadow-xs' : 'border border-app-border/70'
+                                    }`}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <Icon size={isCenterSell ? 20 : 18} />
+                                )}
+
+                                {id === 'pos' && cartItemsCount > 0 && (
+                                  <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
+                                    {cartItemsCount}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[9px] mt-0.5 tracking-tight truncate max-w-full">
+                                {tab.label}
+                              </span>
+                              {isActive && !isCenterSell && (
+                                <motion.div
+                                  layoutId="activeTabIndicator"
+                                  className="absolute bottom-1 w-6 h-0.5 bg-amber-500 rounded-full"
+                                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </motion.nav>
+
+                      {/* "More" sheet: every tab that doesn't fit on the bar, Settings included */}
+                      <AnimatePresence>
+                        {isMoreOpen && overflowTabs.length > 0 && (
+                          <>
+                            <motion.div
+                              key="more-backdrop"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 0.5 }}
+                              exit={{ opacity: 0 }}
+                              onClick={() => setIsMoreOpen(false)}
+                              className="fixed inset-0 bg-black z-30 md:hidden"
                             />
-                          )}
-                        </button>
-                      );
-                    })}
-                </motion.nav>
+                            <motion.div
+                              key="more-sheet"
+                              role="dialog"
+                              aria-label="More"
+                              initial={{ y: 40, opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ y: 40, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                              className="fixed left-3.5 right-3.5 bottom-21 z-40 md:hidden bg-app-card border border-app-border rounded-2xl shadow-2xl p-3 max-h-[60vh] overflow-y-auto"
+                            >
+                              <div className="flex items-center justify-between px-1 pb-2">
+                                <span className="text-xs font-bold text-app-text">More</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsMoreOpen(false)}
+                                  aria-label="Close"
+                                  className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text cursor-pointer"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                {overflowTabs.map((tab) => {
+                                  const Icon = tab.icon;
+                                  const isActive = activeTab === tab.id;
+                                  return (
+                                    <button
+                                      key={tab.id}
+                                      id={`mobile-more-${tab.id}`}
+                                      type="button"
+                                      onClick={() => {
+                                        setIsMoreOpen(false);
+                                        setActiveTab(tab.id as any);
+                                      }}
+                                      className={`flex flex-col items-center justify-center gap-1.5 min-h-18 rounded-xl border text-xs font-semibold cursor-pointer transition ${
+                                        isActive
+                                          ? 'border-amber-500 bg-amber-500/10 text-amber-500'
+                                          : 'border-app-border bg-app-bg text-app-text hover:border-amber-500/40'
+                                      }`}
+                                    >
+                                      {tab.id === 'profile' ? (
+                                        <img src={avatarSrc} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <Icon size={20} />
+                                      )}
+                                      <span className="truncate max-w-full px-1">{tab.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  );
+                })()}
               </div>
             </motion.div>
           )}

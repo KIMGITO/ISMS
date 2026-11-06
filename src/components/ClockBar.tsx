@@ -39,10 +39,6 @@ export default function ClockBar() {
 
   if (!currentEmployee) return null;
 
-  // Owners don't work to a timesheet, so they aren't nagged, but can still clock in from the Shift tab.
-  const isOwner = currentEmployee.role === 'Owner';
-  if (!activeShift && isOwner) return null;
-
   const handleClockIn = async () => {
     setIsBusy(true);
     await punchIn();

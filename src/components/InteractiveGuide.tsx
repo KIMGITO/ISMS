@@ -37,6 +37,8 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
     if (selector && window.innerWidth < 768) {
       if (selector.startsWith("#sidebar-tab-")) {
         selector = selector.replace("#sidebar-tab-", "#mobile-tab-");
+        // Tabs that don't fit on the bar live behind "More".
+        if (!document.querySelector(selector)) selector = "#mobile-tab-more";
         placement = "top";
       } else if (selector === "#sidebar-brand-header") {
         selector = "#mobile-brand-header";

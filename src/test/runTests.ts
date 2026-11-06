@@ -12,6 +12,8 @@ import { NotificationRepository } from "../services/notifications/notificationRe
 import { hasRolePermission, SYSTEM_ROLES } from "../utils/permissions";
 import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
+import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
+import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -312,6 +314,38 @@ runTest("Customer merge preview matches the database rules", () => {
   const shop = { ...base, id: "shop", loyaltyPoints: 0, purchasesCount: 0 };
   const online = { ...base, id: "web", loyaltyPoints: 0, purchasesCount: 9 };
   if (defaultKeepId(online, shop, ["web"]) !== "shop") throw new Error("The shop's record should be kept by default");
+});
+
+runTest("Mobile nav keeps at most 5 slots, Settings off the bar, Sell centred for cashiers", () => {
+  const all = [
+    { id: "home", p: "home.view" }, { id: "dashboard", p: "dashboard.view" }, { id: "sell", p: "pos.create_sale" },
+    { id: "pos", p: "pos.create_sale" }, { id: "inventory", p: "inventory.view" }, { id: "sales", p: "orders.view" },
+    { id: "customers", p: "customers.view" }, { id: "feedback", p: "complaints.view" }, { id: "online-store", p: "customers.view" },
+    { id: "deliveries", p: "deliveries.view" }, { id: "workers", p: "staff.view" }, { id: "permissions", p: "staff.roles" },
+    { id: "ai", p: "ai.use" }, { id: "profile", p: "dashboard.view" }, { id: "business-management", p: "business.update" },
+    { id: "production", p: "bom.view" }, { id: "settings", p: "settings.view" },
+  ];
+  for (const role of Object.keys(SYSTEM_ROLES)) {
+    const allowed = all.filter((t) => t.id === "profile" || hasRolePermission(role, t.p as any)).map((t) => t.id);
+    const { primary, overflow } = arrangeMobileNav(allowed, role);
+    if (primary.length > MAX_BOTTOM_TABS) throw new Error(`${role}: ${primary.length} slots`);
+    if (primary.includes("settings")) throw new Error(`${role}: Settings on the bar`);
+    const reachable = [...primary.filter((id) => id !== MORE_TAB_ID), ...overflow].sort();
+    if (reachable.join() !== [...allowed].sort().join()) throw new Error(`${role}: a tab is unreachable`);
+    if (overflow.length > 0 && !primary.includes(MORE_TAB_ID)) throw new Error(`${role}: overflow without More`);
+    if (role === "Cashier" && primary[2] !== "sell") throw new Error(`Cashier middle slot is ${primary[2]}`);
+  }
+});
+
+runTest("M-Pesa prompts accept Kenyan numbers in any common format", () => {
+  const cases: [string, string | null][] = [
+    ["0712345678", "254712345678"], ["+254 712 345 678", "254712345678"], ["254712345678", "254712345678"],
+    ["0110345678", "254110345678"], ["712345678", "254712345678"],
+    ["0812345678", null], ["07123", null], ["", null],
+  ];
+  for (const [input, expected] of cases) {
+    if (toMsisdn(input) !== expected) throw new Error(`${input} gave ${toMsisdn(input)}, expected ${expected}`);
+  }
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

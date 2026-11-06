@@ -3,7 +3,7 @@
 
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
-import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment } from "../types";
+import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
 import { normalizeForStorage } from "../utils/stringUtils";
@@ -398,6 +398,7 @@ export class CustomerRepository {
       purchasesCount: c.purchases_count,
       debtBalance: Number(c.debt_balance),
       walletBalance: Number(c.wallet_balance),
+      accountNumber: c.account_number || undefined,
       businessId: c.business_id,
       description: c.description || "",
       customerType: c.customer_type,
@@ -432,6 +433,7 @@ export class CustomerRepository {
       purchasesCount: data.purchases_count,
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
+      accountNumber: data.account_number || undefined,
       businessId: data.business_id,
       description: data.description || "",
       customerType: data.customer_type,
@@ -508,6 +510,7 @@ export class CustomerRepository {
       purchasesCount: Number(data.purchases_count),
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
+      accountNumber: data.account_number || undefined,
       businessId: data.business_id,
       description: data.description || "",
       customerType: data.customer_type,
@@ -553,6 +556,7 @@ export class CustomerRepository {
       purchasesCount: Number(data.purchases_count),
       debtBalance: Number(data.debt_balance),
       walletBalance: Number(data.wallet_balance),
+      accountNumber: data.account_number || undefined,
       businessId: data.business_id,
       description: data.description || "",
       customerType: data.customer_type,
@@ -605,6 +609,8 @@ export class ExpenseRepository {
       staffName: e.staff_name,
       businessId: e.business_id,
       paymentMethod: e.payment_method,
+      categoryId: e.category_id || undefined,
+      created_at: e.created_at,
       sync_status: "synced"
     }));
   }
@@ -643,6 +649,8 @@ export class ExpenseRepository {
       staff_name: expense.staffName,
       business_id: toUuid(expense.businessId || activeBusinessId),
       payment_method: expense.paymentMethod || 'Cash',
+      category_id: expense.categoryId ? toUuid(expense.categoryId) : null,
+      last_modified_by: expense.staffName || 'system',
     };
 
     const { data, error } = await supabase.from("expenses").insert(payload).select().single();
@@ -657,6 +665,8 @@ export class ExpenseRepository {
       staffName: data.staff_name,
       businessId: data.business_id,
       paymentMethod: data.payment_method,
+      categoryId: data.category_id || undefined,
+      created_at: data.created_at,
       sync_status: "synced",
     };
   }
@@ -684,6 +694,8 @@ export class ExpenseRepository {
       staffName: data.staff_name,
       businessId: data.business_id,
       paymentMethod: data.payment_method,
+      categoryId: data.category_id || undefined,
+      created_at: data.created_at,
       sync_status: "synced",
     };
   }
@@ -932,6 +944,9 @@ export class PaymentRepository {
       walletApplied: p.wallet_applied ? Number(p.wallet_applied) : 0,
       referenceId: p.reference_id || undefined,
       recordedBy: p.recorded_by || undefined,
+      voidedAt: p.voided_at || undefined,
+      voidedBy: p.voided_by || undefined,
+      voidReason: p.void_reason || undefined,
       sync_status: "synced"
     }));
   }
@@ -968,76 +983,35 @@ export class PaymentRepository {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
 
-    // Use the atomic RPC if a reference code is provided (enables idempotency + money assets)
-    if (payment.referenceCode) {
-      const paymentId = await SupabaseService.processBusinessPayment({
-        businessId: payment.businessId || activeBusinessId,
-        referenceCode: payment.referenceCode,
-        amount: payment.amount,
-        method: payment.method,
-        senderName: payment.senderName,
-        senderPhone: payment.senderPhone,
-        status: payment.status,
-        date: payment.date,
-        customerId: payment.customerId,
-        paymentType: payment.paymentType,
-        description: payment.description,
-        recordedBy: payment.recordedBy,
-      });
+    // Always go through the RPC so money assets and customer balances are updated.
+    // Cash often has no reference, and payments.reference_code is unique per business,
+    // so one is generated instead of storing an empty string.
+    const referenceCode =
+      payment.referenceCode?.trim() ||
+      `CASH-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
-      // Fetch the created payment from DB
-      const { data, error } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("id", paymentId)
-        .single();
-
-      if (error) { triggerNetworkFailureEvent(); throw error; }
-
-      return {
-        id: data.id,
-        businessId: data.business_id,
-        referenceCode: data.reference_code,
-        amount: Number(data.amount),
-        method: data.method as any,
-        senderName: data.sender_name,
-        senderPhone: data.sender_phone || "",
-        status: data.status as any,
-        date: data.date,
-        customerId: data.customer_id || undefined,
-        customerName: data.customer_name || undefined,
-        paymentType: data.payment_type || 'walk-in',
-        description: data.description || undefined,
-        appliedTo: data.applied_to || 'none',
-        debtApplied: data.debt_applied ? Number(data.debt_applied) : 0,
-        walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
-        referenceId: data.reference_id || undefined,
-        recordedBy: data.recorded_by || undefined,
-        sync_status: "synced",
-      };
-    }
-
-    // Fallback direct insert (no reference code path)
-    const payload = {
-      business_id: toUuid(payment.businessId || activeBusinessId),
-      reference_code: normalizeForStorage(payment.referenceCode),
+    const paymentId = await SupabaseService.processBusinessPayment({
+      businessId: payment.businessId || activeBusinessId,
+      referenceCode,
       amount: payment.amount,
       method: payment.method,
-      sender_name: normalizeForStorage(payment.senderName),
-      sender_phone: payment.senderPhone || null,
-      status: payment.status || 'Success',
-      date: payment.date || new Date().toISOString(),
-      customer_id: payment.customerId ? toUuid(payment.customerId) : null,
-      customer_name: payment.customerName || null,
-      payment_type: payment.paymentType || 'walk-in',
-      description: payment.description || null,
-      applied_to: payment.appliedTo || 'none',
-      debt_applied: payment.debtApplied || 0,
-      wallet_applied: payment.walletApplied || 0,
-      recorded_by: payment.recordedBy || null,
-    };
+      senderName: payment.senderName,
+      senderPhone: payment.senderPhone,
+      status: payment.status as Exclude<Payment["status"], "Voided">,
+      date: payment.date,
+      customerId: payment.customerId,
+      paymentType: payment.paymentType,
+      description: payment.description,
+      recordedBy: payment.recordedBy,
+    });
 
-    const { data, error } = await supabase.from("payments").insert(payload).select().single();
+    // Fetch the created payment from DB
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("id", paymentId)
+      .single();
+
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
     return {
@@ -1059,6 +1033,9 @@ export class PaymentRepository {
       walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
       referenceId: data.reference_id || undefined,
       recordedBy: data.recorded_by || undefined,
+      voidedAt: data.voided_at || undefined,
+      voidedBy: data.voided_by || undefined,
+      voidReason: data.void_reason || undefined,
       sync_status: "synced",
     };
   }
@@ -1105,15 +1082,25 @@ export class PaymentRepository {
       walletApplied: data.wallet_applied ? Number(data.wallet_applied) : 0,
       referenceId: data.reference_id || undefined,
       recordedBy: data.recorded_by || undefined,
+      voidedAt: data.voided_at || undefined,
+      voidedBy: data.voided_by || undefined,
+      voidReason: data.void_reason || undefined,
       sync_status: "synced",
     };
   }
 
-  public static async delete(id: string): Promise<boolean> {
+  /**
+   * Reverses everything the payment did (money balance, customer debt and wallet)
+   * and keeps the record marked Voided. Payments are never deleted.
+   */
+  public static async void(id: string, reason: string, voidedBy: string): Promise<void> {
     const supabase = getSupabase();
-    const { error } = await supabase.from("payments").delete().eq("id", id);
+    const { error } = await supabase.rpc("void_business_payment", {
+      p_payment_id: toUuid(id),
+      p_reason: reason,
+      p_voided_by: voidedBy,
+    });
     if (error) { triggerNetworkFailureEvent(); throw error; }
-    return true;
   }
 }
 
@@ -1223,6 +1210,149 @@ export class ProductionBatchRepository {
         { event: "*", schema: "public", table: "production_batches", filter: `business_id=eq.${activeBusinessId}` },
         () => { this.getAll().then(callback).catch(console.error); }
       )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }
+}
+// ─────────────────────────────────────────────
+// M-PESA (DARAJA) REPOSITORY
+// Secrets stay on the server; everything Safaricom-facing goes through the
+// mpesa-payments edge function. Rows are read directly, under RLS.
+// ─────────────────────────────────────────────
+export interface MpesaStatus {
+  configured: boolean;
+  environment: "sandbox" | "production";
+  transactionType: string;
+  missing: string[];
+  tillFromSecrets: string | null;
+  tillNumber: string | null;
+  registeredAt: string | null;
+}
+
+export type TillPaymentAction = "customer" | "walk_in" | "sale" | "ignore" | "reopen";
+
+export class MpesaRepository {
+  private static call(action: string, extra: Record<string, unknown> = {}) {
+    return SupabaseService.callEdgeFunction("mpesa-payments", {
+      action,
+      businessId: getActiveBusinessId(),
+      ...extra,
+    });
+  }
+
+  public static status(): Promise<MpesaStatus> {
+    return this.call("status");
+  }
+
+  public static async saveTill(tillNumber: string): Promise<void> {
+    await this.call("save_till", { tillNumber });
+  }
+
+  public static async registerTill(): Promise<void> {
+    await this.call("register");
+  }
+
+  /** Sends a payment prompt to the customer's phone. Returns its checkout id. */
+  public static async requestPayment(params: {
+    phone: string;
+    amount: number;
+    customerId?: string;
+    description?: string;
+  }): Promise<string> {
+    const data = await this.call("request", params);
+    return data.checkoutRequestId;
+  }
+
+  public static async checkPrompt(checkoutRequestId: string): Promise<{ status: MpesaPrompt["status"]; paid?: boolean }> {
+    return this.call("check", { checkoutRequestId });
+  }
+
+  public static async handleTillPayment(
+    id: string,
+    action: TillPaymentAction,
+    options: { customerId?: string; note?: string; handledBy: string },
+  ): Promise<void> {
+    const { error } = await getSupabase().rpc("handle_till_payment", {
+      p_till_payment_id: toUuid(id),
+      p_action: action,
+      p_customer_id: options.customerId ? toUuid(options.customerId) : null,
+      p_note: options.note || null,
+      p_handled_by: options.handledBy,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+  }
+
+  public static async getTillPayments(): Promise<TillPayment[]> {
+    const { data, error } = await getSupabase()
+      .from("mpesa_till_payments")
+      .select("*")
+      .eq("business_id", getActiveBusinessId())
+      .order("trans_time", { ascending: false })
+      .limit(200);
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return (data || []).map((r) => ({
+      id: r.id,
+      transId: r.trans_id,
+      amount: Number(r.amount),
+      msisdn: r.msisdn || undefined,
+      payerName: r.payer_name || undefined,
+      billRef: r.bill_ref || undefined,
+      transTime: r.trans_time,
+      status: r.status,
+      customerId: r.customer_id || undefined,
+      paymentId: r.payment_id || undefined,
+      handledBy: r.handled_by || undefined,
+      handledAt: r.handled_at || undefined,
+      note: r.note || undefined,
+    }));
+  }
+
+  public static async getPrompts(): Promise<MpesaPrompt[]> {
+    const { data, error } = await getSupabase()
+      .from("mpesa_transactions")
+      .select("*")
+      .eq("business_id", getActiveBusinessId())
+      .is("online_order_id", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return (data || []).map((r) => ({
+      id: r.id,
+      checkoutRequestId: r.checkout_request_id,
+      phone: r.phone,
+      amount: Number(r.amount),
+      status: r.status,
+      receiptNumber: r.receipt_number || undefined,
+      customerId: r.customer_id || undefined,
+      accountReference: r.account_reference || undefined,
+      description: r.description || undefined,
+      requestedBy: r.requested_by || undefined,
+      paymentId: r.payment_id || undefined,
+      createdAt: r.created_at,
+    }));
+  }
+
+  /** Calls back with fresh till payments and prompts whenever either table changes. */
+  public static subscribe(callback: (data: { tillPayments: TillPayment[]; prompts: MpesaPrompt[] }) => void): () => void {
+    const load = () =>
+      Promise.all([this.getTillPayments(), this.getPrompts()])
+        .then(([tillPayments, prompts]) => callback({ tillPayments, prompts }))
+        .catch(console.error);
+    load();
+
+    if (typeof global !== "undefined" && (global as any).IS_TEST) {
+      return () => {};
+    }
+
+    const activeBusinessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channelId = Math.random().toString(36).substring(2, 10);
+    const filter = `business_id=eq.${activeBusinessId}`;
+    const channel = supabase
+      .channel(`realtime-mpesa-${activeBusinessId}-${channelId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mpesa_till_payments", filter }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mpesa_transactions", filter }, load)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

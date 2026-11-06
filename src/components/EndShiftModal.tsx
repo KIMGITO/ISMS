@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Send, Check } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
@@ -7,7 +7,7 @@ import { useCustomerStore } from '../stores/customerStore';
 import { useAuthStore } from '../stores/authStore';
 import { useAppStore } from '../stores/appStore';
 import { useExtraModulesStore, ProductionBatch } from '../stores/extraModulesStore';
-import { Shift, Transaction, BillOfMaterials } from '../types';
+import { Shift, Transaction, BillOfMaterials, Expense } from '../types';
 import { useOverlay } from '../hooks/useOverlay';
 
 interface EndShiftModalProps {
@@ -27,6 +27,16 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
 
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  // Expenses aren't kept in a store, so they're loaded when the report opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    import('../services/repositories')
+      .then(({ ExpenseRepository }) => ExpenseRepository.getAll())
+      .then(setExpenses)
+      .catch((err) => console.error('Could not load expenses for the shift report:', err));
+  }, [isOpen]);
 
   // Compute shift statistics
   const { reportText, reportPreview } = useMemo(() => {
@@ -141,6 +151,19 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
       ps.opening = Math.max(0, Math.round((ps.closing + ps.sold + consumed - produced) * 100) / 100);
     });
 
+    // Expenses recorded while this shift was open
+    const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
+    const shiftExpenses = expenses.filter((e) => {
+      const t = new Date(e.created_at || e.date).getTime();
+      return t >= shiftStart && t <= shiftEnd;
+    });
+    const cashExpenses = shiftExpenses
+      .filter((e) => (e.paymentMethod || 'Cash') === 'Cash')
+      .reduce((sum, e) => sum + e.amount, 0);
+    const cashDebtRepaid = shiftDebtPayments
+      .filter((dp) => dp.paymentMethod === 'Cash')
+      .reduce((sum, dp) => sum + dp.amountPaid, 0);
+
     // Format text
     const dateStr = new Date().toLocaleDateString('en-KE', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
     const timeStr = new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
@@ -152,7 +175,21 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
     text += `*FINANCIALS*\n`;
     text += `- Cash: Ksh ${cash.toLocaleString()}\n`;
     text += `- M-Pesa: Ksh ${mpesa.toLocaleString()}\n`;
-    text += `- Debt: Ksh ${debt.toLocaleString()}\n\n`;
+    text += `- Debt: Ksh ${debt.toLocaleString()}\n`;
+    if (shiftExpenses.length > 0) {
+      const totalExpenses = shiftExpenses.reduce((sum, e) => sum + e.amount, 0);
+      text += `- Expenses paid: Ksh ${totalExpenses.toLocaleString()}\n`;
+    }
+    text += `- Cash expected in drawer: Ksh ${(cash + cashDebtRepaid - cashExpenses).toLocaleString()}\n`;
+    text += `  (cash sales + cash debt repaid - cash expenses)\n\n`;
+
+    if (shiftExpenses.length > 0) {
+      text += `*EXPENSES*\n`;
+      shiftExpenses.forEach((e) => {
+        text += `- ${e.category}: Ksh ${e.amount.toLocaleString()} (${e.paymentMethod || 'Cash'})${e.description ? ` - ${e.description}` : ''}\n`;
+      });
+      text += `\n`;
+    }
 
     if (deliveries > 0) {
       text += `*TASKS*\n`;
@@ -241,7 +278,7 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
     return { reportText: whatsappReport, reportPreview: text };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, productionBatches, billOfMaterials, customMessage]);
+  }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, productionBatches, billOfMaterials, customMessage, expenses]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);

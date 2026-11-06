@@ -51,6 +51,7 @@ export async function stkPush(
   amount: number,
   reference: string,
   callbackUrl: string,
+  description = "Order",
 ): Promise<StkResult> {
   const token = await accessToken();
   const fields = passwordFields();
@@ -66,7 +67,7 @@ export async function stkPush(
       PhoneNumber: phone,
       CallBackURL: callbackUrl,
       AccountReference: reference.slice(0, 12),
-      TransactionDesc: "Order",
+      TransactionDesc: description.slice(0, 13),
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -94,4 +95,39 @@ export async function stkQuery(checkoutRequestId: string): Promise<number | null
   const code = Number(body.ResultCode);
   // 4999 means still processing, not failed: the customer may yet pay.
   return code === STK_STILL_PROCESSING ? null : code;
+}
+
+/**
+ * Tells Safaricom where to send payments made straight to the till (C2B).
+ * Safaricom refuses URLs containing words such as "mpesa", which is why the
+ * receiving function is called till-callback.
+ */
+export async function registerC2bUrls(confirmationUrl: string, validationUrl: string): Promise<{ ok: boolean; detail: string }> {
+  const token = await accessToken();
+  const shortCode = Deno.env.get("MPESA_C2B_SHORTCODE") || env("MPESA_SHORTCODE");
+  const res = await fetch(`${baseUrl()}/mpesa/c2b/v2/registerurl`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ShortCode: shortCode,
+      ResponseType: "Completed",
+      ConfirmationURL: confirmationUrl,
+      ValidationURL: validationUrl,
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  const detail = String(body.ResponseDescription ?? body.errorMessage ?? res.status);
+  return { ok: res.ok && String(body.ResponseCode ?? "") === "0", detail };
+}
+
+/** Which secrets are present, without revealing any of them. */
+export function darajaStatus() {
+  const has = (name: string) => !!Deno.env.get(name);
+  return {
+    configured: ["MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_TOKEN"].every(has),
+    environment: Deno.env.get("MPESA_ENV") === "production" ? "production" : "sandbox",
+    transactionType: Deno.env.get("MPESA_TRANSACTION_TYPE") || "CustomerPayBillOnline",
+    missing: ["MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_TOKEN"].filter((n) => !has(n)),
+    tillFromSecrets: Deno.env.get("MPESA_PARTY_B") || null,
+  };
 }
