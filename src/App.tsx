@@ -7,6 +7,9 @@ import GlobalSearch from './components/GlobalSearch';
 import POSView from './features/POSView';
 import QuickSaleView from './features/QuickSaleView';
 import ClockBar from './components/ClockBar';
+import UpdateBar from './components/UpdateBar';
+import AboutView from './features/AboutView';
+import { updateService } from './core/native/UpdateService';
 import InventoryView from './features/InventoryView';
 import SalesView from './features/SalesView';
 import CustomersView from './features/CustomersView';
@@ -114,6 +117,7 @@ import {
   Edit3,
   Truck,
   LayoutGrid,
+  Info,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { motion, AnimatePresence } from 'motion/react';
@@ -142,6 +146,7 @@ const MOBILE_TABS = [
   { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
+  { id: 'about', label: 'About', icon: Info, permission: 'about' },
 ] as const;
 
 
@@ -413,6 +418,11 @@ export default function App() {
     // Mark onboarding as completed so the tour doesn't auto-launch again
     localStorage.setItem('isms-onboarding-completed', 'true');
   };
+
+  // Installed desktop and Android apps keep themselves up to date.
+  useEffect(() => {
+    updateService.start();
+  }, []);
 
   // Auto-launch the guided tour on first-ever app interaction (once per device).
   // The tour fires after a short delay once the user logs in, and only if
@@ -3536,10 +3546,18 @@ export default function App() {
                       desc: 'Preferences & Security',
                       permission: 'settings.view' as const,
                     },
+                    {
+                      id: 'about',
+                      label: 'About this app',
+                      icon: Info,
+                      desc: 'Version & updates',
+                      permission: 'dashboard.view' as const,
+                    },
                   ]
                     .filter((tab) =>
                       currentEmployee
                         ? tab.id === 'profile' ||
+                          tab.id === 'about' ||
                           tab.id === 'notifications' ||
                           hasRolePermission(
                             currentEmployee.role,
@@ -3677,6 +3695,7 @@ export default function App() {
 
               {/* MAIN CONTENT SECTION */}
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
+                <UpdateBar />
                 {/* TOP APPLICATION BAR */}
                 <header
                   className="bg-app-card border-b border-app-border px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
@@ -4120,6 +4139,18 @@ export default function App() {
                         <NotificationsView />
                       </motion.div>
                     )}
+                    {activeTab === 'about' && (
+                      <motion.div
+                        key="about-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0"
+                      >
+                        <AboutView />
+                      </motion.div>
+                    )}
                   </AnimatePresence>
                   </ErrorBoundary>
                 </div>
@@ -4149,6 +4180,7 @@ export default function App() {
                   const allowed = MOBILE_TABS.filter(
                     (tab) =>
                       tab.id === 'profile' ||
+                      tab.id === 'about' ||
                       hasRolePermission(currentEmployee.role, tab.permission as any),
                   );
                   const byId = new Map<string, (typeof allowed)[number]>(allowed.map((tab) => [tab.id, tab]));

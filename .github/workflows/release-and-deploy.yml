@@ -1,0 +1,426 @@
+name: Release and Deploy
+
+# Every push to main works out a version from its commits. If one is due, the app is
+# tested and built for Windows, Linux and Android, and only then is the tag pushed and
+# the release published. A failed test or build stops the run before any tag exists.
+#
+# Installed apps update themselves from the release's latest.json (see src/core/native/UpdateService.ts).
+#
+# Commit rules (see scripts/release-version.mjs; emoji and scope are optional):
+#   MAJOR  🚀 feat!: / 🐛 fix!: (any type followed by "!"), or "BREAKING CHANGE" in the body
+#   MINOR  🚀 feat:
+#   PATCH  🐛 fix:  ⚡ perf:  ♻️ refactor:
+#   NONE   🚧 wip:  📚 docs:  🎨 style:  ✅ test:  🔧 chore:  📦 build:  🤖 ci:  ⏪ revert:
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Releases run one at a time, so two pushes can't claim the same version.
+concurrency:
+  group: release-and-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  # ── PLACEHOLDERS: your app's commands ───────────────────────────────────────
+  INSTALL_COMMAND: "npm ci"
+  TEST_COMMAND: "npm run lint && npm test"
+  # Tauri builds the frontend itself through beforeBuildCommand in tauri.conf.json.
+  # Other stacks: "cargo build --release", "go build -o dist/app.exe ./cmd/app",
+  # "dotnet publish -c Release -r win-x64 --self-contained", "npx electron-builder --win".
+  WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi"
+  LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb"
+  # Where the builds land.
+  EXE_PATH: "src-tauri/target/release/app.exe"
+  MSI_GLOB: "src-tauri/target/release/bundle/msi/*.msi"
+  APPIMAGE_GLOB: "src-tauri/target/release/bundle/appimage/*.AppImage"
+  DEB_GLOB: "src-tauri/target/release/bundle/deb/*.deb"
+  RELEASE_NAME_PREFIX: "KayKays"
+  # ────────────────────────────────────────────────────────────────────────────
+  # Build-time settings the app reads.
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
+  VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
+
+jobs:
+  # ──────────────────────────────────────────
+  # 1. Work out the version (nothing is written yet)
+  # ──────────────────────────────────────────
+  version:
+    name: Calculate version
+    runs-on: ubuntu-latest
+    outputs:
+      bump: ${{ steps.calc.outputs.bump }}
+      version: ${{ steps.calc.outputs.version }}
+      tag: ${{ steps.calc.outputs.tag }}
+      previous: ${{ steps.calc.outputs.previous }}
+      # Android refuses an update whose code isn't higher than the installed one.
+      # Local builds use a timestamp code (under 10,000,000 until the 2040s), so releases always win.
+      android_code: ${{ steps.code.outputs.android_code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags, to find the last release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Read commits since the last tag
+        id: calc
+        env:
+          RELEASE_NOTES_FILE: release-notes.md
+        run: node scripts/release-version.mjs
+
+      - name: Android version code
+        id: code
+        env:
+          VERSION: ${{ steps.calc.outputs.version }}
+        run: |
+          IFS=. read -r major minor patch <<< "$VERSION"
+          echo "android_code=$((10000000 + major * 100000 + minor * 1000 + patch))" >> "$GITHUB_OUTPUT"
+
+      - name: Check required secrets
+        if: steps.calc.outputs.bump != 'none'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          missing=""
+          [ -z "$VITE_SUPABASE_URL" ] && missing="$missing VITE_SUPABASE_URL"
+          [ -z "$VITE_SUPABASE_ANON_KEY" ] && missing="$missing VITE_SUPABASE_ANON_KEY"
+          [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] && missing="$missing TAURI_SIGNING_PRIVATE_KEY"
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && missing="$missing ANDROID_KEYSTORE_BASE64"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these repository secrets:$missing"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "### Version"
+            echo ""
+            echo "Previous: \`${{ steps.calc.outputs.previous || 'none' }}\`  Bump: **${{ steps.calc.outputs.bump }}**  Next: \`${{ steps.calc.outputs.tag }}\`"
+            echo ""
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.calc.outputs.bump != 'none'
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 7
+
+  # ──────────────────────────────────────────
+  # 2a. Test, then build Windows (.exe and signed .msi)
+  # ──────────────────────────────────────────
+  build-windows:
+    name: Test and build Windows
+    needs: version
+    if: needs.version.outputs.bump != 'none'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # Signs the update files the installed app checks before installing.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # ── Remove these two steps if you don't build with Rust/Tauri ──
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Install dependencies
+        run: eval "$INSTALL_COMMAND"
+
+      # Runs before the slow compile, so a broken change fails fast.
+      - name: Run tests
+        run: eval "$TEST_COMMAND"
+
+      - name: Stamp version ${{ env.VERSION }}
+        run: node scripts/stamp-version.mjs "$VERSION"
+
+      - name: Build
+        run: eval "$WINDOWS_BUILD_COMMAND"
+
+      - name: Check and collect the build
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          if [ ! -f "$EXE_PATH" ]; then
+            echo "::error::No executable at $EXE_PATH. Update EXE_PATH in the workflow."
+            exit 1
+          fi
+          # Every Windows executable starts with "MZ"; anything else is a broken build.
+          if [ "$(head -c 2 "$EXE_PATH")" != "MZ" ]; then
+            echo "::error::$EXE_PATH is not a Windows executable."
+            exit 1
+          fi
+          cp "$EXE_PATH" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64.exe"
+          shopt -s nullglob
+          msis=($MSI_GLOB)
+          if [ ${#msis[@]} -ne 1 ] || [ ! -f "${msis[0]}.sig" ]; then
+            echo "::error::Expected one .msi and its .sig. Is TAURI_SIGNING_PRIVATE_KEY set?"
+            exit 1
+          fi
+          cp "${msis[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi"
+          cp "${msis[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi.sig"
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-windows
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────
+  # 2b. Build Linux (signed AppImage, and .deb)
+  # ──────────────────────────────────────────
+  build-linux:
+    name: Build Linux
+    needs: version
+    if: needs.version.outputs.bump != 'none'
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev librsvg2-dev patchelf libssl-dev pkg-config \
+            build-essential libgtk-3-dev libayatana-appindicator3-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: linux-cargo-
+
+      - run: eval "$INSTALL_COMMAND"
+      - run: node scripts/stamp-version.mjs "$VERSION"
+      - name: Build
+        run: eval "$LINUX_BUILD_COMMAND"
+
+      - name: Collect the build
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p out
+          images=($APPIMAGE_GLOB)
+          if [ ${#images[@]} -ne 1 ] || [ ! -f "${images[0]}.sig" ]; then
+            echo "::error::Expected one .AppImage and its .sig. Is TAURI_SIGNING_PRIVATE_KEY set?"
+            exit 1
+          fi
+          cp "${images[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage"
+          cp "${images[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage.sig"
+          for deb in $DEB_GLOB; do cp "$deb" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb"; done
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────
+  # 2c. Build Android (signed APK)
+  # ──────────────────────────────────────────
+  build-android:
+    name: Build Android
+    needs: version
+    if: needs.version.outputs.bump != 'none'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Capacitor 8 requires JDK 21.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: eval "$INSTALL_COMMAND"
+      - run: node scripts/stamp-version.mjs "$VERSION"
+      - run: npm run build
+
+      - name: Restore Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON is not set, so this build has no push notifications."
+          fi
+
+      # Every release must be signed with the same key, or Android refuses the update.
+      - name: Decode signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - run: npx cap sync android
+
+      - name: Build release APK
+        env:
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ env.VERSION }}
+          ANDROID_VERSION_CODE: ${{ needs.version.outputs.android_code }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Collect the APK
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p out
+          apks=(android/app/build/outputs/apk/release/*.apk)
+          if [ ${#apks[@]} -ne 1 ]; then
+            echo "::error::Expected one release APK, found ${#apks[@]}."
+            exit 1
+          fi
+          if [[ "${apks[0]}" == *unsigned* ]]; then
+            echo "::error::The APK is unsigned, so it can't update installed apps. Check the keystore secrets."
+            exit 1
+          fi
+          cp "${apks[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-android.apk"
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-android
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────
+  # 3. Tag and publish (only reached when every build succeeded)
+  # ──────────────────────────────────────────
+  release:
+    name: Tag and publish ${{ needs.version.outputs.tag }}
+    needs: [version, build-windows, build-linux, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the tag and create the release
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+      # RELEASE_TOKEN is optional; see the setup notes. Without it the built-in token is used.
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: out
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: notes
+
+      # Installed apps read this to find, verify and download the new version.
+      - name: Write latest.json
+        run: |
+          node scripts/update-manifest.mjs \
+            --version "$VERSION" --tag "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --notes notes/release-notes.md --dir out > out/latest.json
+          cat out/latest.json
+          (cd out && sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS.txt)
+
+      - name: Make sure the tag is new
+        run: |
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists. Was this commit released already?"
+            exit 1
+          fi
+
+      - name: Push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+
+      - name: Publish GitHub Release
+        run: |
+          gh release create "$TAG" out/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --notes-file notes/release-notes.md \
+            --verify-tag \
+            --latest
+
+      # ── PLACEHOLDER: deploy ─────────────────────────────────────────────────
+      # Add deployment here (web hosting, Supabase functions, a store upload...).
+      # It only runs after the release exists. Example:
+      # - name: Deploy edge functions
+      #   env:
+      #     SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      #   run: npx supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      # ────────────────────────────────────────────────────────────────────────

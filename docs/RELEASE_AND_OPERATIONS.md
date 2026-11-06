@@ -29,13 +29,41 @@ The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
 | `ANDROID_KEYSTORE_BASE64` | Output of `base64 -w0 ~/.config/kaykays-signing/kaykays-release.jks` |
 | `ANDROID_KEYSTORE_ALIAS`, `ANDROID_KEYSTORE_PASSWORD` | From `credentials.env` |
 | `GOOGLE_SERVICES_JSON` | Contents of `android/app/google-services.json` |
+| `TAURI_SIGNING_PRIVATE_KEY` | Contents of `~/.tauri/kaykays-updater.key` (signs desktop updates) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Contents of `~/.tauri/kaykays-updater.password` |
 | `VITE_UNSPLASH_ACCESS_KEY`, `VITE_AI_NAME` | Optional |
+| `RELEASE_TOKEN` | Optional. Only if a ruleset stops the built-in token pushing tags: a fine-grained token for this repository with Contents read and write |
 
-## Installers
+To set the updater secrets from this machine:
 
-`.github/workflows/build.yml` runs type checks and tests, then builds a Windows MSI, Linux AppImage/deb and an Android APK.
-Pushing a tag such as `v1.2.0` also publishes them as a GitHub Release and sets the desktop version.
+```bash
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/kaykays-updater.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < ~/.tauri/kaykays-updater.password
+```
+
+**Back up `~/.tauri/` with the Android key.** Its public half is in `src-tauri/tauri.conf.json`. If the private key is lost, installed desktop apps refuse every future update and must be reinstalled by hand.
+
+## Releases
+
+`.github/workflows/release-and-deploy.yml` runs on every push to `main`:
+
+1. It works out the version from the commits since the last tag (`scripts/release-version.mjs`; preview with `node scripts/release-version.mjs`).
+   `feat!:`/`fix!:` or `BREAKING CHANGE` is major, `feat:` minor, `fix:`/`perf:`/`refactor:` patch. Anything else releases nothing.
+2. It runs the type check and tests on Windows, then builds Windows (`.exe` and signed `.msi`), Linux (signed AppImage and `.deb`) and Android (signed APK).
+3. Only if all of that passed, it pushes the tag and publishes the GitHub Release with `latest.json`.
+
+`.github/workflows/build.yml` checks pull requests (all platforms, without update signing) and builds the APK on each push to `main`. It never publishes.
+
 Windows shows a SmartScreen warning until the MSI is signed with a code-signing certificate.
+
+## Automatic updates
+
+Installed apps check `https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json` 15 seconds after start, when the connection comes back, and every 6 hours. When there is a newer version they send a notification and show a green bar at the top while it downloads.
+
+- **Windows and Linux AppImage:** the update is checked against the signing key, then the app restarts after a 15-second countdown. It never restarts while a sale has items; staff can press Later. The `.deb` does not update itself.
+- **Android:** the APK is downloaded and checked against its SHA-256, then Android's installer opens. Android always asks to confirm, and the first time asks to allow installs from KayKay's. Releases use version code 10,000,000 + the version (1.1.0 is 10,001,000), above any local build's timestamp code, so they always upgrade.
+
+If an update fails, a red bar says so, and **About this app** (in More on phones, in the sidebar and Profile on desktop) has **Check for updates**. The repository must stay public, or the apps can't download releases.
 
 ## Deploying backend changes
 
