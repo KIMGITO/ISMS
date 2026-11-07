@@ -1,103 +1,93 @@
-export type PaperWidth = "58mm" | "80mm" | "A4";
+export type PaperWidth = "58mm" | "80mm";
 
-export type QRCodeContentOption = 
-  | "verification_url"
-  | "business_website"
-  | "payment_link"
-  | "feedback_form"
-  | "google_review"
-  | "whatsapp_chat"
-  | "custom_url";
+/** Optional second QR code. Each option is a real link the business controls. */
+export type ExtraQrOption = "none" | "business_website" | "whatsapp_chat" | "google_review" | "custom_url";
 
-export type ReceiptTemplateType = 
-  | "classic"
-  | "modern"
-  | "compact"
-  | "retail"
-  | "isms_app";
+export type ReceiptNumberFormat = "PREFIX-INCREMENT" | "PREFIX-YYYY-INCREMENT" | "INCREMENT";
 
 export interface BusinessReceiptSettings {
-  barcodeType?: string;
-  showBarcode?: boolean;
-  showQrCode?: boolean;
-  showTaxBreakdown?: boolean;
-  printerConnection?: string;
-  printerAddress?: string;
-  autoPrint?: boolean;
-  openCashDrawer?: boolean;
-  logoUrl: string;
   businessName: string;
   address: string;
   phone: string;
   email: string;
   website: string;
-  pinNumber: string; // KRA PIN or local tax ID
+  /** The business's own KRA PIN, printed as text. Not a KRA verification. */
+  pinNumber: string;
   registrationNumber: string;
-  socialMedia: string;
   headerMessage: string;
-  footerMessage: string;
-  termsAndConditions: string;
-  returnPolicy: string;
   thankYouMessage: string;
+  footerMessage: string;
+  returnPolicy: string;
   receiptPrefix: string;
-  receiptNumberFormat: "PREFIX-INCREMENT" | "PREFIX-YYYY-INCREMENT" | "INCREMENT";
+  receiptNumberFormat: ReceiptNumberFormat;
+  /** Paper roll width; drives the printer, the PDF page and the on-screen preview. */
   paperWidth: PaperWidth;
-  currencyFormat: "KSh" | "$" | "€" | "£" | "UGX" | "TZS";
+  /** 0 = standard for the paper (32 on 58mm, 48 on 80mm). Some printers use 42 on 80mm. */
+  charsPerLine: number;
+  currencyFormat: string;
   dateFormat: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD" | "medium";
   timeFormat: "12h" | "24h";
   isTaxEnabled: boolean;
   taxPercentage: number;
-  qrCodeOption: QRCodeContentOption;
+  showBarcode: boolean;
+  extraQr: ExtraQrOption;
   customQrUrl: string;
-  templateType: ReceiptTemplateType;
-  showAiRecommendation?: boolean;
+  /** After a sale, open the receipt and go straight to choosing a printer. */
+  autoPrint: boolean;
+  /** Send the drawer-kick pulse on cash sales. */
+  openCashDrawer: boolean;
 }
 
 export interface ReceiptItem {
   id: string;
   name: string;
   quantity: number;
+  unit?: string;
   unitPrice: number;
-  discountAmount?: number; // per item cash discount
-  discountPercentage?: number; // per item percentage
-  taxAmount?: number;
+  discountPercentage: number;
+  /** Line total after the line discount. */
   total: number;
+}
+
+/** What KRA eTIMS returned when it signed this sale. Only ever filled from a real response. */
+export interface KraSignature {
+  pin: string;
+  branchId: string;
+  invoiceNo: number;
+  sdcId: string;
+  mrcNo?: string;
+  rcptNo: number;
+  totRcptNo?: number;
+  internalData: string;
+  signature: string;
+  signedAt?: string;
+  qrUrl: string;
+  environment: "sandbox" | "production";
 }
 
 export interface ReceiptContent {
   receiptId: string;
   receiptNumber: string;
-  invoiceNumber?: string;
-  orderNumber?: string;
   transactionDate: string;
   transactionTime: string;
   cashierName: string;
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
+  paymentMethodCode: string;
   paymentMethod: string;
   items: ReceiptItem[];
+  /** Sum of item prices before any discount. */
   subtotal: number;
-  taxTotal?: number;
-  overallDiscount?: number;
-  shippingFee?: number;
-  deliveryFee?: number;
+  /** Item and cart discounts together. */
+  discount: number;
+  taxTotal: number;
+  taxRate: number;
+  deliveryFee: number;
   grandTotal: number;
   amountPaid: number;
-  changeGiven: number;
-  outstandingBalance?: number;
-  customNotes?: string;
-  verificationUrl: string;
-  barcodeValue: string; // The encoded value (e.g. receipt ID or URL)
-  qrCodeValue: string;  // The QR value chosen by user settings
-  aiRecommendation?: string;
-}
-
-export interface SharePayload {
-  title: string;
-  text: string;
-  url?: string;
-  emailSubject?: string;
-  emailBody?: string;
-  whatsappText?: string;
+  balanceDue: number;
+  note?: string;
+  kra?: KraSignature;
+  extraQr?: { url: string; caption: string };
 }
