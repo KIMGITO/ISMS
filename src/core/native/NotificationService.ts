@@ -1,6 +1,7 @@
 // src/core/native/NotificationService.ts
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { nativePlatformService } from "./NativePlatformService";
 import { SupabaseService } from "../../services/supabaseService";
 import { NotificationToneService } from "../../services/notifications/notificationTone";
@@ -11,6 +12,27 @@ export interface ScheduledReminder {
   body: string;
   scheduleAt: Date;
   extra?: any;
+}
+
+const PushSupport = registerPlugin<{ isAvailable(): Promise<{ available: boolean }> }>("PushSupport");
+let pushAvailable: Promise<boolean> | null = null;
+
+/**
+ * Whether this build can use push notifications.
+ * On Android, push needs Firebase (google-services.json at build time). Without it,
+ * PushNotifications.register() crashes the whole app natively, beyond any try/catch,
+ * so always check this first.
+ */
+export function isPushAvailable(): Promise<boolean> {
+  if (!pushAvailable) {
+    pushAvailable =
+      Capacitor.getPlatform() !== "android"
+        ? Promise.resolve(Capacitor.isNativePlatform())
+        : PushSupport.isAvailable()
+            .then((r) => r.available === true)
+            .catch(() => false);
+  }
+  return pushAvailable;
 }
 
 type PushRegistrationCallback = (token: string) => void;
@@ -68,6 +90,10 @@ class NotificationService {
 
   public async registerPush(): Promise<boolean> {
     if (!nativePlatformService.isNative()) {
+      return false;
+    }
+    if (!(await isPushAvailable())) {
+      console.warn("[PushNotifications] This build has no Firebase config, so push is off.");
       return false;
     }
 

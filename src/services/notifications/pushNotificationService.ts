@@ -1,6 +1,7 @@
 // src/services/notifications/pushNotificationService.ts
 import { AppNotification } from "../../types";
 import { SupabaseService } from "../supabaseService";
+import { isPushAvailable } from "../../core/native/NotificationService";
 
 export type PushSubscriptionCallback = (token: string) => void;
 export type PushNotificationCallback = (notification: AppNotification) => void;
@@ -65,7 +66,8 @@ class PushNotificationService {
     if (cap) {
       try {
         const { PushNotifications } = cap.Plugins;
-        if (PushNotifications) {
+        // Without Firebase in the build, register() crashes the app natively.
+        if (PushNotifications && (await isPushAvailable())) {
           let permStatus = await PushNotifications.checkPermissions();
           if (permStatus.receive === "prompt") {
             permStatus = await PushNotifications.requestPermissions();
