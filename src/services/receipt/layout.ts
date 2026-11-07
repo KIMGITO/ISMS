@@ -8,7 +8,7 @@ import { getShortId } from "../../utils/idUtils";
 export type Align = "left" | "center" | "right";
 
 export type ReceiptLine =
-  | { t: "text"; text: string; align: Align; bold?: boolean; big?: boolean }
+  | { t: "text"; text: string; align: Align; bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" }
   | { t: "rule"; ch: "-" | "=" }
   | { t: "blank" }
   | { t: "qr"; data: string; caption?: string }
@@ -77,7 +77,7 @@ function grouped(code: string): string {
 export function buildReceiptLines(content: ReceiptContent, settings: BusinessReceiptSettings): ReceiptLine[] {
   const w = columnsFor(settings);
   const lines: ReceiptLine[] = [];
-  const text = (value: string, align: Align = "left", extra: { bold?: boolean; big?: boolean } = {}) => {
+  const text = (value: string, align: Align = "left", extra: { bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" } = {}) => {
     // Large print is double width, so it holds half as many characters.
     const width = extra.big ? Math.floor(w / 2) : w;
     for (const l of wrap(value, width)) lines.push({ t: "text", text: l, align, ...extra });
@@ -134,8 +134,6 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
 
   // Footer
   if (content.note) text(`Note: ${content.note}`);
-  if (settings.thankYouMessage) text(settings.thankYouMessage, "center", { bold: true });
-  if (settings.returnPolicy) text(settings.returnPolicy, "center");
   if (settings.footerMessage) text(settings.footerMessage, "center");
   if (settings.showBarcode) {
     lines.push({ t: "blank" });
@@ -163,6 +161,11 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
     lines.push({ t: "blank" });
     lines.push({ t: "qr", data: content.extraQr.url, caption: content.extraQr.caption });
   }
+
+  // The returns policy and the thank-you line always close the receipt.
+  if (settings.returnPolicy || settings.thankYouMessage) lines.push({ t: "blank" });
+  if (settings.returnPolicy) text(settings.returnPolicy, "center", { italic: true });
+  if (settings.thankYouMessage) text(settings.thankYouMessage, "center", { bold: true, tone: "green" });
   return lines;
 }
 
@@ -197,4 +200,30 @@ export function buildReceiptText(content: ReceiptContent, settings: BusinessRece
   const width = Math.min(columnsFor(settings), maxWidth || 999);
   const lines = buildReceiptLines(content, { ...settings, charsPerLine: width });
   return { ...linesToText(lines, width), width };
+}
+
+/**
+ * Splits off the styled closing lines (returns policy, thank-you) so chat apps can show
+ * them with their own italic/bold formatting, which a monospaced block cannot carry.
+ */
+export function splitStyledTail(lines: ReceiptLine[]): { main: ReceiptLine[]; tail: Array<{ text: string; italic: boolean; bold: boolean }> } {
+  let start = lines.length;
+  while (start > 0) {
+    const l = lines[start - 1];
+    if (l.t === "text" && (l.italic || l.tone)) start--;
+    else break;
+  }
+  const main = lines.slice(0, start);
+  while (main.length && main[main.length - 1].t === "blank") main.pop();
+  const tail: Array<{ text: string; italic: boolean; bold: boolean }> = [];
+  for (const l of lines.slice(start)) {
+    if (l.t !== "text") continue;
+    const prev = tail[tail.length - 1];
+    const italic = !!l.italic;
+    const bold = !!l.bold;
+    // A wrapped paragraph becomes one line again.
+    if (prev && prev.italic === italic && prev.bold === bold) prev.text += " " + l.text.trim();
+    else tail.push({ text: l.text.trim(), italic, bold });
+  }
+  return { main, tail };
 }

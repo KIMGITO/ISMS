@@ -1,4 +1,5 @@
 import { toUserMessage } from "../utils/userError";
+import { SheetLayer } from '../components/shared/SheetLayer';
 import React, { useState, useEffect } from "react";
 import { useOverlay } from "../hooks/useOverlay";
 import { useAppStore } from "../stores/appStore";
@@ -2300,6 +2301,7 @@ export default function CustomersView() {
       </div>
 
       {/* Add Customer Modal */}
+      <SheetLayer>
       <AnimatePresence>
         {showDuplicates && activeBusinessId && (
           <DuplicateCustomers
@@ -2328,7 +2330,7 @@ export default function CustomersView() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[90%] md:max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 flex flex-col z-50 overflow-y-auto md:overflow-hidden"
+              className="absolute bottom-0 left-0 right-0 max-h-[90%] md:max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-y-auto md:overflow-hidden"
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
 
@@ -2505,11 +2507,12 @@ export default function CustomersView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* Success Notification */}
       <AnimatePresence>
         {successBanner && (
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold animate-bounce">
+          <div className="absolute bottom-(--mobile-nav-space) md:bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold animate-bounce">
             <CheckCircle2 size={14} />
             <span>Loyalty Customer Account Registered!</span>
           </div>

@@ -297,3 +297,59 @@ export function SeriesToggle({ keys, visible, onToggle, totals }: { keys: Series
     </div>
   );
 }
+
+/**
+ * Growth rate per branch on a shared scale around zero: rises extend right in green,
+ * falls extend left in red, each labelled, so branches compare at a glance.
+ */
+export function GrowthBars({ rows }: { rows: { key: string; label: string; growth: number | null; sales: number; color: string }[] }) {
+  if (!rows.length) return <EmptyChart text="No branches yet" />;
+  const known = rows.filter((r) => r.growth !== null).map((r) => Math.abs(r.growth!));
+  const max = Math.max(10, ...known);
+  const sorted = [...rows].sort((a, b) => (b.growth ?? -Infinity) - (a.growth ?? -Infinity));
+  return (
+    <ol className="space-y-3.5">
+      {sorted.map((r) => {
+        const g = r.growth;
+        const pct = g === null ? 0 : Math.min(100, (Math.abs(g) / max) * 100) / 2;
+        const up = (g ?? 0) >= 0;
+        return (
+          <li key={r.key} className="min-w-0">
+            <div className="flex items-baseline justify-between gap-3 text-[13px]">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: r.color }} />
+                <span className="truncate text-app-text">{r.label}</span>
+              </span>
+              <span className={`shrink-0 font-semibold tabular-nums ${g === null ? "text-app-text-muted" : up ? "text-[var(--good)]" : "text-[var(--bad)]"}`}>
+                {g === null ? "New" : `${g > 0 ? "+" : ""}${Math.round(g)}%`}
+              </span>
+            </div>
+            <div className="relative mt-1.5 h-2 rounded-full bg-[var(--viz-grid)]" role="img" aria-label={`${r.label}: ${g === null ? "no earlier sales" : `${Math.round(g)}%`}`}>
+              <span className="absolute left-1/2 top-[-3px] h-[14px] w-px bg-[var(--viz-axis)]" />
+              {g !== null && (
+                <span
+                  className="absolute top-0 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%`, left: up ? "50%" : `${50 - pct}%`, background: up ? "var(--good)" : "var(--bad)" }}
+                />
+              )}
+            </div>
+            <div className="mt-1 text-[11px] text-app-text-muted tabular-nums">{formatKsh(r.sales, true)} this period</div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** A tiny trend line for a figure. */
+export function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return <div className="h-8" />;
+  const lo = Math.min(...values, 0);
+  const hi = Math.max(...values, 1);
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 100},${30 - ((v - lo) / (hi - lo || 1)) * 26 - 2}`).join(" ");
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}

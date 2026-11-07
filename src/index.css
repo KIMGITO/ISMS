@@ -197,9 +197,9 @@ input[type="number"] {
 }
 
 /* Phones: screens run almost edge to edge (2px). Unlayered, so it beats p-4 etc.
-   .app-viewport > * > * is each screen's root; .pb-nav marks screens' scroll areas. */
+   .app-screens > * > * is each screen's root; .pb-nav marks screens' scroll areas. */
 @media (width < 48rem) {
-  .app-viewport > * > *,
+  .app-screens > * > *,
   .app-viewport .pb-nav {
     padding-left: calc(var(--mobile-edge) + var(--inset-left));
     padding-right: calc(var(--mobile-edge) + var(--inset-right));

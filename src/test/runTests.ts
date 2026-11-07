@@ -95,6 +95,19 @@ runTest("Receipt layout keeps every line inside the paper width", () => {
   if (wrap("abcdefghij", 4).join("|") !== "abcd|efgh|ij") throw new Error("wrap() did not break a long word");
 });
 
+runTest("Receipt ends with the italic policy and the green thank-you; barcode can be switched off", () => {
+  const settings = { ...receiptSettings, returnPolicy: "Goods once sold are not returnable.", thankYouMessage: "Asante sana!", extraQr: "custom_url" as const, customQrUrl: "https://example.com" };
+  const content = buildReceiptContent(sampleTx, settings);
+  const lines = buildReceiptLines(content, settings);
+  const last = lines[lines.length - 1];
+  const before = lines[lines.length - 2];
+  if (last.t !== "text" || last.text.trim() !== "Asante sana!" || last.tone !== "green") throw new Error("Thank-you is not the last, green line");
+  const policy = lines.filter((l) => l.t === "text" && l.italic).map((l: any) => l.text.trim()).join(" ");
+  if (before.t !== "text" || !before.italic || policy !== "Goods once sold are not returnable.") throw new Error("Policy is not second-last in italics");
+  if (!lines.some((l) => l.t === "barcode")) throw new Error("Barcode missing while switched on");
+  if (buildReceiptLines(content, { ...settings, showBarcode: false }).some((l) => l.t === "barcode")) throw new Error("Barcode printed while switched off");
+});
+
 runTest("Receipt shows the KRA block only with a real signature", () => {
   const kra = {
     pin: "P051234567X", branchId: "00", invoiceNo: 7, sdcId: "KRACU0100000001", rcptNo: 152,

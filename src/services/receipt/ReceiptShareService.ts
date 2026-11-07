@@ -2,7 +2,7 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import type { jsPDF } from "jspdf";
 import { ReceiptContent, BusinessReceiptSettings } from "./types";
-import { buildReceiptLines, buildReceiptText } from "./layout";
+import { buildReceiptLines, buildReceiptText, columnsFor, linesToText, splitStyledTail } from "./layout";
 import { buildReceiptPdf } from "./pdf";
 import { nativePlatformService } from "../../core/native/NativePlatformService";
 import { ReceiptMail } from "../../core/native/BluetoothService";
@@ -71,9 +71,14 @@ export class ReceiptShareService {
 
   /** The receipt as chat text: the paper layout in a monospaced block, then any links. */
   public static receiptChatText(content: ReceiptContent, settings: BusinessReceiptSettings): string {
-    const { body, links } = buildReceiptText(content, settings, CHAT_COLUMNS);
+    const width = Math.min(columnsFor(settings), CHAT_COLUMNS);
+    const { main, tail } = splitStyledTail(buildReceiptLines(content, { ...settings, charsPerLine: width }));
+    const { body, links } = linesToText(main, width);
     let text = "```\n" + body + "\n```";
     for (const link of links) text += `\n${link.caption}: ${link.url}`;
+    // Policy in italics, thank-you in bold, last as on the paper.
+    if (tail.length) text += "\n";
+    for (const t of tail) text += "\n" + (t.italic ? `_${t.text}_` : t.bold ? `*${t.text}*` : t.text);
     return text;
   }
 

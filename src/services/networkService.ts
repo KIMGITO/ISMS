@@ -9,8 +9,18 @@ class NetworkService {
       window.addEventListener("online", () => this.verifyConnection());
       window.addEventListener("offline", () => this.setOnline(false));
       
-      // Periodic ping just in case navigator.onLine is stuck (common on Linux WebKitGTK)
-      setInterval(() => this.verifyConnection(), 30000);
+      // Periodic ping just in case navigator.onLine is stuck (common on Linux WebKitGTK).
+      // While offline it checks every 5 s, so the app notices quickly when the connection returns.
+      let lastCheck = 0;
+      setInterval(() => {
+        const due = this.onlineStatus ? 30000 : 5000;
+        if (Date.now() - lastCheck >= due) {
+          lastCheck = Date.now();
+          this.verifyConnection();
+        }
+      }, 5000);
+      // A failed request to the server is a strong hint the connection dropped.
+      window.addEventListener("network-action-failed", () => this.verifyConnection());
       // Initial check
       setTimeout(() => this.verifyConnection(), 1000);
     }

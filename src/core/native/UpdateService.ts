@@ -206,11 +206,8 @@ class UpdateService {
     return "linux";
   }
 
-  private announce(version: string) {
-    notificationService
-      .sendLocalNotification("Updating KayKay's", `Downloading version ${version}. You can keep working.`)
-      .catch(() => {});
-  }
+  /** The green bar shows downloads, so no system notification for them. */
+  private announce(_version: string) {}
 
   private async updateDesktop(): Promise<void> {
     const { check } = await import("@tauri-apps/plugin-updater");

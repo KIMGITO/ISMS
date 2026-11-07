@@ -61,8 +61,10 @@ export async function buildReceiptPdf(lines: ReceiptLine[], settings: BusinessRe
   const center = m.page / 2;
   let y = top;
 
-  const write = (text: string, align: "left" | "center" | "right", bold = false, big = false) => {
-    doc.setFont("courier", bold ? "bold" : "normal");
+  const write = (text: string, align: "left" | "center" | "right", bold = false, big = false, italic = false, green = false) => {
+    doc.setFont("courier", bold && italic ? "bolditalic" : bold ? "bold" : italic ? "italic" : "normal");
+    if (green) doc.setTextColor(21, 128, 61);
+    else doc.setTextColor(0, 0, 0);
     doc.setFontSize(big ? m.fontPt * 2 : m.fontPt);
     const h = big ? m.lineMm * 2 : m.lineMm;
     const baseline = y + h * 0.78;
@@ -73,7 +75,7 @@ export async function buildReceiptPdf(lines: ReceiptLine[], settings: BusinessRe
   };
 
   for (const line of lines) {
-    if (line.t === "text") write(line.text, line.align, line.bold, line.big);
+    if (line.t === "text") write(line.text, line.align, line.bold, line.big, line.italic, line.tone === "green");
     else if (line.t === "rule") write(line.ch.repeat(m.cols), "left");
     else if (line.t === "blank") y += m.lineMm;
     else if (line.t === "qr") {

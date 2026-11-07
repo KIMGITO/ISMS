@@ -909,7 +909,7 @@ export default function OnlineStoreView() {
   const tabs = canManageWebsite ? TABS : TABS.filter((t) => t.id !== 'settings' && t.id !== 'guides');
 
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 pb-nav">
       <header className="flex items-center gap-3">
         <Package className="text-brand-500" />
         <div>

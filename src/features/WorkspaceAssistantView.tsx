@@ -642,7 +642,7 @@ export default function WorkspaceAssistantView() {
   ).length;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans pb-[74px] md:pb-0">
+    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]">
       {/* Header */}
       <div className="bg-app-card border-b border-app-border p-3.5 flex items-center justify-between gap-2 shrink-0 shadow-xs z-10">
         <div className="flex items-center gap-2">
