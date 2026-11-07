@@ -594,7 +594,7 @@ export default function DashboardView() {
       </div>
 
       {/* Main Calendar Space */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="flex-1 overflow-y-auto p-4 pb-nav grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left column: Google-Like Calendar Grid */}
         <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-4">
           {/* Month Header controls */}

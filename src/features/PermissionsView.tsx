@@ -170,7 +170,7 @@ export default function PermissionsView() {
   });
 
   return (
-    <div id="permissions-panel" className="h-full overflow-y-auto p-4 pb-24 space-y-5 bg-app-bg text-app-text font-sans">
+    <div id="permissions-panel" className="h-full overflow-y-auto p-4 pb-nav space-y-5 bg-app-bg text-app-text font-sans">
       
       <div>
         <h2 className="text-base font-extrabold font-display text-app-text flex items-center gap-2">

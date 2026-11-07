@@ -9,8 +9,14 @@ export type ScreenId =
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
   | "business-management" | "money" | "production" | "settings" | "notifications" | "about";
 
+export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
+
+/** The order groups appear in the phone's "More" sheet. */
+export const SCREEN_GROUPS: ScreenGroup[] = ["Selling", "Money", "Stock", "Team", "Business", "You & the app"];
+
 export interface AppScreen {
   id: ScreenId;
+  group: ScreenGroup;
   title: string;
   description: string;
   keywords: string[];
@@ -19,26 +25,26 @@ export interface AppScreen {
 }
 
 export const SCREENS: AppScreen[] = [
-  { id: "home", title: "Home", description: "Sales, stock and customer figures at a glance", keywords: ["dashboard", "overview", "kpi", "summary", "chart"], permissions: ["home.view"] },
-  { id: "dashboard", title: "Shift", description: "Clock in and out, and see your shift so far", keywords: ["shift", "clock in", "clock out", "punch", "timesheet"], permissions: ["dashboard.view"] },
-  { id: "sell", title: "Quick Sale", description: "Sell in a few taps", keywords: ["sell", "quick", "checkout", "till"], permissions: ["pos.create_sale"] },
-  { id: "pos", title: "POS", description: "Full checkout with cart, discounts and customers", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
-  { id: "inventory", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
-  { id: "sales", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
-  { id: "customers", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
-  { id: "money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till and prompts", keywords: ["payments", "expenses", "mpesa", "m-pesa", "till", "void", "money", "cash", "stk"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.verify", "expenses.view", "expenses.create"] },
-  { id: "feedback", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
-  { id: "online-store", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
-  { id: "deliveries", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
-  { id: "workers", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },
-  { id: "permissions", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
-  { id: "ai", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
-  { id: "production", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
-  { id: "business-management", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
-  { id: "settings", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
-  { id: "notifications", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },
-  { id: "profile", title: "My Profile", description: "Your name, photo and password", keywords: ["profile", "password", "account", "pin"], permissions: [] },
-  { id: "about", title: "About this app", description: "Version and updates", keywords: ["about", "version", "update", "check for updates"], permissions: [] },
+  { id: "home", group: "Business", title: "Home", description: "Sales, stock and customer figures at a glance", keywords: ["dashboard", "overview", "kpi", "summary", "chart"], permissions: ["home.view"] },
+  { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out, and see your shift so far", keywords: ["shift", "clock in", "clock out", "punch", "timesheet"], permissions: ["dashboard.view"] },
+  { id: "sell", group: "Selling", title: "Quick Sale", description: "Sell in a few taps", keywords: ["sell", "quick", "checkout", "till"], permissions: ["pos.create_sale"] },
+  { id: "pos", group: "Selling", title: "POS", description: "Full checkout with cart, discounts and customers", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
+  { id: "inventory", group: "Stock", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
+  { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
+  { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
+  { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till and prompts", keywords: ["payments", "expenses", "mpesa", "m-pesa", "till", "void", "money", "cash", "stk"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.verify", "expenses.view", "expenses.create"] },
+  { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
+  { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
+  { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
+  { id: "workers", group: "Team", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },
+  { id: "permissions", group: "Team", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
+  { id: "ai", group: "Business", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
+  { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
+  { id: "business-management", group: "Business", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
+  { id: "settings", group: "You & the app", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
+  { id: "notifications", group: "You & the app", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },
+  { id: "profile", group: "You & the app", title: "My Profile", description: "Your name, photo and password", keywords: ["profile", "password", "account", "pin"], permissions: [] },
+  { id: "about", group: "You & the app", title: "About this app", description: "Version and updates", keywords: ["about", "version", "update", "check for updates"], permissions: [] },
 ];
 
 export const SCREEN_BY_ID = new Map(SCREENS.map((s) => [s.id, s]));

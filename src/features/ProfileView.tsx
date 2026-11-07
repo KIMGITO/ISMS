@@ -117,7 +117,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
   }));
 
   return (
-    <div id="profile-panel" className="h-full overflow-y-auto p-4 pb-24 space-y-5 bg-app-bg text-app-text font-sans">
+    <div id="profile-panel" className="h-full overflow-y-auto p-4 pb-nav space-y-5 bg-app-bg text-app-text font-sans">
       
       {/* Title */}
       <div>

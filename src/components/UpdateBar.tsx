@@ -12,7 +12,8 @@ import { updateService } from '../core/native/UpdateService';
 const RESTART_AFTER_SECONDS = 15;
 
 export default function UpdateBar() {
-  const { status, availableVersion, progress, error } = useUpdateStore();
+  const { status, availableVersion, progress, error, platform } = useUpdateStore();
+  const isAndroid = platform === 'android';
   const cartHasItems = useCartStore((s) => s.cart.length > 0);
   const setActiveTab = useUiStore((s) => s.setActiveTab);
 
@@ -22,7 +23,7 @@ export default function UpdateBar() {
 
   // Count down to the restart once downloaded, waiting while a sale is open.
   useEffect(() => {
-    if (status !== 'ready' || postponed || cartHasItems) {
+    if (status !== 'ready' || isAndroid || postponed || cartHasItems) {
       setCountdown(null);
       return;
     }
@@ -39,7 +40,7 @@ export default function UpdateBar() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [status, postponed, cartHasItems]);
+  }, [status, isAndroid, postponed, cartHasItems]);
 
   useEffect(() => {
     if (status !== 'ready') setPostponed(false);
@@ -49,9 +50,9 @@ export default function UpdateBar() {
 
   if (status === 'failed' && error && dismissedError !== error) {
     return (
-      <div role="alert" className="shrink-0 flex items-center gap-3 px-3 py-2 bg-red-500/10 border-b border-red-500/30 text-sm">
-        <AlertTriangle size={16} className="shrink-0 text-red-500" aria-hidden="true" />
-        <span className="flex-1 min-w-0 truncate text-app-text">Update failed: {error}</span>
+      <div role="alert" className="shrink-0 flex items-start gap-2 sm:gap-3 px-3 py-2 bg-red-500/10 border-b border-red-500/30 text-xs sm:text-sm">
+        <AlertTriangle size={16} className="shrink-0 mt-0.5 text-red-500" aria-hidden="true" />
+        <span className="flex-1 min-w-0 line-clamp-3 sm:line-clamp-2 break-words text-app-text">Update failed: {error}</span>
         <button type="button" onClick={openAbout} className="shrink-0 font-bold text-red-600 hover:underline cursor-pointer">
           Try again
         </button>
@@ -64,9 +65,9 @@ export default function UpdateBar() {
 
   if (status === 'needs-permission') {
     return (
-      <div role="status" className="shrink-0 flex items-center gap-3 px-3 py-2 bg-amber-500/15 border-b border-amber-500/30 text-sm">
+      <div role="status" className="shrink-0 flex items-center gap-2 sm:gap-3 px-3 py-2 bg-amber-500/15 border-b border-amber-500/30 text-xs sm:text-sm">
         <AlertTriangle size={16} className="shrink-0 text-amber-600" aria-hidden="true" />
-        <span className="flex-1 min-w-0 text-app-text">Allow KayKay's to install updates, then tap Install.</span>
+        <span className="flex-1 min-w-0 break-words text-app-text">Allow KayKay's to install updates, then tap Install.</span>
         <button
           type="button"
           onClick={() => updateService.installAndroid()}
@@ -84,7 +85,8 @@ export default function UpdateBar() {
   let text = `Updating to version ${availableVersion}`;
   if (status === 'downloading') text += percent !== null ? ` · ${percent}%` : '…';
   if (status === 'installing') text = `Installing version ${availableVersion}…`;
-  if (status === 'ready') {
+  if (status === 'ready' && isAndroid) text = `Version ${availableVersion} is downloaded.`;
+  else if (status === 'ready') {
     text = cartHasItems
       ? `Version ${availableVersion} is ready. It installs when this sale is finished.`
       : postponed
@@ -94,24 +96,34 @@ export default function UpdateBar() {
 
   return (
     <div role="status" aria-live="polite" className="shrink-0 relative bg-emerald-500/10 border-b border-emerald-500/30">
-      <div className="flex items-center gap-3 px-3 py-1.5 text-xs sm:text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5 text-xs sm:text-sm">
         {status === 'downloading' ? (
           <Download size={15} className="shrink-0 text-emerald-600 animate-pulse" aria-hidden="true" />
         ) : (
           <RefreshCw size={15} className={`shrink-0 text-emerald-600 ${status === 'installing' ? 'animate-spin' : ''}`} aria-hidden="true" />
         )}
-        <span className="flex-1 min-w-0 truncate font-medium text-app-text">{text}</span>
-        {status === 'ready' && (
+        {/* Wraps onto two lines on narrow phones instead of hiding the message */}
+        <span className="flex-1 min-w-0 basis-40 line-clamp-2 break-words font-medium text-app-text">{text}</span>
+        {status === 'ready' && isAndroid && (
+          <button
+            type="button"
+            onClick={() => updateService.installAndroid()}
+            className="shrink-0 min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+          >
+            Install
+          </button>
+        )}
+        {status === 'ready' && !isAndroid && (
           <>
             <button
               type="button"
               onClick={() => updateService.restartToUpdate()}
-              className="shrink-0 min-h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+              className="shrink-0 min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
             >
               Restart now
             </button>
             {!postponed && !cartHasItems && (
-              <button type="button" onClick={() => setPostponed(true)} className="shrink-0 text-xs font-semibold text-app-text-muted hover:underline cursor-pointer">
+              <button type="button" onClick={() => setPostponed(true)} className="shrink-0 min-h-9 px-1 text-xs font-semibold text-app-text-muted hover:underline cursor-pointer">
                 Later
               </button>
             )}

@@ -228,7 +228,7 @@ export default function POSView() {
       </div>
 
       {/* Products Grid */}
-      <div className="flex-1 overflow-y-auto p-2.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 pb-24">
+      <div className="flex-1 overflow-y-auto p-2.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 pb-nav">
         {filteredProducts.map((product) => {
           const isLowStock = product.stock <= product.minStock;
           const isOutOfStock = product.stock === 0;

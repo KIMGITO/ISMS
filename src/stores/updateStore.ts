@@ -7,7 +7,7 @@ export type UpdateStatus =
   | "checking"
   | "up-to-date"
   | "downloading"
-  | "ready"        // desktop: downloaded, waiting to restart
+  | "ready"        // downloaded; desktop: waiting to restart, Android: waiting for a tap on Install
   | "installing"   // desktop: installing; Android: system installer is open
   | "needs-permission" // Android: the person must allow installs from this app
   | "failed";

@@ -502,7 +502,7 @@ export default function ProductionBOMView() {
       )}
 
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 pb-24">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 pb-nav">
         {viewMode === 'list' && (
           <>
             {/* BOMs Section */}

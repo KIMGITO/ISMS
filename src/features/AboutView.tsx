@@ -55,7 +55,7 @@ export default function AboutView() {
   if (status === 'failed') statusLine = <span className="text-red-500 inline-flex items-start gap-1"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> {error}</span>;
 
   return (
-    <div className="h-full overflow-y-auto p-4 pb-28 bg-app-bg text-app-text">
+    <div className="h-full overflow-y-auto p-4 pb-nav bg-app-bg text-app-text">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
         <header className="flex items-center gap-4 pt-2">
           <img src="/logo.png" alt="" className="w-16 h-16 rounded-2xl object-cover border border-app-border bg-app-card" />
@@ -107,10 +107,10 @@ export default function AboutView() {
             {status === 'ready' && (
               <button
                 type="button"
-                onClick={() => updateService.restartToUpdate()}
+                onClick={() => (platform === 'android' ? updateService.installAndroid() : updateService.restartToUpdate())}
                 className="min-h-11 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold cursor-pointer"
               >
-                Restart and install
+                {platform === 'android' ? 'Install update' : 'Restart and install'}
               </button>
             )}
             {(status === 'needs-permission' || (status === 'installing' && platform === 'android')) && (

@@ -685,7 +685,7 @@ export default function CustomersView() {
         </div>
 
         {/* Member list scroll container */}
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 pb-24">
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 pb-nav">
           {filteredCustomers.length === 0 ? (
             <div className="p-8 text-center text-xs text-app-text-muted font-medium">
               No loyalty profiles found. Create a new member above!

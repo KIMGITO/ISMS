@@ -9,7 +9,7 @@ export default function HomeView() {
       
 
       {/* Main Dashboard Render */}
-      <div className="p-4 pb-24">
+      <div className="p-4 pb-nav">
         <OnlineStoreAlerts />
         <BusinessDashboard />
       </div>

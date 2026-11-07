@@ -539,7 +539,7 @@ Comment: "${comment.comment}"`;
   ]);
 
   return (
-    <div className="h-full overflow-y-auto p-4 pb-24 space-y-6 bg-app-bg text-app-text font-sans">
+    <div className="h-full overflow-y-auto p-4 pb-nav space-y-6 bg-app-bg text-app-text font-sans">
       {/* Page Header */}
       <div className="bg-app-card border border-app-border rounded-xl p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
         <div>
