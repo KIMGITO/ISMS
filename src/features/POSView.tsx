@@ -1,7 +1,7 @@
 import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Product, ProductCategory, PaymentMethod } from '../types';
+import { Product, ProductCategory, PaymentMethod, Transaction } from '../types';
 import {
   ShoppingCart,
   Search,
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Truck,
   RefreshCw,
+  ReceiptText,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
@@ -22,6 +23,8 @@ import { formatReceiptNumber } from '../utils/idUtils';
 import { getSupabase } from '../services/supabaseClient';
 import { QuantityInput } from '../components/shared/QuantityInput';
 import { Switch } from '../components/shared/Switch';
+import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
+import { ReceiptService } from '../services/receipt/ReceiptService';
 
 export default function POSView() {
   const {
@@ -55,6 +58,29 @@ export default function POSView() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [lastTxId, setLastTxId] = useState('');
+  const [lastTx, setLastTx] = useState<Transaction | null>(null);
+  const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
+  const [receiptAutoPrint, setReceiptAutoPrint] = useState(false);
+
+  // On the "sale recorded" card, R opens the receipt and Enter/Escape closes the card.
+  useEffect(() => {
+    if (!checkoutSuccess) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.toLowerCase() === 'r' && lastTx) {
+        e.preventDefault();
+        setCheckoutSuccess(false);
+        setReceiptAutoPrint(false);
+        setReceiptTx(lastTx);
+      } else if (e.key === 'Escape' || e.key === 'Enter') {
+        e.preventDefault();
+        setCheckoutSuccess(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [checkoutSuccess, lastTx]);
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
   const businessTaxRate = activeBusiness?.isTaxEnabled ? (typeof activeBusiness.taxPercentage === 'number' ? activeBusiness.taxPercentage / 100 : 0.16) : 0.0;
   const [taxRate, setTaxRate] = useState<number>(businessTaxRate);
@@ -158,7 +184,13 @@ export default function POSView() {
       );
       if (result.success && result.transaction) {
         setLastTxId(result.transaction.id);
-        setCheckoutSuccess(true);
+        setLastTx(result.transaction);
+        if (activeBusinessId && ReceiptService.getSettings(activeBusinessId).autoPrint) {
+          setReceiptAutoPrint(true);
+          setReceiptTx(result.transaction);
+        } else {
+          setCheckoutSuccess(true);
+        }
         setIsCartOpen(false);
         setNote('');
         setCartDiscountValue(0);
@@ -897,16 +929,38 @@ export default function POSView() {
                 </span>
               </div>
 
-              <button
-                onClick={() => setCheckoutSuccess(false)}
-                className="w-full py-2 bg-app-text text-app-bg font-bold rounded-xl text-xs transition cursor-pointer"
-              >
-                Done
-              </button>
+              <div className="w-full flex gap-2">
+                <button
+                  onClick={() => {
+                    setCheckoutSuccess(false);
+                    setReceiptAutoPrint(false);
+                    setReceiptTx(lastTx);
+                  }}
+                  disabled={!lastTx}
+                  className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <ReceiptText size={14} /> Receipt
+                  <kbd className="hidden md:inline px-1 rounded border border-current/30 text-[10px] font-mono opacity-70">R</kbd>
+                </button>
+                <button
+                  onClick={() => setCheckoutSuccess(false)}
+                  className="flex-1 py-2 bg-app-text text-app-bg font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+      <ReceiptSheet
+        transaction={receiptTx}
+        startPrinting={receiptAutoPrint}
+        onClose={() => {
+          setReceiptTx(null);
+          setReceiptAutoPrint(false);
+        }}
+      />
     </div>
   );
 }

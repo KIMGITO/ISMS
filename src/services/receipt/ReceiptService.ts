@@ -1,110 +1,74 @@
 /**
- * ReceiptService (Clean Architecture Central Facade)
- * 
- * Orchestrates receipt logic, loading configuration settings, generating content,
- * rendering, printing, sharing, and exporting digital tickets.
+ * ReceiptService: the one entry point screens use to build, print and share receipts.
  */
-
 import { Transaction } from "../../types";
-import { ReceiptContent, BusinessReceiptSettings, ReceiptTemplateType } from "./types";
+import { BusinessReceiptSettings, ReceiptContent } from "./types";
 import { ReceiptSettingsService } from "./ReceiptSettings";
-import { ReceiptGenerator } from "./ReceiptGenerator";
-import { ReceiptTemplateManager } from "./ReceiptTemplateManager";
-import { ReceiptPrinterService } from "./ReceiptPrinter";
-import { ReceiptExporterService } from "./ReceiptExporter";
+import { buildReceiptContent, ReceiptExtras } from "./ReceiptGenerator";
+import { buildReceiptLines, columnsFor, dotsFor, ReceiptLine, wrap } from "./layout";
+import { EscPosGenerator } from "../printer/EscPosGenerator";
+import { printerService } from "../printer/PrinterService";
+import { PrinterTarget } from "../printer/types";
 import { ReceiptShareService } from "./ReceiptShareService";
+import { kraService } from "../kra/kraService";
 
 export class ReceiptService {
-  /**
-   * Retrieves customization parameters for a given business location.
-   */
   public static getSettings(businessId: string): BusinessReceiptSettings {
     return ReceiptSettingsService.getSettings(businessId);
   }
 
-  /**
-   * Saves customization settings for a business location.
-   */
-  public static saveSettings(businessId: string, settings: BusinessReceiptSettings): void {
-    ReceiptSettingsService.saveSettings(businessId, settings);
+  public static saveSettings(settings: BusinessReceiptSettings): Promise<void> {
+    return ReceiptSettingsService.saveSettings(settings);
   }
 
-  /**
-   * Resets customization settings to defaults.
-   */
-  public static resetSettings(businessId: string): BusinessReceiptSettings {
-    return ReceiptSettingsService.resetToDefault(businessId);
-  }
-
-  /**
-   * Main entrypoint to assemble transaction data into a processed ReceiptContent structure.
-   */
-  public static async generateReceipt(
+  /** Builds the receipt, including KRA's signature when this sale has one. */
+  public static async buildForTransaction(
     tx: Transaction,
-    businessId = "default",
-    additionalParams?: {
-      invoiceNumber?: string;
-      customerEmail?: string;
-      outstandingBalance?: number;
-      customNotes?: string;
-    }
+    businessId: string,
+    extras: Omit<ReceiptExtras, "kra"> = {},
   ): Promise<{ content: ReceiptContent; settings: BusinessReceiptSettings }> {
     const settings = this.getSettings(businessId);
-    const content = await ReceiptGenerator.generateReceiptContent(tx, settings, additionalParams);
-    return { content, settings };
+    const kra = await kraService.getSignature(tx.id).catch(() => null);
+    return { content: buildReceiptContent(tx, settings, { ...extras, kra: kra ?? undefined }), settings };
   }
 
-  /**
-   * Triggers Native/Iframe Browser Printing.
-   * Renders the receipt HTML snippet and launches the printer flow.
-   */
-  public static print(htmlContent: string): Promise<boolean> {
-    return ReceiptPrinterService.printReceipt(htmlContent);
+  public static lines(content: ReceiptContent, settings: BusinessReceiptSettings): ReceiptLine[] {
+    return buildReceiptLines(content, settings);
   }
 
-  /**
-   * Exports the receipt to text or HTML.
-   */
-  public static async exportToText(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
-    return ReceiptExporterService.exportToTextFile(content, settings);
+  public static escPos(lines: ReceiptLine[], settings: BusinessReceiptSettings, options: { openDrawer?: boolean } = {}): Uint8Array {
+    return EscPosGenerator.fromLines(lines, {
+      columns: columnsFor(settings),
+      dots: dotsFor(settings.paperWidth),
+      autoCut: printerService.getPrefs().autoCut,
+      openDrawer: options.openDrawer,
+    });
   }
 
-  public static async exportToHtml(content: ReceiptContent, settings: BusinessReceiptSettings, htmlSnippet: string): Promise<boolean> {
-    return ReceiptExporterService.exportToHtmlFile(content, settings, htmlSnippet);
+  public static async print(content: ReceiptContent, settings: BusinessReceiptSettings, printer: PrinterTarget): Promise<void> {
+    const openDrawer = settings.openCashDrawer && content.paymentMethodCode === "Cash";
+    const bytes = this.escPos(this.lines(content, settings), settings, { openDrawer });
+    await printerService.print(printer, bytes, printerService.getPrefs().copies);
   }
 
-  public static async exportToPdf(content: ReceiptContent, settings: BusinessReceiptSettings): Promise<boolean> {
-    return ReceiptExporterService.exportToPdf(content, settings);
+  /** A short page to check the printer and paper width; prints the real shop header and settings. */
+  public static async printTest(settings: BusinessReceiptSettings, printer: PrinterTarget): Promise<void> {
+    const cols = columnsFor(settings);
+    const lines: ReceiptLine[] = [];
+    const center = (text: string, bold = false) => wrap(text, cols).forEach((l) => lines.push({ t: "text", text: l, align: "center", bold }));
+    if (settings.businessName) center(settings.businessName.toUpperCase(), true);
+    center("PRINTER TEST", true);
+    lines.push({ t: "rule", ch: "=" });
+    lines.push({ t: "text", text: `Printer: ${printer.name}`, align: "left" });
+    lines.push({ t: "text", text: `Paper: ${settings.paperWidth}, ${cols} characters per line`, align: "left" });
+    lines.push({ t: "text", text: `Printed: ${new Date().toLocaleString("en-KE")}`, align: "left" });
+    lines.push({ t: "text", text: "The line below should fill the paper exactly:", align: "left" });
+    lines.push({ t: "text", text: "1234567890".repeat(Math.ceil(cols / 10)).slice(0, cols), align: "left" });
+    lines.push({ t: "rule", ch: "-" });
+    await printerService.print(printer, this.escPos(lines, settings), 1);
   }
 
-  /**
-   * Shares the receipt.
-   */
-  public static async shareNatively(content: ReceiptContent, settings: BusinessReceiptSettings) {
-    return ReceiptShareService.shareNatively(content, settings);
-  }
-
-  public static async shareViaEmail(content: ReceiptContent, settings: BusinessReceiptSettings, recipientEmail?: string): Promise<boolean> {
-    return ReceiptShareService.shareViaEmail(content, settings, recipientEmail);
-  }
-
-  public static async shareViaWhatsApp(content: ReceiptContent, settings: BusinessReceiptSettings, phoneNumber: string): Promise<boolean> {
-    return ReceiptShareService.shareViaWhatsApp(content, settings, phoneNumber);
-  }
-
-  public static async shareViaSms(content: ReceiptContent, settings: BusinessReceiptSettings, phoneNumber: string): Promise<boolean> {
-    return ReceiptShareService.shareViaSms(content, settings, phoneNumber);
-  }
-
-  public static copyToClipboard(text: string): boolean {
-    return ReceiptShareService.copyToClipboard(text);
-  }
+  public static share = ReceiptShareService;
 }
-export { ReceiptTemplateManager };
-export { ReceiptRenderer } from "./ReceiptRenderer";
-export { ReceiptRendererService } from "./ReceiptRenderer";
-export { ReceiptPrinterService } from "./ReceiptPrinter";
-export { ReceiptExporterService } from "./ReceiptExporter";
-export { ReceiptShareService } from "./ReceiptShareService";
-export { BarcodeService } from "./BarcodeService";
-export { QRCodeService } from "./QRCodeService";
+
+export { ReceiptShareService };

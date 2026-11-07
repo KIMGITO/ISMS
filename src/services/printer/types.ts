@@ -1,34 +1,39 @@
 // src/services/printer/types.ts
 
-export type PrinterConnectionState =
-  | "Disconnected"
-  | "Scanning"
-  | "Connecting"
-  | "Connected"
-  | "Printing"
-  | "Failed";
+export type PrinterKind = "bluetooth" | "network";
 
-export type PaperWidth = "58mm" | "80mm";
-
-export interface BluetoothPrinterDevice {
+export interface PrinterTarget {
+  /** "bt:<mac>" or "net:<host>:<port>" */
+  id: string;
+  kind: PrinterKind;
   name: string;
-  address: string; // MAC address or UUID depending on platform
-  status: PrinterConnectionState;
-  signalStrength?: number; // RSSI
-  batteryLevel?: number;
-  isSaved?: boolean;
+  /** MAC address for Bluetooth, IP address for network printers. */
+  address: string;
+  port?: number;
 }
 
-export interface PrinterConfig {
-  defaultPrinterId: string | null;
-  paperWidth: PaperWidth;
-  charactersPerLine: number;
-  isAutoCutEnabled: boolean;
-  printDensity: number; // 1-5 scale
+/** A printer as seen in the latest search. */
+export interface DiscoveredPrinter extends PrinterTarget {
+  /** Bluetooth: paired with this phone. */
+  paired?: boolean;
+  /** Seen during this search (Bluetooth in range, or network port answered). */
+  available: boolean;
+  /** Bluetooth device class says it is a printer. */
+  isPrinter?: boolean;
+  saved: boolean;
+}
+
+/** Printing preferences kept on this device (each till has its own printer). */
+export interface DevicePrinterPrefs {
+  printers: PrinterTarget[];
+  defaultId: string | null;
   copies: number;
-  printLogo: boolean;
-  printQrCode: boolean;
-  printBarcode: boolean;
-  connectionTimeout: number; // in milliseconds
-  autoReconnect: boolean;
+  autoCut: boolean;
+}
+
+export interface PrintingSupport {
+  bluetooth: boolean;
+  network: boolean;
+  /** Why printing is unavailable here, when it is. */
+  reason?: string;
 }

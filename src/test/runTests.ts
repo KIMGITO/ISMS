@@ -3,8 +3,11 @@ import { readFileSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
 import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/idUtils";
-import { EscPosGenerator } from "../services/printer/EscPosGenerator";
-import { PrinterConfig } from "../services/printer/types";
+import { EscPosGenerator, toPrinterText } from "../services/printer/EscPosGenerator";
+import { CODE128_PATTERNS, code128Codes } from "../services/receipt/code128";
+import { buildReceiptLines, buildReceiptText, pair, wrap, columnsFor } from "../services/receipt/layout";
+import { normalizeReceiptSettings } from "../services/receipt/ReceiptSettings";
+import { buildReceiptContent } from "../services/receipt/ReceiptGenerator";
 import { EmailService } from "../services/emailService";
 import { toUserMessage, AppError } from "../utils/userError";
 import { scrubPersonalData } from "../services/crashReporter";
@@ -20,6 +23,7 @@ import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-
 import { buildManifest } from "../../scripts/update-manifest.mjs";
 import { compareVersions } from "../utils/semver";
 import { SCREENS, canOpenScreen } from "../utils/screens";
+import { analyse, analyseBranches, bucketIndex, getRange, growth, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -58,27 +62,67 @@ runTest("formatCustomerNumber Formatter", () => {
   }
 });
 
-runTest("EscPosGenerator command streams", () => {
-  const mockConfig: PrinterConfig = {
-    defaultPrinterId: null,
-    paperWidth: "80mm",
-    charactersPerLine: 42,
-    isAutoCutEnabled: true,
-    printDensity: 3,
-    copies: 1,
-    printLogo: true,
-    printQrCode: true,
-    printBarcode: true,
-    connectionTimeout: 10000,
-    autoReconnect: true,
+const receiptSettings = normalizeReceiptSettings({
+  businessName: "Mama Mboga Shop",
+  phone: "0712 345 678",
+  // Old placeholder defaults must not reach a shop's receipt.
+  footerMessage: "You were served using KayKay's POS Application!",
+  paperWidth: "58mm",
+});
+const sampleTx: any = {
+  id: "3f2a9c1e-0000-4000-8000-000000000001",
+  items: [
+    { product: { id: "p1", name: "Fresh Milk 500ml", price: 60, unit: "Packet" }, quantity: 2, discountPercentage: 0 },
+    { product: { id: "p2", name: "Mala 1 Litre with an unusually long product name", price: 150, unit: "unit" }, quantity: 1, discountPercentage: 10 },
+  ],
+  total: 270, discount: 15, tax: 0, finalTotal: 255, paymentMethod: "M-Pesa",
+  staffId: "s1", staffName: "Jane", status: "Synced", timestamp: "2026-11-07T10:30:00.000Z",
+};
+
+runTest("Receipt layout keeps every line inside the paper width", () => {
+  const content = buildReceiptContent(sampleTx, receiptSettings);
+  const cols = columnsFor(receiptSettings);
+  if (cols !== 32) throw new Error(`58mm should give 32 columns, got ${cols}`);
+  for (const line of buildReceiptLines(content, receiptSettings)) {
+    if (line.t === "text" && line.text.length > (line.big ? cols / 2 : cols)) throw new Error(`Line too long: "${line.text}"`);
+  }
+  const { body } = buildReceiptText(content, receiptSettings);
+  if (body.split("\n").some((l) => l.length > cols)) throw new Error("Text receipt has a line wider than the paper");
+  if (!body.includes("MAMA MBOGA SHOP") || !body.includes("255.00")) throw new Error("Receipt text is missing the shop or total");
+  if (body.includes("KayKay")) throw new Error("Placeholder text leaked onto the receipt");
+  if (body.includes("KRA")) throw new Error("A sale without a KRA signature must not mention KRA");
+  if (pair("Total", "KSh 1,000,000.00", 12).some((l) => l.length > 12)) throw new Error("pair() overflowed");
+  if (wrap("abcdefghij", 4).join("|") !== "abcd|efgh|ij") throw new Error("wrap() did not break a long word");
+});
+
+runTest("Receipt shows the KRA block only with a real signature", () => {
+  const kra = {
+    pin: "P051234567X", branchId: "00", invoiceNo: 7, sdcId: "KRACU0100000001", rcptNo: 152,
+    internalData: "ABCDEFGHIJKLMNOP", signature: "QRSTUVWXYZ123456", qrUrl: "https://etims.kra.go.ke/x", environment: "production" as const,
   };
-  const bytes = EscPosGenerator.generateTestPrintBytes("TestPrinter", mockConfig);
-  if (bytes.length === 0) {
-    throw new Error("Generated test print bytes is empty");
-  }
-  if (bytes[0] !== 0x1B || bytes[1] !== 0x40) {
-    throw new Error("Missing ESC/POS printer initialization sequence [0x1B, 0x40]");
-  }
+  const lines = buildReceiptLines(buildReceiptContent(sampleTx, receiptSettings, { kra }), receiptSettings);
+  if (!lines.some((l) => l.t === "qr" && l.data === kra.qrUrl)) throw new Error("KRA QR missing");
+  if (!lines.some((l) => l.t === "text" && l.text.includes("KRACU0100000001/152"))) throw new Error("CU invoice number missing");
+});
+
+runTest("Code 128 table and checksum", () => {
+  if (CODE128_PATTERNS.length !== 107) throw new Error("Code 128 needs 107 patterns");
+  CODE128_PATTERNS.forEach((p, i) => {
+    const sum = Array.from(p).reduce((a, c) => a + Number(c), 0);
+    if (sum !== (i === 106 ? 13 : 11)) throw new Error(`Pattern ${i} has width ${sum}`);
+  });
+  // "PJJ123C" in set B: 104 + 48·1 + 42·2 + 42·3 + 17·4 + 18·5 + 19·6 + 35·7 = 879; 879 mod 103 = 55.
+  const codes = code128Codes("PJJ123C");
+  if (codes[codes.length - 2] !== 55) throw new Error(`Checksum ${codes[codes.length - 2]} != 55`);
+});
+
+runTest("ESC/POS output starts with init, ends with cut, has only printable text", () => {
+  const content = buildReceiptContent(sampleTx, receiptSettings);
+  const bytes = EscPosGenerator.fromLines(buildReceiptLines(content, receiptSettings), { columns: 32, dots: 384, autoCut: true });
+  if (bytes[0] !== 0x1b || bytes[1] !== 0x40) throw new Error("Missing ESC @");
+  const tail = Array.from(bytes.slice(-4));
+  if (tail.join(",") !== [0x1d, 0x56, 66, 0].join(",")) throw new Error("Missing paper cut");
+  if (toPrinterText("Café – “Mũrĩa” 🥛") !== 'Cafe - "Muria" ?') throw new Error(`Bad text folding: ${toPrinterText("Café – “Mũrĩa” 🥛")}`);
 });
 
 runTest("EmailService class and wrappers structure", () => {
@@ -442,6 +486,70 @@ runTest("Screen access follows the roles' permissions", () => {
   for (const [, tab] of app.matchAll(/activeTab === '([a-z-]+)' && \(/g)) {
     if (!ids.includes(tab as any)) throw new Error(`Screen "${tab}" is missing from utils/screens.ts`);
   }
+});
+
+
+runTest("Home figures: ranges, slots, growth and money received", () => {
+  const eq = (a: unknown, b: unknown, what: string) => {
+    if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${what}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+  };
+  const now = new Date(2026, 10, 7, 15, 30); // 7 Nov 2026
+  const week = getRange("last7", now);
+  eq(week.start.getDate(), 1, "7 days starts 6 days back");
+  const prev = previousRange(week);
+  eq([prev.start.getDate(), prev.end.getDate()], [25, 31], "previous 7 days");
+  eq(getRange("quarter", now).start.getMonth(), 9, "quarter starts in October");
+  eq(pickGranularity(getRange("today", now)), "hour", "today is hourly");
+  eq(pickGranularity(getRange("year", now)), "month", "year is monthly");
+
+  // A quarter is ~98 days: every day must land in a slot (the old chart dropped all but 30).
+  const q = getRange("quarter", now);
+  const qb = makeBuckets(q, pickGranularity(q));
+  eq(bucketIndex(q.start.getTime(), qb), 0, "first day in first slot");
+  eq(bucketIndex(q.end.getTime(), qb), qb.length - 1, "last moment in last slot");
+  eq(bucketIndex(new Date(2026, 8, 30).getTime(), qb), -1, "outside the range");
+
+  eq(growth(150, 100), 50, "growth");
+  eq(growth(5, 0), null, "no base to compare with");
+
+  const at = (d: number, h = 10) => new Date(2026, 10, d, h).toISOString();
+  const product = { id: "p1", name: "Milk", price: 100, cost: 60 } as any;
+  const tx = (d: number, amount: number, method: string, qty = 1, h = 10) =>
+    ({ id: `${d}-${amount}-${method}`, timestamp: at(d, h), finalTotal: amount, total: amount, paymentMethod: method, items: [{ product, quantity: qty, discountPercentage: 0 }] }) as any;
+  const buckets = makeBuckets(week, "day");
+  const result = analyse(
+    {
+      transactions: [tx(2, 200, "Cash", 2), tx(3, 300, "M-Pesa", 3, 18), tx(4, 100, "Credit_Debt"), tx(-3, 400, "Cash", 4)],
+      expenses: [{ id: "e", amount: 50, category: "Rent", date: at(3), description: "", staffName: "" }],
+      // Paid 100 of debt through Payments: both rows exist, it must count once.
+      debtPayments: [{ id: "d", businessId: "b", customerId: "c1", amountPaid: 100, remainingDebt: 0, paymentMethod: "M-Pesa", recordedBy: "x", created_at: at(5) }],
+      payments: [{ id: "pay", businessId: "b", referenceCode: "R", amount: 100, method: "M-Pesa", senderName: "A", status: "Success", date: at(5), customerId: "c1", debtApplied: 100 } as any],
+    },
+    week,
+    buckets,
+  );
+  eq(result.total.sales, 600, "sales in range");
+  eq(result.total.orders, 3, "orders in range");
+  eq(result.total.cost, 360, "cost of goods");
+  eq(result.total.profit, 600 - 360 - 50, "profit can be computed below zero, not clamped");
+  eq(result.total.creditSales, 100, "credit sales");
+  eq(result.total.received["M-Pesa"], 400, "M-Pesa: one sale plus one payment, debt row not double counted");
+  eq(result.total.received.Cash, 200, "cash");
+  eq(result.previous.sales, 400, "previous period sales");
+  eq(result.total.hours[18], 300, "sales by hour");
+  eq(result.cumulative[2].sales, 500, "running total by slot for replay");
+  eq(result.total.products.get("p1")?.qty, 6, "units sold");
+
+  const loss = analyse({ transactions: [], expenses: [{ id: "e", amount: 80, category: "Rent", date: at(2), description: "", staffName: "" }], debtPayments: [], payments: [] }, week, buckets);
+  eq(loss.total.profit, -80, "a loss shows as a loss");
+
+  const rows = analyseBranches(
+    [{ id: "a", name: "A" }, { id: "b", name: "B" }],
+    [{ businessId: "a", amount: 300, ts: new Date(at(2)).getTime() }, { businessId: "a", amount: 200, ts: new Date(at(-3)).getTime() }, { businessId: "b", amount: 100, ts: new Date(at(3)).getTime() }],
+    week,
+    buckets,
+  );
+  eq(rows.map((r) => [r.sales, r.growth, Math.round(r.share)]), [[300, 50, 75], [100, null, 25]], "branch sales, growth and share");
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

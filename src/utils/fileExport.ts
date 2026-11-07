@@ -2,7 +2,6 @@
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { nativePlatformService } from "../core/native/NativePlatformService";
-import { shareService } from "../core/native/ShareService";
 
 export interface ExportOptions {
   filename: string;
@@ -150,45 +149,42 @@ export class FileExportService {
    */
   private async exportNative(options: ExportOptions): Promise<ExportResult> {
     try {
-      // Convert data to base64
-      let base64Data: string;
-      
+      // Binary data is written as base64 with no encoding; plain text is written as UTF-8.
+      // (Writing base64 with UTF-8 encoding stores the base64 text itself and breaks PDFs.)
+      let fileData: string;
+      let encoding: Encoding | undefined;
+
       if (typeof options.data === "string") {
-        // If it's already a data URI, extract the base64 part
         if (options.data.startsWith("data:")) {
-          base64Data = options.data.split(",")[1];
+          fileData = options.data.split(",")[1];
         } else {
-          // Encode string to base64
-          base64Data = this.stringToBase64(options.data);
+          fileData = options.data;
+          encoding = Encoding.UTF8;
         }
       } else if (options.data instanceof Blob) {
-        const arrayBuffer = await options.data.arrayBuffer();
-        base64Data = this.arrayBufferToBase64(arrayBuffer);
+        fileData = this.arrayBufferToBase64(await options.data.arrayBuffer());
       } else {
-        // ArrayBuffer
-        base64Data = this.arrayBufferToBase64(options.data);
+        fileData = this.arrayBufferToBase64(options.data);
       }
 
-      // Ensure filename has correct extension
       const filename = this.ensureExtension(options.filename, options.mimeType);
 
-      // Write file to Documents directory
+      // The cache folder is covered by the app's FileProvider, so other apps can open the file.
       const writeResult = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
+        path: `exports/${filename}`,
+        data: fileData,
+        directory: Directory.Cache,
+        ...(encoding ? { encoding } : {}),
         recursive: true
       });
 
-      console.log("File saved successfully:", writeResult.uri);
-
-      // Share the file
-      const shareResult = await shareService.shareContent({
-        title: options.filename,
-        url: writeResult.uri,
-        dialogTitle: `Share ${options.filename}`
-      });
+      let shareResult = true;
+      try {
+        await Share.share({ title: filename, files: [writeResult.uri], dialogTitle: `Share ${filename}` });
+      } catch (err: any) {
+        shareResult = false;
+        if (!/cancel/i.test(String(err?.message))) console.error("Native file share failed:", err);
+      }
 
       if (!shareResult) {
         // File was saved but sharing was cancelled/failed
@@ -229,31 +225,14 @@ export class FileExportService {
   }
 
   /**
-   * Convert string to base64
-   */
-  private stringToBase64(str: string): string {
-    try {
-      // For UTF-8 strings, we need to handle them properly
-      const utf8Bytes = new TextEncoder().encode(str);
-      return this.arrayBufferToBase64(utf8Bytes.buffer);
-    } catch (error) {
-      // Fallback for older browsers
-      return window.btoa(unescape(encodeURIComponent(str)));
-    }
-  }
-
-  /**
    * Convert ArrayBuffer to base64
    */
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
     let binary = "";
-    
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     }
-    
     return window.btoa(binary);
   }
 }

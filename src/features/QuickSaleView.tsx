@@ -3,10 +3,12 @@
 // Discounts, delivery and credit sales stay in the full POS screen.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Banknote, CheckCircle2, CreditCard, Minus, Plus, Search, Smartphone, X } from 'lucide-react';
+import { Banknote, CheckCircle2, CreditCard, Minus, Plus, ReceiptText, Search, Smartphone, X } from 'lucide-react';
 import { nativeUiService } from '../core/native/NativeUiService';
 import { useAppStore } from '../stores/appStore';
-import { PaymentMethod, Product } from '../types';
+import { PaymentMethod, Product, Transaction } from '../types';
+import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
+import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
 import { searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
@@ -83,7 +85,9 @@ export default function QuickSaleView() {
   const [highlight, setHighlight] = useState(0);
   const [isPaying, setIsPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastSale, setLastSale] = useState<{ total: number; method: string } | null>(null);
+  const [lastSale, setLastSale] = useState<{ total: number; method: string; tx?: Transaction } | null>(null);
+  const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
+  const [receiptAutoPrint, setReceiptAutoPrint] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
@@ -169,7 +173,11 @@ export default function QuickSaleView() {
     try {
       const result = await checkout(method, '', taxRate);
       if (result.success) {
-        setLastSale({ total: saleTotal, method });
+        setLastSale({ total: saleTotal, method, tx: result.transaction });
+        if (result.transaction && activeBusinessId && ReceiptService.getSettings(activeBusinessId).autoPrint) {
+          setReceiptAutoPrint(true);
+          setReceiptTx(result.transaction);
+        }
         nativeUiService.hapticSuccess();
       } else {
         setError(toUserMessage(result.error, 'The sale could not be saved. Please try again.'));
@@ -189,6 +197,12 @@ export default function QuickSaleView() {
     if (payOption) {
       e.preventDefault();
       pay(payOption.method);
+    } else if (e.key === 'F8') {
+      e.preventDefault();
+      if (lastSale?.tx) {
+        setReceiptAutoPrint(false);
+        setReceiptTx(lastSale.tx);
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       if (query) setQuery('');
@@ -211,6 +225,7 @@ export default function QuickSaleView() {
   };
 
   return (
+    <>
     // On phones the sale panel ends above the floating nav bar instead of behind it.
     <div
       className="h-full flex flex-col md:flex-row bg-app-bg max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]"
@@ -285,7 +300,20 @@ export default function QuickSaleView() {
             transition={{ type: 'spring', stiffness: 380, damping: 26 }}
             className="m-2 md:m-3 p-3 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-sm font-semibold">
             <CheckCircle2 size={20} aria-hidden="true" />
-            Sold {formatCurrency(lastSale.total)} by {lastSale.method}
+            <span className="flex-1">Sold {formatCurrency(lastSale.total)} by {lastSale.method}</span>
+            {lastSale.tx && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptAutoPrint(false);
+                  setReceiptTx(lastSale.tx!);
+                }}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 cursor-pointer"
+              >
+                <ReceiptText size={14} aria-hidden="true" /> Receipt
+                <kbd className="hidden md:inline px-1 rounded border border-white/40 text-[10px] font-mono">F8</kbd>
+              </button>
+            )}
           </motion.div>
         )}
 
@@ -371,5 +399,15 @@ export default function QuickSaleView() {
         )}
       </section>
     </div>
+    <ReceiptSheet
+      transaction={receiptTx}
+      startPrinting={receiptAutoPrint}
+      onClose={() => {
+        setReceiptTx(null);
+        setReceiptAutoPrint(false);
+        focusSearch();
+      }}
+    />
+    </>
   );
 }

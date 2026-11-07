@@ -11,6 +11,7 @@ import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
 import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
+import { kraService } from "../services/kra/kraService";
 
 interface CartState {
   cart: CartItem[];
@@ -267,6 +268,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       }
 
       set({ cart: [], selectedCustomer: null });
+      if (activeBusinessId) void kraService.reportSaleIfConnected(activeBusinessId, savedTx.id);
       return { success: true, transaction: savedTx };
     } catch (err: any) {
       return { success: false, error: toUserMessage(err, "Checkout failed due to database or connection error.") };

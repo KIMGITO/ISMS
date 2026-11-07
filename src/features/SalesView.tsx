@@ -4,21 +4,12 @@
 import React, { useState, useMemo } from "react";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { 
-  ReceiptText, FileText, CheckCircle2, Clock, MapPin, Printer, 
-  ArrowLeft, ShieldAlert, Share2, Send, MessageSquare, Download, Check, AlertCircle, Share, ChevronDown, ChevronUp
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
 import { hasRolePermission } from "../utils/permissions";
-import { useCustomerStore } from "../stores/customerStore";
-import { useNotificationStore } from "../stores/notificationStore";
-import { ReceiptService, ReceiptRenderer } from "../services/receipt/ReceiptService";
-import { ReceiptContent, BusinessReceiptSettings } from "../services/receipt/types";
 import { formatCurrency } from "../utils/helpers";
 import { formatReceiptNumber } from "../utils/idUtils";
-import { ReceiptPrinter } from "../services/printer/ReceiptPrinter";
-import { normalizePhone } from "../utils/phoneUtils";
 import { titleCase } from "../utils/stringUtils";
+import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
 
 interface GroupedTransactions {
   today: Transaction[];
@@ -49,14 +40,7 @@ function getPaymentMethodLabel(method: string | undefined): string {
 
 export default function SalesView() {
   const { transactions, currentEmployee } = useAppStore();
-  const { customers } = useCustomerStore();
-  const { showToast } = useNotificationStore();
-  
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [generatedReceipt, setGeneratedReceipt] = useState<{ content: ReceiptContent; settings: BusinessReceiptSettings } | null>(null);
-  const [printNotice, setPrintNotice] = useState(false);
-  const [phoneNum, setPhoneNum] = useState("");
-  const [apiSending, setApiSending] = useState(false);
 
   // ── FIX: Track only ONE active open section string to auto-collapse others ──
   const [activeOpenSection, setActiveOpenSection] = useState<string>("today");
@@ -66,32 +50,7 @@ export default function SalesView() {
     setActiveOpenSection(prev => prev === sectionKey ? "" : sectionKey);
   };
 
-  const handleSelectTx = async (tx: Transaction | null) => {
-    setSelectedTx(tx);
-    if (tx) {
-      const cust = tx.customerId ? customers.find(c => c.id === tx.customerId) : null;
-      setPhoneNum(cust?.phone || "");
-      
-      try {
-        // Outstanding balance = unpaid portion of THIS transaction only.
-        // Only credit sales can carry an outstanding balance; fully-paid
-        // Cash/M-Pesa/Card sales must show zero (no OUTSTANDING BAL line).
-        const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
-        const outstandingBalance = isCreditSale ? tx.finalTotal : 0;
-        const receiptData = await ReceiptService.generateReceipt(tx, tx.businessId || "biz-1", {
-          customerEmail: cust?.email,
-          outstandingBalance,
-          customNotes: tx.note
-        });
-        setGeneratedReceipt(receiptData);
-      } catch (err) {
-        console.error("Failed to generate receipt content:", err);
-      }
-    } else {
-      setPhoneNum("");
-      setGeneratedReceipt(null);
-    }
-  };
+  const handleSelectTx = (tx: Transaction | null) => setSelectedTx(tx);
 
   const canViewSales = currentEmployee ? hasRolePermission(currentEmployee.role, "orders.view") : false;
 
@@ -165,7 +124,6 @@ export default function SalesView() {
     const itemQty = tx.items ? tx.items.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
 
-    console.log(tx);
     return (
       <div
         key={tx.id}
@@ -366,217 +324,7 @@ export default function SalesView() {
         )}
       </div>
 
-      {/* DETAILED RECEIPT MODAL DRAWER OVERLAY */}
-      <AnimatePresence>
-        {selectedTx && (
-          <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-app-card border border-app-border w-full max-w-2xl rounded-3xl p-5 shadow-2xl overflow-hidden flex flex-col max-h-[95%]"
-            >
-              <div className="flex items-center justify-between shrink-0 mb-4 border-b border-app-border pb-3">
-                <button
-                  onClick={() => handleSelectTx(null)}
-                  className="px-3 py-1.5 hover:bg-app-bg text-app-text border border-app-border rounded-xl transition flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-                >
-                  <ArrowLeft size={14} />
-                  <span>Close Log</span>
-                </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={async () => {
-                      if (!generatedReceipt) return;
-                      const didHardwarePrint = ReceiptPrinter.printReceipt(
-                        generatedReceipt.content,
-                      );
-                      if (didHardwarePrint) {
-                        showToast(
-                          'Printer Queue',
-                          'Receipt queued.',
-                          undefined,
-                          'success',
-                        );
-                        return;
-                      }
-                      const printContainer = document.querySelector(
-                        '.print-receipt-container',
-                      );
-                      if (printContainer) {
-                        setPrintNotice(true);
-                        const success = await ReceiptService.print(
-                          printContainer.innerHTML,
-                        );
-                        setPrintNotice(false);
-                        if (success) {
-                          showToast(
-                            'Printer Gateway',
-                            'Sent to spool.',
-                            undefined,
-                            'success',
-                          );
-                        }
-                      }
-                    }}
-                    disabled={!generatedReceipt}
-                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-                  >
-                    <Printer size={13} />
-                    <span>Print Receipt</span>
-                  </button>
-                </div>
-              </div>
-
-              {printNotice && (
-                <div className="mb-3.5 p-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold rounded-xl text-center text-[10px] ">
-                  🖨️ Opening print dialog... Prefitting paper frames.
-                </div>
-              )}
-
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pr-1">
-                <div className="flex flex-col h-full min-h-[350px]">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[9px] text-app-text-muted font-bold uppercase block">
-                      Receipt Preview
-                    </span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-3.5 bg-white text-slate-950 rounded-2xl border border-slate-200 print-receipt-container flex flex-col justify-between">
-                    {generatedReceipt ? (
-                      <ReceiptRenderer
-                        content={generatedReceipt.content}
-                        settings={generatedReceipt.settings}
-                      />
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-500">
-                        <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                        <span>Compiling layout content...</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col justify-between bg-app-bg border border-app-border rounded-2xl p-4 space-y-4">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Download size={13} className="text-amber-500" />
-                        <span className="text-[10px] text-app-text font-black uppercase">
-                          Export Vouchers
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          onClick={async () => {
-                            if (!generatedReceipt) return;
-                            const p =
-                              document.querySelector('.print-receipt-container')
-                                ?.innerHTML || '';
-                            await ReceiptService.exportToHtml(
-                              generatedReceipt.content,
-                              generatedReceipt.settings,
-                              p,
-                            );
-                          }}
-                          className="py-2 px-1 text-center bg-app-card border border-app-border hover:bg-app-border text-app-text font-bold rounded-xl text-[9.5px] transition flex flex-col items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <FileText size={14} className="text-blue-400" />
-                          <span>HTML File</span>
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!generatedReceipt) return;
-                            await ReceiptService.exportToText(
-                              generatedReceipt.content,
-                              generatedReceipt.settings,
-                            );
-                          }}
-                          className="py-2 px-1 text-center bg-app-card border border-app-border hover:bg-app-border text-app-text font-bold rounded-xl text-[9.5px] transition flex flex-col items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <ReceiptText size={14} className="text-amber-400" />
-                          <span>POS Text</span>
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!generatedReceipt) return;
-                            await ReceiptService.exportToPdf(
-                              generatedReceipt.content,
-                              generatedReceipt.settings,
-                            );
-                          }}
-                          className="py-2 px-1 text-center bg-app-card border border-app-border hover:bg-app-border text-app-text font-bold rounded-xl text-[9.5px] transition flex flex-col items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <Download size={14} className="text-emerald-400" />
-                          <span>PDF File</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-app-border/40 my-1" />
-
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Share2 size={13} className="text-amber-500" />
-                        <span className="text-[10px] text-app-text font-black uppercase">
-                          Sharing Gateway
-                        </span>
-                      </div>
-                      <div className="space-y-2.5">
-                        <input
-                          type="text"
-                          value={phoneNum}
-                          onChange={(e) => setPhoneNum(e.target.value)}
-                          placeholder="Phone: +254..."
-                          className="w-full bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text font-mono focus:outline-none"
-                        />
-                        <div className="space-y-1.5">
-                          <button
-                            onClick={() => {
-                              if (!generatedReceipt) return;
-                              ReceiptService.shareViaWhatsApp(
-                                generatedReceipt.content,
-                                generatedReceipt.settings,
-                                normalizePhone(phoneNum),
-                              );
-                            }}
-                            className="w-full bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-between cursor-pointer"
-                          >
-                            <span>WhatsApp </span>
-                            <span className="text-[7.5px] font-black bg-[#25D366]/20 px-1.5 py-0.5 rounded">
-                              WA LINK
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (!generatedReceipt) return;
-                              ReceiptService.shareViaEmail(
-                                generatedReceipt.content,
-                                generatedReceipt.settings,
-                              );
-                            }}
-                            className="w-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-between cursor-pointer"
-                          >
-                            <span>Email </span>
-                            <span className="text-[7.5px] font-black bg-blue-500/20 px-1.5 py-0.5 rounded">
-                              MAILTO
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 border-t border-app-border/80 pt-3 flex items-center gap-2 text-[8.5px] text-app-text-muted">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span>
-                      POS Ledger Processing Ready (Capacitor Runtime Hydrated)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ReceiptSheet transaction={selectedTx} onClose={() => setSelectedTx(null)} />
     </div>
   );
 }

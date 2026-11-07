@@ -19,6 +19,7 @@ import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/pho
 import { formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
+import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
 import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS } from "../types";
 import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
 import DuplicateCustomers from "../components/DuplicateCustomers";
@@ -84,6 +85,7 @@ const customerGroupLabels = (c: {
 ];
 
 export default function CustomersView() {
+  const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
   const { 
     customers, addCustomer, currentEmployee, 
     updateCustomer, deleteCustomer, products,
@@ -1770,18 +1772,11 @@ export default function CustomersView() {
                                   </div>
 
                                   <button
-                                    onClick={() => {
-                                      ReceiptShareService.shareTextViaWhatsApp(
-                                        selectedCustomer.phone,
-                                        `Receipt ${formatReceiptNumber(tx.id)}\nTotal: KSh ${tx.finalTotal.toLocaleString()}\nThank you for your business!`
-                                      ).catch(err => {
-                                        showToast("Share Failed", toUserMessage(err, "Could not share this receipt."), undefined, "error");
-                                      });
-                                    }}
+                                    onClick={() => setReceiptTx(tx)}
                                     className="flex items-center gap-1 text-[10px] font-extrabold text-amber-500 hover:text-amber-400 transition cursor-pointer"
                                   >
                                     <Share2 className="w-3 h-3" />
-                                    <span>Share Receipt</span>
+                                    <span>Receipt</span>
                                   </button>
                                 </div>
                               </div>
@@ -2691,6 +2686,7 @@ export default function CustomersView() {
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 border border-app-card rounded-full" />
         </button>
       </motion.div>
+      <ReceiptSheet transaction={receiptTx} onClose={() => setReceiptTx(null)} />
     </div>
   );
 }

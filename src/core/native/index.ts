@@ -12,5 +12,3 @@ export { updateService } from "./UpdateService";
 export { statusBarService } from "./StatusBarService";
 export { splashScreenService } from "./SplashScreenService";
 export { geolocationService } from "./GeolocationService";
-export { bluetoothService } from "./BluetoothService";
-export { printerService } from "./PrinterService";
