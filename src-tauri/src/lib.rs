@@ -1,9 +1,23 @@
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
+  // Only plain links that the OS should hand to a browser, mail or phone app. Anything
+  // else (file:, javascript:, smb:, custom schemes) is refused: this command can be
+  // called by any script in the window.
+  const ALLOWED: [&str; 6] = ["https://", "http://", "mailto:", "tel:", "whatsapp://", "sms:"];
+  let lower = url.to_ascii_lowercase();
+  if !ALLOWED.iter().any(|prefix| lower.starts_with(prefix)) {
+    return Err("Only web, email and phone links can be opened.".into());
+  }
+  if url.chars().any(|c| c.is_control() || c.is_whitespace() || c == '"') {
+    return Err("The link contains characters that aren't allowed.".into());
+  }
+
   #[cfg(target_os = "windows")]
   {
-    std::process::Command::new("cmd")
-      .args(["/C", "start", "", &url])
+    // Not `cmd /C start`: cmd treats & | ^ in the link as commands to run.
+    // url.dll hands the link straight to its default app without a shell.
+    std::process::Command::new("rundll32")
+      .args(["url.dll,FileProtocolHandler", &url])
       .spawn()
       .map_err(|e| e.to_string())?;
   }

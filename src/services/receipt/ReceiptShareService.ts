@@ -23,6 +23,11 @@ function pdfBase64(doc: jsPDF): string {
 export class ReceiptShareService {
   /** Opens a link outside the app without crashing Tauri or mobile webviews. */
   public static async openExternalUrl(url: string): Promise<boolean> {
+    // Only links meant for a browser, mail, phone or WhatsApp; never file: or javascript:
+    if (!/^(https?:\/\/|mailto:|tel:|sms:|whatsapp:\/\/)/i.test(url)) {
+      console.warn("Refused to open a link of an unsupported kind.");
+      return false;
+    }
     try {
       if (typeof window !== "undefined" && (window as any).__TAURI__) {
         await (window as any).__TAURI__.core.invoke("open_url", { url });
