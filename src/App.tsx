@@ -3611,12 +3611,16 @@ export default function App() {
                         : false,
                     )
                     // Grouped like the phone's More sheet, so related screens sit together.
-                    .sort((a, b) => SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(a.id as any)?.group ?? 'You & the app') - SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(b.id as any)?.group ?? 'You & the app'))
+                    // Home always comes first, on its own, above the groups.
+                    .sort((a, b) => {
+                      if (a.id === 'home' || b.id === 'home') return a.id === 'home' ? -1 : b.id === 'home' ? 1 : 0;
+                      return SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(a.id as any)?.group ?? 'You & the app') - SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(b.id as any)?.group ?? 'You & the app');
+                    })
                     .map((tab, index, list) => {
                       const Icon = tab.icon;
                       const isActive = activeTab === tab.id;
-                      const group = SCREEN_BY_ID.get(tab.id as any)?.group;
-                      const startsGroup = index === 0 || SCREEN_BY_ID.get(list[index - 1].id as any)?.group !== group;
+                      const group = tab.id === 'home' ? undefined : SCREEN_BY_ID.get(tab.id as any)?.group;
+                      const startsGroup = index === 0 || list[index - 1].id === 'home' || SCREEN_BY_ID.get(list[index - 1].id as any)?.group !== group;
 
                       return (
                         <React.Fragment key={tab.id}>
