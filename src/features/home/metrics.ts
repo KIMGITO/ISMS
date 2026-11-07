@@ -201,6 +201,9 @@ export interface SeriesPoint {
   profit: number;
   /** Sales in the same slot of the previous period, for comparison. */
   prevSales: number;
+  /** Money that came in (not credit) and cost of goods plus expenses, for the figure sparklines. */
+  received: number;
+  spending: number;
 }
 
 export interface Snapshot {
@@ -348,6 +351,8 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     expenses: perSlot[i].expenses,
     profit: perSlot[i].profit,
     prevSales: prevSlotSales[i],
+    received: moneyReceived(perSlot[i]),
+    spending: perSlot[i].cost + perSlot[i].expenses,
   }));
 
   const cumulative: Snapshot[] = [];

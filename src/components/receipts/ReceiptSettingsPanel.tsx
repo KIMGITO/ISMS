@@ -192,14 +192,14 @@ export default function ReceiptSettingsPanel() {
               <Field title="Line under the shop name">
                 <input className={input} value={settings.headerMessage} onChange={(e) => update({ headerMessage: e.target.value })} />
               </Field>
-              <Field title="Thank-you line">
-                <input className={input} value={settings.thankYouMessage} onChange={(e) => update({ thankYouMessage: e.target.value })} />
+              <Field title="Line after the totals" hint="Printed after the payment details, before the codes.">
+                <input className={input} value={settings.footerMessage} onChange={(e) => update({ footerMessage: e.target.value })} />
               </Field>
-              <Field title="Returns policy">
+              <Field title="Returns policy" hint="Second-last on the receipt, in italics.">
                 <textarea rows={2} className={input} value={settings.returnPolicy} onChange={(e) => update({ returnPolicy: e.target.value })} />
               </Field>
-              <Field title="Closing line">
-                <input className={input} value={settings.footerMessage} onChange={(e) => update({ footerMessage: e.target.value })} />
+              <Field title="Thank-you line" hint="The last line, in green (black on thermal paper).">
+                <input className={input} value={settings.thankYouMessage} onChange={(e) => update({ thankYouMessage: e.target.value })} />
               </Field>
             </div>
           )}

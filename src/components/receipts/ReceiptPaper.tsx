@@ -44,7 +44,7 @@ export function ReceiptPaper({ lines, columns, paperWidth }: { lines: ReceiptLin
             return (
               <div
                 key={i}
-                className={`whitespace-pre ${line.bold ? 'font-bold' : ''} ${line.big ? 'text-[2em] leading-[1.2]' : ''}`}
+                className={`whitespace-pre ${line.bold ? 'font-bold' : ''} ${line.italic ? 'italic' : ''} ${line.tone === 'green' ? 'text-green-700' : ''} ${line.big ? 'text-[2em] leading-[1.2]' : ''}`}
                 style={{ textAlign: line.align }}
               >
                 {line.text || ' '}

@@ -2,6 +2,7 @@
 // Complete Re-engineered Strict Online-First Inventory & Local Log Hiding Framework
 
 import { toUserMessage } from '../utils/userError';
+import { SheetLayer } from '../components/shared/SheetLayer';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import {
@@ -765,6 +766,7 @@ export default function InventoryView() {
       </div>
 
       {/* ADJUST STOCK DRAWER */}
+      <SheetLayer>
       <AnimatePresence>
         {isAdjusting && selectedProduct && (
           <>
@@ -780,7 +782,7 @@ export default function InventoryView() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 flex flex-col z-50 overflow-hidden"
+              className="absolute bottom-0 left-0 right-0 max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-hidden"
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
               <h3 className="text-base font-extrabold font-display text-app-text uppercase tracking-wide">
@@ -935,8 +937,10 @@ export default function InventoryView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* ADD PRODUCT DRAWER OVERLAY */}
+      <SheetLayer>
       <AnimatePresence>
         {isAddingProduct && (
           <>
@@ -1159,7 +1163,7 @@ export default function InventoryView() {
                 </div>
               </form>
 
-              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-app-border bg-app-card flex items-center gap-3 shrink-0">
+              <div className="absolute bottom-0 left-0 right-0 p-4 pb-[calc(1rem+var(--inset-bottom))] border-t border-app-border bg-app-card flex items-center gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddingProduct(false)}
@@ -1190,8 +1194,10 @@ export default function InventoryView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* CATEGORY DRAWER COMPONENT MAP */}
+      <SheetLayer>
       <AnimatePresence>
         {isManagingCategories && (
           <>
@@ -1207,7 +1213,7 @@ export default function InventoryView() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 flex flex-col z-50 overflow-hidden"
+              className="absolute bottom-0 left-0 right-0 h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-hidden"
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
               <div className="flex items-center justify-between shrink-0 mb-2">
@@ -1294,8 +1300,10 @@ export default function InventoryView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* EDIT DETAILED PRODUCT DRAWER OVERLAY */}
+      <SheetLayer>
       <AnimatePresence>
         {isEditingProduct && editingProduct && (
           <>
@@ -1550,7 +1558,7 @@ export default function InventoryView() {
                 </div>
               </form>
 
-              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-app-border bg-app-card flex items-center gap-3 shrink-0">
+              <div className="absolute bottom-0 left-0 right-0 p-4 pb-[calc(1rem+var(--inset-bottom))] border-t border-app-border bg-app-card flex items-center gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEditingProduct(false)}
@@ -1581,11 +1589,12 @@ export default function InventoryView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* FIXED TOAST BANNER SUCCESS POPUP */}
       <AnimatePresence>
         {successMsg && (
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold">
+          <div className="absolute bottom-(--mobile-nav-space) md:bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold">
             <CheckCircle2 size={14} />
             <span>Success: Catalog configuration synced!</span>
           </div>

@@ -8,6 +8,7 @@ import POSView from './features/POSView';
 import QuickSaleView from './features/QuickSaleView';
 import ClockBar from './components/ClockBar';
 import UpdateBar from './components/UpdateBar';
+import PullToRefresh from './components/PullToRefresh';
 import AboutView from './features/AboutView';
 import { updateService } from './core/native/UpdateService';
 import InventoryView from './features/InventoryView';
@@ -1054,9 +1055,9 @@ export default function App() {
     }
   }, [isOnline, syncWithServer]);
 
-  // Load and hydrate all data from Supabase if configured
-  useEffect(() => {
-    const syncSupabaseData = async () => {
+  // Load and hydrate all data from Supabase if configured.
+  // Also run by pull-to-refresh, so it lives outside the effect.
+  const syncSupabaseData = async () => {
       if (!isOnline) return;
       if (isSupabaseConfigured()) {
         try {
@@ -1105,10 +1106,26 @@ export default function App() {
           console.error('Error during Supabase synchronization:', err);
         }
       }
-    };
+  };
 
+  useEffect(() => {
     syncSupabaseData();
   }, [isOnline, activeBusinessId]);
+
+  // Pull to refresh: reload shared data, then reopen the current screen so it
+  // fetches its own data again. The open cart lives in a store and is kept.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refreshApp = async () => {
+    if (!navigator.onLine) {
+      showToast('Offline', 'Connect to the internet to refresh.', undefined, 'info');
+      return;
+    }
+    await Promise.all([
+      syncSupabaseData(),
+      syncWithServer().catch((err) => console.error('Refresh: sales sync failed', err)),
+    ]);
+    setRefreshKey((k) => k + 1);
+  };
 
   // Auto-scroll the active mobile tab to center when the active tab changes
   useEffect(() => {
@@ -3916,9 +3933,10 @@ export default function App() {
                 </AnimatePresence>
                 <ClockBar />
 
-                {/* CORE VIEWPORT CARDS (app-viewport: phone edge spacing in index.css) */}
-                <div className="app-viewport flex-1 overflow-hidden relative">
-                  <ErrorBoundary resetKey={activeTab}>
+                {/* CORE VIEWPORT CARDS: pull down from the top of a screen to refresh
+                    (app-screens: phone edge spacing in index.css) */}
+                <PullToRefresh onRefresh={refreshApp} className="app-viewport flex-1 overflow-hidden relative">
+                  <ErrorBoundary key={refreshKey} resetKey={activeTab}>
                   <AnimatePresence mode="wait">
                     {activeTab === 'sell' && (
                       <motion.div
@@ -4140,7 +4158,7 @@ export default function App() {
                     )}
                   </AnimatePresence>
                   </ErrorBoundary>
-                </div>
+                </PullToRefresh>
 
                 {/* Manual Bottom Navbar Toggle Button (Mobile Only) */}
                 {currentEmployee && (

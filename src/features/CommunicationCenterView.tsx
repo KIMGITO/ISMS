@@ -262,7 +262,7 @@ export default function CommunicationCenterView() {
   const isAllVisibleSelected = filteredCustomers.length > 0 && filteredCustomers.every(c => selectedCustomerIds.has(c.id));
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-3 sm:p-4 md:p-6 overflow-y-auto animate-fade-in">
+    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-3 sm:p-4 md:p-6 pb-nav overflow-y-auto animate-fade-in">
 
       {/* Header */}
      

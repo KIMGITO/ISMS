@@ -1,12 +1,10 @@
 // src/features/home/HomeDashboard.tsx
-// Home: charts first, then the key figures, then what needs doing, then reports.
+// Home: charts first, then four key figures, then what needs doing, then reports.
 // Every figure comes from metrics.ts; this file only lays them out.
+// On phones, secondary groups scroll sideways so the page stays short.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowDownRight, ArrowUpRight, Maximize2, RefreshCw, Minus, PackageX, PackageMinus, HandCoins,
-  Zap, ShoppingCart, Wallet, Receipt, Boxes, CheckCircle2, ChevronRight,
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Maximize2, RefreshCw, Minus, PackageX, PackageMinus, HandCoins, CheckCircle2, ChevronRight } from "lucide-react";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useCustomerStore } from "../../stores/customerStore";
 import { useTransactionStore } from "../../stores/transactionStore";
@@ -23,16 +21,16 @@ import {
 } from "./metrics";
 import { fetchBranchSales } from "./branchSales";
 import {
-  TrendChart, BranchTrendChart, HoursChart, RankedBars, ShareBar, SeriesToggle, EmptyChart, CATEGORY_COLORS,
-  type SeriesKey,
+  TrendChart, BranchTrendChart, HoursChart, RankedBars, ShareBar, SeriesToggle, EmptyChart, GrowthBars, Sparkline,
+  CATEGORY_COLORS, type SeriesKey,
 } from "./charts";
-import { usePlayback, PlayButton, PlaybackBar } from "./playback";
+import { usePlayback, PlayButton, PlaybackBar, type Playback } from "./playback";
 import ChartViewer, { type ChartDef } from "./ChartViewer";
 import AiAdvisory from "./AiAdvisory";
 
 const RANGE_KEYS: RangeKey[] = ["today", "yesterday", "last7", "last30", "month", "quarter", "year", "custom"];
 const GRAIN_WORD = { hour: "Hourly", day: "Daily", week: "Weekly", month: "Monthly" } as const;
-const METHOD_LABEL: Record<MethodKey, string> = { "M-Pesa": "M-Pesa", Cash: "Cash", Card: "Card", Bank: "Bank transfer", Credit: "On credit (not yet paid)" };
+const METHOD_LABEL: Record<MethodKey, string> = { "M-Pesa": "M-Pesa", Cash: "Cash", Card: "Card", Bank: "Bank", Credit: "On credit" };
 
 const shortDate = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const periodText = (r: { start: Date; end: Date }) =>
@@ -92,12 +90,12 @@ export default function HomeDashboard() {
   const { total, previous, series, cumulative } = data;
   const at = (frame: number | null) => (frame === null ? total : cumulative[frame] || total);
 
-  // Branches: a light sales list for every branch, so they compare on the same footing.
+  // Branches (each business is a branch): a light sales list for all of them, on the same footing.
   const branchList = useMemo(() => (businesses || []).map((b) => ({ id: toUuid(b.id), name: b.name })), [businesses]);
   const [branchSales, setBranchSales] = useState<BranchSale[]>([]);
   const [branchState, setBranchState] = useState<"idle" | "loading" | "error">("idle");
   const loadBranches = useCallback(async () => {
-    if (branchList.length < 2) return;
+    if (branchList.length === 0) return;
     setBranchState("loading");
     try {
       setBranchSales(await fetchBranchSales(branchList.map((b) => b.id), { start: prev.start, end: range.end }));
@@ -114,14 +112,13 @@ export default function HomeDashboard() {
     () => analyseBranches(branchList, branchSales, range, buckets).map((b, i) => ({ ...b, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] })),
     [branchList, branchSales, range, buckets],
   );
-  const showBranches = branchList.length > 1;
+  const manyBranches = branchList.length > 1;
 
   const refresh = () => {
     loadTransactionsFromServer().catch(() => {});
     loadBranches();
   };
 
-  // Figures that are not tied to the period.
   const safeProducts = Array.isArray(products) ? products : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const stock = useMemo(() => stockSummary(safeProducts, new Set(total.products.keys())), [safeProducts, total]);
@@ -136,8 +133,7 @@ export default function HomeDashboard() {
     return t >= prev.start.getTime() && t <= prev.end.getTime();
   }).length;
 
-  const role = currentEmployee?.role;
-  const can = (id: string) => canOpenScreen(role, id);
+  const can = (id: string) => canOpenScreen(currentEmployee?.role, id);
   const vsText = `vs ${periodText(prev)}`;
 
   // ---------- Chart definitions (shared by the page and the full-screen viewer) ----------
@@ -153,35 +149,33 @@ export default function HomeDashboard() {
     const r = at(frame).received;
     return METHODS.map((m, i) => ({ key: m, label: METHOD_LABEL[m], value: r[m], color: m === "Credit" ? "var(--viz-muted)" : CATEGORY_COLORS[i] }));
   };
-  const branchRows = (frame: number | null) =>
-    branches.map((b) => {
-      const sales = frame === null ? b.sales : b.perSlot.slice(0, frame + 1).reduce((s, v) => s + v, 0);
-      return {
-        key: b.id,
-        label: b.name,
-        value: sales,
-        color: b.color,
-        note: frame === null ? <GrowthText value={b.growth} /> : undefined,
-      };
-    });
+  const branchSalesAt = (b: (typeof branches)[number], frame: number | null) => (frame === null ? b.sales : b.perSlot.slice(0, frame + 1).reduce((s, v) => s + v, 0));
   const branchScale = Math.max(0, ...branches.map((b) => b.sales));
+  const branchLoadingOrError =
+    branchState === "error" ? <EmptyChart text="Couldn't load branch sales. Refresh to try again." /> :
+    branchState === "loading" && branchSales.length === 0 ? <EmptyChart text="Loading branches…" /> : null;
 
   const trendVisible: SeriesKey[] = comparePrev ? [...visible, "prevSales"] : visible;
+  const trendTotals = (frame: number | null) => ({ sales: at(frame).sales, expenses: at(frame).cost + at(frame).expenses, profit: at(frame).profit });
 
   const charts: ChartDef[] = [
     {
       id: "trend",
       title: "Sales, expenses and profit",
-      subtitle: `${GRAIN_WORD[grain]}, ${periodText(range)}`,
+      subtitle: `${GRAIN_WORD[grain]} · ${periodText(range)}`,
       playable: true,
       render: ({ full, frame, animate }) =>
         total.sales === 0 && total.expenses === 0 ? (
-          <EmptyChart text="No sales or expenses in this period" />
+          <EmptyChart text="No sales or expenses yet" />
         ) : (
-          <div className={full ? "flex h-full flex-col gap-3" : ""}>
-            {full && <TrendControls visible={visible} setVisible={setVisible} comparePrev={comparePrev} setComparePrev={setComparePrev} totals={{ sales: at(frame).sales, expenses: at(frame).cost + at(frame).expenses, profit: at(frame).profit }} />}
-            <div className={full ? "min-h-0 flex-1" : ""}>
-              <TrendChart series={series} frame={frame} visible={trendVisible} height={full ? "100%" : 260} animate={animate} />
+          <div className={full ? "flex h-full flex-col gap-2" : ""}>
+            {full && (
+              <div className="shrink-0 overflow-x-auto">
+                <TrendControls visible={visible} setVisible={setVisible} comparePrev={comparePrev} setComparePrev={setComparePrev} totals={trendTotals(frame)} />
+              </div>
+            )}
+            <div className={full ? "min-h-0 flex-1" : "h-[210px] sm:h-[280px]"}>
+              <TrendChart series={series} frame={frame} visible={trendVisible} height="100%" animate={animate} />
             </div>
           </div>
         ),
@@ -190,33 +184,54 @@ export default function HomeDashboard() {
         rows: series.filter((_, i) => frame === null || i <= frame).map((p) => [p.fullLabel, formatKsh(p.sales), p.orders, formatKsh(p.cost), formatKsh(p.expenses), formatKsh(p.profit)]),
       }),
     },
-    ...(showBranches
-      ? [
+    {
+      id: "growth",
+      title: manyBranches ? "Branch growth" : "Growth",
+      subtitle: vsText,
+      playable: false,
+      render: () =>
+        branchLoadingOrError ?? (
+          <div>
+            <GrowthBars rows={branches.map((b) => ({ key: b.id, label: b.name, growth: b.growth, sales: b.sales, color: b.color }))} />
+            {!manyBranches && (
+              <p className="mt-4 text-xs text-app-text-muted">
+                Open another branch in Business Management to compare them here.
+              </p>
+            )}
+          </div>
+        ),
+      table: () => ({
+        columns: ["Branch", "Sales", "Previous period", "Growth", "Share"],
+        rows: branches.map((b) => [b.name, formatKsh(b.sales), formatKsh(b.prevSales), formatGrowth(b.growth), `${Math.round(b.share)}%`]),
+      }),
+    },
+    ...(manyBranches
+      ? ([
           {
             id: "branches",
-            title: "Branches",
-            subtitle: `Sales and growth ${vsText}`,
+            title: "Branch sales",
+            subtitle: periodText(range),
             playable: true,
             render: ({ frame }) =>
-              branchState === "loading" && branchSales.length === 0 ? <EmptyChart text="Loading branch sales…" /> :
-              branchState === "error" ? <EmptyChart text="Branch sales could not be loaded. Check the connection and refresh." /> :
-              <RankedBars rows={branchRows(frame)} scaleMax={branchScale} limit={8} />,
+              branchLoadingOrError ?? (
+                <RankedBars rows={branches.map((b) => ({ key: b.id, label: b.name, value: branchSalesAt(b, frame), color: b.color, note: `${Math.round(b.share)}%` }))} scaleMax={branchScale} limit={8} />
+              ),
             table: (frame) => ({
-              columns: ["Branch", "Sales", "Orders", "Previous period", "Growth", "Share"],
-              rows: branches.map((b, i) => [b.name, formatKsh(branchRows(frame)[i].value), b.orders, formatKsh(b.prevSales), formatGrowth(b.growth), `${Math.round(b.share)}%`]),
+              columns: ["Branch", "Sales", "Orders", "Share"],
+              rows: branches.map((b) => [b.name, formatKsh(branchSalesAt(b, frame)), b.orders, `${Math.round(b.share)}%`]),
             }),
           },
           {
             id: "branch-trend",
-            title: "Branch sales over time",
-            subtitle: `${GRAIN_WORD[grain]}, ${periodText(range)}`,
+            title: "Branches over time",
+            subtitle: `${GRAIN_WORD[grain]} · ${periodText(range)}`,
             playable: true,
             render: ({ full, frame, animate }) =>
-              branchSales.length === 0 ? <EmptyChart text={branchState === "loading" ? "Loading branch sales…" : "No branch sales in this period"} /> : (
-                <div className={full ? "flex h-full flex-col gap-3" : ""}>
+              branchLoadingOrError ?? (
+                <div className={full ? "flex h-full flex-col" : ""}>
                   <Legend items={branches.map((b) => ({ label: b.name, color: b.color }))} />
-                  <div className={full ? "min-h-0 flex-1" : ""}>
-                    <BranchTrendChart branches={branches} labels={series} frame={frame} height={full ? "100%" : 240} animate={animate} />
+                  <div className={full ? "min-h-0 flex-1" : "h-[190px]"}>
+                    <BranchTrendChart branches={branches} labels={series} frame={frame} height="100%" animate={animate} />
                   </div>
                 </div>
               ),
@@ -224,23 +239,23 @@ export default function HomeDashboard() {
               columns: ["Period", ...branches.map((b) => b.name)],
               rows: series.filter((_, i) => frame === null || i <= frame).map((p, i) => [p.fullLabel, ...branches.map((b) => formatKsh(b.perSlot[i]))]),
             }),
-          } as ChartDef,
-        ] as ChartDef[]
+          },
+        ] as ChartDef[])
       : []),
     {
       id: "payments",
       title: "How money came in",
-      subtitle: "Payments received, plus sales on credit",
+      subtitle: "Payments received, and sales on credit",
       playable: true,
       render: ({ frame }) => <ShareBar parts={methodParts(frame)} />,
       table: (frame) => ({ columns: ["Method", "Amount"], rows: methodParts(frame).map((p) => [p.label, formatKsh(p.value)]) }),
     },
     {
       id: "products",
-      title: "Best-selling products",
+      title: "Best sellers",
       subtitle: "By sales value",
       playable: true,
-      render: ({ full, frame }) => <RankedBars rows={productRows(frame)} scaleMax={productScale} limit={full ? 15 : 6} />,
+      render: ({ full, frame }) => <RankedBars rows={productRows(frame)} scaleMax={productScale} limit={full ? 15 : 5} />,
       table: (frame) => ({
         columns: ["Product", "Sold", "Sales value"],
         rows: productRows(frame).sort((a, b) => b.value - a.value).map((r) => [r.label, String(r.note).replace(" sold", ""), formatKsh(r.value)]),
@@ -249,10 +264,14 @@ export default function HomeDashboard() {
     {
       id: "hours",
       title: "Busiest hours",
-      subtitle: "Sales by time of day, whole period",
+      subtitle: "Sales by time of day",
       playable: true,
       render: ({ full, frame, animate }) =>
-        total.sales === 0 ? <EmptyChart text="No sales in this period" /> : <HoursChart hours={at(frame).hours} scaleHours={total.hours} trim={!full} height={full ? "100%" : 220} animate={animate} />,
+        total.sales === 0 ? <EmptyChart text="No sales yet" /> : (
+          <div className={full ? "h-full" : "h-[190px]"}>
+            <HoursChart hours={at(frame).hours} scaleHours={total.hours} trim={!full} height="100%" animate={animate} />
+          </div>
+        ),
       table: (frame) => ({
         columns: ["Hour", "Sales"],
         rows: at(frame).hours.map((v, h) => [`${String(h).padStart(2, "0")}:00`, formatKsh(v)]).filter((r) => r[1] !== "KSh 0"),
@@ -260,10 +279,10 @@ export default function HomeDashboard() {
     },
     {
       id: "expenses",
-      title: "Where the money went",
-      subtitle: "Cost of goods sold and recorded expenses",
+      title: "Where money went",
+      subtitle: "Cost of goods and expenses",
       playable: true,
-      render: ({ full, frame }) => <RankedBars rows={expenseRows(frame)} scaleMax={expenseScale} limit={full ? 15 : 6} color="var(--viz-2)" />,
+      render: ({ full, frame }) => <RankedBars rows={expenseRows(frame)} scaleMax={expenseScale} limit={full ? 15 : 5} color="var(--viz-2)" />,
       table: (frame) => ({ columns: ["Category", "Amount"], rows: expenseRows(frame).sort((a, b) => b.value - a.value).map((r) => [r.label, formatKsh(r.value)]) }),
     },
   ];
@@ -272,26 +291,35 @@ export default function HomeDashboard() {
   const open = (id: string) => setViewer(chartIndex(id));
   const frame = playback.frame;
   const animate = !playback.playing;
+  const sideCharts = charts.filter((c) => c.id !== "trend");
 
-  // ---------- Figures ----------
-  const totalExpenses = total.cost + total.expenses;
-  const prevExpenses = previous.cost + previous.expenses;
+  // ---------- The four figures that matter, each with its trend and one line of meaning ----------
+  const spending = total.cost + total.expenses;
   const margin = total.sales > 0 ? (total.profit / total.sales) * 100 : null;
   const aov = total.orders ? total.sales / total.orders : 0;
-  const prevAov = previous.orders ? previous.sales / previous.orders : 0;
   const received = moneyReceived(total);
 
   const figures: FigureProps[] = [
-    { label: "Sales", value: formatKsh(total.sales, true), full: formatKsh(total.sales), change: growth(total.sales, previous.sales), polarity: "up" },
-    { label: "Orders", value: total.orders.toLocaleString(), change: growth(total.orders, previous.orders), polarity: "up" },
-    { label: "Average sale", value: formatKsh(aov, true), full: formatKsh(aov), change: growth(aov, prevAov), polarity: "up" },
-    { label: "Profit (estimate)", value: formatKsh(total.profit, true), full: formatKsh(total.profit), change: growth(total.profit, previous.profit), polarity: "up", note: margin === null ? undefined : `${Math.round(margin)}% of sales` },
-    { label: "Money received", value: formatKsh(received, true), full: formatKsh(received), change: growth(received, moneyReceived(previous)), polarity: "up" },
-    { label: "Costs and expenses", value: formatKsh(totalExpenses, true), full: formatKsh(totalExpenses), change: growth(totalExpenses, prevExpenses), polarity: "down" },
-    { label: "Sold on credit", value: formatKsh(total.creditSales, true), full: formatKsh(total.creditSales), change: growth(total.creditSales, previous.creditSales), polarity: "down" },
-    { label: "New customers", value: newCustomers.toLocaleString(), change: growth(newCustomers, prevNewCustomers), polarity: "up" },
-    { label: "Customers owing", value: formatKsh(owingTotal, true), full: formatKsh(owingTotal), note: `${owing.length} customer${owing.length === 1 ? "" : "s"}, today` },
-    { label: "Stock value", value: formatKsh(stock.value, true), full: formatKsh(stock.value), note: `At selling price · ${formatKsh(stock.costValue, true)} at cost` },
+    {
+      label: "Sales", value: formatKsh(total.sales, true), full: formatKsh(total.sales), change: growth(total.sales, previous.sales), polarity: "up",
+      spark: series.map((p) => p.sales), color: "var(--viz-1)",
+      meaning: total.orders ? `${total.orders.toLocaleString()} orders · ${formatKsh(aov, true)} each` : "No orders yet",
+    },
+    {
+      label: "Profit", hint: "Estimate: sales minus product cost and expenses", value: formatKsh(total.profit, true), full: formatKsh(total.profit), change: growth(total.profit, previous.profit), polarity: "up",
+      spark: series.map((p) => p.profit), color: "var(--viz-3)",
+      meaning: margin === null ? "No sales yet" : total.profit < 0 ? "Spending is above sales" : `Kept ${Math.round(margin)}% of sales`,
+    },
+    {
+      label: "Money in", value: formatKsh(received, true), full: formatKsh(received), change: growth(received, moneyReceived(previous)), polarity: "up",
+      spark: series.map((p) => p.received), color: "var(--viz-4)",
+      meaning: total.creditSales > 0 ? `${formatKsh(total.creditSales, true)} sold on credit` : "No credit sales",
+    },
+    {
+      label: "Spending", value: formatKsh(spending, true), full: formatKsh(spending), change: growth(spending, previous.cost + previous.expenses), polarity: "down",
+      spark: series.map((p) => p.spending), color: "var(--viz-2)",
+      meaning: spending > 0 ? `${Math.round((total.cost / spending) * 100)}% is stock sold` : "Nothing spent yet",
+    },
   ];
 
   // ---------- AI payload (keys read by the bi-analyze function) ----------
@@ -302,7 +330,7 @@ export default function HomeDashboard() {
     orderCount: total.orders,
     aov: Math.round(aov),
     revenueTrend: Math.round(growth(total.sales, previous.sales) ?? 0),
-    totalExpenses,
+    totalExpenses: spending,
     cogs: total.cost,
     deliveryFees: 0,
     overheadExpenses: total.expenses,
@@ -347,31 +375,23 @@ export default function HomeDashboard() {
     ],
   });
 
-  const quickActions = [
-    { id: "sell", label: "Quick sale", icon: Zap },
-    { id: "pos", label: "Checkout", icon: ShoppingCart },
-    { id: "money", label: "Record expense", icon: Wallet },
-    { id: "inventory", label: "Stock", icon: Boxes },
-    { id: "sales", label: "Sales log", icon: Receipt },
-  ].filter((a) => can(a.id));
-
-  const attention = [
+  const attention: AttentionItem[] = [
     stock.outOfStock.length > 0 && {
-      key: "out", icon: PackageX, tone: "bad" as const, title: `${stock.outOfStock.length} product${stock.outOfStock.length === 1 ? "" : "s"} out of stock`,
-      detail: stock.outOfStock.slice(0, 4).map((p) => p.name).join(", ") + (stock.outOfStock.length > 4 ? ` and ${stock.outOfStock.length - 4} more` : ""),
+      key: "out", icon: PackageX, tone: "bad", count: stock.outOfStock.length.toLocaleString(), title: "out of stock",
+      detail: stock.outOfStock.slice(0, 3).map((p) => p.name).join(", ") + (stock.outOfStock.length > 3 ? ` +${stock.outOfStock.length - 3}` : ""),
       tab: "inventory", action: "Restock",
     },
     stock.lowStock.length > 0 && {
-      key: "low", icon: PackageMinus, tone: "warn" as const, title: `${stock.lowStock.length} running low`,
-      detail: stock.lowStock.slice(0, 3).map((p) => `${p.name} (${p.stock} left)`).join(", ") + (stock.lowStock.length > 3 ? ` and ${stock.lowStock.length - 3} more` : ""),
+      key: "low", icon: PackageMinus, tone: "warn", count: stock.lowStock.length.toLocaleString(), title: "running low",
+      detail: stock.lowStock.slice(0, 3).map((p) => `${p.name} (${p.stock})`).join(", ") + (stock.lowStock.length > 3 ? ` +${stock.lowStock.length - 3}` : ""),
       tab: "inventory", action: "Order",
     },
     owing.length > 0 && {
-      key: "owing", icon: HandCoins, tone: "warn" as const, title: `${formatKsh(owingTotal)} owed by ${owing.length} customer${owing.length === 1 ? "" : "s"}`,
-      detail: owing.slice(0, 3).map((c) => `${c.name} ${formatKsh(c.debtBalance || 0, true)}`).join(", "),
+      key: "owing", icon: HandCoins, tone: "warn", count: formatKsh(owingTotal, true), title: `owed by ${owing.length} customer${owing.length === 1 ? "" : "s"}`,
+      detail: owing.slice(0, 2).map((c) => `${c.name} ${formatKsh(c.debtBalance || 0, true)}`).join(", "),
       tab: "customers", action: "Follow up",
     },
-  ].filter(Boolean) as { key: string; icon: any; tone: "bad" | "warn"; title: string; detail: string; tab: string; action: string }[];
+  ].filter(Boolean) as AttentionItem[];
 
   const activeShifts = (shifts || []).filter((s: any) => s.status === "Active").length;
   const itemsSold = [...total.products.values()].reduce((s, p) => s + p.qty, 0);
@@ -379,23 +399,20 @@ export default function HomeDashboard() {
   const branchName = businesses?.find((b) => b.id === activeBusinessId)?.name;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-10 pb-16">
+    <div className="mx-auto max-w-7xl space-y-9 pb-16">
       {/* Header and the one filter row that scopes everything below */}
-      <header className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-app-text">Home</h1>
-            <p className="mt-0.5 text-sm text-app-text-muted truncate">
-              {branchName ? `${branchName} · ` : ""}{periodText(range)}
-            </p>
+            <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-app-text">Home</h1>
+            <p className="text-[13px] text-app-text-muted truncate">{branchName ? `${branchName} · ` : ""}{periodText(range)}</p>
           </div>
-          <button type="button" onClick={refresh} className="flex items-center gap-2 rounded-full border border-app-border px-3 py-1.5 text-xs text-app-text-muted hover:text-app-text cursor-pointer" title="Load the latest figures">
-            <RefreshCw size={14} className={isSyncing || branchState === "loading" ? "animate-spin" : ""} />
-            Refresh
+          <button type="button" onClick={refresh} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-app-text-muted hover:bg-app-card hover:text-app-text cursor-pointer" aria-label="Refresh" title="Refresh">
+            <RefreshCw size={17} className={isSyncing || branchState === "loading" ? "animate-spin" : ""} />
           </button>
         </div>
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <div className="inline-flex gap-1 rounded-full bg-app-card p-1 border border-app-border" role="group" aria-label="Period">
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 no-scrollbar">
+          <div className="inline-flex gap-1 rounded-full border border-app-border bg-app-card p-1" role="group" aria-label="Period">
             {RANGE_KEYS.map((k) => (
               <button
                 key={k}
@@ -423,106 +440,52 @@ export default function HomeDashboard() {
         )}
       </header>
 
-      {/* 1. Charts */}
-      <section aria-labelledby="home-trends" className="space-y-6">
-        <SectionTitle id="home-trends">Trends</SectionTitle>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Panel className="lg:col-span-2" def={chart("trend")} onOpen={() => open("trend")} playback={playback}>
-            <div className="mb-4">
-              <TrendControls visible={visible} setVisible={setVisible} comparePrev={comparePrev} setComparePrev={setComparePrev} totals={{ sales: at(frame).sales, expenses: at(frame).cost + at(frame).expenses, profit: at(frame).profit }} />
-            </div>
-            {chart("trend").render({ full: false, frame, animate })}
-          </Panel>
-          <Panel def={chart("payments")} onOpen={() => open("payments")} playback={playback}>
-            {chart("payments").render({ full: false, frame, animate })}
-          </Panel>
-        </div>
-
-        {showBranches && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Panel def={chart("branches")} onOpen={() => open("branches")} playback={playback}>
-              {chart("branches").render({ full: false, frame, animate })}
-            </Panel>
-            <Panel def={chart("branch-trend")} onOpen={() => open("branch-trend")} playback={playback}>
-              {chart("branch-trend").render({ full: false, frame, animate })}
-            </Panel>
+      {/* 1. Charts: the main trend, then the rest side by side (swipe on phones) */}
+      <section aria-label="Trends" className="space-y-4">
+        <Panel def={chart("trend")} onOpen={() => open("trend")} playback={playback} showSubtitle>
+          <div className="mb-3 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 no-scrollbar">
+            <TrendControls visible={visible} setVisible={setVisible} comparePrev={comparePrev} setComparePrev={setComparePrev} totals={trendTotals(frame)} />
           </div>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {(["products", "hours", "expenses"] as const).map((id) => (
-            <Panel key={id} def={chart(id)} onOpen={() => open(id)} playback={playback}>
-              {chart(id).render({ full: false, frame, animate })}
+          {chart("trend").render({ full: false, frame, animate })}
+        </Panel>
+        <Rail label="More charts" className="lg:grid-cols-3">
+          {sideCharts.map((c, i) => (
+            <Panel key={c.id} def={c} onOpen={() => open(c.id)} playback={playback} className={i === sideCharts.length - 1 ? lastSpan(sideCharts.length) : ""}>
+              {c.render({ full: false, frame: c.playable ? frame : null, animate })}
             </Panel>
           ))}
-        </div>
+        </Rail>
       </section>
 
-      {/* 2. Figures */}
-      <section aria-labelledby="home-figures" className="space-y-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {/* 2. Key figures */}
+      <section aria-labelledby="home-figures" className="space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
           <SectionTitle id="home-figures">Key figures</SectionTitle>
-          <span className="text-xs text-app-text-muted">Changes are {vsText}</span>
+          <span className="truncate text-xs text-app-text-muted">{vsText}</span>
         </div>
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-app-border bg-app-border sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-app-border bg-app-border lg:grid-cols-4">
           {figures.map((f) => <Figure key={f.label} {...f} />)}
         </div>
       </section>
 
-      {/* 3. Actions */}
-      <section aria-labelledby="home-actions" className="space-y-4">
+      {/* 3. Needs attention: coloured so it can't be missed */}
+      <section aria-labelledby="home-actions" className="space-y-3">
         <SectionTitle id="home-actions">Needs attention</SectionTitle>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <ul className="lg:col-span-2 divide-y divide-app-border rounded-2xl border border-app-border bg-app-card">
-            {attention.length === 0 ? (
-              <li className="flex items-center gap-3 p-4 text-sm text-app-text">
-                <CheckCircle2 size={18} className="text-[var(--good)] shrink-0" />
-                Nothing needs attention right now: stock is above its minimum and no customer owes money.
-              </li>
-            ) : (
-              attention.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <li key={a.key} className="flex items-start gap-3 p-4">
-                    <Icon size={18} className={`mt-0.5 shrink-0 ${a.tone === "bad" ? "text-[var(--bad)]" : "text-[#c98500]"}`} aria-hidden />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-app-text">{a.title}</div>
-                      <div className="mt-0.5 text-xs text-app-text-muted break-words">{a.detail}</div>
-                    </div>
-                    {can(a.tab) && (
-                      <button type="button" onClick={() => setActiveTab(a.tab as any)} className="flex shrink-0 items-center gap-0.5 rounded-full px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-app-bg cursor-pointer">
-                        {a.action}
-                        <ChevronRight size={14} />
-                      </button>
-                    )}
-                  </li>
-                );
-              })
-            )}
-          </ul>
-          {quickActions.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Go to</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {quickActions.map((a) => {
-                  const Icon = a.icon;
-                  return (
-                    <button key={a.id} type="button" onClick={() => setActiveTab(a.id as any)} className="flex items-center gap-2 rounded-xl border border-app-border bg-app-card px-3 py-3 text-left text-sm text-app-text hover:border-brand-500/40 cursor-pointer min-w-0">
-                      <Icon size={16} className="shrink-0 text-brand-500" />
-                      <span className="truncate">{a.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        {attention.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl p-4 text-sm text-app-text" style={tint("var(--good)")}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white" style={{ background: "var(--good)" }}><CheckCircle2 size={18} /></span>
+            All clear: stock is above minimum and nobody owes money.
+          </div>
+        ) : (
+          <Rail label="Needs attention" className="lg:grid-cols-3" narrow>
+            {attention.map((a) => <AttentionCard key={a.key} item={a} onGo={can(a.tab) ? () => setActiveTab(a.tab as any) : undefined} />)}
+          </Rail>
+        )}
       </section>
 
       {/* 4. Reports */}
-      <section aria-labelledby="home-reports" className="space-y-6">
+      <section aria-labelledby="home-reports" className="space-y-4">
         <SectionTitle id="home-reports">Reports</SectionTitle>
-
         <TrackedReports
           businessId={activeBusinessId}
           transactions={(Array.isArray(transactions) ? transactions : []).filter((t) => {
@@ -533,48 +496,36 @@ export default function HomeDashboard() {
           products={safeProducts}
           formatCurrency={(n) => formatKsh(n)}
         />
-
-        <div className="grid gap-x-10 gap-y-8 rounded-2xl border border-app-border bg-app-card p-5 md:grid-cols-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-app-text">Team</h3>
-            <dl className="mt-3 space-y-2 text-sm">
+        <Rail label="Reports" className="lg:grid-cols-3" narrow>
+          <Card title="Team">
+            <dl className="space-y-2.5 text-sm">
               <Row label="On shift now" value={activeShifts.toLocaleString()} />
               <Row label="Staff" value={(employees || []).length.toLocaleString()} />
               <Row label="Items per sale" value={total.orders ? (itemsSold / total.orders).toFixed(1) : "–"} />
+              <Row label="New customers" value={newCustomers.toLocaleString()} />
             </dl>
-          </div>
-          <div>
-            <h3 className="text-[15px] font-semibold text-app-text">Loyalty members</h3>
-            <div className="mt-3">
-              <RankedBars rows={tiers} scaleMax={Math.max(...tiers.map((t) => t.value), 1)} format={(n) => n.toLocaleString()} emptyText="No loyalty members yet" sort={false} />
-            </div>
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-app-text">Not selling</h3>
-            <p className="text-xs text-app-text-muted">In stock, no sales this period. Highest stock value first.</p>
+          </Card>
+          <Card title="Loyalty members">
+            <RankedBars rows={tiers} scaleMax={Math.max(...tiers.map((t) => t.value), 1)} format={(n) => n.toLocaleString()} emptyText="No loyalty members yet" sort={false} />
+          </Card>
+          <Card title="Not selling">
             {stock.slowMoving.length === 0 ? (
-              <p className="mt-3 text-sm text-app-text-muted">Every stocked product sold at least once.</p>
+              <p className="text-sm text-app-text-muted">Every stocked product sold this period.</p>
             ) : (
-              <ul className="mt-3 space-y-2 text-sm">
-                {stock.slowMoving.slice(0, 5).map((p) => (
+              <ul className="space-y-2.5 text-sm">
+                {stock.slowMoving.slice(0, 4).map((p) => (
                   <li key={p.id} className="flex items-baseline justify-between gap-3">
                     <span className="min-w-0 truncate text-app-text">{p.name}</span>
-                    <span className="shrink-0 text-xs text-app-text-muted tabular-nums">{p.stock} {p.unit} · {formatKsh(p.price * p.stock, true)}</span>
+                    <span className="shrink-0 text-xs text-app-text-muted tabular-nums">{formatKsh(p.price * p.stock, true)}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-app-border bg-app-card p-5">
+          </Card>
+        </Rail>
+        <div className="rounded-2xl border border-app-border bg-app-card p-4 sm:p-5">
           <AiAdvisory businessId={activeBusinessId} metrics={aiMetrics} fallback={aiFallback} />
         </div>
-
-        <p className="text-xs text-app-text-muted leading-relaxed">
-          Profit is an estimate: sales minus each product's recorded cost and the expenses entered for the period.
-          Branch figures include every branch you can see.
-        </p>
       </section>
 
       {viewer !== null && charts[viewer] && (
@@ -586,19 +537,58 @@ export default function HomeDashboard() {
 
 // ---------- Small building blocks ----------
 
+const tint = (color: string): React.CSSProperties => ({
+  background: `color-mix(in srgb, ${color} 11%, var(--app-card))`,
+  border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
+});
+
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
-  return <h2 id={id} className="text-lg font-semibold tracking-tight text-app-text">{children}</h2>;
+  return <h2 id={id} className="text-[17px] font-semibold tracking-tight text-app-text">{children}</h2>;
 }
 
-function Panel({ def, onOpen, playback, className = "", children }: { def: ChartDef; onOpen: () => void; playback: ReturnType<typeof usePlayback>; className?: string; children: React.ReactNode }) {
+/**
+ * Cards in a row that swipes sideways on phones (the next card peeks in so it's
+ * clear there is more) and becomes a grid on wide screens.
+ */
+function Rail({ label, className = "", narrow, children }: { label: string; className?: string; narrow?: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      className={`-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 no-scrollbar md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 ${className} ${
+        narrow ? "[&>*]:w-[78%]" : "[&>*]:w-[86%]"
+      } [&>*]:shrink-0 [&>*]:snap-start md:[&>*]:w-auto`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-app-border bg-app-card p-4">
+      <h3 className="mb-3 text-[15px] font-semibold text-app-text">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+/** The last card stretches to fill its row, so no card sits alone with a gap beside it. */
+function lastSpan(count: number) {
+  const md = count % 2 === 1 ? "md:col-span-2" : "";
+  const lg = count % 3 === 1 ? "lg:col-span-3" : count % 3 === 2 ? "lg:col-span-2" : "lg:col-span-1";
+  return `${md} ${lg}`;
+}
+
+function Panel({ def, onOpen, playback, showSubtitle, className = "", children }: { def: ChartDef; onOpen: () => void; playback: Playback; showSubtitle?: boolean; className?: string; children: React.ReactNode }) {
   return (
     <div className={`min-w-0 rounded-2xl border border-app-border bg-app-card p-4 sm:p-5 ${className}`}>
-      <div className="mb-4 flex items-start justify-between gap-2">
+      <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold leading-snug text-app-text">{def.title}</h3>
-          <p className="mt-0.5 text-xs text-app-text-muted">{def.subtitle}</p>
+          <p className={`mt-0.5 text-xs text-app-text-muted truncate ${showSubtitle ? "" : "hidden sm:block"}`}>{def.subtitle}</p>
         </div>
-        <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+        <div className="-mr-2 -mt-1.5 flex shrink-0 items-center">
           {def.playable && <PlayButton playback={playback} />}
           <button type="button" onClick={onOpen} className="flex h-9 w-9 items-center justify-center rounded-full text-app-text-muted hover:bg-app-bg hover:text-app-text cursor-pointer" aria-label={`Open ${def.title} full screen`} title="Full screen">
             <Maximize2 size={16} />
@@ -616,16 +606,16 @@ function TrendControls({ visible, setVisible, comparePrev, setComparePrev, total
     if (next.length) setVisible((["sales", "expenses", "profit"] as SeriesKey[]).filter((s) => next.includes(s)));
   };
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-max items-center gap-2">
       <SeriesToggle keys={["sales", "expenses", "profit"]} visible={visible} onToggle={toggle} totals={totals} />
       <button
         type="button"
         onClick={() => setComparePrev(!comparePrev)}
         aria-pressed={comparePrev}
-        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs cursor-pointer ${comparePrev ? "border-app-border bg-app-bg text-app-text" : "border-dashed border-app-border text-app-text-muted"}`}
+        className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs cursor-pointer ${comparePrev ? "border-app-border bg-app-bg text-app-text" : "border-dashed border-app-border text-app-text-muted"}`}
       >
         <span className="inline-block w-3 h-0.5 rounded bg-[var(--viz-muted)]" />
-        Previous period
+        Last period
       </button>
     </div>
   );
@@ -633,51 +623,87 @@ function TrendControls({ visible, setVisible, comparePrev, setComparePrev, total
 
 function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
-    <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-app-text-muted">
+    <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-app-text-muted">
       {items.map((i) => (
-        <li key={i.label} className="flex items-center gap-1.5 min-w-0">
-          <span className="inline-block w-3 h-0.5 rounded shrink-0" style={{ background: i.color }} />
-          <span className="truncate">{i.label}</span>
+        <li key={i.label} className="flex min-w-0 items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 shrink-0 rounded" style={{ background: i.color }} />
+          <span className="truncate max-w-[9rem]">{i.label}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-function GrowthText({ value }: { value: number | null }) {
-  if (value === null) return <span>New</span>;
-  const up = value >= 0;
-  return <span className={up ? "text-[var(--good)]" : "text-[var(--bad)]"}>{formatGrowth(value)}</span>;
+interface AttentionItem {
+  key: string;
+  icon: React.ComponentType<{ size?: number }>;
+  tone: "bad" | "warn";
+  count: string;
+  title: string;
+  detail: string;
+  tab: string;
+  action: string;
+}
+
+const TONE = { bad: "var(--bad)", warn: "#d97706" } as const;
+
+function AttentionCard({ item, onGo }: { item: AttentionItem; onGo?: () => void }) {
+  const Icon = item.icon;
+  const color = TONE[item.tone];
+  return (
+    <div className="flex min-w-0 flex-col rounded-2xl p-4" style={tint(color)}>
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white" style={{ background: color }} aria-hidden>
+          <Icon size={19} />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <div className="text-xl font-bold text-app-text tabular-nums">{item.count}</div>
+          <div className="text-[13px] font-medium text-app-text">{item.title}</div>
+        </div>
+      </div>
+      <p className="mt-3 line-clamp-2 text-xs text-app-text-muted">{item.detail}</p>
+      {onGo && (
+        <button type="button" onClick={onGo} className="mt-3 flex w-max items-center gap-0.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white cursor-pointer" style={{ background: color }}>
+          {item.action}
+          <ChevronRight size={14} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 interface FigureProps {
   label: string;
+  /** Shown on hover/long-press of the label. */
+  hint?: string;
   value: string;
   /** Unrounded value, shown on hover when `value` is shortened. */
   full?: string;
-  change?: number | null;
+  change: number | null;
   /** Whether a rise is good ("up") or bad ("down"). */
-  polarity?: "up" | "down";
-  note?: string;
+  polarity: "up" | "down";
+  spark: number[];
+  color: string;
+  meaning: string;
 }
 
-function Figure({ label, value, full, change, polarity, note }: FigureProps) {
-  const hasChange = change !== undefined;
-  const flat = change === null || change === undefined || Math.round(change) === 0;
+function Figure({ label, hint, value, full, change, polarity, spark, color, meaning }: FigureProps) {
+  const flat = change === null || Math.round(change) === 0;
   const rising = (change ?? 0) > 0;
   const good = polarity === "down" ? !rising : rising;
   const Icon = flat ? Minus : rising ? ArrowUpRight : ArrowDownRight;
   return (
     <div className="min-w-0 bg-app-card p-4">
-      <div className="text-xs text-app-text-muted leading-snug">{label}</div>
-      <div className="mt-1.5 text-xl font-semibold leading-tight text-app-text break-words sm:text-[22px]" title={full}>{value}</div>
-      {hasChange && (
-        <div className={`mt-1.5 flex items-center gap-1 text-xs ${flat ? "text-app-text-muted" : good ? "text-[var(--good)]" : "text-[var(--bad)]"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] text-app-text-muted" title={hint}>{label}</span>
+        <span className={`flex shrink-0 items-center gap-0.5 text-xs font-medium ${flat ? "text-app-text-muted" : good ? "text-[var(--good)]" : "text-[var(--bad)]"}`}>
           <Icon size={13} aria-hidden />
-          <span>{change === null ? "No earlier data" : formatGrowth(change)}</span>
-        </div>
-      )}
-      {note && <div className="mt-1 text-[11px] leading-snug text-app-text-muted">{note}</div>}
+          {change === null ? "–" : formatGrowth(change)}
+        </span>
+      </div>
+      <div className="mt-1 truncate text-[19px] font-semibold leading-tight text-app-text sm:text-[22px]" title={full}>{value}</div>
+      <div className="mt-2"><Sparkline values={spark} color={color} /></div>
+      <div className="mt-1.5 truncate text-[11px] text-app-text-muted" title={meaning}>{meaning}</div>
     </div>
   );
 }

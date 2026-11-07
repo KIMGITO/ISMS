@@ -2,7 +2,7 @@
 // One timeline drives every chart: play reveals the period slot by slot from a chosen date.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Pause, Play, RotateCcw, X } from "lucide-react";
+import { CalendarDays, Pause, Play, RotateCcw, X } from "lucide-react";
 import { bucketIndex, parseDateInput, toDateInput, type Bucket } from "./metrics";
 
 const SPEEDS = [1, 2, 4] as const;
@@ -104,9 +104,10 @@ export function PlayButton({ playback, disabled }: { playback: Playback; disable
 }
 
 /** Controls shown while replaying: play/pause, scrubber, date readout, start date, speed. */
-export function PlaybackBar({ playback, buckets, range, compact }: { playback: Playback; buckets: Bucket[]; range: { start: Date; end: Date }; compact?: boolean }) {
+export function PlaybackBar({ playback, buckets, range, compact, variant }: { playback: Playback; buckets: Bucket[]; range: { start: Date; end: Date }; compact?: boolean; variant?: "inline" }) {
   const last = Math.max(0, buckets.length - 1);
   const at = playback.frame ?? last;
+  if (variant === "inline") return <InlinePlayback playback={playback} buckets={buckets} range={range} />;
   return (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${compact ? "" : "rounded-2xl border border-app-border bg-app-card px-3 py-2"}`}>
       <button
@@ -161,6 +162,61 @@ export function PlaybackBar({ playback, buckets, range, compact }: { playback: P
           {playback.playing ? <X size={14} /> : <RotateCcw size={14} />}
           {playback.playing ? "Stop" : "Show all"}
         </button>
+      )}
+    </div>
+  );
+}
+
+/** One line, for a phone on its side: play, slider, where we are, speed, start date. */
+function InlinePlayback({ playback, buckets, range }: { playback: Playback; buckets: Bucket[]; range: { start: Date; end: Date } }) {
+  const [pickDate, setPickDate] = useState(false);
+  const last = Math.max(0, buckets.length - 1);
+  const at = playback.frame ?? last;
+  const nextSpeed = SPEEDS[(SPEEDS.indexOf(playback.speed as (typeof SPEEDS)[number]) + 1) % SPEEDS.length];
+  return (
+    <div className="relative flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => (playback.playing ? playback.pause() : playback.play())}
+        disabled={buckets.length < 2}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-slate-950 cursor-pointer disabled:opacity-40"
+        aria-label={playback.playing ? "Pause" : "Play"}
+      >
+        {playback.playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={last}
+        value={at}
+        onChange={(e) => playback.seek(Number(e.target.value))}
+        className="min-w-[60px] flex-1 accent-[var(--color-brand-500)] cursor-pointer"
+        aria-label="Move through the period"
+      />
+      <span className="max-w-[7.5rem] shrink-0 truncate text-[11px] text-app-text-muted tabular-nums">{playback.frame === null ? "All" : buckets[at]?.label}</span>
+      <button type="button" onClick={() => playback.setSpeed(nextSpeed)} className="shrink-0 rounded-md border border-app-border px-1.5 py-0.5 text-[11px] font-semibold cursor-pointer" aria-label={`Speed ${playback.speed}×, tap for ${nextSpeed}×`}>
+        {playback.speed}×
+      </button>
+      <button type="button" onClick={() => setPickDate((v) => !v)} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer ${pickDate ? "text-brand-500" : "text-app-text-muted"}`} aria-label="Play from a date" title="Play from a date">
+        <CalendarDays size={16} />
+      </button>
+      {pickDate && (
+        <div className="absolute right-0 top-full z-10 mt-1 rounded-xl border border-app-border bg-app-card p-2 shadow-lg">
+          <label className="flex items-center gap-2 text-xs text-app-text-muted">
+            Play from
+            <input
+              type="date"
+              value={playback.fromDate}
+              min={toDateInput(range.start)}
+              max={toDateInput(range.end)}
+              onChange={(e) => {
+                playback.setFromDate(e.target.value);
+                setPickDate(false);
+              }}
+              className="rounded-lg border border-app-border bg-app-bg px-2 py-1 text-xs text-app-text"
+            />
+          </label>
+        </div>
       )}
     </div>
   );

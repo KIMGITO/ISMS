@@ -15,6 +15,7 @@ import { useOverlay } from '../../hooks/useOverlay';
 import { toUserMessage } from '../../utils/userError';
 import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
+import { Switch } from '../shared/Switch';
 
 interface Props {
   transaction: Transaction | null;
@@ -191,7 +192,7 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-      const actions: Record<string, () => void> = { p: startPrint, w: sendWhatsApp, e: sendEmail, d: sharePdf, c: copy };
+      const actions: Record<string, () => void> = { p: startPrint, w: sendWhatsApp, e: sendEmail, d: sharePdf, c: copy, b: toggleBarcode };
       const action = actions[e.key.toLowerCase()];
       if (action) {
         e.preventDefault();
@@ -201,6 +202,11 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  // Barcode on or off for this receipt; the default is set in Settings → Receipts → Codes.
+  function toggleBarcode() {
+    setReceipt((r) => (r ? { ...r, settings: { ...r.settings, showBarcode: !r.settings.showBarcode } } : r));
+  }
 
   const columns = receipt ? columnsFor(receipt.settings) : 32;
   const actionClass =
@@ -285,6 +291,18 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
                     </div>
                   </div>
                 )}
+
+                <div className="flex items-center gap-2 px-1">
+                  <Switch
+                    checked={!!receipt?.settings.showBarcode}
+                    onChange={toggleBarcode}
+                    disabled={!receipt}
+                    label="Barcode"
+                    description="For this receipt. Default in Settings."
+                    className="flex-1"
+                  />
+                  <Kbd>B</Kbd>
+                </div>
 
                 <button
                   type="button"

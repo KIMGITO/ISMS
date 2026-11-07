@@ -1,4 +1,5 @@
 import { toUserMessage } from '../utils/userError';
+import { SheetLayer } from '../components/shared/SheetLayer';
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Product, ProductCategory, PaymentMethod, Transaction } from '../types';
@@ -350,7 +351,7 @@ export default function POSView() {
           dragConstraints={{ left: -300, right: 10, top: -600, bottom: 10 }}
           dragElastic={0.08}
           dragMomentum={false}
-          className="absolute bottom-20 right-4 bg-app-card text-app-text p-2 rounded-xl shadow-2xl flex items-center gap-2.5 border border-amber-500/30 z-40 cursor-grab active:cursor-grabbing select-none"
+          className="absolute bottom-(--mobile-nav-space) md:bottom-6 right-4 bg-app-card text-app-text p-2 rounded-xl shadow-2xl flex items-center gap-2.5 border border-amber-500/30 z-40 cursor-grab active:cursor-grabbing select-none"
         >
           <div className="flex items-center gap-2.5 select-none pointer-events-none">
             <div className="relative p-1.5 bg-amber-500 text-slate-950 rounded-lg shrink-0">
@@ -381,6 +382,7 @@ export default function POSView() {
       )}
 
       {/* POS Cart / Checkout Bottom Sheet Drawer */}
+      <SheetLayer>
       <AnimatePresence>
         {isCartOpen && (
           <>
@@ -864,7 +866,7 @@ export default function POSView() {
               </div>
 
               {/* Drawer Footer Buttons using theme classes */}
-              <div className="p-4 border-t border-app-border bg-app-bg/40 flex items-center justify-between gap-3 shrink-0">
+              <div className="p-4 pb-[calc(1rem+var(--inset-bottom))] border-t border-app-border bg-app-bg/40 flex items-center justify-between gap-3 shrink-0">
                 <button
                   onClick={() => setIsCartOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-app-border text-xs font-bold text-app-text hover:bg-app-bg transition shrink-0 cursor-pointer"
@@ -892,8 +894,10 @@ export default function POSView() {
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
 
       {/* Success Modal Drawer using theme classes */}
+      <SheetLayer>
       <AnimatePresence>
         {checkoutSuccess && (
           <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -953,6 +957,7 @@ export default function POSView() {
           </div>
         )}
       </AnimatePresence>
+      </SheetLayer>
       <ReceiptSheet
         transaction={receiptTx}
         startPrinting={receiptAutoPrint}

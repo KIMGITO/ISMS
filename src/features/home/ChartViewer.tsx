@@ -78,7 +78,8 @@ export default function ChartViewer({
   const [locked, setLocked] = useState(false);
   const [showTable, setShowTable] = useState(false);
   // When the phone could not be turned for us, draw the chart sideways instead.
-  const [rotate, setRotate] = useState(false);
+  // Worked out on the first render so the chart is laid out once, at its final size.
+  const [rotate, setRotate] = useState(() => isTouch() && isPortrait() && Capacitor.getPlatform() !== "android");
   const [autoRotate, setAutoRotate] = useState(true);
   const chart = charts[index];
 
@@ -101,8 +102,14 @@ export default function ChartViewer({
     };
   }, []);
 
+  // Short screens (a phone on its side) get one thin bar so the chart keeps the height.
+  const [short, setShort] = useState(() => (isTouch() && isPortrait() && Capacitor.getPlatform() !== "android" ? window.innerWidth : window.innerHeight) < 560);
   useLayoutEffect(() => {
-    const update = () => setRotate(autoRotate && isTouch() && isPortrait() && !locked);
+    const update = () => {
+      const r = autoRotate && isTouch() && isPortrait() && !locked;
+      setRotate(r);
+      setShort((r ? window.innerWidth : window.innerHeight) < 560);
+    };
     update();
     // The lock takes effect a moment after the request.
     const t = window.setTimeout(update, 600);
@@ -139,46 +146,48 @@ export default function ChartViewer({
   return createPortal(
     <div ref={rootRef} className="fixed inset-0 z-200 bg-app-bg text-app-text" role="dialog" aria-modal="true" aria-label={chart.title}>
       <div style={panelStyle} className="flex flex-col pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
-        {/* Top navigation */}
-        <header className="flex items-center gap-1 border-b border-app-border bg-app-card px-2 py-1.5 sm:px-4 sm:py-2 shrink-0">
-          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer" aria-label="Close full screen">
-            <X size={20} />
-          </button>
-          <button type="button" onClick={() => onIndex((index - 1 + charts.length) % charts.length)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer" aria-label="Previous chart">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="min-w-0 flex-1 text-center">
+        {/* Top navigation (and, on short screens, the replay controls too) */}
+        <header className={`flex items-center gap-0.5 border-b border-app-border bg-app-card shrink-0 ${short ? "px-1 py-0.5" : "px-2 py-1.5 sm:px-4 sm:py-2"}`}>
+          <IconButton onClick={onClose} label="Close full screen" short={short}><X size={short ? 18 : 20} /></IconButton>
+          <IconButton onClick={() => onIndex((index - 1 + charts.length) % charts.length)} label="Previous chart" short={short}><ChevronLeft size={short ? 18 : 20} /></IconButton>
+          <div className={`min-w-0 text-center ${short ? "w-40 shrink-0 px-1" : "flex-1"}`}>
             <div className="text-sm font-semibold truncate">{chart.title}</div>
-            <div className="text-[11px] text-app-text-muted truncate">{index + 1} of {charts.length} · {chart.subtitle}</div>
+            {!short && <div className="text-[11px] text-app-text-muted truncate">{index + 1} of {charts.length} · {chart.subtitle}</div>}
+            {short && <div className="text-[10px] text-app-text-muted">{index + 1} of {charts.length}</div>}
           </div>
-          <button type="button" onClick={() => onIndex((index + 1) % charts.length)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer" aria-label="Next chart">
-            <ChevronRight size={20} />
-          </button>
-          <button type="button" onClick={() => setShowTable((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer" aria-label={showTable ? "Show chart" : "Show table"} title={showTable ? "Chart" : "Table"}>
+          <IconButton onClick={() => onIndex((index + 1) % charts.length)} label="Next chart" short={short}><ChevronRight size={short ? 18 : 20} /></IconButton>
+          {short ? (
+            <div className="min-w-0 flex-1 px-2">{chart.playable && <PlaybackBar playback={playback} buckets={buckets} range={range} variant="inline" />}</div>
+          ) : (
+            null
+          )}
+          <IconButton onClick={() => setShowTable((v) => !v)} label={showTable ? "Show chart" : "Show table"} short={short}>
             {showTable ? <BarChart3 size={18} /> : <Table2 size={18} />}
-          </button>
+          </IconButton>
           {isTouch() && !locked && (
-            <button type="button" onClick={() => setAutoRotate((v) => !v)} className={`flex h-10 w-10 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer ${autoRotate ? "text-brand-500" : ""}`} aria-label="Turn sideways" title="Turn sideways">
+            <IconButton onClick={() => setAutoRotate((v) => !v)} label="Turn sideways" short={short} active={autoRotate}>
               <RotateCw size={18} />
-            </button>
+            </IconButton>
           )}
         </header>
 
-        {/* Chart picker on wide screens */}
-        <nav className="hidden md:flex gap-1 overflow-x-auto border-b border-app-border px-4 py-2 shrink-0" aria-label="Charts">
-          {charts.map((c, i) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onIndex(i)}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs cursor-pointer ${i === index ? "bg-app-text text-app-card font-semibold" : "text-app-text-muted hover:bg-app-card hover:text-app-text"}`}
-            >
-              {c.title}
-            </button>
-          ))}
-        </nav>
+        {/* Chart picker on wide, tall screens */}
+        {!short && (
+          <nav className="hidden md:flex gap-1 overflow-x-auto border-b border-app-border px-4 py-2 shrink-0" aria-label="Charts">
+            {charts.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onIndex(i)}
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs cursor-pointer ${i === index ? "bg-app-text text-app-card font-semibold" : "text-app-text-muted hover:bg-app-card hover:text-app-text"}`}
+              >
+                {c.title}
+              </button>
+            ))}
+          </nav>
+        )}
 
-        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+        <main className={`min-h-0 flex-1 overflow-y-auto ${short ? "px-2 py-1.5" : "px-3 py-3 sm:px-6 sm:py-5"}`}>
           {table ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -201,7 +210,7 @@ export default function ChartViewer({
           )}
         </main>
 
-        {chart.playable && (
+        {chart.playable && !short && (
           <footer className="shrink-0 border-t border-app-border bg-app-card px-3 py-2 sm:px-6">
             <PlaybackBar playback={playback} buckets={buckets} range={range} compact />
           </footer>
@@ -209,5 +218,19 @@ export default function ChartViewer({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function IconButton({ onClick, label, short, active, children }: { onClick: () => void; label: string; short: boolean; active?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`flex shrink-0 items-center justify-center rounded-full hover:bg-app-bg cursor-pointer ${short ? "h-9 w-9" : "h-10 w-10"} ${active ? "text-brand-500" : ""}`}
+    >
+      {children}
+    </button>
   );
 }

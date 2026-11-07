@@ -1,17 +1,19 @@
 // src/features/NotificationsView.tsx
-import { Tabs } from "../components/TabOptions";
+// Notification centre. Swiping a notification stops on its actions (archive, delete,
+// read/unread) so nothing happens until you choose one. Long-press selects.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, PanInfo, animate, useMotionValue } from "motion/react";
 import { AppNotification } from "../types";
 import { NotificationRepository, SQLiteRow } from "../services/notifications/notificationRepository";
 import { NotificationService } from "../services/notifications/notificationService";
 import NotificationSettingsPanel from "../components/NotificationSettingsPanel";
 import { NotificationToneService, NotificationToneId } from "../services/notifications/notificationTone";
+import { SheetLayer } from "../components/shared/SheetLayer";
 import { useBusinessStore } from "../stores/businessStore";
 import { useNotificationStore } from "../stores/notificationStore";
+import { useOverlay } from "../hooks/useOverlay";
 import { formatNotificationNumber } from "../utils/idUtils";
-import { motion, AnimatePresence } from "motion/react";
 
-// Lucide icons
 import {
   Bell,
   BellRing,
@@ -23,7 +25,7 @@ import {
   ArchiveRestore,
   Trash2,
   Search,
-  MoreVertical,
+  MoreHorizontal,
   Settings2,
   ShieldCheck,
   PackageSearch,
@@ -33,7 +35,6 @@ import {
   CalendarClock,
   AlertTriangle,
   Info,
-  Inbox,
   CheckCircle2,
   Wallet,
   UserPlus,
@@ -42,125 +43,128 @@ import {
   ArrowRight,
   Sparkles,
   Mail,
-  PenLine,
+  ListChecks,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types and lookups
 // ---------------------------------------------------------------------------
 
 type TabId = "all" | "unread" | "system" | "transactions" | "activity" | "mentions";
 type ViewMode = "feed" | "archived";
 type Delay = ReturnType<typeof setTimeout>;
-
-// ---------------------------------------------------------------------------
-// Notification → icon / meta mapping (reuses existing type taxonomy)
-// ---------------------------------------------------------------------------
+type Row = SQLiteRow<AppNotification>;
+/** Which side's actions a row is showing: "start" = swiped right, "end" = swiped left. */
+type OpenSide = "start" | "end";
 
 interface NotifVisual {
   icon: React.ReactNode;
-  /** small circular avatar-style class */
   cls: string;
-  /** category the notification belongs to */
   category: TabId | "inventory" | "security" | "schedule";
 }
 
 const TYPE_VISUALS: Record<string, NotifVisual> = {
-  "Out Of Stock": { icon: <AlertTriangle size={15} />, cls: "bg-red-500/10 text-red-500", category: "inventory" },
-  "Stock Almost Finished": { icon: <PackageSearch size={15} />, cls: "bg-amber-500/10 text-amber-500", category: "inventory" },
-  "AI Business Insight": { icon: <Brain size={15} />, cls: "bg-indigo-500/10 text-indigo-500", category: "activity" },
-  "AI Recommendation": { icon: <Sparkles size={15} />, cls: "bg-fuchsia-500/10 text-fuchsia-500", category: "activity" },
-  "AI Risk Alert": { icon: <ShieldCheck size={15} />, cls: "bg-rose-500/10 text-rose-500", category: "security" },
-  "Sales Summary": { icon: <Wallet size={15} />, cls: "bg-emerald-500/10 text-emerald-500", category: "transactions" },
-  "Daily Report": { icon: <Wallet size={15} />, cls: "bg-emerald-500/10 text-emerald-500", category: "transactions" },
-  "Weekly Report": { icon: <Wallet size={15} />, cls: "bg-emerald-500/10 text-emerald-500", category: "transactions" },
-  "Monthly Report": { icon: <Wallet size={15} />, cls: "bg-emerald-500/10 text-emerald-500", category: "transactions" },
-  "Debt Due Reminder": { icon: <CircleDollarSign size={15} />, cls: "bg-amber-500/10 text-amber-500", category: "transactions" },
-  "Delivery Assigned": { icon: <Bike size={15} />, cls: "bg-sky-500/10 text-sky-500", category: "activity" },
-  "Delivery Completed": { icon: <Bike size={15} />, cls: "bg-sky-500/10 text-sky-500", category: "activity" },
-  "Payment Received": { icon: <CircleDollarSign size={15} />, cls: "bg-teal-500/10 text-teal-500", category: "transactions" },
-  "Payment Failed": { icon: <AlertTriangle size={15} />, cls: "bg-red-500/10 text-red-500", category: "transactions" },
-  "Schedule Reminder": { icon: <CalendarClock size={15} />, cls: "bg-violet-500/10 text-violet-500", category: "schedule" },
-  "Scheduled Reminder": { icon: <CalendarClock size={15} />, cls: "bg-violet-500/10 text-violet-500", category: "schedule" },
-  "Role Invitation": { icon: <UserPlus size={15} />, cls: "bg-cyan-500/10 text-cyan-500", category: "activity" },
-  "Account Activity": { icon: <ShieldCheck size={15} />, cls: "bg-orange-500/10 text-orange-500", category: "security" },
-  "System Update": { icon: <RefreshCw size={15} />, cls: "bg-blue-500/10 text-blue-500", category: "system" },
-  "Business Announcement": { icon: <Megaphone size={15} />, cls: "bg-pink-500/10 text-pink-500", category: "activity" },
-  "Low Cash Balance": { icon: <CircleDollarSign size={15} />, cls: "bg-amber-500/10 text-amber-500", category: "transactions" },
-  "Custom Notification": { icon: <Bell size={15} />, cls: "bg-slate-500/10 text-slate-400", category: "system" },
+  "Out Of Stock": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "inventory" },
+  "Stock Almost Finished": { icon: <PackageSearch size={17} />, cls: "bg-amber-500/12 text-amber-600 dark:text-amber-400", category: "inventory" },
+  "AI Business Insight": { icon: <Brain size={17} />, cls: "bg-indigo-500/12 text-indigo-500", category: "activity" },
+  "AI Recommendation": { icon: <Sparkles size={17} />, cls: "bg-fuchsia-500/12 text-fuchsia-500", category: "activity" },
+  "AI Risk Alert": { icon: <ShieldCheck size={17} />, cls: "bg-rose-500/12 text-rose-500", category: "security" },
+  "Sales Summary": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
+  "Daily Report": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
+  "Weekly Report": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
+  "Monthly Report": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
+  "Debt Due Reminder": { icon: <CircleDollarSign size={17} />, cls: "bg-amber-500/12 text-amber-600 dark:text-amber-400", category: "transactions" },
+  "Delivery Assigned": { icon: <Bike size={17} />, cls: "bg-sky-500/12 text-sky-500", category: "activity" },
+  "Delivery Completed": { icon: <Bike size={17} />, cls: "bg-sky-500/12 text-sky-500", category: "activity" },
+  "Payment Received": { icon: <CircleDollarSign size={17} />, cls: "bg-teal-500/12 text-teal-500", category: "transactions" },
+  "Payment Failed": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "transactions" },
+  "Schedule Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
+  "Scheduled Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
+  "Role Invitation": { icon: <UserPlus size={17} />, cls: "bg-cyan-500/12 text-cyan-500", category: "activity" },
+  "Account Activity": { icon: <ShieldCheck size={17} />, cls: "bg-orange-500/12 text-orange-500", category: "security" },
+  "System Update": { icon: <RefreshCw size={17} />, cls: "bg-blue-500/12 text-blue-500", category: "system" },
+  "Business Announcement": { icon: <Megaphone size={17} />, cls: "bg-pink-500/12 text-pink-500", category: "activity" },
+  "Low Cash Balance": { icon: <CircleDollarSign size={17} />, cls: "bg-amber-500/12 text-amber-600 dark:text-amber-400", category: "transactions" },
+  "Custom Notification": { icon: <Bell size={17} />, cls: "bg-slate-500/12 text-slate-500", category: "system" },
 };
 
 const getVisual = (type: string | undefined): NotifVisual =>
-  TYPE_VISUALS[type || ""] || { icon: <Info size={15} />, cls: "bg-slate-500/10 text-slate-400", category: "system" };
-
-const PRIORITY_INFO: Record<string, { label: string; cls: string }> = {
-  critical: { label: "Urgent", cls: "bg-red-500/10 text-red-500" },
-  high: { label: "Important", cls: "bg-amber-500/10 text-amber-500" },
-  medium: { label: "Normal", cls: "bg-slate-500/10 text-slate-400" },
-  low: { label: "Normal", cls: "bg-slate-500/10 text-slate-400" },
-};
+  TYPE_VISUALS[type || ""] || { icon: <Info size={17} />, cls: "bg-slate-500/12 text-slate-500", category: "system" };
 
 const TAB_DEFS: { id: TabId; label: string }[] = [
   { id: "all", label: "All" },
   { id: "unread", label: "Unread" },
-  { id: "mentions", label: "Mentions" },
-  { id: "system", label: "System" },
-  { id: "transactions", label: "Transactions" },
+  { id: "transactions", label: "Money" },
   { id: "activity", label: "Activity" },
+  { id: "system", label: "System" },
+  { id: "mentions", label: "Mentions" },
 ];
 
-// ---------------------------------------------------------------------------
-// Time helpers
-// ---------------------------------------------------------------------------
+const mentions = (n: Row) => (n.message + " " + (n.title || "")).toLowerCase().includes("@");
+
+function inTab(n: Row, tab: TabId): boolean {
+  const cat = getVisual(n.type).category;
+  switch (tab) {
+    case "unread": return !n.read_at;
+    case "mentions": return mentions(n);
+    case "system": return cat === "system" || cat === "security" || cat === "inventory";
+    case "transactions": return cat === "transactions";
+    case "activity": return cat === "activity" || cat === "schedule";
+    default: return true;
+  }
+}
+
+const whenOf = (n: Row) => n.created_at || n.sent_at || new Date().toISOString();
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const days = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (days < 7) return d.toLocaleDateString([], { weekday: "short" });
+  return d.toLocaleDateString([], { day: "numeric", month: "short" });
 }
 
-function formatGroupTime(iso: string): string {
-  const d = new Date(iso);
+function groupOf(iso: string): string {
+  const t = new Date(iso).getTime();
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startYesterday = startToday - 86400000;
-  const t = d.getTime();
   if (t >= startToday) return "Today";
-  if (t >= startYesterday) return "Yesterday";
+  if (t >= startToday - 86400000) return "Yesterday";
+  if (t >= startToday - 6 * 86400000) return "This week";
   return "Earlier";
 }
+const GROUP_ORDER = ["Today", "Yesterday", "This week", "Earlier"];
 
 function formatDetailDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+// Width of one action button behind a row.
+const ACTION_W = 76;
+
 // ---------------------------------------------------------------------------
-// Main View
+// Main view
 // ---------------------------------------------------------------------------
 
 export default function NotificationsView() {
   const { activeBusinessId } = useBusinessStore();
-  const { unreadReminderCount, scheduleReminders } = useNotificationStore();
 
-  // Core state
-  const [items, setItems] = useState<SQLiteRow<AppNotification>[]>([]);
-  const [archived, setArchived] = useState<SQLiteRow<AppNotification>[]>([]);
+  const [items, setItems] = useState<Row[]>([]);
+  const [archived, setArchived] = useState<Row[]>([]);
   const [tab, setTab] = useState<TabId>("all");
   const [view, setView] = useState<ViewMode>("feed");
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selecting, setSelecting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<{ id: string; side: OpenSide } | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind?: "success" | "danger" } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<SQLiteRow<AppNotification> | null>(null);
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const [liveToast, setLiveToast] = useState<SQLiteRow<AppNotification> | null>(null);
+  const [confirm, setConfirm] = useState<{ ids: string[]; title: string } | null>(null);
+  const [liveToast, setLiveToast] = useState<Row | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [toneOpen, setToneOpen] = useState(false);
   const liveToastTimer = useRef<Delay | null>(null);
@@ -168,16 +172,11 @@ export default function NotificationsView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const reducedMotion = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     []
   );
 
-  // ---- Realtime subscription (preserve existing data flow) ----
-  // IMPORTANT: recompute archived synchronously inside the same subscriber so
-  // archiving/restoring always updates the archived list immediately.
+  // Archived rows are recomputed in the same subscriber so archive/restore shows at once.
   useEffect(() => {
     const unsub = NotificationRepository.subscribe((rows) => {
       setItems(rows);
@@ -190,7 +189,7 @@ export default function NotificationsView() {
     return () => unsub();
   }, [activeBusinessId]);
 
-  // Live toast for newly arrived (last 8s) unread items
+  // Banner for a notification that arrived in the last few seconds.
   useEffect(() => {
     if (items.length === 0) return;
     const latest = items[0];
@@ -207,21 +206,9 @@ export default function NotificationsView() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
 
-  // Auto-focus search on open
   useEffect(() => {
     if (isSearchOpen) setTimeout(() => searchInputRef.current?.focus(), 60);
   }, [isSearchOpen]);
-
-  // Close menu on scroll / resize
-  useEffect(() => {
-    const close = () => { setMenuFor(null); setMenuPos(null); };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, []);
 
   const showToast = useCallback((msg: string, kind?: "success" | "danger") => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -229,367 +216,309 @@ export default function NotificationsView() {
     toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
 
-  // ---- Derived data (filter + group) ----
-  const baseList = useMemo(
-    () => [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [items]
-  );
+  // ---- Lists ----
+  const feed = useMemo(() => [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [items]);
 
   const filtered = useMemo(() => {
-    let list = baseList;
-    if (view === "archived") {
-      list = archived;
-    }
-    switch (tab) {
-      case "unread":
-        list = list.filter((n) => !n.read_at);
-        break;
-      case "mentions":
-        list = list.filter((n) => (n.message + " " + (n.title || "")).toLowerCase().includes("@"));
-        break;
-      case "system":
-        list = list.filter((n) => getVisual(n.type).category === "system" || getVisual(n.type).category === "security");
-        break;
-      case "transactions":
-        list = list.filter((n) => getVisual(n.type).category === "transactions");
-        break;
-      case "activity":
-        list = list.filter((n) => getVisual(n.type).category === "activity" || getVisual(n.type).category === "schedule");
-        break;
-      default:
-        break;
-    }
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter((n) =>
-        (n.title || "").toLowerCase().includes(q) ||
-        (n.message || "").toLowerCase().includes(q) ||
-        (n.created_by || "").toLowerCase().includes(q) ||
-        formatNotificationNumber(n.id).toLowerCase().includes(q)
+    let list = (view === "archived" ? archived : feed).filter((n) => inTab(n, tab));
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (n) =>
+          (n.title || "").toLowerCase().includes(q) ||
+          (n.message || "").toLowerCase().includes(q) ||
+          (n.created_by || "").toLowerCase().includes(q) ||
+          formatNotificationNumber(n.id).toLowerCase().includes(q)
       );
     }
     return list;
-  }, [baseList, archived, view, tab, query]);
+  }, [feed, archived, view, tab, query]);
 
   const groups = useMemo(() => {
-    const map: Record<string, SQLiteRow<AppNotification>[]> = {};
+    const map = new Map<string, Row[]>();
     for (const n of filtered) {
-      const key = formatGroupTime(n.created_at || n.sent_at || n.created_at);
-      (map[key] = map[key] || []).push(n);
+      const key = groupOf(whenOf(n));
+      map.set(key, [...(map.get(key) || []), n]);
     }
-    return [{ label: "Today", list: map["Today"] || [] }, { label: "Yesterday", list: map["Yesterday"] || [] }, { label: "Earlier", list: map["Earlier"] || [] }].filter(
-      (g) => g.list.length > 0
-    );
+    return GROUP_ORDER.filter((g) => map.has(g)).map((label) => ({ label, list: map.get(label)! }));
   }, [filtered]);
 
-  const unreadCount = baseList.filter((n) => !n.read_at).length;
-  const tabCount = (t: TabId) => {
-    switch (t) {
-      case "unread": return unreadCount;
-      case "mentions": return baseList.filter((n) => (n.message + " " + (n.title || "")).toLowerCase().includes("@")).length;
-      case "system": return baseList.filter((n) => getVisual(n.type).category === "system" || getVisual(n.type).category === "security").length;
-      case "transactions": return baseList.filter((n) => getVisual(n.type).category === "transactions").length;
-      case "activity": return baseList.filter((n) => getVisual(n.type).category === "activity" || getVisual(n.type).category === "schedule").length;
-      default: return baseList.length;
-    }
+  const unreadCount = feed.filter((n) => !n.read_at).length;
+  const tabCount = (t: TabId) => feed.filter((n) => inTab(n, t)).length;
+
+  // ---- Actions ----
+  const forget = (id: string) => {
+    setSelected((s) => {
+      if (!s.has(id)) return s;
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+    setExpandedId((e) => (e === id ? null : e));
+    setOpenRow((o) => (o?.id === id ? null : o));
   };
 
-  // ---- Actions (these update underlying state + DB via NotificationService) ----
-  const actMarkRead = useCallback((id: string) => {
+  const markRead = (id: string) => {
     NotificationService.markAsRead(id);
-    setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-  }, []);
-
-  const actMarkUnread = useCallback((id: string) => {
+    setOpenRow(null);
+  };
+  const markUnread = (id: string) => {
     NotificationService.markAsUnread(id);
-  }, []);
-
-  const actArchive = useCallback((id: string) => {
+    setOpenRow(null);
+  };
+  const archive = (id: string) => {
     NotificationService.archive(id);
-    setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-    setExpandedId((e) => (e === id ? null : e));
-  }, []);
-
-  const actRestore = useCallback((id: string) => {
+    forget(id);
+    showToast("Archived");
+  };
+  const restore = (id: string) => {
     NotificationService.unarchive(id);
-    showToast("Restored to feed");
-  }, [showToast]);
-
-  const actDelete = useCallback((id: string) => {
-    NotificationService.delete(id);
-    setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-  }, []);
-
-  const actMarkAllRead = useCallback(() => {
+    forget(id);
+    showToast("Moved back to notifications");
+  };
+  const askDelete = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const one = ids.length === 1 ? [...feed, ...archived].find((n) => n.id === ids[0]) : undefined;
+    setConfirm({ ids, title: one?.title || `${ids.length} notifications` });
+  };
+  const doDelete = (ids: string[]) => {
+    ids.forEach((id) => {
+      NotificationService.delete(id);
+      forget(id);
+    });
+    showToast(ids.length === 1 ? "Deleted" : `${ids.length} deleted`, "danger");
+  };
+  const markAllRead = () => {
     NotificationService.markAllRead();
     showToast("All marked as read");
-  }, [showToast]);
+  };
 
-  const toggleSelect = useCallback((id: string) => {
+  // ---- Selection ----
+  const endSelection = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  const toggleSelect = (id: string) => {
     setSelected((prev) => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  }, []);
+  };
+  const startSelection = (id?: string) => {
+    setOpenRow(null);
+    setExpandedId(null);
+    setSelecting(true);
+    setSelected(new Set(id ? [id] : []));
+  };
+  const allVisibleSelected = filtered.length > 0 && filtered.every((n) => selected.has(n.id));
+  const bulk = (fn: (id: string) => void, done: string) => {
+    selected.forEach((id) => fn(id));
+    showToast(`${selected.size} ${done}`);
+    endSelection();
+  };
 
-  const selectAllVisible = useCallback(() => {
-    setSelected(new Set(filtered.map((n) => n.id)));
-  }, [filtered]);
-
-  const clearSelection = useCallback(() => setSelected(new Set()), []);
-
-  const bulkMarkRead = useCallback(() => {
-    selected.forEach((id) => NotificationService.markAsRead(id));
-    showToast(`${selected.size} marked as read`);
-    setSelected(new Set());
-  }, [selected, showToast]);
-
-  const bulkArchive = useCallback(() => {
-    selected.forEach((id) => NotificationService.archive(id));
-    showToast(`${selected.size} archived`);
-    setSelected(new Set());
-  }, [selected, showToast]);
-
-  const bulkDelete = useCallback(() => {
-    selected.forEach((id) => NotificationService.delete(id));
-    showToast(`${selected.size} deleted`, "danger");
-    setSelected(new Set());
-  }, [selected, showToast]);
-
-  const handleOpenDetail = useCallback((n: SQLiteRow<AppNotification>) => {
-    if (selected.size > 0) { toggleSelect(n.id); return; }
+  const openDetail = (n: Row) => {
+    if (openRow) {
+      // A tap anywhere first closes the open actions.
+      setOpenRow(null);
+      return;
+    }
+    if (selecting) {
+      toggleSelect(n.id);
+      return;
+    }
     if (!n.read_at) NotificationService.markAsRead(n.id);
     setExpandedId((e) => (e === n.id ? null : n.id));
-  }, [selected.size, toggleSelect]);
+  };
 
-  const handleDeepLink = useCallback((n: SQLiteRow<AppNotification>) => {
-    const target = n.action_target;
-    if (!target || target === "none") return;
-    window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: target } }));
-    setExpandedId(null);
-  }, []);
-
-  const openMenu = useCallback((e: React.MouseEvent | React.TouchEvent, id: string) => {
+  const openMenuAt = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
     e.stopPropagation();
+    setOpenRow(null);
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenuPos({ x: rect.right - 160, y: rect.bottom + 6 });
-    setMenuFor(id);
-  }, []);
+    const x = e.type === "contextmenu" ? e.clientX : rect.right;
+    const y = e.type === "contextmenu" ? e.clientY : rect.bottom + 4;
+    setMenu({ id, x, y });
+  };
 
-  // ---- Render helpers ----
-  const shouldShowConfirmation = selected.size > 0;
+  // Back button / Escape: close the innermost thing first.
+  useOverlay(selecting, endSelection, "other");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (openRow) setOpenRow(null);
+      else if (isSearchOpen) {
+        setIsSearchOpen(false);
+        setQuery("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openRow, isSearchOpen]);
+
+  const menuRow = menu && menu.id !== "__page__" ? [...feed, ...archived].find((x) => x.id === menu.id) : undefined;
+  const closeMenu = () => setMenu(null);
 
   return (
     <div className="h-full flex flex-col bg-app-bg text-app-text font-sans overflow-hidden">
-      {/* ===================== Live toast ===================== */}
-      <AnimatePresence>
-        {liveToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -16, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16, scale: 0.96 }}
-            transition={{ duration: reducedMotion ? 0 : 0.2 }}
-            className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm"
-          >
-            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/70 rounded-2xl px-4 py-3 shadow-2xl text-white flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${getVisual(liveToast.type).cls}`}>
-                {getVisual(liveToast.type).icon}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-wider text-amber-400 font-black">New notification</p>
-                <p className="text-[12px] font-bold truncate">{liveToast.title}</p>
-                <p className="text-[11px] text-slate-300 truncate">{liveToast.message}</p>
-              </div>
-              <button
-                onClick={() => setLiveToast(null)}
-                aria-label="Dismiss"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 shrink-0"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ===================== Action toast ===================== */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ duration: reducedMotion ? 0 : 0.18 }}
-            className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-2xl text-[12px] font-bold flex items-center gap-2 ${
-              toast.kind === "danger" ? "bg-red-500/95 text-white" : "bg-slate-900/95 text-white"
-            }`}
-          >
-            {toast.kind === "danger" ? <Trash2 size={14} /> : <CheckCircle2 size={14} />}
-            {toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ===================== Header ===================== */}
-      <div className="shrink-0 px-3 md:px-6 pt-3 pb-2">
-        {!shouldShowConfirmation ? (
-          <div className="flex items-center gap-2">
-            {/* Back (only in archived view) */}
-            {view === "archived" && (
-              <button
-                onClick={() => setView("feed")}
-                aria-label="Back to notifications"
-                className="p-2 rounded-full hover:bg-app-card -ml-1"
-              >
-                <ChevronLeft size={18} />
-              </button>
-            )}
-
-            <h1 className="text-lg font-extrabold font-display tracking-tight truncate">
-              {view === "archived" ? "Archived" : "Notifications"}
-            </h1>
-
-            {unreadCount > 0 && view === "feed" && (
-              <span className="px-1.5 py-0.5 min-w-[20px] text-center bg-amber-500 text-slate-950 text-[10px] font-black rounded-full">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-
-            <div className="ml-auto flex items-center gap-0.5">
-              {view === "feed" && (
-                <button
-                  onClick={() => { setIsSearchOpen((v) => !v); if (isSearchOpen) setQuery(""); }}
-                  aria-label="Search notifications"
-                  className="p-2 rounded-full hover:bg-app-card transition"
-                >
-                  <Search size={17} />
-                </button>
-              )}
-
-              {/* Three-dot / options */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setMenuPos({ x: rect.right - 160, y: rect.bottom + 6 });
-                    setMenuFor("__page__");
-                  }}
-                  aria-label="More options"
-                  className="p-2 rounded-full hover:bg-app-card transition"
-                >
-                  <MoreVertical size={17} />
+      {/* New notification banner */}
+      <SheetLayer>
+        <AnimatePresence>
+          {liveToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: reducedMotion ? 0 : 0.2 }}
+              style={{ top: "calc(var(--inset-top) + 0.75rem)" }}
+              className="absolute left-1/2 -translate-x-1/2 w-[92%] max-w-sm"
+            >
+              <div className="bg-app-card/95 backdrop-blur-md ring-1 ring-app-border rounded-2xl px-3.5 py-3 shadow-xl flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${getVisual(liveToast.type).cls}`}>{getVisual(liveToast.type).icon}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold truncate">{liveToast.title}</p>
+                  <p className="text-xs text-app-text-muted truncate">{liveToast.message}</p>
+                </div>
+                <button onClick={() => setLiveToast(null)} aria-label="Dismiss" className="p-1.5 rounded-full hover:bg-app-bg text-app-text-muted shrink-0 cursor-pointer">
+                  <X size={15} />
                 </button>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              <button
-                onClick={() => setPrefsOpen(true)}
-                aria-label="Notification settings"
-                className="p-2 rounded-full hover:bg-app-card transition"
-              >
-                <Settings2 size={17} />
-              </button>
-            </div>
+        {/* Action result */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: reducedMotion ? 0 : 0.18 }}
+              role="status"
+              className={`absolute bottom-(--mobile-nav-space) md:bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full shadow-xl text-[13px] font-medium flex items-center gap-2 whitespace-nowrap ${
+                toast.kind === "danger" ? "bg-red-600 text-white" : "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+              }`}
+            >
+              {toast.kind === "danger" ? <Trash2 size={14} /> : <CheckCircle2 size={14} />}
+              {toast.msg}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </SheetLayer>
+
+      {/* Header */}
+      <div className="shrink-0 px-4 md:px-8 pt-4 pb-2 max-w-[860px] w-full mx-auto">
+        {selecting ? (
+          <div className="flex items-center gap-2 h-11">
+            <button onClick={endSelection} aria-label="Stop selecting" className="p-2 -ml-2 rounded-full hover:bg-app-card cursor-pointer">
+              <X size={20} />
+            </button>
+            <span className="text-[15px] font-semibold">{selected.size} selected</span>
+            <button
+              onClick={() => setSelected(allVisibleSelected ? new Set() : new Set(filtered.map((n) => n.id)))}
+              className="ml-auto text-[13px] font-medium text-amber-600 dark:text-amber-400 px-2 py-1 rounded-lg hover:bg-amber-500/10 cursor-pointer"
+            >
+              {allVisibleSelected ? "Select none" : "Select all"}
+            </button>
           </div>
         ) : (
-          /* ---------- Selection mode toolbar ---------- */
-          <div className="flex items-center gap-2">
-            <button
-              onClick={clearSelection}
-              aria-label="Close selection"
-              className="p-2 rounded-full hover:bg-app-card"
-            >
-              <X size={18} />
-            </button>
-            <span className="text-[13px] font-extrabold">{selected.size} selected</span>
+          <div className="flex items-center gap-1 h-11">
+            {view === "archived" && (
+              <button onClick={() => { setView("feed"); setTab("all"); }} aria-label="Back to notifications" className="p-2 -ml-2 rounded-full hover:bg-app-card cursor-pointer">
+                <ChevronLeft size={22} />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[22px] leading-tight font-bold tracking-tight truncate">{view === "archived" ? "Archived" : "Notifications"}</h1>
+            </div>
             <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={bulkMarkRead}
-                aria-label="Mark selected read"
-                className="px-2.5 py-2 rounded-xl bg-app-card hover:bg-app-bg border border-app-border text-[11px] font-bold flex items-center gap-1.5"
+              <IconButton label="Search" active={isSearchOpen} onClick={() => { setIsSearchOpen((v) => !v); if (isSearchOpen) setQuery(""); }}>
+                <Search size={18} />
+              </IconButton>
+              <IconButton
+                label="More options"
+                onClick={(e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setMenu({ id: "__page__", x: rect.right, y: rect.bottom + 4 });
+                }}
               >
-                <Check size={14} className="text-emerald-500" />
-                <span className="hidden xs:inline">Read</span>
-              </button>
-              <button
-                onClick={bulkArchive}
-                aria-label="Archive selected"
-                className="px-2.5 py-2 rounded-xl bg-app-card hover:bg-app-bg border border-app-border text-[11px] font-bold flex items-center gap-1.5"
-              >
-                <Archive size={14} className="text-sky-500" />
-                <span className="hidden xs:inline">Archive</span>
-              </button>
-              <button
-                onClick={bulkDelete}
-                aria-label="Delete selected"
-                className="px-2.5 py-2 rounded-xl bg-app-card hover:bg-app-bg border border-app-border text-[11px] font-bold flex items-center gap-1.5"
-              >
-                <Trash2 size={14} className="text-red-500" />
-                <span className="hidden xs:inline">Delete</span>
-              </button>
+                <MoreHorizontal size={18} />
+              </IconButton>
+              <IconButton label="Notification settings" onClick={() => setPrefsOpen(true)}>
+                <Settings2 size={18} />
+              </IconButton>
             </div>
           </div>
         )}
+
+        {view === "feed" && !selecting && (
+          <p className="text-[13px] text-app-text-muted -mt-0.5">
+            {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+          </p>
+        )}
+
+        <AnimatePresence initial={false}>
+          {isSearchOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="relative pt-3">
+                <Search size={15} className="absolute left-3 top-[calc(50%+0.375rem)] -translate-y-1/2 text-app-text-muted" />
+                <input
+                  ref={searchInputRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search notifications"
+                  className="w-full bg-app-card ring-1 ring-app-border focus:ring-2 focus:ring-amber-500 focus:outline-none rounded-xl py-2.5 pl-9 pr-9 text-sm"
+                />
+                {query && (
+                  <button onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-2.5 top-[calc(50%+0.375rem)] -translate-y-1/2 p-1 text-app-text-muted cursor-pointer">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Filters */}
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pt-3 -mx-4 px-4 md:mx-0 md:px-0" role="tablist" aria-label="Filter notifications">
+          {TAB_DEFS.map((t) => {
+            const count = view === "feed" ? tabCount(t.id) : 0;
+            if (view === "feed" && t.id === "mentions" && count === 0 && tab !== "mentions") return null;
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition cursor-pointer ${
+                  active ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-app-card text-app-text ring-1 ring-app-border hover:bg-app-border/40"
+                }`}
+              >
+                {t.label}
+                {view === "feed" && t.id !== "all" && count > 0 && <span className={`ml-1.5 text-xs ${active ? "opacity-70" : "text-app-text-muted"}`}>{count > 99 ? "99+" : count}</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ===================== Search bar ===================== */}
-      <AnimatePresence>
-        {isSearchOpen && view === "feed" && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.15 }}
-            className="overflow-hidden shrink-0 px-3 md:px-6"
-          >
-            <div className="relative mb-2">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-app-text-muted" />
-              <input
-                ref={searchInputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search notifications..."
-                className="w-full bg-app-card border border-app-border focus:border-amber-500/50 focus:outline-none rounded-2xl py-2.5 pl-10 pr-9 text-[12px] font-medium"
-              />
-              {query && (
-                <button
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ===================== Tabs ===================== */}
-      {view === "feed" ? (
-        <div className="shrink-0 px-3 md:px-6 pb-2">
-          <Tabs<TabId>
-            tabs={TAB_DEFS.map((t) => ({ id: t.id, label: t.label, badge: tabCount(t.id) }))}
-            activeTab={tab}
-            onChange={setTab}
-            className="!pb-2"
-          />
-        </div>
-      ) : null}
-
-      {/* ===================== Feed ===================== */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-2 md:px-10 md:py-3">
-        <div className="max-w-[820px] mx-auto pb-10">
-          {/* Mark all as read — subtle text action */}
-          {view === "feed" && tab !== "unread" && unreadCount > 0 && (
-            <div className="flex justify-end px-2 pt-1">
-              <button
-                onClick={actMarkAllRead}
-                className="text-[11px] font-bold text-app-text-muted hover:text-amber-500 transition flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-app-card"
-              >
-                <CheckCheck size={13} />
-                Mark all as read
+      {/* List */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 md:px-8 pb-nav" onScroll={() => openRow && setOpenRow(null)}>
+        <div className="max-w-[860px] mx-auto">
+          {view === "feed" && unreadCount > 0 && !selecting && tab !== "unread" && (
+            <div className="flex justify-end pt-1">
+              <button onClick={markAllRead} className="text-[13px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 cursor-pointer">
+                <CheckCheck size={15} /> Mark all as read
               </button>
             </div>
           )}
@@ -598,146 +527,198 @@ export default function NotificationsView() {
             <EmptyState view={view} tab={tab} hasQuery={!!query.trim()} onReset={() => setQuery("")} />
           ) : (
             groups.map((group) => (
-              <div key={group.label} className="mb-1">
-                <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-app-text-muted/70 sticky top-0 bg-app-bg/90 backdrop-blur-sm z-[5]">
-                  {group.label}
-                </div>
-                <div className="space-y-0.5">
+              <section key={group.label} className="mt-3">
+                <h2 className="px-3 pb-1.5 text-xs font-semibold text-app-text-muted">{group.label}</h2>
+                <ul className="bg-app-card rounded-2xl ring-1 ring-app-border/70 overflow-hidden divide-y divide-app-border/60">
                   {group.list.map((n) => (
                     <NotificationRow
                       key={n.id}
                       notif={n}
+                      archivedView={view === "archived"}
                       selected={selected.has(n.id)}
-                      isExpanded={expandedId === n.id}
-                      isSelectionMode={selected.size > 0}
+                      selecting={selecting}
+                      expanded={expandedId === n.id}
+                      open={openRow?.id === n.id ? openRow.side : null}
                       reducedMotion={reducedMotion}
-                      onToggleSelect={() => toggleSelect(n.id)}
-                      onOpen={handleOpenDetail}
-                      onMarkRead={() => actMarkRead(n.id)}
-                      onMarkUnread={() => actMarkUnread(n.id)}
-                      onArchive={() => actArchive(n.id)}
-                      onRestore={view === "archived" ? () => actRestore(n.id) : undefined}
-                      onDelete={() => actDelete(n.id)}
-                      onMenu={openMenu}
+                      onOpenChange={(side) => setOpenRow(side ? { id: n.id, side } : null)}
+                      onTap={() => openDetail(n)}
+                      onLongPress={() => startSelection(n.id)}
+                      onMenu={(e) => openMenuAt(e, n.id)}
+                      onToggleRead={() => (n.read_at ? markUnread(n.id) : markRead(n.id))}
+                      onArchive={() => (view === "archived" ? restore(n.id) : archive(n.id))}
+                      onDelete={() => askDelete([n.id])}
                     />
                   ))}
-                </div>
-              </div>
+                </ul>
+              </section>
             ))
+          )}
+
+          {groups.length > 0 && !selecting && (
+            <p className="text-center text-xs text-app-text-muted/80 py-5">
+              <span className="md:hidden">Swipe a notification for actions · hold to select</span>
+              <span className="hidden md:inline">Drag a notification sideways or right-click it for actions</span>
+            </p>
           )}
         </div>
       </div>
 
-      {/* ===================== Page-level options menu ===================== */}
-      <AnimatePresence>
-        {menuFor === "__page__" && menuPos && (
-          <MenuOverlay
-            x={menuPos.x}
-            y={menuPos.y}
-            onClose={() => { setMenuFor(null); setMenuPos(null); }}
-            items={[
-              view === "feed"
-                ? { label: "Archive", icon: <Archive size={15} />, onClick: () => { setTab("all"); setView("archived"); setMenuFor(null); setMenuPos(null); } }
-                : { label: "Back to notifications", icon: <Bell size={15} />, onClick: () => { setTab("all"); setView("feed"); setMenuFor(null); setMenuPos(null); } },
-              { label: "Mark all as read", icon: <CheckCheck size={15} />, onClick: () => { actMarkAllRead(); setMenuFor(null); setMenuPos(null); }, disabled: unreadCount === 0 },
-              { label: "Search", icon: <Search size={15} />, onClick: () => { setMenuFor(null); setMenuPos(null); setIsSearchOpen(true); } },
-              { label: "Notification tones", icon: <SoundIcon />, onClick: () => { setMenuFor(null); setMenuPos(null); setToneOpen(true); } },
-            ]}
-          />
-        )}
-      </AnimatePresence>
+      {/* Bulk actions */}
+      <SheetLayer>
+        <AnimatePresence>
+          {selecting && (
+            <motion.div
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.18 }}
+              // Same place and size as the mobile nav, which it covers while selecting.
+              style={{ bottom: "calc(var(--mobile-nav-gap) + var(--inset-bottom))", minHeight: "var(--mobile-nav-height)" }}
+              className="absolute left-1/2 -translate-x-1/2 w-[calc(100%-4px-var(--inset-left)-var(--inset-right))] max-w-lg bg-app-card ring-1 ring-app-border rounded-2xl shadow-2xl p-1.5 grid grid-cols-3 gap-1"
+            >
+              <BulkButton disabled={selected.size === 0} onClick={() => bulk((id) => NotificationService.markAsRead(id), "marked as read")} icon={<Check size={18} />} label="Read" />
+              {view === "archived" ? (
+                <BulkButton disabled={selected.size === 0} onClick={() => bulk((id) => NotificationService.unarchive(id), "restored")} icon={<ArchiveRestore size={18} />} label="Restore" />
+              ) : (
+                <BulkButton disabled={selected.size === 0} onClick={() => bulk((id) => NotificationService.archive(id), "archived")} icon={<Archive size={18} />} label="Archive" />
+              )}
+              <BulkButton disabled={selected.size === 0} danger onClick={() => askDelete([...selected])} icon={<Trash2 size={18} />} label="Delete" />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* ===================== Per-item menu ===================== */}
-      <AnimatePresence>
-        {menuFor && menuFor !== "__page__" && menuPos && (() => {
-          const n = baseList.find((x) => x.id === menuFor) || archived.find((x) => x.id === menuFor);
-          if (!n) return null;
-          const isRead = !!n.read_at;
-          const isArchived = !!n.archived_at;
-          return (
+        {/* Menus */}
+        <AnimatePresence>
+          {menu?.id === "__page__" && (
             <MenuOverlay
-              x={menuPos.x}
-              y={menuPos.y}
-              onClose={() => { setMenuFor(null); setMenuPos(null); }}
+              x={menu.x}
+              y={menu.y}
+              onClose={closeMenu}
               items={[
-                isRead
-                  ? { label: "Mark as unread", icon: <Mail size={15} />, onClick: () => { actMarkUnread(n.id); setMenuFor(null); setMenuPos(null); } }
-                  : { label: "Mark as read", icon: <Check size={15} />, onClick: () => { actMarkRead(n.id); setMenuFor(null); setMenuPos(null); } },
-                isArchived
-                  ? { label: "Restore", icon: <ArchiveRestore size={15} />, onClick: () => { actRestore(n.id); setMenuFor(null); setMenuPos(null); } }
-                  : { label: "Archive", icon: <Archive size={15} />, onClick: () => { actArchive(n.id); setMenuFor(null); setMenuPos(null); } },
-                { label: "View details", icon: <ArrowRight size={15} />, onClick: () => { handleOpenDetail(n); setMenuFor(null); setMenuPos(null); } },
-                { label: "Delete", icon: <Trash2 size={15} />, danger: true, onClick: () => { setConfirmDelete(n); setMenuFor(null); setMenuPos(null); } },
+                view === "feed"
+                  ? { label: "Archived", icon: <Archive size={16} />, onClick: () => { setTab("all"); setView("archived"); } }
+                  : { label: "Back to notifications", icon: <Bell size={16} />, onClick: () => { setTab("all"); setView("feed"); } },
+                { label: "Select", icon: <ListChecks size={16} />, onClick: () => startSelection(), disabled: filtered.length === 0 },
+                { label: "Mark all as read", icon: <CheckCheck size={16} />, onClick: markAllRead, disabled: unreadCount === 0 },
+                { label: "Notification tone", icon: <BellRing size={16} />, onClick: () => setToneOpen(true) },
               ]}
             />
-          );
-        })()}
-      </AnimatePresence>
+          )}
+          {menuRow && menu && (
+            <MenuOverlay
+              x={menu.x}
+              y={menu.y}
+              onClose={closeMenu}
+              items={[
+                menuRow.read_at
+                  ? { label: "Mark as unread", icon: <Mail size={16} />, onClick: () => markUnread(menuRow.id) }
+                  : { label: "Mark as read", icon: <Check size={16} />, onClick: () => markRead(menuRow.id) },
+                menuRow.archived_at
+                  ? { label: "Restore", icon: <ArchiveRestore size={16} />, onClick: () => restore(menuRow.id) }
+                  : { label: "Archive", icon: <Archive size={16} />, onClick: () => archive(menuRow.id) },
+                { label: "Select", icon: <ListChecks size={16} />, onClick: () => startSelection(menuRow.id) },
+                { label: "Delete", icon: <Trash2 size={16} />, danger: true, onClick: () => askDelete([menuRow.id]) },
+              ]}
+            />
+          )}
+        </AnimatePresence>
 
-      {/* ===================== Notification Preferences sheet ===================== */}
-      <AnimatePresence>
-        {prefsOpen && <NotificationPrefsSheet onClose={() => setPrefsOpen(false)} />}
-      </AnimatePresence>
+        <AnimatePresence>{prefsOpen && <NotificationPrefsSheet onClose={() => setPrefsOpen(false)} />}</AnimatePresence>
+        <AnimatePresence>{toneOpen && <NotificationToneSheet onClose={() => setToneOpen(false)} reducedMotion={reducedMotion} />}</AnimatePresence>
 
-      {/* ===================== Notification Tone sheet ===================== */}
-      <AnimatePresence>
-        {toneOpen && (
-          <NotificationToneSheet
-            onClose={() => setToneOpen(false)}
-            reducedMotion={reducedMotion}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ===================== Delete confirmation ===================== */}
-      <AnimatePresence>
-        {confirmDelete && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-            onClick={() => setConfirmDelete(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              transition={{ duration: reducedMotion ? 0 : 0.16 }}
-              className="bg-app-card border border-app-border rounded-3xl shadow-2xl max-w-sm w-full p-5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-11 h-11 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center mb-3">
-                <Trash2 size={20} />
-              </div>
-              <h3 className="text-[14px] font-extrabold">Delete notification?</h3>
-              <p className="text-[12px] text-app-text-muted mt-1 leading-relaxed">
-                "{confirmDelete.title}" will be permanently removed. You can't undo this.
-              </p>
-              <div className="flex gap-2 mt-5">
-                <button
-                  onClick={() => setConfirmDelete(null)}
-                  className="flex-1 py-2.5 rounded-2xl bg-app-bg hover:bg-app-card border border-app-border text-[12px] font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => { actDelete(confirmDelete.id); setConfirmDelete(null); }}
-                  className="flex-1 py-2.5 rounded-2xl bg-red-500 hover:bg-red-600 text-white text-[12px] font-black"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Delete confirmation */}
+        <AnimatePresence>
+          {confirm && (
+            <ConfirmDelete
+              title={confirm.title}
+              count={confirm.ids.length}
+              reducedMotion={reducedMotion}
+              onCancel={() => setConfirm(null)}
+              onConfirm={() => {
+                doDelete(confirm.ids);
+                setConfirm(null);
+                if (selecting) endSelection();
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </SheetLayer>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Menu overlay (shared for page + item menus)
+// Small pieces
 // ---------------------------------------------------------------------------
+
+function IconButton({ label, onClick, active, children }: { label: string; onClick: (e: React.MouseEvent) => void; active?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`w-9 h-9 rounded-full flex items-center justify-center transition cursor-pointer ${active ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-app-card ring-1 ring-app-border hover:bg-app-border/40"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function BulkButton({ icon, label, onClick, disabled, danger }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+        danger ? "text-red-600 dark:text-red-400 hover:bg-red-500/10" : "text-app-text hover:bg-app-bg"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function ConfirmDelete({ title, count, reducedMotion, onCancel, onConfirm }: { title: string; count: number; reducedMotion: boolean; onCancel: () => void; onConfirm: () => void }) {
+  useOverlay(true, onCancel, "dialog");
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px] p-3 pb-[calc(0.75rem+var(--inset-bottom))]"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 24, opacity: 0 }}
+        transition={{ duration: reducedMotion ? 0 : 0.16 }}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="Delete notification"
+        className="bg-app-card rounded-3xl shadow-2xl w-full max-w-sm p-5 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-12 h-12 mx-auto rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-3">
+          <Trash2 size={20} />
+        </div>
+        <h3 className="text-base font-semibold">{count === 1 ? "Delete this notification?" : `Delete ${count} notifications?`}</h3>
+        <p className="text-[13px] text-app-text-muted mt-1 leading-relaxed">
+          {count === 1 ? `"${title}" will be removed for good.` : "They will be removed for good."} Archive instead if you may need {count === 1 ? "it" : "them"} later.
+        </p>
+        <div className="grid grid-cols-2 gap-2 mt-5">
+          <button autoFocus onClick={onCancel} className="py-2.5 rounded-xl bg-app-bg hover:bg-app-border/50 text-sm font-medium cursor-pointer">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold cursor-pointer">
+            Delete
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 interface MenuItem {
   label: string;
@@ -747,35 +728,37 @@ interface MenuItem {
   disabled?: boolean;
 }
 
+/** A small menu anchored at (x, y): its right edge sits at x, kept inside the window. */
 function MenuOverlay({ x, y, onClose, items }: { x: number; y: number; onClose: () => void; items: MenuItem[] }) {
-  useEffect(() => {
-    const close = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
-
+  useOverlay(true, onClose, "dropdown");
+  const width = 200;
+  const height = items.length * 44 + 12;
+  const left = Math.max(8, Math.min(x - width, window.innerWidth - width - 8));
+  const top = Math.max(8, Math.min(y, window.innerHeight - height - 8));
   return (
-    <motion.div className="fixed inset-0 z-40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+    <motion.div className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: -4 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: -4 }}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.12 }}
-        style={{ top: Math.min(y, window.innerHeight - items.length * 46 - 12), left: Math.min(x, window.innerWidth - 190) }}
-        className="fixed w-[186px] bg-app-card border border-app-border rounded-2xl shadow-2xl p-1.5 z-50"
+        style={{ top, left, width }}
+        role="menu"
+        className="fixed bg-app-card ring-1 ring-app-border rounded-2xl shadow-2xl p-1.5 origin-top-right"
         onClick={(e) => e.stopPropagation()}
       >
-        {items.map((it, i) => (
+        {items.map((it) => (
           <button
-            key={i}
+            key={it.label}
+            role="menuitem"
             disabled={it.disabled}
-            onClick={() => { if (!it.disabled) it.onClick(); }}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-semibold transition ${
-              it.disabled
-                ? "opacity-40 cursor-not-allowed"
-                : it.danger
-                ? "text-red-500 hover:bg-red-500/10"
-                : "text-app-text hover:bg-app-bg"
+            onClick={() => {
+              if (it.disabled) return;
+              onClose();
+              it.onClick();
+            }}
+            className={`w-full flex items-center gap-3 px-3 h-11 rounded-xl text-sm transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+              it.danger ? "text-red-600 dark:text-red-400 hover:bg-red-500/10" : "text-app-text hover:bg-app-bg"
             }`}
           >
             {it.icon}
@@ -788,269 +771,281 @@ function MenuOverlay({ x, y, onClose, items }: { x: number; y: number; onClose: 
 }
 
 // ---------------------------------------------------------------------------
-// Notification Row (mobile-first + swipe gestures + selection + expandable)
+// Notification row
 // ---------------------------------------------------------------------------
 
 interface RowProps {
-  notif: SQLiteRow<AppNotification>;
+  notif: Row;
+  archivedView: boolean;
   selected: boolean;
-  isExpanded: boolean;
-  isSelectionMode: boolean;
+  selecting: boolean;
+  expanded: boolean;
+  open: OpenSide | null;
   reducedMotion: boolean;
-  onToggleSelect: () => void;
-  onOpen: (n: SQLiteRow<AppNotification>) => void;
-  onMarkRead: () => void;
-  onMarkUnread: () => void;
+  onOpenChange: (side: OpenSide | null) => void;
+  onTap: () => void;
+  onLongPress: () => void;
+  onMenu: (e: React.MouseEvent) => void;
+  onToggleRead: () => void;
   onArchive: () => void;
-  onRestore?: () => void;
   onDelete: () => void;
-  onMenu: (e: React.MouseEvent | React.TouchEvent, id: string) => void;
 }
 
+/**
+ * Drag sideways and let go: the row stays open on its actions until one is tapped, the
+ * row is tapped, or it is dragged back. Nothing is archived or deleted by the swipe alone.
+ */
 function NotificationRow({
-  notif, selected, isExpanded, isSelectionMode, reducedMotion,
-  onToggleSelect, onOpen, onMarkRead, onMarkUnread, onArchive, onRestore, onDelete, onMenu,
+  notif, archivedView, selected, selecting, expanded, open, reducedMotion,
+  onOpenChange, onTap, onLongPress, onMenu, onToggleRead, onArchive, onDelete,
 }: RowProps) {
   const isUnread = !notif.read_at;
   const visual = getVisual(notif.type);
-  const prio = PRIORITY_INFO[notif.priority || "medium"] || PRIORITY_INFO.medium;
+  const startW = ACTION_W;
+  const endW = ACTION_W * 2;
+  const target = open === "start" ? startW : open === "end" ? -endW : 0;
 
-  // Swipe state
-  const [offset, setOffset] = useState(0);
-  const startX = useRef<number | null>(null);
-  const dragging = useRef(false);
-  const SWIPE_LIMIT = 76;
+  const x = useMotionValue(0);
+  const settle = (to: number) =>
+    animate(x, to, reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 });
+  const shown = selecting ? 0 : target;
+  useEffect(() => {
+    settle(shown);
+  }, [shown]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isSelectionMode) return;
-    startX.current = e.touches[0].clientX;
-    dragging.current = true;
+  const dragged = useRef(false);
+  const touchPointer = useRef(false);
+  const pressTimer = useRef<Delay | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const longPressed = useRef(false);
+
+  const cancelPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  useEffect(() => cancelPress, []);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    longPressed.current = false;
+    touchPointer.current = e.pointerType !== "mouse";
+    if (e.pointerType === "mouse" || selecting) return;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      if (navigator.vibrate) navigator.vibrate(12);
+      onLongPress();
+    }, 480);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = pressStart.current;
+    if (s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 8) cancelPress();
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (startX.current === null || !dragging.current) return;
-    const dx = e.touches[0].clientX - startX.current;
-    // Only intercept horizontal gestures, avoid breaking vertical scroll
-    if (Math.abs(dx) > 8) {
-      setOffset(Math.max(-SWIPE_LIMIT * 2, Math.min(SWIPE_LIMIT, dx)));
-    }
+  const onDragEnd = (_: unknown, info: PanInfo) => {
+    const at = x.get();
+    const v = info.velocity.x;
+    let next: OpenSide | null = null;
+    if (at < -ACTION_W * 0.6 || (v < -500 && at < 0)) next = "end";
+    else if (at > ACTION_W * 0.6 || (v > 500 && at > 0)) next = "start";
+    onOpenChange(next);
+    // Snap even when the open side did not change.
+    settle(next === "start" ? startW : next === "end" ? -endW : 0);
+    // Let the click that ends the drag pass without opening the notification.
+    setTimeout(() => (dragged.current = false), 60);
   };
 
-  const handleTouchEnd = () => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    startX.current = null;
-    if (offset > SWIPE_LIMIT * 0.5) {
-      // Swipe right → mark read
-      if (isUnread && !isSelectionMode) onMarkRead();
-      setOffset(0);
-    } else if (offset < -SWIPE_LIMIT * 0.5) {
-      // Swipe left → archive (or delete if already archived view)
-      if (onRestore) onDelete(); else onArchive();
-      setOffset(0);
-    } else {
-      setOffset(0);
-    }
-  };
-
-  // Actions "peek" buttons for desktop hover / mobile swipe hint
-  const showLeftReveal = offset > 8;
-  const showRightReveal = offset < -8;
-
-  let parsedPayload: Record<string, any> = {};
+  let payload: Record<string, any> = {};
   if (notif.payload) {
-    try { parsedPayload = typeof notif.payload === "string" ? JSON.parse(notif.payload) : notif.payload; } catch {}
+    try {
+      payload = typeof notif.payload === "string" ? JSON.parse(notif.payload) : notif.payload;
+    } catch {
+      /* plain text payload */
+    }
   }
 
+  const trayButton = "h-full flex flex-col items-center justify-center gap-1 text-white text-xs font-medium cursor-pointer";
+  const hidden = open === null;
+
   return (
-    <>
-      {/* Swipe action backdrops */}
-      <div className="relative">
-        {showRightReveal && (
-          <div className="absolute inset-0 rounded-2xl bg-red-500 flex items-center justify-end pr-5 gap-4">
-            {onRestore ? (
-              <>
-                <button aria-label="Delete" onClick={onDelete} className="flex flex-col items-center gap-1 text-white text-[9px] font-bold"><Trash2 size={16} /></button>
-                <button aria-label="Restore" onClick={onRestore} className="flex flex-col items-center gap-1 text-white text-[9px] font-bold"><ArchiveRestore size={16} /></button>
-              </>
-            ) : (
-              <>
-                <button aria-label="Archive" onClick={onArchive} className="flex flex-col items-center gap-1 text-white text-[9px] font-bold"><Archive size={16} /></button>
-                <button aria-label="Delete" onClick={onDelete} className="flex flex-col items-center gap-1 text-white text-[9px] font-bold"><Trash2 size={16} /></button>
-              </>
-            )}
-          </div>
-        )}
-        {showLeftReveal && (
-          <div className="absolute inset-0 rounded-2xl bg-emerald-500 flex items-center justify-start pl-5">
-            <button aria-label="Mark read" onClick={onMarkRead} className="flex flex-col items-center gap-1 text-white text-[9px] font-bold"><Check size={16} /></button>
-          </div>
-        )}
-
-        <motion.div
-          style={{ x: offset }}
-          animate={!dragging.current ? { x: 0 } : undefined}
-          transition={{ duration: reducedMotion || dragging.current ? 0 : 0.15 }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onClick={() => (isSelectionMode ? onToggleSelect() : onOpen(notif))}
-          onContextMenu={(e) => { e.preventDefault(); onMenu(e, notif.id); }}
-          className={`relative flex items-start gap-3 px-3 py-3 rounded-2xl cursor-pointer select-none transition-colors ${
-            selected ? "bg-amber-500/10" : isUnread ? "bg-app-card/70" : "hover:bg-app-card/50"
-          }`}
-          aria-selected={selected}
-          role={isSelectionMode ? "checkbox" : "button"}
-          aria-checked={selected}
-          aria-label={`${notif.title}. ${isUnread ? "Unread" : "Read"} notification`}
-        >
-          {/* Selection checkbox in selection mode */}
-          {isSelectionMode && (
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-2 transition-colors ${
-              selected ? "bg-amber-500 border-amber-500" : "border-app-text-muted/40"
-            }`}>
-              {selected && <Check size={12} className="text-slate-950" />}
-            </div>
-          )}
-
-          {/* Avatar / icon */}
-          <div className="relative shrink-0">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${visual.cls}`}>
-              {visual.icon}
-            </div>
-            {isUnread && (
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-app-bg" />
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 pt-0.5">
-            <div className="flex items-start gap-2">
-              <h4 className={`text-[13px] leading-snug flex-1 min-w-0 ${isUnread ? "font-extrabold text-app-text" : "font-semibold text-app-text/90"}`}>
-                {notif.title}
-              </h4>
-              <span className="shrink-0 text-[10px] font-medium text-app-text-muted mt-0.5">
-                {formatTime(notif.created_at || notif.sent_at || new Date().toISOString())}
-              </span>
-            </div>
-
-            <p className={`text-[12px] leading-relaxed text-app-text-muted mt-0.5 ${isExpanded ? "" : "line-clamp-2"}`}>
-              {notif.message}
-            </p>
-
-            {/* Meta row: priority badge (only for meaningful statuses) */}
-            {(notif.priority === "high" || notif.priority === "critical") && (
-              <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${prio.cls}`}>
-                {notif.priority === "critical" ? <AlertTriangle size={9} /> : <Info size={9} />}
-                {prio.label}
-              </span>
-            )}
-
-            {/* Expanded detail */}
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: reducedMotion ? 0 : 0.16 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-3 pl-0.5 space-y-2.5 border-t border-app-border/40 pt-2.5">
-                    {/* Key action */}
-                    {notif.action_target && notif.action_target !== "none" && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: notif.action_target } })); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[11px] font-extrabold rounded-xl transition border border-amber-500/20"
-                      >
-                        View {labelForTarget(notif.action_target)}
-                        <ArrowRight size={11} />
-                      </button>
-                    )}
-
-                    {/* Rich Markdown content (e.g. End Shift Summary report) */}
-                    {parsedPayload.reportText && (
-                      <div className="bg-slate-950/80 border border-slate-700/60 rounded-2xl p-3.5 max-h-80 overflow-y-auto">
-                        <div className="text-[9.5px] font-black uppercase text-amber-400 tracking-wider mb-1 flex items-center justify-between border-b border-slate-800 pb-1.5">
-                          <span>📋 Shift Summary Report</span>
-                          {parsedPayload.employeeName && <span className="text-slate-400">Staff: {parsedPayload.employeeName}</span>}
-                        </div>
-                        <MarkdownBlock text={String(parsedPayload.reportText)} />
-                      </div>
-                    )}
-
-                    {/* Custom notes (from EndShiftModal or custom notifications) */}
-                    {parsedPayload.customMessage && !parsedPayload.reportText && (
-                      <div className="bg-app-bg border border-app-border rounded-xl p-3.5">
-                        <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1">Note</div>
-                        <div className="text-[12px] text-app-text leading-relaxed whitespace-pre-wrap">{parsedPayload.customMessage}</div>
-                      </div>
-                    )}
-
-                    {/* Schedule details */}
-                    {parsedPayload.shift_date && (
-                      <div className="flex items-center gap-2 text-[11px] text-app-text-muted font-medium bg-app-bg border border-app-border rounded-xl px-3 py-2 font-mono">
-                        <CalendarClock size={12} className="text-violet-400" />
-                        <span>{parsedPayload.shift_date}</span>
-                        {parsedPayload.start_time && <span>at {parsedPayload.start_time}</span>}
-                      </div>
-                    )}
-
-                    {/* AI confidence */}
-                    {parsedPayload.confidenceScore && (
-                      <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl px-3 py-2.5">
-                        <div className="flex items-center justify-between text-indigo-400 font-extrabold text-[10px] uppercase tracking-wide">
-                          <span className="flex items-center gap-1"><Sparkles size={10} /> AI Confidence</span>
-                          <span>{parsedPayload.confidenceScore}%</span>
-                        </div>
-                        {parsedPayload.recommendedAction && (
-                          <p className="text-app-text text-[11px] font-medium leading-relaxed mt-1">
-                            <span className="font-extrabold text-indigo-400">Recommendation:</span> {parsedPayload.recommendedAction}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Transaction ref */}
-                    <div className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                      ID <span className="font-mono text-app-text font-black">{formatNotificationNumber(notif.id)}</span>
-                    </div>
-                    <div className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                      Received <span className="text-app-text font-black">{formatDetailDate(notif.created_at || notif.sent_at || new Date().toISOString())}</span>
-                    </div>
-                    {notif.status && (
-                      <div className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Delivery <span className={`font-black ${notif.status === "sent" ? "text-emerald-500" : notif.status === "delivered" ? "text-sky-500" : "text-amber-500"}`}>{notif.status}</span>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Desktop hover actions */}
-          <div className="shrink-0 flex items-center gap-0.5 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-            {isUnread ? (
-              <button
-                aria-label="Mark as read"
-                onClick={(e) => { e.stopPropagation(); onMarkRead(); }}
-                className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-app-text-muted hover:text-emerald-500"
-              >
-                <Check size={14} />
-              </button>
-            ) : null}
-            <button
-              aria-label="More actions"
-              onClick={(e) => onMenu(e, notif.id)}
-              className="p-1.5 rounded-lg hover:bg-app-bg text-app-text-muted"
-            >
-              <MoreVertical size={14} />
+    // Long-press is watched here: the draggable row below takes its own pointer events.
+    <li
+      className="relative overflow-hidden group"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={cancelPress}
+      onPointerCancel={cancelPress}
+    >
+      {/* Actions behind the row */}
+      {!selecting && (
+        <>
+          <div className="absolute inset-y-0 left-0 flex" style={{ width: startW }} aria-hidden={open !== "start"}>
+            <button tabIndex={open === "start" ? 0 : -1} onClick={onToggleRead} className={`${trayButton} w-full bg-amber-500`}>
+              {isUnread ? <Check size={19} /> : <Mail size={19} />}
+              {isUnread ? "Read" : "Unread"}
             </button>
           </div>
-        </motion.div>
-      </div>
-    </>
+          <div className="absolute inset-y-0 right-0 flex" style={{ width: endW }} aria-hidden={open !== "end"}>
+            <button tabIndex={open === "end" ? 0 : -1} onClick={onArchive} className={`${trayButton} flex-1 bg-sky-600`}>
+              {archivedView ? <ArchiveRestore size={19} /> : <Archive size={19} />}
+              {archivedView ? "Restore" : "Archive"}
+            </button>
+            <button tabIndex={open === "end" ? 0 : -1} onClick={onDelete} className={`${trayButton} flex-1 bg-red-600`}>
+              <Trash2 size={19} />
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+
+      <motion.div
+        drag={selecting ? false : "x"}
+        dragDirectionLock
+        dragConstraints={{ left: -endW, right: startW }}
+        dragElastic={0.12}
+        dragMomentum={false}
+        style={{ x }}
+        onDragStart={() => {
+          dragged.current = true;
+          cancelPress();
+        }}
+        onDragEnd={onDragEnd}
+        onClick={() => {
+          if (dragged.current || longPressed.current) return;
+          onTap();
+        }}
+        onContextMenu={(e) => {
+          // A long press on a phone selects instead (handled above).
+          if (selecting || touchPointer.current) e.preventDefault();
+          else onMenu(e);
+        }}
+        className={`relative flex items-start gap-3 px-3.5 py-3 cursor-pointer select-none bg-app-card touch-pan-y ${selected ? "!bg-amber-50 dark:!bg-amber-500/15" : ""}`}
+        role={selecting ? "checkbox" : "button"}
+        aria-checked={selecting ? selected : undefined}
+        aria-expanded={selecting ? undefined : expanded}
+        aria-label={`${notif.title}. ${isUnread ? "Unread" : "Read"}`}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onTap();
+          }
+        }}
+      >
+        {selecting && (
+          <span
+            className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 mt-2.5 transition-colors ${
+              selected ? "bg-amber-500 border-amber-500 text-white" : "border-app-text-muted/40"
+            }`}
+          >
+            {selected && <Check size={13} strokeWidth={3} />}
+          </span>
+        )}
+
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${visual.cls}`}>{visual.icon}</div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <h3 className={`text-[14px] leading-snug flex-1 min-w-0 truncate ${isUnread ? "font-semibold" : "font-medium text-app-text/85"}`}>{notif.title}</h3>
+            <span className={`shrink-0 text-xs ${isUnread ? "text-amber-600 dark:text-amber-400 font-medium" : "text-app-text-muted"}`}>{formatTime(whenOf(notif))}</span>
+          </div>
+          <div className="flex items-start gap-2 mt-0.5">
+            <p className={`flex-1 min-w-0 text-[13px] leading-relaxed text-app-text-muted ${expanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}>{notif.message}</p>
+            {isUnread && <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" aria-hidden />}
+          </div>
+
+          {(notif.priority === "high" || notif.priority === "critical") && (
+            <span
+              className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                notif.priority === "critical" ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              }`}
+            >
+              <AlertTriangle size={11} />
+              {notif.priority === "critical" ? "Urgent" : "Important"}
+            </span>
+          )}
+
+          <AnimatePresence initial={false}>
+            {expanded && !selecting && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: reducedMotion ? 0 : 0.16 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 space-y-2.5" onClick={(e) => e.stopPropagation()}>
+                  {notif.action_target && notif.action_target !== "none" && (
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: notif.action_target } }))}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-medium rounded-full transition cursor-pointer"
+                    >
+                      Open {labelForTarget(notif.action_target)}
+                      <ArrowRight size={14} />
+                    </button>
+                  )}
+
+                  {payload.reportText && (
+                    <div className="bg-slate-950 rounded-2xl p-3.5 max-h-80 overflow-y-auto">
+                      <div className="text-[11px] font-semibold text-amber-400 mb-1.5 flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <span>Shift summary</span>
+                        {payload.employeeName && <span className="text-slate-400 font-normal">{payload.employeeName}</span>}
+                      </div>
+                      <MarkdownBlock text={String(payload.reportText)} />
+                    </div>
+                  )}
+
+                  {payload.customMessage && !payload.reportText && (
+                    <div className="bg-app-bg rounded-xl p-3">
+                      <div className="text-[11px] font-semibold text-app-text-muted mb-0.5">Note</div>
+                      <div className="text-[13px] leading-relaxed whitespace-pre-wrap">{payload.customMessage}</div>
+                    </div>
+                  )}
+
+                  {payload.shift_date && (
+                    <div className="inline-flex items-center gap-2 text-[13px] bg-app-bg rounded-xl px-3 py-2">
+                      <CalendarClock size={14} className="text-violet-500" />
+                      <span>{payload.shift_date}</span>
+                      {payload.start_time && <span className="text-app-text-muted">at {payload.start_time}</span>}
+                    </div>
+                  )}
+
+                  {payload.confidenceScore && (
+                    <div className="bg-indigo-500/5 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center justify-between text-indigo-500 font-medium text-xs">
+                        <span className="flex items-center gap-1"><Sparkles size={12} /> AI confidence</span>
+                        <span>{payload.confidenceScore}%</span>
+                      </div>
+                      {payload.recommendedAction && <p className="text-[13px] leading-relaxed mt-1">{payload.recommendedAction}</p>}
+                    </div>
+                  )}
+
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-app-text-muted">
+                    <dt>Received</dt>
+                    <dd className="text-app-text">{formatDetailDate(whenOf(notif))}</dd>
+                    <dt>Reference</dt>
+                    <dd className="text-app-text font-mono">{formatNotificationNumber(notif.id)}</dd>
+                  </dl>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Mouse users: a menu button on hover */}
+        {!selecting && (
+          <button
+            aria-label="Actions"
+            tabIndex={hidden ? 0 : -1}
+            onClick={(e) => onMenu(e)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="hidden md:flex shrink-0 -mr-1 w-8 h-8 items-center justify-center rounded-full text-app-text-muted hover:bg-app-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
+          >
+            <MoreHorizontal size={16} />
+          </button>
+        )}
+      </motion.div>
+    </li>
   );
 }
 
@@ -1203,77 +1198,25 @@ function MarkdownBlock({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Notification Preferences sheet (functional replacement for dead settings button)
+// Settings and tone sheets
 // ---------------------------------------------------------------------------
 
-function NotificationPrefsSheet({ onClose }: { onClose: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ y: 40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 40, opacity: 0 }}
-        transition={{ duration: 0.18 }}
-        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75dvh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="shrink-0 px-5 pt-4 pb-3 border-b border-app-border/40 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-            <Settings2 size={17} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[14px] font-extrabold">Notification Preferences</h3>
-            <p className="text-[11px] text-app-text-muted">These apply to your account on every device.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close preferences" className="p-2 rounded-full hover:bg-app-bg shrink-0">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-2">
-          <NotificationSettingsPanel />
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Notification Tone picker sheet (per-device, web + native)
-// ---------------------------------------------------------------------------
-
-function SoundIcon() {
-  return <BellRing size={15} />;
-}
-
-function NotificationToneSheet({
-  onClose,
-  reducedMotion,
-}: {
+function Sheet({ title, subtitle, icon, onClose, children, footer, reducedMotion = false }: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
   onClose: () => void;
-  reducedMotion: boolean;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  reducedMotion?: boolean;
 }) {
-  const [toneId, setToneId] = useState(NotificationToneService.getToneId());
-
-  const previewTone = (id: NotificationToneId) => {
-    NotificationToneService.setToneId(id);
-    NotificationToneService.playWebTone(reducedMotion);
-    setToneId(id);
-  };
-
-  const tones = NotificationToneService.getTones();
-
+  useOverlay(true, onClose, "bottom-sheet");
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center"
+      className="absolute inset-0 flex items-end justify-center bg-black/40 backdrop-blur-[2px] md:items-center md:p-4"
       onClick={onClose}
     >
       <motion.div
@@ -1281,64 +1224,82 @@ function NotificationToneSheet({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ duration: reducedMotion ? 0 : 0.18 }}
-        className="bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[75dvh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="bg-app-card rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-md max-h-[85dvh] flex flex-col pb-[var(--inset-bottom)] md:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 px-5 pt-4 pb-3 border-b border-app-border/40 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-            <SoundIcon />
-          </div>
+        <div className="w-10 h-1 rounded-full bg-app-border mx-auto mt-2.5 md:hidden" />
+        <div className="shrink-0 px-5 pt-3 pb-3 border-b border-app-border/60 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">{icon}</div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-[14px] font-extrabold">Notification Tone</h3>
-            <p className="text-[11px] text-app-text-muted">Applied to this device (web + mobile).</p>
+            <h3 className="text-[15px] font-semibold">{title}</h3>
+            <p className="text-xs text-app-text-muted">{subtitle}</p>
           </div>
-          <button onClick={onClose} aria-label="Close tone settings" className="p-2 rounded-full hover:bg-app-bg shrink-0">
+          <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full bg-app-bg flex items-center justify-center shrink-0 cursor-pointer">
             <X size={16} />
           </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-2">
-          {tones.map((tone) => {
-            const active = toneId === tone.id;
-            return (
-              <button
-                key={tone.id}
-                onClick={() => previewTone(tone.id)}
-                role="radio"
-                aria-checked={active}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition text-left ${
-                  active ? "bg-amber-500/10" : "hover:bg-app-bg"
-                }`}
-              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                  active
-                    ? "bg-amber-500/15 text-amber-500"
-                    : "bg-app-bg text-app-text-muted"
-                }`}>
-                  <BellRing size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[13px] font-bold block truncate">{tone.label}</span>
-                  <span className="text-[10px] text-app-text-muted block truncate">{tone.description}</span>
-                </div>
-                {active && (
-                  <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shrink-0">
-                    <Check size={12} />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="shrink-0 px-4 pb-4 pt-1">
-          <p className="text-[10px] text-app-text-muted leading-relaxed">
-            Web plays the tone via Web Audio. On the mobile app, the selected tone is
-            requested for the native notification channel (audio asset must be bundled).
-          </p>
-        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2">{children}</div>
+        {footer}
       </motion.div>
     </motion.div>
+  );
+}
+
+function NotificationPrefsSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <Sheet title="Notification settings" subtitle="These apply to your account on every device." icon={<Settings2 size={17} />} onClose={onClose}>
+      <NotificationSettingsPanel />
+    </Sheet>
+  );
+}
+
+function NotificationToneSheet({ onClose, reducedMotion }: { onClose: () => void; reducedMotion: boolean }) {
+  const [toneId, setToneId] = useState(NotificationToneService.getToneId());
+  const choose = (id: NotificationToneId) => {
+    NotificationToneService.setToneId(id);
+    NotificationToneService.playWebTone(reducedMotion);
+    setToneId(id);
+  };
+  return (
+    <Sheet
+      title="Notification tone"
+      subtitle="Used on this device."
+      icon={<BellRing size={17} />}
+      onClose={onClose}
+      reducedMotion={reducedMotion}
+      footer={<p className="shrink-0 px-5 pb-4 pt-1 text-xs text-app-text-muted">Tap a tone to hear it. On the phone app it is used for new notifications.</p>}
+    >
+      <div role="radiogroup" aria-label="Notification tone">
+        {NotificationToneService.getTones().map((tone) => {
+          const active = toneId === tone.id;
+          return (
+            <button
+              key={tone.id}
+              onClick={() => choose(tone.id)}
+              role="radio"
+              aria-checked={active}
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition text-left cursor-pointer ${active ? "bg-amber-500/10" : "hover:bg-app-bg"}`}
+            >
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${active ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-app-bg text-app-text-muted"}`}>
+                <BellRing size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium block truncate">{tone.label}</span>
+                <span className="text-xs text-app-text-muted block truncate">{tone.description}</span>
+              </div>
+              {active && (
+                <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </Sheet>
   );
 }
 
@@ -1350,35 +1311,29 @@ function EmptyState({ view, tab, hasQuery, onReset }: { view: ViewMode; tab: Tab
   let icon = <BellRing size={26} />;
   let title = "You're all caught up";
   let sub = "New notifications will appear here.";
-  let showReset = false;
-
-  if (view === "archived") {
+  if (hasQuery) {
+    icon = <Search size={26} />;
+    title = "Nothing matches";
+    sub = "Try a different word.";
+  } else if (view === "archived") {
     icon = <Archive size={26} />;
-    title = "No archived notifications";
-    sub = "Archived notifications will appear here.";
+    title = "Nothing archived";
+    sub = "Swipe a notification and tap Archive to keep it here.";
   } else if (tab === "unread") {
     icon = <CheckCheck size={26} />;
     title = "No unread notifications";
     sub = "You've read everything.";
-  } else if (hasQuery) {
-    icon = <Search size={26} />;
-    title = "No notifications found";
-    sub = "Try a different search term.";
-    showReset = true;
   } else if (tab !== "all") {
-    title = "No notifications here";
-    sub = "New items in this category will appear here.";
+    title = "Nothing here yet";
+    sub = "New notifications of this kind will appear here.";
   }
-
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-app-card border border-app-border flex items-center justify-center text-app-text-muted/40 mb-4">
-        {icon}
-      </div>
-      <h3 className="text-[15px] font-extrabold text-app-text">{title}</h3>
-      <p className="text-[12px] text-app-text-muted mt-1 max-w-xs leading-relaxed">{sub}</p>
-      {showReset && (
-        <button onClick={onReset} className="mt-4 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[11px] font-bold border border-amber-500/20">
+      <div className="w-16 h-16 rounded-full bg-app-card ring-1 ring-app-border flex items-center justify-center text-app-text-muted/60 mb-4">{icon}</div>
+      <h3 className="text-base font-semibold">{title}</h3>
+      <p className="text-[13px] text-app-text-muted mt-1 max-w-xs leading-relaxed">{sub}</p>
+      {hasQuery && (
+        <button onClick={onReset} className="mt-4 px-4 py-2 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[13px] font-medium cursor-pointer">
           Clear search
         </button>
       )}

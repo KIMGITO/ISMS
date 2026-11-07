@@ -814,7 +814,7 @@ export default function SettingsView({
       </div>
 
       {/* Main Settings Panel */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5 pb-6 font-semibold text-xs">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5 pb-nav font-semibold text-xs">
         {!isAdminOrOwner && !allowWorkerSettings ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
             <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mb-4 border border-red-500/15 ">
