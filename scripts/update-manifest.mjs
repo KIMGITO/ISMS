@@ -16,9 +16,15 @@ export function buildManifest({ version, tag, repo, notes, files, readText, sha2
   const find = (suffix) => files.find((f) => f.endsWith(suffix));
 
   const platforms = {};
+  // The updater looks for "{os}-{arch}-{installer}" first, then "{os}-{arch}".
+  // Each kind of install must get its own file: an app installed from the .deb
+  // fails with "invalid updater binary format" if it is handed the AppImage.
   const desktop = [
     ["windows-x86_64", "-windows-x64-setup.msi"],
+    ["windows-x86_64-msi", "-windows-x64-setup.msi"],
     ["linux-x86_64", "-linux-x86_64.AppImage"],
+    ["linux-x86_64-appimage", "-linux-x86_64.AppImage"],
+    ["linux-x86_64-deb", "-linux-amd64.deb"],
   ];
   for (const [platform, suffix] of desktop) {
     const file = find(suffix);

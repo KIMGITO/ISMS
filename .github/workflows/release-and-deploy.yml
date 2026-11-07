@@ -274,7 +274,14 @@ jobs:
           fi
           cp "${images[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage"
           cp "${images[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage.sig"
-          for deb in $DEB_GLOB; do cp "$deb" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb"; done
+          # Apps installed from the .deb update from the .deb, so it needs its signature too.
+          debs=($DEB_GLOB)
+          if [ ${#debs[@]} -ne 1 ] || [ ! -f "${debs[0]}.sig" ]; then
+            echo "::error::Expected one .deb and its .sig, found ${#debs[@]}."
+            exit 1
+          fi
+          cp "${debs[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb"
+          cp "${debs[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb.sig"
           ls -l out
 
       - uses: actions/upload-artifact@v4

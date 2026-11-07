@@ -585,28 +585,7 @@ export default function App() {
     }
   }, [currentEmployee]);
 
-  // Show connection state change toasts
-  const prevOnlineRef = useRef(isOnline);
-  useEffect(() => {
-    if (prevOnlineRef.current !== isOnline) {
-      if (isOnline) {
-        showToast(
-          'Connection Restored',
-          "You're back online.",
-          undefined,
-          'success',
-        );
-      } else {
-        showToast(
-          'Connection Lost',
-          "You're currently offline.",
-          undefined,
-          'info',
-        );
-      }
-      prevOnlineRef.current = isOnline;
-    }
-  }, [isOnline]);
+  // Being offline shows as a thin strip under the header (no popups on every change).
 
   // Listener for network-action-failed event
   useEffect(() => {
@@ -1295,6 +1274,11 @@ export default function App() {
     statusBarService.setStyle(themeMode);
   }, [themeMode]);
 
+  // Offline: the top bar turns red, so the phone's status-bar icons switch to white.
+  useEffect(() => {
+    statusBarService.setStyle(isOnline ? themeMode : 'dark');
+  }, [isOnline, themeMode]);
+
   // Dynamic Bottom Navbar hiding listener with robust per-element tracking
   const lastScrollPositions = useRef<Map<HTMLElement, number>>(new Map());
 
@@ -1375,91 +1359,92 @@ export default function App() {
   return (
     <PreviewFrame>
       <div className="w-full h-full flex flex-col relative bg-app-bg overflow-hidden text-app-text transition-colors duration-200">
-        {/* WhatsApp-Style Floating Bottom Popup Notification */}
+        {/* Toasts: a brief pill for your own actions, a card for alerts and messages */}
         <AnimatePresence>
-          {toast && (
-            <motion.div
-              initial={{ opacity: 0, y: 80, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 80, scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-              style={{ '--popup-bottom': 'calc(var(--mobile-nav-height) + var(--mobile-nav-gap) * 2 + var(--inset-bottom))' } as React.CSSProperties}
-              className={`absolute bottom-(--popup-bottom) md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-[380px] z-[9999] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-2 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 cursor-pointer select-none group transition-all duration-200 ${
-                toast.type === 'error'
-                  ? 'border-red-500/50 dark:border-red-500/35 bg-red-50/98 dark:bg-slate-950/98 shadow-red-500/5'
-                  : 'border-emerald-500/20 dark:border-emerald-500/10'
-              }`}
-              onClick={clearToast}
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="relative shrink-0">
-                  <img
-                    src={
-                      toast.avatar ||
-                      "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
-                    }
-                    alt={toast.sender}
-                    className={`w-10 h-10 rounded-full object-cover border-2 shadow-sm ${
-                      toast.type === 'error'
-                        ? 'border-red-500/40'
-                        : 'border-emerald-500/30'
-                    }`}
-                    referrerPolicy="no-referrer"
-                  />
+          {toast && (() => {
+            const toastBottom = { '--popup-bottom': 'calc(var(--mobile-nav-height) + var(--mobile-nav-gap) * 2 + var(--inset-bottom))' } as React.CSSProperties;
+            if (toast.quiet) {
+              return (
+                <motion.div
+                  key={toast.id}
+                  role="status"
+                  initial={{ opacity: 0, y: 12, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  style={toastBottom}
+                  onClick={clearToast}
+                  className="absolute bottom-(--popup-bottom) md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] max-w-[calc(100%-1rem)] px-3.5 py-2 rounded-full bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 backdrop-blur-md shadow-lg flex items-center gap-2 text-sm font-medium select-none cursor-pointer"
+                >
+                  <CheckCircle2 size={16} className="shrink-0 text-emerald-400 dark:text-emerald-600" aria-hidden="true" />
+                  {/* Generic titles ("Success", "Saved") say less than the message itself */}
+                  <span className="truncate">
+                    {/^(success|saved|done|ok|updated)$/i.test(toast.sender.trim()) ? toast.message : toast.sender}
+                  </span>
+                </motion.div>
+              );
+            }
+            // Picture: the sender's own, else the business logo, else your profile photo.
+            const businessLogo = activeBusiness?.logoUrl || '';
+            const picture = toast.avatar || businessLogo || currentEmployee?.avatar || '';
+            const isBusinessPicture = !toast.avatar && !!businessLogo;
+            const canOpenBusiness = !!currentEmployee && canOpenScreen(currentEmployee.role, 'business-management');
+            return (
+              <motion.div
+                key={toast.id}
+                role={toast.type === 'error' ? 'alert' : 'status'}
+                initial={{ opacity: 0, y: 40, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 24, scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                style={toastBottom}
+                onClick={clearToast}
+                className={`absolute bottom-(--popup-bottom) md:bottom-6 left-1 right-1 md:left-auto md:right-6 md:w-[380px] z-[9999] backdrop-blur-md rounded-xl p-3 shadow-xl flex items-center gap-3 cursor-pointer select-none ${
+                  toast.type === 'error'
+                    ? 'bg-red-50/95 dark:bg-slate-950/95 ring-1 ring-red-500/30'
+                    : 'bg-white/95 dark:bg-slate-900/95'
+                }`}
+              >
+                <button
+                  type="button"
+                  aria-label={isBusinessPicture && canOpenBusiness ? `Open ${activeBusiness?.name || 'business'} page` : undefined}
+                  tabIndex={isBusinessPicture && canOpenBusiness ? 0 : -1}
+                  onClick={(e) => {
+                    if (!isBusinessPicture || !canOpenBusiness) return;
+                    e.stopPropagation();
+                    clearToast();
+                    setActiveTab('business-management' as any);
+                  }}
+                  className="relative shrink-0 rounded-full"
+                >
+                  {picture ? (
+                    <img src={picture} alt="" className="w-10 h-10 rounded-full object-cover bg-app-bg" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-amber-500/15 text-amber-600 flex items-center justify-center font-bold">
+                      {(activeBusiness?.name || toast.sender || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
                   <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900  ${
-                      toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${
+                      toast.type === 'error' ? 'bg-red-500' : toast.type === 'info' ? 'bg-amber-500' : 'bg-emerald-500'
                     }`}
                   />
-                </div>
+                </button>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider block truncate">
-                      {toast.sender}
-                    </span>
-                    <span
-                      className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest ${
-                        toast.type === 'error'
-                          ? 'bg-red-500/10 text-red-500 '
-                          : toast.type === 'info'
-                          ? 'bg-amber-500/10 text-amber-500'
-                          : 'bg-emerald-500/10 text-emerald-500'
-                      }`}
-                    >
-                      {toast.type === 'error'
-                        ? 'System Alert'
-                        : toast.type === 'info'
-                        ? 'Stock Alert'
-                        : 'Activity Update'}
-                    </span>
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{toast.sender}</p>
                   <p
-                    className={`text-[11px] leading-relaxed mt-0.5 ${
+                    className={`text-xs mt-0.5 ${
                       toast.type === 'error'
-                        ? 'text-red-700 dark:text-red-300 font-semibold break-words whitespace-pre-wrap'
-                        : 'text-slate-600 dark:text-slate-300 font-medium truncate'
+                        ? 'text-red-700 dark:text-red-300 break-words line-clamp-3'
+                        : 'text-slate-600 dark:text-slate-300 line-clamp-2'
                     }`}
                   >
                     {toast.message}
                   </p>
                 </div>
-              </div>
-              <div className="text-right shrink-0">
-                <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 block">
-                  {toast.time || 'now'}
-                </span>
-                <span
-                  className={`text-[8px] font-bold block mt-1 uppercase tracking-wider transition-colors ${
-                    toast.type === 'error'
-                      ? 'text-red-500 group-hover:text-red-400 font-black'
-                      : 'text-emerald-500 group-hover:text-amber-500'
-                  }`}
-                >
-                  Dismiss
-                </span>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            );
+          })()}
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
@@ -3731,6 +3716,24 @@ export default function App() {
                     {!isSidebarCollapsed && <span>Interactive Tour</span>}
                   </button>
 
+                  {/* AI drafts waiting for a person to check them (moved here from the top bar) */}
+                  <button
+                    id="sidebar-pending-actions-btn"
+                    onClick={() => setDrawerOpen(true)}
+                    className={`w-full flex items-center justify-center gap-2.5 p-2 border rounded-xl transition text-[11px] font-bold cursor-pointer ${
+                      unexecutedPendingCount > 0
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
+                        : 'bg-app-bg hover:bg-app-card border-app-border text-app-text'
+                    }`}
+                    title="AI drafts waiting for you to check"
+                  >
+                    <ActivitySquareIcon size={13} />
+                    {!isSidebarCollapsed && <span>AI drafts{unexecutedPendingCount > 0 ? ` (${unexecutedPendingCount})` : ''}</span>}
+                    {isSidebarCollapsed && unexecutedPendingCount > 0 && (
+                      <span className="text-[10px] font-black">{unexecutedPendingCount}</span>
+                    )}
+                  </button>
+
                   {/* Dark Mode Theme toggle */}
                   <button
                     onClick={() =>
@@ -3756,11 +3759,13 @@ export default function App() {
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
                 {/* TOP APPLICATION BAR (it carries the status-bar inset; UpdateBar sits under it) */}
                 <header
-                  className="bg-app-card border-b border-app-border px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
+                  className={`border-b px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14 transition-colors duration-300 ${
+                    isOnline ? 'bg-app-card border-app-border' : 'bg-red-600 border-red-700'
+                  }`}
                   style={{
                     paddingTop:
                       'calc(0.375rem + var(--inset-top))',
-                    backgroundImage: activeBusiness?.coverImageUrl
+                    backgroundImage: isOnline && activeBusiness?.coverImageUrl
                       ? `linear-gradient(to right, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.75)), url(${activeBusiness.coverImageUrl})`
                       : 'none',
                     backgroundSize: 'cover',
@@ -3837,22 +3842,36 @@ export default function App() {
                         />
                       </div>
 
+                      {/* Offline: says so in the red bar; work keeps going and syncs when back online */}
+                      {!isOnline && (
+                        <div
+                          role="status"
+                          aria-live="polite"
+                          className="flex-1 min-w-0 flex items-center justify-center md:justify-end gap-1.5 text-white"
+                        >
+                          <WifiOff size={15} className="shrink-0" />
+                          <span className="text-xs font-bold truncate">
+                            Offline<span className="font-medium opacity-90 hidden min-[380px]:inline"> · changes will sync later</span>
+                          </span>
+                        </div>
+                      )}
+
                       {/* Top Right Action Items */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {/* Search icon for mobile only */}
                         <button
                           onClick={() => setShowMobileSearch(true)}
-                          className="p-1.5 md:hidden bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
+                          className="p-2 md:hidden bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-xl transition cursor-pointer"
                           title="Search App"
                         >
-                          <Search size={13} />
+                          <Search size={16} />
                         </button>
 
                         {/* Notification Bell Icon (Always visible) */}
                         <button
                           id="header-notification-bell"
                           onClick={() => setActiveTab('notifications')}
-                          className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
+                          className={`p-2 rounded-xl border transition cursor-pointer relative ${
                             activeTab === 'notifications'
                               ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
                               : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
@@ -3860,7 +3879,7 @@ export default function App() {
                           title="System Message Center"
                         >
                           <Bell
-                            size={13}
+                            size={16}
                             className={
                               unreadNotificationsCount > 0
                                 ? 'animate-swing'
@@ -3874,73 +3893,27 @@ export default function App() {
                           )}
                         </button>
 
-                        {/* Pending Actions (Drafts) Badge Icon */}
-                        <button
-                          id="header-pending-actions-btn"
-                          onClick={() => setDrawerOpen(true)}
-                          className={`p-1.5 rounded-lg border transition cursor-pointer relative ${
-                            unexecutedPendingCount > 0
-                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
-                              : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
-                          }`}
-                          title="AI Draft Actions Awaiting Verification"
-                        >
-                          <ActivitySquareIcon
-                            size={13}
-                            className={
-                              unexecutedPendingCount > 0 ? 'animate-pulse' : ''
-                            }
-                          />
-                          {unexecutedPendingCount > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs">
-                              {unexecutedPendingCount}
-                            </span>
-                          )}
-                        </button>
-                        <div className="flex items-center gap-1.5 md:hidden">
-                          {/* Network Online status toggle */}
-                          <button
-                            onClick={() =>
-                              setThemeMode(
-                                themeMode === 'light' ? 'dark' : 'light',
-                              )
-                            }
-                            className="p-1.5 bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-lg transition cursor-pointer"
-                            title="Toggle Theme"
-                          >
-                            {themeMode === 'light' ? (
-                              <Moon size={13} />
-                            ) : (
-                              <Sun size={13} />
-                            )}
-                          </button>
-                          <div className="relative" title='my profile ' onClick={setActiveTab.bind(null, 'profile')}>
-                            <img
-                              src={
-                                currentEmployee.avatar ||
-                                "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"
-                              }
-                              alt="My Profile"
-                              className="w-7 h-6 md:w-10 md:h-10 rounded object-cover border border-amber-500 shadow-xl shadow-amber-500/20 bg-slate-900 group-hover:border-amber-400 group-hover:shadow-amber-500/40 transition duration-300 pointer-events-none"
-                              referrerPolicy="no-referrer"
-                            />
-                            {/* <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-[7.5px] px-1 py-0.5 uppercase tracking-wider scale-90 md:scale-100 shadow-sm border border-white dark:border-slate-900 pointer-events-none">
-                              Me
-                            </span> */}
-                            {/* Tooltip */}
-                            <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-slate-950/90 dark:bg-slate-900/90 border border-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-xl shadow-xl uppercase tracking-wider block opacity-0 pointer-events-none group-hover:opacity-100 transition duration-300 whitespace-nowrap">
-                              My Profile
-                            </div>
-                          </div>
-
-                          {/* Dark Mode toggle */}
-                        </div>
                       </div>
                     </>
                   )}
                 </header>
 
                 <UpdateBar />
+                <AnimatePresence initial={false}>
+                  {!isOnline && (
+                    <motion.div
+                      key="offline-strip"
+                      role="status"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                      className="shrink-0 overflow-hidden bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-medium text-center"
+                    >
+                      <div className="py-1">Offline · changes sync when you're back online</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <ClockBar />
 
                 {/* CORE VIEWPORT CARDS (app-viewport: phone edge spacing in index.css) */}
@@ -4182,7 +4155,7 @@ export default function App() {
                       bottom: 'calc(var(--mobile-nav-height) + var(--mobile-nav-gap) * 2 + var(--inset-bottom))',
                       right: 'var(--inset-right)',
                     }}
-                    className="fixed z-40 md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md text-amber-500 border-y border-l border-amber-500/20 w-3.5 h-12 rounded-l-md shadow-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:bg-slate-900 transition-colors focus:outline-none"
+                    className="fixed z-40 md:hidden bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-md text-amber-500 border-y border-l border-amber-500/20 w-3.5 h-12 rounded-l-md shadow-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:bg-slate-900 transition-colors focus:outline-none"
                     title={
                       showNav ? 'Hide Navigation Menu' : 'Show Navigation Menu'
                     }
@@ -4227,7 +4200,7 @@ export default function App() {
                           right: 'calc(var(--mobile-edge) + var(--inset-right))',
                           height: 'var(--mobile-nav-height)',
                         }}
-                        className="fixed mx-auto max-w-lg md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md border border-app-border/80 flex items-center justify-around shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans px-1 min-[380px]:px-2 gap-0.5"
+                        className="fixed mx-auto max-w-lg md:hidden bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-md border border-slate-800/80 dark:border-white/70 flex items-center justify-around shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans px-1 min-[380px]:px-2 gap-0.5"
                       >
                         {primary.map((id) => {
                           const isMore = id === MORE_TAB_ID;
@@ -4254,14 +4227,14 @@ export default function App() {
                               aria-expanded={isMore ? isMoreOpen : undefined}
                               className={`flex flex-col items-center justify-center flex-1 min-w-0 h-full transition-all relative cursor-pointer ${
                                 isActive
-                                  ? 'text-amber-500 font-bold'
-                                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-200'
+                                  ? 'text-amber-400 dark:text-amber-600 font-bold'
+                                  : 'text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-800'
                               }`}
                             >
                               <div
                                 className={`relative flex items-center justify-center ${
                                   isCenterSell
-                                    ? `w-11 h-11 -mt-5 rounded-full shadow-lg border-4 border-slate-950 dark:border-slate-900 ${
+                                    ? `w-11 h-11 -mt-5 rounded-full shadow-lg border-4 border-slate-900 dark:border-slate-100 ${
                                         isActive ? 'bg-amber-500 text-slate-950' : 'bg-amber-500/90 text-slate-950'
                                       }`
                                     : ''
@@ -4280,6 +4253,9 @@ export default function App() {
                                   <Icon size={isCenterSell ? 20 : 18} />
                                 )}
 
+                                {isMore && unexecutedPendingCount > 0 && (
+                                  <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900 dark:ring-slate-100" aria-label="AI drafts waiting" />
+                                )}
                                 {id === 'pos' && cartItemsCount > 0 && (
                                   <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
                                     {cartItemsCount}
@@ -4353,20 +4329,59 @@ export default function App() {
                                   onPointerDown={(e) => moreDragControls.start(e)}
                                 >
                                   <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-app-border" aria-hidden="true" />
-                                  <div className="flex items-center gap-3">
-                                    <img
-                                      src={avatarSrc}
-                                      alt=""
-                                      className="w-10 h-10 rounded-full object-cover border border-app-border shrink-0"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-bold text-app-text truncate">{currentEmployee.name}</p>
-                                      <p className="text-xs text-app-text-muted truncate">
-                                        {currentEmployee.role}
-                                        {activeBusiness?.name ? ` · ${activeBusiness.name}` : ''}
-                                      </p>
-                                    </div>
+                                  <div className="flex items-center gap-2">
+                                    {/* Profile, theme and AI drafts live here on phones, not in the top bar */}
+                                    <button
+                                      type="button"
+                                      onClick={() => open('profile')}
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                      className="min-w-0 flex-1 flex items-center gap-3 rounded-2xl p-1 -m-1 text-left hover:bg-app-bg cursor-pointer"
+                                      aria-label="My profile"
+                                    >
+                                      <img
+                                        src={avatarSrc}
+                                        alt=""
+                                        className="w-10 h-10 rounded-full object-cover border border-app-border shrink-0"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-bold text-app-text truncate">{currentEmployee.name}</span>
+                                        <span className="block text-xs text-app-text-muted truncate">
+                                          {currentEmployee.role}
+                                          {activeBusiness?.name ? ` · ${activeBusiness.name}` : ''}
+                                        </span>
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsMoreOpen(false);
+                                        setDrawerOpen(true);
+                                      }}
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                      aria-label={`AI drafts${unexecutedPendingCount > 0 ? `, ${unexecutedPendingCount} waiting` : ''}`}
+                                      title="AI drafts"
+                                      className={`relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer ${
+                                        unexecutedPendingCount > 0 ? 'bg-amber-500/10 text-amber-600' : 'text-app-text-muted hover:bg-app-bg'
+                                      }`}
+                                    >
+                                      <ActivitySquareIcon size={19} />
+                                      {unexecutedPendingCount > 0 && (
+                                        <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center">
+                                          {unexecutedPendingCount}
+                                        </span>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')}
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                      aria-label={themeMode === 'light' ? 'Dark theme' : 'Light theme'}
+                                      title={themeMode === 'light' ? 'Dark theme' : 'Light theme'}
+                                      className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-app-text-muted hover:bg-app-bg cursor-pointer"
+                                    >
+                                      {themeMode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => setIsMoreOpen(false)}

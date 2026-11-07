@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
       __APP_COMMIT__: JSON.stringify((process.env.GITHUB_SHA || '').slice(0, 7)),
+      // CI run number: goes up by one with every build, shown as the build number in About.
+      __BUILD_NUMBER__: JSON.stringify(process.env.GITHUB_RUN_NUMBER || ''),
       __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     },
     // Production builds keep console.warn/error only, so routine logs can't expose business data.

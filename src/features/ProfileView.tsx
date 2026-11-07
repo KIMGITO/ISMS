@@ -156,7 +156,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             triggerElement={
               <div className="relative group cursor-pointer">
                 <img
-                  src={avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"}
+                  src={avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E"}
                   alt={name}
                   className="w-24 h-24 rounded-2xl object-cover border-2 border-amber-500/25 group-hover:border-amber-500 transition shadow-md"
                   referrerPolicy="no-referrer"
