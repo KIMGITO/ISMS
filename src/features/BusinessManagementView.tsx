@@ -15,6 +15,8 @@ import SearchableDropdown from "../components/SearchableDropdown";
 import { Tabs } from "../components/TabOptions";
 import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
+import { canOpenScreen } from "../utils/screens";
+import { useUiStore } from "../stores/uiStore";
 import type { ExpenseCategory } from "../types";
 import { Switch } from '../components/shared/Switch';
 
@@ -489,7 +491,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 pb-24  space-y-5 bg-app-bg text-app-text font-sans">
+    <div className="h-full overflow-y-auto p-4 pb-nav  space-y-5 bg-app-bg text-app-text font-sans">
       {/* Title Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
@@ -507,6 +509,24 @@ export default function BusinessManagementView({ section = "business" }: { secti
           </p>
         </div>
       </div>
+
+      {/* Payments, expenses and M-Pesa used to be tabs here. */}
+      {!isMoney && canOpenScreen(role, "money") && (
+        <button
+          type="button"
+          onClick={() => useUiStore.getState().setActiveTab("money")}
+          className="w-full flex items-center gap-3 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-left cursor-pointer transition"
+        >
+          <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center">
+            <Wallet size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-app-text">Payments, expenses and M-Pesa</span>
+            <span className="block text-xs text-app-text-muted">These now have their own screen, so managers and cashiers can use them too.</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-app-text-muted" />
+        </button>
+      )}
 
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
       {!isMoney && (

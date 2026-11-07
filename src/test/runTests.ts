@@ -390,24 +390,28 @@ runTest("Release versioning reads emoji commit types", () => {
   }
 });
 
-runTest("Update manifest lists desktop installers and the Android APK", () => {
+runTest("Update manifest lists signed desktop installers and the Android APK", () => {
   const files = [
-    "KayKays-1.2.0-windows-x64.exe", "KayKays-1.2.0-windows-x64-setup.msi",
-    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-amd64.deb",
+    "KayKays-1.2.0-windows-x64.exe", "KayKays-1.2.0-windows-x64-setup.msi", "KayKays-1.2.0-windows-x64-setup.msi.sig",
+    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-x86_64.AppImage.sig", "KayKays-1.2.0-linux-amd64.deb",
     "KayKays-1.2.0-android.apk",
   ];
   const m = buildManifest({
     version: "1.2.0", tag: "v1.2.0", repo: "KIMGITO/ISMS", notes: "### Features\n- x\n", files,
-    readText: () => "", sha256: () => "abc123",
+    readText: (name: string) => `sig-of-${name}\n`, sha256: () => "abc123",
   });
   const base = "https://github.com/KIMGITO/ISMS/releases/download/v1.2.0/";
   if (m.version !== "1.2.0") throw new Error("version");
   if (m.platforms["windows-x86_64"].url !== base + "KayKays-1.2.0-windows-x64-setup.msi") throw new Error("windows url");
-  if (m.platforms["windows-x86_64"].signature !== undefined) throw new Error("windows sig should be undefined when no .sig");
+  if (m.platforms["windows-x86_64"].signature !== "sig-of-KayKays-1.2.0-windows-x64-setup.msi.sig") throw new Error("windows sig");
   if (m.platforms["linux-x86_64"].url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("linux url");
   if (m.android.url !== base + "KayKays-1.2.0-android.apk" || m.android.sha256 !== "abc123") throw new Error("android");
-  // Desktop installers without .sig files are still listed (signing temporarily skipped).
-  if (Object.keys(m.platforms).length !== 2) throw new Error(`Expected 2 desktop platforms, got ${Object.keys(m.platforms).length}`);
+  // Desktop apps refuse unsigned updates, so publishing one must fail instead.
+  let threw = false;
+  try {
+    buildManifest({ version: "1", tag: "v1", repo: "a/b", notes: "", files: ["KayKays-1-windows-x64-setup.msi"], readText: () => "", sha256: () => "" });
+  } catch { threw = true; }
+  if (!threw) throw new Error("An unsigned installer must be refused");
 });
 
 runTest("App versions compare numerically", () => {

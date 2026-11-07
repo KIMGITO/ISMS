@@ -456,7 +456,7 @@ export default function InventoryView() {
       </div>
 
       {/* SCROLLABLE MAIN DATA CONTAINER */}
-      <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-5 pb-24">
+      <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-5 pb-nav">
         {/* CURRENT STOCK LIST SECTION */}
         <div className="flex flex-col gap-2.5">
           <h2 className="text-[10px] font-black text-app-text-muted uppercase tracking-wider px-1">
@@ -975,7 +975,7 @@ export default function InventoryView() {
 
               <form
                 onSubmit={handleSubmit}
-                className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5 pb-24 text-xs font-medium"
+                className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5 pb-nav text-xs font-medium"
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
@@ -1331,7 +1331,7 @@ export default function InventoryView() {
 
               <form
                 onSubmit={handleSaveProductEdit}
-                className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5 pb-24 text-xs font-medium"
+                className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5 pb-nav text-xs font-medium"
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">

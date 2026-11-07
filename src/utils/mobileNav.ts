@@ -11,10 +11,10 @@ const NEVER_ON_BAR = new Set(['settings', 'about']);
 const ROLE_PRIORITY: Record<string, string[]> = {
   Cashier: ['dashboard', 'pos', 'sell', 'sales', 'customers'],
   Rider: ['deliveries', 'dashboard', 'ai', 'profile'],
-  Owner: ['home', 'sales', 'inventory', 'customers', 'dashboard'],
-  Admin: ['home', 'sales', 'inventory', 'customers', 'dashboard'],
-  Administrator: ['home', 'sales', 'inventory', 'customers', 'dashboard'],
-  Manager: ['home', 'sales', 'inventory', 'customers', 'dashboard'],
+  Owner: ['home', 'sales', 'money', 'inventory', 'customers'],
+  Admin: ['home', 'sales', 'money', 'inventory', 'customers'],
+  Administrator: ['home', 'sales', 'money', 'inventory', 'customers'],
+  Manager: ['home', 'sales', 'money', 'inventory', 'customers'],
 };
 
 // Used for roles without their own list, and to order everything else.

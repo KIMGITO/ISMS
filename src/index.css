@@ -90,13 +90,31 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Safe areas support */
-.safe-padding-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+/* Safe areas (status bar, notch, gesture/navigation bar).
+   Android draws the app edge to edge. Capacitor 8 writes the real sizes into
+   --safe-area-inset-*; many Android WebViews report 0 for env(), so prefer those
+   variables and fall back to env() (iOS, browsers). Use --inset-* everywhere. */
+:root {
+  --inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --inset-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --inset-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+
+  /* Floating mobile bottom navigation */
+  --mobile-nav-height: 3.75rem;
+  --mobile-nav-gap: 0.75rem;
+  /* Room a scrolling screen leaves at the bottom so its last item clears the nav */
+  --mobile-nav-space: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + var(--inset-bottom) + 1rem);
 }
-.safe-padding-top {
-  padding-top: env(safe-area-inset-top, 16px);
+
+/* Bottom padding for scrolling screens: clears the floating nav and the phone's own bar */
+@utility pb-nav {
+  padding-bottom: var(--mobile-nav-space);
+  @media (width >= 48rem) {
+    padding-bottom: 6rem;
+  }
 }
+
 
 /* Hide scrollbars for clean lists and menus */
 .scrollbar-none::-webkit-scrollbar {

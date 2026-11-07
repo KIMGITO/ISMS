@@ -157,7 +157,7 @@ export default function WorkersView() {
   return (
     <div
       id="workers-panel"
-      className="h-full overflow-y-auto p-4 pb-24 space-y-5 bg-app-bg text-app-text font-sans"
+      className="h-full overflow-y-auto p-4 pb-nav space-y-5 bg-app-bg text-app-text font-sans"
     >
       {/* Title block */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">

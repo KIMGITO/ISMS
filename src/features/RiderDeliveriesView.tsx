@@ -96,7 +96,7 @@ export default function RiderDeliveriesView() {
   const visible = tab === 'active' ? active : history;
 
   return (
-    <div className="h-full overflow-y-auto bg-app-bg p-4 pb-24 font-sans text-app-text">
+    <div className="h-full overflow-y-auto bg-app-bg p-4 pb-nav font-sans text-app-text">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <h2 className="flex items-center gap-2 text-lg font-bold">
           <Truck size={18} className="text-amber-500" /> My Deliveries

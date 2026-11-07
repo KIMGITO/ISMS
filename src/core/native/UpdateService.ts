@@ -15,6 +15,40 @@ const MANIFEST_URL = "https://github.com/KIMGITO/ISMS/releases/latest/download/l
 export const RELEASES_PAGE = "https://github.com/KIMGITO/ISMS/releases";
 const FIRST_CHECK_DELAY_MS = 15_000;
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+/** After an automatic check fails, wait this long before trying again on its own. */
+const RETRY_AFTER_FAILURE_MS = 6 * 60 * 60 * 1000;
+const MEMORY_KEY = "kaykays.update";
+
+/**
+ * Remembered across restarts so a broken update isn't retried on every launch.
+ *  blocked:  a version that can never install over this app (e.g. signed with another key)
+ *  prompted: the version whose installer we already opened once on our own
+ *  failedAt: when the last automatic attempt failed
+ */
+interface UpdateMemory {
+  blocked?: { version: string; error: string };
+  prompted?: string;
+  failedAt?: string;
+}
+
+function readMemory(): UpdateMemory {
+  try {
+    return JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function remember(patch: Partial<UpdateMemory>): void {
+  try {
+    localStorage.setItem(MEMORY_KEY, JSON.stringify({ ...readMemory(), ...patch }));
+  } catch {
+    // Storage unavailable: worst case we retry more often.
+  }
+}
+
+/** Android plugin errors that mean this exact version will never install. */
+const PERMANENT_ANDROID_ERRORS = new Set(["SIGNATURE_MISMATCH", "NOT_NEWER", "BAD_APK"]);
 
 interface AndroidManifestEntry {
   url: string;
@@ -76,6 +110,15 @@ class UpdateService {
     setTimeout(auto, FIRST_CHECK_DELAY_MS);
     window.addEventListener("online", auto);
     setInterval(auto, CHECK_EVERY_MS);
+
+    // Android: coming back to the app while "installing" means the installer was closed
+    // without updating (a successful update restarts the app). Offer Install again
+    // instead of looking stuck.
+    if (Capacitor.getPlatform() === "android") {
+      App.addListener("resume", () => {
+        if (store().status === "installing") store().set({ status: "ready" });
+      }).catch(() => {});
+    }
   }
 
   /**
@@ -86,6 +129,10 @@ class UpdateService {
     if (this.busy) return;
     const { status } = store();
     if (status === "ready" || status === "installing") return;
+    if (automatic) {
+      const { failedAt } = readMemory();
+      if (failedAt && Date.now() - new Date(failedAt).getTime() < RETRY_AFTER_FAILURE_MS) return;
+    }
     if (!navigator.onLine) {
       if (!automatic) store().set({ status: "failed", error: "You're offline. Connect to the internet and try again." });
       return;
@@ -95,13 +142,20 @@ class UpdateService {
     store().set({ status: "checking", error: null, progress: null });
     try {
       if (isTauri()) await this.updateDesktop();
-      else if (Capacitor.getPlatform() === "android") await this.updateAndroid();
+      else if (Capacitor.getPlatform() === "android") await this.updateAndroid(automatic);
       else store().set({ status: "up-to-date" });
-    } catch (err) {
+      remember({ failedAt: undefined });
+    } catch (err: any) {
       const error = message(err, "The update couldn't be downloaded.");
       console.error("[UpdateService]", err);
       store().set({ status: "failed", error });
-      notificationService.sendLocalNotification("Update failed", "Open About this app to try again.").catch(() => {});
+      if (PERMANENT_ANDROID_ERRORS.has(err?.code) && store().availableVersion) {
+        // Never download this version again on our own; a newer release is tried normally.
+        remember({ blocked: { version: store().availableVersion!, error } });
+      } else if (automatic) {
+        remember({ failedAt: new Date().toISOString() });
+        notificationService.sendLocalNotification("Update failed", "Open About this app to try again.").catch(() => {});
+      }
     } finally {
       store().set({ lastCheckedAt: new Date().toISOString() });
       this.busy = false;
@@ -127,9 +181,14 @@ class UpdateService {
     if (!version) return;
     try {
       await AppUpdate.install({ version });
+      remember({ prompted: version });
       store().set({ status: "installing", error: null });
     } catch (err: any) {
-      if (err?.code === "NEEDS_PERMISSION") {
+      if (PERMANENT_ANDROID_ERRORS.has(err?.code)) {
+        const error = message(err, "This update can't be installed over the current app.");
+        remember({ blocked: { version, error } });
+        store().set({ status: "failed", error });
+      } else if (err?.code === "NEEDS_PERMISSION") {
         store().set({ status: "needs-permission", error: message(err, "Allow installs from this app, then try again.") });
       } else if (err?.code === "NOT_DOWNLOADED") {
         store().set({ status: "idle" });
@@ -179,7 +238,7 @@ class UpdateService {
     store().set({ status: "ready" });
   }
 
-  private async updateAndroid(): Promise<void> {
+  private async updateAndroid(automatic: boolean): Promise<void> {
     const res = await CapacitorHttp.get({ url: MANIFEST_URL, headers: { Accept: "application/json" } });
     if (res.status !== 200) throw new Error(`Couldn't check for updates (HTTP ${res.status}).`);
     const manifest: ReleaseManifest = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
@@ -189,8 +248,15 @@ class UpdateService {
       return;
     }
 
+    const { blocked, prompted } = readMemory();
+    if (automatic && blocked?.version === manifest.version) {
+      // Known not to install over this app; say so once per launch, don't download again.
+      store().set({ status: "failed", availableVersion: manifest.version, error: blocked.error });
+      return;
+    }
+
     store().set({ status: "downloading", availableVersion: manifest.version, notes: manifest.notes ?? null, progress: 0 });
-    this.announce(manifest.version);
+    if (prompted !== manifest.version) this.announce(manifest.version);
 
     const listener = await AppUpdate.addListener("progress", ({ percent }) => {
       store().set({ progress: percent >= 0 ? percent : null });
@@ -201,6 +267,13 @@ class UpdateService {
       listener.remove();
     }
     store().set({ progress: 100 });
+
+    // Open Android's installer on our own only the first time. If it was closed without
+    // installing, wait for a tap on Install instead of popping it up on every launch.
+    if (automatic && prompted === manifest.version) {
+      store().set({ status: "ready" });
+      return;
+    }
     await this.installAndroid();
   }
 }

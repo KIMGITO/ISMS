@@ -246,7 +246,7 @@ export default function SalesView() {
       </div>
 
       {/* CHAT-STYLE SCROLL CONTAINER CONTAINER PANEL */}
-      <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-4 pb-24">
+      <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-4 pb-nav">
         {totalTxCount === 0 ? (
           <div className="p-12 bg-app-card rounded-2xl border border-dashed border-app-border text-center text-xs text-app-text-muted flex flex-col items-center gap-2 my-auto">
             <ReceiptText size={24} className="text-app-text-muted" />

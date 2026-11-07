@@ -34,8 +34,8 @@ env:
   # Tauri builds the frontend itself through beforeBuildCommand in tauri.conf.json.
   # Other stacks: "cargo build --release", "go build -o dist/app.exe ./cmd/app",
   # "dotnet publish -c Release -r win-x64 --self-contained", "npx electron-builder --win".
-  WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi --config src-tauri/tauri.unsigned.conf.json"
-  LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb --config src-tauri/tauri.unsigned.conf.json"
+  WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi"
+  LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb"
   # Where the builds land.
   EXE_PATH: "src-tauri/target/release/app.exe"
   MSI_GLOB: "src-tauri/target/release/bundle/msi/*.msi"
@@ -90,11 +90,13 @@ jobs:
       - name: Check required secrets
         if: steps.calc.outputs.bump != 'none'
         env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           missing=""
           [ -z "$VITE_SUPABASE_URL" ] && missing="$missing VITE_SUPABASE_URL"
           [ -z "$VITE_SUPABASE_ANON_KEY" ] && missing="$missing VITE_SUPABASE_ANON_KEY"
+          [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] && missing="$missing TAURI_SIGNING_PRIVATE_KEY"
           [ -z "$ANDROID_KEYSTORE_BASE64" ] && missing="$missing ANDROID_KEYSTORE_BASE64"
           if [ -n "$missing" ]; then
             echo "::error::Set these repository secrets:$missing"
@@ -131,6 +133,9 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.version.outputs.version }}
+      # Desktop apps refuse an update that isn't signed with this key.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -159,6 +164,11 @@ jobs:
 
       - name: Stamp version ${{ env.VERSION }}
         run: node scripts/stamp-version.mjs "$VERSION"
+
+      # The Rust cache restores src-tauri/target, including the last release's installers.
+      # Without this, the old and new installers are both found.
+      - name: Clear installers from earlier builds
+        run: rm -rf src-tauri/target/release/bundle
 
       - name: Build
         run: eval "$WINDOWS_BUILD_COMMAND"
@@ -189,7 +199,12 @@ jobs:
             if [[ "$m" == *x64* ]]; then msi="$m"; break; fi
           done
           [ -z "$msi" ] && msi="${msis[0]}"
+          if [ ! -f "$msi.sig" ]; then
+            echo "::error::$msi has no .sig, so installed apps would refuse it. Is TAURI_SIGNING_PRIVATE_KEY set?"
+            exit 1
+          fi
           cp "$msi" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi"
+          cp "$msi.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-windows-x64-setup.msi.sig"
           ls -l out
 
       - uses: actions/upload-artifact@v4
@@ -209,6 +224,9 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       VERSION: ${{ needs.version.outputs.version }}
+      # Desktop apps refuse an update that isn't signed with this key.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -236,6 +254,11 @@ jobs:
 
       - run: eval "$INSTALL_COMMAND"
       - run: node scripts/stamp-version.mjs "$VERSION"
+      # The Rust cache restores src-tauri/target, including the last release's installers.
+      # Without this, the old and new installers are both found.
+      - name: Clear installers from earlier builds
+        run: rm -rf src-tauri/target/release/bundle
+
       - name: Build
         run: eval "$LINUX_BUILD_COMMAND"
 
@@ -245,11 +268,12 @@ jobs:
           shopt -s nullglob
           mkdir -p out
           images=($APPIMAGE_GLOB)
-          if [ ${#images[@]} -ne 1 ]; then
-            echo "::error::Expected one .AppImage, found ${#images[@]}."
+          if [ ${#images[@]} -ne 1 ] || [ ! -f "${images[0]}.sig" ]; then
+            echo "::error::Expected one .AppImage and its .sig, found ${#images[@]}. Is TAURI_SIGNING_PRIVATE_KEY set?"
             exit 1
           fi
           cp "${images[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage"
+          cp "${images[0]}.sig" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-x86_64.AppImage.sig"
           for deb in $DEB_GLOB; do cp "$deb" "out/${RELEASE_NAME_PREFIX}-${VERSION}-linux-amd64.deb"; done
           ls -l out
 
@@ -341,10 +365,22 @@ jobs:
             echo "::error::No signing keystore configured, so the APK is unsigned and can't update installed apps. Set ANDROID_KEYSTORE_BASE64."
             exit 1
           fi
-          # Best-effort cryptographic verification of the signature.
-          if command -v apksigner >/dev/null 2>&1; then
-            apksigner verify --verbose "${apks[0]}" >/dev/null \
-              || { echo "::error::APK signature verification failed."; exit 1; }
+          # Verify the signature, and that it's made with the same key as every earlier
+          # release. Android refuses an update signed with a different key ("App not
+          # installed"), so a swapped keystore secret would strand every installed phone.
+          apksigner=$(command -v apksigner || ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$apksigner" ]; then
+            echo "::error::apksigner not found, so the APK's signing key can't be checked."
+            exit 1
+          fi
+          certs=$("$apksigner" verify --print-certs "${apks[0]}") \
+            || { echo "::error::APK signature verification failed."; exit 1; }
+          actual=$(echo "$certs" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)
+          expected=$(tr -d ' \n\r' < android/release-signing-cert.sha256)
+          echo "APK signing certificate SHA-256: $actual"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The APK is signed with certificate $actual, but installed apps expect $expected (android/release-signing-cert.sha256). ANDROID_KEYSTORE_BASE64 holds a different keystore; restore the original one. Change the pinned value only if you accept that every phone must uninstall and reinstall."
+            exit 1
           fi
           cp "${apks[0]}" "out/${RELEASE_NAME_PREFIX}-${VERSION}-android.apk"
           ls -l out
