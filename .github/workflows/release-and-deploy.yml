@@ -375,9 +375,15 @@ jobs:
           fi
           certs=$("$apksigner" verify --print-certs "${apks[0]}") \
             || { echo "::error::APK signature verification failed."; exit 1; }
-          actual=$(echo "$certs" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)
+          # apksigner versions label the line differently ("Signer #1", "Signer (minSdkVersion=…)").
+          actual=$(echo "$certs" | sed -n 's/.*certificate SHA-256 digest: *//p' | head -1 | tr -d ' \r')
           expected=$(tr -d ' \n\r' < android/release-signing-cert.sha256)
           echo "APK signing certificate SHA-256: $actual"
+          if [ -z "$actual" ]; then
+            echo "::error::Couldn't read the signing certificate from apksigner. Its output was:"
+            echo "$certs"
+            exit 1
+          fi
           if [ "$actual" != "$expected" ]; then
             echo "::error::The APK is signed with certificate $actual, but installed apps expect $expected (android/release-signing-cert.sha256). ANDROID_KEYSTORE_BASE64 holds a different keystore; restore the original one. Change the pinned value only if you accept that every phone must uninstall and reinstall."
             exit 1
