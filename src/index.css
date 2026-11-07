@@ -43,6 +43,19 @@
   --app-border: #eef1f5; /* faint: separates without boxing everything in */
   --app-text: #0f172a; /* slate 900 */
   --app-text-muted: #64748b; /* slate 500 */
+
+  /* Chart colours, validated for colour-blind separation on the card surface.
+     Fixed order: a series keeps its colour whatever else is shown. */
+  --viz-1: #2a78d6; /* blue: sales */
+  --viz-2: #eb6834; /* orange: expenses */
+  --viz-3: #1baf7a; /* aqua: profit */
+  --viz-4: #eda100; /* yellow */
+  --viz-5: #e87ba4; /* magenta */
+  --viz-muted: #b8b6ae; /* previous period / context */
+  --viz-grid: #eceae4;
+  --viz-axis: #898781;
+  --good: #006300;
+  --bad: #d03b3b;
 }
 
 .dark {
@@ -51,6 +64,17 @@
   --app-border: #263244; /* faint on dark */
   --app-text: #f8fafc; /* slate 50 */
   --app-text-muted: #94a3b8; /* slate 400 */
+
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-muted: #5b6577;
+  --viz-grid: #2b3647;
+  --viz-axis: #8a94a6;
+  --good: #22b14c;
+  --bad: #ef6b6b;
 }
 
 /* Hide scrollbars but preserve functionality for native app feel */
