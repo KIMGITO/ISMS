@@ -27,6 +27,7 @@ import {
   Square,
   CheckSquare,
   RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, AdjustmentType, ProductCategory } from '../types';
@@ -35,6 +36,7 @@ import { formatCurrency, formatDate, generateSku } from '../utils/helpers';
 import { hasRolePermission } from '../utils/permissions';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, searchMatch } from '../utils/stringUtils';
+import { useUiStore } from '../stores/uiStore';
 import UnifiedUploader from '../components/shared/UnifiedUploader';
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
@@ -65,13 +67,6 @@ export default function InventoryView() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeletingProduct, setIsDeletingProduct] = useState(false);
   const [isAdjustingStock, setIsAdjustingStock] = useState(false);
-
-  // ── LOCAL-ONLY LOG VISIBILITY STATES ──
-  const [hiddenLogIds, setHiddenLogIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('kkm_hidden_inventory_logs');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
   // Product editing form state
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -130,14 +125,6 @@ export default function InventoryView() {
     ? hasRolePermission(currentEmployee.role, 'products.update')
     : false;
 
-  // Persist local hidden visibility metrics
-  useEffect(() => {
-    localStorage.setItem(
-      'kkm_hidden_inventory_logs',
-      JSON.stringify(hiddenLogIds),
-    );
-  }, [hiddenLogIds]);
-
   // Safe Store Array Guards
   const safeProducts = useMemo(
     () => (Array.isArray(products) ? products : []),
@@ -159,9 +146,6 @@ export default function InventoryView() {
     );
   }, [safeProducts, searchQuery]);
 
-  const visibleAdjustments = useMemo(() => {
-    return safeAdjustments.filter((adj) => !hiddenLogIds.includes(adj.id));
-  }, [safeAdjustments, hiddenLogIds]);
 
   const {
     values,
@@ -361,43 +345,7 @@ export default function InventoryView() {
     }
   };
 
-  // ── LOCAL HIDING VISIBILITY LOGIC METHODS ──
-  const handleToggleSelectLog = (id: string) => {
-    setSelectedLogIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
-  };
 
-  const handleSelectAllVisibleLogs = () => {
-    if (selectedLogIds.length === visibleAdjustments.length) {
-      setSelectedLogIds([]);
-    } else {
-      setSelectedLogIds(visibleAdjustments.map((a) => a.id));
-    }
-  };
-
-  const handleHideSelectedLogs = () => {
-    if (selectedLogIds.length === 0) return;
-    setHiddenLogIds((prev) => [...prev, ...selectedLogIds]);
-    setSelectedLogIds([]);
-    showToast(
-      'Logs Cleared Locally',
-      `${selectedLogIds.length} adjustments hidden on this view workspace.`,
-      undefined,
-      'info',
-    );
-  };
-
-  const handleRestoreAllLogs = () => {
-    setHiddenLogIds([]);
-    setSelectedLogIds([]);
-    showToast(
-      'Logs Restored',
-      'All hidden discrepancy logs are now visible.',
-      undefined,
-      'success',
-    );
-  };
 
   const handleCategoryChange = (newCategory: ProductCategory) => {
     // 1. Update the category field in state
@@ -618,152 +566,23 @@ export default function InventoryView() {
           })}
         </div>
 
-        {/* AUDIT LOG PIPELINE WITH SELECTIVE HIDING CONTROLS */}
+        {/* Stock changes now have their own screen */}
         {canViewHistory && (
-          <div className="flex flex-col gap-2.5 mt-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border/60 pb-2 px-1">
-              <h2 className="text-[10px] font-black text-app-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                <History size={13} className="text-amber-500" />
-                <span>
-                  Audit & Adjustment Logs ({visibleAdjustments.length})
-                </span>
-              </h2>
-
-              <div className="flex items-center gap-2 self-end">
-                {hiddenLogIds.length > 0 && (
-                  <button
-                    onClick={handleRestoreAllLogs}
-                    className="px-2 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase rounded-lg transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Eye size={10} /> Restore ({hiddenLogIds.length})
-                  </button>
-                )}
-                {visibleAdjustments.length > 0 && (
-                  <button
-                    onClick={handleHideSelectedLogs}
-                    disabled={selectedLogIds.length === 0}
-                    className="px-2 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-[9px] font-black uppercase rounded-lg transition disabled:opacity-40 flex items-center gap-1 cursor-pointer"
-                  >
-                    <EyeOff size={10} /> Hide Selected
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {visibleAdjustments.length === 0 ? (
-              <div className="p-8 bg-app-card rounded-2xl border border-dashed border-app-border text-center text-xs text-app-text-muted font-medium">
-                No active audit or restock logs to display.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 p-1.5 bg-app-card/60 border border-app-border rounded-xl px-3 text-[10px] text-app-text-muted font-bold">
-                  <button
-                    type="button"
-                    onClick={handleSelectAllVisibleLogs}
-                    className="text-app-text hover:text-amber-500 transition cursor-pointer"
-                  >
-                    {selectedLogIds.length === visibleAdjustments.length ? (
-                      <CheckSquare size={13} className="text-amber-500" />
-                    ) : (
-                      <Square size={13} />
-                    )}
-                  </button>
-                  <span>Select All Logs To Clear Locally</span>
-                </div>
-
-                {visibleAdjustments.map((adj) => {
-                  const isPositive = adj.quantityAdjusted > 0;
-                  const isChecked = selectedLogIds.includes(adj.id);
-                  // Look up the product unit for this adjustment
-                  const adjProduct = safeProducts.find(
-                    (p) => p.id === adj.productId,
-                  );
-                  const adjUnit = adjProduct?.unit || 'unit';
-                  return (
-                    <div
-                      key={adj.id}
-                      className="bg-app-card rounded-2xl border border-app-border p-3 text-xs flex items-center justify-between gap-3 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSelectLog(adj.id)}
-                          className="text-app-text-muted hover:text-amber-500 transition shrink-0 cursor-pointer"
-                        >
-                          {isChecked ? (
-                            <CheckSquare size={13} className="text-amber-500" />
-                          ) : (
-                            <Square size={13} />
-                          )}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-app-text truncate">
-                              {adj.productName}
-                            </span>
-                            {adj.type && (
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase ${
-                                  adj.type === 'Production Consumption'
-                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                    : adj.type === 'Production Output'
-                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                    : adj.type === 'Production Reversal'
-                                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                    : adj.type === 'Production Waste'
-                                    ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
-                                    : adj.type === 'Restock'
-                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                    : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                                }`}
-                              >
-                                {adj.type}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-app-text-muted mt-0.5 truncate font-medium">
-                            {adj.reason} · By {adj.staffName}{' '}
-                            {adj.referenceNumber
-                              ? `(Ref: ${adj.referenceNumber})`
-                              : ''}
-                          </p>
-                          <span className="text-[9px] font-mono text-app-text-muted block mt-0.5">
-                            {new Date(adj.timestamp).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10.5px] font-mono text-app-text-muted text-right">
-                          {adj.previousStock} {titleCase(adjUnit)} →{' '}
-                          {adj.newStock} {titleCase(adjUnit)}
-                        </span>
-                        <div
-                          className={`px-2 py-1 rounded font-bold flex items-center gap-0.5 text-[10px] ${
-                            isPositive
-                              ? 'bg-emerald-500/10 text-emerald-500'
-                              : 'bg-red-500/10 text-red-500'
-                          }`}
-                        >
-                          {isPositive ? (
-                            <ArrowUpRight size={10} />
-                          ) : (
-                            <ArrowDownRight size={10} />
-                          )}
-                          <span>
-                            {isPositive
-                              ? `+${adj.quantityAdjusted}`
-                              : adj.quantityAdjusted}{' '}
-                            {titleCase(adjUnit)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => useUiStore.getState().setActiveTab('stock-history')}
+            className="mt-2 w-full flex items-center gap-3 p-3.5 bg-app-card rounded-2xl text-left cursor-pointer"
+          >
+            <span className="grid place-items-center size-9 rounded-full bg-amber-500/10 text-amber-500 shrink-0">
+              <History size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-app-text">Stock history</span>
+              <span className="block text-xs text-app-text-muted truncate">
+                {safeAdjustments.length} {safeAdjustments.length === 1 ? 'change' : 'changes'}: restocks, damage, counts and production
+              </span>
+            </span>
+            <ChevronRight size={18} className="text-app-text-muted shrink-0" />
+          </button>
         )}
       </div>
 

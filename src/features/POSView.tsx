@@ -1,4 +1,5 @@
 import { toUserMessage } from '../utils/userError';
+import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -100,6 +101,19 @@ export default function POSView() {
   const [riderName, setRiderName] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [pointsToUse, setPointsToUse] = useState('');
+  const [pointValue, setPointValue] = useState(1);
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    getSupabase()
+      .from('loyalty_settings')
+      .select('point_value')
+      .eq('business_id', activeBusinessId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = Number(data?.point_value);
+        if (Number.isFinite(v) && v > 0) setPointValue(v);
+      });
+  }, [activeBusinessId]);
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
@@ -138,7 +152,11 @@ export default function POSView() {
   // Cap cartDiscount
   cartDiscount = Math.min(cartDiscount, subtotalBeforeCartDiscount);
 
-  const subtotal = subtotalBeforeCartDiscount - cartDiscount;
+  // Points the customer is using, at the business's value per point (the till checks again)
+  const pointsNum = selectedCustomer ? Math.min(Math.max(0, Math.floor(Number(pointsToUse) || 0)), selectedCustomer.loyaltyPoints || 0) : 0;
+  const pointsDiscount = Math.min(Math.round(pointsNum * pointValue * 100) / 100, subtotalBeforeCartDiscount - cartDiscount);
+
+  const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount;
   const totalDiscount = totalItemDiscount + cartDiscount;
   const tax = subtotal * taxRate;
   const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
@@ -149,11 +167,18 @@ export default function POSView() {
     if (error) console.error('Could not return points after a failed sale:', error.code);
   };
 
+  // A failed sale shows in the cart and pops up like everywhere else, so it can't go unseen
+  const failCheckout = (message: string) => {
+    setCheckoutError(message);
+    showToast('Sale not completed', message, undefined, 'error');
+  };
+
   const handleCheckout = async () => {
     if (isCheckingOut) return;
     setIsCheckingOut(true);
     setCheckoutError(null);
     let redemptionId: string | null = null;
+    let pointsSpent: { points: number; value: number } | null = null;
     try {
       // Points come off first and count as a discount; if the sale fails they're given back.
       let discountType = cartDiscountType;
@@ -167,6 +192,7 @@ export default function POSView() {
         });
         if (error) throw error;
         redemptionId = data.redemptionId;
+        pointsSpent = { points, value: Number(data.value) || 0 };
         discountType = 'amount';
         discountValue = cartDiscount + Number(data.value);
       }
@@ -184,6 +210,10 @@ export default function POSView() {
         isDelivery ? riderName : '',
       );
       if (result.success && result.transaction) {
+        // The receipt shows the points used; linked to the sale so reprints show them too
+        if (redemptionId && pointsSpent) {
+          await recordTillPoints(result.transaction.id, redemptionId, pointsSpent).catch(() => {});
+        }
         setLastTxId(result.transaction.id);
         setLastTx(result.transaction);
         if (activeBusinessId && ReceiptService.getSettings(activeBusinessId).autoPrint) {
@@ -214,11 +244,11 @@ export default function POSView() {
         );
       } else {
         await refundPoints(redemptionId);
-        if (result.error) setCheckoutError(result.error);
+        failCheckout(result.error || 'The sale could not be saved. Try again.');
       }
     } catch (err: any) {
       await refundPoints(redemptionId);
-      setCheckoutError(toUserMessage(err, 'Checkout failed due to an error.'));
+      failCheckout(toUserMessage(err, 'The sale could not be saved. Try again.'));
     } finally {
       setIsCheckingOut(false);
     }
@@ -826,6 +856,16 @@ export default function POSView() {
                       </span>
                       <span className="text-amber-500 font-bold font-mono">
                         -KSh {totalDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {pointsDiscount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Paid with {pointsNum} points
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                        -KSh {pointsDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}

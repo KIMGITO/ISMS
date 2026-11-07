@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+/* dark: follows the app's own theme switch (the .dark class), not the phone's setting,
+   so the nav stays dark on a light app and light on a dark app. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* A phone turned sideways: short screen, so bars get compact. Use as short-landscape:… */
 @custom-variant short-landscape (@media (orientation: landscape) and (max-height: 31.25rem));
 

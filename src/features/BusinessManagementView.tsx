@@ -20,6 +20,7 @@ import { useUiStore } from "../stores/uiStore";
 import type { ExpenseCategory } from "../types";
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
+import { useKraStatus } from '../services/kra/kraService';
 
 // Shown only until the business's own list has loaded.
 const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
@@ -51,6 +52,9 @@ export default function BusinessManagementView({ section = "business" }: { secti
   } = useAppStore();
 
   const activeBiz = businesses.find(b => b.id === activeBusinessId);
+  // VAT can only be charged once KRA eTIMS is connected (the receipts must be signed)
+  const { status: kraStatus } = useKraStatus(activeBusinessId);
+  const kraConnected = kraStatus?.connected === true;
 
   // Creation States
   const [isCreating, setIsCreating] = useState(false);
@@ -1058,10 +1062,20 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </div>
                           <Switch
                             checked={isTaxEnabled}
+                            // Turning VAT off is always allowed; turning it on needs KRA eTIMS
+                            disabled={!isTaxEnabled && !kraConnected}
                             onChange={() => setIsTaxEnabled(!isTaxEnabled)}
                             ariaLabel="Charge tax"
                           />
                         </div>
+
+                        {!kraConnected && (
+                          <p className="text-[11px] text-app-text-muted leading-snug">
+                            {kraStatus === undefined
+                              ? 'Checking KRA eTIMS…'
+                              : 'Connect KRA eTIMS first to charge VAT and set its rate: Settings → Receipts & printing → KRA eTIMS.'}
+                          </p>
+                        )}
 
                         {isTaxEnabled && (
                           <div className="flex flex-col gap-1 bg-app-bg/50 p-3.5 border border-app-border rounded-2xl">
@@ -1070,12 +1084,13 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             </label>
                             <input
                               type="number"
+                              disabled={!kraConnected}
                               value={taxPercentage}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value);
                                 setTaxPercentage(isNaN(val) ? 0 : val);
                               }}
-                              className="w-[120px] bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-xs font-bold"
+                              className="w-[120px] bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-xs font-bold disabled:opacity-50"
                               placeholder="16"
                               max={100}
                               min={0}

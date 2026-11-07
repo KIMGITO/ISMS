@@ -12,6 +12,7 @@ import PullToRefresh from './components/PullToRefresh';
 import AboutView from './features/AboutView';
 import { updateService } from './core/native/UpdateService';
 import InventoryView from './features/InventoryView';
+import StockHistoryView from './features/StockHistoryView';
 import SalesView from './features/SalesView';
 import CustomersView from './features/CustomersView';
 import CommunicationCenterView from './features/CommunicationCenterView';
@@ -126,6 +127,7 @@ import {
   LayoutGrid,
   Info,
   Wallet,
+  History,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
@@ -156,6 +158,7 @@ const MOBILE_TABS = [
   { id: 'sell', label: 'Sell', icon: Zap, permission: 'pos.create_sale' },
   { id: 'pos', label: 'POS', icon: ShoppingCart, permission: 'pos.create_sale' },
   { id: 'inventory', label: 'Inventory', icon: Boxes, permission: 'inventory.view' },
+  { id: 'stock-history', label: 'Stock History', icon: History, permission: 'inventory.stock_history' },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
@@ -1105,6 +1108,9 @@ export default function App() {
             if (fetchedCusts) {
               useCustomerStore.getState().setCustomers(fetchedCusts);
             }
+
+            // Receipt, printer, SMS… settings (kept on the device between refreshes)
+            await useBusinessStore.getState().fetchAllIntegrationConfigs();
           }
 
           console.log('Supabase synchronization completed successfully.');
@@ -1290,8 +1296,8 @@ export default function App() {
     statusBarService.setStyle(isOnline ? themeMode : 'dark');
   }, [isOnline, themeMode]);
 
-  // Bottom nav: hidden and shown by double-tapping empty space (not by scrolling, which
-  // misfired on short screens). Taps on buttons, fields, links and sheets are ignored.
+  // Bottom nav: double-tapping empty space hides or shows it, on any screen.
+  // Taps on buttons, fields, links and sheets are ignored.
   useEffect(() => {
     let lastTap = { time: 0, x: 0, y: 0 };
     const INTERACTIVE =
@@ -1327,6 +1333,34 @@ export default function App() {
     window.addEventListener('pointerup', onPointerUp, true);
     return () => window.removeEventListener('pointerup', onPointerUp, true);
   }, [isTourOpen]);
+
+  // Scrolling a long screen also hides the nav (down) and shows it (up). Screens with
+  // little to scroll never hide it this way; double-tap covers those. Reaching the end of a
+  // screen brings it back, so the last items are never left with an empty gap below.
+  const lastScrollPositions = useRef<WeakMap<Element, number>>(new WeakMap());
+  useEffect(() => {
+    const onScroll = (e: Event) => {
+      if (activeTab === 'ai' || isTourOpen || window.innerWidth >= 768) return;
+      const el = e.target as HTMLElement;
+      if (!el || !(el instanceof HTMLElement)) return;
+      if (!el.classList.contains('overflow-y-auto') && el.tagName !== 'MAIN') return;
+
+      const room = el.scrollHeight - el.clientHeight; // how far this screen can scroll
+      const y = el.scrollTop;
+      const prev = lastScrollPositions.current.get(el) ?? y;
+      lastScrollPositions.current.set(el, y);
+      if (room < 240) return; // short screen: leave it to double-tap
+
+      const atTop = y <= 16;
+      const atEnd = y >= room - 24;
+      const delta = y - prev;
+      if (atTop || atEnd) setShowNav(true);
+      else if (delta > 12 && y > 80) setShowNav(false);
+      else if (delta < -12) setShowNav(true);
+    };
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', onScroll, { capture: true } as EventListenerOptions);
+  }, [activeTab, isTourOpen]);
 
   // The onboarding tour keeps the bottom navigation visible
   useEffect(() => {
@@ -3510,6 +3544,13 @@ export default function App() {
                       permission: 'inventory.view' as const,
                     },
                     {
+                      id: 'stock-history',
+                      label: 'Stock History',
+                      icon: History,
+                      desc: 'Restocks, wastage, counts',
+                      permission: 'inventory.stock_history' as const,
+                    },
+                    {
                       id: 'sales',
                       label: 'Sales Log',
                       icon: Receipt,
@@ -3975,6 +4016,17 @@ export default function App() {
                       >
                         <SecurityGuard permission="inventory.view">
                           <InventoryView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'stock-history' && (
+                      <motion.div
+                        key="stock-history-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="inventory.stock_history">
+                          <StockHistoryView />
                         </SecurityGuard>
                       </motion.div>
                     )}

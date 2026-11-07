@@ -1,381 +1,256 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Send, Check } from 'lucide-react';
+import { X, Copy, Check, LogOut, Loader2 } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { useCustomerStore } from '../stores/customerStore';
 import { useAuthStore } from '../stores/authStore';
-import { useAppStore } from '../stores/appStore';
-import { useExtraModulesStore, ProductionBatch } from '../stores/extraModulesStore';
-import { Shift, Transaction, BillOfMaterials, Expense } from '../types';
+import { useNotificationStore } from '../stores/notificationStore';
+import { useExtraModulesStore } from '../stores/extraModulesStore';
 import { useOverlay } from '../hooks/useOverlay';
+import type { Expense } from '../types';
+import { buildShiftReport, finishShift, ksh, shiftClock, shiftLength, shiftReportText } from '../services/shiftReport';
 
 interface EndShiftModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (reportText: string, customMessage: string) => void;
+  /** Called once the shift has been closed and the report sent. */
+  onDone?: () => void;
 }
 
-export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftModalProps) {
-  useOverlay(isOpen, onClose, 'dialog');
-  
+export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModalProps) {
+  const [saving, setSaving] = useState(false);
+  useOverlay(isOpen, () => !saving && onClose(), 'dialog');
+
   const { products } = useInventoryStore();
   const { transactions, debtPayments } = useTransactionStore();
   const { customers } = useCustomerStore();
   const { activeShift, currentEmployee } = useAuthStore();
   const { productionBatches, billOfMaterials } = useExtraModulesStore();
+  const showToast = useNotificationStore((s) => s.showToast);
 
-  const [customMessage, setCustomMessage] = useState("");
+  const [notes, setNotes] = useState('');
+  const [counted, setCounted] = useState('');
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   // Expenses aren't kept in a store, so they're loaded when the report opens.
   useEffect(() => {
     if (!isOpen) return;
+    setError(null);
+    setNow(Date.now());
     import('../services/repositories')
       .then(({ ExpenseRepository }) => ExpenseRepository.getAll())
       .then(setExpenses)
       .catch((err) => console.error('Could not load expenses for the shift report:', err));
   }, [isOpen]);
 
-  // Compute shift statistics
-  const { reportText, reportPreview } = useMemo(() => {
-    if (!activeShift || !currentEmployee) return { reportText: '', reportPreview: '' };
-
-    const shiftStart = new Date(activeShift.startTime).getTime();
-    
-    // 1. Filter transactions for this shift
-    const shiftTransactions = transactions.filter(t => {
-      const tTime = new Date(t.timestamp).getTime();
-      const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
-      return tTime >= shiftStart && tTime <= shiftEnd && t.staffId === currentEmployee.id;
+  const report = useMemo(() => {
+    if (!activeShift || !currentEmployee) return null;
+    return buildShiftReport({
+      shift: activeShift,
+      employee: currentEmployee,
+      transactions,
+      debtPayments,
+      expenses,
+      products,
+      customers,
+      productionBatches,
+      billOfMaterials,
+      now,
     });
+  }, [activeShift, currentEmployee, transactions, debtPayments, expenses, products, customers, productionBatches, billOfMaterials, now]);
 
-    // Debt Payments made during shift
-    const shiftDebtPayments = debtPayments.filter(dp => {
-      const dpTime = dp.created_at ? new Date(dp.created_at).getTime() : 0;
-      const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
-      return dpTime >= shiftStart && dpTime <= shiftEnd && dp.recordedBy === currentEmployee.name;
-    });
+  const countedCash = counted.trim() === '' ? null : Number(counted);
+  const countedValid = countedCash === null || (Number.isFinite(countedCash) && countedCash >= 0);
+  const diff = report && countedCash !== null && countedValid ? Math.round(countedCash - report.expectedCash) : null;
+  const text = report ? shiftReportText(report, { countedCash: countedValid ? countedCash : null, notes }) : '';
 
-    // 2. Financials
-    let cash = 0;
-    let mpesa = 0;
-    let debt = 0;
-    
-    // 3. Products
-    const productSales: Record<string, { name: string, sold: number, closing: number, opening: number, earned: number }> = {};
-    
-    // 4. Debt & Credit Tracking
-    const customersAtCredit: Record<string, { name: string, items: string[], amount: number, currentDebt: number }> = {};
-
-    // 5. Deliveries
-    let deliveries = 0;
-
-    // 6. Production Batches during this shift (BOM production)
-    const shiftProduction = productionBatches.filter(b => {
-      const bTime = new Date(b.date).getTime();
-      const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
-      return bTime >= shiftStart && bTime <= shiftEnd && b.staffName === currentEmployee.name;
-    });
-
-    // Track BOM raw material consumption per product (e.g., milk consumed for mala)
-    const productionConsumption: Record<string, number> = {};
-    // Track production output (finished goods added to stock, e.g., mala produced)
-    const productionOutput: Record<string, number> = {};
-
-    shiftProduction.forEach(batch => {
-      // Find the BOM recipe to know which raw materials were consumed
-      const bom = billOfMaterials.find(b => b.id === batch.bomId);
-      if (bom && bom.ingredients) {
-        bom.ingredients.forEach(ing => {
-          const consumedQty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced).toFixed(3));
-          productionConsumption[ing.productId] = (productionConsumption[ing.productId] || 0) + consumedQty;
-        });
-      }
-      // Track produced finished goods
-      if (batch.productId) {
-        productionOutput[batch.productId] = (productionOutput[batch.productId] || 0) + batch.quantityProduced;
-      }
-    });
-
-    // Populate data
-    shiftTransactions.forEach(tx => {
-      if (tx.isDelivery) deliveries += 1;
-
-      // Money
-      if (tx.paymentMethod === 'Cash') cash += tx.finalTotal;
-      else if (tx.paymentMethod === 'M-Pesa' || tx.paymentMethod === 'Mobile_Wallet') mpesa += tx.finalTotal;
-      else if (tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit') {
-        debt += tx.finalTotal;
-        if (tx.customerId) {
-          if (!customersAtCredit[tx.customerId]) {
-            const cust = customers.find(c => c.id === tx.customerId);
-            customersAtCredit[tx.customerId] = {
-              name: tx.customerName || cust?.name || 'Unknown Customer',
-              items: [],
-              amount: 0,
-              currentDebt: cust?.debtBalance || 0
-            };
-          }
-          customersAtCredit[tx.customerId].amount += tx.finalTotal;
-          tx.items.forEach(i => customersAtCredit[tx.customerId].items.push(`${i.quantity}x ${i.product.name}`));
-        }
-      }
-
-      // Products
-      tx.items.forEach(item => {
-        const pid = item.product.id;
-        if (!productSales[pid]) {
-          const currentStock = products.find(p => p.id === pid)?.stock || 0;
-          productSales[pid] = {
-            name: item.product.name,
-            sold: 0,
-            closing: currentStock,
-            opening: 0, // calculated later
-            earned: 0
-          };
-        }
-        productSales[pid].sold += item.quantity;
-        const itemTotal = (item.product.price * item.quantity) * (1 - item.discountPercentage / 100);
-        productSales[pid].earned += itemTotal;
-      });
-    });
-
-    // Calculate opening stock for sold products + account for production consumption and output
-    Object.values(productSales).forEach(ps => {
-      const pid = Object.keys(productSales).find(key => productSales[key] === ps);
-      const consumed = pid ? (productionConsumption[pid] || 0) : 0;
-      const produced = pid ? (productionOutput[pid] || 0) : 0;
-      // opening = closing + sold + consumedThisShift - producedThisShift
-      ps.opening = Math.max(0, Math.round((ps.closing + ps.sold + consumed - produced) * 100) / 100);
-    });
-
-    // Expenses recorded while this shift was open
-    const shiftEnd = activeShift.endTime ? new Date(activeShift.endTime).getTime() : Date.now();
-    const shiftExpenses = expenses.filter((e) => {
-      const t = new Date(e.created_at || e.date).getTime();
-      return t >= shiftStart && t <= shiftEnd;
-    });
-    const cashExpenses = shiftExpenses
-      .filter((e) => (e.paymentMethod || 'Cash') === 'Cash')
-      .reduce((sum, e) => sum + e.amount, 0);
-    const cashDebtRepaid = shiftDebtPayments
-      .filter((dp) => dp.paymentMethod === 'Cash')
-      .reduce((sum, dp) => sum + dp.amountPaid, 0);
-
-    // Format text
-    const dateStr = new Date().toLocaleDateString('en-KE', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-    const timeStr = new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
-    
-    let text = `*SHIFT REPORT - ${currentEmployee.name}*\n`;
-    text += `Date: ${dateStr} @ ${timeStr}\n\n`;
-    
-    // ========== FINANCIALS ==========
-    text += `*FINANCIALS*\n`;
-    text += `- Cash: Ksh ${cash.toLocaleString()}\n`;
-    text += `- M-Pesa: Ksh ${mpesa.toLocaleString()}\n`;
-    text += `- Debt: Ksh ${debt.toLocaleString()}\n`;
-    if (shiftExpenses.length > 0) {
-      const totalExpenses = shiftExpenses.reduce((sum, e) => sum + e.amount, 0);
-      text += `- Expenses paid: Ksh ${totalExpenses.toLocaleString()}\n`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast('Not copied', 'Could not copy the report on this device.', undefined, 'error');
     }
-    text += `- Cash expected in drawer: Ksh ${(cash + cashDebtRepaid - cashExpenses).toLocaleString()}\n`;
-    text += `  (cash sales + cash debt repaid - cash expenses)\n\n`;
-
-    if (shiftExpenses.length > 0) {
-      text += `*EXPENSES*\n`;
-      shiftExpenses.forEach((e) => {
-        text += `- ${e.category}: Ksh ${e.amount.toLocaleString()} (${e.paymentMethod || 'Cash'})${e.description ? ` - ${e.description}` : ''}\n`;
-      });
-      text += `\n`;
-    }
-
-    if (deliveries > 0) {
-      text += `*TASKS*\n`;
-      text += `- Deliveries completed: ${deliveries}\n\n`;
-    }
-
-    // ========== PRODUCT PERFORMANCE + INVENTORY ==========
-    if (Object.keys(productSales).length > 0 || Object.keys(productionConsumption).length > 0 || Object.keys(productionOutput).length > 0) {
-      text += `*INVENTORY SUMMARY*\n`;
-      
-      // Track all unique product IDs involved (sold, consumed, or produced)
-      const allProductIds = new Set<string>([
-        ...Object.keys(productSales),
-        ...Object.keys(productionConsumption),
-        ...Object.keys(productionOutput)
-      ]);
-
-      allProductIds.forEach(pid => {
-        const prod = products.find(p => p.id === pid);
-        const name = prod?.name || productSales[pid]?.name || 'Product';
-        const unit = prod?.unit || 'units';
-        
-        const ps = productSales[pid];
-        const sold = ps?.sold || 0;
-        const opened = ps?.opening || 0;
-        const closed = prod?.stock ?? ps?.closing ?? 0;
-        const consumed = productionConsumption[pid] || 0;
-        const produced = productionOutput[pid] || 0;
-        const earnedKsh = Math.round(ps?.earned || 0);
-
-        // Build info line
-        const infoParts: string[] = [];
-        if (opened > 0) infoParts.push(`Opened: ${opened} ${unit}`);
-        if (sold > 0) infoParts.push(`Sold: ${sold} ${unit}`);
-        if (consumed > 0) infoParts.push(`Consumed(BOM): ${consumed} ${unit}`);
-        if (produced > 0) infoParts.push(`Produced: ${produced} ${unit}`);
-        if (closed >= 0) infoParts.push(`Closed: ${closed} ${unit}`);
-        if (earnedKsh > 0) infoParts.push(`Earned: Ksh ${earnedKsh.toLocaleString()}`);
-
-        if (infoParts.length > 0) {
-          text += `- ${name}: ${infoParts.join(' | ')}\n`;
-        }
-      });
-      text += `\n`;
-    }
-
-    // ========== BOM PRODUCTION LOG ==========
-    if (shiftProduction.length > 0) {
-      text += `*PRODUCTION / BOM*\n`;
-      shiftProduction.forEach(batch => {
-        const bomName = batch.recipeName;
-        const produced = batch.quantityProduced;
-        const unit = batch.unit || 'units';
-        const rawUsed = getRawMaterialSummary(batch, billOfMaterials);
-        text += `- ${bomName}: Produced ${produced} ${unit}`;
-        if (rawUsed) text += ` | Raw: ${rawUsed}`;
-        text += `\n`;
-      });
-      text += `\n`;
-    }
-
-    if (Object.keys(customersAtCredit).length > 0) {
-      text += `*CREDIT TAKEN*\n`;
-      Object.values(customersAtCredit).forEach(c => {
-        text += `- ${c.name}: Took ${c.items.join(', ')} (Ksh ${c.amount.toLocaleString()})\n`;
-        text += `  > Total Debt to Date: Ksh ${c.currentDebt.toLocaleString()}\n`;
-      });
-      text += `\n`;
-    }
-
-    if (shiftDebtPayments.length > 0) {
-      text += `*DEBT REPAID*\n`;
-      shiftDebtPayments.forEach(dp => {
-        const cName = customers.find(c => c.id === dp.customerId)?.name || 'Unknown Customer';
-        text += `- ${cName} paid Ksh ${dp.amountPaid.toLocaleString()} via ${dp.paymentMethod}\n`;
-        text += `  > Remaining Debt: Ksh ${dp.remainingDebt.toLocaleString()}\n`;
-      });
-      text += `\n`;
-    }
-
-    if (customMessage.trim()) {
-      text += `*NOTES*\n${customMessage.trim()}\n`;
-    }
-
-    const whatsappReport = `\`\`\`text\n${text}\n\`\`\``;
-    return { reportText: whatsappReport, reportPreview: text };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeShift, currentEmployee, transactions, debtPayments, products, customers, productionBatches, billOfMaterials, customMessage, expenses]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(reportText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleConfirm = () => {
-    onConfirm(reportText, customMessage);
+  const endShift = async () => {
+    if (saving || !countedValid) return;
+    setSaving(true);
+    setError(null);
+    const ok = await finishShift(text, notes);
+    setSaving(false);
+    if (ok) {
+      setNotes('');
+      setCounted('');
+      onDone?.();
+      onClose();
+    } else {
+      // Stays open with everything typed, so it can be tried again
+      setError('Your shift could not be closed. Check your connection and try again.');
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
-          onClick={onClose}
+          className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+          onClick={() => !saving && onClose()}
         />
-        
+
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-lg bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-shift-title"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+          className="relative w-full sm:max-w-lg bg-app-card rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-app-border bg-app-bg/50">
-            <div>
-              <h2 className="text-sm font-black text-app-text uppercase tracking-wider font-display">
-                End Shift Report
-              </h2>
-              <p className="text-[10px] text-app-text-muted mt-0.5">
-                Review your shift summary before punching out.
-              </p>
+          <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+            <div className="min-w-0">
+              <h2 id="end-shift-title" className="text-base font-semibold text-app-text">End shift</h2>
+              {report && (
+                <p className="text-xs text-app-text-muted mt-0.5">
+                  {report.employeeName} · {shiftClock(report.start)} – {shiftClock(report.end)} · {shiftLength(report)}
+                </p>
+              )}
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-app-bg rounded-xl transition text-app-text-muted hover:text-app-text"
-            >
-              <X size={16} />
+            <button onClick={onClose} disabled={saving} aria-label="Close" className="p-2 -m-1 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg disabled:opacity-40">
+              <X size={18} />
             </button>
           </div>
 
-          {/* Content */}
-          <div className="p-5 overflow-y-auto custom-scrollbar space-y-4 flex-1">
-            
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-app-text-muted uppercase tracking-wider pl-1">
-                Custom Message / Notes (Optional)
-              </label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="E.g., Left 500 in the drawer, everything looks good..."
-                className="w-full bg-app-bg text-app-text text-xs p-3 rounded-2xl border border-app-border focus:border-amber-500 focus:outline-none transition min-h-[80px] resize-none"
-              />
-            </div>
+          <div className="px-5 pb-4 overflow-y-auto flex-1 space-y-4">
+            {!report ? (
+              <p className="text-sm text-app-text-muted py-6 text-center">You don't have an open shift.</p>
+            ) : (
+              <>
+                {/* Sales */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Tile label="Sales" value={ksh(report.salesTotal)} hint={`${report.salesCount} ${report.salesCount === 1 ? 'sale' : 'sales'}`} strong />
+                  <Tile label="Cash" value={ksh(report.cash)} />
+                  <Tile label="M-Pesa" value={ksh(report.mpesa)} />
+                  <Tile label="On credit" value={ksh(report.credit)} />
+                  {report.other > 0 && <Tile label="Card, bank, other" value={ksh(report.other)} />}
+                  {report.expensesTotal > 0 && <Tile label="Expenses" value={ksh(report.expensesTotal)} />}
+                </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between pl-1">
-                <label className="text-[10px] font-bold text-app-text-muted uppercase tracking-wider">
-                  Report Preview
+                {/* Cash drawer */}
+                <div className="rounded-xl bg-app-bg p-3.5 space-y-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium text-app-text">Cash expected in drawer</span>
+                    <span className="text-sm font-semibold text-app-text tabular-nums">{ksh(report.expectedCash)}</span>
+                  </div>
+                  {(report.cashDebtRepaid > 0 || report.cashExpenses > 0) && (
+                    <p className="text-[11px] text-app-text-muted">
+                      Cash sales {ksh(report.cash)} + debt repaid {ksh(report.cashDebtRepaid)} − cash expenses {ksh(report.cashExpenses)}
+                    </p>
+                  )}
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-app-text-muted">Cash counted (optional)</span>
+                    <input
+                      inputMode="decimal"
+                      value={counted}
+                      onChange={(e) => setCounted(e.target.value.replace(/[^\d.]/g, ''))}
+                      placeholder="0"
+                      aria-invalid={!countedValid}
+                      className="w-32 text-right bg-app-card text-app-text text-sm px-3 py-2 rounded-lg focus:outline-none tabular-nums"
+                    />
+                  </label>
+                  {diff !== null && (
+                    <p className={`text-xs font-medium ${diff === 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-500' : 'text-amber-600'}`}>
+                      {diff === 0 ? 'Matches what is expected.' : diff < 0 ? `Short by ${ksh(-diff)}.` : `Over by ${ksh(diff)}.`}
+                    </p>
+                  )}
+                </div>
+
+                {report.products.length > 0 && (
+                  <Section title="Products sold">
+                    {report.products.map((p) => (
+                      <Row key={p.name} left={p.name} sub={`${p.sold}${p.unit ? ` ${p.unit}` : ''} sold${p.left !== null ? ` · ${Math.round(p.left * 100) / 100} left` : ''}`} right={ksh(p.earned)} />
+                    ))}
+                  </Section>
+                )}
+
+                {report.production.length > 0 && (
+                  <Section title="Production">
+                    {report.production.map((b, i) => (
+                      <Row key={i} left={b.name} sub={b.used ? `Used ${b.used}` : undefined} right={`${b.produced}${b.unit ? ` ${b.unit}` : ''}`} />
+                    ))}
+                  </Section>
+                )}
+
+                {report.creditTaken.length > 0 && (
+                  <Section title="Credit given">
+                    {report.creditTaken.map((c) => (
+                      <Row key={c.name} left={c.name} sub={`${c.items} · owes ${ksh(c.owesNow)}`} right={ksh(c.amount)} />
+                    ))}
+                  </Section>
+                )}
+
+                {report.debtRepaid.length > 0 && (
+                  <Section title="Debt repaid">
+                    {report.debtRepaid.map((d, i) => (
+                      <Row key={i} left={d.name} sub={`${d.method} · still owes ${ksh(d.owesNow)}`} right={ksh(d.amount)} />
+                    ))}
+                  </Section>
+                )}
+
+                {report.expenses.length > 0 && (
+                  <Section title="Expenses">
+                    {report.expenses.map((e, i) => (
+                      <Row key={i} left={e.category} sub={[e.method, e.note].filter(Boolean).join(' · ')} right={ksh(e.amount)} />
+                    ))}
+                  </Section>
+                )}
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-app-text-muted">Notes for the owner (optional)</span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="E.g. left KSh 500 float in the drawer"
+                    className="w-full bg-app-bg text-app-text text-sm p-3 rounded-xl focus:outline-none min-h-[72px] resize-none"
+                  />
                 </label>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1 text-[9px] font-bold text-amber-500 hover:text-amber-400 transition"
-                >
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                  {copied ? 'COPIED' : 'COPY TO WHATSAPP'}
-                </button>
-              </div>
-              <div className="bg-app-bg border border-app-border rounded-2xl p-4 text-[11px] text-app-text-muted font-mono whitespace-pre-wrap leading-relaxed select-text">
-                {reportPreview}
-              </div>
-            </div>
 
+                {error && (
+                  <p role="alert" className="text-xs font-medium text-red-500 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Footer */}
-          <div className="p-5 border-t border-app-border bg-app-bg/50 flex gap-3">
+          <div className="px-5 pt-3 pb-[calc(1rem+var(--inset-bottom))] sm:pb-4 border-t border-app-border flex gap-2">
             <button
-              onClick={onClose}
-              className="flex-1 py-3 px-4 bg-app-bg hover:bg-app-card border border-app-border text-app-text rounded-2xl text-[11px] font-black uppercase tracking-wider transition"
+              onClick={copy}
+              disabled={!report}
+              className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-app-bg text-app-text text-sm font-medium disabled:opacity-40"
             >
-              Cancel
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'Copied' : 'Copy'}
             </button>
             <button
-              onClick={handleConfirm}
-              className="flex-[2] py-3 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition"
+              onClick={endShift}
+              disabled={!report || saving || !countedValid}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-semibold disabled:opacity-60"
             >
-              <Send size={14} />
-              End Shift & Notify Owners
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
+              {saving ? 'Ending shift…' : 'End shift and send report'}
             </button>
           </div>
         </motion.div>
@@ -384,15 +259,33 @@ export default function EndShiftModal({ isOpen, onClose, onConfirm }: EndShiftMo
   );
 }
 
+function Tile({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
+  return (
+    <div className={`rounded-xl p-3 ${strong ? 'bg-amber-500/10' : 'bg-app-bg'}`}>
+      <div className="text-[11px] text-app-text-muted">{label}</div>
+      <div className={`tabular-nums text-app-text ${strong ? 'text-lg font-semibold' : 'text-sm font-semibold'}`}>{value}</div>
+      {hint && <div className="text-[11px] text-app-text-muted">{hint}</div>}
+    </div>
+  );
+}
 
-/** Helper to format raw materials consumed for a production batch */
-function getRawMaterialSummary(batch: ProductionBatch, boms: BillOfMaterials[]): string {
-  const bom = boms.find(b => b.id === batch.bomId);
-  if (!bom || !bom.ingredients || bom.ingredients.length === 0) return '';
-  
-  const parts = bom.ingredients.map(ing => {
-    const qty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced).toFixed(2));
-    return `${qty}${ing.unit} ${ing.productName}`;
-  });
-  return parts.join(', ');
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-medium text-app-text-muted mb-1">{title}</h3>
+      <div className="divide-y divide-app-border">{children}</div>
+    </div>
+  );
+}
+
+function Row({ left, sub, right }: { left: string; sub?: string; right: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2">
+      <div className="min-w-0">
+        <div className="text-sm text-app-text truncate">{left}</div>
+        {sub && <div className="text-[11px] text-app-text-muted break-words">{sub}</div>}
+      </div>
+      <div className="text-sm font-medium text-app-text tabular-nums shrink-0">{right}</div>
+    </div>
+  );
 }

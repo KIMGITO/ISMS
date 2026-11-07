@@ -187,7 +187,7 @@ export default function HeroCarousel() {
             )}
             <div className={`absolute inset-0 -z-10 ${dark
               ? 'bg-gradient-to-b from-black/70 via-black/45 to-black/75 lg:bg-gradient-to-r lg:from-[#2b1409] lg:from-[20%] lg:via-[#2b1409]/70 lg:via-[45%] lg:to-transparent lg:to-[80%]'
-              : 'bg-gradient-to-b from-sand from-30% via-sand/55 via-55% to-sand/85 lg:bg-gradient-to-r lg:from-sand lg:from-[38%] lg:via-sand/70 lg:via-[52%] lg:to-transparent lg:to-[72%]'}`}
+              : 'bg-gradient-to-b from-sand/90 via-sand/25 via-45% to-sand/90 lg:bg-gradient-to-r lg:from-sand lg:from-[38%] lg:via-sand/70 lg:via-[52%] lg:to-transparent lg:to-[72%]'}`}
             />
             <div className="hero-full site-gutter flex flex-col justify-between gap-10 pb-24 pt-12 lg:py-16">
               <Heading className="hero-rise display-xl max-w-[13ch]"><DisplayText>{slide.title}</DisplayText></Heading>

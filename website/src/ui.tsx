@@ -127,14 +127,20 @@ export function PageHero({ eyebrow, title, body, photo, children }: {
   children?: ReactNode;
 }) {
   return (
-    <section className="relative isolate overflow-hidden bg-sand">
-      <img
-        src={photoUrl(photo, 1000, 560)}
-        alt=""
-        className="photo-warm absolute inset-y-0 right-0 -z-20 hidden h-full w-1/2 object-cover sm:block"
-      />
-      <div className="absolute inset-y-0 right-0 -z-10 hidden w-1/2 bg-gradient-to-r from-sand to-transparent sm:block" />
-      <div className="site-gutter py-10 sm:py-16">
+    // The photo fills the whole banner on every screen; a sand fade keeps the words readable.
+    <section className="relative isolate flex min-h-[24rem] items-end overflow-hidden bg-sand sm:min-h-[26rem] sm:items-center">
+      <picture>
+        <source media="(orientation: portrait)" srcSet={[480, 720, 1080].map((w) => `${photoUrl(photo, w, Math.round(w * 1.1))} ${w}w`).join(', ')} sizes="100vw" />
+        <img
+          src={photoUrl(photo, 1400, 700)}
+          srcSet={[800, 1400, 2000].map((w) => `${photoUrl(photo, w, Math.round(w * 0.5))} ${w}w`).join(', ')}
+          sizes="100vw"
+          alt=""
+          className="photo-warm absolute inset-0 -z-20 h-full w-full object-cover"
+        />
+      </picture>
+      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-sand from-25% via-sand/75 via-55% to-sand/10 sm:bg-gradient-to-r sm:from-sand sm:from-35% sm:via-sand/70 sm:via-55% sm:to-transparent" />
+      <div className="site-gutter w-full py-10 sm:py-16">
         {children}
         {eyebrow && <p className="eyebrow rise-in mt-3">{eyebrow}</p>}
         <h1 className="display-lg rise-in mt-2 max-w-xl">{title}</h1>

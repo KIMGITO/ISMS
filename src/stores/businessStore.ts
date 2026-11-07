@@ -53,6 +53,27 @@ const localActiveBusinessIdKey = "kkm_active_business_id_v1";
 
 const DEFAULT_BUSINESSES: Business[] = [];
 
+// Settings (receipts, printers, SMS…) are kept on the device too, so a restart, a
+// slow connection or being offline never falls back to defaults.
+const configsKey = (businessId: string) => `kkm_integration_configs_v1_${businessId}`;
+const getSavedConfigs = (businessId: string): Record<string, any> => {
+  if (!businessId) return {};
+  try {
+    const saved = localStorage.getItem(configsKey(businessId));
+    const parsed = saved ? JSON.parse(saved) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+const saveConfigs = (businessId: string, configs: Record<string, any>) => {
+  try {
+    localStorage.setItem(configsKey(businessId), JSON.stringify(configs));
+  } catch {
+    /* storage full or blocked: the in-memory copy still works */
+  }
+};
+
 const getSavedBusinesses = (): Business[] => {
   try {
     const saved = localStorage.getItem(localBusinessesKey);
@@ -81,23 +102,22 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
   return {
     businesses: loadedBusinesses,
     activeBusinessId: loadedActiveId,
-    integrationConfigs: {},
+    integrationConfigs: getSavedConfigs(loadedActiveId),
 
     fetchIntegrationConfig: async (section: string) => {
       const { activeBusinessId } = get();
       if (!activeBusinessId) return null;
       try {
         const config = await SupabaseService.fetchIntegrationConfig(activeBusinessId, section);
-        set((state) => ({
-          integrationConfigs: {
-            ...state.integrationConfigs,
-            [section]: config || {}
-          }
-        }));
+        if (get().activeBusinessId !== activeBusinessId) return config || {};
+        const integrationConfigs = { ...get().integrationConfigs, [section]: config || {} };
+        set({ integrationConfigs });
+        saveConfigs(activeBusinessId, integrationConfigs);
         return config || {};
       } catch (err) {
+        // Keep what we already have rather than dropping to defaults
         console.error(`Failed to fetch config for ${section}`, err);
-        return {};
+        return get().integrationConfigs[section] || {};
       }
     },
 
@@ -106,11 +126,14 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       if (!activeBusinessId) return {};
       try {
         const configs = await SupabaseService.fetchAllIntegrationConfigs(activeBusinessId);
+        if (get().activeBusinessId !== activeBusinessId) return configs; // switched business meanwhile
         set({ integrationConfigs: configs });
+        saveConfigs(activeBusinessId, configs);
         return configs;
       } catch (err) {
+        // Offline or a failed request: keep the saved settings, never fall back to defaults
         console.error(`Failed to fetch all integration configs`, err);
-        return {};
+        return get().integrationConfigs;
       }
     },
 
@@ -118,12 +141,10 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       const { activeBusinessId } = get();
       if (!activeBusinessId) throw new Error("No active business");
       await SupabaseService.saveIntegrationConfig(activeBusinessId, section, payload);
-      set((state) => ({
-        integrationConfigs: {
-          ...state.integrationConfigs,
-          [section]: payload
-        }
-      }));
+      if (get().activeBusinessId !== activeBusinessId) return;
+      const integrationConfigs = { ...get().integrationConfigs, [section]: payload };
+      set({ integrationConfigs });
+      saveConfigs(activeBusinessId, integrationConfigs);
     },
 
     addBusiness: async (
@@ -328,7 +349,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
 
         set({
           businesses: updated,
-          activeBusinessId: nextActiveId
+          activeBusinessId: nextActiveId,
+          ...(nextActiveId !== get().activeBusinessId ? { integrationConfigs: getSavedConfigs(nextActiveId) } : {}),
         });
 
         useNotificationStore.getState().showToast(
@@ -349,7 +371,10 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
 
     setActiveBusinessId: (id) => {
       localStorage.setItem(localActiveBusinessIdKey, id);
-      set({ activeBusinessId: id });
+      if (id === get().activeBusinessId) return;
+      // Each business has its own settings: show its saved copy straight away, then refresh
+      set({ activeBusinessId: id, integrationConfigs: getSavedConfigs(id) });
+      get().fetchAllIntegrationConfigs().catch(() => {});
     },
     setBusinesses: (businesses) => {
       localStorage.setItem(localBusinessesKey, JSON.stringify(businesses));

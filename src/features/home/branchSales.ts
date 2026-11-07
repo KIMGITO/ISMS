@@ -4,7 +4,7 @@
 
 import { getSupabase } from "../../services/supabaseClient";
 import { toUuid } from "../../utils/idUtils";
-import type { BranchSale, DateRange } from "./metrics";
+import { kenyaTime, kenyaToIso, type BranchSale, type DateRange } from "./metrics";
 
 const PAGE = 1000;
 const MAX_PAGES = 50;
@@ -18,8 +18,8 @@ export async function fetchBranchSales(branchIds: string[], range: DateRange): P
       .from("transactions")
       .select("id, business_id, final_total, total, timestamp")
       .in("business_id", ids)
-      .gte("timestamp", range.start.toISOString())
-      .lte("timestamp", range.end.toISOString())
+      .gte("timestamp", kenyaToIso(range.start))
+      .lte("timestamp", kenyaToIso(range.end))
       .order("timestamp", { ascending: true })
       .order("id", { ascending: true })
       .range(page * PAGE, page * PAGE + PAGE - 1);
@@ -29,7 +29,7 @@ export async function fetchBranchSales(branchIds: string[], range: DateRange): P
       out.push({
         businessId: row.business_id,
         amount: Number.isFinite(final) ? final : Number(row.total) || 0,
-        ts: new Date(row.timestamp).getTime(),
+        ts: kenyaTime(row.timestamp),
       });
     }
     if (!data || data.length < PAGE) break;

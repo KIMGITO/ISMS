@@ -732,11 +732,9 @@ export class SupabaseService {
       .select("section, payload")
       .eq("business_id", toUuid(businessId));
 
-    if (error) {
-      console.error(`Error fetching all configs:`, error);
-      return {};
-    }
-    
+    // Thrown, not swallowed: an empty result would wipe the settings the app already has
+    if (error) throw error;
+
     const configs: Record<string, any> = {};
     (data || []).forEach(row => {
       configs[row.section] = row.payload;

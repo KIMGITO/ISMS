@@ -120,7 +120,11 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
 
   // Totals
   row("Subtotal", formatMoney(content.subtotal));
-  if (content.discount > 0) row("Discount", `-${formatMoney(content.discount)}`);
+  // Points paid part of the bill: shown on their own line, apart from ordinary discounts
+  const pointsValue = Math.min(content.loyalty?.pointsValue || 0, content.discount);
+  const otherDiscount = Math.round((content.discount - pointsValue) * 100) / 100;
+  if (otherDiscount > 0) row("Discount", `-${formatMoney(otherDiscount)}`);
+  if (pointsValue > 0) row(`Paid with ${formatQty(content.loyalty!.pointsUsed)} points`, `-${formatMoney(pointsValue)}`);
   if (content.taxTotal > 0) row(content.taxRate ? `VAT ${formatQty(content.taxRate)}%` : "VAT", formatMoney(content.taxTotal));
   if (content.deliveryFee > 0) row("Delivery", formatMoney(content.deliveryFee));
   rule("=");
@@ -131,6 +135,16 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
     row("BALANCE DUE", `${cur} ${formatMoney(content.balanceDue)}`, true);
   }
   rule("=");
+
+  // Loyalty points
+  const pts = content.loyalty;
+  if (pts) {
+    text("LOYALTY POINTS", "center", { bold: true });
+    if (pts.pointsUsed > 0) row("Points used", `${formatQty(pts.pointsUsed)} (-${formatMoney(pts.pointsValue)})`);
+    if (pts.pointsEarned > 0) row("Points earned", `+${formatQty(pts.pointsEarned)}`);
+    if (typeof pts.balance === "number") row("Points balance", formatQty(pts.balance), true);
+    rule();
+  }
 
   // Footer
   if (content.note) text(`Note: ${content.note}`);

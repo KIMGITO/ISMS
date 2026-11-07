@@ -3,7 +3,6 @@ import { AlertTriangle, Clock, LogIn, LogOut } from 'lucide-react';
 import EndShiftModal from './EndShiftModal';
 import { useAuthStore } from '../stores/authStore';
 import { useBusinessStore } from '../stores/businessStore';
-import { finishShift } from '../services/shiftReport';
 import { formatCurrency } from '../utils/helpers';
 
 const LONG_SHIFT_HOURS = 10;
@@ -100,10 +99,6 @@ export default function ClockBar() {
       <EndShiftModal
         isOpen={isEnding}
         onClose={() => setIsEnding(false)}
-        onConfirm={(reportText, customMessage) => {
-          setIsEnding(false);
-          finishShift(reportText, customMessage);
-        }}
       />
     </>
   );

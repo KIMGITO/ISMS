@@ -6,6 +6,10 @@ export interface ReceiptExtras {
   customerPhone?: string;
   customerEmail?: string;
   kra?: KraSignature;
+  /** Points spent on this sale (from the till) */
+  pointsUsed?: { points: number; value: number } | null;
+  /** The customer's points balance now */
+  customerPoints?: number;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -83,6 +87,17 @@ function formatTime(date: Date, format: BusinessReceiptSettings["timeFormat"]): 
 }
 
 /** Maps a saved sale onto what a receipt shows. Uses only the sale's own figures. */
+/** Points on the receipt: only for a named customer, and only when there is something to say. */
+function loyaltyFor(tx: Transaction, extras: ReceiptExtras): ReceiptContent["loyalty"] {
+  if (!tx.customerId) return undefined;
+  const pointsUsed = extras.pointsUsed?.points || 0;
+  const pointsValue = round2(extras.pointsUsed?.value || 0);
+  const pointsEarned = Math.max(0, Math.floor(((Number(tx.finalTotal) || 0) - (tx.isDelivery ? Number(tx.deliveryFee) || 0 : 0)) / 100));
+  const balance = typeof extras.customerPoints === "number" && Number.isFinite(extras.customerPoints) ? extras.customerPoints : undefined;
+  if (!pointsUsed && !pointsEarned && balance === undefined) return undefined;
+  return { pointsUsed, pointsValue, pointsEarned, balance };
+}
+
 export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSettings, extras: ReceiptExtras = {}): ReceiptContent {
   const when = new Date(tx.timestamp || Date.now());
   const receiptNumber = formatReceiptNo(tx.id, tx.timestamp, settings);
@@ -128,6 +143,7 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     amountPaid: credit ? 0 : grandTotal,
     balanceDue: credit ? grandTotal : 0,
     note: tx.note || undefined,
+    loyalty: loyaltyFor(tx, extras),
     kra: extras.kra,
     extraQr: extraQr(settings, receiptNumber),
   };

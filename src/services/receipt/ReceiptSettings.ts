@@ -23,9 +23,17 @@ const LEGACY_PLACEHOLDERS = new Set([
 
 const EXTRA_QR: ExtraQrOption[] = ["none", "business_website", "whatsapp_chat", "google_review", "custom_url"];
 
+/** Saved by the current settings screen: every value in it was chosen by the shop. */
+const SETTINGS_VERSION = 2;
+
+// Placeholders are only stripped from configs older versions wrote. Once the shop saves
+// from the current screen, what they typed is kept, even if it matches an old default
+// (KayKay's own name, phone and messages are on that list).
+let stripLegacy = true;
+
 function clean(value: unknown): string {
   if (typeof value !== "string") return "";
-  return LEGACY_PLACEHOLDERS.has(value) ? "" : value;
+  return stripLegacy && LEGACY_PLACEHOLDERS.has(value) ? "" : value;
 }
 
 function pick(saved: unknown, fallback = ""): string {
@@ -67,6 +75,7 @@ export function defaultReceiptSettings(business?: Business): BusinessReceiptSett
 export function normalizeReceiptSettings(saved: Record<string, any> | null | undefined, business?: Business): BusinessReceiptSettings {
   const base = defaultReceiptSettings(business);
   const s = saved || {};
+  stripLegacy = s.settingsVersion !== SETTINGS_VERSION;
 
   const paperWidth: PaperWidth = s.paperWidth === "80mm" || s.paperWidth === "A4" ? "80mm" : s.paperWidth === "58mm" ? "58mm" : base.paperWidth;
 
@@ -118,6 +127,6 @@ export class ReceiptSettingsService {
   }
 
   public static saveSettings(settings: BusinessReceiptSettings): Promise<void> {
-    return useBusinessStore.getState().updateIntegrationConfig("receipt", settings);
+    return useBusinessStore.getState().updateIntegrationConfig("receipt", { ...settings, settingsVersion: SETTINGS_VERSION });
   }
 }

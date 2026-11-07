@@ -41,7 +41,6 @@ import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import EndShiftModal from '../components/EndShiftModal';
-import { finishShift } from '../services/shiftReport';
 import NotificationService from '../services/notifications/notificationService';
 import { notificationService } from '../core/native/NotificationService';
 import { useAuthStore } from '../stores/authStore';
@@ -1220,10 +1219,6 @@ export default function DashboardView() {
       <EndShiftModal 
         isOpen={isEndShiftModalOpen} 
         onClose={() => setIsEndShiftModalOpen(false)} 
-        onConfirm={(reportText, customMessage) => {
-          setIsEndShiftModalOpen(false);
-          finishShift(reportText, customMessage);
-        }}
       />
     </div>
   );

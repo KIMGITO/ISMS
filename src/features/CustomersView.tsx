@@ -613,68 +613,78 @@ export default function CustomersView() {
     );
   }
 
+  const tierTone = (tier?: string) =>
+    tier === 'Gold'
+      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+      : tier === 'Silver'
+      ? 'bg-slate-500/15 text-slate-600 dark:text-slate-300'
+      : 'bg-orange-500/15 text-orange-600 dark:text-orange-400';
+  const initials = (name: string) =>
+    name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?';
+  const openTab = (tab: typeof activeDetailTab) => {
+    setActiveDetailTab(tab);
+    setSuccessMsg('');
+    requestAnimationFrame(() => document.getElementById('customer-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
   return (
-    <div className="flex-1 flex flex-col lg:flex-row h-full bg-app-bg text-app-text relative overflow-y-auto lg:overflow-hidden font-sans">
-      {/* LEFT PANEL: CLUB MEMBERS LIST (Hidden on mobile when a member is selected to allow full view) */}
+    <div className="flex-1 flex flex-col lg:flex-row h-full bg-app-bg text-app-text relative overflow-hidden font-sans">
+      {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
-        className={`w-full lg:w-[380px] shrink-0 flex flex-col border-r border-app-border h-full bg-app-card transition-all ${
+        className={`w-full lg:w-[380px] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
           selectedCustomerId ? 'hidden lg:flex' : 'flex'
         }`}
       >
-        {/* Header Title with Enrollment button */}
-        <div className="border-b border-app-border p-4 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider">
-              Loyalty Club
-            </h2>
-            <span className="text-[10px] text-app-text-muted font-medium">
-              Customer Profiles & Tier Perks
+        {/* Title and actions */}
+        <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-app-text leading-tight">Customers</h2>
+            <span className="text-xs text-app-text-muted">
+              {filteredCustomers.length} {filteredCustomers.length === 1 ? 'customer' : 'customers'}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-          {canMergeCustomers && (
-            <button
-              onClick={() => setShowDuplicates(true)}
-              className="px-3 py-1.5 border border-app-border text-app-text font-bold rounded-xl text-[10.5px] flex items-center gap-1 hover:bg-app-bg transition cursor-pointer"
-            >
-              <span>Duplicates</span>
-              {duplicateCount > 0 && (
-                <span className="px-1.5 rounded-full bg-amber-500 text-slate-950 font-black">{duplicateCount}</span>
-              )}
-            </button>
-          )}
-          {canCreateCustomers && (
-            <button
-              onClick={() => {
-                resetForm();
-                setIsAdding(true);
-              }}
-              className="px-3 py-1.5 bg-amber-500 text-slate-950 font-black rounded-xl text-[10.5px] uppercase tracking-wider flex items-center gap-1 hover:bg-amber-600 transition cursor-pointer shadow-sm"
-            >
-              <UserPlus size={11} />
-              <span>Enroll</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {canMergeCustomers && (
+              <button
+                onClick={() => setShowDuplicates(true)}
+                className="relative px-3 py-2 rounded-xl bg-app-bg text-app-text text-sm font-medium cursor-pointer"
+              >
+                Duplicates
+                {duplicateCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-amber-500 text-slate-950 text-[11px] font-semibold grid place-items-center">
+                    {duplicateCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {canCreateCustomers && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsAdding(true);
+                }}
+                className="px-3.5 py-2 bg-amber-500 text-slate-950 font-semibold rounded-xl text-sm flex items-center gap-1.5 hover:bg-amber-600 cursor-pointer"
+              >
+                <UserPlus size={16} />
+                <span>Add</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Search list inputs */}
-        <div className="border-b border-app-border p-3 shrink-0 bg-app-bg/15">
+        {/* Search and filter */}
+        <div className="px-3 pb-3 shrink-0 flex flex-col gap-2">
           <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-app-text-muted"
-            />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
             <input
-              type="text"
-              placeholder="Search loyalty club..."
+              type="search"
+              placeholder="Name, phone or account no."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-app-bg text-xs pl-9 pr-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-app-text transition"
+              className="w-full bg-app-bg text-sm pl-9 pr-3 py-2.5 rounded-xl focus:outline-none text-app-text"
             />
           </div>
           <SearchableDropdown
-            className="mt-2"
             items={[
               { id: 'all', label: 'All customers' },
               ...Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => ({ id: `customerType:${value}`, label, sublabel: 'Customer type' })),
@@ -683,223 +693,188 @@ export default function CustomersView() {
             ]}
             selectedValue={groupFilter}
             onChange={setGroupFilter}
-            placeholder="Filter customers by group"
+            placeholder="All customers"
             searchPlaceholder="Search groups"
           />
         </div>
 
-        {/* Member list scroll container */}
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 pb-nav">
+        {/* Customers */}
+        <div className="flex-1 min-h-0 overflow-y-auto pb-nav">
           {filteredCustomers.length === 0 ? (
-            <div className="p-8 text-center text-xs text-app-text-muted font-medium">
-              No loyalty profiles found. Create a new member above!
+            <div className="px-6 py-16 text-center">
+              <p className="text-sm font-medium text-app-text">No customers found</p>
+              <p className="text-xs text-app-text-muted mt-1">
+                {searchQuery || groupFilter !== 'all' ? 'Try another search or filter.' : 'Add your first customer with the Add button.'}
+              </p>
             </div>
           ) : (
-            filteredCustomers.map((c) => {
-              const isGold = c.tier === 'Gold';
-              const isSilver = c.tier === 'Silver';
-              const isSelected = selectedCustomerId === c.id;
-
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => setSelectedCustomerId(c.id)}
-                  className={`rounded-2xl border p-3.5 flex items-center justify-between gap-3 shadow-xs cursor-pointer transition-all ${
-                    isSelected
-                      ? 'bg-amber-500/10 border-amber-500 ring-1 ring-amber-500/30'
-                      : 'bg-app-bg border-app-border hover:border-amber-500/20 hover:bg-app-bg'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xs font-extrabold font-display text-app-text truncate">
-                        {titleCase(c.name)}
-                      </h3>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-0.5 ${
-                          isGold
-                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20'
-                            : isSilver
-                            ? 'bg-slate-500/15 text-slate-500 border border-slate-500/20'
-                            : 'bg-orange-500/15 text-orange-600 border border-orange-500/20'
-                        }`}
-                      >
-                        <Award size={8} />
-                        <span>{c.tier}</span>
+            <div className="divide-y divide-app-border">
+              {filteredCustomers.map((c) => {
+                const isSelected = selectedCustomerId === c.id;
+                const debt = c.debtBalance || 0;
+                const offline = (c as any).sync_status && (c as any).sync_status !== 'synced';
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCustomerId(c.id)}
+                    className={`w-full text-left flex items-center gap-3 px-4 py-3 cursor-pointer ${
+                      isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg'
+                    }`}
+                  >
+                    <span className={`grid place-items-center size-10 rounded-full shrink-0 text-sm font-semibold ${tierTone(c.tier)}`}>
+                      {initials(c.name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium text-app-text truncate">{titleCase(c.name)}</span>
+                        {offline && <span className="shrink-0 size-1.5 rounded-full bg-amber-500" title="Not synced yet" />}
                       </span>
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-app-bg border border-app-border text-app-text-muted shrink-0">
-                        {CUSTOMER_TYPE_LABELS[c.customerType ?? 'individual']}
+                      <span className="block text-xs text-app-text-muted truncate">
+                        {c.phone}
+                        {c.tier ? ` · ${c.tier}` : ''}
                       </span>
-                      <span
-                        className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${
-                          (c as any).sync_status === 'synced'
-                            ? 'bg-emerald-500/15 text-emerald-500'
-                            : 'bg-amber-500/15 text-amber-500 '
-                        }`}
-                      >
-                        <span className="w-1 h-1 rounded-full bg-current" />
-                        <span>
-                          {(c as any).sync_status === 'synced'
-                            ? 'Synced'
-                            : 'Offline'}
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-1 mt-2 text-[9.5px] text-app-text-muted font-bold">
-                      <div className="flex items-center gap-1">
-                        <Phone size={10} className="opacity-70 shrink-0" />
-                        <span>{c.phone}</span>
-                      </div>
-                      <div className="flex gap-2.5 text-[9px] font-mono mt-0.5 border-t border-app-border/40 pt-1">
-                        {c.debtBalance !== undefined && c.debtBalance > 0 ? (
-                          <span className="text-red-500 font-extrabold uppercase">
-                            Debt: KSh {c.debtBalance.toFixed(0)}
-                          </span>
-                        ) : (
-                          <span className="text-app-text-muted uppercase">
-                            No Debt
-                          </span>
-                        )}
-                        <span>Points: {c.loyaltyPoints}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight
-                    size={13}
-                    className={
-                      isSelected ? 'text-amber-500' : 'text-app-text-muted'
-                    }
-                  />
-                </div>
-              );
-            })
+                    </span>
+                    <span className="text-right shrink-0">
+                      {debt > 0 ? (
+                        <>
+                          <span className="block text-sm font-semibold text-red-600 dark:text-red-400 tabular-nums">{formatCurrency(debt)}</span>
+                          <span className="block text-[11px] text-app-text-muted">owes</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block text-sm font-semibold text-app-text tabular-nums">{c.loyaltyPoints || 0}</span>
+                          <span className="block text-[11px] text-app-text-muted">points</span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* RIGHT PANEL: FULL CLIENT ACCOUNT WORKSPACE (Desktop Side-by-Side, Mobile overlay slide-in) */}
+      {/* CUSTOMER: one scroll on phones; side panel on large screens */}
       <div
-        className={`flex-1 flex flex-col h-full overflow-y-auto lg:overflow-hidden bg-app-bg ${
+        className={`flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
           !selectedCustomerId ? 'hidden lg:flex' : 'flex'
         }`}
       >
         {selectedCustomer ? (
-          <div className="flex-1 flex flex-col h-full overflow-y-auto lg:overflow-hidden p-4 md:p-6">
-            {/* Mobile Back navigation trigger */}
-            <button
-              onClick={() => setSelectedCustomerId(null)}
-              className="lg:hidden flex items-center gap-1.5 text-[10.5px] text-amber-500 font-black uppercase tracking-wider px-3.5 py-2 bg-app-card border border-app-border rounded-xl mb-4 self-start shadow-xs transition"
-            >
-              <ArrowLeft size={12} />
-              <span>Back to Club Members</span>
-            </button>
+          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto lg:overflow-hidden">
+            {/* Top bar: back, name, close */}
+            <div className="sticky top-0 z-20 shrink-0 bg-app-bg/95 backdrop-blur px-2 py-2 flex items-center gap-1 lg:hidden">
+              <button
+                onClick={() => setSelectedCustomerId(null)}
+                aria-label="Back to customers"
+                className="p-2 rounded-xl text-app-text hover:bg-app-card"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <span className="text-sm font-semibold text-app-text truncate">{titleCase(selectedCustomer.name)}</span>
+            </div>
 
-            {/* Profile Overview Card */}
-            <div className="bg-app-card border border-app-border rounded-3xl p-4 md:p-5 shadow-xs shrink-0 mb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-sm md:text-base font-extrabold font-display text-app-text uppercase tracking-wide">
-                      {titleCase(selectedCustomer.name)}
-                    </h2>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase flex items-center gap-0.5 ${
-                        selectedCustomer.tier === 'Gold'
-                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20'
-                          : selectedCustomer.tier === 'Silver'
-                          ? 'bg-slate-500/15 text-slate-500 border border-slate-500/20'
-                          : 'bg-orange-500/15 text-orange-600 border border-orange-500/20'
-                      }`}
-                    >
-                      <Award size={9} />
-                      <span>{selectedCustomer.tier} MEMBER</span>
+            <div className="flex-1 min-h-0 flex flex-col px-3 pb-nav lg:p-6 lg:pb-6 lg:overflow-hidden">
+            {/* Who they are */}
+            <div className="bg-app-card rounded-2xl p-4 shrink-0 mb-3">
+              <div className="flex items-start gap-3">
+                <span className={`grid place-items-center size-12 rounded-full shrink-0 text-base font-semibold ${tierTone(selectedCustomer.tier)}`}>
+                  {initials(selectedCustomer.name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-semibold text-app-text truncate">{titleCase(selectedCustomer.name)}</h2>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 ${tierTone(selectedCustomer.tier)}`}>
+                      <Award size={11} />
+                      {selectedCustomer.tier}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {customerGroupLabels(selectedCustomer).map((label) => (
-                      <span key={label} className="px-1.5 py-0.5 rounded bg-app-bg border border-app-border text-[9px] font-bold text-app-text-muted">
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-app-text-muted font-bold capitalize tracking-wider mt-0.5">
-                    {selectedCustomer.accountNumber && (
-                      <><span title="Customers quote this number when paying by M-Pesa">Account no. {selectedCustomer.accountNumber}</span> · </>
-                    )}
-                    Enrolled on:{' '}
-                    {formatDate(selectedCustomer.joinDate) || 'July 2026'}
+                  <p className="text-xs text-app-text-muted mt-0.5">
+                    {selectedCustomer.phone}
+                    {selectedCustomer.accountNumber ? ` · Acc. ${selectedCustomer.accountNumber}` : ''}
                   </p>
+                  {customerGroupLabels(selectedCustomer).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {customerGroupLabels(selectedCustomer).map((label) => (
+                        <span key={label} className="px-2 py-0.5 rounded-full bg-app-bg text-[11px] text-app-text-muted">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                <button
+                  onClick={() => setSelectedCustomerId(null)}
+                  className="hidden lg:flex p-2 rounded-xl text-app-text-muted hover:text-app-text hover:bg-app-bg cursor-pointer"
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedCustomerId(null)}
-                    className="hidden lg:flex p-2 hover:bg-app-bg border border-app-border rounded-xl text-app-text-muted hover:text-app-text transition cursor-pointer"
-                    title="Close workspace"
-                  >
-                    <X size={14} />
-                  </button>
+              {/* Balances */}
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <div className="rounded-xl bg-app-bg p-2.5">
+                  <div className="text-[11px] text-app-text-muted">Points</div>
+                  <div className="text-base font-semibold text-amber-600 dark:text-amber-400 tabular-nums flex items-center gap-1">
+                    <Star size={13} className="fill-current" />
+                    {selectedCustomer.loyaltyPoints || 0}
+                  </div>
+                </div>
+                <div className={`rounded-xl p-2.5 ${(selectedCustomer.debtBalance || 0) > 0 ? 'bg-red-500/10' : 'bg-app-bg'}`}>
+                  <div className="text-[11px] text-app-text-muted">Owes</div>
+                  <div className={`text-base font-semibold tabular-nums truncate ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
+                    {formatCurrency(selectedCustomer.debtBalance || 0)}
+                  </div>
+                </div>
+                <div className={`rounded-xl p-2.5 ${(selectedCustomer.walletBalance || 0) > 0 ? 'bg-emerald-500/10' : 'bg-app-bg'}`}>
+                  <div className="text-[11px] text-app-text-muted">Wallet</div>
+                  <div className={`text-base font-semibold tabular-nums truncate ${(selectedCustomer.walletBalance || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>
+                    {formatCurrency(selectedCustomer.walletBalance || 0)}
+                  </div>
                 </div>
               </div>
 
-              <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
+              {/* Quick actions: what people come here to do */}
+              <div className="grid grid-cols-4 gap-2 mt-3">
+                <a
+                  href={`tel:${selectedCustomer.phone}`}
+                  className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text"
+                >
+                  <Phone size={18} />
+                  <span className="text-[11px] font-medium">Call</span>
+                </a>
+                <button onClick={() => openTab('message')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
+                  <Send size={18} />
+                  <span className="text-[11px] font-medium">Message</span>
+                </button>
+                <button onClick={() => openTab('overview')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
+                  <Wallet size={18} />
+                  <span className="text-[11px] font-medium">Pay / top up</span>
+                </button>
+                <button onClick={() => openTab('invoice')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
+                  <CreditCard size={18} />
+                  <span className="text-[11px] font-medium">Invoice</span>
+                </button>
+              </div>
 
-              {/* Balances Dashboard Grid */}
-              <div className="grid grid-cols-3 gap-2 md:gap-3 bg-app-bg p-3 rounded-2xl border border-app-border/80 mt-4">
-                <div className="flex flex-col items-center justify-center p-1 text-center">
-                  <span className="text-[8.5px] font-black text-app-text-muted uppercase tracking-wider">
-                    Loyalty Stars
-                  </span>
-                  <span className="text-xs md:text-sm font-black text-amber-500 flex items-center gap-0.5 mt-1 font-mono">
-                    <Star size={12} className="fill-amber-500" />
-                    {selectedCustomer.loyaltyPoints}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center justify-center p-1 text-center border-x border-app-border/50">
-                  <span className="text-[8.5px] font-black text-app-text-muted uppercase tracking-wider">
-                    Outstanding Debt
-                  </span>
-                  <span
-                    className={`text-xs md:text-sm font-black mt-1 font-mono ${
-                      selectedCustomer.debtBalance &&
-                      selectedCustomer.debtBalance > 0
-                        ? 'text-red-500 '
-                        : 'text-app-text-muted'
-                    }`}
-                  >
-                    {formatCurrency(selectedCustomer.debtBalance || 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center justify-center p-1 text-center">
-                  <span className="text-[8.5px] font-black text-app-text-muted uppercase tracking-wider">
-                    Wallet Balance
-                  </span>
-                  <span
-                    className={`text-xs md:text-sm font-black mt-1 font-mono ${
-                      selectedCustomer.walletBalance &&
-                      selectedCustomer.walletBalance > 0
-                        ? 'text-emerald-500'
-                        : 'text-app-text-muted'
-                    }`}
-                  >
-                    {formatCurrency(selectedCustomer.walletBalance || 0)}
-                  </span>
-                </div>
+              <div className="mt-3">
+                <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
               </div>
             </div>
 
-            {/* Tabbed workspace panels */}
-            <div className="bg-app-card border border-app-border rounded-3xl p-4 flex-1 flex flex-col overflow-y-auto lg:overflow-hidden shadow-xs">
+            {/* Sections */}
+            <div id="customer-tabs" className="bg-app-card rounded-2xl p-3 sm:p-4 lg:flex-1 flex flex-col lg:min-h-0 lg:overflow-hidden scroll-mt-14">
               <Tabs<typeof activeDetailTab>
                 tabs={[
-                  { id: 'overview', label: 'Overview & Profile' },
-                  { id: 'history', label: 'History Events' },
-                  { id: 'ledger', label: 'Wallet & Debt Ledger' },
-                  { id: 'message', label: 'Outreach & Messages' },
+                  { id: 'overview', label: 'Profile' },
+                  { id: 'history', label: 'History' },
+                  { id: 'ledger', label: 'Ledger' },
+                  { id: 'message', label: 'Message' },
                   {
                     id: 'invoice',
-                    label: 'Custom Invoice',
+                    label: 'Invoice',
                     dot: !!activeInvoiceData && activeInvoiceData.customerId === selectedCustomer.id,
                   },
                 ]}
@@ -908,11 +883,11 @@ export default function CustomersView() {
                   setActiveDetailTab(tab);
                   setSuccessMsg('');
                 }}
-                className="!pb-2.5 mb-3.5 shrink-0"
+                className="!pb-2.5 mb-3 shrink-0"
               />
 
               {/* Scrollable Viewport */}
-              <div className="flex-1 overflow-y-auto pb-12 font-semibold">
+              <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-12 font-semibold">
                 {/* 1. OVERVIEW & PROFILE TAB */}
                 {activeDetailTab === 'overview' && (
                   <div className="flex flex-col gap-4 text-xs">
@@ -2274,13 +2249,14 @@ export default function CustomersView() {
                 )}
               </div>
 
-              {/* Status feedback toast banner */}
+              {/* Confirmation after an action */}
               {successMsg && (
-                <div className="absolute bottom-4 left-4 right-4 bg-emerald-500 text-white p-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-md z-50 text-[10px] font-black uppercase tracking-wider animate-bounce">
-                  <CheckCircle2 size={12} />
+                <div className="mt-3 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium">
+                  <CheckCircle2 size={16} className="shrink-0" />
                   <span>{successMsg}</span>
                 </div>
               )}
+            </div>
             </div>
           </div>
         ) : (
@@ -2525,7 +2501,8 @@ export default function CustomersView() {
       <motion.div
         drag
         dragMomentum={false}
-        className="fixed bottom-6 right-6 z-50 flex flex-col items-end cursor-grab active:cursor-grabbing"
+        style={{ bottom: 'calc(var(--mobile-nav-space) - 0.5rem)' }}
+        className="fixed right-3 md:!bottom-6 md:right-6 z-50 flex flex-col items-end cursor-grab active:cursor-grabbing"
       >
         {/* Expanded AI Panel */}
         <AnimatePresence>

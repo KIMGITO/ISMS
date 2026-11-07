@@ -25,7 +25,8 @@ import { compareVersions } from "../utils/semver";
 import { SCREENS, canOpenScreen } from "../utils/screens";
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 import { SupabaseService } from "../services/supabaseService";
-import { analyse, analyseBranches, bucketIndex, getRange, growth, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
+import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
+import { buildShiftReport, shiftReportText } from "../services/shiftReport";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -633,6 +634,64 @@ runTest("Home figures: ranges, slots, growth and money received", () => {
     buckets,
   );
   eq(rows.map((r) => [r.sales, r.growth, Math.round(r.share)]), [[300, 50, 75], [100, null, 25]], "branch sales, growth and share");
+});
+
+runTest("Receipt shows points used, earned and the balance", () => {
+  const tx = { ...sampleTx, customerId: "c1", customerName: "Ann", discount: (Number(sampleTx.discount) || 0) + 50 } as any;
+  const content = buildReceiptContent(tx, receiptSettings, { pointsUsed: { points: 50, value: 50 }, customerPoints: 120 });
+  const { body } = buildReceiptText(content, receiptSettings);
+  for (const want of ["Paid with 50 points", "LOYALTY POINTS", "Points used", "Points balance", "120"]) {
+    if (!body.includes(want)) throw new Error(`missing "${want}":\n${body}`);
+  }
+  const cols = columnsFor(receiptSettings);
+  if (body.split("\n").some((l) => l.length > cols)) throw new Error("points lines wider than the paper");
+  const walkIn = buildReceiptText(buildReceiptContent(sampleTx, receiptSettings, { pointsUsed: { points: 50, value: 50 } }), receiptSettings).body;
+  if (walkIn.includes("LOYALTY")) throw new Error("a walk-in sale has no points section");
+});
+
+runTest("Charts use Kenya time and today's hours stop at the current hour", () => {
+  const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
+  // 12:00 UTC is 3 PM in Nairobi, whatever zone this machine is in
+  eq(new Date(kenyaTime("2026-11-07T12:00:00Z")).getHours(), 15, "UTC noon is 3 PM Kenya time");
+  const now = kenyaNow();
+  const today = getRange("today", now);
+  const slots = makeBuckets(today, "hour");
+  eq(slots.length, now.getHours() + 1, "one slot per hour so far today, none for hours still to come");
+  const yesterday = makeBuckets(getRange("yesterday", now), "hour");
+  eq(yesterday.length, 24, "a past day keeps all 24 hours");
+});
+
+runTest("End-of-shift report figures and text", () => {
+  const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
+  const milk = { id: "p1", name: "Milk", price: 60, stock: 40, unit: "L" } as any;
+  const t = (h: number) => new Date(Date.UTC(2026, 10, 7, h)).toISOString();
+  const sale = (id: string, method: string, total: number, qty: number, h = 8, staffId = "e1", extra: any = {}) =>
+    ({ id, timestamp: t(h), staffId, paymentMethod: method, finalTotal: total, total, items: [{ product: milk, quantity: qty, discountPercentage: 0 }], ...extra }) as any;
+  const r = buildShiftReport({
+    shift: { startTime: t(5), endTime: t(14) },
+    employee: { id: "e1", name: "Jane" },
+    transactions: [
+      sale("a", "Cash", 120, 2),
+      sale("b", "M-Pesa", 180, 3),
+      sale("c", "Credit", 60, 1, 9, "e1", { customerId: "c1", customerName: "Ann" }),
+      sale("d", "Card", 60, 1),
+      sale("x", "Cash", 999, 1, 8, "someone-else"),
+      sale("y", "Cash", 999, 1, 16),
+    ],
+    debtPayments: [{ id: "dp", businessId: "b", customerId: "c1", amountPaid: 50, remainingDebt: 10, paymentMethod: "Cash", recordedBy: "Jane", created_at: t(10) }],
+    expenses: [{ id: "x1", amount: 30, category: "Transport", description: "Boda", date: t(11), staffName: "Jane", paymentMethod: "Cash" } as any],
+    products: [milk],
+    customers: [{ id: "c1", name: "Ann", debtBalance: 10 } as any],
+    productionBatches: [],
+    billOfMaterials: [],
+  });
+  eq([r.salesCount, r.salesTotal, r.cash, r.mpesa, r.credit, r.other], [4, 420, 120, 180, 60, 60], "only this person's sales in this shift, every payment type counted");
+  eq(r.expectedCash, 120 + 50 - 30, "cash expected = cash sales + cash debt repaid - cash expenses");
+  eq(r.products.map((p) => [p.sold, p.earned, p.left]), [[7, 420, 40]], "products sold");
+  const text = shiftReportText(r, { countedCash: 130, notes: "All good" });
+  if (!text.includes("short by KSh 10")) throw new Error("counted cash difference missing:\n" + text);
+  if (text.includes("```")) throw new Error("report should be plain text");
+  if (!text.includes("8:00 – 17:00")) throw new Error("times should be Kenya time:\n" + text);
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

@@ -24,6 +24,29 @@ export const RANGE_LABELS: Record<RangeKey, string> = {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+// The business runs on Kenya time (UTC+3, no daylight saving). Every time here is a
+// "Kenya wall clock" moment, so a phone or PC set to another time zone still puts a
+// 3 pm sale in the 3 pm slot. On a device already on Kenya time this shift is zero.
+const KENYA_OFFSET_MIN = 180;
+const kenyaShift = (ms: number) => (KENYA_OFFSET_MIN + new Date(ms).getTimezoneOffset()) * 60_000;
+
+/** Now, on the Kenya clock. */
+export function kenyaNow(): Date {
+  const now = Date.now();
+  return new Date(now + kenyaShift(now));
+}
+
+/** A Kenya clock moment back to the real instant, as ISO for database filters. */
+export function kenyaToIso(d: Date): string {
+  return new Date(d.getTime() - kenyaShift(d.getTime())).toISOString();
+}
+
+/** A stored timestamp (ISO/UTC) as a Kenya clock moment; NaN when unreadable. */
+export function kenyaTime(value: string | number | Date | null | undefined): number {
+  const ms = value instanceof Date ? value.getTime() : new Date(value ?? "").getTime();
+  return Number.isFinite(ms) ? ms + kenyaShift(ms) : NaN;
+}
+
 function startOfDay(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -136,7 +159,9 @@ export function makeBuckets(range: DateRange, g: Granularity): Bucket[] {
   const multiDay = range.end.getTime() - range.start.getTime() > DAY;
   let cursor = new Date(range.start);
   if (g === "month") cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  while (cursor.getTime() <= range.end.getTime() && buckets.length < 500) {
+  // Hour slots stop at the current hour: no empty "11 PM" before it has come.
+  const until = g === "hour" ? Math.min(range.end.getTime(), kenyaNow().getTime()) : range.end.getTime();
+  while (cursor.getTime() <= until && buckets.length < 500) {
     const next = nextStart(cursor, g);
     const start = Math.max(cursor.getTime(), range.start.getTime());
     buckets.push({ start, end: Math.min(next.getTime() - 1, range.end.getTime()), ...labelFor(cursor, g, multiDay) });
@@ -163,8 +188,7 @@ export function txAmount(t: Pick<Transaction, "finalTotal" | "total">): number {
 }
 
 export function txTime(t: Pick<Transaction, "timestamp">): number {
-  const ts = new Date(t.timestamp).getTime();
-  return Number.isFinite(ts) ? ts : NaN;
+  return kenyaTime(t.timestamp);
 }
 
 /** Cost of the goods in a sale, from each product's recorded cost. */
@@ -312,13 +336,13 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
   const successful = input.payments.filter((p) => p.status === "Success");
   const used = new Set<Payment>();
   for (const dp of input.debtPayments) {
-    const ts = new Date(dp.created_at || "").getTime();
+    const ts = kenyaTime(dp.created_at);
     const twin = successful.find(
       (p) =>
         !used.has(p) &&
         p.customerId === dp.customerId &&
         Math.abs(Number((p as any).debtApplied || 0) - (dp.amountPaid || 0)) < 0.01 &&
-        Math.abs(new Date(p.date).getTime() - ts) < DAY,
+        Math.abs(kenyaTime(p.date) - ts) < DAY,
     );
     if (twin) {
       used.add(twin);
@@ -326,10 +350,10 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     }
     addReceipt(ts, dp.amountPaid || 0, methodOf(dp.paymentMethod));
   }
-  for (const p of successful) addReceipt(new Date(p.date).getTime(), p.amount || 0, methodOf(p.method));
+  for (const p of successful) addReceipt(kenyaTime(p.date), p.amount || 0, methodOf(p.method));
 
   for (const e of input.expenses) {
-    const ts = new Date(e.date || e.created_at || "").getTime();
+    const ts = kenyaTime(e.date || e.created_at);
     if (!Number.isFinite(ts)) continue;
     if (inRange(ts, range)) {
       const i = bucketIndex(ts, buckets);

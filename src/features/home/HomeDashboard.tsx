@@ -17,7 +17,7 @@ import TrackedReports from "../../components/TrackedReports";
 import type { Expense, Payment } from "../../types";
 import {
   RANGE_LABELS, analyse, analyseBranches, formatGrowth, formatKsh, getRange, growth, makeBuckets, moneyReceived,
-  pickGranularity, previousRange, stockSummary, toDateInput, METHODS, type RangeKey, type BranchSale, type MethodKey,
+  pickGranularity, previousRange, stockSummary, toDateInput, kenyaNow, kenyaTime, METHODS, type RangeKey, type BranchSale, type MethodKey,
 } from "./metrics";
 import { fetchBranchSales } from "./branchSales";
 import {
@@ -45,8 +45,8 @@ export default function HomeDashboard() {
   const { activeBusinessId, setActiveTab } = useAppStore();
 
   const [rangeKey, setRangeKey] = useState<RangeKey>("month");
-  const [customStart, setCustomStart] = useState(() => toDateInput(new Date(Date.now() - 29 * 864e5)));
-  const [customEnd, setCustomEnd] = useState(() => toDateInput(new Date()));
+  const [customStart, setCustomStart] = useState(() => toDateInput(new Date(kenyaNow().getTime() - 29 * 864e5)));
+  const [customEnd, setCustomEnd] = useState(() => toDateInput(kenyaNow()));
   const [visible, setVisible] = useState<SeriesKey[]>(["sales", "expenses", "profit"]);
   const [comparePrev, setComparePrev] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -70,12 +70,13 @@ export default function HomeDashboard() {
   }, [activeBusinessId]);
 
   // Re-evaluated each minute so "today" rolls over without a reload.
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => kenyaNow());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    const id = window.setInterval(() => setNow(kenyaNow()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-  const dayKey = now.toDateString();
+  // Also changes each hour, so today's chart gains its new hour slot
+  const dayKey = `${now.toDateString()} ${now.getHours()}`;
 
   const range = useMemo(() => getRange(rangeKey, now, customStart, customEnd), [rangeKey, dayKey, customStart, customEnd]);
   const prev = useMemo(() => previousRange(range), [range]);
@@ -125,11 +126,11 @@ export default function HomeDashboard() {
   const owing = useMemo(() => safeCustomers.filter((c) => (c.debtBalance || 0) > 0).sort((a, b) => (b.debtBalance || 0) - (a.debtBalance || 0)), [safeCustomers]);
   const owingTotal = owing.reduce((s, c) => s + (c.debtBalance || 0), 0);
   const newCustomers = safeCustomers.filter((c) => {
-    const t = new Date(c.joinDate).getTime();
+    const t = kenyaTime(c.joinDate);
     return t >= range.start.getTime() && t <= range.end.getTime();
   }).length;
   const prevNewCustomers = safeCustomers.filter((c) => {
-    const t = new Date(c.joinDate).getTime();
+    const t = kenyaTime(c.joinDate);
     return t >= prev.start.getTime() && t <= prev.end.getTime();
   }).length;
 
@@ -489,7 +490,7 @@ export default function HomeDashboard() {
         <TrackedReports
           businessId={activeBusinessId}
           transactions={(Array.isArray(transactions) ? transactions : []).filter((t) => {
-            const ts = new Date(t.timestamp).getTime();
+            const ts = kenyaTime(t.timestamp);
             return ts >= range.start.getTime() && ts <= range.end.getTime();
           })}
           customers={safeCustomers}

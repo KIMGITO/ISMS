@@ -72,13 +72,13 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
     setKraState('off');
     setPhone(customer?.phone || '');
     setEmail(customer?.email || '');
-    ReceiptService.buildForTransaction(transaction, businessId, { customerPhone: customer?.phone, customerEmail: customer?.email })
+    ReceiptService.buildForTransaction(transaction, businessId, { customerPhone: customer?.phone, customerEmail: customer?.email, customerPoints: customer?.loyaltyPoints })
       .then((r) => live && setReceipt(r))
       .catch((err) => live && showToast('Receipt', toUserMessage(err, 'Could not prepare the receipt.'), undefined, 'error'));
     return () => {
       live = false;
     };
-  }, [transaction?.id, businessId, customer?.id]);
+  }, [transaction?.id, businessId, customer?.id, customer?.loyaltyPoints]);
 
   // When KRA is connected and this sale has no signature yet, ask KRA for one.
   const signWithKra = useCallback(async () => {
