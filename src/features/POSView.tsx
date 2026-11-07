@@ -1,7 +1,7 @@
 import { toUserMessage } from '../utils/userError';
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Product, ProductCategory, PaymentMethod, Transaction } from '../types';
 import {
@@ -17,6 +17,8 @@ import {
   Truck,
   RefreshCw,
   ReceiptText,
+  Keyboard,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
@@ -27,6 +29,43 @@ import { QuantityInput } from '../components/shared/QuantityInput';
 import { Switch } from '../components/shared/Switch';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
+
+const POS_SHORTCUTS: { title: string; items: [string, string][] }[] = [
+  {
+    title: 'Find and add',
+    items: [
+      ['/ F2', 'Search products'],
+      ['↑ ↓', 'Move through results'],
+      ['Enter', 'Add the highlighted product'],
+      ['Alt+← Alt+→', 'Previous / next category'],
+      ['Esc', 'Clear search / close'],
+    ],
+  },
+  {
+    title: 'Cart',
+    items: [
+      ['+', 'One more of the last item'],
+      ['-', 'One less of the last item'],
+      ['Delete', 'Remove the last item'],
+      ['Ctrl+Delete', 'Clear the cart'],
+      ['F4', 'Open or close the cart (small screens)'],
+    ],
+  },
+  {
+    title: 'Checkout',
+    items: [
+      ['Alt+1', 'Pay by cash'],
+      ['Alt+2', 'Pay by M-Pesa'],
+      ['Alt+3', 'Sell on credit'],
+      ['Alt+C', 'Choose a customer'],
+      ['Alt+D', 'Delivery on / off'],
+      ['Alt+N', 'Add a note'],
+      ['F9 Ctrl+Enter', 'Complete the sale'],
+      ['R', 'Receipt (after a sale)'],
+      ['? F1', 'Show these shortcuts'],
+    ],
+  },
+];
 
 export default function POSView() {
   const {
@@ -128,6 +167,22 @@ export default function POSView() {
       searchMatch(p.name, searchQuery) || searchMatch(p.sku, searchQuery);
     return matchesCategory && matchesSearch;
   });
+
+  // ── Big screens and keyboard ──────────────────────────────────────────
+  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setIsWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [highlight, setHighlight] = useState(-1);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  useEffect(() => setHighlight(searchQuery.trim() ? 0 : -1), [searchQuery, activeCategory]);
+  useEffect(() => {
+    if (highlight >= 0) document.getElementById(`pos-product-${highlight}`)?.scrollIntoView({ block: 'nearest' });
+  }, [highlight]);
 
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -254,199 +309,128 @@ export default function POSView() {
     }
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg relative overflow-hidden">
-      {/* Search & Category Filter */}
-      <div className="bg-app-card border-b border-app-border p-3 flex flex-col gap-2.5 shrink-0 shadow-xs">
-        <div className="relative">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-text-muted"
-          />
-          <input
-            type="text"
-            placeholder="Search products by name or SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-app-bg text-xs pl-9 pr-4 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-bg text-app-text transition"
-          />
-        </div>
 
-        {/* Horizontal Category Pill Scrollbar */}
-        <div className="flex gap-2 overflow-x-auto pb-1 select-none scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer capitalize ${
-                activeCategory === cat
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'bg-app-bg text-app-text border border-app-border/70 hover:bg-app-card'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
+  // Keyboard shortcuts (press ? to see them). Ignored while typing, except the ones that
+  // make sense in a field (F-keys, Ctrl+Enter, Esc).
+  const lastItem = cart[cart.length - 1];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (checkoutSuccess || receiptTx) return; // the sale card and receipt have their own keys
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+      const inSearch = el === searchRef.current;
+      const k = e.key;
+      const done = () => e.preventDefault();
 
-      {/* Products Grid */}
-      <div className="flex-1 overflow-y-auto p-2.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 pb-nav">
-        {filteredProducts.map((product) => {
-          const isLowStock = product.stock <= product.minStock;
-          const isOutOfStock = product.stock === 0;
-          const cartItem = cart.find((item) => item.product.id === product.id);
-          const cartQty = cartItem?.quantity || 0;
+      if (k === 'F9' || (k === 'Enter' && (e.ctrlKey || e.metaKey))) {
+        done();
+        if (cart.length === 0) return;
+        if (isWide || isCartOpen) handleCheckout();
+        else {
+          setCheckoutError(null);
+          setIsCartOpen(true);
+        }
+        return;
+      }
+      if (k === 'F2' || (k === '/' && !typing)) {
+        done();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      if (k === 'F4') {
+        done();
+        if (!isWide) setIsCartOpen((v) => !v);
+        return;
+      }
+      if (k === 'F1' || (k === '?' && !typing)) {
+        done();
+        setShowShortcuts((v) => !v);
+        return;
+      }
+      if (k === 'Escape') {
+        if (showShortcuts) return done(), setShowShortcuts(false);
+        if (inSearch && searchQuery) return done(), setSearchQuery('');
+        if (isCartOpen && !isWide) return done(), setIsCartOpen(false);
+        if (typing) (el as HTMLElement).blur();
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt' };
+        if (methods[k]) return done(), setPaymentMethod(methods[k]);
+        const code = e.code;
+        if (code === 'KeyD') return done(), setIsDelivery((v) => !v);
+        if (code === 'KeyC') {
+          done();
+          if (!isWide) setIsCartOpen(true);
+          setTimeout(() => (document.querySelector('#pos-customer button, #pos-customer input') as HTMLElement | null)?.click(), 60);
+          return;
+        }
+        if (code === 'KeyN') {
+          done();
+          if (!isWide) setIsCartOpen(true);
+          setTimeout(() => document.getElementById('pos-note')?.focus(), 60);
+          return;
+        }
+        if (k === 'ArrowLeft' || k === 'ArrowRight') {
+          done();
+          const i = categories.indexOf(activeCategory);
+          const next = (i + (k === 'ArrowRight' ? 1 : -1) + categories.length) % categories.length;
+          setActiveCategory(categories[next]);
+          return;
+        }
+      }
+      if (inSearch && filteredProducts.length > 0) {
+        if (k === 'ArrowDown') return done(), setHighlight((h) => Math.min(filteredProducts.length - 1, h + 1));
+        if (k === 'ArrowUp') return done(), setHighlight((h) => Math.max(0, h - 1));
+        if (k === 'Enter') {
+          done();
+          const product = filteredProducts[Math.max(0, highlight)];
+          if (product && product.stock > 0) {
+            addToCart(product);
+            setSearchQuery('');
+          } else if (product) showToast('Out of stock', `${titleCase(product.name)} is out of stock.`, undefined, 'info');
+          return;
+        }
+      }
+      if (typing) return;
+      if (e.ctrlKey && (k === 'Delete' || k === 'Backspace')) {
+        done();
+        if (cart.length) {
+          clearCart();
+          showToast('Cart cleared', 'All items removed.', undefined, 'success');
+        }
+        return;
+      }
+      if (!lastItem) return;
+      if (k === '+' || k === '=') return done(), updateCartQty(lastItem.product.id, lastItem.quantity + 1);
+      if (k === '-') {
+        done();
+        if (lastItem.quantity > 1) updateCartQty(lastItem.product.id, lastItem.quantity - 1);
+        else removeFromCart(lastItem.product.id);
+        return;
+      }
+      if (k === 'Delete') return done(), removeFromCart(lastItem.product.id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
-          return (
-            <motion.div
-              key={product.id}
-              whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
-              onClick={() => !isOutOfStock && addToCart(product)}
-              className={`bg-app-card rounded-2xl border ${
-                cartQty > 0
-                  ? 'border-amber-500 ring-1 ring-amber-500/50'
-                  : 'border-app-border'
-              } overflow-hidden shadow-xs cursor-pointer select-none relative flex flex-col min-h-[220px] h-fit`}
-            >
-              <div className="w-full h-24 bg-app-bg relative shrink-0">
-                <img
-                  src={product.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D'}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                {isOutOfStock ? (
-                  <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-extrabold text-[10px] uppercase tracking-wider">
-                    Out of Stock
-                  </div>
-                ) : isLowStock ? (
-                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-wider shadow">
-                    Low Stock
-                  </div>
-                ) : null}
-
-                {cartQty > 0 && (
-                  <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-black text-[11px] shadow">
-                    {cartQty}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
-                <div>
-                  <span className="text-[9px] font-mono font-bold text-app-text-muted block">
-                    {titleCase(product.unit)} · {product.sku}
-                  </span>
-                  <h3 className="text-[11px] font-bold font-display text-app-text mt-0.5 line-clamp-2 leading-tight">
-                    {titleCase(product.name)}
-                  </h3>
-                </div>
-                <div className="text-[8.5px] text-app-text-muted leading-tight">
-                  {product.description?.trim() ? (
-                    sentenceCase(product.description)
-                  ) : (
-                    <span className="italic text-app-text-muted/70">
-                      No description provided
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between mt-1 gap-1">
-                  <span className="text-xs font-black text-amber-500 whitespace-nowrap">
-                    KSh {Math.round(product.price)}
-                  </span>
-                  <span
-                    className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                      isOutOfStock
-                        ? 'bg-red-500/10 text-red-500'
-                        : isLowStock
-                        ? 'bg-amber-500/10 text-amber-500'
-                        : 'bg-emerald-500/10 text-emerald-500'
-                    }`}
-                  >
-                    {product.stock} left
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Draggable Bottom Floating POS Bar (Compact & Drag Allowed to Shop Unimpeded) */}
-      {cart.length > 0 && (
-        <motion.div
-          drag
-          dragConstraints={{ left: -300, right: 10, top: -600, bottom: 10 }}
-          dragElastic={0.08}
-          dragMomentum={false}
-          className="absolute bottom-(--mobile-nav-space) md:bottom-6 right-4 bg-app-card text-app-text p-2 rounded-xl shadow-2xl flex items-center gap-2.5 border border-amber-500/30 z-40 cursor-grab active:cursor-grabbing select-none"
-        >
-          <div className="flex items-center gap-2.5 select-none pointer-events-none">
-            <div className="relative p-1.5 bg-amber-500 text-slate-950 rounded-lg shrink-0">
-              <ShoppingCart size={11} />
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[7.5px] font-black px-1 rounded-full shadow-sm">
-                {cartCount}
-              </span>
-            </div>
-            <div>
-              <span className="text-[7px] text-app-text-muted block font-black leading-none uppercase">
-                Total
-              </span>
-              <span className="font-mono text-[10.5px] font-black text-amber-500 leading-none">
-                KSh {finalTotal.toFixed(0)}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setCheckoutError(null);
-              setIsCartOpen(true);
-            }}
-            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-[9px] uppercase transition cursor-pointer shrink-0"
-          >
-            Review
-          </button>
-        </motion.div>
-      )}
-
-      {/* POS Cart / Checkout Bottom Sheet Drawer */}
-      <SheetLayer>
-      <AnimatePresence>
-        {isCartOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCartOpen(false)}
-              className="absolute inset-0 bg-black z-40"
-            />
-
-            {/* Bottom Sheet Drawer using theme colors */}
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[90%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl flex flex-col z-50 overflow-hidden"
-            >
-              {/* Drag handle decoration */}
-              <div className="w-12 h-1 bg-app-border rounded-full mx-auto my-3 shrink-0" />
-
+  // The cart: a bottom sheet on phones, a panel always beside the products on big screens
+  const cartPanel = (
+    <>
               {/* Drawer Header */}
               <div className="px-5 pb-3 border-b border-app-border flex items-center justify-between shrink-0">
                 <div>
-                  <h2 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
-                    POS Shopping Cart
+                  <h2 className="text-sm font-semibold text-app-text">
+                    Cart{cartCount > 0 ? ` · ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : ''}
                   </h2>
                  
                 </div>
                 <button
                   onClick={clearCart}
-                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
+                  disabled={cart.length === 0}
+                  className="p-2 disabled:opacity-30 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
                   title="Clear Cart"
                 >
                   <Trash2 size={15} />
@@ -457,6 +441,13 @@ export default function POSView() {
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
                 {/* Cart Items Checklist with themed cards */}
                 <div className="flex flex-col gap-2">
+                  {cart.length === 0 && (
+                    <div className="py-10 text-center text-app-text-muted">
+                      <ShoppingCart size={26} className="mx-auto opacity-40" />
+                      <p className="text-sm font-medium text-app-text mt-2">The cart is empty</p>
+                      <p className="text-xs mt-1">Tap a product, or search and press Enter.</p>
+                    </div>
+                  )}
                   {cart.map((item) => {
                     const lineTotalOriginal =
                       item.product.price * item.quantity;
@@ -551,6 +542,7 @@ export default function POSView() {
                       </p>
                     </div>
                   ) : (
+                    <div id="pos-customer">
                     <SearchableDropdown
                       items={customers.map((cust) => ({
                         id: cust.id,
@@ -567,6 +559,7 @@ export default function POSView() {
                       placeholder="Select a customer loyalty profile..."
                       searchPlaceholder="Search customer name or phone..."
                     />
+                    </div>
                   )}
                 </div>
 
@@ -606,6 +599,7 @@ export default function POSView() {
                     <input
                       type="text"
                       placeholder="Add delivery instructions or note..."
+                      id="pos-note"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       className="bg-app-bg border border-app-border rounded-xl px-3 py-1.5 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -907,15 +901,18 @@ export default function POSView() {
 
               {/* Drawer Footer Buttons using theme classes */}
               <div className="p-4 pb-[calc(1rem+var(--inset-bottom))] border-t border-app-border bg-app-bg/40 flex items-center justify-between gap-3 shrink-0">
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-app-border text-xs font-bold text-app-text hover:bg-app-bg transition shrink-0 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                {!isWide && (
+                  <button
+                    onClick={() => setIsCartOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-app-border text-xs font-bold text-app-text hover:bg-app-bg transition shrink-0 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   onClick={handleCheckout}
-                  disabled={isCheckingOut}
+                  disabled={isCheckingOut || cart.length === 0}
+                  title="Complete sale (F9 or Ctrl+Enter)"
                   className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 disabled:opacity-55 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {isCheckingOut ? (
@@ -924,16 +921,277 @@ export default function POSView() {
                       <span>Processing Sale...</span>
                     </>
                   ) : (
-                    <span>
-                      Complete & Sync Sale (KSh {finalTotal.toFixed(0)})
+                    <span className="flex items-center gap-2">
+                      Complete sale · KSh {finalTotal.toFixed(0)}
+                      {isWide && <kbd className="px-1.5 py-0.5 rounded bg-slate-950/15 text-[10px] font-mono">F9</kbd>}
                     </span>
                   )}
                 </button>
               </div>
+    </>
+  );
+
+  return (
+    <div className="flex-1 flex h-full bg-app-bg relative overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col h-full">
+      {/* Search & Category Filter */}
+      <div className="bg-app-card border-b border-app-border p-3 flex flex-col gap-2.5 shrink-0 shadow-xs">
+        <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-text-muted"
+          />
+          <input
+            ref={searchRef}
+            type="search"
+            enterKeyHint="go"
+            placeholder={isWide ? 'Search products, Enter adds   ( / )' : 'Search products by name or SKU...'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-app-bg text-xs lg:text-sm pl-9 pr-4 py-2 lg:py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-bg text-app-text transition"
+          />
+        </div>
+        {isWide && (
+          <button
+            onClick={() => setShowShortcuts(true)}
+            title="Keyboard shortcuts (?)"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-app-bg text-app-text-muted hover:text-app-text text-xs font-medium cursor-pointer"
+          >
+            <Keyboard size={15} /> Shortcuts
+          </button>
+        )}
+        </div>
+
+        {/* Horizontal Category Pill Scrollbar */}
+        <div className="flex gap-2 overflow-x-auto pb-1 select-none scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer capitalize ${
+                activeCategory === cat
+                  ? 'bg-amber-500 text-slate-950 shadow'
+                  : 'bg-app-bg text-app-text border border-app-border/70 hover:bg-app-card'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Products Grid */}
+      <div className="flex-1 overflow-y-auto p-2.5 lg:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2.5 lg:gap-3 content-start pb-nav lg:pb-6">
+        {filteredProducts.map((product, index) => {
+          const isLowStock = product.stock <= product.minStock;
+          const isOutOfStock = product.stock === 0;
+          const cartItem = cart.find((item) => item.product.id === product.id);
+          const cartQty = cartItem?.quantity || 0;
+
+          return (
+            <motion.div
+              key={product.id}
+              id={`pos-product-${index}`}
+              whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
+              onClick={() => !isOutOfStock && addToCart(product)}
+              className={`bg-app-card rounded-2xl border ${
+                index === highlight
+                  ? 'border-sky-500 ring-2 ring-sky-500/50'
+                  : cartQty > 0
+                  ? 'border-amber-500 ring-1 ring-amber-500/50'
+                  : 'border-app-border'
+              } overflow-hidden shadow-xs cursor-pointer select-none relative flex flex-col min-h-[220px] h-fit`}
+            >
+              <div className="w-full h-24 bg-app-bg relative shrink-0">
+                <img
+                  src={product.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D'}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                {isOutOfStock ? (
+                  <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-extrabold text-[10px] uppercase tracking-wider">
+                    Out of Stock
+                  </div>
+                ) : isLowStock ? (
+                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-wider shadow">
+                    Low Stock
+                  </div>
+                ) : null}
+
+                {cartQty > 0 && (
+                  <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-black text-[11px] shadow">
+                    {cartQty}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
+                <div>
+                  <span className="text-[9px] font-mono font-bold text-app-text-muted block">
+                    {titleCase(product.unit)} · {product.sku}
+                  </span>
+                  <h3 className="text-[11px] font-bold font-display text-app-text mt-0.5 line-clamp-2 leading-tight">
+                    {titleCase(product.name)}
+                  </h3>
+                </div>
+                <div className="text-[8.5px] text-app-text-muted leading-tight">
+                  {product.description?.trim() ? (
+                    sentenceCase(product.description)
+                  ) : (
+                    <span className="italic text-app-text-muted/70">
+                      No description provided
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between mt-1 gap-1">
+                  <span className="text-xs font-black text-amber-500 whitespace-nowrap">
+                    KSh {Math.round(product.price)}
+                  </span>
+                  <span
+                    className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      isOutOfStock
+                        ? 'bg-red-500/10 text-red-500'
+                        : isLowStock
+                        ? 'bg-amber-500/10 text-amber-500'
+                        : 'bg-emerald-500/10 text-emerald-500'
+                    }`}
+                  >
+                    {product.stock} left
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      </div>
+
+      {/* Big screens: the cart stays open beside the products */}
+      {isWide && (
+        <aside className="w-[380px] xl:w-[420px] shrink-0 h-full flex flex-col bg-app-card border-l border-app-border pt-3" aria-label="Cart">
+          {cartPanel}
+        </aside>
+      )}
+
+      {/* Draggable Bottom Floating POS Bar (Compact & Drag Allowed to Shop Unimpeded) */}
+      {cart.length > 0 && !isWide && (
+        <motion.div
+          drag
+          dragConstraints={{ left: -300, right: 10, top: -600, bottom: 10 }}
+          dragElastic={0.08}
+          dragMomentum={false}
+          className="absolute bottom-(--mobile-nav-space) md:bottom-6 right-4 bg-app-card text-app-text p-2 rounded-xl shadow-2xl flex items-center gap-2.5 border border-amber-500/30 z-40 cursor-grab active:cursor-grabbing select-none"
+        >
+          <div className="flex items-center gap-2.5 select-none pointer-events-none">
+            <div className="relative p-1.5 bg-amber-500 text-slate-950 rounded-lg shrink-0">
+              <ShoppingCart size={11} />
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[7.5px] font-black px-1 rounded-full shadow-sm">
+                {cartCount}
+              </span>
+            </div>
+            <div>
+              <span className="text-[7px] text-app-text-muted block font-black leading-none uppercase">
+                Total
+              </span>
+              <span className="font-mono text-[10.5px] font-black text-amber-500 leading-none">
+                KSh {finalTotal.toFixed(0)}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setCheckoutError(null);
+              setIsCartOpen(true);
+            }}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-[9px] uppercase transition cursor-pointer shrink-0"
+          >
+            Review
+          </button>
+        </motion.div>
+      )}
+
+      {/* POS Cart / Checkout Bottom Sheet Drawer */}
+      <SheetLayer>
+      <AnimatePresence>
+        {isCartOpen && !isWide && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCartOpen(false)}
+              className="absolute inset-0 bg-black z-40"
+            />
+
+            {/* Bottom Sheet Drawer using theme colors */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute bottom-0 left-0 right-0 max-h-[90%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl flex flex-col z-50 overflow-hidden"
+            >
+              {/* Drag handle decoration */}
+              <div className="w-12 h-1 bg-app-border rounded-full mx-auto my-3 shrink-0" />
+
+              {cartPanel}
             </motion.div>
           </>
         )}
       </AnimatePresence>
+      </SheetLayer>
+
+      {/* Keyboard shortcuts */}
+      <SheetLayer>
+        <AnimatePresence>
+          {showShortcuts && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShortcuts(false)}
+              className="absolute inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.96, y: 8 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.96, y: 8 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-label="Keyboard shortcuts"
+                className="bg-app-card rounded-2xl w-full max-w-md max-h-[85dvh] overflow-y-auto p-5 shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-app-text flex items-center gap-2"><Keyboard size={18} /> Keyboard shortcuts</h3>
+                  <button onClick={() => setShowShortcuts(false)} aria-label="Close" className="p-2 -m-1 rounded-lg text-app-text-muted hover:bg-app-bg"><X size={18} /></button>
+                </div>
+                {POS_SHORTCUTS.map((group) => (
+                  <div key={group.title} className="mb-3 last:mb-0">
+                    <h4 className="text-xs font-medium text-app-text-muted mb-1">{group.title}</h4>
+                    <div className="divide-y divide-app-border">
+                      {group.items.map(([keys, what]) => (
+                        <div key={what} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                          <span className="text-app-text">{what}</span>
+                          <span className="flex gap-1 shrink-0">
+                            {keys.split(' ').map((key) => (
+                              <kbd key={key} className="px-1.5 py-0.5 rounded-md bg-app-bg text-app-text text-[11px] font-mono">{key}</kbd>
+                            ))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </SheetLayer>
 
       {/* Success Modal Drawer using theme classes */}

@@ -1337,26 +1337,34 @@ export default function App() {
   // Scrolling a long screen also hides the nav (down) and shows it (up). Screens with
   // little to scroll never hide it this way; double-tap covers those. Reaching the end of a
   // screen brings it back, so the last items are never left with an empty gap below.
-  const lastScrollPositions = useRef<WeakMap<Element, number>>(new WeakMap());
+  // Per scroll area: last position, and where the current up/down movement started.
+  const scrollTrack = useRef<WeakMap<Element, { last: number; anchor: number; dir: number }>>(new WeakMap());
   useEffect(() => {
+    const scrollable = (el: HTMLElement) => {
+      if (el.tagName === 'MAIN') return true;
+      const oy = getComputedStyle(el).overflowY;
+      return oy === 'auto' || oy === 'scroll';
+    };
     const onScroll = (e: Event) => {
       if (activeTab === 'ai' || isTourOpen || window.innerWidth >= 768) return;
       const el = e.target as HTMLElement;
-      if (!el || !(el instanceof HTMLElement)) return;
-      if (!el.classList.contains('overflow-y-auto') && el.tagName !== 'MAIN') return;
+      if (!(el instanceof HTMLElement) || !scrollable(el)) return;
+      if (el.closest('[role="dialog"], [aria-modal="true"]')) return; // sheets and popups don't move the nav
 
-      const room = el.scrollHeight - el.clientHeight; // how far this screen can scroll
+      const room = el.scrollHeight - el.clientHeight; // how far this area can scroll
       const y = el.scrollTop;
-      const prev = lastScrollPositions.current.get(el) ?? y;
-      lastScrollPositions.current.set(el, y);
-      if (room < 240) return; // short screen: leave it to double-tap
+      const t = scrollTrack.current.get(el) ?? { last: y, anchor: y, dir: 0 };
+      const dir = y > t.last ? 1 : y < t.last ? -1 : t.dir;
+      if (dir !== t.dir) t.anchor = t.last; // movement changed direction: measure from here
+      t.dir = dir;
+      t.last = y;
+      scrollTrack.current.set(el, t);
 
-      const atTop = y <= 16;
-      const atEnd = y >= room - 24;
-      const delta = y - prev;
-      if (atTop || atEnd) setShowNav(true);
-      else if (delta > 12 && y > 80) setShowNav(false);
-      else if (delta < -12) setShowNav(true);
+      if (room < 160) return; // short screen: double-tap instead
+      if (y <= 16 || y >= room - 24) return setShowNav(true); // top or end of the screen
+      const moved = y - t.anchor; // distance in the current direction (small steps add up)
+      if (moved > 36 && y > 60) setShowNav(false);
+      else if (moved < -36) setShowNav(true);
     };
     window.addEventListener('scroll', onScroll, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', onScroll, { capture: true } as EventListenerOptions);
