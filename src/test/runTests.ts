@@ -23,6 +23,8 @@ import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-
 import { buildManifest } from "../../scripts/update-manifest.mjs";
 import { compareVersions } from "../utils/semver";
 import { SCREENS, canOpenScreen } from "../utils/screens";
+import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
+import { SupabaseService } from "../services/supabaseService";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 
 function runTest(name: string, fn: () => void) {
@@ -283,7 +285,7 @@ runTest("AI Copilot Pending Action Store & Permission Validation", async () => {
 runTest("Hugging Face Default Provider & Token Rotation Logic", () => {
   // Test default provider selection
   const defaultProvider = "huggingface";
-  const defaultModel = "Qwen/Qwen2.5-Coder-32B-Instruct";
+  const defaultModel = "Qwen/Qwen2.5-72B-Instruct";
   
   if (defaultProvider !== "huggingface" || !defaultModel.includes("Qwen")) {
     throw new Error(`Expected huggingface default, got provider=${defaultProvider}, model=${defaultModel}`);
@@ -476,6 +478,68 @@ runTest("Update manifest lists signed desktop installers and the Android APK", (
   } catch { threw = true; }
   if (!threw) throw new Error("An unsigned installer must be refused");
 });
+
+// The offline queue keeps sales in localStorage on a phone. Node's own localStorage
+// stores nothing without --localstorage-file, so tests always use an in-memory one.
+{
+  const mem = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => (mem.has(k) ? mem.get(k)! : null),
+      setItem: (k: string, v: string) => void mem.set(k, String(v)),
+      removeItem: (k: string) => void mem.delete(k),
+    },
+  });
+}
+
+const offlineSale = (ref: string): any => ({
+  id: `tx-${ref}`, referenceId: ref, businessId: "biz", items: [], total: 100, discount: 0, tax: 0,
+  finalTotal: 100, paymentMethod: "Cash", staffId: "s", staffName: "S", status: "Synced", timestamp: new Date().toISOString(),
+});
+
+runTest("Offline sales queue once per reference and are marked pending", () => {
+  localStorage.removeItem("kaykays.offline.sales.v1");
+  salesOutbox.add(offlineSale("r1"));
+  salesOutbox.add(offlineSale("r1")); // same sale again, e.g. a double tap
+  if (salesOutbox.count() !== 1) throw new Error(`Expected 1 queued sale, got ${salesOutbox.count()}`);
+  if (salesOutbox.list()[0].tx.status !== "Offline_Pending") throw new Error("Queued sale should be Offline_Pending");
+  if (!isNetworkError(new TypeError("Failed to fetch"))) throw new Error("'Failed to fetch' is a network error");
+  if (isNetworkError({ code: "23514", message: "violates check constraint" })) throw new Error("A refusal is not a network error");
+  localStorage.removeItem("kaykays.offline.sales.v1");
+});
+
+// Async: syncing sends what it can, keeps refused sales with their error, stops on network loss.
+(async () => {
+  const name = "Offline sync keeps refused sales and stops when the network drops";
+  const original = SupabaseService.syncOfflineSale;
+  try {
+    localStorage.removeItem("kaykays.offline.sales.v1");
+    ["a", "b", "c", "d"].forEach((r) => salesOutbox.add(offlineSale(r)));
+    const sent: string[] = [];
+    (SupabaseService as any).syncOfflineSale = async (tx: any) => {
+      if (tx.referenceId === "b") throw Object.assign(new Error("violates check constraint"), { code: "23514" });
+      if (tx.referenceId === "c") throw new TypeError("Failed to fetch");
+      sent.push(tx.referenceId);
+      return { id: `server-${tx.referenceId}` };
+    };
+    const result = await salesOutbox.flush();
+    const left = salesOutbox.list().map((q) => q.tx.referenceId).join(",");
+    if (sent.join(",") !== "a") throw new Error(`Expected only "a" sent before the network dropped, got ${sent}`);
+    if (left !== "b,c,d") throw new Error(`Expected b,c,d still queued, got ${left}`);
+    const b = salesOutbox.list().find((q) => q.tx.referenceId === "b")!;
+    if (b.attempts !== 1 || !b.lastError?.includes("check constraint")) throw new Error("Refused sale should keep its error");
+    if (result.synced.length !== 1 || result.remaining !== 3) throw new Error("Wrong flush result");
+    console.log(`✅ TEST PASSED: ${name}`);
+  } catch (e) {
+    console.error(`❌ TEST FAILED: ${name}`);
+    console.error(e);
+    process.exitCode = 1;
+  } finally {
+    (SupabaseService as any).syncOfflineSale = original;
+    localStorage.removeItem("kaykays.offline.sales.v1");
+  }
+})();
 
 runTest("App versions compare numerically", () => {
   const cases: [string, string, number][] = [["1.10.0", "1.9.9", 1], ["1.0.0", "1.0.0", 0], ["v2.0.0", "1.99.99", 1], ["1.0", "1.0.1", -1]];

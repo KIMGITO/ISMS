@@ -139,11 +139,11 @@ export default function SalesView() {
               className={`text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 ${
                 isSynced
                   ? 'bg-emerald-500/15 text-emerald-500'
-                  : 'bg-amber-500/15 text-amber-500 '
+                  : 'bg-rose-600/15 text-rose-600 dark:text-rose-300' // saved on this phone, not yet on the server
               }`}
             >
               <span className="w-1 h-1 rounded-full bg-current" />
-              <span>{isSynced ? 'Synced' : 'Offline'}</span>
+              <span>{isSynced ? 'Synced' : 'Waiting to sync'}</span>
             </span>
           </div>
 

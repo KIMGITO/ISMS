@@ -35,6 +35,7 @@ import { searchMatch } from '../utils/stringUtils';
 import SearchableDropdown from '../components/SearchableDropdown';
 import CommunicationCenterView from './CommunicationCenterView';
 import { TabOption, Tabs } from '../components/TabOptions';
+import { appDialog } from '../components/AppDialog';
 
 interface CommentReply {
   id: string;
@@ -383,9 +384,12 @@ Comment: "${comment.comment}"`;
   const handleDeleteComment = async (commentId: string) => {
     if (isDeletingComment[commentId]) return;
     if (
-      confirm(
-        'Are you sure you want to delete this customer feedback record permanently?',
-      )
+      await appDialog.confirm({
+        title: 'Delete this feedback?',
+        message: 'It is removed for good.',
+        confirmLabel: 'Delete',
+        destructive: true,
+      })
     ) {
       setIsDeletingComment((prev) => ({ ...prev, [commentId]: true }));
       try {

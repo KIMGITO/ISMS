@@ -43,21 +43,34 @@ export class SupabaseService {
 
   static async fetchTransactions(businessId: string): Promise<Transaction[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("transactions")
-      .select(`
-        *,
-        transaction_items (
+    // Supabase returns at most 1,000 rows per request, so read the account's sales in
+    // pages. Without this, charts only saw the latest 1,000 sales and each device showed
+    // whatever its last load happened to include, instead of the whole account.
+    const PAGE = 1000;
+    const MAX_PAGES = 50; // 50,000 sales; beyond that, charts need a server-side summary
+    const data: any[] = [];
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { data: rows, error } = await supabase
+        .from("transactions")
+        .select(`
           *,
-          products (*)
-        )
-      `)
-      .eq("business_id", toUuid(businessId))
-      .order("timestamp", { ascending: false });
+          transaction_items (
+            *,
+            products (*)
+          )
+        `)
+        .eq("business_id", toUuid(businessId))
+        .order("timestamp", { ascending: false })
+        .order("id", { ascending: true }) // stable order, so pages never skip or repeat a sale
+        .range(page * PAGE, page * PAGE + PAGE - 1);
 
-    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+      if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+      data.push(...(rows || []));
+      if (!rows || rows.length < PAGE) break;
+      if (page === MAX_PAGES - 1) console.warn("[fetchTransactions] Stopped at 50,000 sales; older ones are not loaded.");
+    }
 
-    return (data || []).map(t => ({
+    return data.map(t => ({
       id: t.id,
       total: Number(t.total),
       discount: Number(t.discount),
@@ -74,6 +87,7 @@ export class SupabaseService {
       isDelivery: t.is_delivery,
       deliveryFee: Number(t.delivery_fee),
       riderName: t.rider_name,
+      referenceId: t.reference_id || undefined,
       businessId: t.business_id,
       items: (t.transaction_items || []).map((ti: any) => ({
         product: {
@@ -167,6 +181,47 @@ export class SupabaseService {
     }
 
     return header;
+  }
+
+  /**
+   * Sends a sale that was saved offline. Safe to repeat: the database refuses a second
+   * sale with the same reference_id, so a retry after a dropped connection never counts
+   * a sale twice. If the earlier try saved the sale but lost its items (they are a
+   * separate insert), the items are added now.
+   * @returns the sale as stored on the server
+   */
+  static async syncOfflineSale(tx: Transaction): Promise<any> {
+    try {
+      return await this.createTransaction(tx);
+    } catch (err: any) {
+      if (err?.code !== "23505" || !tx.referenceId) throw err; // 23505 = already saved
+
+      const supabase = getSupabase();
+      const { data: header, error } = await supabase
+        .from("transactions")
+        .select("*, transaction_items(id)")
+        .eq("business_id", toUuid(tx.businessId))
+        .eq("reference_id", tx.referenceId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!header) throw err;
+
+      if ((header.transaction_items || []).length === 0 && tx.items?.length) {
+        const { error: itemsErr } = await supabase.from("transaction_items").insert(
+          tx.items.map((item) => ({
+            transaction_id: header.id,
+            product_id: toUuid(item.product.id),
+            product_name: item.product.name,
+            unit_price: item.product.price,
+            quantity: item.quantity,
+            discount_percentage: item.discountPercentage,
+            line_total: Number(((item.product.price * (1 - item.discountPercentage / 100)) * item.quantity).toFixed(2)),
+          })),
+        );
+        if (itemsErr) throw itemsErr;
+      }
+      return header;
+    }
   }
 
   // ==========================================

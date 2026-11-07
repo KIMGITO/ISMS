@@ -12,6 +12,7 @@ import { SupabaseService } from "../services/supabaseService";
 import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
 import { kraService } from "../services/kra/kraService";
+import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 
 interface CartState {
   cart: CartItem[];
@@ -31,7 +32,7 @@ interface CartState {
     isDelivery?: boolean,
     deliveryFee?: number,
     riderName?: string
-  ) => Promise<{ success: boolean; transaction?: Transaction; error?: string }>;
+  ) => Promise<{ success: boolean; transaction?: Transaction; error?: string; /** saved on this device, syncs later */ offline?: boolean }>;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -101,12 +102,15 @@ export const useCartStore = create<CartState>((set, get) => ({
     const { cart, selectedCustomer } = get();
     if (cart.length === 0) return { success: false, error: "Cart is empty." };
 
-    // Strict connectivity check
+    // Offline: paid sales are saved on this device and sync later. Credit sales need the
+    // server, which holds customer balances, wallets and debt limits.
     const transactionStore = useTransactionStore.getState();
-    if (!transactionStore.isOnline) {
+    const isCredit = paymentMethod === 'Credit_Debt' || paymentMethod === 'Credit';
+    const isOffline = !transactionStore.isOnline;
+    if (isOffline && isCredit) {
       return {
         success: false,
-        error: "Checkout Blocked: This application requires an active internet connection to process live sales securely."
+        error: "Credit sales need an internet connection. Take cash, card or M-Pesa, or try again when you're back online.",
       };
     }
 
@@ -190,13 +194,29 @@ export const useCartStore = create<CartState>((set, get) => ({
         referenceId,
       };
 
+      // Keeps the sale on this device until it reaches the server
+      const saveOffline = () => {
+        salesOutbox.add(newTransaction);
+        set({ cart: [], selectedCustomer: null });
+        useNotificationStore.getState().showToast(
+          "Sale saved offline",
+          `KSh ${finalTotal.toLocaleString()} by ${paymentMethod.replace("_", " ")}. It syncs when you're back online.`,
+          undefined,
+          "offline",
+        );
+        return { success: true, offline: true, transaction: { ...newTransaction, status: "Offline_Pending" as const } };
+      };
+
       // Making a sale proves the person is working, so a forgotten clock-in fixes itself.
-      if (!useAuthStore.getState().activeShift) {
-        await useAuthStore.getState().punchIn();
+      // Clocking in needs the server, so offline it waits for the next online sale.
+      if (!isOffline && !useAuthStore.getState().activeShift) {
+        await useAuthStore.getState().punchIn().catch(() => {});
       }
 
       // Update active shift counters
       useAuthStore.getState().addShiftSale(finalTotal);
+
+      if (isOffline) return saveOffline();
 
       let savedTx: any;
 
@@ -235,8 +255,14 @@ export const useCartStore = create<CartState>((set, get) => ({
 
         savedTx = { ...newTransaction, id: txId };
       } else {
-        // Non-credit or walk-in customer: use the standard transaction flow
-        savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
+        // Non-credit or walk-in customer: use the standard transaction flow.
+        // If the connection drops mid-sale, keep it offline instead of losing it.
+        try {
+          savedTx = await useTransactionStore.getState().addTransaction(newTransaction);
+        } catch (saveErr) {
+          if (!isCredit && isNetworkError(saveErr)) return saveOffline();
+          throw saveErr;
+        }
 
         // The database trigger awards points and counts the purchase; this picks up the new balance.
         if (selectedCustomer) {

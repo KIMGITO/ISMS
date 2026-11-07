@@ -224,6 +224,9 @@ When the user requests an action AND you have parameters AND the operator is aut
       return jsonResponse({
         success: false,
         error: "The assistant is unavailable right now.",
+        // Why it failed (e.g. invalid token, rate limit). Provider messages only, never keys;
+        // the app shows it to Owners and Admins so they can fix the AI settings.
+        detail: String(result.error || "").slice(0, 300),
         reply: "The assistant is unavailable right now. Please try again shortly. If this continues, ask the Owner to check the AI settings.",
       });
     }

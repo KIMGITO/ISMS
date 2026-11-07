@@ -8,6 +8,7 @@ import { titleCase, searchMatch, formatName } from "../utils/stringUtils";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { EmployeeRole } from "../types";
 import { hasRolePermission } from "../utils/permissions";
+import { appDialog } from '../components/AppDialog';
 
 const PRESET_AVATARS = [
   { id: "preset-1", name: "Sarah", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" },
@@ -29,7 +30,8 @@ export default function WorkersView() {
     invitations,
     inviteUser,
     revokeInvitation,
-    currentBusinessId
+    currentBusinessId,
+    showToast,
   } = useAppStore();
 
   const [name, setName] = useState("");
@@ -148,7 +150,7 @@ export default function WorkersView() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Invitation Link copied to clipboard!");
+    showToast("Invitation link copied", "", undefined, "success");
   };
 
   // Filter invitations for current business
@@ -536,11 +538,12 @@ export default function WorkersView() {
                               disabled={isDeletingWorker}
                               onClick={async () => {
                                 if (
-                                  confirm(
-                                    `Are you sure you want to remove ${titleCase(
-                                      emp.name,
-                                    )} from this business workspace?`,
-                                  )
+                                  await appDialog.confirm({
+                                    title: `Remove ${titleCase(emp.name)}?`,
+                                    message: 'They lose access to this business.',
+                                    confirmLabel: 'Remove',
+                                    destructive: true,
+                                  })
                                 ) {
                                   setIsDeletingWorker(true);
                                   try {
@@ -648,11 +651,13 @@ export default function WorkersView() {
                                 disabled={isRevokingInvite}
                                 onClick={async () => {
                                   if (
-                                    confirm(
-                                      `Are you sure you want to revoke invitation for ${titleCase(
-                                        inv.name,
-                                      )}? This token will immediately expire.`,
-                                    )
+                                    await appDialog.confirm({
+                                      title: `Cancel ${titleCase(inv.name)}'s invitation?`,
+                                      message: 'The invitation link stops working straight away.',
+                                      confirmLabel: 'Cancel invitation',
+                                      cancelLabel: 'Keep',
+                                      destructive: true,
+                                    })
                                   ) {
                                     setIsRevokingInvite(true);
                                     try {
@@ -676,9 +681,12 @@ export default function WorkersView() {
                                 disabled={isRevokingInvite}
                                 onClick={async () => {
                                   if (
-                                    confirm(
-                                      `Remove this ${displayStatus.toLowerCase()} invitation from the list?`,
-                                    )
+                                    await appDialog.confirm({
+                                      title: 'Remove this invitation?',
+                                      message: `It's ${displayStatus.toLowerCase()} and is removed from the list.`,
+                                      confirmLabel: 'Remove',
+                                      destructive: true,
+                                    })
                                   ) {
                                     setIsRevokingInvite(true);
                                     try {

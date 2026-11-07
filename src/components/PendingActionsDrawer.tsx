@@ -126,11 +126,13 @@ export default function PendingActionsDrawer() {
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="relative w-full max-w-xl bg-app-card border-l border-app-border h-full flex flex-col shadow-2xl z-10"
+          className="relative w-full max-w-xl min-w-0 bg-app-card md:border-l border-app-border h-full flex flex-col shadow-2xl z-10 overflow-hidden"
+          // Room for the status bar and the phone's own bottom bar
+          style={{ paddingTop: 'var(--inset-top)', paddingBottom: 'var(--inset-bottom)' }}
         >
           {/* Header */}
-          <div className="p-4 border-b border-app-border flex items-center justify-between shrink-0 bg-app-card">
-            <div className="flex items-center gap-2.5">
+          <div className="px-3 py-3 md:p-4 border-b border-app-border flex items-center justify-between gap-2 shrink-0 bg-app-card">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                 <ActivitySquareIcon size={16} className="text-amber-500" />
               </div>
@@ -141,21 +143,22 @@ export default function PendingActionsDrawer() {
                     {activePending.length}
                   </span>
                 </h2>
-                <p className="text-[10px] text-app-text-muted">
-                  Human Review & Execution Verification
+                <p className="text-[10px] text-app-text-muted truncate">
+                  Check each draft before it runs
                 </p>
               </div>
             </div>
             <button
               onClick={() => setDrawerOpen(false)}
-              className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded-lg transition cursor-pointer"
+              aria-label="Close"
+              className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-app-bg text-app-text-muted rounded-lg transition cursor-pointer"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
 
           {/* Filter Tabs */}
-          <div className="px-4 py-2 border-b border-app-border flex items-center gap-1.5 overflow-x-auto shrink-0 text-[10px] font-bold">
+          <div className="px-3 md:px-4 py-2 border-b border-app-border flex items-center gap-1.5 overflow-x-auto shrink-0 text-[11px] font-bold whitespace-nowrap">
             <button
               onClick={() => setFilterType('all')}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
@@ -207,7 +210,7 @@ export default function PendingActionsDrawer() {
           </div>
 
           {/* Actions List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 space-y-2 md:space-y-3">
             {filteredActions.length === 0 ? (
               <div className="text-center py-12 text-slate-500 space-y-2">
                 <Layers size={36} className="mx-auto opacity-40 text-amber-500" />
@@ -227,7 +230,7 @@ export default function PendingActionsDrawer() {
                     key={action.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`bg-app-bg border rounded-2xl p-3.5 space-y-3 transition ${
+                    className={`min-w-0 bg-app-bg border rounded-lg p-3 space-y-2.5 transition ${
                       isPending
                         ? 'border-app-border hover:border-amber-500/30'
                         : isExecuted
@@ -274,7 +277,7 @@ export default function PendingActionsDrawer() {
                     </div>
 
                     {/* Summary */}
-                    <div className="p-2.5 bg-app-card rounded-xl border border-app-border text-xs text-app-text leading-relaxed font-medium">
+                    <div className="p-2.5 bg-app-card rounded-md text-xs text-app-text leading-relaxed font-medium break-words">
                       {action.summary}
                     </div>
 
@@ -285,7 +288,7 @@ export default function PendingActionsDrawer() {
                           <ShieldAlert size={10} /> Action Blocked:
                         </span>
                         {action.validation.errors.map((err, i) => (
-                          <p key={i} className="text-[10px] text-red-400 font-medium">
+                          <p key={i} className="text-[11px] text-red-500 font-medium break-words">
                             • {err}
                           </p>
                         ))}
@@ -295,7 +298,7 @@ export default function PendingActionsDrawer() {
                     {isPending && action.validation.warnings.length > 0 && (
                       <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-0.5">
                         {action.validation.warnings.map((warn, i) => (
-                          <p key={i} className="text-[9.5px] text-amber-400 font-medium">
+                          <p key={i} className="text-[11px] text-amber-600 dark:text-amber-400 font-medium break-words">
                             ⚠️ {warn}
                           </p>
                         ))}
@@ -304,34 +307,31 @@ export default function PendingActionsDrawer() {
 
                     {/* Verification & Action Controls */}
                     {isPending && (
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-app-border/60">
+                      <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-1.5 pt-2 border-t border-app-border/60">
                         <button
                           onClick={() => openEditModal(action)}
-                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1"
+                          className="min-h-10 px-3 bg-app-card hover:bg-app-border text-app-text rounded-md text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 sm:mr-auto"
                         >
-                          <Edit3 size={11} /> Review & Edit
+                          <Edit3 size={13} /> Review
                         </button>
-
-                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => rejectPendingAction(action.id)}
-                            className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1"
+                            className="min-h-10 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-md text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
                           >
-                            <Ban size={11} /> Discard
+                            <Ban size={13} /> Discard
                           </button>
                           <button
                             onClick={() => handleExecute(action.id)}
                             disabled={!action.validation.isValid || isExecuting === action.id}
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-lg text-[10px] transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                            className="col-span-2 min-h-10 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-app-border disabled:text-app-text-muted text-slate-950 font-bold rounded-md text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                           >
                             {isExecuting === action.id ? (
                               <Loader2 size={11} className="animate-spin" />
                             ) : (
                               <Play size={11} />
                             )}
-                            Confirm & Execute
+                            Confirm & run
                           </button>
-                        </div>
                       </div>
                     )}
                   </motion.div>
@@ -344,12 +344,12 @@ export default function PendingActionsDrawer() {
 
       {/* EDIT & VERIFY MODAL */}
       {editingAction && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 md:p-4 bg-black/75 backdrop-blur-xs">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-app-card border border-app-border rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl"
+            className="bg-app-card rounded-xl max-w-lg w-full min-w-0 max-h-[90dvh] overflow-y-auto p-4 md:p-5 space-y-4 shadow-2xl"
           >
             <div className="flex items-start justify-between">
               <div>

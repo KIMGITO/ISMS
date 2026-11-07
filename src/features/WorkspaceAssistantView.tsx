@@ -520,6 +520,10 @@ export default function WorkspaceAssistantView() {
       if (response && (response.success || response.reply)) {
         let replyText =
           response.reply || 'I received your message, but I have no response.';
+        // Owners and Admins see why the AI failed, so they can fix the AI settings.
+        if (response.success === false && response.detail && ['Owner', 'Admin', 'Administrator'].includes(currentRole)) {
+          replyText += `\n\nReason: ${response.detail}`;
+        }
 
         // Handle AI Pending Action Drafts & Action Triggers
         // Supports both [PENDING_ACTION: {...}] and plain PENDING_ACTION: {...}

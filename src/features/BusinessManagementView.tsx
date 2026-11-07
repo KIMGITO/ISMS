@@ -19,6 +19,7 @@ import { canOpenScreen } from "../utils/screens";
 import { useUiStore } from "../stores/uiStore";
 import type { ExpenseCategory } from "../types";
 import { Switch } from '../components/shared/Switch';
+import { appDialog } from '../components/AppDialog';
 
 // Shown only until the business's own list has loaded.
 const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
@@ -391,7 +392,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
   const handleDeleteExpense = async (id: string) => {
     if (!isOwner) return;
-    if (!confirm("Delete this expense record? This action cannot be undone.")) return;
+    if (!(await appDialog.confirm({ title: "Delete this expense?", message: "This can't be undone.", confirmLabel: "Delete", destructive: true }))) return;
     try {
       const { ExpenseRepository } = await import("../services/repositories");
       await ExpenseRepository.delete(id);

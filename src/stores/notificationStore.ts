@@ -13,7 +13,8 @@ export interface ToastMessage {
   message: string;
   avatar?: string;
   time?: string;
-  type?: "success" | "error" | "info";
+  /** "offline": saved on this device and waiting to sync (red, but not an error) */
+  type?: "success" | "error" | "info" | "offline";
   timestamp: string;
   read: boolean;
   category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system";
@@ -31,7 +32,7 @@ interface NotificationState {
   initScheduleReminders: () => void;
   markReminderAsRead: (id: string) => void;
   // Local UI-only toast (doesn't save to DB)
-  showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
+  showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info" | "offline", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
   clearToast: () => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -237,7 +238,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     // Confirmations of your own actions (success, no sender picture) show as a brief,
     // silent pill. Errors, alerts and messages from people or the system keep the card.
     const isQuiet = computedType === "success" && !avatar;
-    if (!isQuiet) playAudioCue(computedType);
+    if (!isQuiet) playAudioCue(computedType === "offline" ? "info" : computedType);
 
     set({
       toast: {
