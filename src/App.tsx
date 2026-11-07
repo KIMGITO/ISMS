@@ -123,7 +123,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
-import { canOpenScreen, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
+import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Business } from './types';
@@ -134,6 +134,15 @@ import { Checkbox } from './components/shared/Checkbox';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
+
+// Screens slide in like iOS: a short push with iOS easing, the old one eases out.
+const SCREEN_MOTION = {
+  initial: { opacity: 0, x: 24 },
+  animate: { opacity: 1, x: 0 },
+  // Screens swap in "wait" mode, so the old one leaves quickly and the new one glides in.
+  exit: { opacity: 0, x: -12, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] as const } },
+  transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] as const },
+};
 
 // Every tab the mobile bar or its "More" sheet can show. Order and placement come from arrangeMobileNav.
 const MOBILE_TABS = [
@@ -1164,42 +1173,13 @@ export default function App() {
     }
   }, [activeBusiness]);
 
-  // Redirect to first permitted tab if activeTab is not permitted for the logged-in role
+  // Redirect to the first screen this role may open if the current one isn't allowed.
+  // Uses the same rules as the menus (utils/screens), so a screen can't be listed but bounce.
   useEffect(() => {
-    if (currentEmployee) {
-      const allTabsWithPerms = [
-        { id: 'home', permission: 'home.view' as const },
-        { id: 'sell', permission: 'pos.create_sale' as const },
-        { id: 'pos', permission: 'pos.create_sale' as const },
-        { id: 'inventory', permission: 'inventory.view' as const },
-        { id: 'sales', permission: 'orders.view' as const },
-        { id: 'customers', permission: 'customers.view' as const },
-        { id: 'deliveries', permission: 'deliveries.view' as const },
-        { id: 'dashboard', permission: 'dashboard.view' as const },
-        { id: 'feedback', permission: 'complaints.view' as const },
-        { id: 'online-store', permission: 'online_store.view' as const },
-        { id: 'ai', permission: 'ai.use' as const },
-        { id: 'workers', permission: 'staff.view' as const },
-        { id: 'permissions', permission: 'staff.roles' as const },
-        { id: 'profile', permission: 'dashboard.view' as const },
-        { id: 'business-management', permission: 'business.update' as const },
-        { id: 'settings', permission: 'settings.view' as const },
-        { id: 'production', permission: 'bom.view' as const },
-        { id: 'notifications', permission: 'dashboard.view' as const },
-      ];
-      const permitted = allTabsWithPerms.filter(
-        (tab) =>
-          tab.id === 'profile' ||
-          tab.id === 'notifications' ||
-          hasRolePermission(currentEmployee.role, tab.permission as any),
-      );
-      if (
-        permitted.length > 0 &&
-        !permitted.some((tab) => tab.id === activeTab)
-      ) {
-        setActiveTab(permitted[0].id as any);
-      }
-    }
+    if (!currentEmployee) return;
+    if (canOpenScreen(currentEmployee.role, activeTab as string)) return;
+    const first = SCREENS.find((screen) => canOpenScreen(currentEmployee.role, screen.id));
+    if (first && first.id !== activeTab) setActiveTab(first.id as any);
   }, [currentEmployee, activeTab, permissionVersion]);
 
   // Hide native splash screen on first client mount
@@ -3772,7 +3752,7 @@ export default function App() {
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
                 {/* TOP APPLICATION BAR (it carries the status-bar inset; UpdateBar sits under it) */}
                 <header
-                  className="bg-app-card border-b border-app-border px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
+                  className="bg-app-card border-b border-app-border px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14"
                   style={{
                     paddingTop:
                       'calc(0.375rem + var(--inset-top))',
@@ -3959,17 +3939,14 @@ export default function App() {
                 <UpdateBar />
                 <ClockBar />
 
-                {/* CORE VIEWPORT CARDS */}
-                <div className="flex-1 overflow-hidden relative">
+                {/* CORE VIEWPORT CARDS (app-viewport: phone edge spacing in index.css) */}
+                <div className="app-viewport flex-1 overflow-hidden relative">
                   <ErrorBoundary resetKey={activeTab}>
                   <AnimatePresence mode="wait">
                     {activeTab === 'sell' && (
                       <motion.div
                         key="sell-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="pos.create_sale">
@@ -3980,10 +3957,7 @@ export default function App() {
                     {activeTab === 'pos' && (
                       <motion.div
                         key="pos-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="pos.create_sale">
@@ -3994,10 +3968,7 @@ export default function App() {
                     {activeTab === 'inventory' && (
                       <motion.div
                         key="inv-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="inventory.view">
@@ -4008,10 +3979,7 @@ export default function App() {
                     {activeTab === 'sales' && (
                       <motion.div
                         key="sales-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="orders.view">
@@ -4022,10 +3990,7 @@ export default function App() {
                     {activeTab === 'home' && (
                       <motion.div
                         key="home-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="home.view">
@@ -4036,10 +4001,7 @@ export default function App() {
                     {activeTab === 'customers' && (
                       <motion.div
                         key="cust-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="customers.view">
@@ -4050,10 +4012,7 @@ export default function App() {
                     {activeTab === 'dashboard' && (
                       <motion.div
                         key="dash-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="dashboard.view">
@@ -4064,10 +4023,7 @@ export default function App() {
                     {activeTab === 'ai' && (
                       <motion.div
                         key="ai-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="ai.use">
@@ -4078,10 +4034,7 @@ export default function App() {
                     {activeTab === 'online-store' && (
                       <motion.div
                         key="online-store-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="online_store.view">
@@ -4092,10 +4045,7 @@ export default function App() {
                     {activeTab === 'deliveries' && (
                       <motion.div
                         key="deliveries-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="deliveries.view">
@@ -4106,10 +4056,7 @@ export default function App() {
                     {activeTab === 'workers' && (
                       <motion.div
                         key="workers-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="staff.view">
@@ -4120,10 +4067,7 @@ export default function App() {
                     {activeTab === 'permissions' && (
                       <motion.div
                         key="permissions-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="staff.roles">
@@ -4134,10 +4078,7 @@ export default function App() {
                     {activeTab === 'feedback' && (
                       <motion.div
                         key="feedback-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="complaints.view">
@@ -4148,10 +4089,7 @@ export default function App() {
                     {activeTab === 'profile' && (
                       <motion.div
                         key="profile-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <ProfileView
@@ -4162,10 +4100,7 @@ export default function App() {
                     {activeTab === 'settings' && (
                       <motion.div
                         key="settings-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="settings.view">
@@ -4178,10 +4113,7 @@ export default function App() {
                     {activeTab === 'business-management' && (
                       <motion.div
                         key="business-management-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission="business.update">
@@ -4192,10 +4124,7 @@ export default function App() {
                     {activeTab === 'money' && (
                       <motion.div
                         key="money-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <SecurityGuard permission={MONEY_PERMISSIONS as any}>
@@ -4206,10 +4135,7 @@ export default function App() {
                     {activeTab === 'production' && (
                       <motion.div
                         key="production-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0 flex flex-col overflow-hidden"
                       >
                         <SecurityGuard permission="bom.view">
@@ -4220,10 +4146,7 @@ export default function App() {
                     {activeTab === 'notifications' && (
                       <motion.div
                         key="notifications-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <NotificationsView />
@@ -4232,10 +4155,7 @@ export default function App() {
                     {activeTab === 'about' && (
                       <motion.div
                         key="about-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.15 }}
+                        {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
                         <AboutView />
@@ -4299,8 +4219,8 @@ export default function App() {
                         // Sits above the gesture/navigation bar and clear of side cutouts in landscape
                         style={{
                           bottom: 'calc(var(--mobile-nav-gap) + var(--inset-bottom))',
-                          left: 'calc(var(--mobile-nav-gap) + var(--inset-left))',
-                          right: 'calc(var(--mobile-nav-gap) + var(--inset-right))',
+                          left: 'calc(var(--mobile-edge) + var(--inset-left))',
+                          right: 'calc(var(--mobile-edge) + var(--inset-right))',
                           height: 'var(--mobile-nav-height)',
                         }}
                         className="fixed mx-auto max-w-lg md:hidden bg-slate-950/95 dark:bg-slate-900/95 backdrop-blur-md border border-app-border/80 flex items-center justify-around shrink-0 z-30 shadow-xl rounded-2xl select-none font-sans px-1 min-[380px]:px-2 gap-0.5"

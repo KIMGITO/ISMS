@@ -26,12 +26,21 @@
   --color-app-text-muted: var(--app-text-muted);
   --color-success: #10b981;
   --color-error: #ef4444;
+
+  /* Flatter look: corners stay soft but small. Tailwind's rounded-* read these. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.75rem;
+
+  /* iOS-style easing for movement */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 :root {
   --app-bg: #f8fafc; /* slate 50 */
   --app-card: #ffffff;
-  --app-border: #e2e8f0; /* slate 200 */
+  --app-border: #eef1f5; /* faint: separates without boxing everything in */
   --app-text: #0f172a; /* slate 900 */
   --app-text-muted: #64748b; /* slate 500 */
 }
@@ -39,7 +48,7 @@
 .dark {
   --app-bg: #0f172a; /* slate 900 */
   --app-card: #1e293b; /* slate 800 */
-  --app-border: #334155; /* slate 700 */
+  --app-border: #263244; /* faint on dark */
   --app-text: #f8fafc; /* slate 50 */
   --app-text-muted: #94a3b8; /* slate 400 */
 }
@@ -67,7 +76,62 @@ body {
   background-color: var(--app-bg);
   color: var(--app-text);
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   user-select: none; /* Mobile native feel */
+}
+
+/* ---------------------------------------------------------------
+   Feel: every tap shows a response, movement uses iOS easing.
+   In the base layer, so a component's own transition/scale classes still win.
+   --------------------------------------------------------------- */
+@layer base {
+  button,
+  a,
+  summary,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; /* no 300ms tap delay, no double-tap zoom */
+    transition-property: scale, opacity, background-color, color, box-shadow, border-color;
+    transition-duration: 180ms;
+    transition-timing-function: var(--ease-ios);
+  }
+  /* "scale" (not transform) so it combines with Tailwind's translate-* and motion */
+  button:not(:disabled):active,
+  a:active,
+  summary:active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  [role="tab"]:active,
+  [role="menuitem"]:active,
+  [role="option"]:active {
+    scale: 0.96;
+    opacity: 0.85;
+    transition-duration: 60ms;
+  }
+
+  /* Momentum scrolling that doesn't drag the whole page along */
+  .overflow-y-auto,
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  input,
+  textarea,
+  select {
+    transition: box-shadow 180ms var(--ease-ios), background-color 180ms var(--ease-ios);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scale: none !important;
+  }
 }
 
 /* Native Android ripple animation simulation classes */
@@ -102,9 +166,20 @@ input[type="number"] {
 
   /* Floating mobile bottom navigation */
   --mobile-nav-height: 3.75rem;
-  --mobile-nav-gap: 0.75rem;
+  --mobile-nav-gap: 0.5rem;   /* above the phone's own bar */
+  --mobile-edge: 2px;         /* left/right space on phones */
   /* Room a scrolling screen leaves at the bottom so its last item clears the nav */
   --mobile-nav-space: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + var(--inset-bottom) + 1rem);
+}
+
+/* Phones: screens run almost edge to edge (2px). Unlayered, so it beats p-4 etc.
+   .app-viewport > * > * is each screen's root; .pb-nav marks screens' scroll areas. */
+@media (width < 48rem) {
+  .app-viewport > * > *,
+  .app-viewport .pb-nav {
+    padding-left: calc(var(--mobile-edge) + var(--inset-left));
+    padding-right: calc(var(--mobile-edge) + var(--inset-right));
+  }
 }
 
 /* Bottom padding for scrolling screens: clears the floating nav and the phone's own bar */
