@@ -2,7 +2,9 @@
 // The fastest path to record a sale: tap or scan, then one tap on how the customer paid.
 // Discounts, delivery and credit sales stay in the full POS screen.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import { Banknote, CheckCircle2, CreditCard, Minus, Plus, Search, Smartphone, X } from 'lucide-react';
+import { nativeUiService } from '../core/native/NativeUiService';
 import { useAppStore } from '../stores/appStore';
 import { PaymentMethod, Product } from '../types';
 import { formatCurrency } from '../utils/helpers';
@@ -14,6 +16,58 @@ const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; ic
   { method: 'M-Pesa', label: 'M-Pesa', key: 'F2', icon: Smartphone, style: 'bg-green-700 hover:bg-green-800' },
   { method: 'Card', label: 'Card', key: 'F3', icon: CreditCard, style: 'bg-blue-600 hover:bg-blue-700' },
 ];
+
+// Sale quantities are stored with up to 3 decimals (e.g. 0.25 kg).
+const roundQty = (n: number) => Math.round(n * 1000) / 1000;
+const formatQty = (n: number) => String(roundQty(n));
+
+/**
+ * Quantity box: type any amount (decimals allowed, "," or "."), or use − / +.
+ * The typed value applies on Enter or when leaving the box; 0 removes the item.
+ */
+function QtyInput({ value, unit, label, onCommit }: {
+  value: number;
+  unit?: string;
+  label: string;
+  onCommit: (qty: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const parsed = parseFloat(draft.replace(',', '.'));
+    setDraft(null);
+    if (!Number.isNaN(parsed) && roundQty(parsed) !== value) onCommit(roundQty(parsed));
+  };
+  return (
+    <label className="relative flex flex-col items-center">
+      <span className="sr-only">{label}</span>
+      <motion.input
+        key={value}
+        initial={{ scale: 1.18 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+        type="text"
+        inputMode="decimal"
+        enterKeyHint="done"
+        autoComplete="off"
+        value={draft ?? formatQty(value)}
+        onFocus={(e) => { setDraft(formatQty(value)); requestAnimationFrame(() => e.target.select()); }}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (/^\d*([.,]\d{0,3})?$/.test(next)) setDraft(next);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation(); // keep the screen's + / − / Enter shortcuts out of the box
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'Escape') { setDraft(null); (e.target as HTMLInputElement).blur(); }
+        }}
+        className="w-14 h-10 rounded-md bg-app-bg text-center text-sm font-bold text-app-text tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
+      />
+      {unit && <span className="text-[10px] leading-none mt-0.5 text-app-text-muted">{unit}</span>}
+    </label>
+  );
+}
 
 // Only desktop gets auto-focus: on a phone it would pop the keyboard over the product grid.
 const hasPhysicalKeyboard = () =>
@@ -77,12 +131,34 @@ export default function QuickSaleView() {
     setError(null);
     const inCart = cart.find((item) => item.product.id === product.id)?.quantity || 0;
     if (inCart >= product.stock) {
-      showToast('Out of Stock', `Only ${product.stock} ${product.name} available.`, undefined, 'info');
+      showToast('Out of Stock', `Only ${formatQty(product.stock)} ${product.name} available.`, undefined, 'info');
+      nativeUiService.hapticError();
       return;
     }
-    addToCart(product);
+    if (inCart > 0) {
+      setQty(product, inCart + 1);
+    } else {
+      nativeUiService.hapticTap();
+      addToCart(product);
+    }
     setQuery('');
     focusSearch();
+  };
+
+  /** Sets a cart line to an exact quantity: 0 removes it, more than stock is capped with a notice. */
+  const setQty = (product: Product, qty: number) => {
+    setLastSale(null);
+    nativeUiService.hapticTap();
+    if (qty <= 0) {
+      removeFromCart(product.id);
+      return;
+    }
+    if (qty > product.stock) {
+      showToast('Not enough stock', `Only ${formatQty(product.stock)} ${product.name} available.`, undefined, 'info');
+      nativeUiService.hapticError();
+      qty = product.stock;
+    }
+    updateCartQty(product.id, roundQty(qty));
   };
 
   const pay = async (method: PaymentMethod) => {
@@ -94,11 +170,14 @@ export default function QuickSaleView() {
       const result = await checkout(method, '', taxRate);
       if (result.success) {
         setLastSale({ total: saleTotal, method });
+        nativeUiService.hapticSuccess();
       } else {
         setError(toUserMessage(result.error, 'The sale could not be saved. Please try again.'));
+        nativeUiService.hapticError();
       }
     } catch (err) {
       setError(toUserMessage(err, 'The sale could not be saved. Please try again.'));
+      nativeUiService.hapticError();
     } finally {
       setIsPaying(false);
       focusSearch();
@@ -127,17 +206,19 @@ export default function QuickSaleView() {
     } else if ((e.key === '+' || e.key === '-') && cart.length > 0) {
       e.preventDefault();
       const last = cart[cart.length - 1];
-      const next = last.quantity + (e.key === '+' ? 1 : -1);
-      if (next <= 0) removeFromCart(last.product.id);
-      else updateCartQty(last.product.id, next);
+      setQty(last.product, last.quantity + (e.key === '+' ? 1 : -1));
     }
   };
 
   return (
-    <div className="h-full flex flex-col md:flex-row bg-app-bg" onKeyDown={handleKeyDown}>
+    // On phones the sale panel ends above the floating nav bar instead of behind it.
+    <div
+      className="h-full flex flex-col md:flex-row bg-app-bg max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]"
+      onKeyDown={handleKeyDown}
+    >
       {/* Products */}
       <section className="flex-1 min-h-0 flex flex-col" aria-label="Products">
-        <div className="p-3 border-b border-app-border bg-app-card">
+        <div className="py-2 md:p-3 bg-app-card">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" aria-hidden="true" />
             <input
@@ -149,12 +230,12 @@ export default function QuickSaleView() {
               aria-label="Search or scan a product"
               autoComplete="off"
               enterKeyHint="done"
-              className="w-full bg-app-bg text-app-text text-base pl-10 pr-3 py-3 rounded-xl border border-app-border focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full bg-app-bg text-app-text text-base pl-10 pr-3 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 content-start">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-1 md:p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 md:gap-2 content-start">
           {visibleProducts.map((product, index) => {
             const soldOut = product.stock <= 0;
             const inCart = cart.find((item) => item.product.id === product.id)?.quantity || 0;
@@ -164,17 +245,23 @@ export default function QuickSaleView() {
                 type="button"
                 disabled={soldOut}
                 onClick={() => addProduct(product)}
-                className={`relative min-h-[84px] p-3 text-left rounded-xl border bg-app-card transition cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
-                  query && index === highlight ? 'border-amber-500 ring-2 ring-amber-500' : 'border-app-border hover:border-amber-500'
+                className={`relative min-h-[84px] p-3 text-left rounded-lg bg-app-card transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                  query && index === highlight ? 'ring-2 ring-amber-500' : inCart > 0 ? 'ring-1 ring-amber-500/60' : 'hover:ring-1 hover:ring-amber-500/50'
                 }`}
               >
                 <span className="block text-sm font-semibold text-app-text leading-snug line-clamp-2">{product.name}</span>
                 <span className="block mt-1 text-sm font-bold text-amber-600">{formatCurrency(product.price)}</span>
-                <span className="block text-xs text-app-text-muted">{soldOut ? 'Sold out' : `${product.stock} left`}</span>
+                <span className="block text-xs text-app-text-muted">{soldOut ? 'Sold out' : `${formatQty(product.stock)} ${product.unit || ''} left`}</span>
                 {inCart > 0 && (
-                  <span className="absolute top-2 right-2 min-w-6 h-6 px-1.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold">
-                    {inCart}
-                  </span>
+                  <motion.span
+                    key={inCart}
+                    initial={{ scale: 1.4 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                    className="absolute top-2 right-2 min-w-6 h-6 px-1.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold tabular-nums"
+                  >
+                    {formatQty(inCart)}
+                  </motion.span>
                 )}
               </button>
             );
@@ -187,14 +274,19 @@ export default function QuickSaleView() {
 
       {/* Current sale */}
       <section
-        className="shrink-0 md:w-80 lg:w-96 max-h-[55%] md:max-h-none flex flex-col border-t md:border-t-0 md:border-l border-app-border bg-app-card"
+        className="shrink-0 md:w-80 lg:w-96 max-h-[55%] md:max-h-none flex flex-col md:border-l border-app-border bg-app-card shadow-[0_-6px_16px_-12px_rgba(0,0,0,0.35)] md:shadow-none"
         aria-label="Current sale"
       >
         {lastSale && cart.length === 0 && (
-          <div role="status" className="m-3 p-3 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-sm font-semibold">
+          <motion.div
+            role="status"
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+            className="m-2 md:m-3 p-3 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-sm font-semibold">
             <CheckCircle2 size={20} aria-hidden="true" />
             Sold {formatCurrency(lastSale.total)} by {lastSale.method}
-          </div>
+          </motion.div>
         )}
 
         {cart.length === 0 && !lastSale && (
@@ -203,9 +295,16 @@ export default function QuickSaleView() {
           </p>
         )}
 
-        <ul className="flex-1 min-h-0 overflow-y-auto divide-y divide-app-border">
+        <ul className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-app-border/60">
           {cart.map((item) => (
-            <li key={item.product.id} className="flex items-center gap-2 px-3 py-2">
+            <motion.li
+              key={item.product.id}
+              layout
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              className="flex items-center gap-1.5 px-2 md:px-3 py-1.5"
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-app-text truncate">{item.product.name}</p>
                 <p className="text-xs text-app-text-muted">{formatCurrency(item.product.price * item.quantity)}</p>
@@ -213,25 +312,26 @@ export default function QuickSaleView() {
               <button
                 type="button"
                 aria-label={`One less ${item.product.name}`}
-                onClick={() =>
-                  item.quantity <= 1 ? removeFromCart(item.product.id) : updateCartQty(item.product.id, item.quantity - 1)
-                }
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-app-border text-app-text cursor-pointer"
+                onClick={() => setQty(item.product, item.quantity <= 1 ? 0 : item.quantity - 1)}
+                className="w-10 h-10 flex items-center justify-center rounded-md bg-app-bg text-app-text cursor-pointer"
               >
                 {item.quantity <= 1 ? <X size={16} /> : <Minus size={16} />}
               </button>
-              <span className="w-7 text-center text-sm font-bold text-app-text" aria-label={`Quantity ${item.quantity}`}>
-                {item.quantity}
-              </span>
+              <QtyInput
+                value={item.quantity}
+                unit={item.product.unit}
+                label={`Quantity of ${item.product.name}`}
+                onCommit={(qty) => setQty(item.product, qty)}
+              />
               <button
                 type="button"
                 aria-label={`One more ${item.product.name}`}
-                onClick={() => addProduct(item.product)}
-                className="w-10 h-10 flex items-center justify-center rounded-lg border border-app-border text-app-text cursor-pointer"
+                onClick={() => setQty(item.product, item.quantity + 1)}
+                className="w-10 h-10 flex items-center justify-center rounded-md bg-app-bg text-app-text cursor-pointer"
               >
                 <Plus size={16} />
               </button>
-            </li>
+            </motion.li>
           ))}
         </ul>
 
@@ -240,7 +340,7 @@ export default function QuickSaleView() {
         )}
 
         {cart.length > 0 && (
-          <div className="p-3 border-t border-app-border space-y-2">
+          <div className="p-2 md:p-3 border-t border-app-border/60 space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-app-text-muted">Total{taxRate > 0 ? ' incl. tax' : ''}</span>
               <span className="text-2xl font-black text-app-text">{formatCurrency(total)}</span>
@@ -252,7 +352,7 @@ export default function QuickSaleView() {
                   type="button"
                   disabled={isPaying}
                   onClick={() => pay(method)}
-                  className={`min-h-[64px] rounded-xl text-white font-bold text-sm flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-60 ${style}`}
+                  className={`min-h-[64px] rounded-lg text-white font-bold text-sm flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-60 ${style}`}
                 >
                   <Icon size={20} aria-hidden="true" />
                   {label}
