@@ -37,6 +37,7 @@ import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, searchMatch } from '../utils/stringUtils';
 import UnifiedUploader from '../components/shared/UnifiedUploader';
 import { Switch } from '../components/shared/Switch';
+import { appDialog } from '../components/AppDialog';
 
 export default function InventoryView() {
   const {
@@ -307,7 +308,7 @@ export default function InventoryView() {
     if (!selectedProduct || isAdjustingStock) return;
 
     if (adjustQty <= 0) {
-      alert('Adjustment quantity must be greater than zero.');
+      showToast('Check the quantity', 'The adjustment must be more than zero.', undefined, 'info');
       return;
     }
 
@@ -318,16 +319,14 @@ export default function InventoryView() {
       adjustmentType === 'Damage' &&
       finalStockValue > selectedProduct.stock
     ) {
-      alert('For damage logs, final stock must be less than initial stock.');
+      showToast('Check the quantity', 'Damage must lower the stock.', undefined, 'info');
       return;
     }
     if (
       adjustmentType === 'Restock' &&
       finalStockValue < selectedProduct.stock
     ) {
-      alert(
-        'For restock logs, final stock must be greater than initial stock.',
-      );
+      showToast('Check the quantity', 'A restock must raise the stock.', undefined, 'info');
       return;
     }
 
@@ -567,9 +566,12 @@ export default function InventoryView() {
                         disabled={isDeletingProduct}
                         onClick={async () => {
                           if (
-                            confirm(
-                              `Are you sure you want to delete "${p.name}"?`,
-                            )
+                            await appDialog.confirm({
+                              title: `Delete ${p.name}?`,
+                              message: 'The product is removed from your stock list.',
+                              confirmLabel: 'Delete',
+                              destructive: true,
+                            })
                           ) {
                             setIsDeletingProduct(true);
                             try {

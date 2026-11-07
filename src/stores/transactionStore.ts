@@ -5,9 +5,14 @@ import { TransactionRepository } from "../services/repositories";
 import { networkService } from "../services/networkService";
 import { SupabaseService } from "../services/supabaseService";
 import { useBusinessStore } from "./businessStore";
+import { salesOutbox } from "../services/offline/salesOutbox";
 
 interface TransactionState {
   transactions: Transaction[];
+  /** Sales saved on this device while offline, not yet on the server (all businesses). */
+  offlineSales: Transaction[];
+  /** Sends offline sales to the server now (also runs when the connection returns). */
+  syncOfflineSales: () => Promise<void>;
   debtPayments: DebtPayment[];
   isOnline: boolean;
   isSyncing: boolean;
@@ -48,14 +53,52 @@ export const useTransactionStore = create<TransactionState>((set, get) => {
     setupSubscription(useBusinessStore.getState().activeBusinessId);
   }, 0);
 
-  // Subscribe to networkService for dynamic online/offline detection
+  // Subscribe to networkService for dynamic online/offline detection.
+  // Coming back online sends any sales that were saved while offline.
   networkService.subscribe((isOnline) => {
+    const wasOnline = get()?.isOnline;
     set({ isOnline });
+    if (isOnline && wasOnline === false) void get().syncOfflineSales();
   });
+
+  // Offline sales show in the sales lists until they reach the server
+  salesOutbox.subscribe((queue) => set({ offlineSales: queue.map((q) => q.tx) }));
+
+  // Sales left from an earlier session (app closed while offline) go out on start
+  setTimeout(() => {
+    if (networkService.isOnline() && salesOutbox.count() > 0) void get().syncOfflineSales();
+  }, 3000);
 
   return {
     transactions: [],
+    offlineSales: salesOutbox.list().map((q) => q.tx),
     debtPayments: [],
+
+    syncOfflineSales: async () => {
+      if (salesOutbox.count() === 0 || !networkService.isOnline()) return;
+      const result = await salesOutbox.flush();
+      if (result.synced.length === 0) return;
+
+      // Imported here to keep the stores free of import cycles
+      const [{ useNotificationStore }, { kraService }] = await Promise.all([
+        import("./notificationStore"),
+        import("../services/kra/kraService"),
+      ]);
+      const n = result.synced.length;
+      useNotificationStore.getState().showToast(
+        n === 1 ? "Offline sale synced" : `${n} offline sales synced`,
+        result.remaining > 0 ? `${result.remaining} still waiting.` : "Everything is up to date.",
+        undefined,
+        "success",
+      );
+      // KRA signing needs the server copy, so it happens now rather than at the till
+      for (const { queued, saved } of result.synced) {
+        const businessId = queued.businessId;
+        if (businessId && saved?.id) void kraService.reportSaleIfConnected(businessId, saved.id);
+      }
+      await get().loadTransactionsFromServer().catch(() => {});
+    },
+
     isOnline: networkService.isOnline(),
     isSyncing: false,
     lastSyncedAt: new Date().toISOString(),

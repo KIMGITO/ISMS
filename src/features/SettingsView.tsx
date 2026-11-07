@@ -142,7 +142,7 @@ export default function SettingsView({
   const [aiConfig, setAiConfig] = useState({
     business_id: activeBusinessId || 'biz-1',
     provider: 'huggingface',
-    model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+    model: 'Qwen/Qwen2.5-72B-Instruct',
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 0.95,
@@ -1110,10 +1110,10 @@ export default function SettingsView({
                         selectedValue={aiConfig.provider || 'huggingface'}
                         onChange={(val) => {
                           const prov = val;
-                          let defaultModel = 'Qwen/Qwen2.5-Coder-32B-Instruct';
+                          let defaultModel = 'Qwen/Qwen2.5-72B-Instruct';
 
                           if (prov === 'huggingface')
-                            defaultModel = 'Qwen/Qwen2.5-Coder-32B-Instruct';
+                            defaultModel = 'Qwen/Qwen2.5-72B-Instruct';
                           else if (prov === 'gemini')
                             defaultModel = 'gemini-2.5-flash';
                           else if (prov === 'openai')
@@ -1162,7 +1162,7 @@ export default function SettingsView({
                         onChange={(e) =>
                           setAiConfig({ ...aiConfig, model: e.target.value })
                         }
-                        placeholder="e.g. Qwen/Qwen2.5-Coder-32B-Instruct"
+                        placeholder="e.g. Qwen/Qwen2.5-72B-Instruct"
                         className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
                       />
 
@@ -1176,12 +1176,12 @@ export default function SettingsView({
                               onClick={() =>
                                 setAiConfig({
                                   ...aiConfig,
-                                  model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+                                  model: 'Qwen/Qwen2.5-72B-Instruct',
                                 })
                               }
                               className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
                             >
-                              Qwen2.5-Coder-32B
+                              Qwen2.5-72B
                             </button>
                             <button
                               type="button"
@@ -1200,12 +1200,12 @@ export default function SettingsView({
                               onClick={() =>
                                 setAiConfig({
                                   ...aiConfig,
-                                  model: 'mistralai/Mistral-7B-Instruct-v0.3',
+                                  model: 'deepseek-ai/DeepSeek-V3',
                                 })
                               }
                               className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
                             >
-                              Mistral-7B-v0.3
+                              DeepSeek-V3
                             </button>
                           </>
                         )}

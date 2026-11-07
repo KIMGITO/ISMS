@@ -59,7 +59,7 @@ export async function loadAISettings(businessId: string): Promise<AISettings> {
 
   return {
     provider: "huggingface",
-    model: "Qwen/Qwen2.5-Coder-32B-Instruct",
+    model: "Qwen/Qwen2.5-72B-Instruct",
     api_key: "",
     temperature: 0.7,
     max_tokens: 2048,
@@ -72,7 +72,7 @@ export async function loadAISettings(businessId: string): Promise<AISettings> {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runAI(settings: any, options: AIRunnerOptions): Promise<AIRunnerResult> {
-  const safeSettings = settings || { provider: "huggingface", model: "Qwen/Qwen2.5-Coder-32B-Instruct", enabled: true };
+  const safeSettings = settings || { provider: "huggingface", model: "Qwen/Qwen2.5-72B-Instruct", enabled: true };
 
   if (safeSettings.enabled === false) {
     return { success: false, text: "", error: "AI is currently disabled for this business by the Owner." };
@@ -102,11 +102,14 @@ export async function runAI(settings: any, options: AIRunnerOptions): Promise<AI
     console.warn(`[ai-runner] Gemini fallback failed: ${geminiRes.error}`);
   }
 
-  // 3. Fallback: Try HuggingFace free model pool
-  console.log("[ai-runner] Attempting HuggingFace fallback...");
-  const hfRes = await runHuggingFaceRotation(apiKey, safeSettings, options);
-  if (hfRes.success) return hfRes;
-  console.warn(`[ai-runner] HuggingFace fallback failed: ${hfRes.error}`);
+  // 3. Fallback: Hugging Face, unless that was the provider just tried (running the
+  //    whole rotation twice only doubles the calls and the credit used)
+  if (provider !== "huggingface") {
+    console.log("[ai-runner] Attempting HuggingFace fallback...");
+    const hfRes = await runHuggingFaceRotation("", safeSettings, options);
+    if (hfRes.success) return hfRes;
+    console.warn(`[ai-runner] HuggingFace fallback failed: ${hfRes.error}`);
+  }
 
   // 4. Fallback: Try OpenRouter free models
   console.log("[ai-runner] Attempting OpenRouter fallback...");
@@ -141,114 +144,111 @@ async function executeProvider(provider: string, apiKey: string, settings: AISet
 }
 
 
-export function getHuggingFaceTokens(): string[] {
-  const envKeys = [
-    "HF_TOKEN_A", "HF_TOKEN_B", "HF_TOKEN_C", "HF_TOKEN_D", "HF_TOKEN_E", "HF_TOKEN", "HUGGINGFACE_TOKEN"
-  ];
+const HF_TOKEN_NAMES = [
+  // Newest names first. HUGGING_FACE_TOKEN is what the Supabase dashboard secret is called.
+  "HUGGING_FACE_TOKEN", "HUGGINGFACE_TOKEN", "HF_TOKEN",
+  "HF_TOKEN_A", "HF_TOKEN_B", "HF_TOKEN_C", "HF_TOKEN_D", "HF_TOKEN_E",
+];
 
-  const tokens: string[] = [];
-  for (const key of envKeys) {
-    const val = Deno.env.get(key);
-    if (val && val.trim().length > 0 && !tokens.includes(val.trim())) {
-      tokens.push(val.trim());
-    }
-  }
-  return tokens;
+/** Hugging Face keys from the Supabase secrets, with the secret's name (never shown: the value). */
+function huggingFaceTokenPool(settingsKey?: string): { label: string; token: string }[] {
+  const pool: { label: string; token: string }[] = [];
+  const add = (label: string, value?: string | null) => {
+    const token = (value || "").trim();
+    if (token && !pool.some((p) => p.token === token)) pool.push({ label, token });
+  };
+  add("the key in AI settings", settingsKey);
+  for (const name of HF_TOKEN_NAMES) add(name, Deno.env.get(name));
+  return pool;
 }
 
-async function runHuggingFaceRotation(dbKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
-  const envTokens = getHuggingFaceTokens();
-  const tokenPool = [
-    dbKey,
-    ...envTokens,
-  ].filter((t): t is string => Boolean(t && t.trim().length > 0));
+export function getHuggingFaceTokens(): string[] {
+  return huggingFaceTokenPool().map((p) => p.token);
+}
 
-  // Models that are likely to be available on HuggingFace Router
-  const validChatModels = [
+/**
+ * Tries the Hugging Face router with each key in turn (rotation), model by model.
+ * A key that is invalid, lacks permission or is out of credit is dropped for the rest
+ * of the request; a model the router doesn't serve moves on to the next model. If all
+ * fail, the error says what happened to each key, by secret name.
+ */
+async function runHuggingFaceRotation(dbKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
+  const pool = huggingFaceTokenPool(dbKey);
+  if (pool.length === 0) {
+    return { success: false, text: "", error: "No Hugging Face key is set. Add one in AI settings or as the HUGGING_FACE_TOKEN secret." };
+  }
+
+  // Models the Hugging Face router serves (checked against router.huggingface.co/v1/models
+  // on 2026-11-07). A model it doesn't serve costs a wasted request before the next is tried.
+  const servedModels = [
     "Qwen/Qwen2.5-72B-Instruct",
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "meta-llama/Llama-3.1-70B-Instruct",
     "meta-llama/Llama-3.1-8B-Instruct",
-    "mistralai/Mistral-7B-Instruct-v0.3",
     "deepseek-ai/DeepSeek-V3",
-    "openai/gpt-oss-120b"
+    "openai/gpt-oss-120b",
+  ];
+  const models = Array.from(new Set([settings.model, ...servedModels]))
+    .filter((m): m is string => Boolean(m && m.trim().length > 0));
+
+  const messages = [
+    { role: "system", content: options.systemInstruction },
+    ...options.messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  const modelsToTry = Array.from(new Set([
-    settings.model,
-    ...validChatModels
-  ])).filter((m): m is string => Boolean(m && m.trim().length > 0));
+  // Why each key stopped being used, e.g. "HF_TOKEN_A: out of free monthly credits"
+  const dead = new Map<string, string>();
+  const modelProblems: string[] = [];
 
-  let lastError = "No tokens or models to try";
+  for (const model of models) {
+    let modelUnavailable = false;
+    for (const { label, token } of pool) {
+      if (dead.has(label) || modelUnavailable) continue;
 
-  for (const targetModel of modelsToTry) {
-    for (const activeToken of tokenPool.length > 0 ? tokenPool : [""]) {
-      let retries = 1;
-      let waitTime = 1000;
-
-      while (retries >= 0) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let res: Response;
         try {
-          const messages = [
-            { role: "system", content: options.systemInstruction },
-            ...options.messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }))
-          ];
-
           const payload: any = {
-            model: targetModel,
+            model,
             messages,
             temperature: settings.temperature ?? 0.5,
             max_tokens: settings.max_tokens ?? 1024,
             top_p: settings.top_p ?? 0.9,
           };
-
-          if (options.responseMimeType === "application/json") {
-            payload.response_format = { type: "json_object" };
-          }
-
-          const headers: Record<string, string> = { "Content-Type": "application/json" };
-          if (activeToken) headers["Authorization"] = `Bearer ${activeToken}`;
-
-          const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
+          if (options.responseMimeType === "application/json") payload.response_format = { type: "json_object" };
+          res = await fetch("https://router.huggingface.co/v1/chat/completions", {
             method: "POST",
-            headers,
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify(payload),
           });
-
-          if (res.status === 402 || res.status === 429) {
-            lastError = `HF HTTP ${res.status} (Rate limited/Payment required) on ${targetModel}`;
-            break; // Try next token or model
-          }
-
-          if (res.status === 503 || res.status === 504) {
-            retries--;
-            if (retries >= 0) {
-              await delay(waitTime);
-              waitTime += 1000;
-              continue;
-            }
-            lastError = `HF HTTP ${res.status} (Service unavailable)`;
-            break;
-          }
-
-          const data = await res.json();
-          if (!res.ok) {
-            lastError = data.error?.message || `HF API HTTP ${res.status} on ${targetModel}`;
-            break;
-          }
-
-          const responseText = data.choices?.[0]?.message?.content || "";
-          if (responseText.trim().length > 0) {
-            return { success: true, text: responseText };
-          }
         } catch (err: any) {
-          lastError = err.message || "Network error";
+          modelProblems.push(`network error reaching Hugging Face (${err?.message || "fetch failed"})`);
           break;
         }
+
+        const body = await res.json().catch(() => ({} as any));
+        const detail = String(body?.error?.message || body?.error || "").slice(0, 160);
+
+        if (res.ok) {
+          const text = body?.choices?.[0]?.message?.content || "";
+          if (text.trim().length > 0) return { success: true, text };
+          modelProblems.push(`${model} returned an empty reply`);
+          break;
+        }
+        if (res.status === 401) { dead.set(label, "rejected: the key is invalid or expired"); break; }
+        if (res.status === 403) { dead.set(label, "not allowed: the token needs the \"Make calls to Inference Providers\" permission"); break; }
+        if (res.status === 402) { dead.set(label, "out of free monthly credits"); break; }
+        if (res.status === 429) { modelProblems.push(`${label} rate-limited on ${model}`); break; }
+        if ((res.status === 503 || res.status === 504) && attempt === 0) { await delay(1000); continue; }
+        // 400/404/422: usually the router doesn't serve this model; try the next model
+        modelUnavailable = true;
+        modelProblems.push(`${model}: ${detail || `HTTP ${res.status}`}`);
+        break;
       }
     }
   }
 
-  return { success: false, text: "", error: `Hugging Face free pool exhausted. Last error: ${lastError}` };
+  const keyReport = pool.map(({ label }) => `${label}: ${dead.get(label) || "accepted, but no model answered"}`);
+  const lastModel = modelProblems.length ? ` Last model problem: ${modelProblems[modelProblems.length - 1]}.` : "";
+  return { success: false, text: "", error: `Hugging Face didn't answer. ${keyReport.join("; ")}.${lastModel}` };
 }
 
 async function runOpenRouterFree(settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {

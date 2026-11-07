@@ -263,6 +263,7 @@ export class TransactionRepository {
       isDelivery: t.is_delivery,
       deliveryFee: Number(t.delivery_fee || 0),
       riderName: t.rider_name || "",
+      referenceId: t.reference_id || undefined,
       status: "Synced" as const,
       sync_status: "synced",
       items: (t.transaction_items || []).map((ti: any) => ({

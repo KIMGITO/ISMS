@@ -29,6 +29,7 @@ import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
 import { useNotificationStore } from './stores/notificationStore';
+import { useTransactionStore } from './stores/transactionStore';
 import SearchableDropdown from './components/SearchableDropdown';
 import UnifiedUploader from './components/shared/UnifiedUploader';
 import {
@@ -51,6 +52,8 @@ import { useCustomerStore } from './stores/customerStore';
 import { useBusinessStore } from './stores/businessStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import PendingActionsDrawer from './components/PendingActionsDrawer';
+import { AppDialogHost } from './components/AppDialog';
+import { FieldValidationHost } from './components/FieldValidation';
 import { usePendingActionStore } from './stores/pendingActionStore';
 import { useOverlayStore } from './stores/overlayStore';
 import { useOverlay } from './hooks/useOverlay';
@@ -91,6 +94,7 @@ import {
   AlertCircle,
   Key,
   CheckCircle2,
+  CloudOff,
   User,
   Clock,
   ShoppingCart,
@@ -586,7 +590,9 @@ export default function App() {
     }
   }, [currentEmployee]);
 
-  // Being offline shows as a thin strip under the header (no popups on every change).
+  // Being offline shows as a thin strip under the header (no popups on every change),
+  // with the number of sales still waiting on this device.
+  const offlineSalesCount = useTransactionStore((s) => s.offlineSales.length);
 
   // Listener for network-action-failed event
   useEffect(() => {
@@ -1301,8 +1307,10 @@ export default function App() {
 
   useEffect(() => {
     const handleScroll = (e: Event) => {
-      // If we are on the AI page or the onboarding tour is open, keep the bottom navigation fully stable and visible
-      if (activeTab === 'ai' || isTourOpen) {
+      // The AI page doesn't hide the nav on scroll; its edge handle shows or hides it instead.
+      if (activeTab === 'ai') return;
+      // The onboarding tour keeps the bottom navigation stable and visible
+      if (isTourOpen) {
         setShowNav(true);
         return;
       }
@@ -1417,11 +1425,24 @@ export default function App() {
                 style={toastBottom}
                 onClick={clearToast}
                 className={`absolute bottom-(--popup-bottom) md:bottom-6 left-1 right-1 md:left-auto md:right-6 md:w-[380px] z-[9999] backdrop-blur-md rounded-xl p-3 shadow-xl flex items-center gap-3 cursor-pointer select-none ${
-                  toast.type === 'error'
+                  toast.type === 'offline'
+                    ? 'bg-rose-700/95 dark:bg-rose-800/95 text-white' // saved offline: solid red, not an error
+                    : toast.type === 'error'
                     ? 'bg-red-50/95 dark:bg-slate-950/95 ring-1 ring-red-500/30'
                     : 'bg-white/95 dark:bg-slate-900/95'
                 }`}
               >
+                {toast.type === 'offline' ? (
+                  <>
+                    <span className="w-10 h-10 shrink-0 rounded-full bg-white/15 flex items-center justify-center">
+                      <CloudOff size={20} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{toast.sender}</p>
+                      <p className="text-xs mt-0.5 text-white/85 line-clamp-2">{toast.message}</p>
+                    </div>
+                  </>
+                ) : (<>
                 <button
                   type="button"
                   aria-label={isBusinessPicture && canOpenBusiness ? `Open ${activeBusiness?.name || 'business'} page` : undefined}
@@ -1459,6 +1480,7 @@ export default function App() {
                     {toast.message}
                   </p>
                 </div>
+                </>)}
               </motion.div>
             );
           })()}
@@ -3776,7 +3798,7 @@ export default function App() {
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
                 {/* TOP APPLICATION BAR (it carries the status-bar inset; UpdateBar sits under it) */}
                 <header
-                  className={`border-b px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14 transition-colors duration-300 ${
+                  className={`app-header border-b px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14 transition-colors duration-300 ${
                     isOnline ? 'bg-app-card border-app-border' : 'bg-red-600 border-red-700'
                   }`}
                   style={{
@@ -3917,7 +3939,7 @@ export default function App() {
 
                 <UpdateBar />
                 <AnimatePresence initial={false}>
-                  {!isOnline && (
+                  {(!isOnline || offlineSalesCount > 0) && (
                     <motion.div
                       key="offline-strip"
                       role="status"
@@ -3925,9 +3947,15 @@ export default function App() {
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-                      className="shrink-0 overflow-hidden bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-medium text-center"
+                      className="shrink-0 overflow-hidden bg-rose-600/12 text-rose-700 dark:text-rose-300 text-xs font-medium text-center"
                     >
-                      <div className="py-1">Offline · changes sync when you're back online</div>
+                      <div className="py-1 inline-flex items-center justify-center gap-1.5 w-full">
+                        <CloudOff size={13} aria-hidden="true" />
+                        {!isOnline ? 'Offline' : 'Syncing'}
+                        {offlineSalesCount > 0
+                          ? ` · ${offlineSalesCount} sale${offlineSalesCount === 1 ? '' : 's'} waiting to sync`
+                          : " · sales save on this phone and sync when you're back"}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -4160,8 +4188,9 @@ export default function App() {
                   </ErrorBoundary>
                 </PullToRefresh>
 
-                {/* Manual Bottom Navbar Toggle Button (Mobile Only) */}
-                {currentEmployee && (
+                {/* Edge handle that shows/hides the bottom nav: only on the AI page,
+                    where the nav can cover the chat box (mobile only) */}
+                {currentEmployee && activeTab === 'ai' && (
                   <motion.button
                     initial={{ opacity: 0 }}
                     animate={{
@@ -4280,7 +4309,7 @@ export default function App() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[9px] mt-0.5 tracking-tight truncate max-w-full">
+                              <span className="nav-label text-[9px] mt-0.5 tracking-tight truncate max-w-full">
                                 {tab.label}
                               </span>
                               {isActive && !isCenterSell && (
@@ -5132,6 +5161,9 @@ export default function App() {
 
         {/* Global Pending Actions (Drafts) Verification Drawer */}
         <PendingActionsDrawer />
+        {/* In-app dialogs and field messages instead of the browser's own boxes and bubbles */}
+        <AppDialogHost />
+        <FieldValidationHost />
 
         {/* Interactive Onboarding Tour Guide */}
         <InteractiveGuide

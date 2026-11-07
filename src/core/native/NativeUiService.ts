@@ -11,24 +11,17 @@ class NativeUiService {
   // NATIVE DIALOGS
   // ==========================================
 
+  // Alerts and confirmations use the app's own dialog on every platform, so they look
+  // the same everywhere and never show as a browser box. (Imported lazily: the dialog
+  // uses this service for haptics.)
   public async alert(title: string, message: string, buttonTitle = "OK"): Promise<void> {
-    if (nativePlatformService.isNative()) {
-      try {
-        await Dialog.alert({ title, message, buttonTitle });
-        return;
-      } catch {}
-    }
-    window.alert(`${title}\n\n${message}`);
+    const { appDialog } = await import("../../components/AppDialog");
+    await appDialog.alert({ title, message, confirmLabel: buttonTitle });
   }
 
   public async confirm(title: string, message: string, okButtonTitle = "OK", cancelButtonTitle = "Cancel"): Promise<boolean> {
-    if (nativePlatformService.isNative()) {
-      try {
-        const res = await Dialog.confirm({ title, message, okButtonTitle, cancelButtonTitle });
-        return res.value;
-      } catch {}
-    }
-    return window.confirm(`${title}\n\n${message}`);
+    const { appDialog } = await import("../../components/AppDialog");
+    return appDialog.confirm({ title, message, confirmLabel: okButtonTitle, cancelLabel: cancelButtonTitle });
   }
 
   public async prompt(title: string, message: string, okButtonTitle = "OK", cancelButtonTitle = "Cancel", inputPlaceholder = ""): Promise<string | null> {

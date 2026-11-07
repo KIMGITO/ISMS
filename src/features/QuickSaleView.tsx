@@ -3,7 +3,7 @@
 // Discounts, delivery and credit sales stay in the full POS screen.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Banknote, CheckCircle2, CreditCard, Minus, Plus, ReceiptText, Search, Smartphone, X } from 'lucide-react';
+import { Banknote, CheckCircle2, CloudOff, CreditCard, Minus, Plus, ReceiptText, Search, Smartphone, X } from 'lucide-react';
 import { nativeUiService } from '../core/native/NativeUiService';
 import { useAppStore } from '../stores/appStore';
 import { PaymentMethod, Product, Transaction } from '../types';
@@ -85,7 +85,7 @@ export default function QuickSaleView() {
   const [highlight, setHighlight] = useState(0);
   const [isPaying, setIsPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastSale, setLastSale] = useState<{ total: number; method: string; tx?: Transaction } | null>(null);
+  const [lastSale, setLastSale] = useState<{ total: number; method: string; tx?: Transaction; offline?: boolean } | null>(null);
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
   const [receiptAutoPrint, setReceiptAutoPrint] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -173,7 +173,7 @@ export default function QuickSaleView() {
     try {
       const result = await checkout(method, '', taxRate);
       if (result.success) {
-        setLastSale({ total: saleTotal, method, tx: result.transaction });
+        setLastSale({ total: saleTotal, method, tx: result.transaction, offline: result.offline });
         if (result.transaction && activeBusinessId && ReceiptService.getSettings(activeBusinessId).autoPrint) {
           setReceiptAutoPrint(true);
           setReceiptTx(result.transaction);
@@ -228,7 +228,7 @@ export default function QuickSaleView() {
     <>
     // On phones the sale panel ends above the floating nav bar instead of behind it.
     <div
-      className="h-full flex flex-col md:flex-row bg-app-bg max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]"
+      className="h-full flex flex-col md:flex-row short-landscape:flex-row bg-app-bg max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]"
       onKeyDown={handleKeyDown}
     >
       {/* Products */}
@@ -289,7 +289,7 @@ export default function QuickSaleView() {
 
       {/* Current sale */}
       <section
-        className="shrink-0 md:w-80 lg:w-96 max-h-[55%] md:max-h-none flex flex-col md:border-l border-app-border bg-app-card shadow-[0_-6px_16px_-12px_rgba(0,0,0,0.35)] md:shadow-none"
+        className="shrink-0 md:w-80 lg:w-96 max-h-[55%] md:max-h-none short-landscape:w-72 short-landscape:max-h-none short-landscape:border-l short-landscape:shadow-none flex flex-col md:border-l border-app-border bg-app-card shadow-[0_-6px_16px_-12px_rgba(0,0,0,0.35)] md:shadow-none"
         aria-label="Current sale"
       >
         {lastSale && cart.length === 0 && (
@@ -298,9 +298,17 @@ export default function QuickSaleView() {
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 380, damping: 26 }}
-            className="m-2 md:m-3 p-3 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-sm font-semibold">
-            <CheckCircle2 size={20} aria-hidden="true" />
-            <span className="flex-1">Sold {formatCurrency(lastSale.total)} by {lastSale.method}</span>
+            className={`m-2 md:m-3 p-3 rounded-lg flex items-center gap-2 text-sm font-semibold ${
+              lastSale.offline
+                ? 'bg-rose-600/12 text-rose-700 dark:text-rose-300' // saved on this phone, syncs later
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+            }`}>
+            {lastSale.offline ? <CloudOff size={20} aria-hidden="true" /> : <CheckCircle2 size={20} aria-hidden="true" />}
+            <span className="flex-1">
+              {lastSale.offline ? 'Saved offline: ' : 'Sold '}
+              {formatCurrency(lastSale.total)} by {lastSale.method}
+              {lastSale.offline && <span className="block text-xs font-normal">Syncs when you're back online.</span>}
+            </span>
             {lastSale.tx && (
               <button
                 type="button"
@@ -380,7 +388,7 @@ export default function QuickSaleView() {
                   type="button"
                   disabled={isPaying}
                   onClick={() => pay(method)}
-                  className={`min-h-[64px] rounded-lg text-white font-bold text-sm flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-60 ${style}`}
+                  className={`min-h-[64px] short-landscape:min-h-11 short-landscape:flex-row rounded-lg text-white font-bold text-sm flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-60 ${style}`}
                 >
                   <Icon size={20} aria-hidden="true" />
                   {label}

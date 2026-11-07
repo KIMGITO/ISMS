@@ -35,7 +35,12 @@ export const useAppStore = () => {
   );
 
   const transactionArray = Array.isArray(transaction?.transactions) ? transaction.transactions : [];
-  const filteredTransactions = transactionArray.filter(
+  // Sales saved offline on this device come first, until the server copy arrives.
+  const serverRefs = new Set(transactionArray.map((t) => t.referenceId).filter(Boolean));
+  const offlineArray = (Array.isArray(transaction?.offlineSales) ? transaction.offlineSales : []).filter(
+    (t) => !serverRefs.has(t.referenceId)
+  );
+  const filteredTransactions = [...offlineArray, ...transactionArray].filter(
     (t) => t.businessId === activeBusinessId
   );
 

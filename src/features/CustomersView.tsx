@@ -26,6 +26,7 @@ import CustomerGroupFields, { CustomerGroupValues } from "../components/Customer
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
+import { appDialog } from '../components/AppDialog';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -1390,9 +1391,12 @@ export default function CustomersView() {
                           disabled={isDeletingCustomer}
                           onClick={async () => {
                             if (
-                              confirm(
-                                `Are you absolutely sure you want to delete the profile of "${selectedCustomer.name}"? This action is permanent!`,
-                              )
+                              await appDialog.confirm({
+                                title: `Delete ${selectedCustomer.name}?`,
+                                message: 'Their profile is removed for good.',
+                                confirmLabel: 'Delete',
+                                destructive: true,
+                              })
                             ) {
                               setIsDeletingCustomer(true);
                               try {
@@ -2246,10 +2250,8 @@ export default function CustomersView() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    alert(
-                                      `Invoice copied to clipboard and simulated email dispatch to: ${selectedCustomer.email}`,
-                                    );
                                     navigator.clipboard.writeText(shareText);
+                                    showToast('Invoice copied', `Paste it into an email to ${selectedCustomer.email}.`, undefined, 'success');
                                     if (activeInvoiceData)
                                       setActiveInvoiceData(null);
                                     setSuccessMsg(

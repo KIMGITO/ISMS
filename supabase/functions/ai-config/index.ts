@@ -26,7 +26,7 @@ function defaultConfig(businessId: string) {
   return {
     business_id: businessId,
     provider: "huggingface",
-    model: "Qwen/Qwen2.5-Coder-32B-Instruct",
+    model: "Qwen/Qwen2.5-72B-Instruct",
     temperature: 0.7,
     max_tokens: 2048,
     top_p: 0.95,
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
         business_id: businessId,
         provider,
         api_key: keyToSave,
-        model: config.model || (provider === "huggingface" ? "Qwen/Qwen2.5-Coder-32B-Instruct" : "gemini-2.5-flash"),
+        model: config.model || (provider === "huggingface" ? "Qwen/Qwen2.5-72B-Instruct" : "gemini-2.5-flash"),
         temperature: Number(config.temperature ?? 0.7),
         max_tokens: Number(config.max_tokens ?? 2048),
         top_p: Number(config.top_p ?? 0.95),
