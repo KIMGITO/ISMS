@@ -437,7 +437,8 @@ runTest("Release versioning reads emoji commit types", () => {
 runTest("Update manifest lists signed desktop installers and the Android APK", () => {
   const files = [
     "KayKays-1.2.0-windows-x64.exe", "KayKays-1.2.0-windows-x64-setup.msi", "KayKays-1.2.0-windows-x64-setup.msi.sig",
-    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-x86_64.AppImage.sig", "KayKays-1.2.0-linux-amd64.deb",
+    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-x86_64.AppImage.sig",
+    "KayKays-1.2.0-linux-amd64.deb", "KayKays-1.2.0-linux-amd64.deb.sig",
     "KayKays-1.2.0-android.apk",
   ];
   const m = buildManifest({
@@ -449,6 +450,11 @@ runTest("Update manifest lists signed desktop installers and the Android APK", (
   if (m.platforms["windows-x86_64"].url !== base + "KayKays-1.2.0-windows-x64-setup.msi") throw new Error("windows url");
   if (m.platforms["windows-x86_64"].signature !== "sig-of-KayKays-1.2.0-windows-x64-setup.msi.sig") throw new Error("windows sig");
   if (m.platforms["linux-x86_64"].url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("linux url");
+  // An app installed from the .deb must get the .deb; given the AppImage it fails
+  // with "invalid updater binary format".
+  if (m.platforms["linux-x86_64-deb"]?.url !== base + "KayKays-1.2.0-linux-amd64.deb") throw new Error("deb url");
+  if (m.platforms["linux-x86_64-deb"].signature !== "sig-of-KayKays-1.2.0-linux-amd64.deb.sig") throw new Error("deb sig");
+  if (m.platforms["linux-x86_64-appimage"]?.url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("appimage url");
   if (m.android.url !== base + "KayKays-1.2.0-android.apk" || m.android.sha256 !== "abc123") throw new Error("android");
   // Desktop apps refuse unsigned updates, so publishing one must fail instead.
   let threw = false;

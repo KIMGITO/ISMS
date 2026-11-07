@@ -17,6 +17,8 @@ export interface ToastMessage {
   timestamp: string;
   read: boolean;
   category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system";
+  /** A brief confirmation of your own action: shown as a small silent pill. */
+  quiet?: boolean;
 }
 
 interface NotificationState {
@@ -170,7 +172,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
               id: latest.id,
               sender: latest.title,
               message: latest.message,
-              avatar: parsedPayload?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
+              avatar: parsedPayload?.avatar || undefined,
               timestamp: latest.created_at,
               read: false,
               type: latest.priority === "high" || latest.priority === "critical" ? "error" : "info",
@@ -219,9 +221,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     
     let computedType = type;
     if (!computedType) {
+      // No type given: guess from the words, so a warning never shows as a green "done".
       const txt = (sender + " " + message).toLowerCase();
-      if (txt.includes("fail") || txt.includes("error") || txt.includes("denied")) {
+      if (/fail|error|denied|invalid|cannot|can't|unable|not allowed/.test(txt)) {
         computedType = "error";
+      } else if (/validation|required|must |please|missing|restricted|need|warning|offline|out of stock|not enough/.test(txt)) {
+        computedType = "info";
       } else {
         computedType = "success";
       }
@@ -229,14 +234,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     
     if (get().toast) set({ toast: null });
 
-    playAudioCue(computedType);
+    // Confirmations of your own actions (success, no sender picture) show as a brief,
+    // silent pill. Errors, alerts and messages from people or the system keep the card.
+    const isQuiet = computedType === "success" && !avatar;
+    if (!isQuiet) playAudioCue(computedType);
 
     set({
       toast: {
         id,
         sender,
         message,
-        avatar: avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
+        // No stock photo: the toast falls back to the business logo or your own picture.
+        avatar: avatar || undefined,
+        quiet: isQuiet,
         time: "Just now",
         type: computedType,
         timestamp,
@@ -250,7 +260,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (active && active.id === id) {
         set({ toast: null });
       }
-    }, 5000);
+    }, isQuiet ? 1600 : 5000);
   },
 
   clearToast: () => {
