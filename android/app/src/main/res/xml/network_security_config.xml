@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds: HTTPS only. Every server the app talks to (Supabase, GitHub
+     updates, Hugging Face via the edge functions) uses HTTPS. Receipt printers on the
+     local network use raw TCP sockets, which this setting does not affect.
+     Debug builds override this file (src/debug/res/xml) to allow the dev server. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

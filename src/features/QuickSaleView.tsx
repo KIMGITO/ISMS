@@ -226,7 +226,6 @@ export default function QuickSaleView() {
 
   return (
     <>
-    // On phones the sale panel ends above the floating nav bar instead of behind it.
     <div
       className="h-full flex flex-col md:flex-row short-landscape:flex-row bg-app-bg max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]"
       onKeyDown={handleKeyDown}

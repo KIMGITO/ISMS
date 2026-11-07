@@ -849,7 +849,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         // Generate 6-character invitation code (without INV- prefix)
-        const inviteCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+        // 6 characters from a secure random source; no look-alikes (0/O, 1/I/L) so it's easy to type
+        const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        const randomBytes = crypto.getRandomValues(new Uint8Array(6));
+        const inviteCode = Array.from(randomBytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
         const expiresAt = new Date(Date.now() + 86400000 * 3).toISOString(); // 72 hours limit
 
         // Client-side checks for registered users

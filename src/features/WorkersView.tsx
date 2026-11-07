@@ -7,7 +7,7 @@ import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/pho
 import { titleCase, searchMatch, formatName } from "../utils/stringUtils";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { EmployeeRole } from "../types";
-import { hasRolePermission } from "../utils/permissions";
+import { hasRolePermission, getDynamicRoles } from "../utils/permissions";
 import { appDialog } from '../components/AppDialog';
 
 const PRESET_AVATARS = [
@@ -45,8 +45,6 @@ export default function WorkersView() {
   const [errorMsg, setErrorMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Invitation Branded Email Mockup display state
-  const [dispatchMockup, setDispatchMockup] = useState<any | null>(null);
 
   // Edit employee state (for role updates)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
@@ -58,8 +56,23 @@ export default function WorkersView() {
   const canUpdateStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.update") : false;
   const canRemoveStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.remove") : false;
   const canDeleteInvite = currentEmployee ? hasRolePermission(currentEmployee.role, "invitations.delete") : false;
+  // The roles this app has: built-in ones plus custom roles made on the Roles page.
+  // Only Owners and Admins can make someone an Owner or Admin.
+  const callerIsTop = ['Owner', 'Admin'].includes(currentEmployee?.role || '');
+  const roleOptions = Object.values(getDynamicRoles())
+    .filter((r) => callerIsTop || !['Owner', 'Admin'].includes(r.name))
+    .map((r) => ({ id: r.name, label: r.name }));
+  const selectedRoleInfo = getDynamicRoles()[role];
+
+  /** Shows the result next to the button and as a toast, so it's seen wherever you are. */
+  const notify = (kind: 'success' | 'error', text: string) => {
+    if (kind === 'success') setSuccessMsg(text);
+    else setErrorMsg(text);
+    showToast(kind === 'success' ? text : "Couldn't save", kind === 'success' ? '' : text, undefined, kind);
+  };
+
   const activeBusinessName =
-    businesses.find((b) => b.id === currentBusinessId)?.name || "KayKay's Hub";
+    businesses.find((b) => b.id === currentBusinessId)?.name || "Your business";
 
   const handleStartEdit = (emp: any) => {
     setEditingEmployeeId(emp.id);
@@ -101,14 +114,14 @@ export default function WorkersView() {
     setErrorMsg("");
 
     if (!name.trim() || !email.trim() || !phone.trim()) {
-      setErrorMsg("Please fill in all details.");
+      notify('error', "Fill in the name, email and phone number.");
       setIsSubmitting(false);
       return;
     }
 
     const fullPhone = normalizePhone(phone, selectedCountryCode);
     if (!validatePhone(fullPhone)) {
-      setErrorMsg("Invalid phone number or length for the selected country.");
+      notify('error', "Check the phone number for the selected country.");
       setIsSubmitting(false);
       return;
     }
@@ -124,25 +137,24 @@ export default function WorkersView() {
           avatar: selectedAvatar
         });
 
-        setSuccessMsg(`Successfully updated credentials and permissions for ${titleCase(name)}.`);
         handleCancelEdit();
+        notify('success', `Saved ${titleCase(name)}'s details.`);
       } else {
         // Send secure invitation
         const res = await inviteUser(name.trim(), email.trim(), fullPhone, role);
         if (res.success && res.invitation) {
-          setSuccessMsg(`Branded workspace invitation successfully sent to ${email}!`);
-          setDispatchMockup(res.invitation);
+          notify('success', `Invitation sent to ${email.trim()}.`);
           setName("");
           setEmail("");
           setPhone("");
           setSelectedCountryCode("+254");
           setRole("Cashier");
         } else {
-          setErrorMsg(res.error || "Failed to dispatch invitation.");
+          notify('error', res.error || "The invitation couldn't be sent.");
         }
       }
     } catch (err: any) {
-      setErrorMsg(toUserMessage(err, "An error occurred."));
+      notify('error', toUserMessage(err, "Something went wrong. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +162,7 @@ export default function WorkersView() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    showToast("Invitation link copied", "", undefined, "success");
+    showToast("Invitation code copied", "", undefined, "success");
   };
 
   // Filter invitations for current business
@@ -165,34 +177,18 @@ export default function WorkersView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
           <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
-            <Shield size={16} className="text-amber-500" /> Secure Staff &
-            Invitation Command
+            <Shield size={16} className="text-amber-500" /> Staff & invitations
           </h2>
           <p className="text-[11px] text-app-text-muted mt-0.5">
-            Send secure branded registration invitation links to workers, manage
-            active memberships, and set access control.
+            Invite people to work with you and choose what each person can do.
           </p>
         </div>
         <div className="text-right">
           <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-            Active Hub: {activeBusinessName}
+            {activeBusinessName}
           </span>
         </div>
       </div>
-
-      {successMsg && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs flex items-start gap-2 animate-fade-in">
-          <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-xs flex items-start gap-2 animate-fade-in">
-          <AlertCircle size={14} className="shrink-0 mt-0.5" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Form Box (Invite or Edit depending on state) */}
@@ -203,8 +199,8 @@ export default function WorkersView() {
                 <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5 uppercase tracking-wider">
                   <UserPlus size={14} className="text-amber-500" />
                   {editingEmployeeId
-                    ? 'Edit Team Member'
-                    : 'Send Workspace Invitation'}
+                    ? 'Edit team member'
+                    : 'Invite someone'}
                 </h3>
                 {editingEmployeeId && (
                   <button
@@ -296,30 +292,17 @@ export default function WorkersView() {
                 {/* System Role Selection */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
-                    Workspace Role *
+                    Role *
                   </label>
                   <SearchableDropdown
-                    items={[
-                      { id: 'Owner', label: 'Owner (Full Business Owner)' },
-                      { id: 'Admin', label: 'Admin (Total Access Controller)' },
-                      { id: 'Administrator', label: 'Administrator' },
-                      {
-                        id: 'Manager',
-                        label: 'Manager (Operations Supervisor)',
-                      },
-                      { id: 'Inventory Manager', label: 'Inventory Manager' },
-                      { id: 'Cashier', label: 'Cashier (POS Checkout)' },
-                      { id: 'Production Staff', label: 'Production Staff' },
-                      { id: 'Inventory Staff', label: 'Inventory Staff' },
-                      { id: 'Sales Staff', label: 'Sales Staff' },
-                      { id: 'Viewer', label: 'Viewer (Read Only)' },
-                      { id: 'Rider', label: 'Rider (Courier Logistics)' },
-                      { id: 'Staff', label: 'Staff (General Hand)' },
-                    ]}
+                    items={roleOptions}
                     selectedValue={role}
                     onChange={(val) => setRole(val as EmployeeRole)}
-                    placeholder="Select workspace role..."
+                    placeholder="Choose a role"
                   />
+                  {selectedRoleInfo?.description && (
+                    <p className="text-[11px] text-app-text-muted leading-snug">{selectedRoleInfo.description}</p>
+                  )}
                 </div>
 
                 {editingEmployeeId && (
@@ -381,6 +364,20 @@ export default function WorkersView() {
                   </>
                 )}
 
+                {/* Result of the last save, right where you pressed the button */}
+                {successMsg && (
+                  <div role="status" className="p-2.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs flex items-start gap-2 animate-fade-in">
+                    <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                    <span>{successMsg}</span>
+                  </div>
+                )}
+                {errorMsg && (
+                  <div role="alert" className="p-2.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-xs flex items-start gap-2 animate-fade-in">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -389,7 +386,7 @@ export default function WorkersView() {
                   {isSubmitting ? (
                     <>
                       <RefreshCw size={13} className="animate-spin" />
-                      <span>Processing...</span>
+                      <span>{editingEmployeeId ? 'Saving…' : 'Sending…'}</span>
                     </>
                   ) : (
                     <>
@@ -399,8 +396,8 @@ export default function WorkersView() {
                         <Send size={14} />
                       )}
                       {editingEmployeeId
-                        ? 'Save Member Details'
-                        : 'Dispatch Branded Invite'}
+                        ? 'Save changes'
+                        : 'Send invitation'}
                     </>
                   )}
                 </button>
@@ -410,13 +407,11 @@ export default function WorkersView() {
             <div className="p-4 bg-amber-500/5 border border-amber-500/15 rounded-2xl space-y-2.5">
               <Shield className="text-amber-500 " size={18} />
               <h4 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                Registration Privilege Restriction
+                You can't invite people
               </h4>
-              <p className="text-[10px] text-app-text-muted leading-relaxed">
-                Your current active role{' '}
-                <strong>{currentEmployee?.role}</strong> is restricted to
-                view-only. Only company <strong>Owners</strong> are authorized
-                to invite staff or manage business memberships.
+              <p className="text-[11px] text-app-text-muted leading-relaxed">
+                As <strong>{currentEmployee?.role}</strong> you can see the team. Ask the owner to
+                invite people or change roles.
               </p>
             </div>
           )}
@@ -428,8 +423,7 @@ export default function WorkersView() {
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border/40 pb-3">
               <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5">
-                <Shield size={14} className="text-amber-500" /> Active Workspace
-                Team ({employees.length})
+                <Shield size={14} className="text-amber-500" /> Team ({employees.length})
               </h3>
 
               {/* Local Search input */}
@@ -552,7 +546,7 @@ export default function WorkersView() {
                                       handleCancelEdit();
                                     }
                                   } catch (err: any) {
-                                    setErrorMsg(
+                                    notify('error',
                                       toUserMessage(err, 'Failed to remove worker.'),
                                     );
                                   } finally {
@@ -578,16 +572,14 @@ export default function WorkersView() {
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans">
             <div className="border-b border-app-border/40 pb-2.5">
               <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5">
-                <Clock size={14} className="text-amber-500 " /> Pending Invites
-                & Tokens ({filteredInvitations.length})
+                <Clock size={14} className="text-amber-500 " /> Invitations ({filteredInvitations.length})
               </h3>
             </div>
 
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {filteredInvitations.length === 0 ? (
                 <div className="p-6 text-center text-[10px] text-app-text-muted font-bold italic">
-                  No pending invitations. Click "Dispatch Branded Invite" to
-                  invite your employees.
+                  No invitations yet. Use "Send invitation" to invite someone.
                 </div>
               ) : (
                 filteredInvitations.map((inv) => {
@@ -629,13 +621,11 @@ export default function WorkersView() {
                           <span>Email: {inv.email}</span>
                           <span>Phone: {inv.phone}</span>
                           <span className="font-mono text-[8px] bg-slate-100 dark:bg-slate-800 p-0.5 rounded px-1 text-slate-500 select-all flex items-center gap-1 w-max mt-1">
-                            Token: {inv.invitationToken}
+                            Code: {inv.invitationToken}
                             <button
-                              onClick={() =>
-                                copyToClipboard(
-                                  `${window.location.origin}/?invite=${inv.invitationToken}`,
-                                )
-                              }
+                              type="button"
+                              aria-label="Copy invitation code"
+                              onClick={() => copyToClipboard(inv.invitationToken)}
                               className="hover:text-amber-500 text-slate-400"
                             >
                               <Copy size={9} />
@@ -663,7 +653,7 @@ export default function WorkersView() {
                                     try {
                                       await revokeInvitation(inv.id);
                                     } catch (err: any) {
-                                      setErrorMsg(
+                                      notify('error',
                                         toUserMessage(err, 'Failed to revoke invitation.'),
                                       );
                                     } finally {
@@ -692,7 +682,7 @@ export default function WorkersView() {
                                     try {
                                       await revokeInvitation(inv.id);
                                     } catch (err: any) {
-                                      setErrorMsg(
+                                      notify('error',
                                         toUserMessage(err, 'Failed to remove invitation.'),
                                       );
                                     } finally {
