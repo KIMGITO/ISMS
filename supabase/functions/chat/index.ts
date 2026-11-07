@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       (p: any) => (p.stock ?? 0) <= (p.min_stock_level ?? 5) && (p.stock ?? 0) >= 0
     );
 
-    const bizName = biz?.name || "ISMS ";
+    const bizName = biz?.name || "KayKay's";
     const currency = biz?.currency || "KSh";
     const aiName = Deno.env.get("VITE_AI_NAME") || "Kim";
     const userRole = activeRole || "Owner";

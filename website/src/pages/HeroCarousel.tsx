@@ -23,8 +23,12 @@ interface Slide {
 const prefersReducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const srcSet = (photo: Photo) =>
-  [800, 1400, 2000].map((width) => `${photoUrl(photo, width, Math.round(width * 0.62))} ${width}w`).join(', ');
+// Two crops, so the photo fills the screen sharply whichever way it is held:
+// wide for desktops and sideways phones, tall for phones held upright.
+const srcSet = (photo: Photo, ratio: number, widths: number[]) =>
+  widths.map((width) => `${photoUrl(photo, width, Math.round(width * ratio))} ${width}w`).join(', ');
+const wideSet = (photo: Photo) => srcSet(photo, 0.62, [800, 1400, 2000, 2600]);
+const tallSet = (photo: Photo) => srcSet(photo, 1.9, [480, 720, 1080, 1440]);
 
 function HeroProduct() {
   const { products, business } = useStorefront();
@@ -166,23 +170,26 @@ export default function HeroCarousel() {
           >
             {load && (
               slide.imageUrl ? (
-                <img src={slide.imageUrl} alt="" className={`hero-photo absolute inset-0 -z-20 h-full w-full object-cover ${slide.focus} ${dark ? '' : 'lg:left-auto lg:right-0 lg:w-[62%]'}`} />
+                <img src={slide.imageUrl} alt="" className={`hero-photo absolute inset-0 -z-20 h-full w-full object-cover ${slide.focus}`} />
               ) : (
-                <img
-                  src={photoUrl(slide.photo!, 1400, 868)}
-                  srcSet={srcSet(slide.photo!)}
-                  sizes={dark ? '100vw' : '(min-width: 1024px) 62vw, 100vw'}
-                  alt=""
-                  fetchPriority={index === 0 ? 'high' : 'auto'}
-                  className={`hero-photo absolute inset-0 -z-20 h-full w-full object-cover ${slide.focus} ${dark ? '' : 'photo-warm lg:left-auto lg:right-0 lg:w-[62%]'}`}
-                />
+                <picture>
+                  <source media="(orientation: portrait)" srcSet={tallSet(slide.photo!)} sizes="100vw" />
+                  <img
+                    src={photoUrl(slide.photo!, 1400, 868)}
+                    srcSet={wideSet(slide.photo!)}
+                    sizes="100vw"
+                    alt=""
+                    fetchPriority={index === 0 ? 'high' : 'auto'}
+                    className={`hero-photo absolute inset-0 -z-20 h-full w-full object-cover ${slide.focus} ${dark ? '' : 'photo-warm'}`}
+                  />
+                </picture>
               )
             )}
             <div className={`absolute inset-0 -z-10 ${dark
               ? 'bg-gradient-to-b from-black/70 via-black/45 to-black/75 lg:bg-gradient-to-r lg:from-[#2b1409] lg:from-[20%] lg:via-[#2b1409]/70 lg:via-[45%] lg:to-transparent lg:to-[80%]'
               : 'bg-gradient-to-b from-sand from-30% via-sand/55 via-55% to-sand/85 lg:bg-gradient-to-r lg:from-sand lg:from-[38%] lg:via-sand/70 lg:via-[52%] lg:to-transparent lg:to-[72%]'}`}
             />
-            <div className="site-gutter flex min-h-[35rem] flex-col justify-between gap-10 pb-24 pt-12 lg:min-h-[43rem] lg:py-16">
+            <div className="hero-full site-gutter flex flex-col justify-between gap-10 pb-24 pt-12 lg:py-16">
               <Heading className="hero-rise display-xl max-w-[13ch]"><DisplayText>{slide.title}</DisplayText></Heading>
               <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:gap-12">
                 {index === 0 && <HeroProduct />}

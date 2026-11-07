@@ -242,6 +242,14 @@
     animation: rise-in 0.8s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
+  /* Hero carousel: fills the screen below the sticky header (4.5rem + its 1px border).
+     svh, so it doesn't jump when a phone's address bar slides away. Taller content
+     (a sideways phone) still grows it. */
+  .hero-full {
+    min-height: max(30rem, calc(100vh - 4.5rem - 1px - env(safe-area-inset-top, 0px)));
+    min-height: max(30rem, calc(100svh - 4.5rem - 1px - env(safe-area-inset-top, 0px)));
+  }
+
   /* Hero carousel */
   .hero-slide {
     opacity: 0;

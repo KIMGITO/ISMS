@@ -1189,19 +1189,7 @@ export default function App() {
     splashScreenService.hide();
   }, []);
 
-  // Keyboard native state listeners to dynamically hide bottom navbar and prevent overlapping
-  useEffect(() => {
-    const unshow = nativeUiService.onKeyboardShow(() => {
-      setShowNav(false);
-    });
-    const unhide = nativeUiService.onKeyboardHide(() => {
-      setShowNav(true);
-    });
-    return () => {
-      unshow();
-      unhide();
-    };
-  }, []);
+  // The keyboard hides the nav through isNavVisible (below), leaving the user's own choice alone.
 
   // Native Android hardware Back Button interception and confirmation flow
   useEffect(() => {
@@ -1302,62 +1290,53 @@ export default function App() {
     statusBarService.setStyle(isOnline ? themeMode : 'dark');
   }, [isOnline, themeMode]);
 
-  // Dynamic Bottom Navbar hiding listener with robust per-element tracking
-  const lastScrollPositions = useRef<Map<HTMLElement, number>>(new Map());
-
+  // Bottom nav: hidden and shown by double-tapping empty space (not by scrolling, which
+  // misfired on short screens). Taps on buttons, fields, links and sheets are ignored.
   useEffect(() => {
-    const handleScroll = (e: Event) => {
-      // The AI page doesn't hide the nav on scroll; its edge handle shows or hides it instead.
-      if (activeTab === 'ai') return;
-      // The onboarding tour keeps the bottom navigation stable and visible
-      if (isTourOpen) {
-        setShowNav(true);
+    let lastTap = { time: 0, x: 0, y: 0 };
+    const INTERACTIVE =
+      'button, a, input, textarea, select, label, summary, [contenteditable="true"], ' +
+      '[role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="slider"], ' +
+      '[role="dialog"], nav, .no-nav-toggle';
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' || window.innerWidth >= 768) return; // phones only
+      if (isTourOpen) return;
+      const target = e.target as Element | null;
+      if (!target?.closest || target.closest(INTERACTIVE)) {
+        lastTap.time = 0;
         return;
       }
-
-      const target = e.target as HTMLElement;
-      if (!target) return;
-
-      let currentScrollY = 0;
-      if ((target as any) === document || (target as any) === window) {
-        currentScrollY = window.scrollY;
-      } else if (typeof target.scrollTop === 'number') {
-        currentScrollY = target.scrollTop;
-      } else {
-        return;
-      }
-
-      // We only care about major content scrolls or containers with overflow-y-auto
-      const isScrollable =
-        target.classList?.contains('overflow-y-auto') ||
-        target.tagName === 'MAIN' ||
-        (target as any) === document;
-      if (!isScrollable) return;
-
-      const prevScrollY = lastScrollPositions.current.get(target) || 0;
-      const delta = currentScrollY - prevScrollY;
-
-      // Filter out micro-scroll changes (e.g. from height changes or image loading)
-      if (Math.abs(delta) > 15) {
-        // Scrolling down -> hide nav, scrolling up -> show nav
-        if (delta > 0 && currentScrollY > 60) {
-          setShowNav(false);
-        } else {
-          setShowNav(true);
+      const now = e.timeStamp;
+      const near = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40;
+      if (now - lastTap.time < 320 && near) {
+        lastTap.time = 0;
+        const next = !useUiStore.getState().showNav;
+        setShowNav(next);
+        if (!next) {
+          try {
+            if (!localStorage.getItem('isms-nav-tap-hint')) {
+              localStorage.setItem('isms-nav-tap-hint', '1');
+              showToast('Menu hidden', 'Double-tap an empty spot to bring it back.', undefined, 'info');
+            }
+          } catch {}
         }
+        return;
       }
-
-      // Force show nav ONLY at the absolute top
-      if (currentScrollY <= 15) {
-        setShowNav(true);
-      }
-
-      lastScrollPositions.current.set(target, currentScrollY);
+      lastTap = { time: now, x: e.clientX, y: e.clientY };
     };
+    window.addEventListener('pointerup', onPointerUp, true);
+    return () => window.removeEventListener('pointerup', onPointerUp, true);
+  }, [isTourOpen]);
 
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [activeTab, isTourOpen]);
+  // The onboarding tour keeps the bottom navigation visible
+  useEffect(() => {
+    if (isTourOpen) setShowNav(true);
+  }, [isTourOpen]);
+
+  // Screens only leave room at the bottom for the nav while it is shown
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-nav-hidden', !showNav);
+  }, [showNav]);
 
   // Show bottom nav instantly when switching views
   useEffect(() => {
@@ -4234,12 +4213,18 @@ export default function App() {
                       <motion.nav
                         initial={{ y: 0, opacity: 1 }}
                         animate={{
-                          // Hidden: slide well past the bottom edge, including the phone's own bar
-                          y: isNavVisible ? 0 : '250%',
+                          // Hidden: slide past the bottom edge (and the phone's own bar), shrinking slightly
+                          y: isNavVisible ? 0 : '160%',
+                          scale: isNavVisible ? 1 : 0.94,
                           opacity: isNavVisible ? 1 : 0,
                           pointerEvents: isNavVisible ? 'auto' : 'none',
                         }}
-                        transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+                        // iOS-like: quick, settles without bouncing; fade runs a little ahead of the slide
+                        transition={{
+                          y: { type: 'spring', stiffness: 420, damping: 40, mass: 0.9 },
+                          scale: { type: 'spring', stiffness: 420, damping: 40, mass: 0.9 },
+                          opacity: { duration: isNavVisible ? 0.22 : 0.18, ease: [0.32, 0.72, 0, 1] },
+                        }}
                         // Sits above the gesture/navigation bar and clear of side cutouts in landscape
                         style={{
                           bottom: 'calc(var(--mobile-nav-gap) + var(--inset-bottom))',

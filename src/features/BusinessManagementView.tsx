@@ -25,7 +25,7 @@ import { appDialog } from '../components/AppDialog';
 const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
 
 const COLOR_PRESETS = [
-  { name: "Isms Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
+  { name: "KayKay's Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
   { name: "Royal Cobalt", primary: "#2563eb", secondary: "#0f172a", label: "Blue & Navy" },
   { name: "Forest Mint", primary: "#10b981", secondary: "#064e3b", label: "Emerald & Pine" },
   { name: "Crimson Velvet", primary: "#dc2626", secondary: "#450a0a", label: "Ruby & Maroon" },

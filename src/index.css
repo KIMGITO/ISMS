@@ -260,6 +260,11 @@ input[type="number"] {
   --mobile-nav-space: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + var(--inset-bottom) + 1rem);
 }
 
+/* Nav hidden (double-tap): screens stop leaving room for it */
+:root[data-nav-hidden] {
+  --mobile-nav-space: calc(var(--inset-bottom) + 1rem);
+}
+
 /* Phones: screens run almost edge to edge (2px). Unlayered, so it beats p-4 etc.
    .app-screens > * > * is each screen's root; .pb-nav marks screens' scroll areas. */
 @media (width < 48rem) {
@@ -290,6 +295,7 @@ input[type="number"] {
 /* Bottom padding for scrolling screens: clears the floating nav and the phone's own bar */
 @utility pb-nav {
   padding-bottom: var(--mobile-nav-space);
+  transition: padding-bottom 380ms var(--ease-ios); /* eases with the nav as it hides/shows */
   @media (width >= 48rem) {
     padding-bottom: 6rem;
   }
