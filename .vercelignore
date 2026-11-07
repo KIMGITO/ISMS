@@ -1,0 +1,9 @@
+# Not needed by the web builds on Vercel (staff app or website); keeps uploads small
+android/
+src-tauri/
+release-builds/
+dist/
+website/dist/
+*.apk
+*.aab
+*.pdf
