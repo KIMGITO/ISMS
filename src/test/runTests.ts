@@ -1,4 +1,5 @@
 // src/test/runTests.ts
+import "./kenyaTimezone"; // must stay first
 import { readFileSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
