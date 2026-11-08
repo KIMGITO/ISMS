@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { getSupabase } from "../services/supabaseClient";
 import { SCREENS, canOpenScreen, type ScreenId } from "../utils/screens";
+import { featuresFor, shortcutsFor, scopeLabel } from "../utils/shortcuts";
 import { formatReceiptNumber } from "../utils/idUtils";
 
 interface SearchResult {
@@ -165,6 +166,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         return hasRolePermission(currentEmployee.role, "files.view");
       case "Business Assets":
         return hasRolePermission(currentEmployee.role, "assets.view");
+      case "Features": // already limited to what this role can open and do
+      case "Keyboard Shortcuts": // same
       case "Screens": // already limited to screens this role can open
       case "Quick Actions":
       case "Home Dashboard":
@@ -230,6 +233,54 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         });
       }
     });
+
+    // Features by name, and keyboard shortcuts, limited to what this role can do
+    const go = (tab: ScreenId) => {
+      onNavigateTab(tab);
+      setIsOpen(false);
+      setQuery("");
+    };
+    featuresFor(currentEmployee?.role).forEach((f) => {
+      const score = Math.max(
+        getRelevance(f.title, lower),
+        getRelevance(f.description, lower) ? 40 : 0,
+        f.keywords.some((k) => k.includes(lower) || (lower.length > 3 && lower.includes(k))) ? 60 : 0,
+      );
+      if (score > 0) {
+        matched.push({
+          id: `feature-${f.id}`,
+          title: f.title,
+          subtitle: f.description,
+          category: "Features",
+          businessName: activeBizName,
+          relevance: score + 15,
+          action: () => {
+            go(f.screen);
+            if (f.id === "keyboard-shortcuts") setTimeout(() => document.getElementById("keyboard-shortcuts")?.scrollIntoView({ behavior: "smooth" }), 300);
+          },
+        });
+      }
+    });
+    if (lower.length >= 2) {
+      shortcutsFor(currentEmployee?.role).forEach((sc) => {
+        const score = Math.max(
+          getRelevance(sc.action, lower),
+          (sc.keywords || []).some((k) => k.includes(lower)) ? 45 : 0,
+          /shortcut|keyboard|hotkey/.test(lower) ? 30 : 0,
+        );
+        if (score > 0) {
+          matched.push({
+            id: `shortcut-${sc.id}`,
+            title: `${sc.action}  ·  ${sc.keys}`,
+            subtitle: `Keyboard shortcut · ${scopeLabel(sc.scope)}`,
+            category: "Keyboard Shortcuts",
+            businessName: activeBizName,
+            relevance: score,
+            action: () => go(sc.scope === "everywhere" ? "about" : sc.scope),
+          });
+        }
+      });
+    }
 
     // 1. Search Businesses
     businesses.forEach(b => {

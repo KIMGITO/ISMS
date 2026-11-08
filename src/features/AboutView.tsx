@@ -7,6 +7,7 @@ import { RefreshCw, CheckCircle2, AlertTriangle, Smartphone, Monitor, Globe } fr
 import { useUpdateStore } from '../stores/updateStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { updateService } from '../core/native/UpdateService';
+import { ShortcutTable } from '../components/ShortcutTable';
 
 const PLATFORM_LABEL = {
   windows: 'Windows',
@@ -126,6 +127,13 @@ export default function AboutView() {
             </button>
           )}
         </Group>
+
+        <section id="keyboard-shortcuts">
+          <h2 className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Keyboard shortcuts</h2>
+          <div className="bg-app-card rounded-lg p-3">
+            <ShortcutTable />
+          </div>
+        </section>
 
         {business && (business.contactPhone || business.contactEmail) && (
           <Group title="Help" footer="For help with this app, contact your manager.">

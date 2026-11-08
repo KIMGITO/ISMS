@@ -521,7 +521,7 @@ export default function NotificationsView() {
         <div className="max-w-[860px] mx-auto">
           {view === "feed" && unreadCount > 0 && !selecting && tab !== "unread" && (
             <div className="flex justify-end pt-1">
-              <button onClick={markAllRead} className="text-[13px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 cursor-pointer">
+              <button onClick={markAllRead} data-shortcut="mark-read" className="text-[13px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 cursor-pointer">
                 <CheckCheck size={15} /> Mark all as read
               </button>
             </div>

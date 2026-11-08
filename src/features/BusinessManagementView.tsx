@@ -600,6 +600,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
           <button
             type="button"
             onClick={() => setIsCreating(true)}
+            data-shortcut="new"
             className={`shrink-0 w-[180px] rounded-2xl border-2 border-dashed text-left transition-all cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[110px] ${
               isCreating
                 ? 'border-amber-500 text-amber-500 bg-amber-500/5'

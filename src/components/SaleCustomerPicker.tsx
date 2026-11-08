@@ -63,6 +63,7 @@ export function SaleCustomerPicker({ transaction, onAttached, compact, className
       <button
         type="button"
         onClick={() => setOpen(true)}
+        data-shortcut="add-customer"
         className={
           compact
             ? `shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-app-card text-app-text text-xs font-semibold hover:bg-app-bg cursor-pointer ${className}`

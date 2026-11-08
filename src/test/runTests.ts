@@ -20,6 +20,7 @@ import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileN
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
 import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../services/loyalty/tillPoints";
 import { cannotAttachReason } from "../services/saleCustomer";
+import { SHORTCUTS, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
 import { customerName } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
@@ -554,6 +555,37 @@ runTest("App versions compare numerically", () => {
   const cases: [string, string, number][] = [["1.10.0", "1.9.9", 1], ["1.0.0", "1.0.0", 0], ["v2.0.0", "1.99.99", 1], ["1.0", "1.0.1", -1]];
   for (const [a, b, want] of cases) {
     if (compareVersions(a, b) !== want) throw new Error(`${a} vs ${b} gave ${compareVersions(a, b)}`);
+  }
+});
+
+runTest("Keyboard shortcuts and search features follow the roles", () => {
+  for (const role of Object.keys(SYSTEM_ROLES)) {
+    const list = shortcutsFor(role);
+    for (const sc of list) {
+      if (sc.scope !== "everywhere" && !canOpenScreen(role, sc.scope)) throw new Error(`${role} sees a shortcut for ${sc.scope}`);
+      if (sc.id.startsWith("go-") && !canOpenScreen(role, sc.id.slice(3))) throw new Error(`${role} can jump to ${sc.id.slice(3)}`);
+    }
+    for (const f of featuresFor(role)) if (!canOpenScreen(role, f.screen)) throw new Error(`${role} finds ${f.id} in search`);
+  }
+  if (shortcutsFor("Rider").some((sc) => sc.id === "go-permissions" || sc.id === "go-settings")) throw new Error("a rider must not see admin screens");
+  if (!shortcutsFor("Cashier").some((sc) => sc.id === "sell-customer")) throw new Error("a cashier should add customers to quick sales");
+  if (shortcutsFor(undefined).length !== 0) throw new Error("signed out means no shortcuts");
+
+  const goKeys = Object.values(GO_TO_KEYS);
+  if (new Set(goKeys).size !== goKeys.length) throw new Error("two screens share a G key");
+  if (SCREENS.some((sc) => !GO_TO_KEYS[sc.id])) throw new Error("a screen has no G key");
+  const seen = new Set<string>();
+  for (const sc of SHORTCUTS.filter((x) => x.key)) {
+    const k = `${sc.scope}:${sc.key}`;
+    if (seen.has(k)) throw new Error(`two shortcuts use ${k}`);
+    if (["g", "/", "[", "]", "?"].includes(sc.key!)) throw new Error(`${sc.id} uses a key kept for every screen`);
+    seen.add(k);
+  }
+  // Every page action points at a button that exists in the code.
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView"]
+    .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
+  for (const sc of SHORTCUTS.filter((x) => x.target)) {
+    if (!code.includes(`data-shortcut="${sc.target}"`)) throw new Error(`no button tagged ${sc.target} for ${sc.id}`);
   }
 });
 

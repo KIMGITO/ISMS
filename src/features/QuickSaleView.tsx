@@ -198,6 +198,9 @@ export default function QuickSaleView() {
     if (payOption) {
       e.preventDefault();
       pay(payOption.method);
+    } else if (e.key === 'F7') {
+      e.preventDefault();
+      (document.querySelector('[aria-label="Current sale"] [data-shortcut="add-customer"]') as HTMLElement | null)?.click();
     } else if (e.key === 'F8') {
       e.preventDefault();
       if (lastSale?.tx) {

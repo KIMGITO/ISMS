@@ -138,6 +138,8 @@ import { AuthOtpService } from './services/authOtpService';
 import { toUserMessage } from './utils/userError';
 import PasswordInput from './components/shared/PasswordInput';
 import { Checkbox } from './components/shared/Checkbox';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { ShortcutHelp } from './components/ShortcutTable';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
@@ -471,6 +473,19 @@ export default function App() {
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  // Keyboard shortcuts on every screen; each role only gets the ones it can use (utils/shortcuts.ts).
+  useGlobalShortcuts({
+    role: currentEmployee?.role,
+    activeTab: activeTab as string,
+    navigate: (tab) => { setShowShortcutHelp(false); setActiveTab(tab as any); },
+    openSearch: () => {
+      const box = document.querySelector('#global-search-container input') as HTMLInputElement | null;
+      if (box && box.getClientRects().length > 0) box.focus();
+      else setShowMobileSearch(true);
+    },
+    toggleHelp: () => setShowShortcutHelp((v) => !v),
+  });
 
   const [businessType, setBusinessType] = useState('');
   const [customTypeInput, setCustomTypeInput] = useState('');
@@ -5209,6 +5224,8 @@ export default function App() {
         {/* In-app dialogs and field messages instead of the browser's own boxes and bubbles */}
         <AppDialogHost />
         <FieldValidationHost />
+
+        <ShortcutHelp open={showShortcutHelp} screen={activeTab as string} onClose={() => setShowShortcutHelp(false)} />
 
         {/* Interactive Onboarding Tour Guide */}
         <InteractiveGuide

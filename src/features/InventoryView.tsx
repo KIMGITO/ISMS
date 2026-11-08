@@ -394,6 +394,7 @@ export default function InventoryView() {
                 handleCustomChange('sku', generateSku('Milk'));
                 setIsAddingProduct(true);
               }}
+              data-shortcut="new"
               className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 transition flex items-center justify-center gap-1 shadow-sm shrink-0 cursor-pointer"
             >
               <Plus size={14} />

@@ -813,6 +813,7 @@ export default function DashboardView() {
               {activeShift ? (
                 <button
                   onClick={() => setIsEndShiftModalOpen(true)}
+                  data-shortcut="clock"
                   className="px-2 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[8.5px] font-black uppercase tracking-wider  flex items-center gap-1 transition cursor-pointer"
                   title="Punch Out"
                 >
@@ -821,6 +822,7 @@ export default function DashboardView() {
               ) : (
                 <button
                   onClick={punchIn}
+                  data-shortcut="clock"
                   className="px-2 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer"
                   title="Punch In"
                 >
@@ -856,6 +858,7 @@ export default function DashboardView() {
               {!showAddForm && (
                 <button
                   onClick={() => setShowAddForm(true)}
+                  data-shortcut="new"
                   className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-lg transition hover:bg-amber-600 cursor-pointer"
                 >
                   Create

@@ -452,6 +452,7 @@ export default function ProductionBOMView() {
         {canCreateBatch && (
           <button
             onClick={() => { resetBatchForm(); setViewMode('create-batch'); }}
+            data-shortcut="new"
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer whitespace-nowrap"
           >
             <Boxes size={14} className="shrink-0" />
@@ -463,6 +464,7 @@ export default function ProductionBOMView() {
         {canCreate && (
           <button
             onClick={() => { resetBomForm(); setViewMode('create-bom'); }}
+            data-shortcut="new-bom"
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer whitespace-nowrap"
           >
             <FilePlus2 size={14} className="shrink-0" />

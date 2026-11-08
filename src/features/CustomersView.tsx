@@ -722,6 +722,7 @@ export default function CustomersView() {
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
+              data-shortcut="points"
               onClick={() => {
                 setSelectedCustomerId(null);
                 setShowPoints(true);
@@ -750,6 +751,7 @@ export default function CustomersView() {
                   resetForm();
                   setIsAdding(true);
                 }}
+                data-shortcut="new"
                 className="ml-auto px-3.5 py-2 bg-amber-500 text-slate-950 font-semibold rounded-xl text-sm flex items-center gap-1.5 hover:bg-amber-600 cursor-pointer"
               >
                 <UserPlus size={16} />

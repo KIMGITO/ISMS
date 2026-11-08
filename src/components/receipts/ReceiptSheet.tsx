@@ -196,7 +196,8 @@ export function ReceiptSheet({ transaction: given, onClose, startPrinting }: Pro
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-      const actions: Record<string, () => void> = { p: startPrint, w: sendWhatsApp, e: sendEmail, d: sharePdf, c: copy, b: toggleBarcode };
+      const addCustomer = () => (dialogRef.current?.querySelector('[data-shortcut="add-customer"]') as HTMLElement | null)?.click();
+      const actions: Record<string, () => void> = { p: startPrint, w: sendWhatsApp, e: sendEmail, d: sharePdf, c: copy, b: toggleBarcode, a: addCustomer };
       const action = actions[e.key.toLowerCase()];
       if (action) {
         e.preventDefault();
