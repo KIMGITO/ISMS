@@ -1,6 +1,7 @@
 // Reads what a customer owes and issues numbered invoices (supabase/migrations/20261108001).
 import { getSupabase } from "../supabaseClient";
 import { toUuid } from "../../utils/idUtils";
+import { readableIds } from "../../utils/stringUtils";
 import { InvoiceDocument, OpenCredit } from "./types";
 
 /** The customer's unpaid credit sales and hand-added balances, with the price each item was sold at. */
@@ -46,7 +47,7 @@ export async function fetchOpenCredit(customerId: string): Promise<OpenCredit[]>
     amountOwed: Number(r.amount_owed) || 0,
     amountPaid: Number(r.amount_paid) || 0,
     balance: Number(r.balance) || 0,
-    note: r.note,
+    note: r.note ? readableIds(r.note) : r.note,
     sale: r.transaction_id ? sales.get(r.transaction_id) || null : null,
   }));
 }

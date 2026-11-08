@@ -2,7 +2,7 @@
 import { AppError } from "../utils/userError";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
-import { customerName } from "../utils/stringUtils";
+import { customerName, readableIds } from "../utils/stringUtils";
 import { Product, Transaction, Customer, Employee, Shift, DbSchedule, CustomerLedgerEntry, DebtPayment } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 
@@ -527,7 +527,7 @@ export class SupabaseService {
       accountNumber: d.account_number || undefined,
       debtBalance: Number(d.debt_balance),
       recordedBy: d.recorded_by,
-      note: d.note || "",
+      note: readableIds(d.note),
       transactionId: d.transaction_id || "",
       created_at: d.created_at,
     }));
@@ -551,7 +551,7 @@ export class SupabaseService {
       remainingDebt: Number(d.remaining_debt),
       paymentMethod: d.payment_method as any,
       recordedBy: d.recorded_by,
-      note: d.note || "",
+      note: readableIds(d.note),
       created_at: d.created_at,
     }));
   }
@@ -643,7 +643,7 @@ export class SupabaseService {
       remainingDebt: Number(d.remaining_debt),
       paymentMethod: d.payment_method as any,
       recordedBy: d.recorded_by,
-      note: d.note || "",
+      note: readableIds(d.note),
       created_at: d.created_at,
     }));
   }

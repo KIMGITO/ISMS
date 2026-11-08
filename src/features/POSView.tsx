@@ -432,7 +432,7 @@ export default function POSView() {
               </div>
 
               {/* Drawer Body - Scrollable Items List */}
-              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+              <div className="@container flex-1 overflow-y-auto p-4 flex flex-col gap-4">
                 {/* Cart Items Checklist with themed cards */}
                 <div className="flex flex-col gap-2">
                   {cart.length === 0 && (
@@ -550,31 +550,31 @@ export default function POSView() {
                         const matched = customers.find((c) => c.id === val);
                         if (matched) selectCustomer(matched);
                       }}
-                      placeholder="Select a customer loyalty profile..."
-                      searchPlaceholder="Search customer name or phone..."
+                      placeholder="Choose a customer (optional)"
+                      searchPlaceholder="Name or phone"
                     />
                     </div>
                   )}
                 </div>
 
-                {/* Tx Note & Payment Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Payment & note: side by side only when the panel is wide enough */}
+                <div className="grid grid-cols-1 @md:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
-                      Payment Method
+                      Payment
                     </label>
-                    <div className="grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
+                    <div className="h-10 grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
                       {(
                         [
                           { value: 'Cash', label: 'Cash' },
                           { value: 'M-Pesa', label: 'M-Pesa' },
-                          { value: 'Credit_Debt', label: 'Credit (Debt)' },
+                          { value: 'Credit_Debt', label: 'Credit' },
                         ] as const
                       ).map((method) => (
                         <button
                           key={method.value}
                           onClick={() => setPaymentMethod(method.value)}
-                          className={`py-1.5 rounded-lg text-[9px] font-black uppercase transition cursor-pointer ${
+                          className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
                             paymentMethod === method.value
                               ? 'bg-amber-500 text-slate-950 shadow'
                               : 'text-app-text-muted hover:bg-app-bg'
@@ -588,15 +588,15 @@ export default function POSView() {
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
-                      Transaction Notes
+                      Note
                     </label>
                     <input
                       type="text"
-                      placeholder="Add delivery instructions or note..."
+                      placeholder="Optional"
                       id="pos-note"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-1.5 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="h-10 w-full min-w-0 bg-app-bg border border-app-border rounded-xl px-3 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
                 </div>
@@ -606,7 +606,7 @@ export default function POSView() {
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-amber-500 text-xs font-bold">
                       <Truck size={13} />
-                      <span>Set as Delivery Order</span>
+                      <span>Delivery</span>
                     </span>
                     <Switch
                       ariaLabel="Set as delivery order"
@@ -624,10 +624,10 @@ export default function POSView() {
 
                   {isDelivery && (
                     <div className="space-y-3 pt-2 border-t border-app-border/40 animate-fade-in">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Delivery Fee (KSh)
+                            Fee (KSh)
                           </label>
                           <input
                             type="number"
@@ -638,27 +638,27 @@ export default function POSView() {
                               const val = parseFloat(e.target.value);
                               setDeliveryFee(isNaN(val) ? 0 : val);
                             }}
-                            className="bg-app-bg border border-app-border rounded-xl px-3 py-1.5 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-right"
+                            className="h-10 w-full min-w-0 bg-app-bg border border-app-border rounded-xl px-3 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-right"
                           />
                         </div>
 
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Fee Shortcuts
+                            Quick fee
                           </label>
-                          <div className="grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border h-full">
+                          <div className="h-10 grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
                             {[0, 150, 250].map((fee) => (
                               <button
                                 key={fee}
                                 type="button"
                                 onClick={() => setDeliveryFee(fee)}
-                                className={`py-1 rounded-lg text-[9px] font-black uppercase transition cursor-pointer ${
+                                className={`rounded-lg text-[10px] font-black transition cursor-pointer ${
                                   deliveryFee === fee
                                     ? 'bg-amber-500 text-slate-950 shadow'
                                     : 'text-app-text-muted hover:bg-app-bg'
                                 }`}
                               >
-                                KSh {fee}
+                                {fee}
                               </button>
                             ))}
                           </div>
@@ -666,7 +666,7 @@ export default function POSView() {
                       </div>
 
                       <label className="flex flex-col gap-1 text-[9px] font-black text-app-text-muted uppercase">
-                        Delivery Location
+                        Location
                         <input
                           value={deliveryLocation}
                           onChange={(e) => setDeliveryLocation(e.target.value)}
@@ -677,19 +677,19 @@ export default function POSView() {
 
                       <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-black text-app-text-muted uppercase">
-                          Select Rider or Write Name
+                          Rider
                         </label>
                         <div className="space-y-2">
                           <SearchableDropdown
                             items={[
                               {
                                 id: 'custom_name',
-                                label: 'Write a Custom Name...',
+                                label: 'Type a name',
                               },
                               ...riders.map((r) => ({
                                 id: r.name,
                                 label: r.name,
-                                sublabel: `Active Rider · Phone: ${r.phone}`,
+                                sublabel: r.phone,
                               })),
                             ]}
                             selectedValue={selectedRiderId}
@@ -701,8 +701,8 @@ export default function POSView() {
                                 setRiderName('');
                               }
                             }}
-                            placeholder="Choose an active Rider..."
-                            searchPlaceholder="Search active riders..."
+                            placeholder="Choose a rider"
+                            searchPlaceholder="Search riders"
                           />
 
                           {(selectedRiderId === 'custom_name' ||
@@ -711,7 +711,7 @@ export default function POSView() {
                             )) && (
                             <input
                               type="text"
-                              placeholder="Enter Rider's Name manually..."
+                              placeholder="Rider's name"
                               value={riderName}
                               onChange={(e) => setRiderName(e.target.value)}
                               className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-1.5 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -725,7 +725,7 @@ export default function POSView() {
 
                 {selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
                   <label className="flex flex-col gap-1 p-3 bg-app-bg/50 border border-app-border rounded-2xl text-xs font-medium text-app-text">
-                    Use points ({selectedCustomer.loyaltyPoints} available)
+                    Use points ({selectedCustomer.loyaltyPoints.toLocaleString()} available)
                     <input
                       type="number"
                       min="0"
@@ -740,34 +740,34 @@ export default function POSView() {
                 )}
 
                 {/* Additional Checkout Controls: Tax & Discount */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-app-bg/50 border border-app-border/60 rounded-2xl">
+                <div className="grid grid-cols-1 @md:grid-cols-2 gap-3 p-3 bg-app-bg/50 border border-app-border/60 rounded-2xl">
                   {/* Tax Rate Setting */}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
-                      Tax Configuration
+                      Tax
                     </label>
-                    <div className="grid grid-cols-2 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
+                    <div className="h-10 grid grid-cols-2 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
                       <button
                         type="button"
                         onClick={() => setTaxRate(businessTaxRate)}
-                        className={`py-1 rounded-lg text-[9px] font-black uppercase transition cursor-pointer ${
+                        className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
                           taxRate === businessTaxRate
                             ? 'bg-amber-500 text-slate-950 shadow'
                             : 'text-app-text-muted hover:bg-app-bg'
                         }`}
                       >
-                        {(businessTaxRate * 100).toFixed(0)}% VAT Business Default
+                        {(businessTaxRate * 100).toFixed(0)}% VAT
                       </button>
                       <button
                         type="button"
                         onClick={() => setTaxRate(0.0)}
-                        className={`py-1 rounded-lg text-[9px] font-black uppercase transition cursor-pointer ${
+                        className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
                           taxRate === 0.0
                             ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 font-bold shadow-xs'
                             : 'text-app-text-muted hover:bg-app-bg'
                         }`}
                       >
-                        Tax Free (0% VAT)
+                        No VAT
                       </button>
                     </div>
                   </div>
@@ -775,17 +775,17 @@ export default function POSView() {
                   {/* Checkout Discount Setting */}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
-                      Checkout Waiver / Discount
+                      Discount
                     </label>
-                    <div className="flex gap-1.5">
-                      <div className="flex bg-app-bg p-1 rounded-xl border border-app-border shrink-0">
+                    <div className="flex gap-1.5 min-w-0">
+                      <div className="h-10 flex bg-app-bg p-1 rounded-xl border border-app-border shrink-0">
                         <button
                           type="button"
                           onClick={() => {
                             setCartDiscountType('percent');
                             setCartDiscountValue(0);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[9px] font-black transition cursor-pointer ${
+                          className={`px-3 rounded-lg text-[10px] font-black transition cursor-pointer ${
                             cartDiscountType === 'percent'
                               ? 'bg-amber-500 text-slate-950'
                               : 'text-app-text-muted'
@@ -799,7 +799,7 @@ export default function POSView() {
                             setCartDiscountType('amount');
                             setCartDiscountValue(0);
                           }}
-                          className={`px-2 py-1 rounded-lg text-[9px] font-black transition cursor-pointer ${
+                          className={`px-2.5 rounded-lg text-[10px] font-black transition cursor-pointer ${
                             cartDiscountType === 'amount'
                               ? 'bg-amber-500 text-slate-950'
                               : 'text-app-text-muted'
@@ -811,17 +811,14 @@ export default function POSView() {
                       <input
                         type="number"
                         min="0"
-                        placeholder={
-                          cartDiscountType === 'percent'
-                            ? 'E.g. 10 for 10%'
-                            : 'E.g. 150 for KSh 150'
-                        }
+                        placeholder="0"
+                        aria-label={cartDiscountType === 'percent' ? 'Discount in percent' : 'Discount in KSh'}
                         value={cartDiscountValue || ''}
                         onChange={(e) => {
                           const val = parseFloat(e.target.value);
                           setCartDiscountValue(isNaN(val) ? 0 : val);
                         }}
-                        className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-1 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 text-right font-mono"
+                        className="h-10 flex-1 w-full min-w-0 bg-app-bg border border-app-border rounded-xl px-3 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 text-right font-mono"
                       />
                     </div>
                   </div>
@@ -831,7 +828,7 @@ export default function POSView() {
                 <div className="bg-app-bg border border-app-border rounded-2xl p-3 text-xs flex flex-col gap-1.5">
                   <div className="flex justify-between">
                     <span className="text-app-text-muted">
-                      Subtotal Original
+                      Subtotal
                     </span>
                     <span className="text-app-text font-bold font-mono">
                       KSh {totalOriginal.toFixed(2)}
@@ -840,7 +837,7 @@ export default function POSView() {
                   {totalDiscount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-amber-500 font-semibold">
-                        Waiver Discounts
+                        Discount
                       </span>
                       <span className="text-amber-500 font-bold font-mono">
                         -KSh {totalDiscount.toFixed(2)}
@@ -859,7 +856,7 @@ export default function POSView() {
                   )}
                   <div className="flex justify-between">
                     <span className="text-app-text-muted">
-                      Kenyan VAT (16%)
+                      VAT ({(taxRate * 100).toFixed(0)}%)
                     </span>
                     <span className="text-app-text font-bold font-mono">
                       KSh {tax.toFixed(2)}
@@ -912,7 +909,7 @@ export default function POSView() {
                   {isCheckingOut ? (
                     <>
                       <RefreshCw size={13} className="animate-spin" />
-                      <span>Processing Sale...</span>
+                      <span>Saving…</span>
                     </>
                   ) : (
                     <span className="flex items-center gap-2">

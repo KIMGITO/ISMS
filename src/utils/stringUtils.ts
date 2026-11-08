@@ -160,3 +160,18 @@ export function getFirstName(fullName: string | null | undefined): string {
   // Return formatted
   return formatName(firstPart);
 }
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/**
+ * Text written by the server sometimes carries a database ID ("Sold via order #3f2a9c1e-…").
+ * Shows the sale's receipt number instead (as the Sales Log does), and any other ID in short.
+ * The database does the same since migration 20261108004.
+ */
+export function readableIds(text: string | null | undefined): string {
+  if (!text) return "";
+  return text
+    .replace(/^Sold via order #?([0-9a-f]{8})[0-9a-f-]{28}$/i, (_m, id: string) => `Sold · receipt TXN-${id.toUpperCase()}`)
+    .replace(/order #?([0-9a-f]{8})[0-9a-f-]{28}/gi, (_m, id: string) => `receipt TXN-${id.toUpperCase()}`)
+    .replace(UUID_RE, (id) => id.slice(0, 8).toUpperCase());
+}

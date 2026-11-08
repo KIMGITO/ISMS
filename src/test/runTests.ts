@@ -22,7 +22,7 @@ import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../se
 import { cannotAttachReason } from "../services/saleCustomer";
 import { SHORTCUTS, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
-import { customerName } from "../utils/stringUtils";
+import { customerName, readableIds } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
 import { tidyNotification } from "../services/notifications/notificationText";
 import { NotificationTemplates } from "../services/notifications/notificationTemplates";
@@ -823,6 +823,18 @@ runTest("Points are worth less per point in higher tiers, as in the database", (
   const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
   if (!/WHEN 'Gold' THEN 0\.005 WHEN 'Silver' THEN 0\.01 ELSE 0\.02/.test(sql)) throw new Error("database tier values differ from the app's");
   if (/wallet_balance = v_wallet|'wallet_topup'/.test(sql.slice(sql.indexOf("FUNCTION public.fn_redeem_points")))) throw new Error("points must not become wallet money");
+});
+
+runTest("People never see a database ID in stock or history text", () => {
+  const id = "3f2a9c1e-0000-4000-8000-000000000001";
+  if (readableIds(`Sold via order #${id}`) !== "Sold · receipt TXN-3F2A9C1E") throw new Error(readableIds(`Sold via order #${id}`));
+  if (readableIds(`Paid for order ${id} using wallet credit`) !== "Paid for order receipt TXN-3F2A9C1E using wallet credit".replace("order receipt", "receipt"))
+    throw new Error(readableIds(`Paid for order ${id} using wallet credit`));
+  if (/[0-9a-f]{8}-[0-9a-f]{4}/i.test(readableIds(`Moved ${id} and ${id}`))) throw new Error("a raw ID was left in");
+  if (readableIds("Damaged in transit") !== "Damaged in transit") throw new Error("plain text must not change");
+  if (formatReceiptNumber(id) !== "TXN-3F2A9C1E") throw new Error("the database receipt number must match the app's");
+  const sql = readFileSync("supabase/migrations/20261108004_no_ids_in_text.sql", "utf8");
+  if (!/'TXN-' \|\| upper\(left\(replace\(p_id::TEXT, '-', ''\), 8\)\)/.test(sql)) throw new Error("database receipt number differs from the app's");
 });
 
 runTest("Customer names start every word with a capital", () => {

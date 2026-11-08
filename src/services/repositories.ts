@@ -7,7 +7,7 @@ import { customerName } from "../utils/stringUtils";
 import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
-import { normalizeForStorage } from "../utils/stringUtils";
+import { normalizeForStorage, readableIds } from "../utils/stringUtils";
 
 const getActiveBusinessId = (): string | null => {
   try {
@@ -843,11 +843,11 @@ export class InventoryAdjustmentRepository {
       previousStock: Number(a.previous_stock),
       newStock: Number(a.new_stock),
       timestamp: a.timestamp,
-      reason: a.reason,
+      reason: readableIds(a.reason),
       staffName: a.staff_name,
       batchId: a.batch_id || undefined,
       referenceNumber: a.reference_number || undefined,
-      notes: a.notes || undefined,
+      notes: a.notes ? readableIds(a.notes) : undefined,
       sync_status: "synced"
     }));
   }
@@ -902,7 +902,7 @@ export class InventoryAdjustmentRepository {
       previousStock: Number(data.previous_stock),
       newStock: Number(data.new_stock),
       timestamp: data.timestamp,
-      reason: data.reason,
+      reason: readableIds(data.reason),
       staffName: data.staff_name,
       sync_status: "synced",
     };
