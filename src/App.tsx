@@ -5216,6 +5216,10 @@ export default function App() {
           steps={tourStepsFor(currentEmployee?.role)}
           onClose={handleCloseTour}
           onStepChange={(tab) => setActiveTab(tab as any)}
+          onMoreSheet={(open) => {
+            if (open) setMoreQuery('');
+            setIsMoreOpen(open);
+          }}
         />
       </div>
     </PreviewFrame>

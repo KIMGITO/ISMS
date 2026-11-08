@@ -8,6 +8,7 @@ import { nativeUiService } from '../core/native/NativeUiService';
 import { useAppStore } from '../stores/appStore';
 import { PaymentMethod, Product, Transaction } from '../types';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
+import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
 import { searchMatch } from '../utils/stringUtils';
@@ -308,6 +309,9 @@ export default function QuickSaleView() {
               {formatCurrency(lastSale.total)} by {lastSale.method}
               {lastSale.offline && <span className="block text-xs font-normal">Syncs when you're back online.</span>}
             </span>
+            {lastSale.tx?.customerId && (
+              <span className="shrink-0 text-xs font-normal truncate max-w-[8rem]">{lastSale.tx.customerName}</span>
+            )}
             {lastSale.tx && (
               <button
                 type="button"
@@ -322,6 +326,14 @@ export default function QuickSaleView() {
               </button>
             )}
           </motion.div>
+        )}
+        {/* Quick sales skip the customer; this puts the sale on their account afterwards. */}
+        {lastSale?.tx && cart.length === 0 && !lastSale.tx.customerId && (
+          <SaleCustomerPicker
+            transaction={lastSale.tx}
+            className="mx-2 md:mx-3 mb-2"
+            onAttached={(tx) => setLastSale((s) => (s ? { ...s, tx } : s))}
+          />
         )}
 
         {cart.length === 0 && !lastSale && (

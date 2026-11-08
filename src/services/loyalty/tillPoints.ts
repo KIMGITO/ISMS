@@ -29,9 +29,15 @@ function save(map: Record<string, TillPoints>) {
   }
 }
 
-/** Points earned on a sale, the same rule as the database (1 point per 100 spent, delivery excluded). */
-export function pointsEarned(finalTotal: number, deliveryFee = 0): number {
-  return Math.max(0, Math.floor(((Number(finalTotal) || 0) - (Number(deliveryFee) || 0)) / 100));
+/** Points per KSh 1 on a paid sale (delivery excluded). The database applies the same rule. */
+export const POINTS_PER_KSH = 2;
+/** Points per KSh 1 paid towards a debt: half of a cash purchase. */
+export const DEBT_PAYMENT_POINTS_PER_KSH = 1;
+
+/** Points earned on a sale. A credit sale earns nothing until the debt is paid. */
+export function pointsEarned(finalTotal: number, deliveryFee = 0, paymentMethod?: string): number {
+  if (paymentMethod === "Credit" || paymentMethod === "Credit_Debt") return 0;
+  return Math.max(0, Math.floor(((Number(finalTotal) || 0) - (Number(deliveryFee) || 0)) * POINTS_PER_KSH));
 }
 
 /** Remembers the points on this device and links them to the sale in the database. */

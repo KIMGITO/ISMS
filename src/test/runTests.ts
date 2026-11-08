@@ -18,6 +18,10 @@ import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
+import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../services/loyalty/tillPoints";
+import { cannotAttachReason } from "../services/saleCustomer";
+import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
+import { customerName } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
 import { tidyNotification } from "../services/notifications/notificationText";
 import { NotificationTemplates } from "../services/notifications/notificationTemplates";
@@ -371,11 +375,11 @@ runTest("Database role permissions match the app's role permissions", () => {
 runTest("Customer merge preview matches the database rules", () => {
   const base = { id: "a", name: "A", phone: "0711111111", email: "", joinDate: "", tier: "Silver" as const, purchasesCount: 4 };
   const preview = previewMerge(
-    { ...base, loyaltyPoints: 250, debtBalance: 500, walletBalance: 0 },
-    { ...base, id: "b", tier: "Bronze", loyaltyPoints: 50, debtBalance: 0, walletBalance: 200, purchasesCount: 1 },
+    { ...base, loyaltyPoints: 50000, debtBalance: 500, walletBalance: 0 },
+    { ...base, id: "b", tier: "Bronze", loyaltyPoints: 10000, debtBalance: 0, walletBalance: 200, purchasesCount: 1 },
   );
   if (preview.debt !== 300 || preview.wallet !== 0 || preview.offset !== 200) throw new Error("Wallet should clear debt first");
-  if (preview.points !== 300 || preview.purchases !== 5) throw new Error("Points and purchases should add together");
+  if (preview.points !== 60000 || preview.purchases !== 5) throw new Error("Points and purchases should add together");
   if (preview.tier !== "Gold") throw new Error("Combined points should raise the tier");
   for (const phone of ["+254711111111", "254711111111", "0711111111", "711111111", "0711 111 111"]) {
     if (phoneKey(phone) !== "254711111111") throw new Error(`${phone} should match the same customer`);
@@ -630,6 +634,10 @@ runTest("Home figures: ranges, slots, growth and money received", () => {
 
   const loss = analyse({ transactions: [], expenses: [{ id: "e", amount: 80, category: "Rent", date: at(2), description: "", staffName: "" }], debtPayments: [], payments: [] }, week, buckets);
   eq(loss.total.profit, -80, "a loss shows as a loss");
+  // Debt paid with loyalty points brought no money in, so it is taken off profit.
+  const withPoints = analyse({ transactions: [], expenses: [], debtPayments: [], payments: [], pointsToDebt: [{ date: at(3), value: 25 }] }, week, buckets);
+  eq(withPoints.total.profit, -25, "points used for debt come off profit");
+  eq(withPoints.total.pointsCost, 25, "points cost is shown");
 
   const rows = analyseBranches(
     [{ id: "a", name: "A" }, { id: "b", name: "B" }],
@@ -754,6 +762,40 @@ runTest("Invoice for a period covers only that period's sales, with older debt o
   if (lastMonth.from !== "2026-10-01" || lastMonth.to !== "2026-10-31") throw new Error(JSON.stringify(lastMonth));
   const lastWeek = periodFor("last_week", new Date(2026, 10, 8)); // Sunday 8 Nov 2026
   if (lastWeek.from !== "2026-10-26" || lastWeek.to !== "2026-11-01") throw new Error(JSON.stringify(lastWeek));
+});
+
+runTest("Points: 2 per KSh 1 paid, nothing on a credit sale, delivery excluded", () => {
+  if (pointsEarned(1000, 0, "Cash") !== 2000) throw new Error("cash sale should earn 2 per KSh 1");
+  if (pointsEarned(1000, 100, "M-Pesa") !== 1800) throw new Error("delivery must not earn points");
+  if (pointsEarned(1000, 0, "Credit_Debt") !== 0 || pointsEarned(1000, 0, "Credit") !== 0) throw new Error("credit sales earn when paid");
+  if (DEBT_PAYMENT_POINTS_PER_KSH * 2 !== POINTS_PER_KSH) throw new Error("debt payments earn half of a cash purchase");
+  const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
+  if (!/\* 2\)\)/.test(sql) || !/FLOOR\(NEW\.amount_paid\)/.test(sql)) throw new Error("database rule differs from the app's");
+});
+
+runTest("A walk-in sale added to a customer later earns the same points as at the till", () => {
+  const sql = readFileSync("supabase/migrations/20261108003_attach_sale_to_customer.sql", "utf8");
+  if (!/FLOOR\(\(v_tx\.final_total - COALESCE\(v_tx\.delivery_fee, 0\)\) \* 2\)/.test(sql)) throw new Error("attach rule differs from the sale rule");
+  if (!/customer_id IS NOT NULL THEN\s+RAISE/.test(sql)) throw new Error("a sale's customer must not be swapped");
+  const base = { id: "x", items: [], total: 100, discount: 0, tax: 0, finalTotal: 100, staffId: "s", staffName: "S", status: "Synced", timestamp: "" } as any;
+  if (cannotAttachReason({ ...base, paymentMethod: "Cash" }) !== null) throw new Error("a walk-in cash sale should take a customer");
+  if (!cannotAttachReason({ ...base, paymentMethod: "Cash", customerId: "c1" })) throw new Error("a sale with a customer must refuse");
+  if (!cannotAttachReason({ ...base, paymentMethod: "Credit_Debt" })) throw new Error("credit sales must refuse");
+});
+
+runTest("Points are worth less per point in higher tiers, as in the database", () => {
+  if (pointsPerShilling(pointValueFor(DEFAULT_POINT_SETTINGS, "Bronze")) !== 50) throw new Error("Bronze: 50 points = KSh 1");
+  if (pointsPerShilling(pointValueFor(DEFAULT_POINT_SETTINGS, "Silver")) !== 100) throw new Error("Silver: 100 points = KSh 1");
+  if (pointsPerShilling(pointValueFor(DEFAULT_POINT_SETTINGS, "Gold")) !== 200) throw new Error("Gold: 200 points = KSh 1");
+  if (pointValueFor(DEFAULT_POINT_SETTINGS, undefined) !== DEFAULT_POINT_SETTINGS.bronze) throw new Error("no tier counts as Bronze");
+  const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
+  if (!/WHEN 'Gold' THEN 0\.005 WHEN 'Silver' THEN 0\.01 ELSE 0\.02/.test(sql)) throw new Error("database tier values differ from the app's");
+  if (/wallet_balance = v_wallet|'wallet_topup'/.test(sql.slice(sql.indexOf("FUNCTION public.fn_redeem_points")))) throw new Error("points must not become wallet money");
+});
+
+runTest("Customer names start every word with a capital", () => {
+  const cases: Array<[string, string]> = [["mary wanjiku", "Mary Wanjiku"], ["  peter   o'neil ", "Peter O'neil"], ["mama of twins", "Mama Of Twins"], ["JOHN", "JOHN"], ["mcDonald", "McDonald"]];
+  for (const [input, want] of cases) if (customerName(input) !== want) throw new Error(`${input} -> ${customerName(input)}`);
 });
 
 runTest("Notifications carry no internal IDs and credit sales are not payments", () => {

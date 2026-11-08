@@ -14,6 +14,8 @@ interface InteractiveGuideProps {
   steps: TourStep[];
   onClose: () => void;
   onStepChange?: (tab: string) => void;
+  /** Phones: opens or closes the "More" sheet, for screens that are not on the bottom bar. */
+  onMoreSheet?: (open: boolean) => void;
 }
 
 export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
@@ -21,6 +23,7 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
   steps,
   onClose,
   onStepChange,
+  onMoreSheet,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -29,17 +32,23 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
   const currentStep = steps[currentStepIndex];
 
   // Helper to resolve dynamic selector and placement based on screen width
-  const getResolvedTarget = () => {
-    if (!currentStep) return { selector: undefined, placement: "bottom" };
+  const getResolvedTarget = (): { selector: string | undefined; placement: NonNullable<TourStep["placement"]>; inMore: boolean } => {
+    if (!currentStep) return { selector: undefined, placement: "bottom", inMore: false };
     let selector = currentStep.targetSelector;
-    let placement = currentStep.placement || "bottom";
+    let placement: NonNullable<TourStep["placement"]> = currentStep.placement || "bottom";
+    let inMore = false;
 
     if (selector && window.innerWidth < 768) {
       if (selector.startsWith("#sidebar-tab-")) {
-        selector = selector.replace("#sidebar-tab-", "#mobile-tab-");
-        // Tabs that don't fit on the bar live behind "More".
-        if (!document.querySelector(selector)) selector = "#mobile-tab-more";
+        const id = selector.slice("#sidebar-tab-".length);
+        selector = `#mobile-tab-${id}`;
         placement = "top";
+        // Screens that don't fit on the bar are in the "More" sheet: point at that exact row.
+        if (!document.querySelector(selector)) {
+          selector = `#mobile-more-${id}`;
+          placement = "bottom";
+          inMore = true;
+        }
       } else if (selector === "#sidebar-brand-header") {
         selector = "#mobile-brand-header";
         placement = "bottom";
@@ -47,16 +56,18 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
         selector = undefined; // Fallback to center screen
       }
     }
-    return { selector, placement };
+    return { selector, placement, inMore };
   };
 
   const { selector: resolvedSelector, placement: resolvedPlacement } = getResolvedTarget();
 
-  // Reset step index when opened
+  // Reset step index when opened; leave the More sheet closed when the tour ends.
   useEffect(() => {
     if (isOpen) {
       setCurrentStepIndex(0);
       lastTabRef.current = undefined;
+    } else {
+      onMoreSheet?.(false);
     }
   }, [isOpen]);
 
@@ -72,9 +83,14 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
     setTargetRect(null);
 
-    // 2. Poll for DOM element availability to handle mounting delays
+    // 2. Open the More sheet for a screen that lives there, close it otherwise.
+    const { inMore } = getResolvedTarget();
+    onMoreSheet?.(inMore);
+
+    // 3. Poll for DOM element availability to handle mounting delays
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 20;
+    let settle: ReturnType<typeof setTimeout> | undefined;
 
     const measureElement = () => {
       const { selector } = getResolvedTarget();
@@ -88,10 +104,11 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
         // Scroll the element into viewport center smoothly
         el.scrollIntoView({ behavior: "smooth", block: "center" });
 
-        // Let the scroll finish, then capture the final rect bounds
-        setTimeout(() => {
+        // Let the scroll (and the sheet sliding up) finish, then capture the final bounds.
+        settle = setTimeout(() => {
           setTargetRect(el.getBoundingClientRect());
-        }, 150);
+          if (inMore) settle = setTimeout(() => setTargetRect(el.getBoundingClientRect()), 350);
+        }, inMore ? 450 : 150);
       } else if (attempts < maxAttempts) {
         attempts++;
         setTimeout(measureElement, 100);
@@ -100,8 +117,11 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
       }
     };
 
-    const timer = setTimeout(measureElement, 150);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(measureElement, inMore ? 250 : 150);
+    return () => {
+      clearTimeout(timer);
+      if (settle) clearTimeout(settle);
+    };
   }, [currentStepIndex, isOpen, currentStep, onStepChange]);
 
   // Recalculate target position on window scroll or resize

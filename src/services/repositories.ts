@@ -3,6 +3,7 @@
 
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
+import { customerName } from "../utils/stringUtils";
 import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
@@ -255,7 +256,7 @@ export class TransactionRepository {
       finalTotal: Number(t.final_total || 0),
       paymentMethod: t.payment_method,
       customerId: t.customer_id,
-      customerName: t.customer_name || "",
+      customerName: customerName(t.customer_name),
       staffId: t.staff_id,
       staffName: t.staff_name,
       timestamp: t.timestamp,
@@ -390,7 +391,7 @@ export class CustomerRepository {
     if (error) { triggerNetworkFailureEvent(); throw error; }
     return (data || []).map(c => ({
       id: c.id,
-      name: c.name,
+      name: customerName(c.name),
       phone: c.phone,
       email: c.email || "",
       loyaltyPoints: c.loyalty_points,
@@ -425,7 +426,7 @@ export class CustomerRepository {
 
     return {
       id: data.id,
-      name: data.name,
+      name: customerName(data.name),
       phone: data.phone,
       email: data.email || "",
       loyaltyPoints: data.loyalty_points,
@@ -480,7 +481,7 @@ export class CustomerRepository {
     const payload = {
       id: customer.id ? toUuid(customer.id) : undefined,
       business_id: toUuid(customer.businessId || activeBusinessId),
-      name: normalizeForStorage(customer.name),
+      name: customerName(customer.name),
       phone: customer.phone,
       email: customer.email ? normalizeForStorage(customer.email) : "",
       loyalty_points: customer.loyaltyPoints || 0,
@@ -502,7 +503,7 @@ export class CustomerRepository {
 
     return {
       id: data.id,
-      name: data.name,
+      name: customerName(data.name),
       phone: data.phone,
       email: data.email || "",
       loyaltyPoints: Number(data.loyalty_points),
@@ -527,7 +528,7 @@ export class CustomerRepository {
     const supabase = getSupabase();
     const payload: Record<string, any> = {};
 
-    if (updates.name !== undefined) payload.name = normalizeForStorage(updates.name);
+    if (updates.name !== undefined) payload.name = customerName(updates.name);
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.email !== undefined) payload.email = updates.email ? normalizeForStorage(updates.email) : updates.email;
     if (updates.loyaltyPoints !== undefined) payload.loyalty_points = updates.loyaltyPoints;
@@ -548,7 +549,7 @@ export class CustomerRepository {
 
     return {
       id: data.id,
-      name: data.name,
+      name: customerName(data.name),
       phone: data.phone,
       email: data.email || "",
       loyaltyPoints: Number(data.loyalty_points),

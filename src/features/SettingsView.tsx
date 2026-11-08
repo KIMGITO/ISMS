@@ -66,7 +66,7 @@ import {
   validatePhone,
   SUPPORTED_COUNTRIES,
 } from '../utils/phoneUtils';
-import ReceiptSettingsPanel from '../components/receipts/ReceiptSettingsPanel';
+import ReceiptSettingsPanel, { InvoiceSettingsPanel } from '../components/receipts/ReceiptSettingsPanel';
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import { SupabaseService } from '../services/supabaseService';
 import { Switch } from '../components/shared/Switch';
@@ -76,10 +76,11 @@ interface SettingsViewProps {
   onRestartTour?: () => void;
 }
 
-type SectionId = 'receipts' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'notifications' | 'help' | 'session';
+type SectionId = 'receipts' | 'invoices' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'notifications' | 'help' | 'session';
 
 const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode })[] = [
   { id: 'receipts', group: 'Shop', label: 'Receipts & printing', description: 'Paper, shop details, printers and KRA eTIMS', icon: ReceiptText, keywords: 'tax kra etims printer bluetooth wifi thermal qr barcode paper', permission: 'settings.tax' },
+  { id: 'invoices', group: 'Shop', label: 'Invoices', description: 'Layout, texts, payment details and stamp', icon: FileText, keywords: 'invoice debt statement a5 stamp prefix number', permission: 'settings.tax' },
   { id: 'sms', group: 'Connections', label: 'SMS', description: 'Text messages through Twilio', icon: MessageSquareText, keywords: 'twilio phone text', permission: 'settings.integrations' },
   { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
   { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
@@ -865,6 +866,7 @@ export default function SettingsView({
             active={activeSection}
             onSelect={setActiveSection}
             searchPlaceholder="Search settings"
+            collapseKey="kkm_settings_nav_collapsed"
           >
           <div className="flex flex-col gap-5">
             {/* Banner Alert if NOT Owner/Admin */}
@@ -893,6 +895,7 @@ export default function SettingsView({
               {/* 0. INTERACTIVE GUIDE TOUR SECTION */}
 
               {activeSection === 'receipts' && hasRolePermission(currentRole, 'settings.tax') && <ReceiptSettingsPanel />}
+              {activeSection === 'invoices' && hasRolePermission(currentRole, 'settings.tax') && <InvoiceSettingsPanel />}
 
               {/* Centralized Device Hardware Permissions Card */}
               {activeSection === 'device' && hasRolePermission(currentRole, 'settings.view') && (

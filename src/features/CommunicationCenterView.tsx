@@ -1,4 +1,5 @@
 import { Customer } from "../types";
+import { customerName } from '../utils/stringUtils';
 import React, { useState, useMemo, useEffect } from "react";
 import { useAppStore } from "../stores/appStore";
 import { useBusinessStore } from "../stores/businessStore";
@@ -469,7 +470,7 @@ export default function CommunicationCenterView() {
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[13px] font-extrabold truncate">{titleCase(c.name)}</span>
+                            <span className="text-[13px] font-extrabold truncate">{customerName(c.name)}</span>
                             <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${
                               c.tier === "Gold" ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" :
                               c.tier === "Silver" ? "bg-slate-500/15 text-slate-400 border border-slate-500/20" :
@@ -517,7 +518,7 @@ export default function CommunicationCenterView() {
                               )}
                             </td>
                             <td className="p-2 text-amber-500 font-extrabold">{getFirstName(c.name)}</td>
-                            <td className="p-2">{titleCase(c.name)}</td>
+                            <td className="p-2">{customerName(c.name)}</td>
                             <td className="p-2 font-mono">
                               <span className="flex items-center gap-1.5 opacity-80">
                                 <Phone size={10} />

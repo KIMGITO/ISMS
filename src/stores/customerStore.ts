@@ -1,5 +1,6 @@
 // src/stores/customerStore.ts
 import { create } from "zustand";
+import { customerName } from "../utils/stringUtils";
 import { Customer } from "../types";
 import { useBusinessStore } from "./businessStore";
 import { CustomerRepository } from "../services/repositories";
@@ -90,6 +91,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       const normalizedPhone = normalizePhone(customerData.phone);
       const newCustomer = {
         ...customerData,
+        name: customerName(customerData.name),
         phone: normalizedPhone,
         joinDate: new Date().toISOString().split("T")[0],
         loyaltyPoints: customerData.loyaltyPoints || 10,
@@ -128,6 +130,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       const normalizedPhone = normalizePhone(customer.phone);
       await CustomerRepository.update(customer.id, {
         ...customer,
+        name: customerName(customer.name),
         phone: normalizedPhone,
       });
     },

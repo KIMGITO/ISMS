@@ -235,6 +235,8 @@ export interface Snapshot {
   orders: number;
   cost: number;
   expenses: number;
+  /** Debt paid off with loyalty points: no money came in, so it is a cost. */
+  pointsCost: number;
   profit: number;
   creditSales: number;
   received: Record<MethodKey, number>;
@@ -249,6 +251,7 @@ function emptySnapshot(): Snapshot {
     orders: 0,
     cost: 0,
     expenses: 0,
+    pointsCost: 0,
     profit: 0,
     creditSales: 0,
     received: { "M-Pesa": 0, Cash: 0, Card: 0, Bank: 0, Credit: 0 },
@@ -275,6 +278,11 @@ export interface DashboardInput {
   expenses: Expense[];
   debtPayments: DebtPayment[];
   payments: Payment[];
+  /**
+   * Points used to pay off debt. Points used at the till or online are already off the sale's
+   * total, so they are not listed here.
+   */
+  pointsToDebt?: { date: string; value: number }[];
 }
 
 /**
@@ -364,7 +372,16 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     } else if (inRange(ts, prev)) previous.expenses += e.amount || 0;
   }
 
-  for (const s of [...perSlot, previous]) s.profit = s.sales - s.cost - s.expenses;
+  for (const r of input.pointsToDebt || []) {
+    const ts = kenyaTime(r.date);
+    if (!Number.isFinite(ts)) continue;
+    if (inRange(ts, range)) {
+      const i = bucketIndex(ts, buckets);
+      if (i >= 0) perSlot[i].pointsCost += r.value || 0;
+    } else if (inRange(ts, prev)) previous.pointsCost += r.value || 0;
+  }
+
+  for (const s of [...perSlot, previous]) s.profit = s.sales - s.cost - s.expenses - s.pointsCost;
 
   const series: SeriesPoint[] = buckets.map((b, i) => ({
     label: b.label,
@@ -392,6 +409,7 @@ function mergeSnapshots(a: Snapshot, b: Snapshot): Snapshot {
   out.orders = a.orders + b.orders;
   out.cost = a.cost + b.cost;
   out.expenses = a.expenses + b.expenses;
+  out.pointsCost = a.pointsCost + b.pointsCost;
   out.profit = a.profit + b.profit;
   out.creditSales = a.creditSales + b.creditSales;
   for (const m of METHODS) out.received[m] = a.received[m] + b.received[m];

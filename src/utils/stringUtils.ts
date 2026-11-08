@@ -1,6 +1,21 @@
 // src/utils/stringUtils.ts
 
 /**
+ * A customer's name as it is stored and shown: every word starts with a capital letter and the
+ * rest is kept ("mary wanjiku" -> "Mary Wanjiku", "mcdonald o'neil" -> "Mcdonald O'neil",
+ * "JOHN" stays "JOHN"). The database applies the same rule (fn_capitalize_words).
+ */
+export function customerName(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
  * Capitalizes the first letter of a string.
  */
 export function capitalize(str: string | null | undefined): string {

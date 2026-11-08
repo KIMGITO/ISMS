@@ -180,6 +180,10 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
     setError(null);
     try {
       const done = await issueInvoice({ businessId: activeBusinessId, customerId: customer.id, doc, createdBy: employeeName });
+      // Texts changed for this invoice become the starting point for the next one.
+      if (textsDirty) {
+        saveInvoiceTexts(done.texts).then(() => setTextsDirty(false)).catch(() => {});
+      }
       setDoc(done);
       setPane('preview');
       onIssued?.(done);
@@ -189,7 +193,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
     } finally {
       setBusy(null);
     }
-  }, [doc, customer?.id, activeBusinessId, canIssue, employeeName]);
+  }, [doc, customer?.id, activeBusinessId, canIssue, employeeName, textsDirty]);
 
   const run = async (kind: Exclude<Busy, null>, fn: () => Promise<unknown>) => {
     setBusy(kind);
@@ -511,7 +515,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                           <button onClick={saveTexts} disabled={!textsDirty || busy !== null} className={`${btn} w-full bg-app-bg hover:bg-app-border/50`}>
                             {busy === 'save' ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />} Use these texts for new invoices
                           </button>
-                          <p className="text-xs text-app-text-muted">Labels, stamp wording and other defaults are in Settings → Receipts → Invoices.</p>
+                          <p className="text-xs text-app-text-muted">Labels, stamp wording and other defaults are in Settings → Invoices.</p>
                         </section>
                       </>
                     )}

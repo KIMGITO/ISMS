@@ -2,6 +2,7 @@
 import { AppError } from "../utils/userError";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
+import { customerName } from "../utils/stringUtils";
 import { Product, Transaction, Customer, Employee, Shift, DbSchedule, CustomerLedgerEntry, DebtPayment } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 
@@ -78,7 +79,7 @@ export class SupabaseService {
       finalTotal: Number(t.final_total),
       paymentMethod: t.payment_method,
       customerId: t.customer_id,
-      customerName: t.customer_name,
+      customerName: customerName(t.customer_name) || undefined,
       staffId: t.staff_id,
       staffName: t.staff_name,
       status: t.status as any,
@@ -145,7 +146,7 @@ export class SupabaseService {
         wallet_applied: walletApplied,
         payment_method: tx.paymentMethod,
         customer_id: tx.customerId ? toUuid(tx.customerId) : null,
-        customer_name: tx.customerName,
+        customer_name: customerName(tx.customerName) || null,
         staff_id: tx.staffId ? toUuid(tx.staffId) : null,
         staff_name: tx.staffName,
         status: "Synced",
@@ -491,7 +492,7 @@ export class SupabaseService {
 
     return (data || []).map(c => ({
       id: c.id,
-      name: c.name,
+      name: customerName(c.name),
       phone: c.phone,
       email: c.email || "",
       loyaltyPoints: c.loyalty_points,

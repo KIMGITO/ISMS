@@ -69,6 +69,33 @@ export default function HomeDashboard() {
     };
   }, [activeBusinessId]);
 
+  // Debt paid off with loyalty points is a cost (no money came in), so it comes off profit.
+  const [pointsToDebt, setPointsToDebt] = useState<{ date: string; value: number }[]>([]);
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    let live = true;
+    import("../../services/supabaseClient")
+      .then(({ getSupabase }) =>
+        getSupabase()
+          .from("loyalty_redemptions")
+          .select("created_at, value")
+          .eq("business_id", toUuid(activeBusinessId))
+          .eq("kind", "account")
+          .is("refunded_at", null)
+          .order("created_at", { ascending: false })
+          .limit(5000),
+      )
+      .then(({ data, error }) => {
+        // Before the points migration the column does not exist; profit then counts no points.
+        if (!live || error) return;
+        setPointsToDebt((data || []).map((r: any) => ({ date: r.created_at, value: Number(r.value) || 0 })));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [activeBusinessId]);
+
   // Re-evaluated each minute so "today" rolls over without a reload.
   const [now, setNow] = useState(() => kenyaNow());
   useEffect(() => {
@@ -85,8 +112,8 @@ export default function HomeDashboard() {
   const playback = usePlayback(buckets, range.start);
 
   const data = useMemo(
-    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments }, range, buckets),
-    [transactions, expenses, debtPayments, payments, range, buckets],
+    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments, pointsToDebt }, range, buckets),
+    [transactions, expenses, debtPayments, payments, pointsToDebt, range, buckets],
   );
   const { total, previous, series, cumulative } = data;
   const at = (frame: number | null) => (frame === null ? total : cumulative[frame] || total);
@@ -307,7 +334,7 @@ export default function HomeDashboard() {
       meaning: total.orders ? `${total.orders.toLocaleString()} orders · ${formatKsh(aov, true)} each` : "No orders yet",
     },
     {
-      label: "Profit", hint: "Estimate: sales minus product cost and expenses", value: formatKsh(total.profit, true), full: formatKsh(total.profit), change: growth(total.profit, previous.profit), polarity: "up",
+      label: "Profit", hint: "Estimate: sales minus product cost, expenses and debt paid with points", value: formatKsh(total.profit, true), full: formatKsh(total.profit), change: growth(total.profit, previous.profit), polarity: "up",
       spark: series.map((p) => p.profit), color: "var(--viz-3)",
       meaning: margin === null ? "No sales yet" : total.profit < 0 ? "Spending is above sales" : `Kept ${Math.round(margin)}% of sales`,
     },

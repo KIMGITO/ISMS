@@ -1,6 +1,8 @@
 import { Transaction } from "../../types";
+import { pointsEarned as earnedOnSale } from "../loyalty/tillPoints";
 import { ReceiptContent, BusinessReceiptSettings, ReceiptItem, KraSignature } from "./types";
 import { getShortId } from "../../utils/idUtils";
+import { customerName } from "../../utils/stringUtils";
 
 export interface ReceiptExtras {
   customerPhone?: string;
@@ -92,7 +94,8 @@ function loyaltyFor(tx: Transaction, extras: ReceiptExtras): ReceiptContent["loy
   if (!tx.customerId) return undefined;
   const pointsUsed = extras.pointsUsed?.points || 0;
   const pointsValue = round2(extras.pointsUsed?.value || 0);
-  const pointsEarned = Math.max(0, Math.floor(((Number(tx.finalTotal) || 0) - (tx.isDelivery ? Number(tx.deliveryFee) || 0 : 0)) / 100));
+  // Same rule as the database: 2 per KSh 1 paid, none on a credit sale.
+  const pointsEarned = earnedOnSale(Number(tx.finalTotal) || 0, tx.isDelivery ? Number(tx.deliveryFee) || 0 : 0, tx.paymentMethod);
   const balance = typeof extras.customerPoints === "number" && Number.isFinite(extras.customerPoints) ? extras.customerPoints : undefined;
   if (!pointsUsed && !pointsEarned && balance === undefined) return undefined;
   return { pointsUsed, pointsValue, pointsEarned, balance };
@@ -128,7 +131,7 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     transactionDate: formatDate(when, settings.dateFormat),
     transactionTime: formatTime(when, settings.timeFormat),
     cashierName: tx.staffName || "",
-    customerName: tx.customerName || undefined,
+    customerName: customerName(tx.customerName) || undefined,
     customerPhone: extras.customerPhone || undefined,
     customerEmail: extras.customerEmail || undefined,
     paymentMethodCode: tx.paymentMethod,

@@ -31,7 +31,8 @@ export function previewMerge(keep: Customer, merge: Customer) {
   const offset = Math.min(debt, wallet);
   const points = keep.loyaltyPoints + merge.loyaltyPoints;
   // Tiers rise with points in the database, so adding two balances can move someone up.
-  const earned: CustomerTier = points >= 300 ? "Gold" : points >= 100 ? "Silver" : "Bronze";
+  // Same levels as calculate_customer_tier (KSh 10,000 / 30,000 spent at 2 points per KSh 1).
+  const earned: CustomerTier = points >= 60000 ? "Gold" : points >= 20000 ? "Silver" : "Bronze";
   return {
     debt: debt - offset,
     wallet: wallet - offset,

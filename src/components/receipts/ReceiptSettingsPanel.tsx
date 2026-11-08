@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ReceiptText, Save, Printer, Bluetooth, Wifi, Trash2, Star, RefreshCw, ShieldCheck, ShieldAlert, Unplug } from 'lucide-react';
+import { ReceiptText, FileText, Save, Printer, Bluetooth, Wifi, Trash2, Star, RefreshCw, ShieldCheck, ShieldAlert, Unplug } from 'lucide-react';
 import { Tabs } from '../TabOptions';
 import { Switch } from '../shared/Switch';
+import SearchableDropdown from '../SearchableDropdown';
 import { useAppStore } from '../../stores/appStore';
 import { useBusinessStore } from '../../stores/businessStore';
 import { hasRolePermission } from '../../utils/permissions';
@@ -21,7 +22,7 @@ import { getInvoiceTexts, saveInvoiceTexts, invoiceAccent } from '../../services
 import { nextInvoiceNumber } from '../../services/invoice/invoiceData';
 import { addDays, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
 
-type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'invoices' | 'kra';
+type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'kra';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'layout', label: 'Paper & format' },
@@ -29,7 +30,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'messages', label: 'Messages' },
   { id: 'codes', label: 'Codes' },
   { id: 'printers', label: 'Printers' },
-  { id: 'invoices', label: 'Invoices' },
   { id: 'kra', label: 'KRA eTIMS' },
 ];
 
@@ -37,12 +37,29 @@ const label = 'block text-xs font-medium text-app-text-muted mb-1';
 const input = 'w-full bg-app-bg text-app-text px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500';
 
 function Field({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  // A dropdown has its own search box; inside a <label> a click there would re-open the trigger.
+  const Tag = React.isValidElement(children) && children.type === Pick ? 'div' : 'label';
   return (
-    <label className="block">
+    <Tag className="block">
       <span className={label}>{title}</span>
       {children}
       {hint && <span className="block mt-1 text-xs text-app-text-muted">{hint}</span>}
-    </label>
+    </Tag>
+  );
+}
+
+/** The app's dropdown for a fixed list of choices. A choice that isn't available yet says why and can't be picked. */
+function Pick({ value, options, onChange }: { value: string; options: { id: string; label: string; sublabel?: string; disabled?: boolean }[]; onChange: (v: string) => void }) {
+  return (
+    <SearchableDropdown
+      items={options.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }))}
+      selectedValue={value}
+      onChange={(v) => {
+        const o = options.find((x) => x.id === v);
+        if (o && !o.disabled) onChange(v);
+      }}
+      placeholder="Choose"
+    />
   );
 }
 
@@ -67,18 +84,26 @@ export default function ReceiptSettingsPanel() {
     setDirty(true);
   };
 
-  const save = async () => {
+  // Changes save by themselves shortly after you stop, and stay until changed again.
+  const [savedOnce, setSavedOnce] = useState(false);
+  const save = async (quiet = false) => {
     setSaving(true);
     try {
       await ReceiptService.saveSettings(settings);
       setDirty(false);
-      showToast('Saved', 'Receipt settings saved.', undefined, 'success');
+      setSavedOnce(true);
+      if (!quiet) showToast('Saved', 'Receipt settings saved.', undefined, 'success');
     } catch (err) {
       showToast('Not saved', toUserMessage(err, 'Could not save the receipt settings.'), undefined, 'error');
     } finally {
       setSaving(false);
     }
   };
+  useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => save(true), 900);
+    return () => clearTimeout(t);
+  }, [settings, dirty]);
 
   // Preview with the most recent real sale; there is no made-up sample.
   const latestSale = useMemo(() => {
@@ -95,7 +120,9 @@ export default function ReceiptSettingsPanel() {
       <div className="flex items-center gap-2">
         <ReceiptText size={18} className="text-amber-500" />
         <h3 className="text-sm font-semibold text-app-text">Receipts & printing</h3>
-        {dirty && <span className="ml-auto text-xs text-amber-600">Unsaved changes</span>}
+        <span className="ml-auto text-xs text-app-text-muted" aria-live="polite">
+          {saving ? 'Saving…' : dirty ? 'Unsaved changes' : savedOnce ? 'Saved' : 'Changes save by themselves'}
+        </span>
       </div>
 
       <Tabs<Tab> tabs={TABS} activeTab={tab} onChange={setTab} className="!pb-2" />
@@ -106,18 +133,26 @@ export default function ReceiptSettingsPanel() {
             <>
               <div className="grid sm:grid-cols-2 gap-3">
                 <Field title="Paper roll width" hint="Used for the printer, the PDF and the preview.">
-                  <select className={input} value={settings.paperWidth} onChange={(e) => update({ paperWidth: e.target.value as BusinessReceiptSettings['paperWidth'] })}>
-                    <option value="58mm">58 mm (small, most Bluetooth printers)</option>
-                    <option value="80mm">80 mm (wide, counter printers)</option>
-                  </select>
+                  <Pick
+                    value={settings.paperWidth}
+                    onChange={(v) => update({ paperWidth: v as BusinessReceiptSettings['paperWidth'] })}
+                    options={[
+                      { id: '58mm', label: '58 mm', sublabel: 'Small, most Bluetooth printers' },
+                      { id: '80mm', label: '80 mm', sublabel: 'Wide, counter printers' },
+                    ]}
+                  />
                 </Field>
                 <Field title="Characters per line" hint="Change only if lines wrap or stop short on your printer's test page.">
-                  <select className={input} value={settings.charsPerLine} onChange={(e) => update({ charsPerLine: Number(e.target.value) })}>
-                    <option value={0}>Standard ({settings.paperWidth === '80mm' ? 48 : 32})</option>
-                    <option value={32}>32</option>
-                    <option value={42}>42</option>
-                    <option value={48}>48</option>
-                  </select>
+                  <Pick
+                    value={String(settings.charsPerLine)}
+                    onChange={(v) => update({ charsPerLine: Number(v) })}
+                    options={[
+                      { id: '0', label: `Standard (${settings.paperWidth === '80mm' ? 48 : 32})` },
+                      { id: '32', label: '32' },
+                      { id: '42', label: '42' },
+                      { id: '48', label: '48' },
+                    ]}
+                  />
                 </Field>
                 <Field title="Currency on totals">
                   <input className={input} value={settings.currencyFormat} onChange={(e) => update({ currencyFormat: e.target.value })} placeholder="KSh" />
@@ -131,31 +166,38 @@ export default function ReceiptSettingsPanel() {
                       placeholder="RCT"
                       aria-label="Receipt number prefix"
                     />
-                    <select
-                      className={input}
+                    <Pick
                       value={settings.receiptNumberFormat}
-                      onChange={(e) => update({ receiptNumberFormat: e.target.value as BusinessReceiptSettings['receiptNumberFormat'] })}
-                      aria-label="Receipt number format"
-                    >
-                      <option value="PREFIX-YYYY-INCREMENT">Prefix-Year-ID</option>
-                      <option value="PREFIX-INCREMENT">Prefix-ID</option>
-                      <option value="INCREMENT">ID only</option>
-                    </select>
+                      onChange={(v) => update({ receiptNumberFormat: v as BusinessReceiptSettings['receiptNumberFormat'] })}
+                      options={[
+                        { id: 'PREFIX-YYYY-INCREMENT', label: 'Prefix-Year-ID' },
+                        { id: 'PREFIX-INCREMENT', label: 'Prefix-ID' },
+                        { id: 'INCREMENT', label: 'ID only' },
+                      ]}
+                    />
                   </div>
                 </Field>
                 <Field title="Date format">
-                  <select className={input} value={settings.dateFormat} onChange={(e) => update({ dateFormat: e.target.value as BusinessReceiptSettings['dateFormat'] })}>
-                    <option value="DD/MM/YYYY">24/12/2026</option>
-                    <option value="MM/DD/YYYY">12/24/2026</option>
-                    <option value="YYYY-MM-DD">2026-12-24</option>
-                    <option value="medium">24 Dec 2026</option>
-                  </select>
+                  <Pick
+                    value={settings.dateFormat}
+                    onChange={(v) => update({ dateFormat: v as BusinessReceiptSettings['dateFormat'] })}
+                    options={[
+                      { id: 'DD/MM/YYYY', label: '24/12/2026' },
+                      { id: 'MM/DD/YYYY', label: '12/24/2026' },
+                      { id: 'YYYY-MM-DD', label: '2026-12-24' },
+                      { id: 'medium', label: '24 Dec 2026' },
+                    ]}
+                  />
                 </Field>
                 <Field title="Time format">
-                  <select className={input} value={settings.timeFormat} onChange={(e) => update({ timeFormat: e.target.value as '12h' | '24h' })}>
-                    <option value="24h">16:35</option>
-                    <option value="12h">4:35 PM</option>
-                  </select>
+                  <Pick
+                    value={settings.timeFormat}
+                    onChange={(v) => update({ timeFormat: v as '12h' | '24h' })}
+                    options={[
+                      { id: '24h', label: '16:35' },
+                      { id: '12h', label: '4:35 PM' },
+                    ]}
+                  />
                 </Field>
               </div>
               <p className="text-xs text-app-text-muted">
@@ -219,13 +261,17 @@ export default function ReceiptSettingsPanel() {
                 description="A Code 128 barcode of the receipt ID, for looking the sale up later."
               />
               <Field title="Extra QR code" hint="The KRA verification QR is added by itself to sales KRA has signed.">
-                <select className={input} value={settings.extraQr} onChange={(e) => update({ extraQr: e.target.value as ExtraQrOption })}>
-                  <option value="none">None</option>
-                  <option value="whatsapp_chat" disabled={!settings.phone}>WhatsApp chat with the shop{settings.phone ? '' : ' (add a phone first)'}</option>
-                  <option value="business_website" disabled={!settings.website}>Shop website{settings.website ? '' : ' (add a website first)'}</option>
-                  <option value="google_review" disabled={!settings.businessName}>Google review</option>
-                  <option value="custom_url">Your own link</option>
-                </select>
+                <Pick
+                  value={settings.extraQr}
+                  onChange={(v) => update({ extraQr: v as ExtraQrOption })}
+                  options={[
+                    { id: 'none', label: 'None' },
+                    { id: 'whatsapp_chat', label: 'WhatsApp chat with the shop', disabled: !settings.phone, sublabel: settings.phone ? undefined : 'Add a phone first' },
+                    { id: 'business_website', label: 'Shop website', disabled: !settings.website, sublabel: settings.website ? undefined : 'Add a website first' },
+                    { id: 'google_review', label: 'Google review', disabled: !settings.businessName, sublabel: settings.businessName ? undefined : 'Add the shop name first' },
+                    { id: 'custom_url', label: 'Your own link' },
+                  ]}
+                />
               </Field>
               {settings.extraQr === 'custom_url' && (
                 <Field title="Link for the QR code">
@@ -239,12 +285,10 @@ export default function ReceiptSettingsPanel() {
 
           {tab === 'kra' && activeBusinessId && <KraTab businessId={activeBusinessId} canConnect={canConnectKra} />}
 
-          {tab === 'invoices' && activeBusinessId && <InvoicesTab businessId={activeBusinessId} receipt={settings} />}
-
-          {tab !== 'kra' && tab !== 'invoices' && (
+          {tab !== 'kra' && (
             <button
               type="button"
-              onClick={save}
+              onClick={() => save()}
               disabled={saving || !dirty}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 cursor-pointer"
             >
@@ -253,7 +297,7 @@ export default function ReceiptSettingsPanel() {
           )}
         </div>
 
-        {tab !== 'kra' && tab !== 'printers' && tab !== 'invoices' && (
+        {tab !== 'kra' && tab !== 'printers' && (
           <div className="lg:w-[20rem]">
             <p className={label}>{previewLines ? 'Preview with your latest sale' : 'Preview'}</p>
             {previewLines ? (
@@ -336,13 +380,7 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
 
       <div className="grid sm:grid-cols-2 gap-3">
         <Field title="Copies per receipt">
-          <select className={input} value={prefs.copies} onChange={(e) => printerService.savePrefs({ copies: Number(e.target.value) })}>
-            {[1, 2, 3].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          <Pick value={String(prefs.copies)} onChange={(v) => printerService.savePrefs({ copies: Number(v) })} options={[1, 2, 3].map((n) => ({ id: String(n), label: String(n) }))} />
         </Field>
       </div>
       <Switch checked={prefs.autoCut} onChange={(v) => printerService.savePrefs({ autoCut: v })} label="Cut the paper after printing" description="Turn off for printers without a cutter if they print a stray character." />
@@ -461,10 +499,14 @@ function KraTab({ businessId, canConnect }: { businessId: string; canConnect: bo
 
       <fieldset disabled={!canConnect || busy !== null} className="grid sm:grid-cols-2 gap-3 disabled:opacity-70">
         <Field title="System">
-          <select className={input} value={form.environment} onChange={(e) => set({ environment: e.target.value as 'sandbox' | 'production' })}>
-            <option value="sandbox">KRA test system (sandbox)</option>
-            <option value="production">KRA live system</option>
-          </select>
+          <Pick
+            value={form.environment}
+            onChange={(v) => set({ environment: v as 'sandbox' | 'production' })}
+            options={[
+              { id: 'sandbox', label: 'KRA test system (sandbox)' },
+              { id: 'production', label: 'KRA live system' },
+            ]}
+          />
         </Field>
         <Field title="KRA PIN">
           <input className={`${input} uppercase font-mono`} value={form.pin} onChange={(e) => set({ pin: e.target.value.toUpperCase() })} placeholder="P051234567X" />
@@ -479,11 +521,15 @@ function KraTab({ businessId, canConnect }: { businessId: string; canConnect: bo
           <input className={`${input} font-mono`} value={form.itemClassCode} onChange={(e) => set({ itemClassCode: e.target.value.replace(/\D/g, '').slice(0, 10) })} inputMode="numeric" />
         </Field>
         <Field title="Sales without VAT are" hint="Used when the business tax setting is off, and for delivery fees.">
-          <select className={input} value={form.noVatTaxType} onChange={(e) => set({ noVatTaxType: e.target.value as 'A' | 'C' | 'D' })}>
-            <option value="D">Non-VAT (D)</option>
-            <option value="A">Exempt (A)</option>
-            <option value="C">Zero-rated (C)</option>
-          </select>
+          <Pick
+            value={form.noVatTaxType}
+            onChange={(v) => set({ noVatTaxType: v as 'A' | 'C' | 'D' })}
+            options={[
+              { id: 'D', label: 'Non-VAT (D)' },
+              { id: 'A', label: 'Exempt (A)' },
+              { id: 'C', label: 'Zero-rated (C)' },
+            ]}
+          />
         </Field>
       </fieldset>
 
@@ -537,12 +583,18 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
     setTexts((t) => ({ ...t, ...patch }));
     setDirty(true);
   };
-  const save = async () => {
+  // Saves by itself shortly after a change; new invoices start from these until changed.
+  useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => save(true), 900);
+    return () => clearTimeout(t);
+  }, [texts, dirty]);
+  const save = async (quiet = false) => {
     setSaving(true);
     try {
       await saveInvoiceTexts(texts);
       setDirty(false);
-      showToast('Saved', 'New invoices will use these settings.', undefined, 'success');
+      if (!quiet) showToast('Saved', 'New invoices will use these settings.', undefined, 'success');
     } catch (err) {
       showToast('Not saved', toUserMessage(err, 'Could not save the invoice settings.'), undefined, 'error');
     } finally {
@@ -582,11 +634,11 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
           <Field title="Note under the title"><input className={input} value={texts.note} onChange={(e) => set({ note: e.target.value })} /></Field>
           <Field title="Days to pay"><input type="number" min={0} max={365} className={input} value={texts.dueDays} onChange={(e) => set({ dueDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) })} /></Field>
           <Field title="Start new invoices with">
-            <select className={input} value={texts.defaultPeriod} onChange={(e) => set({ defaultPeriod: e.target.value as InvoicePeriodPreset })}>
-              {(['all', 'this_week', 'last_week', 'this_month', 'last_month'] as InvoicePeriodPreset[]).map((p) => (
-                <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
-              ))}
-            </select>
+            <Pick
+              value={texts.defaultPeriod}
+              onChange={(v) => set({ defaultPeriod: v as InvoicePeriodPreset })}
+              options={(['all', 'this_week', 'last_week', 'this_month', 'last_month'] as InvoicePeriodPreset[]).map((p) => ({ id: p, label: PERIOD_LABELS[p] }))}
+            />
           </Field>
           <Field title="Thank-you line"><input className={input} value={texts.thankYou} onChange={(e) => set({ thankYou: e.target.value })} /></Field>
         </div>
@@ -633,11 +685,11 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
 
         <button
           type="button"
-          onClick={save}
+          onClick={() => save()}
           disabled={saving || !dirty}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 cursor-pointer"
         >
-          {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} Save invoice settings
+          {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} {dirty ? 'Save now' : 'Saved'}
         </button>
         <p className="text-xs text-app-text-muted">Make an invoice from a customer's page in Loyalty → Invoices.</p>
       </div>
@@ -648,6 +700,24 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
           <InvoicePaper doc={sample} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Settings → Invoices: the layout and wording every new invoice starts with. */
+export function InvoiceSettingsPanel() {
+  const activeBusinessId = useBusinessStore((s) => s.activeBusinessId);
+  const receiptConfig = useBusinessStore((s) => s.integrationConfigs['receipt']);
+  const receipt = useMemo(() => ReceiptService.getSettings(activeBusinessId || ''), [activeBusinessId, receiptConfig]);
+  if (!activeBusinessId) return null;
+  return (
+    <div className="bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 flex flex-col gap-4" id="invoice-settings">
+      <div className="flex items-center gap-2">
+        <FileText size={18} className="text-amber-500" />
+        <h3 className="text-sm font-semibold text-app-text">Invoices</h3>
+        <span className="ml-auto text-xs text-app-text-muted">Changes save by themselves</span>
+      </div>
+      <InvoicesTab businessId={activeBusinessId} receipt={receipt} />
     </div>
   );
 }

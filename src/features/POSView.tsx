@@ -1,4 +1,5 @@
 import { toUserMessage } from '../utils/userError';
+import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor } from '../services/loyalty/pointValue';
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import React, { useState, useEffect, useRef } from 'react';
@@ -140,18 +141,10 @@ export default function POSView() {
   const [riderName, setRiderName] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [pointsToUse, setPointsToUse] = useState('');
-  const [pointValue, setPointValue] = useState(1);
+  // A point's value depends on the customer's tier (the till checks again when spending).
+  const [pointSettings, setPointSettings] = useState(DEFAULT_POINT_SETTINGS);
   useEffect(() => {
-    if (!activeBusinessId) return;
-    getSupabase()
-      .from('loyalty_settings')
-      .select('point_value')
-      .eq('business_id', activeBusinessId)
-      .maybeSingle()
-      .then(({ data }) => {
-        const v = Number(data?.point_value);
-        if (Number.isFinite(v) && v > 0) setPointValue(v);
-      });
+    if (activeBusinessId) fetchPointSettings(activeBusinessId).then(setPointSettings);
   }, [activeBusinessId]);
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -209,6 +202,7 @@ export default function POSView() {
 
   // Points the customer is using, at the business's value per point (the till checks again)
   const pointsNum = selectedCustomer ? Math.min(Math.max(0, Math.floor(Number(pointsToUse) || 0)), selectedCustomer.loyaltyPoints || 0) : 0;
+  const pointValue = pointValueFor(pointSettings, selectedCustomer?.tier);
   const pointsDiscount = Math.min(Math.round(pointsNum * pointValue * 100) / 100, subtotalBeforeCartDiscount - cartDiscount);
 
   const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount;

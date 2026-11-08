@@ -527,7 +527,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-app-text">Payments, expenses and M-Pesa</span>
-            <span className="block text-xs text-app-text-muted">These now have their own screen, so managers and cashiers can use them too.</span>
           </span>
           <ChevronRight size={18} className="shrink-0 text-app-text-muted" />
         </button>

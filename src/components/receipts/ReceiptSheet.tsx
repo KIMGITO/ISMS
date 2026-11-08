@@ -16,6 +16,7 @@ import { toUserMessage } from '../../utils/userError';
 import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
 import { Switch } from '../shared/Switch';
+import { SaleCustomerPicker } from '../SaleCustomerPicker';
 
 interface Props {
   transaction: Transaction | null;
@@ -33,7 +34,10 @@ function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="hidden md:inline-block ml-auto px-1.5 rounded border border-current/25 text-[10px] font-mono opacity-60">{children}</kbd>;
 }
 
-export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
+export function ReceiptSheet({ transaction: given, onClose, startPrinting }: Props) {
+  // A customer added from this sheet shows on the receipt straight away.
+  const [attached, setAttached] = useState<Transaction | null>(null);
+  const transaction = given && attached?.id === given.id ? attached : given;
   const open = !!transaction;
   const { customers } = useCustomerStore();
   const { showToast } = useNotificationStore();
@@ -78,7 +82,7 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
     return () => {
       live = false;
     };
-  }, [transaction?.id, businessId, customer?.id, customer?.loyaltyPoints]);
+  }, [transaction?.id, transaction?.customerId, businessId, customer?.id, customer?.loyaltyPoints]);
 
   // When KRA is connected and this sale has no signature yet, ask KRA for one.
   const signWithKra = useCallback(async () => {
@@ -204,8 +208,16 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
   });
 
   // Barcode on or off for this receipt; the default is set in Settings → Receipts → Codes.
+  // The barcode choice is remembered: the next receipts start the same way until it is changed.
   function toggleBarcode() {
-    setReceipt((r) => (r ? { ...r, settings: { ...r.settings, showBarcode: !r.settings.showBarcode } } : r));
+    if (!receipt) return;
+    const showBarcode = !receipt.settings.showBarcode;
+    setReceipt((r) => (r ? { ...r, settings: { ...r.settings, showBarcode } } : r));
+    if (businessId) {
+      ReceiptService.saveSettings({ ...ReceiptService.getSettings(businessId), showBarcode }).catch((err) =>
+        showToast('Not saved', toUserMessage(err, 'The barcode choice applies to this receipt only.'), undefined, 'info'),
+      );
+    }
   }
 
   const columns = receipt ? columnsFor(receipt.settings) : 32;
@@ -292,13 +304,17 @@ export function ReceiptSheet({ transaction, onClose, startPrinting }: Props) {
                   </div>
                 )}
 
+                {transaction && !transaction.customerId && (
+                  <SaleCustomerPicker transaction={transaction} onAttached={setAttached} />
+                )}
+
                 <div className="flex items-center gap-2 px-1">
                   <Switch
                     checked={!!receipt?.settings.showBarcode}
                     onChange={toggleBarcode}
                     disabled={!receipt}
                     label="Barcode"
-                    description="For this receipt. Default in Settings."
+                    description="Kept for the next receipts too."
                     className="flex-1"
                   />
                   <Kbd>B</Kbd>

@@ -71,6 +71,21 @@ export const salesOutbox = {
     write([...queue, { tx: { ...tx, status: "Offline_Pending" }, queuedAt: new Date().toISOString(), attempts: 0 }]);
   },
 
+  /**
+   * Puts a customer on a sale that is still waiting to sync, so the server awards the points
+   * when it arrives. Returns the updated sale, or null when it is no longer queued or is
+   * being sent right now (the caller should retry once it has synced).
+   */
+  setCustomer(referenceId: string, customer: { id: string; name: string }): Transaction | null {
+    if (flushing) return null;
+    const queue = read();
+    const entry = queue.find((q) => q.tx.referenceId === referenceId);
+    if (!entry) return null;
+    const tx = { ...entry.tx, customerId: customer.id, customerName: customer.name };
+    write(queue.map((q) => (q === entry ? { ...q, tx } : q)));
+    return tx;
+  },
+
   /** Calls `fn` now and on every change. Returns an unsubscribe function. */
   subscribe(fn: Listener): () => void {
     listeners.add(fn);

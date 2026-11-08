@@ -1,7 +1,9 @@
 import { toUserMessage } from "../utils/userError";
+import { customerName } from '../utils/stringUtils';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import { useBusinessStore } from '../stores/businessStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
+import { PointsReport } from '../components/loyalty/PointsReport';
 import { listInvoices, IssuedInvoice } from '../services/invoice/invoiceData';
 import type { InvoiceDocument } from '../services/invoice/types';
 import { formatInvoiceDate } from '../services/invoice/invoiceDraft';
@@ -12,7 +14,7 @@ import {
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
   X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
   Brain, RefreshCw,
-  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText
+  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText, Gift, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
@@ -218,6 +220,29 @@ export default function CustomersView() {
   const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
   const canInvoice = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.debts") : false;
   const [showDuplicates, setShowDuplicates] = useState(false);
+  // The points report shows in the right panel instead of a customer.
+  const [showPoints, setShowPoints] = useState(false);
+  // Wide screens: the customer list can fold away to give the customer more room (remembered).
+  const [listCollapsed, setListCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('kkm_loyalty_list_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleList = () =>
+    setListCollapsed((v) => {
+      try {
+        localStorage.setItem('kkm_loyalty_list_collapsed', v ? '0' : '1');
+      } catch {
+        /* storage blocked */
+      }
+      return !v;
+    });
+  const openCustomer = (id: string) => {
+    setShowPoints(false);
+    setSelectedCustomerId(id);
+  };
   const [duplicateCount, setDuplicateCount] = useState(0);
 
   const refreshDuplicateCount = React.useCallback(() => {
@@ -674,18 +699,38 @@ export default function CustomersView() {
       {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
         className={`w-full lg:w-80 xl:w-[21rem] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
-          selectedCustomerId ? 'hidden lg:flex' : 'flex'
-        }`}
+          selectedCustomerId || showPoints ? 'hidden lg:flex' : 'flex'
+        } ${listCollapsed ? 'lg:!hidden' : ''}`}
       >
         {/* Title and actions */}
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 shrink-0">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-app-text leading-tight">Customers</h2>
-            <span className="text-xs text-app-text-muted">
-              {filteredCustomers.length} {filteredCustomers.length === 1 ? 'customer' : 'customers'}
-            </span>
+        <div className="px-4 pt-4 pb-3 shrink-0 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-app-text leading-tight">Customers</h2>
+              <span className="text-xs text-app-text-muted">
+                {filteredCustomers.length} {filteredCustomers.length === 1 ? 'customer' : 'customers'}
+              </span>
+            </div>
+            <button
+              onClick={toggleList}
+              aria-label="Hide the customer list"
+              title="Hide the list for more room"
+              className="hidden lg:grid place-items-center size-9 rounded-xl text-app-text-muted hover:bg-app-bg cursor-pointer"
+            >
+              <PanelLeftClose size={18} />
+            </button>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => {
+                setSelectedCustomerId(null);
+                setShowPoints(true);
+              }}
+              aria-pressed={showPoints}
+              className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${showPoints ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
+            >
+              <Gift size={15} /> Points
+            </button>
             {canMergeCustomers && (
               <button
                 onClick={() => setShowDuplicates(true)}
@@ -705,7 +750,7 @@ export default function CustomersView() {
                   resetForm();
                   setIsAdding(true);
                 }}
-                className="px-3.5 py-2 bg-amber-500 text-slate-950 font-semibold rounded-xl text-sm flex items-center gap-1.5 hover:bg-amber-600 cursor-pointer"
+                className="ml-auto px-3.5 py-2 bg-amber-500 text-slate-950 font-semibold rounded-xl text-sm flex items-center gap-1.5 hover:bg-amber-600 cursor-pointer"
               >
                 <UserPlus size={16} />
                 <span>Add</span>
@@ -758,7 +803,7 @@ export default function CustomersView() {
                 return (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedCustomerId(c.id)}
+                    onClick={() => openCustomer(c.id)}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 cursor-pointer ${
                       isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg'
                     }`}
@@ -768,7 +813,7 @@ export default function CustomersView() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-medium text-app-text truncate">{titleCase(c.name)}</span>
+                        <span className="text-sm font-medium text-app-text truncate">{customerName(c.name)}</span>
                         {offline && <span className="shrink-0 size-1.5 rounded-full bg-amber-500" title="Not synced yet" />}
                       </span>
                       <span className="block text-xs text-app-text-muted truncate">
@@ -784,7 +829,7 @@ export default function CustomersView() {
                         </>
                       ) : (
                         <>
-                          <span className="block text-sm font-semibold text-app-text tabular-nums">{c.loyaltyPoints || 0}</span>
+                          <span className="block text-sm font-semibold text-app-text tabular-nums">{(c.loyaltyPoints || 0).toLocaleString()}</span>
                           <span className="block text-[11px] text-app-text-muted">points</span>
                         </>
                       )}
@@ -799,12 +844,29 @@ export default function CustomersView() {
 
       {/* CUSTOMER: one scroll on phones; side panel on large screens */}
       <div
-        className={`flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
-          !selectedCustomerId ? 'hidden lg:flex' : 'flex'
+        className={`relative flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
+          !selectedCustomerId && !showPoints ? 'hidden lg:flex' : 'flex'
         }`}
       >
-        {selectedCustomer ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain xl:overflow-hidden xl:grid xl:grid-cols-[21rem_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)]">
+        {/* Brings the folded customer list back (wide screens) */}
+        {listCollapsed && (
+          <button
+            onClick={toggleList}
+            aria-label="Show the customer list"
+            title="Show the customer list"
+            className="hidden lg:flex absolute left-2 top-3 z-30 items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-app-card ring-1 ring-app-border text-sm font-medium shadow-sm hover:bg-app-bg cursor-pointer"
+          >
+            <PanelLeftOpen size={16} /> Customers
+          </button>
+        )}
+        {showPoints && !selectedCustomer && activeBusinessId ? (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className={`px-3 pt-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
+              <PointsReport businessId={activeBusinessId} customers={customers} onBack={() => setShowPoints(false)} onOpenCustomer={openCustomer} />
+            </div>
+          </div>
+        ) : selectedCustomer ? (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             {/* Top bar: back, name, close */}
             <div className="sticky top-0 z-20 h-14 bg-app-bg/95 backdrop-blur px-2 flex items-center gap-1 lg:hidden">
               <button
@@ -814,19 +876,20 @@ export default function CustomersView() {
               >
                 <ArrowLeft size={20} />
               </button>
-              <span className="text-sm font-semibold text-app-text truncate">{titleCase(selectedCustomer.name)}</span>
+              <span className="text-sm font-semibold text-app-text truncate">{customerName(selectedCustomer.name)}</span>
             </div>
 
-            <div className="px-3 pb-nav lg:px-6 lg:pt-5 xl:contents">
+            <div className={`px-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
             {/* Who they are */}
-            <aside className="bg-app-card rounded-2xl p-4 mb-3 xl:m-5 xl:mr-0 xl:min-h-0 xl:overflow-y-auto">
+            <aside className="bg-app-card rounded-2xl p-3 mb-3 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-4 lg:items-start">
+              <div className="min-w-0">
               <div className="flex items-start gap-3">
-                <span className={`grid place-items-center size-12 rounded-full shrink-0 text-base font-semibold ${tierTone(selectedCustomer.tier)}`}>
+                <span className={`grid place-items-center size-10 rounded-full shrink-0 text-sm font-semibold ${tierTone(selectedCustomer.tier)}`}>
                   {initials(selectedCustomer.name)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base font-semibold text-app-text truncate">{titleCase(selectedCustomer.name)}</h2>
+                    <h2 className="text-base font-semibold text-app-text truncate">{customerName(selectedCustomer.name)}</h2>
                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 ${tierTone(selectedCustomer.tier)}`}>
                       <Award size={11} />
                       {selectedCustomer.tier}
@@ -848,7 +911,7 @@ export default function CustomersView() {
                 </div>
                 <button
                   onClick={() => setSelectedCustomerId(null)}
-                  className="hidden lg:flex p-2 rounded-xl text-app-text-muted hover:text-app-text hover:bg-app-bg cursor-pointer"
+                  className="hidden lg:flex p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg cursor-pointer"
                   title="Close"
                 >
                   <X size={16} />
@@ -856,61 +919,62 @@ export default function CustomersView() {
               </div>
 
               {/* Balances */}
-              <div className="grid grid-cols-3 gap-2 mt-4">
-                <div className="rounded-xl bg-app-bg p-2.5">
+              <div className="grid grid-cols-3 gap-1.5 mt-3">
+                <div className="rounded-lg bg-app-bg px-2.5 py-1.5">
                   <div className="text-[11px] text-app-text-muted">Points</div>
-                  <div className="text-base font-semibold text-amber-600 dark:text-amber-400 tabular-nums flex items-center gap-1">
-                    <Star size={13} className="fill-current" />
-                    {selectedCustomer.loyaltyPoints || 0}
+                  <div className="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums flex items-center gap-1">
+                    <Star size={12} className="fill-current" />
+                    {(selectedCustomer.loyaltyPoints || 0).toLocaleString()}
                   </div>
                 </div>
-                <div className={`rounded-xl p-2.5 ${(selectedCustomer.debtBalance || 0) > 0 ? 'bg-red-500/10' : 'bg-app-bg'}`}>
+                <div className={`rounded-lg px-2.5 py-1.5 ${(selectedCustomer.debtBalance || 0) > 0 ? 'bg-red-500/10' : 'bg-app-bg'}`}>
                   <div className="text-[11px] text-app-text-muted">Owes (KSh)</div>
-                  <div className={`text-base font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
+                  <div className={`text-sm font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
                     {(selectedCustomer.debtBalance || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
-                <div className={`rounded-xl p-2.5 ${(selectedCustomer.walletBalance || 0) > 0 ? 'bg-emerald-500/10' : 'bg-app-bg'}`}>
+                <div className={`rounded-lg px-2.5 py-1.5 ${(selectedCustomer.walletBalance || 0) > 0 ? 'bg-emerald-500/10' : 'bg-app-bg'}`}>
                   <div className="text-[11px] text-app-text-muted">Wallet (KSh)</div>
-                  <div className={`text-base font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.walletBalance || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>
+                  <div className={`text-sm font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.walletBalance || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>
                     {(selectedCustomer.walletBalance || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
 
               {/* Quick actions: what people come here to do */}
-              <div className="grid grid-cols-4 gap-2 mt-3">
+              <div className="grid grid-cols-4 gap-1.5 mt-2">
                 <a
                   href={`tel:${selectedCustomer.phone}`}
-                  className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-lg bg-app-bg py-1.5 px-1 text-app-text hover:bg-app-border/50"
                 >
-                  <Phone size={18} />
+                  <Phone size={15} />
                   <span className="text-[11px] font-medium">Call</span>
                 </a>
-                <button onClick={() => openTab('message')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
-                  <Send size={18} />
+                <button onClick={() => openTab('message')} className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-lg bg-app-bg py-1.5 px-1 text-app-text hover:bg-app-border/50 cursor-pointer">
+                  <Send size={15} />
                   <span className="text-[11px] font-medium">Message</span>
                 </button>
-                <button onClick={() => openTab('money')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
-                  <Wallet size={18} />
+                <button onClick={() => openTab('money')} className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-lg bg-app-bg py-1.5 px-1 text-app-text hover:bg-app-border/50 cursor-pointer">
+                  <Wallet size={15} />
                   <span className="text-[11px] font-medium">Pay / top up</span>
                 </button>
                 <button
                   onClick={() => (canInvoice && (selectedCustomer.debtBalance || 0) > 0 ? setInvoiceFor(selectedCustomer) : openTab('invoice'))}
-                  className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-lg bg-app-bg py-1.5 px-1 text-app-text hover:bg-app-border/50 cursor-pointer"
                 >
-                  <FileText size={18} />
+                  <FileText size={15} />
                   <span className="text-[11px] font-medium">Invoice</span>
                 </button>
               </div>
 
-              <div className="mt-3">
+              </div>
+              <div className="mt-2 lg:mt-0">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
               </div>
             </aside>
 
             {/* Sections */}
-            <section id="customer-tabs" className="bg-app-card rounded-2xl px-3 pb-4 sm:px-4 scroll-mt-14 xl:m-5 xl:min-h-0 xl:overflow-y-auto">
+            <section id="customer-tabs" className="bg-app-card rounded-2xl px-3 pb-4 sm:px-4 scroll-mt-14">
               {/* Pinned while the section scrolls: under the phone's top bar, at the top on wider screens */}
               <div className="sticky top-14 lg:top-0 z-10 bg-app-card -mx-3 sm:-mx-4 px-3 sm:px-4 pt-3 mb-3 rounded-t-2xl">
                 <Tabs<typeof activeDetailTab>
