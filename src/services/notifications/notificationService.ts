@@ -31,6 +31,7 @@ export class NotificationService {
       "Delivery Assigned",
       "Delivery Completed",
       "Payment Received",
+      "Credit Sale",
       "Role Invitation",
       "Account Activity",
       "System Update",
@@ -119,7 +120,7 @@ export class NotificationService {
       insightText: message,
       confidenceScore,
     }, {
-      title: `🤖 ${title}`,
+      title,
       priority,
       actionTarget: "ai_insight",
       createdBy: "ai_engine",
@@ -156,20 +157,22 @@ export class NotificationService {
   }
 
   /**
-   * Helper to create delivery updates
+   * Delivery updates, built from the real order.
    */
   public static createDeliveryNotification(
     riderName: string,
     customerName: string,
-    type: "assigned" | "completed"
+    type: "assigned" | "completed",
+    order?: { finalTotal?: number; address?: string }
   ): AppNotification | null {
     if (type === "assigned") {
       return this.createNotification("Delivery Assigned", {
         customerName,
-        address: "Nairobi Dairy Route",
-        finalTotal: "1,500"
+        address: order?.address ? ` at ${order.address}` : "",
+        finalTotal: (order?.finalTotal ?? 0).toLocaleString(),
       }, {
-        role: "Rider"
+        title: `New delivery for ${riderName}`,
+        role: "Rider",
       });
     }
 

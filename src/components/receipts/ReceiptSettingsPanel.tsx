@@ -15,8 +15,13 @@ import { DevicePrinterPrefs, PrinterTarget } from '../../services/printer/types'
 import { kraService, KraSettings, useKraStatus } from '../../services/kra/kraService';
 import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
+import { InvoicePaper } from '../invoices/InvoicePaper';
+import { InvoiceTexts, InvoicePeriodPreset } from '../../services/invoice/types';
+import { getInvoiceTexts, saveInvoiceTexts, invoiceAccent } from '../../services/invoice/invoiceSettings';
+import { nextInvoiceNumber } from '../../services/invoice/invoiceData';
+import { addDays, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
 
-type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'kra';
+type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'invoices' | 'kra';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'layout', label: 'Paper & format' },
@@ -24,6 +29,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'messages', label: 'Messages' },
   { id: 'codes', label: 'Codes' },
   { id: 'printers', label: 'Printers' },
+  { id: 'invoices', label: 'Invoices' },
   { id: 'kra', label: 'KRA eTIMS' },
 ];
 
@@ -233,7 +239,9 @@ export default function ReceiptSettingsPanel() {
 
           {tab === 'kra' && activeBusinessId && <KraTab businessId={activeBusinessId} canConnect={canConnectKra} />}
 
-          {tab !== 'kra' && (
+          {tab === 'invoices' && activeBusinessId && <InvoicesTab businessId={activeBusinessId} receipt={settings} />}
+
+          {tab !== 'kra' && tab !== 'invoices' && (
             <button
               type="button"
               onClick={save}
@@ -245,7 +253,7 @@ export default function ReceiptSettingsPanel() {
           )}
         </div>
 
-        {tab !== 'kra' && tab !== 'printers' && (
+        {tab !== 'kra' && tab !== 'printers' && tab !== 'invoices' && (
           <div className="lg:w-[20rem]">
             <p className={label}>{previewLines ? 'Preview with your latest sale' : 'Preview'}</p>
             {previewLines ? (
@@ -504,6 +512,142 @@ function KraTab({ businessId, canConnect }: { businessId: string; canConnect: bo
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Defaults for customer invoices: wording, payment details, stamp and period. */
+function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: BusinessReceiptSettings }) {
+  const { showToast } = useAppStore();
+  const business = useBusinessStore((s) => s.businesses.find((b) => b.id === businessId));
+  const saved = useBusinessStore((s) => s.integrationConfigs['invoice']);
+  const [texts, setTexts] = useState<InvoiceTexts>(() => getInvoiceTexts(businessId));
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [next, setNext] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!dirty) setTexts(getInvoiceTexts(businessId));
+  }, [businessId, saved]);
+  useEffect(() => {
+    nextInvoiceNumber(businessId).then(setNext);
+  }, [businessId]);
+
+  const set = (patch: Partial<InvoiceTexts>) => {
+    setTexts((t) => ({ ...t, ...patch }));
+    setDirty(true);
+  };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await saveInvoiceTexts(texts);
+      setDirty(false);
+      showToast('Saved', 'New invoices will use these settings.', undefined, 'success');
+    } catch (err) {
+      showToast('Not saved', toUserMessage(err, 'Could not save the invoice settings.'), undefined, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const prefix = texts.prefix.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const nextLabel = next == null ? 'set when the first invoice is issued' : `${prefix ? `${prefix}-` : ''}${String(next).padStart(4, '0')}`;
+  const footer = texts.footer || [receipt.phone, receipt.address, receipt.website].filter(Boolean).join('   ');
+
+  // Preview only: one example line so the layout can be judged. Real invoices use real sales.
+  const issuedAt = todayIso();
+  const period = texts.defaultPeriod === 'all' || texts.defaultPeriod === 'custom' ? undefined : { ...periodFor(texts.defaultPeriod), includeEarlier: true };
+  const sample = {
+    issuedAt,
+    dueAt: addDays(issuedAt, texts.dueDays),
+    period,
+    currency: receipt.currencyFormat || 'KSh',
+    accent: invoiceAccent(business),
+    logoUrl: business?.logoUrl,
+    from: { name: receipt.businessName || business?.name || 'Your business', address: receipt.address, phone: receipt.phone, email: receipt.email },
+    to: { name: 'Customer name', phone: 'Customer phone' },
+    lines: [{ id: 'example', kind: 'product' as const, description: 'Example product', quantity: 2, unitPrice: 100, amount: 200 }],
+    totals: { subtotal: 200, discount: 0, tax: 0, paid: 0, balance: 200 },
+    texts: { ...texts, footer },
+  };
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="space-y-4 min-w-0">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field title="Title"><input className={input} value={texts.title} onChange={(e) => set({ title: e.target.value })} /></Field>
+          <Field title="Number prefix" hint={`Next invoice: ${nextLabel}. Numbers count up for the whole business.`}>
+            <input className={`${input} uppercase`} maxLength={8} value={texts.prefix} onChange={(e) => set({ prefix: e.target.value.toUpperCase() })} />
+          </Field>
+          <Field title="Note under the title"><input className={input} value={texts.note} onChange={(e) => set({ note: e.target.value })} /></Field>
+          <Field title="Days to pay"><input type="number" min={0} max={365} className={input} value={texts.dueDays} onChange={(e) => set({ dueDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) })} /></Field>
+          <Field title="Start new invoices with">
+            <select className={input} value={texts.defaultPeriod} onChange={(e) => set({ defaultPeriod: e.target.value as InvoicePeriodPreset })}>
+              {(['all', 'this_week', 'last_week', 'this_month', 'last_month'] as InvoicePeriodPreset[]).map((p) => (
+                <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
+              ))}
+            </select>
+          </Field>
+          <Field title="Thank-you line"><input className={input} value={texts.thankYou} onChange={(e) => set({ thankYou: e.target.value })} /></Field>
+        </div>
+        <Field title="Footer (contacts)" hint="Empty uses the shop phone, address and website."><input className={input} value={texts.footer} onChange={(e) => set({ footer: e.target.value })} /></Field>
+
+        <Switch checked={texts.showPaymentDetails} onChange={(v) => set({ showPaymentDetails: v })} label="Show how to pay" description="Payment methods and details, such as your M-Pesa till or bank account." />
+        {texts.showPaymentDetails && (
+          <Field title="How to pay"><textarea rows={3} className={input} value={texts.paymentInstructions} onChange={(e) => set({ paymentInstructions: e.target.value })} placeholder={'M-Pesa Till 123456\nBank: …'} /></Field>
+        )}
+
+        <Switch checked={texts.showStamp} onChange={(v) => set({ showStamp: v })} label="Business stamp" description="A stamp with your business name and the invoice date." />
+        {texts.showStamp && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field title="Stamp wording"><input className={input} maxLength={18} value={texts.stampLabel} onChange={(e) => set({ stampLabel: e.target.value })} placeholder="Authorised" /></Field>
+            <Field title="Stamp colour">
+              <div className="flex items-center gap-2">
+                {['#1D4ED8', '#B91C1C', '#15803D', '#7C3AED', '#111827'].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => set({ stampColor: c })}
+                    aria-label={`Stamp colour ${c}`}
+                    aria-pressed={texts.stampColor === c}
+                    className={`size-8 rounded-full cursor-pointer ring-offset-2 ring-offset-app-card ${texts.stampColor === c ? 'ring-2 ring-amber-500' : ''}`}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+            </Field>
+          </div>
+        )}
+
+        <details className="rounded-xl bg-app-bg p-3">
+          <summary className="text-sm font-medium cursor-pointer">Column and block labels</summary>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <Field title="From"><input className={input} value={texts.fromLabel} onChange={(e) => set({ fromLabel: e.target.value })} /></Field>
+            <Field title="To"><input className={input} value={texts.toLabel} onChange={(e) => set({ toLabel: e.target.value })} /></Field>
+            <Field title="Product column"><input className={input} value={texts.productHeader} onChange={(e) => set({ productHeader: e.target.value })} /></Field>
+            <Field title="Price column"><input className={input} value={texts.priceHeader} onChange={(e) => set({ priceHeader: e.target.value })} /></Field>
+            <Field title="Quantity column"><input className={input} value={texts.qtyHeader} onChange={(e) => set({ qtyHeader: e.target.value })} /></Field>
+            <Field title="Amount column"><input className={input} value={texts.amountHeader} onChange={(e) => set({ amountHeader: e.target.value })} /></Field>
+          </div>
+        </details>
+
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 cursor-pointer"
+        >
+          {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} Save invoice settings
+        </button>
+        <p className="text-xs text-app-text-muted">Make an invoice from a customer's page in Loyalty → Invoices.</p>
+      </div>
+
+      <div className="min-w-0">
+        <p className={label}>Preview <span className="ml-1 px-1.5 py-0.5 rounded bg-app-bg text-[10px]">Example line</span></p>
+        <div className="bg-app-bg rounded-xl p-3 max-h-[36rem] overflow-y-auto">
+          <InvoicePaper doc={sample} />
+        </div>
+      </div>
     </div>
   );
 }

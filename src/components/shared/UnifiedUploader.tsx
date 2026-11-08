@@ -10,6 +10,19 @@ import { uploadService } from "../../services/uploadService";
 import { MediaType, UploadItem } from "../../services/upload/domain/entities";
 import { devicePermissionService } from "../../services/devicePermissionService";
 import { Switch } from './Switch';
+import { nativePlatformService } from "../../core/native/NativePlatformService";
+
+/** Phones and tablets have a camera; computers have a webcam. */
+function cameraWord(): "Camera" | "Webcam" {
+  if (nativePlatformService.isNative()) return "Camera";
+  if (typeof navigator !== "undefined") {
+    const ua = navigator.userAgent || "";
+    if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return "Camera";
+    // iPadOS reports itself as a Mac but has touch.
+    if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return "Camera";
+  }
+  return "Webcam";
+}
 
 // Unsplash presets for Milk Shop theme
 const UNSPLASH_PRESETS = [
@@ -78,9 +91,15 @@ export default function UnifiedUploader({
   const [unsplashLoading, setUnsplashLoading] = useState(false);
   const [unsplashError, setUnsplashError] = useState("");
 
-  // Search caching & debounce timer
-  const searchCache = useRef<Record<string, any>>({});
+  // Search: cached pages, typing pause, and paging until the term has no more images
+  const searchCache = useRef<Record<string, { results: any[]; totalPages: number }>>({});
   const debounceTimer = useRef<any>(null);
+  const searchSeq = useRef(0);
+  const [unsplashPage, setUnsplashPage] = useState(1);
+  const [unsplashHasMore, setUnsplashHasMore] = useState(false);
+  const [unsplashLoadingMore, setUnsplashLoadingMore] = useState(false);
+  const [unsplashMoreError, setUnsplashMoreError] = useState("");
+  const unsplashGridRef = useRef<HTMLDivElement>(null);
 
   // Edit / Crop States
   const [isEditing, setIsEditing] = useState(false);
@@ -526,6 +545,10 @@ export default function UnifiedUploader({
     setUrlInput("");
     setUnsplashQuery("");
     setUnsplashResults(UNSPLASH_PRESETS);
+    setUnsplashHasMore(false);
+    setUnsplashPage(1);
+    setUnsplashMoreError("");
+    searchSeq.current++;
     setIsEditing(false);
     setUploadProgress(0);
     setUploadStatus("idle");
@@ -535,82 +558,124 @@ export default function UnifiedUploader({
     stopCamera();
   };
 
-  // Official Developer API Search with Caching and Skeletal States
-  const handleUnsplashSearch = async () => {
-    const query = unsplashQuery.trim().toLowerCase();
+  const UNSPLASH_PER_PAGE = 24;
+
+  /**
+   * Searches Unsplash for `rawQuery`. Page 1 replaces the results; later pages are added below.
+   * Only the newest search may change the results, so a slow earlier reply cannot overwrite them.
+   */
+  const searchUnsplash = async (rawQuery: string, page = 1) => {
+    const query = rawQuery.trim().toLowerCase();
+    const seq = page === 1 ? ++searchSeq.current : searchSeq.current;
     if (!query) {
       setUnsplashResults(UNSPLASH_PRESETS);
       setUnsplashError("");
+      setUnsplashHasMore(false);
+      setUnsplashPage(1);
+      setUnsplashLoading(false);
       return;
     }
 
-    // Return cached results if available
-    if (searchCache.current[query]) {
-      setUnsplashResults(searchCache.current[query]);
-      setUnsplashError("");
-      return;
-    }
-
-    setUnsplashLoading(true);
-    setUnsplashError("");
-    
     const accessKey = import.meta.env?.VITE_UNSPLASH_ACCESS_KEY || "";
-    
-    // Fallback if no key is configured or offline
     if (!accessKey || accessKey === "your-unsplash-access-key" || !isOnline) {
-      setTimeout(() => {
-        fallbackLocalSearch(query);
-        setUnsplashLoading(false);
-      }, 300);
+      if (page === 1) fallbackLocalSearch(query);
+      setUnsplashHasMore(false);
+      setUnsplashLoading(false);
       return;
+    }
+
+    const show = (results: any[], totalPages: number) => {
+      if (seq !== searchSeq.current) return;
+      setUnsplashResults((prev) => {
+        if (page === 1) return results;
+        const seen = new Set(prev.map((r) => r.id));
+        return [...prev, ...results.filter((r) => !seen.has(r.id))];
+      });
+      setUnsplashPage(page);
+      setUnsplashHasMore(page < totalPages && results.length > 0);
+    };
+
+    const key = `${query}|${page}`;
+    if (searchCache.current[key]) {
+      const hit = searchCache.current[key];
+      show(hit.results, hit.totalPages);
+      setUnsplashError("");
+      setUnsplashLoading(false);
+      return;
+    }
+
+    if (page === 1) {
+      setUnsplashLoading(true);
+      setUnsplashError("");
+    } else {
+      setUnsplashLoadingMore(true);
+      setUnsplashMoreError("");
     }
 
     try {
       const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=12`,
-        {
-          headers: {
-            Authorization: `Client-ID ${accessKey}`
-          }
-        }
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${UNSPLASH_PER_PAGE}&page=${page}`,
+        { headers: { Authorization: `Client-ID ${accessKey}` } }
       );
-
-      if (!res.ok) {
-        if (res.status === 403) throw new Error("API Limit Reached");
-        throw new Error("API Failure");
-      }
-
+      if (!res.ok) throw new Error(res.status === 403 ? "Unsplash's hourly limit was reached. Try again later." : "Unsplash did not answer.");
       const data = await res.json();
-      if (data && data.results && data.results.length > 0) {
-        const results = data.results.map((item: any) => ({
-          id: item.id,
-          label: item.alt_description || item.description || `${query} photo`,
-          url: item.urls.small || item.urls.regular
-        }));
-        
-        // Save in cache
-        searchCache.current[query] = results;
-        setUnsplashResults(results);
-      } else {
-        setUnsplashResults([]); // Empty state trigger
-      }
+      const results = (data?.results || []).map((item: any) => ({
+        id: item.id,
+        label: item.alt_description || item.description || `${query} photo`,
+        url: item.urls.small || item.urls.regular,
+      }));
+      const totalPages = Number(data?.total_pages) || 0;
+      searchCache.current[key] = { results, totalPages };
+      show(results, totalPages);
     } catch (err: any) {
-      console.warn("Unsplash API failed, utilizing robust local fallback library.", err);
-      fallbackLocalSearch(query);
+      if (seq !== searchSeq.current) return;
+      if (page === 1) {
+        console.warn("Unsplash search failed; showing the built-in images.", err);
+        fallbackLocalSearch(query);
+        setUnsplashHasMore(false);
+      } else {
+        setUnsplashMoreError(err?.message || "Could not load more images.");
+      }
     } finally {
-      setUnsplashLoading(false);
+      if (seq === searchSeq.current) {
+        setUnsplashLoading(false);
+        setUnsplashLoadingMore(false);
+      }
     }
   };
 
-  // Debounced typing search handler
+  const handleUnsplashSearch = () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    void searchUnsplash(unsplashQuery, 1);
+  };
+
+  // Searches by itself once typing pauses.
   const handleQueryChange = (val: string) => {
     setUnsplashQuery(val);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    
-    debounceTimer.current = setTimeout(() => {
-      handleUnsplashSearch();
-    }, 400);
+    debounceTimer.current = setTimeout(() => void searchUnsplash(val, 1), 400);
   };
+
+  const loadMoreUnsplash = () => {
+    if (!unsplashHasMore || unsplashLoading || unsplashLoadingMore || unsplashMoreError) return;
+    void searchUnsplash(unsplashQuery, unsplashPage + 1);
+  };
+
+  // Near the bottom of the grid, fetch the next page.
+  const onUnsplashScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) loadMoreUnsplash();
+  };
+
+  // A page that does not fill the grid cannot be scrolled, so keep loading until it does.
+  useEffect(() => {
+    const el = unsplashGridRef.current;
+    if (el && unsplashHasMore && !unsplashLoadingMore && el.scrollHeight <= el.clientHeight + 4) loadMoreUnsplash();
+  }, [unsplashResults, unsplashHasMore, unsplashLoadingMore]);
+
+  useEffect(() => () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+  }, []);
 
   const fallbackLocalSearch = (query: string) => {
     const q = query.toLowerCase();
@@ -889,7 +954,7 @@ export default function UnifiedUploader({
                         activeTab === "camera" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
-                      Webcam
+                      {cameraWord()}
                     </button>
                     <button
                       type="button"
@@ -982,7 +1047,7 @@ export default function UnifiedUploader({
                         <div className="py-8 text-center text-app-text-muted space-y-3">
                           <Camera size={26} className="mx-auto text-brand-500/60" />
                           <p className="text-[10px] px-8 font-medium leading-relaxed">
-                            {cameraError || "Webcam access is deactivated. Start live stream coordinates."}
+                            {cameraError || `The ${cameraWord().toLowerCase()} is off. Allow access to take a photo.`}
                           </p>
                           <button
                             type="button"
@@ -1060,7 +1125,7 @@ export default function UnifiedUploader({
                           {Array.from({ length: 12 }).map((_, i) => (
                             <div 
                               key={i} 
-                              className="relative w-full aspect-square rounded-xl bg-app-border/40 border border-app-border/10"
+                              className="relative w-full h-0 pb-[100%] rounded-xl bg-app-border/40 border border-app-border/10"
                             />
                           ))}
                         </div>
@@ -1086,7 +1151,8 @@ export default function UnifiedUploader({
                         </div>
                       ) : (
                         /* RESULTS GRID */
-                        <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+                        <div ref={unsplashGridRef} onScroll={onUnsplashScroll} className="max-h-64 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+                        <div className="grid grid-cols-3 gap-2 content-start">
                           {unsplashResults.map((item) => (
                             <div 
                               key={item.id}
@@ -1108,12 +1174,14 @@ export default function UnifiedUploader({
                                   triggerUpload(mockFile, "image", item.url);
                                 }
                               }}
-                              className="relative w-full aspect-square rounded-xl overflow-hidden cursor-pointer hover:border-brand-500 border border-app-border/40 group bg-app-text/5"
+                              // Square by padding, not aspect-ratio: the Linux app's WebKit stacks
+                              // aspect-ratio tiles on top of each other inside a scrolling grid.
+                              className="relative block w-full h-0 pb-[100%] rounded-xl overflow-hidden cursor-pointer hover:border-brand-500 border border-app-border/40 group bg-app-text/5"
                             >
                               <img
                                 src={item.url}
                                 alt={item.label}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 loading="lazy"
                               />
                               <div className="absolute inset-0 bg-app-text/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] text-app-bg text-center font-bold px-1 transition-opacity">
@@ -1121,6 +1189,20 @@ export default function UnifiedUploader({
                               </div>
                             </div>
                           ))}
+                        </div>
+                        <div className="py-2 text-center text-[10px] text-app-text-muted">
+                          {unsplashLoadingMore ? (
+                            <span className="inline-flex items-center gap-1.5"><RefreshCw size={11} className="animate-spin" /> Loading more…</span>
+                          ) : unsplashMoreError ? (
+                            <button type="button" onClick={() => { setUnsplashMoreError(""); void searchUnsplash(unsplashQuery, unsplashPage + 1); }} className="underline cursor-pointer">
+                              {unsplashMoreError} Try again
+                            </button>
+                          ) : unsplashHasMore ? (
+                            <span>Scroll for more</span>
+                          ) : unsplashQuery.trim() ? (
+                            <span>No more images for “{unsplashQuery.trim()}”</span>
+                          ) : null}
+                        </div>
                         </div>
                       )}
                     </div>

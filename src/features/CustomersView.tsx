@@ -1,5 +1,10 @@
 import { toUserMessage } from "../utils/userError";
 import { SheetLayer } from '../components/shared/SheetLayer';
+import { useBusinessStore } from '../stores/businessStore';
+import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
+import { listInvoices, IssuedInvoice } from '../services/invoice/invoiceData';
+import type { InvoiceDocument } from '../services/invoice/types';
+import { formatInvoiceDate } from '../services/invoice/invoiceDraft';
 import React, { useState, useEffect } from "react";
 import { useOverlay } from "../hooks/useOverlay";
 import { useAppStore } from "../stores/appStore";
@@ -7,7 +12,7 @@ import {
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
   X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
   Brain, RefreshCw,
-  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter
+  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
@@ -92,7 +97,7 @@ export default function CustomersView() {
     customers, addCustomer, currentEmployee, 
     updateCustomer, deleteCustomer, products,
     selectedCustomerId, setSelectedCustomerId, 
-    activeInvoiceData, setActiveInvoiceData, transactions,
+    transactions,
     debtPayments,
     showToast,activeBusinessId,
     payCustomerDebt, depositCustomerWallet, spendCustomerWallet, adjustCustomerDebt
@@ -117,7 +122,13 @@ export default function CustomersView() {
   });
   const [isAdding, setIsAdding] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
-  const [activeDetailTab, setActiveDetailTab] = useState<"overview" | "history" | "invoice" | "message" | "ledger">("overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<"money" | "overview" | "history" | "invoice" | "message" | "ledger">("money");
+  // Invoices: a new one for this customer, or one issued earlier.
+  const [invoiceFor, setInvoiceFor] = useState<typeof customers[number] | null>(null);
+  const [openInvoice, setOpenInvoice] = useState<InvoiceDocument | null>(null);
+  const [invoices, setInvoices] = useState<IssuedInvoice[]>([]);
+  const [invoicesState, setInvoicesState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [invoicesError, setInvoicesError] = useState('');
   const [payMethod, setPayMethod] = useState<'Cash' | 'M-Pesa'>('Cash');
   const [adjustNote, setAdjustNote] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
@@ -149,9 +160,6 @@ export default function CustomersView() {
   // Local state for manual message typing
   const [messageText, setMessageText] = useState("");
 
-  // Invoice creator local state
-  const [invoiceItems, setInvoiceItems] = useState<{ productId: string; quantity: number }[]>([]);
-  const [selectedInvoiceProdId, setSelectedInvoiceProdId] = useState(products[0]?.id || "");
   const [successMsg, setSuccessMsg] = useState("");
 
   // CRM AI Assistant local states
@@ -208,6 +216,7 @@ export default function CustomersView() {
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
   const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
+  const canInvoice = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.debts") : false;
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [duplicateCount, setDuplicateCount] = useState(0);
 
@@ -272,6 +281,7 @@ export default function CustomersView() {
   });
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const shopName = useBusinessStore((st) => st.businesses.find((b) => b.id === st.activeBusinessId)?.name) || 'us';
 
   const enteredPhoneKey = phoneKey(normalizePhone(values.phone, selectedCountryCode));
   const samePhoneCustomer = enteredPhoneKey ? customers.find((c) => phoneKey(c.phone) === enteredPhoneKey) : undefined;
@@ -478,23 +488,33 @@ export default function CustomersView() {
         setEditCountryCode("+254");
         setEditPhone(selectedCustomer.phone);
       }
-      
-      if (activeInvoiceData && activeInvoiceData.customerId === selectedCustomer.id) {
-        setInvoiceItems(activeInvoiceData.items || []);
-        setActiveDetailTab("invoice");
-      } else {
-        setInvoiceItems([]);
-        setActiveDetailTab("overview");
-      }
     }
-  }, [selectedCustomerId, selectedCustomer, activeInvoiceData]);
+  }, [selectedCustomerId, selectedCustomer]);
 
-  // Sync default invoice product selection
+  // A different customer starts on their money; their invoices load when that tab opens.
   useEffect(() => {
-    if (products.length > 0 && !selectedInvoiceProdId) {
-      setSelectedInvoiceProdId(products[0].id);
-    }
-  }, [products, selectedInvoiceProdId]);
+    setActiveDetailTab("money");
+    setInvoices([]);
+    setInvoicesState('idle');
+  }, [selectedCustomerId]);
+
+  const loadInvoices = React.useCallback(() => {
+    if (!selectedCustomerId) return;
+    setInvoicesState('loading');
+    listInvoices(selectedCustomerId)
+      .then((rows) => {
+        setInvoices(rows);
+        setInvoicesState('idle');
+      })
+      .catch((err) => {
+        setInvoicesError(toUserMessage(err, 'Could not load invoices.'));
+        setInvoicesState('error');
+      });
+  }, [selectedCustomerId]);
+
+  useEffect(() => {
+    if (activeDetailTab === 'invoice') loadInvoices();
+  }, [activeDetailTab, loadInvoices]);
 
   // groupFilter is "field:value", such as "paymentTerms:weekly".
   const matchesGroup = (c: typeof customers[number]) => {
@@ -515,7 +535,7 @@ export default function CustomersView() {
   // Generate automated debt breakdown text for WhatsApp
   const getDebtBreakdownMessage = (cust: typeof selectedCustomer) => {
     if (!cust) return "";
-    const debtTx = transactions.filter(t => t.customerId === cust.id && t.paymentMethod === 'Credit_Debt');
+    const debtTx = transactions.filter(t => t.customerId === cust.id && (t.paymentMethod === 'Credit_Debt' || t.paymentMethod === 'Credit'));
     
     let itemSummary = "";
     let totalTax = 0;
@@ -542,7 +562,7 @@ export default function CustomersView() {
     let msg = `Hi *${getFirstName(cust.name)}*,\n\n`;
     msg += `This is a friendly statement regarding your outstanding balance of *KSh ${(
       cust.debtBalance || 0
-    ).toFixed(0)}* at KayKay's.\n\n`;
+    ).toFixed(0)}* at ${shopName}.\n\n`;
     if (itemSummary) {
       msg += `*Included Products:*\n${itemSummary}\n`;
     }
@@ -550,9 +570,9 @@ export default function CustomersView() {
       msg += `*Delivery Fees:* KSh ${totalDelivery.toFixed(0)}\n`;
     }
     if (totalTax > 0) {
-      msg += `*Sales Tax (16% VAT):* KSh ${totalTax.toFixed(0)}\n`;
+      msg += `*VAT:* KSh ${totalTax.toFixed(0)}\n`;
     }
-    msg += `\nPlease settle this balance at your earliest convenience. You can pay via M-Pesa or cash. Thank you for your continued support!`;
+    msg += `\nPlease settle this balance at your earliest convenience. Thank you!`;
     return msg;
   };
 
@@ -613,6 +633,28 @@ export default function CustomersView() {
     );
   }
 
+  // Runs a money action and reports it; the amount and note clear when it worked.
+  const runMoney = async (
+    setFlag: (busy: boolean) => void,
+    run: () => Promise<unknown>,
+    done: { banner: string; title: string; text: string },
+  ) => {
+    setFlag(true);
+    try {
+      await run();
+      playSfx('save');
+      setAdjustAmt(0);
+      setAdjustNote('');
+      setSuccessMsg(done.banner);
+      setTimeout(() => setSuccessMsg(''), 3000);
+      showToast(done.title, done.text, undefined, 'success');
+    } catch (err) {
+      showToast('Not saved', toUserMessage(err, 'That did not go through. Try again.'), undefined, 'error');
+    } finally {
+      setFlag(false);
+    }
+  };
+
   const tierTone = (tier?: string) =>
     tier === 'Gold'
       ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
@@ -631,7 +673,7 @@ export default function CustomersView() {
     <div className="flex-1 flex flex-col lg:flex-row h-full bg-app-bg text-app-text relative overflow-hidden font-sans">
       {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
-        className={`w-full lg:w-[380px] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
+        className={`w-full lg:w-80 xl:w-[21rem] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
           selectedCustomerId ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -762,9 +804,9 @@ export default function CustomersView() {
         }`}
       >
         {selectedCustomer ? (
-          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto lg:overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain xl:overflow-hidden xl:grid xl:grid-cols-[21rem_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)]">
             {/* Top bar: back, name, close */}
-            <div className="sticky top-0 z-20 shrink-0 bg-app-bg/95 backdrop-blur px-2 py-2 flex items-center gap-1 lg:hidden">
+            <div className="sticky top-0 z-20 h-14 bg-app-bg/95 backdrop-blur px-2 flex items-center gap-1 lg:hidden">
               <button
                 onClick={() => setSelectedCustomerId(null)}
                 aria-label="Back to customers"
@@ -775,9 +817,9 @@ export default function CustomersView() {
               <span className="text-sm font-semibold text-app-text truncate">{titleCase(selectedCustomer.name)}</span>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col px-3 pb-nav lg:p-6 lg:pb-6 lg:overflow-hidden">
+            <div className="px-3 pb-nav lg:px-6 lg:pt-5 xl:contents">
             {/* Who they are */}
-            <div className="bg-app-card rounded-2xl p-4 shrink-0 mb-3">
+            <aside className="bg-app-card rounded-2xl p-4 mb-3 xl:m-5 xl:mr-0 xl:min-h-0 xl:overflow-y-auto">
               <div className="flex items-start gap-3">
                 <span className={`grid place-items-center size-12 rounded-full shrink-0 text-base font-semibold ${tierTone(selectedCustomer.tier)}`}>
                   {initials(selectedCustomer.name)}
@@ -823,15 +865,15 @@ export default function CustomersView() {
                   </div>
                 </div>
                 <div className={`rounded-xl p-2.5 ${(selectedCustomer.debtBalance || 0) > 0 ? 'bg-red-500/10' : 'bg-app-bg'}`}>
-                  <div className="text-[11px] text-app-text-muted">Owes</div>
-                  <div className={`text-base font-semibold tabular-nums truncate ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
-                    {formatCurrency(selectedCustomer.debtBalance || 0)}
+                  <div className="text-[11px] text-app-text-muted">Owes (KSh)</div>
+                  <div className={`text-base font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
+                    {(selectedCustomer.debtBalance || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className={`rounded-xl p-2.5 ${(selectedCustomer.walletBalance || 0) > 0 ? 'bg-emerald-500/10' : 'bg-app-bg'}`}>
-                  <div className="text-[11px] text-app-text-muted">Wallet</div>
-                  <div className={`text-base font-semibold tabular-nums truncate ${(selectedCustomer.walletBalance || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>
-                    {formatCurrency(selectedCustomer.walletBalance || 0)}
+                  <div className="text-[11px] text-app-text-muted">Wallet (KSh)</div>
+                  <div className={`text-base font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.walletBalance || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>
+                    {(selectedCustomer.walletBalance || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
@@ -849,12 +891,15 @@ export default function CustomersView() {
                   <Send size={18} />
                   <span className="text-[11px] font-medium">Message</span>
                 </button>
-                <button onClick={() => openTab('overview')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
+                <button onClick={() => openTab('money')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
                   <Wallet size={18} />
                   <span className="text-[11px] font-medium">Pay / top up</span>
                 </button>
-                <button onClick={() => openTab('invoice')} className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer">
-                  <CreditCard size={18} />
+                <button
+                  onClick={() => (canInvoice && (selectedCustomer.debtBalance || 0) > 0 ? setInvoiceFor(selectedCustomer) : openTab('invoice'))}
+                  className="flex flex-col items-center gap-1 rounded-xl bg-app-bg py-2.5 text-app-text cursor-pointer"
+                >
+                  <FileText size={18} />
                   <span className="text-[11px] font-medium">Invoice</span>
                 </button>
               </div>
@@ -862,57 +907,199 @@ export default function CustomersView() {
               <div className="mt-3">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
               </div>
-            </div>
+            </aside>
 
             {/* Sections */}
-            <div id="customer-tabs" className="bg-app-card rounded-2xl p-3 sm:p-4 lg:flex-1 flex flex-col lg:min-h-0 lg:overflow-hidden scroll-mt-14">
-              <Tabs<typeof activeDetailTab>
-                tabs={[
-                  { id: 'overview', label: 'Profile' },
-                  { id: 'history', label: 'History' },
-                  { id: 'ledger', label: 'Ledger' },
-                  { id: 'message', label: 'Message' },
-                  {
-                    id: 'invoice',
-                    label: 'Invoice',
-                    dot: !!activeInvoiceData && activeInvoiceData.customerId === selectedCustomer.id,
-                  },
-                ]}
-                activeTab={activeDetailTab}
-                onChange={(tab) => {
-                  setActiveDetailTab(tab);
-                  setSuccessMsg('');
-                }}
-                className="!pb-2.5 mb-3 shrink-0"
-              />
+            <section id="customer-tabs" className="bg-app-card rounded-2xl px-3 pb-4 sm:px-4 scroll-mt-14 xl:m-5 xl:min-h-0 xl:overflow-y-auto">
+              {/* Pinned while the section scrolls: under the phone's top bar, at the top on wider screens */}
+              <div className="sticky top-14 lg:top-0 z-10 bg-app-card -mx-3 sm:-mx-4 px-3 sm:px-4 pt-3 mb-3 rounded-t-2xl">
+                <Tabs<typeof activeDetailTab>
+                  tabs={[
+                    { id: 'money', label: 'Money' },
+                    { id: 'invoice', label: 'Invoices' },
+                    { id: 'history', label: 'History' },
+                    { id: 'ledger', label: 'Ledger' },
+                    { id: 'message', label: 'Message' },
+                    { id: 'overview', label: 'Profile' },
+                  ]}
+                  activeTab={activeDetailTab}
+                  onChange={(tab) => {
+                    setActiveDetailTab(tab);
+                    setSuccessMsg('');
+                  }}
+                  className="!pb-2.5"
+                />
+              </div>
 
               {/* Scrollable Viewport */}
-              <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-12 font-semibold">
+              <div>
+                {/* MONEY TAB: debt payments, wallet, debt added by hand */}
+                {activeDetailTab === 'money' && (() => {
+                  const debt = selectedCustomer.debtBalance || 0;
+                  const wallet = selectedCustomer.walletBalance || 0;
+                  const amount = adjustAmt;
+                  const cashier = currentEmployee?.name || 'System';
+                  const card = 'rounded-2xl ring-1 ring-app-border p-4';
+                  const action = 'w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
+                  return (
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-2xl bg-app-bg p-4">
+                        <label htmlFor="money-amount" className="block text-xs font-medium text-app-text-muted mb-1">Amount (KSh)</label>
+                        <input
+                          id="money-amount"
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          placeholder="0"
+                          value={amount === 0 ? '' : amount}
+                          onChange={(e) => setAdjustAmt(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-app-card rounded-xl px-3 py-3 text-2xl font-semibold tabular-nums text-app-text focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <label htmlFor="money-note" className="block text-xs font-medium text-app-text-muted mt-3 mb-1">Note (optional)</label>
+                        <input
+                          id="money-note"
+                          type="text"
+                          value={adjustNote}
+                          onChange={(e) => setAdjustNote(e.target.value)}
+                          placeholder="M-Pesa code, reason…"
+                          className="w-full bg-app-card rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        <div className={card}>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <h4 className="text-sm font-semibold">Debt payment</h4>
+                            <span className={`text-sm font-semibold tabular-nums ${debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text-muted'}`}>Owes {formatCurrency(debt)}</span>
+                          </div>
+                          <p className="text-xs text-app-text-muted mt-0.5">Money paid towards what they owe.</p>
+                          <div className="grid grid-cols-2 gap-2 mt-3" role="radiogroup" aria-label="Paid by">
+                            {(['Cash', 'M-Pesa'] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                role="radio"
+                                aria-checked={payMethod === m}
+                                onClick={() => setPayMethod(m)}
+                                className={`py-2 rounded-xl text-sm font-medium cursor-pointer ring-1 ${payMethod === m ? 'bg-amber-500/10 ring-amber-500 text-amber-700 dark:text-amber-400' : 'ring-app-border text-app-text-muted'}`}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                          {debt > 0 && amount !== debt && (
+                            <button type="button" onClick={() => setAdjustAmt(debt)} className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                              Pay all {formatCurrency(debt)}
+                            </button>
+                          )}
+                          {amount > debt && debt > 0 && <p className="mt-2 text-xs text-red-600 dark:text-red-400">That is more than they owe.</p>}
+                          <button
+                            type="button"
+                            disabled={amount <= 0 || debt <= 0 || amount > debt || isPayingDebt}
+                            onClick={() =>
+                              runMoney(setIsPayingDebt, () => payCustomerDebt(selectedCustomer.id, amount, payMethod, cashier, adjustNote, `pay-${Date.now()}`), {
+                                banner: 'Payment recorded.',
+                                title: 'Payment recorded',
+                                text: `${formatCurrency(amount)} by ${payMethod} from ${selectedCustomer.name}.`,
+                              })
+                            }
+                            className={`${action} mt-3 bg-emerald-600 hover:bg-emerald-700 text-white`}
+                          >
+                            {isPayingDebt ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />} Record payment
+                          </button>
+                        </div>
+
+                        <div className={card}>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <h4 className="text-sm font-semibold">Wallet</h4>
+                            <span className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(wallet)}</span>
+                          </div>
+                          <p className="text-xs text-app-text-muted mt-0.5">Money kept for their next purchases.</p>
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            <button
+                              type="button"
+                              disabled={amount <= 0 || isDepositingWallet}
+                              onClick={() =>
+                                runMoney(setIsDepositingWallet, () => depositCustomerWallet(selectedCustomer.id, amount, cashier, adjustNote, `dep-${Date.now()}`), {
+                                  banner: 'Added to the wallet.',
+                                  title: 'Wallet topped up',
+                                  text: `${formatCurrency(amount)} added for ${selectedCustomer.name}.`,
+                                })
+                              }
+                              className={`${action} bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20`}
+                            >
+                              {isDepositingWallet ? <RefreshCw size={15} className="animate-spin" /> : null} Add
+                            </button>
+                            <button
+                              type="button"
+                              disabled={amount <= 0 || wallet < amount || isSpendingWallet}
+                              onClick={() =>
+                                runMoney(setIsSpendingWallet, () => spendCustomerWallet(selectedCustomer.id, amount, cashier, adjustNote, `spend-${Date.now()}`), {
+                                  banner: 'Taken from the wallet.',
+                                  title: 'Wallet used',
+                                  text: `${formatCurrency(amount)} used from ${selectedCustomer.name}'s wallet.`,
+                                })
+                              }
+                              className={`${action} bg-app-bg hover:bg-app-border/50 text-app-text`}
+                            >
+                              {isSpendingWallet ? <RefreshCw size={15} className="animate-spin" /> : null} Use
+                            </button>
+                          </div>
+                          {amount > wallet && amount > 0 && <p className="mt-2 text-xs text-app-text-muted">The wallet has less than this, so it can only be added.</p>}
+                        </div>
+                      </div>
+
+                      <div className={card}>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-semibold">Add to their debt</h4>
+                            <p className="text-xs text-app-text-muted mt-0.5">For money owed outside a sale, such as an old balance. Credit sales are added by themselves.</p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={amount <= 0 || isAddingDebt}
+                            onClick={() =>
+                              runMoney(setIsAddingDebt, () => adjustCustomerDebt(selectedCustomer.id, amount, 'add', cashier, adjustNote, `debt-${Date.now()}`), {
+                                banner: 'Added to their debt.',
+                                title: 'Debt added',
+                                text: `${formatCurrency(amount)} added to what ${selectedCustomer.name} owes.`,
+                              })
+                            }
+                            className={`${action} sm:w-auto sm:px-4 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20`}
+                          >
+                            {isAddingDebt ? <RefreshCw size={15} className="animate-spin" /> : null} Add to debt
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* 1. OVERVIEW & PROFILE TAB */}
                 {activeDetailTab === 'overview' && (
                   <div className="flex flex-col gap-4 text-xs">
                     {/* Basic Info editing */}
                     <div className="flex flex-col gap-3 bg-app-bg p-4 border border-app-border rounded-2xl">
-                      <h4 className="text-[10.5px] font-extrabold text-app-text uppercase tracking-wider border-b border-app-border/40 pb-1.5 mb-1.5">
-                        Club Record Details
+                      <h4 className="text-sm font-semibold text-app-text">
+                        Details
                       </h4>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Full Name
+                          <label className="text-xs font-medium text-app-text-muted">
+                            Name
                           </label>
                           <input
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-bold"
+                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"
                           />
                         </div>
 
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Phone Number
+                          <label className="text-xs font-medium text-app-text-muted">
+                            Phone
                           </label>
                           <div className="grid  grid-cols-4 gap-1.5">
                             <SearchableDropdown
@@ -929,13 +1116,9 @@ export default function CustomersView() {
                               type="text"
                               value={editPhone}
                               onChange={(e) => setEditPhone(e.target.value)}
-                              className="flex-1 col-span-3 bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-mono font-bold"
+                              className="flex-1 col-span-3 bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500 tabular-nums"
                             />
                           </div>
-                          <span className="text-[8.5px] text-app-text-muted">
-                            Stored E.164:{' '}
-                            {normalizePhone(editPhone, editCountryCode)}
-                          </span>
                         </div>
                       </div>
 
@@ -946,8 +1129,8 @@ export default function CustomersView() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Loyalty Points Balance
+                          <label className="text-xs font-medium text-app-text-muted">
+                            Points
                           </label>
                           <input
                             type="number"
@@ -956,13 +1139,13 @@ export default function CustomersView() {
                             onChange={(e) =>
                               setEditPoints(parseInt(e.target.value) || 0)
                             }
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-mono font-black"
+                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500 tabular-nums"
                           />
                         </div>
 
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Customer Loyalty Tier
+                          <label className="text-xs font-medium text-app-text-muted">
+                            Tier
                           </label>
                           <SearchableDropdown
                             items={[
@@ -978,8 +1161,8 @@ export default function CustomersView() {
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase">
-                          worker Address (Secured)
+                        <label className="text-xs font-medium text-app-text-muted">
+                          Email
                         </label>
                         <input
                           type="email"
@@ -991,8 +1174,8 @@ export default function CustomersView() {
                       </div>
 
                 <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase">
-                          Customer Description / Notes
+                        <label className="text-xs font-medium text-app-text-muted">
+                          Notes
                         </label>
                         <textarea
                           rows={3}
@@ -1062,290 +1245,17 @@ export default function CustomersView() {
                             setIsSavingProfile(false);
                           }
                         }}
-                        className="w-full mt-2.5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full mt-2.5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl text-sm transition cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         {isSavingProfile ? (
                           <>
                             <RefreshCw size={13} className="animate-spin" />
-                            <span>Saving Changes...</span>
+                            <span>Saving…</span>
                           </>
                         ) : (
-                          'Apply Profile Changes'
+                          'Save changes'
                         )}
                       </button>
-                    </div>
-
-                    {/* Balance adjustments (Credits, Debts) */}
-                    <div className="flex flex-col gap-3 bg-app-bg p-4 border border-app-border rounded-2xl">
-                      <div className="flex items-center justify-between border-b border-app-border/40 pb-1.5 mb-1">
-                        <h4 className="text-[10.5px] font-extrabold text-app-text uppercase tracking-wider">
-                          Durable Balance Adjustment Ledger
-                        </h4>
-                        <span className="text-[8px] bg-red-500/15 text-red-500 border border-red-500/25 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">
-                          Manager Approval Required
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Adjustment Value (KSh)
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            value={adjustAmt === 0 ? '' : adjustAmt}
-                            onChange={(e) =>
-                              setAdjustAmt(parseFloat(e.target.value) || 0)
-                            }
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-bold font-mono"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Note / Reference (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Reference or note..."
-                            value={adjustNote}
-                            onChange={(e) => setAdjustNote(e.target.value)}
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-bold"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3">
-                        {/* Debt Operations */}
-                        <div className="flex flex-col gap-1.5 p-2 bg-red-500/5 rounded-xl border border-red-500/10">
-                          <span className="text-[8px] font-black text-red-400 uppercase tracking-wider block text-center mb-1">
-                            Debt Adjuster
-                          </span>
-
-                          <div className="flex flex-col gap-1.5 mb-2 mt-1">
-                            <label className="text-[8px] font-black text-app-text-muted uppercase">
-                              Pay Method (For Pay Off)
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {['Cash', 'M-Pesa'].map((m) => (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => setPayMethod(m as any)}
-                                  className={`py-1 rounded-lg text-[9px] font-black uppercase transition cursor-pointer border ${
-                                    payMethod === m
-                                      ? 'bg-amber-500/10 border-amber-500 text-amber-500'
-                                      : 'bg-app-card border-app-border text-app-text-muted'
-                                  }`}
-                                >
-                                  {m}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={adjustAmt <= 0 || isAddingDebt}
-                            onClick={async () => {
-                              setIsAddingDebt(true);
-                              try {
-                                const cashierName =
-                                  currentEmployee?.name || 'System';
-                                const actionId = `debt-${Date.now()}`;
-                                await adjustCustomerDebt(
-                                  selectedCustomer.id,
-                                  adjustAmt,
-                                  'add',
-                                  cashierName,
-                                  adjustNote,
-                                  actionId,
-                                );
-                                playSfx('save');
-                                setAdjustAmt(0);
-                                setAdjustNote('');
-                                setSuccessMsg(
-                                  'Debt balance added successfully!',
-                                );
-                                setTimeout(() => setSuccessMsg(''), 3000);
-                                showToast(
-                                  'Debt Added',
-                                  `KSh ${adjustAmt} debt added to "${selectedCustomer.name}".`,
-                                  undefined,
-                                  'success',
-                                );
-                              } catch (err: any) {
-                                showToast(
-                                  'Database Error',
-                                  toUserMessage(err, "Failed to adjust debt."),
-                                  undefined,
-                                  'error',
-                                );
-                              } finally {
-                                setIsAddingDebt(false);
-                              }
-                            }}
-                            className="py-2 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed text-red-500 border border-red-500/20 rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer flex items-center justify-center gap-1"
-                          >
-                            {isAddingDebt ? 'Adding...' : 'Add New Debt (+)'}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={
-                              adjustAmt <= 0 ||
-                              !(
-                                selectedCustomer.debtBalance &&
-                                selectedCustomer.debtBalance > 0
-                              ) ||
-                              isPayingDebt
-                            }
-                            onClick={async () => {
-                              setIsPayingDebt(true);
-                              try {
-                                const cashierName =
-                                  currentEmployee?.name || 'System';
-                                const actionId = `pay-${Date.now()}`;
-                                await payCustomerDebt(
-                                  selectedCustomer.id,
-                                  adjustAmt,
-                                  payMethod,
-                                  cashierName,
-                                  adjustNote,
-                                  actionId,
-                                );
-                                playSfx('save');
-                                setAdjustAmt(0);
-                                setAdjustNote('');
-                                setSuccessMsg('Paid off debt successfully!');
-                                setTimeout(() => setSuccessMsg(''), 3000);
-                                showToast(
-                                  'Debt Paid Off',
-                                  `KSh ${adjustAmt} paid off via ${payMethod} for "${selectedCustomer.name}".`,
-                                  undefined,
-                                  'success',
-                                );
-                              } catch (err: any) {
-                                showToast(
-                                  'Database Error',
-                                  toUserMessage(err, "Failed to adjust debt."),
-                                  undefined,
-                                  'error',
-                                );
-                              } finally {
-                                setIsPayingDebt(false);
-                              }
-                            }}
-                            className="py-2 bg-red-500 text-white hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer shadow-sm flex items-center justify-center gap-1"
-                          >
-                            {isPayingDebt ? 'Paying...' : 'Pay Off Debt (-)'}
-                          </button>
-                        </div>
-
-                        {/* Wallet Operations */}
-                        <div className="flex flex-col gap-1.5 p-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                          <span className="text-[8px] font-black text-emerald-400 uppercase tracking-wider block text-center mb-1">
-                            Digital Wallet Adjuster
-                          </span>
-
-                          <button
-                            type="button"
-                            disabled={adjustAmt <= 0 || isDepositingWallet}
-                            onClick={async () => {
-                              setIsDepositingWallet(true);
-                              try {
-                                const cashierName =
-                                  currentEmployee?.name || 'System';
-                                const actionId = `dep-${Date.now()}`;
-                                await depositCustomerWallet(
-                                  selectedCustomer.id,
-                                  adjustAmt,
-                                  cashierName,
-                                  adjustNote,
-                                  actionId,
-                                );
-                                playSfx('save');
-                                setAdjustAmt(0);
-                                setAdjustNote('');
-                                setSuccessMsg('Wallet credits deposited!');
-                                setTimeout(() => setSuccessMsg(''), 3000);
-                                showToast(
-                                  'Wallet Credit Deposited',
-                                  `KSh ${adjustAmt} credited to "${selectedCustomer.name}".`,
-                                  undefined,
-                                  'success',
-                                );
-                              } catch (err: any) {
-                                showToast(
-                                  'Database Error',
-                                  toUserMessage(err, "Failed to adjust wallet."),
-                                  undefined,
-                                  'error',
-                                );
-                              } finally {
-                                setIsDepositingWallet(false);
-                              }
-                            }}
-                            className="py-2 bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer shadow-sm flex items-center justify-center gap-1"
-                          >
-                            {isDepositingWallet
-                              ? 'Depositing...'
-                              : 'Deposit Credit (+)'}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={
-                              adjustAmt <= 0 ||
-                              !(
-                                selectedCustomer.walletBalance &&
-                                selectedCustomer.walletBalance >= adjustAmt
-                              ) ||
-                              isSpendingWallet
-                            }
-                            onClick={async () => {
-                              setIsSpendingWallet(true);
-                              try {
-                                const cashierName =
-                                  currentEmployee?.name || 'System';
-                                const actionId = `spend-${Date.now()}`;
-                                await spendCustomerWallet(
-                                  selectedCustomer.id,
-                                  adjustAmt,
-                                  cashierName,
-                                  adjustNote,
-                                  actionId,
-                                );
-                                playSfx('save');
-                                setAdjustAmt(0);
-                                setAdjustNote('');
-                                setSuccessMsg('Credits deducted from wallet!');
-                                setTimeout(() => setSuccessMsg(''), 3000);
-                                showToast(
-                                  'Wallet Credit Spent',
-                                  `KSh ${adjustAmt} spent from "${selectedCustomer.name}".`,
-                                  undefined,
-                                  'success',
-                                );
-                              } catch (err: any) {
-                                showToast(
-                                  'Database Error',
-                                  toUserMessage(err, "Failed to adjust wallet."),
-                                  undefined,
-                                  'error',
-                                );
-                              } finally {
-                                setIsSpendingWallet(false);
-                              }
-                            }}
-                            className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed text-emerald-500 border border-emerald-500/20 rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer flex items-center justify-center gap-1"
-                          >
-                            {isSpendingWallet
-                              ? 'Spending...'
-                              : 'Spend Credit (-)'}
-                          </button>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Dangerous Action: Delete Profile */}
@@ -1353,7 +1263,7 @@ export default function CustomersView() {
                       <div className="bg-red-500/5 p-4 border border-red-500/15 rounded-2xl flex flex-col gap-2 mt-2">
                         <div>
                           <h4 className="text-[10px] font-extrabold text-red-500 uppercase tracking-wider font-display">
-                            Danger Zone
+                            Delete customer
                           </h4>
                           <p className="text-[9px] text-app-text-muted mt-0.5 font-bold">
                             Delete this customer loyalty account permanently.
@@ -1400,12 +1310,12 @@ export default function CustomersView() {
                           {isDeletingCustomer ? (
                             <>
                               <RefreshCw size={13} className="animate-spin" />
-                              <span>Deleting Profile...</span>
+                              <span>Deleting…</span>
                             </>
                           ) : (
                             <>
                               <Trash2 size={13} />
-                              <span>Delete Loyalty Profile</span>
+                              <span>Delete customer</span>
                             </>
                           )}
                         </button>
@@ -1418,8 +1328,8 @@ export default function CustomersView() {
                 {activeDetailTab === 'ledger' && (
                   <div className="flex flex-col gap-2.5 text-xs">
                     <div className="flex items-center justify-between border-b border-app-border/40 pb-1.5 mb-1">
-                      <h4 className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-wider">
-                        Wallet & Outstanding Debt Ledger
+                      <h4 className="text-sm font-semibold text-app-text">
+                        Wallet and debt record
                       </h4>
                       <button
                         onClick={async () => {
@@ -1436,7 +1346,7 @@ export default function CustomersView() {
                         }}
                         className="text-[9px] font-black text-amber-500 hover:underline uppercase transition cursor-pointer"
                       >
-                        Refresh History
+                        Refresh
                       </button>
                     </div>
 
@@ -1453,7 +1363,7 @@ export default function CustomersView() {
                         No ledger transactions recorded yet for this customer.
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
+                      <div className="flex flex-col gap-2">
                         {ledgerEntries.map((entry) => {
                           let typeLabel = entry.type;
                           let typeColor = 'text-app-text';
@@ -1555,22 +1465,22 @@ export default function CustomersView() {
                     {/* Summary Metric Header */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase text-app-text-muted">Total Sales Done</span>
+                        <span className="text-xs text-app-text-muted">Total Sales Done</span>
                         <span className="text-sm font-black font-mono text-amber-500">{formatCurrency(historyStats.totalSalesAmt)}</span>
                         <span className="text-[9px] font-semibold text-app-text-muted">{historyStats.salesCount} transaction{historyStats.salesCount === 1 ? '' : 's'}</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase text-app-text-muted">Credit Sales (Unpaid)</span>
+                        <span className="text-xs text-app-text-muted">Credit Sales (Unpaid)</span>
                         <span className="text-sm font-black font-mono text-red-500">{formatCurrency(historyStats.creditSalesAmt)}</span>
                         <span className="text-[9px] font-semibold text-app-text-muted">Purchases on Credit</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase text-app-text-muted">Credit Repayments</span>
+                        <span className="text-xs text-app-text-muted">Credit Repayments</span>
                         <span className="text-sm font-black font-mono text-emerald-500">{formatCurrency(historyStats.totalRepaymentsAmt)}</span>
                         <span className="text-[9px] font-semibold text-app-text-muted">Paid for Debt</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase text-app-text-muted">Current Debt / Wallet</span>
+                        <span className="text-xs text-app-text-muted">Current Debt / Wallet</span>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-black font-mono text-red-500">D: {formatCurrency(selectedCustomer.debtBalance || 0)}</span>
                           <span className="text-[10px] text-app-text-muted">|</span>
@@ -1873,8 +1783,8 @@ export default function CustomersView() {
                 {activeDetailTab === 'message' && (
                   <div className="flex flex-col gap-4 text-xs">
                     <div className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-3.5">
-                      <h4 className="text-[10.5px] font-extrabold text-app-text uppercase tracking-wider border-b border-app-border/40 pb-1.5 mb-1">
-                        Outreach Communications Center
+                      <h4 className="text-sm font-semibold text-app-text">
+                        Send a message
                       </h4>
 
                       {/* Debt breakdown automated card if has debt */}
@@ -1885,12 +1795,9 @@ export default function CustomersView() {
                               <div className="flex items-center gap-1.5 text-red-500 font-extrabold uppercase text-[10px] tracking-wider">
                                 <Brain size={13} className="text-red-500" />
                                 <span>
-                                  Outstanding Debt Breakdown Generator
+                                  What they owe, item by item
                                 </span>
                               </div>
-                              <span className="text-[8px] bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded font-black uppercase">
-                                Statement Ready
-                              </span>
                             </div>
                             <p className="text-[9.5px] text-app-text-muted leading-relaxed font-bold">
                               Generate and load a detailed billing breakdown
@@ -1911,39 +1818,35 @@ export default function CustomersView() {
                               className="self-start px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer flex items-center gap-1 shadow-sm"
                             >
                               <Coins size={11} />
-                              <span>Load Debt Statement</span>
+                              <span>Use this in the message</span>
                             </button>
                           </div>
                         )}
 
                       {/* Outreach Templates */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase">
+                        <label className="text-xs font-medium text-app-text-muted">
                           Templates
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {[
                             {
-                              label: 'Loyalty Bonus Alert',
-                              text: `Hi ${selectedCustomer.name}, thank you for being an amazing customer of KayKay's! We have just credited 50 bonus points to your wallet as part of our Gold member rewards!`,
-                            },
-                            {
-                              label: 'Payment Overdue Note',
-                              text: `Hi ${
-                                selectedCustomer.name
-                              }, this is a gentle reminder that you have an outstanding debt of ${formatCurrency(
+                              label: 'Payment reminder',
+                              text: `Hi ${getFirstName(selectedCustomer.name)}, this is a reminder that your balance at ${shopName} is ${formatCurrency(
                                 selectedCustomer.debtBalance || 0,
-                              )} at KayKay's. Please settle at your earliest convenience. Thank you!`,
+                              )}. Please pay when you can. Thank you!`,
                             },
                             {
-                              label: 'Promotional Offer',
-                              text: `Hello ${selectedCustomer.name}! Get 10% off on fresh whole Milk deliveries today at KayKay's! Use code FRESH10. Call us to book.`,
+                              label: 'Thank you',
+                              text: `Hi ${getFirstName(selectedCustomer.name)}, thank you for shopping at ${shopName}. We appreciate you!`,
                             },
                             {
-                              label: 'Wallet Deposit Notice',
-                              text: `Hi ${
-                                selectedCustomer.name
-                              }, we received your payment and credited your KayKay's digital wallet. Your new wallet balance is ${formatCurrency(
+                              label: 'Points balance',
+                              text: `Hi ${getFirstName(selectedCustomer.name)}, you have ${selectedCustomer.loyaltyPoints || 0} loyalty points at ${shopName}.`,
+                            },
+                            {
+                              label: 'Wallet balance',
+                              text: `Hi ${getFirstName(selectedCustomer.name)}, your wallet balance at ${shopName} is ${formatCurrency(
                                 selectedCustomer.walletBalance || 0,
                               )}.`,
                             },
@@ -1962,8 +1865,8 @@ export default function CustomersView() {
 
                       {/* Custom outreach text box */}
                       <div className="flex flex-col gap-1 mt-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase">
-                          Outreach Message Body
+                        <label className="text-xs font-medium text-app-text-muted">
+                          Message
                         </label>
                         <textarea
                           rows={6}
@@ -1986,268 +1889,93 @@ export default function CustomersView() {
                           className="py-2.5 bg-[#25D366] text-white hover:bg-[#20ba59] font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
                         >
                           <Send size={12} />
-                          <span>WhatsApp dispatch</span>
+                          <span>WhatsApp</span>
                         </button>
                         <button
                           type="button"
                           onClick={() =>
                             ReceiptShareService.shareTextViaEmail(
                               selectedCustomer.email,
-                              'KayKay\'s Account Update',
+                              `Your account at ${shopName}`,
                               messageText,
                             )
                           }
                           className="py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
                         >
                           <Mail size={12} />
-                          <span>Email dispatch</span>
+                          <span>Email</span>
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* 4. SEND INVOICE TAB */}
+                {/* 4. INVOICES TAB */}
                 {activeDetailTab === 'invoice' && (
-                  <div className="flex flex-col gap-4 text-xs">
-                    <div className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-3.5">
-                      <div className="flex justify-between items-center border-b border-app-border/40 pb-1.5 mb-1">
-                        <h4 className="text-[10.5px] font-extrabold text-app-text uppercase tracking-wider">
-                          Invoice Builder
-                        </h4>
-                        {activeInvoiceData &&
-                          activeInvoiceData.customerId ===
-                            selectedCustomer.id && (
-                            <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/25 rounded-md text-[8px] font-black text-red-500 uppercase tracking-widest ">
-                              SMART PRE-POPULATED
-                            </span>
-                          )}
-                      </div>
-
-                      {/* Add Item Row selector */}
-                      <div className="bg-app-card p-3.5 border border-app-border rounded-2xl flex flex-col gap-2.5">
-                        <span className="text-[9px] font-black text-app-text-muted uppercase">
-                          Select Product Line
-                        </span>
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:items-center">
-                          <div className="md:col-span-7">
-                            <SearchableDropdown
-                              items={products.map((p) => ({
-                                id: p.id,
-                                label: p.name,
-                                sublabel: formatCurrency(p.price),
-                              }))}
-                              selectedValue={selectedInvoiceProdId}
-                              onChange={(val) => setSelectedInvoiceProdId(val)}
-                              placeholder="Choose product..."
-                            />
-                          </div>
-                          <div className="md:col-span-3">
-                            <input
-                              type="number"
-                              id="invoice_prod_qty"
-                              placeholder="Qty"
-                              defaultValue={1}
-                              className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-center text-app-text focus:outline-none font-bold font-mono h-[38px]"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedInvoiceProdId) {
-                                  const prodId = selectedInvoiceProdId;
-                                  const qtyEl = document.getElementById(
-                                    'invoice_prod_qty',
-                                  ) as HTMLInputElement;
-                                  if (qtyEl) {
-                                    const qty = parseFloat(qtyEl.value) || 1;
-                                    setInvoiceItems((prev) => {
-                                      const exists = prev.find(
-                                        (i) => i.productId === prodId,
-                                      );
-                                      if (exists) {
-                                        return prev.map((i) =>
-                                          i.productId === prodId
-                                            ? {
-                                                ...i,
-                                                quantity: i.quantity + qty,
-                                              }
-                                            : i,
-                                        );
-                                      }
-                                      return [
-                                        ...prev,
-                                        { productId: prodId, quantity: qty },
-                                      ];
-                                    });
-                                  }
-                                }
-                              }}
-                              className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer transition shadow-xs h-[38px]"
-                            >
-                              Add
-                            </button>
-                          </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="rounded-2xl bg-app-bg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-app-text-muted">Owes now</div>
+                        <div className={`text-xl font-semibold tabular-nums ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                          {formatCurrency(selectedCustomer.debtBalance || 0)}
                         </div>
+                        <p className="text-xs text-app-text-muted mt-0.5">
+                          {(selectedCustomer.debtBalance || 0) > 0
+                            ? 'An invoice lists every unpaid credit sale, delivery and balance, and gets the next invoice number.'
+                            : 'Nothing is owed, so there is nothing to invoice.'}
+                        </p>
                       </div>
+                      {canInvoice && (
+                        <button
+                          type="button"
+                          disabled={(selectedCustomer.debtBalance || 0) <= 0}
+                          onClick={() => setInvoiceFor(selectedCustomer)}
+                          className="shrink-0 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <FileText size={16} /> Make invoice
+                        </button>
+                      )}
+                    </div>
 
-                      {/* Items list */}
-                      <div className="flex flex-col gap-2">
-                        <span className="text-[9px] font-black text-app-text-muted uppercase">
-                          Line Invoice breakdown
-                        </span>
-                        {invoiceItems.length === 0 ? (
-                          <div className="p-4 bg-app-card border border-app-border rounded-xl text-center text-[10.5px] text-app-text-muted font-bold">
-                            No items added to custom invoice yet.
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-2 bg-app-card p-3.5 border border-app-border rounded-xl">
-                            {invoiceItems.map((item, idx) => {
-                              const product = products.find(
-                                (p) => p.id === item.productId,
-                              );
-                              if (!product) return null;
-                              return (
-                                <div
-                                  key={idx}
-                                  className="flex justify-between items-center text-[11px] font-bold"
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setInvoiceItems((prev) =>
-                                          prev.filter(
-                                            (i) =>
-                                              i.productId !== item.productId,
-                                          ),
-                                        )
-                                      }
-                                      className="text-red-500 hover:bg-red-500/15 p-1 rounded transition cursor-pointer"
-                                      title="Remove product"
-                                    >
-                                      <X size={11} />
-                                    </button>
-                                    <span className="text-app-text font-medium">
-                                      {product.name}{' '}
-                                      <span className="text-app-text-muted text-[10px]">
-                                        x{item.quantity}
-                                      </span>
-                                    </span>
-                                  </div>
-                                  <span className="font-mono">
-                                    {formatCurrency(
-                                      product.price * item.quantity,
-                                    )}
-                                  </span>
-                                </div>
-                              );
-                            })}
-
-                            <div className="h-[1px] bg-app-border my-1.5" />
-
-                            {/* Total calculation */}
-                            {(() => {
-                              const total = invoiceItems.reduce((acc, item) => {
-                                const product = products.find(
-                                  (p) => p.id === item.productId,
-                                );
-                                return (
-                                  acc +
-                                  (product ? product.price * item.quantity : 0)
-                                );
-                              }, 0);
-                              return (
-                                <div className="flex justify-between items-center font-extrabold text-[11px] text-app-text">
-                                  <span>GRAND TOTAL:</span>
-                                  <span className="text-amber-500 text-xs md:text-sm font-black font-mono">
-                                    {formatCurrency(total)}
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        )}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold">Invoices sent</h4>
+                        <button type="button" onClick={loadInvoices} className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                          Refresh
+                        </button>
                       </div>
-
-                      {/* Invoice Sharing Buttons */}
-                      {invoiceItems.length > 0 && (
-                        <div className="flex flex-col gap-2 mt-1">
-                          {(() => {
-                            const total = invoiceItems.reduce((acc, item) => {
-                              const product = products.find(
-                                (p) => p.id === item.productId,
-                              );
-                              return (
-                                acc +
-                                (product ? product.price * item.quantity : 0)
-                              );
-                            }, 0);
-                            const itemsText = invoiceItems
-                              .map((item) => {
-                                const product = products.find(
-                                  (p) => p.id === item.productId,
-                                );
-                                return `${
-                                  product ? product.name : 'Product'
-                                } (x${item.quantity}): ${formatCurrency(
-                                  (product ? product.price : 0) * item.quantity,
-                                )}`;
-                              })
-                              .join('\n');
-
-                            const shareText = `*INVOICE STATEMENT*\n*KayKay's Rewards Club*\n\n*Customer Name:* ${
-                              selectedCustomer.name
-                            }\n*Reference Phone:* ${
-                              selectedCustomer.phone
-                            }\n*Date:* ${new Date().toLocaleDateString()}\n\n*Line Breakdown:*\n${itemsText}\n\n----------------------------\n*Grand Invoice Total:* *${formatCurrency(
-                              total,
-                            )}*\n----------------------------\n\nThank you for choosing KayKay's! Please settle this invoice.`;
-
-                            return (
-                              <div className="grid grid-cols-2 gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    ReceiptShareService.shareTextViaWhatsApp(
-                                      selectedCustomer.phone,
-                                      shareText,
-                                    );
-                                    if (activeInvoiceData)
-                                      setActiveInvoiceData(null);
-                                  }}
-                                  className="py-2.5 bg-[#25D366] text-white hover:bg-[#20ba59] font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-                                >
-                                  <Share2 size={12} />
-                                  <span>Share via WhatsApp</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(shareText);
-                                    showToast('Invoice copied', `Paste it into an email to ${selectedCustomer.email}.`, undefined, 'success');
-                                    if (activeInvoiceData)
-                                      setActiveInvoiceData(null);
-                                    setSuccessMsg(
-                                      'Invoice shared successfully!',
-                                    );
-                                    setTimeout(() => setSuccessMsg(''), 3000);
-                                  }}
-                                  className="py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-                                >
-                                  <Check size={12} />
-                                  <span>Print statement</span>
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        </div>
+                      {invoicesState === 'loading' ? (
+                        <div className="py-8 flex justify-center text-app-text-muted"><RefreshCw size={16} className="animate-spin" /></div>
+                      ) : invoicesState === 'error' ? (
+                        <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">{invoicesError}</p>
+                      ) : invoices.length === 0 ? (
+                        <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">No invoices yet.</p>
+                      ) : (
+                        <ul className="rounded-2xl bg-app-bg divide-y divide-app-border/60 overflow-hidden">
+                          {invoices.map((inv) => (
+                            <li key={inv.id}>
+                              <button
+                                type="button"
+                                onClick={() => setOpenInvoice(inv.document)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-app-card cursor-pointer"
+                              >
+                                <span className="size-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 grid place-items-center shrink-0"><FileText size={16} /></span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm font-medium">{inv.invoiceNo}</span>
+                                  <span className="block text-xs text-app-text-muted truncate">
+                                    {formatInvoiceDate(inv.issuedAt)}{inv.createdBy ? ` · by ${inv.createdBy}` : ''}
+                                  </span>
+                                </span>
+                                <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(inv.balanceDue)}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   </div>
                 )}
-              </div>
+</div>
 
               {/* Confirmation after an action */}
               {successMsg && (
@@ -2256,27 +1984,35 @@ export default function CustomersView() {
                   <span>{successMsg}</span>
                 </div>
               )}
-            </div>
+            </section>
             </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-app-text-muted">
-            <div className="p-5 border border-app-border bg-app-card rounded-3xl max-w-sm flex flex-col items-center gap-3 shadow-xs">
+            <div className="max-w-xs flex flex-col items-center gap-3">
               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-full">
-                <Award size={24} className="" />
+                <Award size={24} />
               </div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-app-text">
-                Club Records
-              </h3>
-              <p className="text-[10.5px] leading-relaxed font-bold">
-                Select a customer loyalty profile from the list to view
-                outstanding balance ledgers, historical shopping receipts,
-                custom invoice builders, or dispatch targeted communications.
+              <h3 className="text-base font-semibold text-app-text">Pick a customer</h3>
+              <p className="text-sm leading-relaxed">
+                See what they owe, take payments, make invoices, and look through their purchases.
               </p>
             </div>
           </div>
         )}
       </div>
+
+      <InvoiceSheet
+        customer={invoiceFor}
+        issued={openInvoice}
+        onClose={() => {
+          setInvoiceFor(null);
+          setOpenInvoice(null);
+        }}
+        onIssued={() => {
+          if (activeDetailTab === 'invoice') loadInvoices();
+        }}
+      />
 
       {/* Add Customer Modal */}
       <SheetLayer>
@@ -2316,7 +2052,7 @@ export default function CustomersView() {
                 Enroll Loyalty Member
               </h3>
               <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider mt-0.5">
-                Register customer in KayKay's rewards program
+                Add them to your customer list
               </p>
 
               <div className="h-[1px] bg-app-border my-3 shrink-0" />
@@ -2327,7 +2063,7 @@ export default function CustomersView() {
               >
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-app-text-muted uppercase">
-                    Full Name *
+                    Name *
                   </label>
                   <input
                     type="text"
@@ -2348,7 +2084,7 @@ export default function CustomersView() {
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-app-text-muted uppercase">
-                    Phone Number *
+                    Phone *
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     <SearchableDropdown
@@ -2370,7 +2106,7 @@ export default function CustomersView() {
                       onChange={handleChange}
                       className={`flex-1 bg-app-bg border col-span-3 ${
                         errors.phone ? 'border-red-500' : 'border-app-border'
-                      } rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-bold`}
+                      } rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500`}
                     />
                   </div>
                   <span className="text-[8.5px] text-app-text-muted">
@@ -2442,7 +2178,7 @@ export default function CustomersView() {
 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-app-text-muted uppercase">
-                    Customer Description / Notes
+                    Notes
                   </label>
                   <textarea
                     name="description"

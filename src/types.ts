@@ -23,7 +23,7 @@ export interface CartItem {
   discountPercentage: number;
 }
 
-export  type kim = string;
+
 export type PaymentMethod = 'Cash' | 'Card' | 'Mobile_Wallet' | 'M-Pesa' | 'Credit_Debt' | 'Bank' | 'Credit' | 'Other';
 
 export interface Transaction {
@@ -232,6 +232,7 @@ export type NotificationType =
   | "Delivery Assigned"
   | "Delivery Completed"
   | "Payment Received"
+  | "Credit Sale"
   | "Sales Summary"
   | "Daily Report"
   | "Weekly Report"

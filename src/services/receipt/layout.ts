@@ -131,7 +131,8 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   row("TOTAL", `${cur} ${formatMoney(content.grandTotal)}`, true);
   if (content.amountPaid > 0) row(`Paid (${content.paymentMethod})`, `${cur} ${formatMoney(content.amountPaid)}`);
   if (content.balanceDue > 0) {
-    row("Payment:", content.paymentMethod);
+    // A credit sale is a debt, not a payment.
+    row("Payment:", "On credit, not paid");
     row("BALANCE DUE", `${cur} ${formatMoney(content.balanceDue)}`, true);
   }
   rule("=");

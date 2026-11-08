@@ -12,7 +12,7 @@ import { SheetLayer } from "../components/shared/SheetLayer";
 import { useBusinessStore } from "../stores/businessStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useOverlay } from "../hooks/useOverlay";
-import { formatNotificationNumber } from "../utils/idUtils";
+import { tidyNotification } from "../services/notifications/notificationText";
 
 import {
   Bell,
@@ -44,6 +44,8 @@ import {
   Sparkles,
   Mail,
   ListChecks,
+  CreditCard,
+  ShoppingBag,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -77,6 +79,8 @@ const TYPE_VISUALS: Record<string, NotifVisual> = {
   "Delivery Assigned": { icon: <Bike size={17} />, cls: "bg-sky-500/12 text-sky-500", category: "activity" },
   "Delivery Completed": { icon: <Bike size={17} />, cls: "bg-sky-500/12 text-sky-500", category: "activity" },
   "Payment Received": { icon: <CircleDollarSign size={17} />, cls: "bg-teal-500/12 text-teal-500", category: "transactions" },
+  "Credit Sale": { icon: <CreditCard size={17} />, cls: "bg-orange-500/12 text-orange-600 dark:text-orange-400", category: "transactions" },
+  "Online Store": { icon: <ShoppingBag size={17} />, cls: "bg-pink-500/12 text-pink-500", category: "activity" },
   "Payment Failed": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "transactions" },
   "Schedule Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
   "Scheduled Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
@@ -179,8 +183,9 @@ export default function NotificationsView() {
   // Archived rows are recomputed in the same subscriber so archive/restore shows at once.
   useEffect(() => {
     const unsub = NotificationRepository.subscribe((rows) => {
-      setItems(rows);
-      setArchived(NotificationRepository.getArchived());
+      // Older rows can carry internal IDs in their text; show them cleaned.
+      setItems(rows.map(tidyNotification));
+      setArchived(NotificationRepository.getArchived().map(tidyNotification));
     });
     if (activeBusinessId) {
       NotificationRepository.loadFromSupabase(activeBusinessId).catch(console.error);
@@ -227,8 +232,7 @@ export default function NotificationsView() {
         (n) =>
           (n.title || "").toLowerCase().includes(q) ||
           (n.message || "").toLowerCase().includes(q) ||
-          (n.created_by || "").toLowerCase().includes(q) ||
-          formatNotificationNumber(n.id).toLowerCase().includes(q)
+          (n.created_by || "").toLowerCase().includes(q)
       );
     }
     return list;
@@ -1023,8 +1027,6 @@ function NotificationRow({
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-app-text-muted">
                     <dt>Received</dt>
                     <dd className="text-app-text">{formatDetailDate(whenOf(notif))}</dd>
-                    <dt>Reference</dt>
-                    <dd className="text-app-text font-mono">{formatNotificationNumber(notif.id)}</dd>
                   </dl>
                 </div>
               </motion.div>

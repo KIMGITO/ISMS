@@ -173,10 +173,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
         {
           amount: amount.toLocaleString(),
           paymentMethod: method,
-          txId: id ? id.slice(-8) : "Debt-Payment"
+          fromCustomer: ` from ${cust.name} towards their debt. Still owed: KSh ${Math.max(0, newDebt).toLocaleString()}`,
         },
         {
-          title: `💰 Debt Repaid: ${cust.name}`,
+          title: `Debt payment from ${cust.name}`,
           role: "Owner",
           priority: "medium",
           payloadExtra: { customerName: cust.name, remainingDebt: newDebt }

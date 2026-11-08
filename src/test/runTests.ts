@@ -18,6 +18,9 @@ import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
+import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
+import { tidyNotification } from "../services/notifications/notificationText";
+import { NotificationTemplates } from "../services/notifications/notificationTemplates";
 // @ts-ignore plain JS module shared with the release workflow
 import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-version.mjs";
 // @ts-ignore plain JS module shared with the release workflow
@@ -693,6 +696,80 @@ runTest("End-of-shift report figures and text", () => {
   if (!text.includes("short by KSh 10")) throw new Error("counted cash difference missing:\n" + text);
   if (text.includes("```")) throw new Error("report should be plain text");
   if (!text.includes("8:00 – 17:00")) throw new Error("times should be Kenya time:\n" + text);
+});
+
+
+runTest("Invoice lists every unpaid charge and its balance equals what the customer owes", () => {
+  const credits: any[] = [
+    {
+      id: "c1", createdAt: "2026-11-01T08:00:00Z", amountOwed: 1150, amountPaid: 400, balance: 750,
+      sale: { id: "t1", timestamp: "2026-11-01T08:00:00Z", tax: 0, deliveryFee: 100, finalTotal: 1150,
+        items: [{ name: "Milk 500ml", unitPrice: 60, quantity: 10 }, { name: "Mala 1L", unitPrice: 150, quantity: 3, unit: "Litre" }] },
+    },
+    { id: "c2", createdAt: "2026-11-03T08:00:00Z", amountOwed: 200, amountPaid: 0, balance: 200, note: "Old balance", sale: null },
+    {
+      id: "c3", createdAt: "2026-11-05T08:00:00Z", amountOwed: 540, amountPaid: 0, balance: 540,
+      sale: { id: "t3", timestamp: "2026-11-05T08:00:00Z", tax: 0, deliveryFee: 0, finalTotal: 540, items: [{ name: "Milk 500ml", unitPrice: 60, quantity: 10 }] },
+    },
+  ];
+  const { lines, totals } = buildInvoiceLines(credits, 1490);
+  // Products, the delivery fee and the hand-added balance are all charged.
+  if (lines.filter((l) => l.kind === "product").length !== 3) throw new Error("expected 3 product lines");
+  if (!lines.some((l) => l.kind === "delivery" && l.amount === 100)) throw new Error("delivery fee missing");
+  if (!lines.some((l) => l.kind === "charge" && l.description === "Old balance")) throw new Error("manual balance missing");
+  if (totals.subtotal !== 600 + 450 + 100 + 200 + 600) throw new Error(`subtotal ${totals.subtotal}`);
+  if (totals.discount !== 60) throw new Error(`discount ${totals.discount}`); // second sale sold 600 for 540
+  if (totals.paid !== 400) throw new Error(`paid ${totals.paid}`);
+  if (totals.balance !== 1490) throw new Error(`balance ${totals.balance}`);
+  if (Math.abs(totals.subtotal - totals.discount + totals.tax - totals.paid - totals.balance) > 0.001) throw new Error("totals do not add up");
+
+  // More owed than the open sales explain: shown as an earlier balance, still adding up.
+  const more = buildInvoiceLines(credits, 1600);
+  if (!more.lines.some((l) => l.description === "Earlier balance" && l.amount === 110)) throw new Error("earlier balance line missing");
+  const t = more.totals;
+  if (Math.abs(t.subtotal - t.discount + t.tax - t.paid - 1600) > 0.001) throw new Error("totals with earlier balance do not add up");
+
+  const combined = combineSameProducts(lines);
+  const milk = combined.filter((l) => l.description === "Milk 500ml");
+  if (milk.length !== 1 || milk[0].quantity !== 20 || milk[0].amount !== 1200) throw new Error("same products not combined");
+});
+
+runTest("Invoice for a period covers only that period's sales, with older debt optional", () => {
+  const credits: any[] = [
+    { id: "a", createdAt: "2026-10-20T08:00:00Z", amountOwed: 300, amountPaid: 0, balance: 300, sale: { id: "t0", timestamp: "2026-10-20T08:00:00Z", tax: 0, deliveryFee: 0, finalTotal: 300, items: [{ name: "Ghee", unitPrice: 300, quantity: 1 }] } },
+    { id: "b", createdAt: "2026-11-05T08:00:00Z", amountOwed: 540, amountPaid: 0, balance: 540, sale: { id: "t1", timestamp: "2026-11-05T08:00:00Z", tax: 0, deliveryFee: 0, finalTotal: 540, items: [{ name: "Milk", unitPrice: 60, quantity: 9 }] } },
+    { id: "c", createdAt: "2026-12-02T08:00:00Z", amountOwed: 120, amountPaid: 0, balance: 120, sale: { id: "t2", timestamp: "2026-12-02T08:00:00Z", tax: 0, deliveryFee: 0, finalTotal: 120, items: [{ name: "Milk", unitPrice: 60, quantity: 2 }] } },
+  ];
+  const owes = 960;
+  const only = buildInvoiceLines(credits, owes, { from: "2026-11-01", to: "2026-11-30", includeEarlier: false });
+  if (only.totals.balance !== 540 || only.lines.length !== 1) throw new Error(`period only: ${JSON.stringify(only.totals)}`);
+  if (only.totals.owedNow !== 960) throw new Error("owed on the whole account missing");
+  const withEarlier = buildInvoiceLines(credits, owes, { from: "2026-11-01", to: "2026-11-30", includeEarlier: true });
+  if (withEarlier.totals.balance !== 840) throw new Error(`with earlier: ${withEarlier.totals.balance}`);
+  if (!withEarlier.lines[0].description.startsWith("Unpaid from before")) throw new Error("earlier line should come first");
+  // Sales after the period are left for the next invoice.
+  if (withEarlier.lines.some((l) => l.description === "Milk" && l.quantity === 2)) throw new Error("a sale after the period was included");
+
+  const lastMonth = periodFor("last_month", new Date(2026, 10, 8));
+  if (lastMonth.from !== "2026-10-01" || lastMonth.to !== "2026-10-31") throw new Error(JSON.stringify(lastMonth));
+  const lastWeek = periodFor("last_week", new Date(2026, 10, 8)); // Sunday 8 Nov 2026
+  if (lastWeek.from !== "2026-10-26" || lastWeek.to !== "2026-11-01") throw new Error(JSON.stringify(lastWeek));
+});
+
+runTest("Notifications carry no internal IDs and credit sales are not payments", () => {
+  const paid = NotificationTemplates.render("Payment Received", { amount: "1,250", paymentMethod: "M-Pesa", fromCustomer: " from Jane" });
+  if (paid.message !== "KSh 1,250 received by M-Pesa from Jane.") throw new Error(paid.message);
+  const missing = NotificationTemplates.render("Payment Received", { amount: "500", paymentMethod: "Cash" });
+  if (missing.message.includes("{")) throw new Error("an unfilled placeholder was shown: " + missing.message);
+  const credit = NotificationTemplates.render("Credit Sale", { customerName: "Jane", amount: "400", debtBalance: "1,400" });
+  if (/payment|received/i.test(credit.title + credit.message)) throw new Error("a credit sale must not read as a payment");
+
+  const old = tidyNotification({ type: "Payment Received", title: "💰 Payment Received", message: "A payment of KSh 400 was received via Credit Debt for invoice #3f2a9c1e-0000-4000-8000-000000000001." });
+  if (old.type !== "Credit Sale" || /3f2a9c1e|invoice/i.test(old.message)) throw new Error(JSON.stringify(old));
+  const rider = tidyNotification({ type: "Custom Notification", title: "Rider Dispatch", message: "Rider Ali assigned to deliver Order tx-1731000000000 (KSh 900)." });
+  if (/tx-\d/.test(rider.message)) throw new Error(rider.message);
+  const order = tidyNotification({ type: "Online Store", title: "New online order", message: "Order #1042 from Mary is paid." });
+  if (order.message !== "Order #1042 from Mary is paid.") throw new Error("real order numbers must stay: " + order.message);
 });
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

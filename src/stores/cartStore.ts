@@ -12,6 +12,12 @@ import { SupabaseService } from "../services/supabaseService";
 import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
 import { kraService } from "../services/kra/kraService";
+
+/** How a payment method reads in a message: "M-Pesa", "Mobile wallet", "Cash". */
+function paymentMethodName(method: string): string {
+  const names: Record<string, string> = { Mobile_Wallet: "mobile wallet", Credit_Debt: "credit", Bank: "bank transfer" };
+  return names[method] || method.replace(/_/g, " ");
+}
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 
 interface CartState {
@@ -270,25 +276,40 @@ export const useCartStore = create<CartState>((set, get) => ({
         }
       }
 
-      // 🔔 Push Notification: Payment Received
-      NotificationService.createNotification(
-        "Payment Received",
-        {
-          amount: finalTotal.toLocaleString(),
-          paymentMethod: paymentMethod.replace("_", " "),
-          txId: savedTx.id.replace(/^tx-/, ""),
-        },
-        { role: "Owner", priority: "medium" }
-      );
+      // A credit sale adds to what the customer owes; only other sales are money received.
+      if (isCredit && selectedCustomer) {
+        await useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
+        const owes = useCustomerStore.getState().customers.find((c) => c.id === selectedCustomer.id)?.debtBalance;
+        NotificationService.createNotification(
+          "Credit Sale",
+          {
+            customerName: selectedCustomer.name,
+            amount: finalTotal.toLocaleString(),
+            debtBalance: (owes ?? (selectedCustomer.debtBalance || 0) + finalTotal).toLocaleString(),
+          },
+          { role: "Owner", priority: "medium", payloadExtra: { customerId: selectedCustomer.id } }
+        );
+      } else {
+        NotificationService.createNotification(
+          "Payment Received",
+          {
+            amount: finalTotal.toLocaleString(),
+            paymentMethod: paymentMethodName(paymentMethod),
+            fromCustomer: selectedCustomer ? ` from ${selectedCustomer.name}` : "",
+          },
+          { role: "Owner", priority: "medium" }
+        );
+      }
 
       if (isDelivery && riderName) {
-        // 🔔 Push Notification: Delivery Assigned
-        NotificationService.createDeliveryNotification(riderName, selectedCustomer?.name || "Customer", "assigned");
+        NotificationService.createDeliveryNotification(riderName, selectedCustomer?.name || "a walk-in customer", "assigned", {
+          finalTotal,
+        });
 
         useNotificationStore.getState().showToast(
-          "Rider Dispatch",
-          `Dispatch Alert: Rider "${riderName}" assigned to deliver Order ${savedTx.id} (KSh ${finalTotal.toLocaleString()}). Delivery route logged.`,
-          "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E",
+          "Rider assigned",
+          `${riderName} will deliver ${selectedCustomer ? `to ${selectedCustomer.name}` : "this order"} (KSh ${finalTotal.toLocaleString()}).`,
+          undefined,
           "info"
         );
       }

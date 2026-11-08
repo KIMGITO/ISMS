@@ -1,13 +1,10 @@
 import { toUserMessage } from "../utils/userError";
 import React, { useState } from "react";
 import { useAppStore } from "../stores/appStore";
-import { useUiStore } from "../stores/uiStore";
-import { useUpdateStore } from "../stores/updateStore";
 import { 
   User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, 
   CheckCircle2, AlertCircle,  Upload, Image as ImageIcon,
   LogOut, HelpCircle, RefreshCw,
-  Info,
 } from "lucide-react";
 import { hasRolePermission, ALL_PERMISSIONS } from "../utils/permissions";
 import { normalizePhone, validatePhone } from "../utils/phoneUtils";
@@ -219,14 +216,6 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
 
           {/* Logout Action */}
           <div className="w-full border-t border-app-border/45 pt-4 text-left flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => useUiStore.getState().setActiveTab("about")}
-              className="w-full py-2.5 bg-app-bg hover:bg-app-card text-app-text border border-app-border rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 transition cursor-pointer"
-            >
-              <Info size={13} />
-              <span>About this app · v{useUpdateStore.getState().currentVersion}</span>
-            </button>
             <button
               type="button"
               onClick={() => {
