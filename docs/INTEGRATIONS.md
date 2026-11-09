@@ -2,7 +2,7 @@
 
 What KayKay's connects to, what each connection needs, and what happens without it. Every connection is optional except Supabase. Secrets go in Supabase, never in the repo or the app.
 
-## What runs where and whne 
+## What runs where and  
 
 | Part | Where it runs | How it starts |
 |---|---|---|
