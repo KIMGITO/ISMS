@@ -1,8 +1,8 @@
 ---
 title: "KayKay's ISMS — System Documentation"
 subtitle: "Integrated Shop Management System: staff app, customer website, dial-code ordering and Supabase backend"
-version: "2.0.0"
-date: "6 November 2026"
+version: "4.2.1"
+date: "9 November 2026"
 ---
 
 # KayKay's ISMS — System Documentation
@@ -11,11 +11,11 @@ date: "6 November 2026"
 
 | | |
 |---|---|
-| Document version | 2.0.0, matching app release v2.0.0 |
-| Date | 6 November 2026 |
+| Document version | 4.2.1, matching app release v4.2.1 |
+| Date | 9 November 2026 |
 | Repository | `github.com/KIMGITO/ISMS` |
 | Product name | KayKay's (package `com.kaykays.app`, desktop identifier `com.isms.app`) |
-| Status | Staff app released; customer website, M-Pesa till flow and dial-code ordering built but not yet run against the live providers |
+| Status | Staff app released; customer website, M-Pesa till flow, dial-code ordering and KRA eTIMS built but not yet run against the live providers |
 
 ## Contents
 
@@ -53,7 +53,7 @@ Appendices: A. Environment variables and secrets · B. Permission codes · C. Da
 
 ## 1.1 Purpose
 
-This document describes what ISMS does, how it is built, and how to run, deploy and maintain it. It brings together material that was previously spread across the README, the `docs/` folder, the website README and the notifications notes, and checks it against the code as of release v2.0.0.
+This document describes what ISMS does, how it is built, and how to run, deploy and maintain it. It brings together material that was previously spread across the README, the `docs/` folder, the website README and the notifications notes, and checks it against the code as of release v4.2.1 (9 November 2026). Section 1.5 lists what changed since v2.0.0.
 
 ## 1.2 Scope
 
@@ -81,10 +81,32 @@ ISMS covers the whole of KayKay's day-to-day operation:
 
 ## 1.4 Conventions
 
-- Screen names and buttons are in **bold**, for example **Business Management > M-Pesa**.
+- Screen names and buttons are in **bold**, for example **Payments & Expenses > M-Pesa**.
 - File paths, table names, functions and commands are in `code`.
 - Money is in Kenyan shillings (Ksh) unless stated. Times for scheduled jobs are Nairobi time (UTC+3).
 - "Owner" includes Admin unless a section says otherwise.
+
+## 1.5 What changed since v2.0.0
+
+| Area | Change | Section |
+|---|---|---|
+| Loyalty | New points rule: 2 per Ksh 1 paid, 1 per Ksh 1 of debt repaid, value by tier; points never become money; points report | 10.1, 6.11 |
+| Customers | Invoices for what a customer owes (A5 PDF, numbered, stored) | 6.12 |
+| Customers | Add a customer to a walk-in sale afterwards, so they get the points | 10.8 |
+| Credit | A credit sale is a debt, not a payment: "Sold on credit" notification, receipt marked not paid | 6.7 |
+| Receipts | One layout for preview, print, PDF and WhatsApp; points on receipts; real Bluetooth and Wi-Fi printing | 14 |
+| Tax | KRA eTIMS signing; VAT only once eTIMS is connected | 14.4 |
+| Offline | Paid sales queue on the device and send on reconnect | 15.4 |
+| Home | Rebuilt: charts, four key figures on phones, needs attention, full-screen charts | 6.4 |
+| Stock | Stock History screen; categories in their own table | 6.8, 6.9 |
+| Shifts | Rebuilt end-of-shift report | 6.5 |
+| Navigation | Payments & Expenses screen; grouped More sheet; double-tap hides the bottom bar | 6.2 |
+| Keyboard | Shortcuts on every screen, filtered by role; ? help; table in About | 6.3 |
+| Search | Global search finds features and shortcuts | 6.2 |
+| Settings | Collapsible sections; Invoices section; settings no longer reset | 6.20 |
+| Text | No database IDs shown; customer names capitalised | 10.9 |
+| Security | Invitations bound to the invited email; reset codes only to the login email | 6.1, 18.3 |
+| Updates | Signed desktop updates; `.deb` installs update themselves; Android key pinned in CI | 20, 21 |
 
 # 2. System overview
 
@@ -177,18 +199,20 @@ ISMS/
 │   │                         notifications, secure storage, updates
 │   ├── hooks/                useForm, useOverlay, useDevicePermission...
 │   ├── services/             Supabase client, repositories, notifications,
-│   │                         printer/, receipt/, upload/, crash reporter
+│   │                         printer/, receipt/, invoice/, loyalty/, offline/,
+│   │                         upload/, crash reporter
 │   ├── stores/               Zustand stores (auth, business, cart, customer,
 │   │                         inventory, transactions, notifications, ...)
-│   ├── utils/                permissions.ts, phoneUtils, semver, userError...
+│   ├── utils/                permissions.ts, screens.ts, shortcuts.ts, phoneUtils,
+│   │                         semver, userError...
 │   └── test/runTests.ts      Test suite (npm test)
 ├── website/                  Customer website (separate Vite build)
 │   ├── src/pages/            Home, Shop, Product, Cart, Account, Articles...
 │   ├── src/seo.ts            Titles, descriptions, structured data
 │   └── scripts/prerender.ts  Writes one HTML file per public page
 ├── supabase/
-│   ├── migrations/           32 SQL migrations (see Appendix C)
-│   ├── functions/            17 edge functions + shared/
+│   ├── migrations/           40 SQL migrations (see Appendix C)
+│   ├── functions/            18 edge functions + shared/
 │   ├── recalculate_loyalty_points.sql
 │   ├── dev_clear.sql         Wipes data, keeps schema (development only)
 │   └── dev_reset.sql         Drops schema and data (development only)
@@ -222,6 +246,7 @@ ISMS/
 | `npm run website:dev` | Website at `http://localhost:5180` |
 | `npm run website:build` | Website build and prerender into `website/dist` |
 | `npm run website:lint` | TypeScript check of the website |
+| `npm run website:deploy` | Publish the website to its own Vercel project (`kaykays-website`) |
 | `npm run sounds:sync` | Copy notification sounds into the Android project |
 
 <div class="page-break"></div>
@@ -696,7 +721,7 @@ KayKay's uses an M-Pesa **till** (Buy Goods). A payment a customer sends to a ti
 |---|---|
 | Online order or dial code | A prompt goes to their phone; the order settles when they pay. |
 | Staff press **Send M-Pesa prompt** | A prompt goes to their phone. When they pay, the payment is recorded automatically, against their debt first and then their wallet, or as a walk-in. |
-| They pay the till from their own phone | The payment waits under **Paid to the till** until staff assign it to a customer, mark it as a sale already rung up, record it as a walk-in, or ignore it with a note. |
+| They pay the till from their own phone | The payment waits under **Paid to the till** until staff choose **Record for customer**, **Already rung up as a sale**, **Walk-in, not a sale**, or **Ignore** with a note. |
 
 ## 9.3 The functions involved
 
@@ -708,7 +733,7 @@ KayKay's uses an M-Pesa **till** (Buy Goods). A payment a customer sends to a ti
 | `till-callback` | Safaricom | Direct till payments (C2B): `?type=validation` and `?type=confirmation` |
 | `process_business_payment` | Database | Records a matched payment against debt, then wallet |
 | `record_till_payment`, `handle_till_payment` | Database | Queue and resolve direct till payments |
-| `log_mpesa_payment` | Database | Logs the payment and raises **Payment Received** |
+| `log_mpesa_payment` | Database | Logs the payment and raises **Payment Received** (never for a credit sale) |
 
 Safaricom refuses callback URLs containing words like "mpesa", which is why the C2B function is called `till-callback`.
 
@@ -735,7 +760,7 @@ Staff prompts are limited to 60 per hour per person and 600 per day per business
    ```
 
 4. Deploy `mpesa-webhook`, `mpesa-payments` and `till-callback`, and apply migration `20261106001`.
-5. In **Business Management > M-Pesa**, enter the till number and press **Register till with Safaricom**. Each branch with its own till does this once.
+5. In **Payments & Expenses > M-Pesa**, enter the till number and press **Register till with Safaricom**. Each branch with its own till does this once.
 
 Set `MPESA_C2B_SHORTCODE` if Safaricom registers the till under a different short code from `MPESA_SHORTCODE`. In the sandbox, Daraja's test short code is a paybill, so use `CustomerPayBillOnline` and leave `MPESA_PARTY_B` empty.
 
@@ -921,6 +946,7 @@ Everything is on by default for those who can have it. Pausing turns off everyth
 | AI Business Insight, AI Recommendation, AI Risk Alert | AI analysis | medium / high |
 | Delivery Assigned, Delivery Completed | Delivery flow | medium |
 | Sales Summary, Daily, Weekly, Monthly Report | Report generators | medium |
+| Credit Sale | Sale on credit ("Sold on credit"; a debt, not a payment) | medium |
 | Debt Due Reminder | App | high |
 | Low Cash Balance | Cash drawer monitor | medium |
 | Role Invitation | Invitation flow | high |
@@ -1110,17 +1136,17 @@ Every business table carries `business_id`. Row-level security policies let a si
 | Area | Tables |
 |---|---|
 | Identity and access | `businesses`, `branches`, `users`, `employees`, `business_memberships`, `invitations`, `role_permissions`, `role_default_permissions`, `otps`, `rate_limits` |
-| Products and stock | `products`, `inventory_adjustments`, `suppliers`, `purchases`, `purchase_items` |
+| Products and stock | `products`, `product_categories`, `inventory_adjustments`, `suppliers`, `purchases`, `purchase_items` |
 | Production | `recipes`, `recipe_ingredients`, `bill_of_materials`, `bom_ingredients`, `production_batches` |
-| Sales | `transactions`, `transaction_items`, `offline_sync_queue`, `receipt_verifications` |
-| Customers | `customers`, `customer_ledger`, `wallet_transactions`, `debt_payments`, `credit_payments`, `loyalty_settings`, `loyalty_redemptions`, `customer_merges`, `customer_duplicate_dismissals` |
+| Sales | `transactions`, `transaction_items`, `offline_sync_queue`, `receipt_verifications`, `kra_etims_receipts`, `kra_etims_items` |
+| Customers | `customers`, `customer_ledger`, `wallet_transactions`, `debt_payments`, `credit_payments`, `loyalty_settings`, `loyalty_redemptions`, `customer_merges`, `customer_duplicate_dismissals`, `loyalty_points_earned`, `invoices`, `invoice_counters` |
 | Money | `payments`, `money_assets`, `payment_asset_ledger`, `expenses`, `expense_categories`, `business_assets` |
 | M-Pesa | `mpesa_settings`, `mpesa_transactions`, `mpesa_till_payments` |
 | Online store | `customer_accounts`, `online_orders`, `online_order_items`, `customer_order_schedules`, `customer_messages`, `delivery_zones`, `website_settings`, `website_articles`, `assistant_usage` |
 | Staff operations | `shifts`, `schedules` |
 | Notifications | `notifications`, `notification_preferences`, `device_fcm_tokens` |
 | Feedback | `complaints`, `complaint_replies` |
-| Settings | `receipt_settings`, `printer_settings`, `sms_settings`, `whatsapp_settings`, `ai_settings`, `integration_configurations` |
+| Settings | `receipt_settings`, `printer_settings`, `sms_settings`, `whatsapp_settings`, `ai_settings`, `integration_configurations` (includes the `invoice` defaults), `kra_etims_settings`, `kra_etims_secrets` (server only) |
 | Analytics and logs | `audit_logs`, `ai_insights`, `dashboard_analytics_snapshots`, `scheduled_reports`, `report_tracked_items`, `crash_reports` |
 | Backups and files | `google_sheets_backup`, `backup_history_logs`, `storage_files` |
 
@@ -1160,9 +1186,11 @@ Every business table carries `business_id`. Row-level security policies let a si
 | Business setup | `create_business_with_owner`, `check_owner_exists`, `accept_invitation_with_token`, `get_invitation_by_token` |
 | Access | `has_permission`, `fn_user_has_permission`, `assert_permission`, `assert_business_member`, `is_owner_or_admin`, `get_user_business_ids` |
 | Sales and payments | `process_customer_transaction`, `process_business_payment`, `void_business_payment`, `get_business_payments`, `get_money_assets` |
-| Wallet, debt, points | `process_wallet_topup`, `process_wallet_spend`, `process_debt_payment`, `settle_customer_debt_fifo`, `redeem_customer_points`, `spend_points_at_till`, `refund_till_points` |
+| Wallet, debt, points | `process_wallet_topup`, `process_wallet_spend`, `process_debt_payment`, `settle_customer_debt_fifo`, `redeem_customer_points`, `spend_points_at_till`, `refund_till_points`, `link_till_points`, `fn_point_value`, `attach_sale_to_customer`, `issue_invoice` |
 | M-Pesa | `log_mpesa_payment`, `record_till_payment`, `handle_till_payment`, `confirm_store_payment_request`, `begin_order_payment`, `confirm_online_order_payment` |
-| Stock | `adjust_stock_manually`, `adjust_stock_bulk`, `update_product_category_bulk` |
+| Stock | `adjust_stock_manually`, `adjust_stock_bulk`, `update_product_category_bulk`, `fn_register_product_category` |
+| KRA eTIMS | `kra_next_invoice_no` |
+| Readable text | `fn_receipt_number`, `fn_readable_ids`, `fn_capitalize_words` |
 | Customers | `find_duplicate_customers`, `dismiss_duplicate_customers`, `merge_customers`, `calculate_customer_tier` |
 | Customer portal | `get_public_storefront`, `place_online_order`, `cancel_my_order`, `save_order_schedule`, `delete_order_schedule`, `get_my_rewards`, `redeem_my_points`, `update_my_account`, `get_my_contact_preferences`, `update_my_contact_preferences`, `submit_website_feedback`, `run_customer_portal_daily` |
 | Staff portal tools | `staff_update_online_order`, `staff_assign_rider`, `staff_clear_order_attention`, `staff_send_customer_message`, `get_my_deliveries`, `rider_update_delivery` |
@@ -1214,6 +1242,7 @@ All functions live in `supabase/functions/<name>/index.ts`. Common helpers in `s
 | `whatsapp-config` | Staff app | `communication.send` | WhatsApp settings and sending |
 | `backup-config` | Staff app, `pg_cron` | Owner, service role | Google Sheets backup settings and runs |
 | `sync` | Staff app | `pos.create_sale` | Offline sale queue |
+| `kra-etims` | Staff app | `settings.integrations` (connect), `pos.create_sale` / `orders.view` (sign) | KRA eTIMS: `status`, `connect`, `disconnect`, `sign_sale` |
 
 Deploy one with `supabase functions deploy <name>`, or all with `supabase functions deploy`.
 
@@ -1236,6 +1265,8 @@ Safaricom and Africa's Talking can't sign in, so `mpesa-webhook`, `till-callback
 ## 18.3 Sign-in codes
 
 `auth-otp` generates six-digit codes with rejection sampling so all 900,000 codes are equally likely, stores them server-side, and limits attempts: 30 per 10 minutes per IP, 15 per hour per email, and 5 wrong guesses per code.
+
+A password reset only looks up the real login email (`auth.users.email`), and an invitation can only be accepted by the account whose login email it was sent to (migration `20261107002`). Before this fix, an invitation token could be used to overwrite another person's profile and reach their account through a reset.
 
 ## 18.4 Rate limits
 
@@ -1379,6 +1410,8 @@ cd android && ./gradlew assembleRelease
 
 Release builds use version code 10,000,000 + the version (1.1.0 becomes 10,001,000), which is above any local build's timestamp code, so releases always upgrade a local install.
 
+The release key was replaced after v2.0.0 was built, so phones on v2.0.0 can't install later APKs ("App not installed") and must install the latest APK by hand once. To stop that happening again, CI pins the expected certificate in `android/release-signing-cert.sha256` and fails the release if the APK is signed with any other key.
+
 ## 20.5 Desktop signing
 
 The updater key pair is in `~/.tauri/`; its public half is in `src-tauri/tauri.conf.json`. **Back it up with the Android key. If the private key is lost, installed desktop apps refuse every future update and must be reinstalled by hand.** Windows shows a SmartScreen warning until the MSI is signed with a code-signing certificate.
@@ -1392,7 +1425,7 @@ Installed apps check `https://github.com/KIMGITO/ISMS/releases/latest/download/l
 | Platform | Behaviour |
 |---|---|
 | Windows, Linux AppImage | The download is verified against the signing key, then the app restarts after a 15-second countdown. It never restarts while a sale has items, and staff can press **Later**. |
-| Linux `.deb` | Doesn't update itself; install the new `.deb`. |
+| Linux `.deb` | Gets the signed `.deb` (`latest.json` lists `linux-x86_64-deb` and `linux-x86_64-appimage` separately). |
 | Android | `AppUpdatePlugin.java` downloads the APK, checks its SHA-256, and opens Android's installer. Android always asks to confirm, and the first time asks to allow installs from KayKay's. |
 
 If an update fails, a red bar says so, and **About this app** (under More on phones; in the sidebar and Profile on desktop) has **Check for updates**.
@@ -1442,7 +1475,7 @@ Supabase's own database backups remain the primary recovery path; the Sheets exp
 | Crashes | `crash_reports` table; Owners and Admins read their business's reports |
 | Edge function errors | Supabase dashboard > Edge Functions > Logs |
 | Scheduled jobs | `cron.job_run_details` |
-| Payments needing attention | **Business Management > M-Pesa > Paid to the till** and **Online Store > Orders** |
+| Payments needing attention | **Payments & Expenses > M-Pesa > Paid to the till** and **Online Store > Orders** |
 | Backups | Backup history in **Settings** |
 
 ## 22.5 Crash reports
@@ -1475,7 +1508,14 @@ Supabase's own database backups remain the primary recovery path; the Sheets exp
 | Access | Role permission checks with database overrides; database role defaults match the app |
 | Production | BOM ingredient requirements and stock shortages; batch cancellation restock vs waste |
 | AI | Pending action store and permission validation; Hugging Face default provider and token rotation |
-| Customers | Merge preview matches the database rules |
+| Customers | Merge preview matches the database rules; names capitalised; walk-in sale added later earns till points |
+| Loyalty | 2 points per Ksh 1 paid, none on credit, delivery excluded; tier values match the database |
+| Invoices | Lists every unpaid charge and balances to what is owed; a period covers only that period |
+| Receipts | Lines fit the paper; points shown; KRA block only with a real signature; Code 128 |
+| Text | No database IDs in stock or history text; notifications carry no IDs and credit sales aren't payments |
+| Offline | Sales queue once per reference and are marked pending |
+| Home and shifts | Figures, ranges and growth; Kenya time charts; end-of-shift report |
+| Shortcuts | Shortcuts and features follow roles; screen access follows roles |
 | USSD | Menu registers, orders and checks balances |
 | M-Pesa | Prompts accept Kenyan numbers in any common format |
 | Navigation | Mobile nav keeps at most 5 slots, Settings off the bar, Sell centred for cashiers |
@@ -1526,7 +1566,8 @@ Every connection except Supabase is optional.
 - **USSD menu shows the first seven products in stock**, and a slow M-Pesa response can exceed the gateway's 10-second limit.
 - **WhatsApp delivery isn't confirmed**: a send counts as done once Meta accepts it.
 - **Email is limited to 30 per hour per person**, so it doesn't suit large lists.
-- **The `.deb` Linux package doesn't update itself.**
+- **Turning a phone sideways in full-screen Home charts** needs a native Android build with `ScreenOrientationPlugin`; older builds rotate with CSS and chart tooltips may be offset.
+- **Home figures over long ranges** can be cut off at 1,000 sales, and product profit uses current prices.
 - **Windows shows a SmartScreen warning** until the MSI is code-signed.
 - **The delivery fee defaults to 0.** Set delivery areas and prices before launching the website.
 
@@ -1563,6 +1604,12 @@ Every connection except Supabase is optional.
 | Sign-up or password reset stopped working | Migrations applied before `auth-otp` was deployed, or old app | Deploy `auth-otp`; update the app |
 | Bluetooth printer missing | Not paired in Android settings | Pair it, then reopen printer settings |
 | Customer's balance change refused | Record was merged | Refresh the app so it uses the kept record |
+| "Not set up on the server" when issuing an invoice | Migration `20261108001` missing | Apply it (`supabase db push`) |
+| VAT switch greyed out | KRA eTIMS not connected | Connect it in **Settings > Receipts & printing > KRA eTIMS** |
+| Sale shows **Waiting to sync** | Made offline | Reconnect; it sends by itself. Don't ring it up again |
+| **Add customer** missing on a receipt | Sale has a customer, isn't paid, or is older than the limit | See section 10.8 |
+| A shortcut does nothing | Role can't use that action, or focus is in a text box | Press **?** to see your keys |
+| Phone shows "App not installed" for an update | Phone still on v2.0.0 (different signing key) | Uninstall and install the latest APK by hand once |
 
 <div class="page-break"></div>
 
@@ -1686,6 +1733,14 @@ Applied in filename order by `supabase db push`.
 | `20261105015_rider_deliveries_points_on_orders` | Rider deliveries, points on online orders |
 | `20261105016_customer_merge_notification_settings` | Customer merging, notification preferences |
 | `20261106001_void_payments_expenses_mpesa_till` | Voiding payments and expenses, M-Pesa till queue, account numbers |
+| `20261106002_product_categories` | Product categories in their own table |
+| `20261107001_kra_etims` | KRA eTIMS settings, secrets, items and signatures |
+| `20261107002_invitation_account_binding` | Invitations bound to the invited login email; reset lookup by login email only |
+| `20261107003_till_points_on_receipts` | Links till points to the sale (`link_till_points`) |
+| `20261108001_customer_invoices` | Invoices, invoice counters, `issue_invoice`, Credit Sale notification |
+| `20261108002_loyalty_points_rule` | New points rule, tier values, points log, capitalised names, old balances x200 |
+| `20261108003_attach_sale_to_customer` | `attach_sale_to_customer` |
+| `20261108004_no_ids_in_text` | Receipt numbers instead of IDs in stock and customer history |
 
 <div class="page-break"></div>
 
@@ -1710,3 +1765,6 @@ Applied in filename order by `supabase db push`.
 | Tenant | One business and its data |
 | USSD | Dial codes such as `*384*123#` that work on any phone without internet |
 | Walk-in | A sale with no registered customer |
+| eTIMS | KRA's electronic tax invoice system; OSCU is the online version used here |
+| Invoice | A bill for what a customer owes on credit (not a receipt) |
+| Points report | Loyalty summary of points held, earned, used and their cost |

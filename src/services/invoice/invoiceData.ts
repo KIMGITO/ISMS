@@ -4,6 +4,34 @@ import { toUuid } from "../../utils/idUtils";
 import { readableIds } from "../../utils/stringUtils";
 import { InvoiceDocument, OpenCredit } from "./types";
 
+/**
+ * One credit record per sale. Databases that have not yet had the fix for doubled records
+ * (20261109002) hold two for some sales; counting both listed the sale twice on the invoice
+ * and treated the difference as already paid. Copies are merged: one record, with what was
+ * paid across them (never more than the sale's debt).
+ */
+export function mergeDuplicateCredits(rows: OpenCredit[]): OpenCredit[] {
+  const out: OpenCredit[] = [];
+  const bySale = new Map<string, OpenCredit>();
+  for (const r of rows) {
+    const key = r.saleId;
+    if (!key) {
+      out.push(r);
+      continue;
+    }
+    const kept = bySale.get(key);
+    if (!kept) {
+      bySale.set(key, { ...r });
+      out.push(bySale.get(key)!);
+      continue;
+    }
+    kept.amountOwed = Math.max(kept.amountOwed, r.amountOwed);
+    kept.amountPaid = Math.min(kept.amountOwed, kept.amountPaid + r.amountPaid);
+    kept.balance = Math.max(0, Math.round((kept.amountOwed - kept.amountPaid) * 100) / 100);
+  }
+  return out.filter((r) => r.balance > 0);
+}
+
 /** The customer's unpaid credit sales and hand-added balances, with the price each item was sold at. */
 export async function fetchOpenCredit(customerId: string): Promise<OpenCredit[]> {
   const supabase = getSupabase();
@@ -41,15 +69,16 @@ export async function fetchOpenCredit(customerId: string): Promise<OpenCredit[]>
     }
   }
 
-  return (rows || []).map((r: any) => ({
+  return mergeDuplicateCredits((rows || []).map((r: any) => ({
     id: r.id,
+    saleId: r.transaction_id || undefined,
     createdAt: r.created_at,
     amountOwed: Number(r.amount_owed) || 0,
     amountPaid: Number(r.amount_paid) || 0,
     balance: Number(r.balance) || 0,
     note: r.note ? readableIds(r.note) : r.note,
     sale: r.transaction_id ? sales.get(r.transaction_id) || null : null,
-  }));
+  })));
 }
 
 function friendly(err: any): Error {

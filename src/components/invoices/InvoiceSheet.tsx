@@ -72,6 +72,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
   const [customTo, setCustomTo] = useState(todayIso);
   const [includeEarlier, setIncludeEarlier] = useState(true);
   const rootRef = useRef<HTMLDivElement>(null);
+  const issuing = useRef(false);
 
   const isIssued = !!doc?.invoiceNo;
   useOverlay(open, onClose, 'dialog');
@@ -170,12 +171,14 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
   const canIssue = !!doc && !isIssued && doc.totals.balance > 0 && busy === null;
 
   const issue = useCallback(async () => {
-    if (!doc || !customer || !activeBusinessId || !canIssue) return;
+    // A ref, not state: a double click or a held Ctrl+Enter fires again before the screen re-renders.
+    if (!doc || !customer || !activeBusinessId || !canIssue || issuing.current) return;
     if (doc.lines.some((l) => !l.description.trim())) {
       setError('Every line needs a description.');
       setPane('edit');
       return;
     }
+    issuing.current = true;
     setBusy('issue');
     setError(null);
     try {
@@ -191,6 +194,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
     } catch (err) {
       setError(toUserMessage(err, 'Could not issue the invoice.'));
     } finally {
+      issuing.current = false;
       setBusy(null);
     }
   }, [doc, customer?.id, activeBusinessId, canIssue, employeeName, textsDirty]);

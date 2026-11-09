@@ -24,6 +24,7 @@ import { SHORTCUTS, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/short
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
 import { customerName, readableIds } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
+import { mergeDuplicateCredits } from "../services/invoice/invoiceData";
 import { tidyNotification } from "../services/notifications/notificationText";
 import { NotificationTemplates } from "../services/notifications/notificationTemplates";
 // @ts-ignore plain JS module shared with the release workflow
@@ -840,6 +841,20 @@ runTest("People never see a database ID in stock or history text", () => {
 runTest("Customer names start every word with a capital", () => {
   const cases: Array<[string, string]> = [["mary wanjiku", "Mary Wanjiku"], ["  peter   o'neil ", "Peter O'neil"], ["mama of twins", "Mama Of Twins"], ["JOHN", "JOHN"], ["mcDonald", "McDonald"]];
   for (const [input, want] of cases) if (customerName(input) !== want) throw new Error(`${input} -> ${customerName(input)}`);
+});
+
+runTest("A credit sale recorded twice is one invoice line, not two with half paid", () => {
+  const row = (id: string, paid: number): any => ({ id, saleId: "sale-1", createdAt: "2026-11-01T08:00:00Z", amountOwed: 1000, amountPaid: paid, balance: 1000 - paid });
+  // Doubled records: 2,000 owed in all, 400 paid on one of them. The customer owes 600.
+  const merged = mergeDuplicateCredits([row("a", 400), row("b", 0)]);
+  if (merged.length !== 1 || merged[0].amountOwed !== 1000 || merged[0].balance !== 600) throw new Error(JSON.stringify(merged));
+  // Paid in full on one copy: nothing left, so nothing to invoice.
+  if (mergeDuplicateCredits([row("a", 1000), row("b", 0)]).length !== 0) throw new Error("a settled sale must drop off the invoice");
+  // Records without a sale (manual debt) stay separate.
+  const manual: any = (id: string) => ({ id, createdAt: "2026-11-02T08:00:00Z", amountOwed: 200, amountPaid: 0, balance: 200 });
+  if (mergeDuplicateCredits([manual("m1"), manual("m2")]).length !== 2) throw new Error("manual balances must not merge");
+  const fix = readFileSync("supabase/migrations/20261109002_fix_double_credit_records.sql", "utf8");
+  if (!/uq_credit_payments_transaction/.test(fix)) throw new Error("the database must allow one credit record per sale");
 });
 
 runTest("Notifications carry no internal IDs and credit sales are not payments", () => {

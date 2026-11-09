@@ -89,6 +89,8 @@ export interface InvoiceDocument {
 /** An open credit record with its sale, as read from the database. */
 export interface OpenCredit {
   id: string;
+  /** The sale this credit record belongs to, when it came from a sale. */
+  saleId?: string;
   createdAt: string;
   amountOwed: number;
   amountPaid: number;
