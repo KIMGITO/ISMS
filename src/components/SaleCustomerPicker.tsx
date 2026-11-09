@@ -28,7 +28,7 @@ export function SaleCustomerPicker({ transaction, onAttached, compact, className
       customers.map((c) => ({
         id: c.id,
         label: c.name,
-        sublabel: [c.phone, c.accountNumber && `Acc ${c.accountNumber}`].filter(Boolean).join(' · '),
+        sublabel: [c.phone, c.accountNumber && `Acc ${c.accountNumber}`, `${(c.loyaltyPoints || 0).toLocaleString()} pts`].filter(Boolean).join(' · '),
       })),
     [customers],
   );
@@ -41,7 +41,8 @@ export function SaleCustomerPicker({ transaction, onAttached, compact, className
     setSaving(true);
     try {
       const result = await attachSaleToCustomer(transaction, customer);
-      const pts = result.points > 0 ? ` +${result.points.toLocaleString()} points` : '';
+      const total = (customer.loyaltyPoints || 0) + (result.points || 0);
+      const pts = result.points > 0 ? ` +${result.points.toLocaleString()} points (${total.toLocaleString()} in total).` : ` ${total.toLocaleString()} points in total.`;
       showToast(
         'Customer added',
         result.offline ? `${customer.name}${pts} when the sale syncs.` : `Sale is on ${customer.name}'s account.${pts}`,

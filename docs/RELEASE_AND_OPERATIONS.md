@@ -89,7 +89,7 @@ If an update fails, a red bar says so, and **About this app** (in More on phones
 
 Order matters:
 
-1. Confirm the notifications webhook sends the service role key or `FCM_WEBHOOK_SECRET`; `send-fcm` rejects anything else.
+1. Confirm the Vault secret `fcm_webhook_secret` (or `service_role_key`) matches `FCM_WEBHOOK_SECRET` (or the service role key) in the function secrets; `send-fcm` rejects anything else. The push trigger sends it.
 2. Deploy edge functions, including `auth-otp`.
 3. Apply the migrations.
 4. Release the app. Older installs lose signup and password reset after step 3.

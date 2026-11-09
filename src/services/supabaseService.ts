@@ -90,13 +90,15 @@ export class SupabaseService {
       riderName: t.rider_name,
       referenceId: t.reference_id || undefined,
       businessId: t.business_id,
+      walletApplied: Number(t.wallet_applied) || 0,
       items: (t.transaction_items || []).map((ti: any) => ({
         product: {
           id: ti.products.id,
           name: ti.products.name,
           category: ti.products.category,
-          price: Number(ti.products.price),
-          cost: Number(ti.products.cost),
+          // What the customer was charged and what the goods cost then, not today's figures
+          price: Number(ti.unit_price ?? ti.products.price),
+          cost: Number(ti.unit_cost ?? ti.products.cost),
           image: ti.products.image || "",
           stock: Number(ti.products.stock),
           minStock: Number(ti.products.min_stock),
@@ -1220,6 +1222,7 @@ export class SupabaseService {
       repeat: s.repeat || 'None',
       color: s.color || '#f59e0b',
       reminderSent: s.reminder_sent ?? false,
+      lastRemindedOn: s.last_reminded_on || null,
       createdBy: s.created_by || null,
       deletedAt: s.deleted_at || null,
       createdAt: s.created_at,

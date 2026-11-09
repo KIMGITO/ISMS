@@ -9,17 +9,19 @@ import { useBusinessStore } from '../stores/businessStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { getSupabase } from '../services/supabaseClient';
 import { canOpenScreen } from '../utils/screens';
+import { RingToneService } from '../services/notifications/notificationTone';
 import {
   acceptAlert,
   fetchRingingAlerts,
   onNativeAccept,
   ringsNatively,
+  showSystemNotice,
+  syncRingTone,
   type NativeAccept,
   type RingingAlert,
 } from '../services/notifications/ringingAlerts';
 
 const REFRESH_MS = 30000;
-const RING_SOUND = '/sounds/notification11.mp3';
 
 function timeAgo(iso: string): string {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -36,6 +38,7 @@ export default function RingingAlerts() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const noticed = useRef<Set<string>>(new Set());
   const role = currentEmployee?.role;
 
   const open = useCallback((target: string | undefined) => {
@@ -116,16 +119,33 @@ export default function RingingAlerts() {
     };
   }, [currentEmployee?.id, accept]);
 
-  // Ring while the app is open. Android rings from its own service instead.
+  // The Android ringing service keeps its own copy of the tone chosen in Settings.
+  useEffect(() => {
+    syncRingTone();
+  }, []);
+
+  // Each new alert also comes up as a system notification on desktop and in the browser.
+  useEffect(() => {
+    for (const a of alerts) {
+      if (noticed.current.has(a.id)) continue;
+      noticed.current.add(a.id);
+      showSystemNotice(a);
+    }
+  }, [alerts]);
+
+  // Ring while the app is open, on a loop until Accept. Android rings from its own service.
   const ringing = alerts.length > 0 && !ringsNatively;
   useEffect(() => {
     if (!ringing) {
       audioRef.current?.pause();
       return;
     }
-    if (!audioRef.current) {
-      audioRef.current = new Audio(RING_SOUND);
+    const src = RingToneService.webUrl();
+    if (!audioRef.current || !audioRef.current.src.endsWith(src)) {
+      audioRef.current?.pause();
+      audioRef.current = new Audio(src);
       audioRef.current.loop = true;
+      audioRef.current.volume = 1;
     }
     // A browser may block sound until the page has been clicked; the alert still shows.
     audioRef.current.play().catch(() => undefined);

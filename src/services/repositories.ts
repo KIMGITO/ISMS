@@ -265,6 +265,7 @@ export class TransactionRepository {
       deliveryFee: Number(t.delivery_fee || 0),
       riderName: t.rider_name || "",
       referenceId: t.reference_id || undefined,
+      walletApplied: Number(t.wallet_applied) || 0,
       status: "Synced" as const,
       sync_status: "synced",
       items: (t.transaction_items || []).map((ti: any) => ({
@@ -272,8 +273,9 @@ export class TransactionRepository {
           id: ti.products?.id ?? ti.product_id,
           name: ti.products?.name ?? ti.product_name ?? "Unknown Item",
           category: ti.products?.category ?? "",
-          price: Number(ti.products?.price ?? ti.unit_price ?? 0),
-          cost: Number(ti.products?.cost ?? ti.unit_price ?? 0),
+          // What the customer was charged, not today's price
+          price: Number(ti.unit_price ?? ti.products?.price ?? 0),
+          cost: Number(ti.unit_cost ?? ti.products?.cost ?? 0),
           image: ti.products?.image ?? "",
           stock: Number(ti.products?.stock ?? 0),
           minStock: Number(ti.products?.min_stock ?? 0),
@@ -342,6 +344,7 @@ export class TransactionRepository {
       discount: Number(createdTx.discount || transaction.discount),
       tax: Number(createdTx.tax || transaction.tax),
       finalTotal: Number(createdTx.final_total || transaction.finalTotal),
+      walletApplied: Number(createdTx.wallet_applied) || 0,
       paymentMethod: createdTx.payment_method || transaction.paymentMethod,
       customerId: createdTx.customer_id || transaction.customerId,
       customerName: createdTx.customer_name || transaction.customerName || "",

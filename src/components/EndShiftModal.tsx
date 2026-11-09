@@ -9,6 +9,9 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useExtraModulesStore } from '../stores/extraModulesStore';
 import { useOverlay } from '../hooks/useOverlay';
 import type { Expense } from '../types';
+import { useBusinessStore } from '../stores/businessStore';
+import { getSupabase } from '../services/supabaseClient';
+import { toUuid } from '../utils/idUtils';
 import { buildShiftReport, finishShift, ksh, shiftClock, shiftLength, shiftReportText } from '../services/shiftReport';
 
 interface EndShiftModalProps {
@@ -41,10 +44,42 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
     if (!isOpen) return;
     setError(null);
     setNow(Date.now());
-    import('../services/repositories')
+    // Only money this person took from the till counts against their cash: their petty cash
+    // entries, plus expenses they recorded themselves (cashiers can't read other expenses).
+    const businessId = useBusinessStore.getState().activeBusinessId;
+    const from = activeShift?.startTime || new Date(Date.now() - 864e5).toISOString();
+    const name = currentEmployee?.name;
+    const petty: Promise<Expense[]> = businessId
+      ? Promise.resolve(getSupabase()
+          .rpc('list_petty_cash', { p_business_id: toUuid(businessId), p_start: from, p_end: new Date(Date.now() + 60_000).toISOString() })
+          .then(({ data, error }) => {
+            if (error) throw error;
+            return (data || [])
+              .filter((r: any) => r.mine && !r.removed)
+              .map((r: any): Expense => ({
+                id: r.id,
+                amount: Number(r.amount) || 0,
+                category: `Petty cash: ${r.category}`,
+                description: r.description || '',
+                date: r.date,
+                created_at: r.date,
+                staffName: r.staff_name || '',
+                paymentMethod: 'Cash',
+              }));
+          }))
+          .catch((err: unknown) => {
+            console.error('Could not load petty cash for the shift report:', err);
+            return [] as Expense[];
+          })
+      : Promise.resolve([] as Expense[]);
+    const own = import('../services/repositories')
       .then(({ ExpenseRepository }) => ExpenseRepository.getAll())
-      .then(setExpenses)
-      .catch((err) => console.error('Could not load expenses for the shift report:', err));
+      .then((all) => all.filter((e) => e.staffName === name))
+      .catch(() => [] as Expense[]);
+    Promise.all([petty, own]).then(([p, o]) => {
+      const ids = new Set(p.map((e) => e.id));
+      setExpenses([...p, ...o.filter((e) => !ids.has(e.id))]);
+    });
   }, [isOpen]);
 
   const report = useMemo(() => {

@@ -1,6 +1,7 @@
 // src/test/runTests.ts
 import "./kenyaTimezone"; // must stay first
-import { readFileSync } from "node:fs";
+import { formatClock, minutesFromNow, toClock, toDateKey } from "../utils/timeFormat";
+import { readFileSync, readdirSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
 import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/idUtils";
@@ -52,6 +53,19 @@ function runTest(name: string, fn: () => void) {
 }
 
 console.log("🚀 Starting Application Unit Tests...");
+
+runTest("Alarm times read the same when set, listed and rung", () => {
+  const cases: [string, string][] = [["13:38", "1:38 PM"], ["00:05", "12:05 AM"], ["12:00", "12:00 PM"], ["09:30:00", "9:30 AM"], ["23:59", "11:59 PM"]];
+  for (const [input, want] of cases) {
+    if (formatClock(input) !== want) throw new Error(`${input} -> ${formatClock(input)}, want ${want}`);
+  }
+  if (toClock(12, 5, false) !== "00:05" || toClock(1, 38, true) !== "13:38" || toClock(12, 0, true) !== "12:00") throw new Error("12-hour to 24-hour is wrong");
+  if (formatClock("") !== "" || formatClock("25:00") !== "") throw new Error("bad times should show nothing");
+  const late = new Date(2026, 10, 9, 23, 30);
+  const next = minutesFromNow(60, late);
+  if (next.date !== "2026-11-10" || next.time !== "00:30") throw new Error("+1 hr near midnight should move to tomorrow");
+  if (toDateKey(new Date(2026, 0, 1, 0, 30)) !== "2026-01-01") throw new Error("date key must use local time");
+});
 
 runTest("ID Utility getShortId", () => {
   const uuid = "4f8c9b24-9b21-4f1e-8e81-cf1b54a7c29e";
@@ -364,7 +378,11 @@ runTest("USSD menu registers, orders and checks balances", () => {
 });
 
 runTest("Database role permissions match the app's role permissions", () => {
-  const migration = readFileSync("supabase/migrations/20261105014_role_enforcement.sql", "utf8");
+  // The newest migration that sets the role defaults is the one in force.
+  const dir = "supabase/migrations";
+  const latest = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().reverse()
+    .find((f) => /INSERT INTO public\.role_default_permissions/.test(readFileSync(`${dir}/${f}`, "utf8")));
+  const migration = readFileSync(`${dir}/${latest}`, "utf8");
   for (const role of ["Manager", "Cashier", "Rider"]) {
     const match = migration.match(new RegExp(`\\('${role}', ARRAY\\[(.*?)\\]\\)`));
     if (!match) throw new Error(`${role} is missing from the migration`);
@@ -696,6 +714,20 @@ runTest("Receipt shows points used, earned and the balance", () => {
   if (walkIn.includes("LOYALTY")) throw new Error("a walk-in sale has no points section");
 });
 
+runTest("A credit sale's receipt shows the wallet paying first and only the rest owed", () => {
+  const total = Number(sampleTx.finalTotal);
+  const part = Math.floor(total / 2);
+  const tx = { ...sampleTx, customerId: "c1", customerName: "Ann", paymentMethod: "Credit_Debt", walletApplied: part } as any;
+  const content = buildReceiptContent(tx, receiptSettings);
+  if (content.walletPaid !== part) throw new Error(`wallet paid ${content.walletPaid}, want ${part}`);
+  if (Math.abs(content.balanceDue - (total - part)) > 0.001) throw new Error(`owed ${content.balanceDue}, want ${total - part}`);
+  const { body } = buildReceiptText(content, receiptSettings);
+  for (const want of ["Paid from wallet", "BALANCE DUE"]) if (!body.includes(want)) throw new Error(`missing "${want}":\n${body}`);
+  const full = buildReceiptContent({ ...tx, walletApplied: total }, receiptSettings);
+  if (full.balanceDue !== 0 || full.paymentMethod !== "Wallet") throw new Error("a sale the wallet covers owes nothing");
+  if (buildReceiptText(full, receiptSettings).body.includes("BALANCE DUE")) throw new Error("no balance due when the wallet paid it all");
+});
+
 runTest("Charts use Kenya time and today's hours stop at the current hour", () => {
   const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
   // 12:00 UTC is 3 PM in Nairobi, whatever zone this machine is in
@@ -803,6 +835,8 @@ runTest("Points: 2 per KSh 1 paid, nothing on a credit sale, delivery excluded",
   if (pointsEarned(1000, 0, "Cash") !== 2000) throw new Error("cash sale should earn 2 per KSh 1");
   if (pointsEarned(1000, 100, "M-Pesa") !== 1800) throw new Error("delivery must not earn points");
   if (pointsEarned(1000, 0, "Credit_Debt") !== 0 || pointsEarned(1000, 0, "Credit") !== 0) throw new Error("credit sales earn when paid");
+  if (pointsEarned(1000, 0, "Credit_Debt", 300) !== 600) throw new Error("the wallet-paid part of a credit sale earns 2 per KSh 1");
+  if (pointsEarned(1000, 100, "Credit_Debt", 5000) !== 1800) throw new Error("wallet points stop at the goods total");
   if (DEBT_PAYMENT_POINTS_PER_KSH * 2 !== POINTS_PER_KSH) throw new Error("debt payments earn half of a cash purchase");
   const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
   if (!/\* 2\)\)/.test(sql) || !/FLOOR\(NEW\.amount_paid\)/.test(sql)) throw new Error("database rule differs from the app's");

@@ -47,6 +47,9 @@ public class RingService extends Service {
     static final String EXTRA_TARGET = "ring_target";
     static final String EXTRA_BUSINESS = "ring_business";
 
+    private static final String PREFS = "ring_alarm";
+    private static final String PREF_TONE = "tone";
+
     public static final class Alert {
         final String id, title, body, target, businessId;
 
@@ -117,6 +120,12 @@ public class RingService extends Service {
             }
         }
         for (String id : stale) cancel(context, id);
+    }
+
+    /** Saves the tone chosen in Settings: "alarm" for the phone's alarm sound, or a raw sound name. */
+    public static void setTone(Context context, String sound) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(PREF_TONE, sound == null || sound.isEmpty() ? "alarm" : sound).apply();
     }
 
     public static List<String> ringingIds() {
@@ -236,6 +245,11 @@ public class RingService extends Service {
     }
 
     private Uri ringtone() {
+        String tone = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_TONE, "alarm");
+        if (tone != null && !"alarm".equals(tone)) {
+            int res = getResources().getIdentifier(tone, "raw", getPackageName());
+            if (res != 0) return Uri.parse("android.resource://" + getPackageName() + "/" + res);
+        }
         Uri uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM);
         if (uri == null) uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         if (uri == null) uri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.notification1);

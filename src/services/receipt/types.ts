@@ -86,6 +86,8 @@ export interface ReceiptContent {
   deliveryFee: number;
   grandTotal: number;
   amountPaid: number;
+  /** Part of the bill paid from the customer's wallet (credit sales). */
+  walletPaid?: number;
   balanceDue: number;
   note?: string;
   /** Loyalty points: spent on this sale, earned from it, and the customer's balance. */

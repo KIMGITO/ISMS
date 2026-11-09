@@ -37,6 +37,8 @@ export const GO_TO_KEYS: Record<ScreenId, string> = {
   sales: "l",
   customers: "c",
   money: "m",
+  "petty-cash": "x",
+  finance: "y",
   feedback: "f",
   "online-store": "o",
   deliveries: "d",
@@ -115,7 +117,13 @@ const pages: Shortcut[] = [
   { id: "production-batch", keys: "N", key: "n", target: "new", action: "Start a production batch", scope: "production", permissions: ["production.create"] },
   { id: "production-bom", keys: "B", key: "b", target: "new-bom", action: "Create a recipe (BOM)", scope: "production", permissions: ["bom.create"] },
   { id: "shift-clock", keys: "C", key: "c", target: "clock", action: "Clock in / out", scope: "dashboard", permissions: ["dashboard.view"] },
-  { id: "shift-new", keys: "N", key: "n", target: "new", action: "Schedule a shift", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-new", keys: "N", key: "n", target: "new", action: "Set an alarm", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-today", keys: "T", key: "t", target: "today", action: "Go to today", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-prev-day", keys: "←", key: "ArrowLeft", target: "prev-day", action: "Previous day", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-next-day", keys: "→", key: "ArrowRight", target: "next-day", action: "Next day", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-month", keys: "M", key: "m", target: "toggle-month", action: "Show the month / one week", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-form-save", keys: "Ctrl+Enter", action: "Save the alarm (in the form)", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "shift-form-cancel", keys: "Esc", action: "Close the alarm form", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
 ];
@@ -151,6 +159,8 @@ export interface AppFeature {
 }
 
 export const FEATURES: AppFeature[] = [
+  { id: "alarms", title: "Alarms and reminders", description: "Set a time; it rings on the phone until Accept is tapped", screen: "dashboard", permissions: ["dashboard.view"], keywords: ["alarm", "reminder", "ring", "schedule", "shift", "wake"] },
+  { id: "ring-tone", title: "Ringing alert tone", description: "Choose the sound for alarms and urgent alerts (Notification settings)", screen: "notifications", permissions: [], keywords: ["ringtone", "alarm sound", "tone", "ring", "sound"] },
   { id: "attach-customer", title: "Add a customer to a past sale", description: "Put a Quick Sale or walk-in sale on a customer's account so they get the points", screen: "sales", permissions: ["pos.create_sale", "orders.update", "customers.loyalty"], keywords: ["attach", "assign", "walk-in", "quick sale", "points", "loyalty", "receipt"] },
   { id: "invoices", title: "Customer invoices", description: "Invoice a customer for what they owe, by period", screen: "customers", permissions: ["customers.debts"], keywords: ["invoice", "statement", "debt", "credit", "owes", "bill"] },
   { id: "credit-sales", title: "Credit sales and debts", description: "Sell on credit; it is added to what the customer owes", screen: "pos", permissions: ["customers.debts"], keywords: ["credit", "debt", "owe", "loan", "deni"] },

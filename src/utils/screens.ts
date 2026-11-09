@@ -7,7 +7,7 @@ import { hasRolePermission } from "./permissions";
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
-  | "business-management" | "money" | "production" | "settings" | "notifications" | "about" | "stock-history";
+  | "business-management" | "money" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -26,7 +26,7 @@ export interface AppScreen {
 
 export const SCREENS: AppScreen[] = [
   { id: "home", group: "Business", title: "Home", description: "Sales, stock and customer figures at a glance", keywords: ["dashboard", "overview", "kpi", "summary", "chart"], permissions: ["home.view"] },
-  { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out, and see your shift so far", keywords: ["shift", "clock in", "clock out", "punch", "timesheet"], permissions: ["dashboard.view"] },
+  { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out, and see your shift so far", keywords: ["shift", "clock in", "clock out", "punch", "timesheet", "alarm", "reminder", "schedule"], permissions: ["dashboard.view"] },
   { id: "sell", group: "Selling", title: "Quick Sale", description: "Sell in a few taps", keywords: ["sell", "quick", "checkout", "till"], permissions: ["pos.create_sale"] },
   { id: "pos", group: "Selling", title: "POS", description: "Full checkout with cart, discounts and customers", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
@@ -34,6 +34,8 @@ export const SCREENS: AppScreen[] = [
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
   { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till and prompts", keywords: ["payments", "expenses", "mpesa", "m-pesa", "till", "void", "money", "cash", "stk"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.verify", "expenses.view", "expenses.create"] },
+  { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
+  { id: "finance", group: "Money", title: "Finances", description: "Profit or loss, income, spending, debts, wallets and what points cost", keywords: ["finance", "profit", "loss", "income", "spending", "report", "accounts", "debts", "p&l", "books"], permissions: ["finance.view"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
   { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },

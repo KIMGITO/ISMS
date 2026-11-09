@@ -209,6 +209,8 @@ export default function POSView() {
   const totalDiscount = totalItemDiscount + cartDiscount;
   const tax = subtotal * taxRate;
   const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
+  // On credit, the customer's wallet pays first (the server does the same).
+  const walletCovers = selectedCustomer ? Math.min(Math.max(0, selectedCustomer.walletBalance || 0), Math.round(finalTotal * 100) / 100) : 0;
 
   const refundPoints = async (redemptionId: string | null) => {
     if (!redemptionId) return;
@@ -528,12 +530,35 @@ export default function POSView() {
                         <span className="text-amber-500 font-bold">
                           {selectedCustomer.tier}
                         </span>{' '}
-                        · Loyalty Points: {selectedCustomer.loyaltyPoints} ·
-                        Current Debt:{' '}
-                        <span className="text-red-400 font-bold">
-                          KSh {(selectedCustomer.debtBalance || 0).toFixed(2)}
-                        </span>
                       </p>
+                      <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                        <div className="rounded-lg bg-app-bg px-2 py-1">
+                          <div className="text-[10px] text-app-text-muted">Points</div>
+                          <div className="font-bold text-amber-600 dark:text-amber-400 tabular-nums">{(selectedCustomer.loyaltyPoints || 0).toLocaleString()}</div>
+                        </div>
+                        <div className="rounded-lg bg-app-bg px-2 py-1">
+                          <div className="text-[10px] text-app-text-muted">Wallet</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">KSh {(selectedCustomer.walletBalance || 0).toLocaleString()}</div>
+                        </div>
+                        <div className="rounded-lg bg-app-bg px-2 py-1">
+                          <div className="text-[10px] text-app-text-muted">Owes</div>
+                          <div className={`font-bold tabular-nums ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-500' : 'text-app-text'}`}>KSh {(selectedCustomer.debtBalance || 0).toLocaleString()}</div>
+                        </div>
+                      </div>
+                      {paymentMethod === 'Credit_Debt' && finalTotal > 0 && (
+                        <p className="mt-1.5 text-[11px] text-app-text">
+                          {walletCovers > 0 ? (
+                            <>
+                              KSh {walletCovers.toLocaleString()} comes from the wallet
+                              {finalTotal - walletCovers > 0
+                                ? `, KSh ${(Math.round((finalTotal - walletCovers) * 100) / 100).toLocaleString()} goes on credit.`
+                                : '. Nothing goes on credit.'}
+                            </>
+                          ) : (
+                            <>The whole KSh {Math.round(finalTotal).toLocaleString()} goes on credit.</>
+                          )}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div id="pos-customer">
@@ -541,9 +566,13 @@ export default function POSView() {
                       items={customers.map((cust) => ({
                         id: cust.id,
                         label: cust.name,
-                        sublabel: `${cust.phone} · Tier: ${
-                          cust.tier
-                        } · Debt: KSh ${(cust.debtBalance || 0).toFixed(0)}`,
+                        sublabel: [
+                          cust.phone,
+                          `${cust.tier}`,
+                          `${(cust.loyaltyPoints || 0).toLocaleString()} pts`,
+                          (cust.walletBalance || 0) > 0 ? `Wallet KSh ${(cust.walletBalance || 0).toLocaleString()}` : '',
+                          (cust.debtBalance || 0) > 0 ? `Owes KSh ${(cust.debtBalance || 0).toLocaleString()}` : '',
+                        ].filter(Boolean).join(' · '),
                       }))}
                       selectedValue=""
                       onChange={(val) => {

@@ -8,6 +8,7 @@ import { NotificationRepository } from '../services/notifications/notificationRe
 import { useBusinessStore } from '../stores/businessStore';
 import { useAppStore } from '../stores/appStore';
 import { toUserMessage } from '../utils/userError';
+import RingToneSetting from './RingToneSetting';
 
 const CATEGORY_DETAILS: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
   stock: { label: 'Stock alerts', description: 'Low stock and products running out', icon: <PackageSearch size={15} /> },
@@ -16,7 +17,7 @@ const CATEGORY_DETAILS: Record<string, { label: string; description: string; ico
   deliveries: { label: 'Deliveries', description: 'Assigned and completed deliveries', icon: <Bike size={15} /> },
   payments: { label: 'Payments', description: 'M-Pesa results and low cash balance', icon: <CircleDollarSign size={15} /> },
   online_store: { label: 'Online store', description: 'New website orders and possible duplicate customers', icon: <ShoppingBag size={15} /> },
-  schedules: { label: 'Schedule reminders', description: 'Your upcoming shifts. They ring until you accept them', icon: <CalendarClock size={15} /> },
+  schedules: { label: 'Schedule reminders', description: 'Alarms and shift reminders. They ring at the set time until you accept them', icon: <CalendarClock size={15} /> },
   unaccepted: { label: 'Alerts not accepted', description: 'When a reminder or urgent alert rings for 15 minutes and nobody accepts it', icon: <BellRing size={15} /> },
   ai: { label: 'AI insights', description: 'Business suggestions and risk alerts', icon: <Sparkles size={15} /> },
   announcements: { label: 'Announcements', description: 'Shift updates and messages from your business', icon: <Megaphone size={15} /> },
@@ -78,6 +79,7 @@ export default function NotificationSettingsPanel() {
 
   return (
     <div className="flex flex-col gap-1">
+      <RingToneSetting />
       <button
         role="switch"
         aria-checked={!settings.paused}

@@ -29,6 +29,8 @@ import HomeView from './features/HomeView';
 import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
+import PettyCashView from './features/PettyCashView';
+import FinanceView from './features/FinanceView';
 import { useNotificationStore } from './stores/notificationStore';
 import { useTransactionStore } from './stores/transactionStore';
 import SearchableDropdown from './components/SearchableDropdown';
@@ -128,6 +130,7 @@ import {
   Info,
   Wallet,
   History,
+  PieChart,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
@@ -173,6 +176,8 @@ const MOBILE_TABS = [
   { id: 'profile', label: 'Profile', icon: User, permission: 'dashboard.view' },
   { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
   { id: 'money', label: 'Payments', icon: Wallet, permission: MONEY_PERMISSIONS },
+  { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
+  { id: 'finance', label: 'Finances', icon: PieChart, permission: 'finance.view' },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
   { id: 'about', label: 'About', icon: Info, permission: 'about' },
@@ -3654,6 +3659,20 @@ export default function App() {
                       permission: MONEY_PERMISSIONS,
                     },
                     {
+                      id: 'petty-cash',
+                      label: 'Petty Cash',
+                      icon: Coins,
+                      desc: 'Money spent from the till',
+                      permission: 'pettycash.record' as const,
+                    },
+                    {
+                      id: 'finance',
+                      label: 'Finances',
+                      icon: PieChart,
+                      desc: 'Profit, spending, debts, points',
+                      permission: 'finance.view' as const,
+                    },
+                    {
                       id: 'production',
                       label: 'Production & BOM',
                       icon: FlaskConical,
@@ -4209,6 +4228,28 @@ export default function App() {
                       >
                         <SecurityGuard permission={MONEY_PERMISSIONS as any}>
                           <BusinessManagementView section="money" />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'petty-cash' && (
+                      <motion.div
+                        key="petty-cash-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="pettycash.record">
+                          <PettyCashView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'finance' && (
+                      <motion.div
+                        key="finance-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="finance.view">
+                          <FinanceView />
                         </SecurityGuard>
                       </motion.div>
                     )}

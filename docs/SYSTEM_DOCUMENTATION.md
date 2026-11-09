@@ -909,12 +909,14 @@ All three run atomically in the database, so a failed step changes nothing. The 
 
 1. Something happens: a trigger (low stock), a database function (M-Pesa payment), a scheduled job (reminders), or the app (shift closed).
 2. A row is inserted into `notifications` with its type, priority, payload and target user or role.
-3. A Supabase database webhook on `INSERT` calls `send-fcm`.
+3. The `trg_push_new_notification` trigger (migration 20261109006) calls `send-fcm` through `pg_net`. It reads the Vault secrets `project_url` and `fcm_webhook_secret` (or `service_role_key`). Don't also add a dashboard webhook, or every push arrives twice.
 4. `send-fcm` asks `fn_notification_recipients` who should get it, honouring each person's preferences, then pushes through Firebase to their registered devices (`device_fcm_tokens`). Dead tokens are removed automatically.
 5. The row's status moves from `pending` to `sent` (or `delivered` when no device token exists).
 6. Open apps receive the row through Realtime and show it in the inbox with a sound and a banner.
 
-`send-fcm` only accepts calls carrying the service role key or `FCM_WEBHOOK_SECRET`. **Before deploying it, confirm the webhook sends one of those, or pushes stop.**
+`send-fcm` only accepts calls carrying the service role key or `FCM_WEBHOOK_SECRET`. The Vault secret the trigger sends must match one of those, or pushes stop. Check `net._http_response` for 401s after a test notification.
+
+Alarms (Shift page) go off at the set time, checked every minute. They ring until Accept, using the ringing tone chosen in Notification settings, which is separate from the notification tone.
 
 ## 12.2 Who gets what
 

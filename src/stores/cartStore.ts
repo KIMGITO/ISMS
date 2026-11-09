@@ -9,6 +9,7 @@ import { useNotificationStore } from "./notificationStore";
 import { useBusinessStore } from "./businessStore";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
+import { getSupabase } from "../services/supabaseClient";
 import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
 import { kraService } from "../services/kra/kraService";
@@ -259,7 +260,12 @@ export const useCartStore = create<CartState>((set, get) => ({
           })),
         });
 
-        savedTx = { ...newTransaction, id: txId };
+        // The server takes wallet money first; the receipt needs to know how much.
+        let walletApplied = 0;
+        const { data: saved } = await getSupabase().from("transactions").select("wallet_applied").eq("id", txId).maybeSingle();
+        if (saved) walletApplied = Number(saved.wallet_applied) || 0;
+        else walletApplied = Math.min(Number(selectedCustomer.walletBalance) || 0, finalTotal);
+        savedTx = { ...newTransaction, id: txId, walletApplied };
       } else {
         // Non-credit or walk-in customer: use the standard transaction flow.
         // If the connection drops mid-sale, keep it offline instead of losing it.
@@ -277,17 +283,28 @@ export const useCartStore = create<CartState>((set, get) => ({
       }
 
       // A credit sale adds to what the customer owes; only other sales are money received.
+      // Wallet money paid for part (or all) of a credit sale; only the rest is a debt.
+      const fromWallet = isCredit ? Number(savedTx?.walletApplied) || 0 : 0;
+      const onCredit = Math.max(0, Math.round((finalTotal - fromWallet) * 100) / 100);
       if (isCredit && selectedCustomer) {
         await useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
+      }
+      if (isCredit && selectedCustomer && onCredit > 0) {
         const owes = useCustomerStore.getState().customers.find((c) => c.id === selectedCustomer.id)?.debtBalance;
         NotificationService.createNotification(
           "Credit Sale",
           {
             customerName: selectedCustomer.name,
-            amount: finalTotal.toLocaleString(),
-            debtBalance: (owes ?? (selectedCustomer.debtBalance || 0) + finalTotal).toLocaleString(),
+            amount: onCredit.toLocaleString(),
+            debtBalance: (owes ?? (selectedCustomer.debtBalance || 0) + onCredit).toLocaleString(),
           },
           { role: "Owner", priority: "medium", payloadExtra: { customerId: selectedCustomer.id } }
+        );
+      } else if (isCredit && selectedCustomer) {
+        NotificationService.createNotification(
+          "Payment Received",
+          { amount: fromWallet.toLocaleString(), paymentMethod: "wallet", fromCustomer: ` from ${selectedCustomer.name}` },
+          { role: "Owner", priority: "medium" }
         );
       } else {
         NotificationService.createNotification(

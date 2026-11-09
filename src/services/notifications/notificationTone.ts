@@ -117,3 +117,40 @@ export class NotificationToneService {
     return null;
   }
 }
+// ---------------------------------------------------------------------------
+// Ringing alert tone: alarms and urgent alerts, which loop until Accept.
+// Separate from the notification tone. "alarm" is the phone's own alarm sound on Android;
+// in the browser and desktop app, where there is no system alarm sound, it plays Reveille.
+// ---------------------------------------------------------------------------
+export type RingToneId = "alarm" | NotificationToneId;
+
+const RING_STORAGE_KEY = "kkm_ring_tone_v1";
+const RING_FALLBACK: NotificationToneId = "reveille";
+
+export const RingToneService = {
+  getId(): RingToneId {
+    try {
+      const val = localStorage.getItem(RING_STORAGE_KEY);
+      if (val === "alarm" || NOTIFICATION_TONES.some((t) => t.id === val)) return val as RingToneId;
+    } catch {}
+    return "alarm";
+  },
+
+  setId(id: RingToneId): void {
+    try {
+      localStorage.setItem(RING_STORAGE_KEY, id);
+    } catch {}
+  },
+
+  /** Raw sound name the Android ringing service plays, or "alarm" for the phone's alarm sound. */
+  nativeName(id: RingToneId = this.getId()): string {
+    if (id === "alarm") return "alarm";
+    return NOTIFICATION_TONES.find((t) => t.id === id)?.soundName || "alarm";
+  },
+
+  /** File played in the browser and desktop app. */
+  webUrl(id: RingToneId = this.getId()): string {
+    const tone = NOTIFICATION_TONES.find((t) => t.id === (id === "alarm" ? RING_FALLBACK : id));
+    return `/sounds/${(tone || NOTIFICATION_TONES[0]).file}`;
+  },
+};

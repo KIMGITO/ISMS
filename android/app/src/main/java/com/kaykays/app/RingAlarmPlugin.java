@@ -15,6 +15,7 @@ import java.util.List;
  *  - "accept" event / getPendingAccept(): the person tapped Accept on a ringing alert.
  *  - stop({ id }): the alert was accepted in the app.
  *  - keepOnly({ businessId, ids }): stops alerts someone else accepted.
+ *  - setTone({ sound }): the ringing tone chosen in Settings ("alarm" or a raw sound name).
  */
 @CapacitorPlugin(name = "RingAlarm")
 public class RingAlarmPlugin extends Plugin {
@@ -73,6 +74,12 @@ public class RingAlarmPlugin extends Plugin {
         } catch (Exception ignored) {
         }
         if (businessId != null) RingService.keepOnly(getContext(), businessId, keep);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setTone(PluginCall call) {
+        RingService.setTone(getContext(), call.getString("sound", "alarm"));
         call.resolve();
     }
 

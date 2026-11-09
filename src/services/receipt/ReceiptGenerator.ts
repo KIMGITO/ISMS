@@ -94,8 +94,8 @@ function loyaltyFor(tx: Transaction, extras: ReceiptExtras): ReceiptContent["loy
   if (!tx.customerId) return undefined;
   const pointsUsed = extras.pointsUsed?.points || 0;
   const pointsValue = round2(extras.pointsUsed?.value || 0);
-  // Same rule as the database: 2 per KSh 1 paid, none on a credit sale.
-  const pointsEarned = earnedOnSale(Number(tx.finalTotal) || 0, tx.isDelivery ? Number(tx.deliveryFee) || 0 : 0, tx.paymentMethod);
+  // Same rule as the database: 2 per KSh 1 paid; on a credit sale only the wallet-paid part earns.
+  const pointsEarned = earnedOnSale(Number(tx.finalTotal) || 0, tx.isDelivery ? Number(tx.deliveryFee) || 0 : 0, tx.paymentMethod, Number(tx.walletApplied) || 0);
   const balance = typeof extras.customerPoints === "number" && Number.isFinite(extras.customerPoints) ? extras.customerPoints : undefined;
   if (!pointsUsed && !pointsEarned && balance === undefined) return undefined;
   return { pointsUsed, pointsValue, pointsEarned, balance };
@@ -122,6 +122,9 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
 
   const grandTotal = round2(tx.finalTotal);
   const credit = isCreditSale(tx.paymentMethod);
+  // A credit sale takes the customer's wallet money first; only the rest is owed.
+  const walletPaid = credit ? Math.min(grandTotal, round2(Number(tx.walletApplied) || 0)) : 0;
+  const owed = credit ? round2(grandTotal - walletPaid) : 0;
   const tax = round2(tx.tax);
   const subtotalBeforeTax = round2((Number(tx.total) || 0) - (Number(tx.discount) || 0));
 
@@ -135,7 +138,7 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     customerPhone: extras.customerPhone || undefined,
     customerEmail: extras.customerEmail || undefined,
     paymentMethodCode: tx.paymentMethod,
-    paymentMethod: paymentLabel(tx.paymentMethod),
+    paymentMethod: credit && walletPaid > 0 && owed === 0 ? "Wallet" : credit && walletPaid > 0 ? "Wallet + credit" : paymentLabel(tx.paymentMethod),
     items,
     subtotal: round2(tx.total),
     discount: round2(tx.discount),
@@ -144,7 +147,8 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     deliveryFee: tx.isDelivery ? round2(tx.deliveryFee || 0) : 0,
     grandTotal,
     amountPaid: credit ? 0 : grandTotal,
-    balanceDue: credit ? grandTotal : 0,
+    walletPaid,
+    balanceDue: owed,
     note: tx.note || undefined,
     loyalty: loyaltyFor(tx, extras),
     kra: extras.kra,

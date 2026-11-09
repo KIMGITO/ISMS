@@ -34,10 +34,16 @@ export const POINTS_PER_KSH = 2;
 /** Points per KSh 1 paid towards a debt: half of a cash purchase. */
 export const DEBT_PAYMENT_POINTS_PER_KSH = 1;
 
-/** Points earned on a sale. A credit sale earns nothing until the debt is paid. */
-export function pointsEarned(finalTotal: number, deliveryFee = 0, paymentMethod?: string): number {
-  if (paymentMethod === "Credit" || paymentMethod === "Credit_Debt") return 0;
-  return Math.max(0, Math.floor(((Number(finalTotal) || 0) - (Number(deliveryFee) || 0)) * POINTS_PER_KSH));
+/**
+ * Points earned on a sale. On a credit sale only the part paid from the customer's wallet
+ * earns (it is paid); the rest earns as the debt is paid. Same as fn_sale_points in the database.
+ */
+export function pointsEarned(finalTotal: number, deliveryFee = 0, paymentMethod?: string, walletApplied = 0): number {
+  const goods = (Number(finalTotal) || 0) - (Number(deliveryFee) || 0);
+  if (paymentMethod === "Credit" || paymentMethod === "Credit_Debt") {
+    return Math.max(0, Math.floor(Math.min(Number(walletApplied) || 0, goods) * POINTS_PER_KSH));
+  }
+  return Math.max(0, Math.floor(goods * POINTS_PER_KSH));
 }
 
 /** Remembers the points on this device and links them to the sale in the database. */

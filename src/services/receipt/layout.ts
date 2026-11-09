@@ -130,6 +130,8 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   rule("=");
   row("TOTAL", `${cur} ${formatMoney(content.grandTotal)}`, true);
   if (content.amountPaid > 0) row(`Paid (${content.paymentMethod})`, `${cur} ${formatMoney(content.amountPaid)}`);
+  // Wallet money the customer had already paid in covers this first.
+  if ((content.walletPaid || 0) > 0) row("Paid from wallet", `${cur} ${formatMoney(content.walletPaid!)}`);
   if (content.balanceDue > 0) {
     // A credit sale is a debt, not a payment.
     row("Payment:", "On credit, not paid");

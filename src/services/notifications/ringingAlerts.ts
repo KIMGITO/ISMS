@@ -5,6 +5,7 @@
 
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { getSupabase } from "../supabaseClient";
+import { RingToneService, type RingToneId } from "./notificationTone";
 
 export interface RingingAlert {
   id: string;
@@ -33,6 +34,7 @@ interface RingAlarmPlugin {
   getPendingAccept(): Promise<{ accept: NativeAccept | null }>;
   stop(options: { id: string }): Promise<void>;
   keepOnly(options: { businessId: string; ids: string[] }): Promise<void>;
+  setTone(options: { sound: string }): Promise<void>;
   addListener(event: "accept", cb: (data: NativeAccept) => void): Promise<PluginListenerHandle>;
 }
 
@@ -91,4 +93,42 @@ export async function onNativeAccept(cb: (data: NativeAccept) => void): Promise<
     // Older app build without the plugin.
   }
   return () => handle.remove();
+}
+
+/** Saves the ringing tone and tells the Android ringing service, which plays it with the app closed. */
+export async function setRingTone(id: RingToneId): Promise<void> {
+  RingToneService.setId(id);
+  await syncRingTone();
+}
+
+/** Sends the saved ringing tone to the Android service (it keeps its own copy). */
+export async function syncRingTone(): Promise<void> {
+  if (!ringsNatively) return;
+  try {
+    await RingAlarm.setTone({ sound: RingToneService.nativeName() });
+  } catch {
+    // Older app build without setTone: it rings with the phone's alarm sound.
+  }
+}
+
+/**
+ * Shows a ringing alert as a system notification on desktop and in the browser, so it is seen
+ * when the app is behind other windows. Android shows its own from the ringing service.
+ */
+export async function showSystemNotice(alert: Pick<RingingAlert, "id" | "title" | "message">): Promise<void> {
+  if (ringsNatively || typeof window === "undefined") return;
+  try {
+    if ((window as any).__TAURI__) {
+      const n = await import("@tauri-apps/plugin-notification");
+      let granted = await n.isPermissionGranted();
+      if (!granted) granted = (await n.requestPermission()) === "granted";
+      if (granted) n.sendNotification({ title: alert.title, body: alert.message });
+      return;
+    }
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(alert.title, { body: alert.message, tag: `ring-${alert.id}`, requireInteraction: true });
+    }
+  } catch {
+    // The full-screen alert in the app still shows and rings.
+  }
 }

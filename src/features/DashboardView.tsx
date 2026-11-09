@@ -33,7 +33,22 @@ import {
   ChevronUp,
   ChevronDown,
   ShoppingBag,
+  AlarmClock,
+  BellRing,
+  Loader2,
+  Check,
+  X,
 } from 'lucide-react';
+import AlarmTimePicker from '../components/AlarmTimePicker';
+import {
+  formatClock,
+  formatDay,
+  fromDateKey,
+  minutesFromNow,
+  relativeDay,
+  toDateKey,
+  untilText,
+} from '../utils/timeFormat';
 import { SupabaseService } from '../services/supabaseService';
 import { useBusinessStore } from '../stores/businessStore';
 import SearchableDropdown from '../components/SearchableDropdown';
@@ -52,12 +67,27 @@ interface Schedule {
   employeeIds?: string[];
   title: string;
   date: string; // YYYY-MM-DD
-  startTime: string; // HH:MM
-  endTime: string; // HH:MM
+  startTime: string; // HH:MM, the time the alarm goes off
   repeat: 'None' | 'Daily' | 'Weekly' | 'Monthly';
   notes?: string;
   color: string;
+  /** Last day (YYYY-MM-DD) the alarm went off. */
+  lastRemindedOn: string | null;
 }
+
+const REPEAT_LABEL: Record<Schedule['repeat'], string> = {
+  None: 'Once',
+  Daily: 'Every day',
+  Weekly: 'Every week',
+  Monthly: 'Every month',
+};
+
+/** The next whole 5 minutes from now, at least 5 minutes away. */
+const defaultAlarm = () => {
+  const now = new Date();
+  const ahead = 5 + (5 - (now.getMinutes() % 5)) % 5;
+  return minutesFromNow(ahead, now);
+};
 
 const ROLE_SENIORITY: Record<string, number> = {
   Owner: 4,
@@ -100,8 +130,18 @@ export default function DashboardView() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState('');
   const [targetEmployeeIds, setTargetEmployeeIds] = useState<string[]>([]);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('17:00');
+  const [startTime, setStartTime] = useState(() => defaultAlarm().time);
+  const [formDate, setFormDate] = useState(() => toDateKey(new Date()));
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Re-render every 30 s so "rings in 5 min" and "rang" stay current.
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setClockTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
   const [repeat, setRepeat] = useState<'None' | 'Daily' | 'Weekly' | 'Monthly'>('None');
   const [notes, setNotes] = useState('');
   const [formColor, setFormColor] = useState('#f59e0b');
@@ -120,10 +160,10 @@ export default function DashboardView() {
       title: s.title,
       date: s.date,
       startTime: s.startTime.slice(0, 5), // trim seconds if present
-      endTime: s.endTime ? s.endTime.slice(0, 5) : '',
       repeat: s.repeat as 'None' | 'Daily' | 'Weekly' | 'Monthly',
       notes: s.notes || '',
       color: s.color,
+      lastRemindedOn: s.lastRemindedOn,
     };
   };
 
@@ -184,10 +224,8 @@ export default function DashboardView() {
   // Only fires for the logged-in employee's own schedules.
   useEffect(() => {
     if (schedules.length === 0 || !currentEmployee) return;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const tomorrowStr = new Date(Date.now() + 86400000)
-      .toISOString()
-      .split('T')[0];
+    const todayStr = toDateKey(new Date());
+    const tomorrowStr = toDateKey(new Date(Date.now() + 86400000));
     const todaySchedules = schedules.filter(
       (s) => s.date === todayStr && s.employeeId === currentEmployee.id,
     );
@@ -196,19 +234,21 @@ export default function DashboardView() {
     );
     if (todaySchedules.length > 0) {
       showToast(
-        '🔔 Shifts Today',
-        `${todaySchedules.length} shift${
+        '🔔 Alarms Today',
+        `${todaySchedules.length} alarm${
           todaySchedules.length > 1 ? 's' : ''
-        } scheduled for you today.`,
+        } set for you today, first at ${formatClock(
+          [...todaySchedules].sort((a, b) => a.startTime.localeCompare(b.startTime))[0].startTime,
+        )}.`,
         undefined,
         'info' as any,
       );
     } else if (tomorrowSchedules.length > 0) {
       showToast(
         '📅 Reminder',
-        `${tomorrowSchedules.length} shift${
+        `${tomorrowSchedules.length} alarm${
           tomorrowSchedules.length > 1 ? 's' : ''
-        } scheduled for you tomorrow.`,
+        } set for you tomorrow.`,
         undefined,
         'info' as any,
       );
@@ -238,6 +278,30 @@ export default function DashboardView() {
     return days;
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setNotes('');
+    setRepeat('None');
+    setFormError(null);
+    setEditingScheduleId(null);
+    setShowAddForm(false);
+  };
+
+  const openCreateForm = () => {
+    const next = defaultAlarm();
+    setEditingScheduleId(null);
+    setTitle('');
+    setNotes('');
+    setRepeat('None');
+    setFormError(null);
+    setTargetEmployeeIds([currentEmployee.id]);
+    // A day picked in the calendar keeps the suggested time; today may roll to tomorrow near midnight.
+    const pickedKey = toDateKey(selectedDate);
+    setFormDate(pickedKey === toDateKey(new Date()) ? next.date : pickedKey);
+    setStartTime(next.time);
+    setShowAddForm(true);
+  };
+
   const handleEditScheduleStart = (ev: Schedule) => {
     setEditingScheduleId(ev.id);
     setTitle(ev.title);
@@ -247,30 +311,55 @@ export default function DashboardView() {
         : [ev.employeeId],
     );
     setStartTime(ev.startTime);
-    setEndTime(ev.endTime);
+    // Editing keeps the day it was set for (a repeating alarm keeps its first day).
+    setFormDate(ev.date);
     setRepeat(ev.repeat || 'None');
     setNotes(ev.notes || '');
     setFormColor(ev.color || '#f59e0b');
+    setFormError(null);
+    setConfirmDeleteId(null);
     setShowAddForm(true);
   };
 
-  const handleCreateSchedule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      showToast(
-        'Validation Error',
-        'Shift title is required.',
-        undefined,
-        'error',
-      );
-      return;
-    }
-    if (targetEmployeeIds.length === 0) {
-      showToast(
-        'Validation Error',
-        'Please assign at least one staff member or dispatcher to this schedule.',
-      );
-      return;
+  /** Adds or replaces rows straight away, so the list doesn't wait for real-time. */
+  const upsertLocal = (rows: import('../types').DbSchedule[]) =>
+    setSchedules((prev) => {
+      const next = [...prev];
+      for (const row of rows) {
+        const mapped = mapDbSchedule(row);
+        const i = next.findIndex((s) => s.id === row.id);
+        if (i >= 0) next[i] = mapped;
+        else next.push(mapped);
+      }
+      return next;
+    });
+
+  /** "Rings at 1:38 PM today" or, for a time already passed with no repeat, a warning. */
+  const ringPhrase = (date: string, time: string, rep: Schedule['repeat']) => {
+    const at = `${formatClock(time)} ${relativeDay(date)}`;
+    return rep === 'None' ? `Rings at ${at}.` : `Rings at ${formatClock(time)}, ${REPEAT_LABEL[rep].toLowerCase()} from ${formatDay(date)}.`;
+  };
+
+  const alarmTimeOf = (date: string, time: string) => {
+    const d = fromDateKey(date);
+    const [h, m] = time.split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
+  const handleCreateSchedule = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (saving) return;
+    setFormError(null);
+    const fail = (msg: string, heading = 'Check the alarm') => {
+      setFormError(msg);
+      showToast(heading, msg, undefined, 'error');
+    };
+    if (!title.trim()) return fail('Give the alarm a name, for example "Open the shop".');
+    if (targetEmployeeIds.length === 0) return fail('Choose at least one person for this alarm.');
+    if (!startTime) return fail('Pick the time it should ring.');
+    if (repeat === 'None' && alarmTimeOf(formDate, startTime).getTime() <= Date.now()) {
+      return fail(`${formatClock(startTime)} ${relativeDay(formDate)} has already passed. Pick a later time or a repeat.`);
     }
 
     // Role seniority / hierarchy check
@@ -287,97 +376,128 @@ export default function DashboardView() {
       });
 
     if (invalidAssignees.length > 0 && !isReminder) {
-      showToast(
-        'Hierarchy Restriction',
-        `As a ${creatorRole}, you cannot create/assign a schedule for senior roles (${invalidAssignees
+      return fail(
+        `As a ${creatorRole}, you can't set this for ${invalidAssignees
           .map((e) => `${e.name} (${e.role})`)
-          .join(', ')}) unless the title contains the word "reminder".`,
-        undefined,
-        'error',
+          .join(', ')} unless the name contains the word "reminder".`,
+        'Not allowed',
       );
-      return;
     }
 
     const assignedWorker =
       employees.find((emp) => emp.id === targetEmployeeIds[0]) ||
       currentEmployee;
-    const sYear = selectedDate.getFullYear();
-    const sMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const sDay = String(selectedDate.getDate()).padStart(2, '0');
-    const dateStr = `${sYear}-${sMonth}-${sDay}`;
-    
+
     const shift = {
       title: title.trim(),
       notes: notes.trim(),
-      date: dateStr,
+      date: formDate,
       startTime,
-      endTime: endTime || undefined,
       repeat,
       color: formColor,
     };
+    const when = ringPhrase(formDate, startTime, repeat);
 
-    if (editingScheduleId) {
-      // The schedule being edited keeps its first person. Anyone added while editing gets their own copy.
-      try {
-        await SupabaseService.updateSchedule({ id: editingScheduleId, employeeId: targetEmployeeIds[0], ...shift });
-        await Promise.all(
+    setSaving(true);
+    try {
+      if (editingScheduleId) {
+        // The alarm being edited keeps its first person. Anyone added while editing gets their own copy.
+        const updated = await SupabaseService.updateSchedule({ id: editingScheduleId, employeeId: targetEmployeeIds[0], endTime: null, ...shift });
+        const added = await Promise.all(
           targetEmployeeIds.slice(1).map((employeeId) =>
             SupabaseService.createSchedule({ businessId: activeBusinessId, employeeId, createdBy: currentEmployee.id, ...shift }),
           ),
         );
-        // Real-time will update the list automatically
+        upsertLocal([updated, ...added]);
         showToast(
-          'Schedule Updated',
-          targetEmployeeIds.length > 1
-            ? `Shift "${title}" updated and given to ${targetEmployeeIds.length - 1} more.`
-            : `Shift "${title}" updated successfully.`,
+          'Alarm Updated',
+          `"${shift.title}" ${when}${added.length ? ` Also set for ${added.length} more.` : ''}`,
           assignedWorker.avatar,
-        );
-      } catch (err) {
-        console.error(err);
-        showToast('Error', 'Failed to update shift.');
-      }
-      setEditingScheduleId(null);
-    } else {
-      // One schedule per person, so each one sees it and gets their own reminder.
-      const results = await Promise.allSettled(
-        targetEmployeeIds.map((employeeId) =>
-          SupabaseService.createSchedule({ businessId: activeBusinessId, employeeId, createdBy: currentEmployee.id, ...shift }),
-        ),
-      );
-      const failed = targetEmployeeIds.filter((_, i) => results[i].status === 'rejected');
-      results.forEach((r) => r.status === 'rejected' && console.error(r.reason));
-      if (failed.length === 0) {
-        // Real-time will insert the rows automatically
-        showToast(
-          'Schedule Assigned',
-          targetEmployeeIds.length > 1
-            ? `New shift "${title}" assigned to ${targetEmployeeIds.length} people.`
-            : `New shift "${title}" assigned.`,
-          assignedWorker.avatar,
+          'success',
         );
       } else {
-        const names = failed.map((id) => employees.find((emp) => emp.id === id)?.name || 'one person').join(', ');
-        showToast('Error', `Failed to create the shift for ${names}.`);
+        // One alarm per person, so each one hears their own.
+        const results = await Promise.allSettled(
+          targetEmployeeIds.map((employeeId) =>
+            SupabaseService.createSchedule({ businessId: activeBusinessId, employeeId, createdBy: currentEmployee.id, ...shift }),
+          ),
+        );
+        const saved = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+        upsertLocal(saved);
+        const failed = targetEmployeeIds.filter((_, i) => results[i].status === 'rejected');
+        results.forEach((r) => r.status === 'rejected' && console.error(r.reason));
+        if (failed.length > 0) {
+          const names = failed.map((id) => employees.find((emp) => emp.id === id)?.name || 'one person').join(', ');
+          // Keep the form open so the person can try again.
+          setTargetEmployeeIds(failed);
+          setSaving(false);
+          return fail(
+            `${saved.length ? `Saved for ${saved.length}, but not` : 'Not saved'} for ${names}. Check your connection and press Set alarm again.`,
+            'Alarm Not Saved',
+          );
+        }
+        showToast(
+          'Alarm Set',
+          `"${shift.title}" ${when}${targetEmployeeIds.length > 1 ? ` Set for ${targetEmployeeIds.length} people.` : ''}`,
+          assignedWorker.avatar,
+          'success',
+        );
       }
+      setSelectedDate(fromDateKey(formDate));
+      setCurrentMonth(fromDateKey(formDate));
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      fail('The alarm was not saved. Check your connection and try again.', 'Alarm Not Saved');
+    } finally {
+      setSaving(false);
     }
-
-    // Reset Form
-    setTitle('');
-    setNotes('');
-    setEditingScheduleId(null);
-    setShowAddForm(false);
   };
 
   const handleDeleteSchedule = async (id: string, name: string) => {
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      return;
+    }
+    setDeletingId(id);
     try {
       await SupabaseService.deleteSchedule(id);
-      // Real-time will remove the row automatically
-      showToast('Schedule Removed', `Shift for ${name} has been removed.`);
+      setSchedules((prev) => prev.filter((s) => s.id !== id));
+      showToast('Alarm Removed', `"${name}" won't ring any more.`, undefined, 'success');
+      if (editingScheduleId === id) resetForm();
     } catch (err) {
       console.error(err);
-      showToast('Error', 'Failed to remove schedule.');
+      showToast('Error', 'The alarm was not removed. Check your connection and try again.', undefined, 'error');
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
     }
+  };
+
+  const shiftSelectedDay = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d);
+    setCurrentMonth(d);
+  };
+
+  const goToday = () => {
+    setSelectedDate(new Date());
+    setCurrentMonth(new Date());
+  };
+
+  /** Status of an alarm on the day shown: rang, rings in 10 min, or missed. */
+  const ringStatus = (ev: Schedule, day: Date) => {
+    const dayKey = toDateKey(day);
+    const at = alarmTimeOf(dayKey, ev.startTime);
+    const now = new Date();
+    if (dayKey === toDateKey(now) && ev.lastRemindedOn === dayKey) return { label: 'Rang', tone: 'done' as const };
+    if (at.getTime() > now.getTime()) {
+      return dayKey === toDateKey(now)
+        ? { label: `Rings ${untilText(at, now)}`, tone: 'soon' as const }
+        : { label: 'Will ring', tone: 'later' as const };
+    }
+    return { label: 'Passed', tone: 'done' as const };
   };
 
   // Helper arrays for calendar grids
@@ -598,7 +718,8 @@ export default function DashboardView() {
             <div className="flex items-center gap-1.5">
               <button
                 onClick={toggleCalendarCollapsed}
-                title={isCalendarCollapsed ? 'Expand Month' : 'Collapse Month'}
+                data-shortcut="toggle-month"
+                title={isCalendarCollapsed ? 'Show the month (M)' : 'Show one week (M)'}
                 className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1 shrink-0 mr-1 text-[9px] font-black uppercase tracking-wider"
               >
                 {isCalendarCollapsed ? (
@@ -623,10 +744,7 @@ export default function DashboardView() {
                     <ChevronLeft size={14} />
                   </button>
                   <button
-                    onClick={() => {
-                      setCurrentMonth(new Date());
-                      setSelectedDate(new Date());
-                    }}
+                    onClick={goToday}
                     className="px-2.5 py-1 text-[10px] font-bold bg-app-bg hover:bg-app-card text-app-text rounded-lg border border-app-border transition cursor-pointer"
                   >
                     Today
@@ -830,21 +948,22 @@ export default function DashboardView() {
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/45 pb-2">
               <h3 className="text-xs font-black text-app-text uppercase tracking-wider flex items-center gap-1.5">
-                <Plus size={14} className="text-amber-500" />
+                <AlarmClock size={14} className="text-amber-500 -ml-1" />
                 {editingScheduleId
-                  ? 'Edit Shift Schedule'
+                  ? 'Edit Alarm'
                   : canManageShifts
-                  ? 'Schedule A Shift'
-                  : 'Request Personal Shift'}
+                  ? 'Set An Alarm'
+                  : 'Set A Personal Alarm'}
               </h3>
 
               {!showAddForm && (
                 <button
-                  onClick={() => setShowAddForm(true)}
+                  onClick={openCreateForm}
                   data-shortcut="new"
-                  className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-lg transition hover:bg-amber-600 cursor-pointer"
+                  title="Set an alarm (N)"
+                  className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-lg transition hover:bg-amber-600 cursor-pointer flex items-center gap-1"
                 >
-                  Create
+                  <Plus size={11} /> New
                 </button>
               )}
             </div>
@@ -852,28 +971,76 @@ export default function DashboardView() {
             {showAddForm ? (
               <form
                 onSubmit={handleCreateSchedule}
+                onKeyDown={(e) => {
+                  // The page keys don't work while typing, so the form has its own.
+                  // A dropdown closing on Esc handles it first.
+                  if (e.defaultPrevented) return;
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    resetForm();
+                  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleCreateSchedule();
+                  }
+                }}
                 className="space-y-3 text-xs"
+                aria-busy={saving}
               >
                 <div className="space-y-1">
                   <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                    Shift Title
+                    Ring at
+                  </label>
+                  <AlarmTimePicker
+                    value={startTime}
+                    onChange={(t) => {
+                      setStartTime(t);
+                      setFormError(null);
+                    }}
+                    onQuickPick={(date) => setFormDate(date)}
+                    disabled={saving}
+                  />
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="date"
+                      aria-label="Day"
+                      value={formDate}
+                      disabled={saving}
+                      onChange={(e) => {
+                        if (e.target.value) setFormDate(e.target.value);
+                        setFormError(null);
+                      }}
+                      className="bg-app-bg text-app-text px-2 py-1.5 rounded-lg border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
+                    />
+                    <span className="text-[10px] text-app-text-muted font-medium">{formatDay(formDate)}</span>
+                  </div>
+                  <p className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 pt-0.5">
+                    <BellRing size={11} /> {ringPhrase(formDate, startTime, repeat)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                    Alarm name
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Westlands Milk Delivery Route"
+                    autoFocus
+                    disabled={saving}
+                    placeholder="e.g. Open the shop, Milk delivery route"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      setFormError(null);
+                    }}
                     className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                    Assign Dispatchers & Staff (Select Multiple)
+                    Who it rings for
                   </label>
                   <p className="text-[9px] text-app-text-muted/80 font-normal leading-tight mb-1.5">
-                    Choose who is assigned to this shift. NOTE: Junior accounts
-                    cannot assign shifts to senior roles (Owner, Manager,
-                    Cashier) unless the title contains the word "reminder".
+                    It rings on each person's phone until they tap Accept. You can't set
+                    one for a more senior role unless the name contains the word "reminder".
                   </p>
                   <div className="flex flex-col gap-1 bg-app-bg border border-app-border p-2 rounded-xl max-h-[120px] overflow-y-auto">
                     {employees.map((emp) => {
@@ -940,44 +1107,20 @@ export default function DashboardView() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                      Start Time
-                    </label>
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                      End Time
-                    </label>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                      Repeat settings
+                        Repeat
                     </label>
                     <SearchableDropdown
                       items={[
-                        { id: 'None', label: 'Does not repeat' },
-                        { id: 'Daily', label: 'Daily repeat' },
-                        { id: 'Weekly', label: 'Weekly repeat' },
-                        { id: 'Monthly', label: 'Monthly repeat' },
+                        { id: 'None', label: 'Once' },
+                        { id: 'Daily', label: 'Every day' },
+                        { id: 'Weekly', label: 'Every week' },
+                        { id: 'Monthly', label: 'Every month' },
                       ]}
                       selectedValue={repeat}
                       onChange={(val) =>
                         setRepeat(val as 'None' | 'Daily' | 'Weekly' | 'Monthly')
                       }
-                      placeholder="Repeat settings..."
+                      placeholder="Repeat..."
                     />
                   </div>
 
@@ -1021,41 +1164,58 @@ export default function DashboardView() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                    Instructions / Notes
+                    Note (optional)
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Enter dispatch routing details..."
+                    placeholder="Shown when it rings, e.g. bring the float"
+                    disabled={saving}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none resize-none"
                   />
                 </div>
+                {formError && (
+                  <p role="alert" className="text-[10.5px] font-bold text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1.5">
+                    {formError}
+                  </p>
+                )}
                 <div className="flex gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => setShowAddForm(false)}
-                    className="flex-1 py-2 bg-app-bg text-app-text border border-app-border font-bold rounded-xl transition hover:bg-app-card cursor-pointer text-center"
+                    onClick={resetForm}
+                    disabled={saving}
+                    title="Cancel (Esc)"
+                    className="flex-1 py-2 bg-app-bg text-app-text border border-app-border font-bold rounded-xl transition hover:bg-app-card cursor-pointer text-center disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition cursor-pointer text-center"
+                    disabled={saving}
+                    title="Save (Ctrl+Enter)"
+                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition cursor-pointer text-center flex items-center justify-center gap-1.5 disabled:opacity-70 disabled:cursor-wait"
                   >
-                    {editingScheduleId ? 'Update Shift' : 'Save Shift'}
+                    {saving ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" /> Saving…
+                      </>
+                    ) : editingScheduleId ? (
+                      'Update Alarm'
+                    ) : (
+                      'Set Alarm'
+                    )}
                   </button>
                 </div>
+                <p className="text-[9px] text-app-text-muted text-center">Esc to cancel · Ctrl+Enter to save</p>
               </form>
             ) : (
               <div className="text-center py-4 bg-app-bg border border-app-border/45 rounded-xl border-dashed">
                 <p className="text-[10px] text-app-text-muted font-medium">
-                  Click Create to schedule a new shift for selected date:
+                  Press New (or N) to set an alarm for:
                 </p>
-                <span className="text-xs font-mono font-black text-amber-500 block mt-1">
-                  {selectedDate.toLocaleDateString(undefined, {
-                    dateStyle: 'long',
-                  })}
+                <span className="text-xs font-black text-amber-500 block mt-1">
+                  {formatDay(selectedDate)}
                 </span>
               </div>
             )}
@@ -1063,13 +1223,43 @@ export default function DashboardView() {
 
           {/* Active Shift List for the selected day */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex-1 flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-app-border/45 pb-2">
-              <div className="flex items-center gap-1.5">
-                <CalendarIcon size={14} className="text-amber-500" />
-                <h3 className="text-xs font-black text-app-text uppercase tracking-wider">
-                  Shifts • {selectedDate.getDate()}{' '}
-                  {monthNames[month].slice(0, 3)}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-app-border/45 pb-2">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedDay(-1)}
+                  data-shortcut="prev-day"
+                  title="Previous day (←)"
+                  aria-label="Previous day"
+                  className="p-1 hover:bg-app-bg text-app-text rounded-lg border border-app-border transition cursor-pointer"
+                >
+                  <ChevronLeft size={12} />
+                </button>
+                <h3 className="text-xs font-black text-app-text tracking-wide flex items-center gap-1 px-1">
+                  <CalendarIcon size={13} className="text-amber-500" />
+                  {formatDay(selectedDate)}
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedDay(1)}
+                  data-shortcut="next-day"
+                  title="Next day (→)"
+                  aria-label="Next day"
+                  className="p-1 hover:bg-app-bg text-app-text rounded-lg border border-app-border transition cursor-pointer"
+                >
+                  <ChevronRight size={12} />
+                </button>
+                {toDateKey(selectedDate) !== toDateKey(new Date()) && (
+                  <button
+                    type="button"
+                    onClick={goToday}
+                    data-shortcut="today"
+                    title="Go to today (T)"
+                    className="ml-1 px-2 py-0.5 text-[9px] font-bold bg-app-bg hover:bg-app-card text-app-text rounded-lg border border-app-border transition cursor-pointer"
+                  >
+                    Today
+                  </button>
+                )}
               </div>
 
               {/* Quick Filter */}
@@ -1095,60 +1285,90 @@ export default function DashboardView() {
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
               {activeSchedulesForSelected.length === 0 ? (
                 <div className="py-8 text-center text-[10px] text-app-text-muted font-medium">
-                  No registered active shifts for this date.
+                  No alarms on this day.
                 </div>
               ) : (
-                activeSchedulesForSelected.map((ev) => {
+                [...activeSchedulesForSelected].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((ev) => {
                   const assignedIds =
                     ev.employeeIds && ev.employeeIds.length > 0
                       ? ev.employeeIds
                       : [ev.employeeId];
                   const canEdit = canEditSchedule(ev.title, assignedIds);
+                  const status = ringStatus(ev, selectedDate);
+                  const confirming = confirmDeleteId === ev.id;
+                  const deleting = deletingId === ev.id;
 
                   return (
                     <div
                       key={ev.id}
-                      className="p-3 bg-app-bg border border-app-border/40 hover:border-app-border/80 rounded-xl transition flex flex-col gap-1.5 relative group"
+                      className={`p-3 bg-app-bg border rounded-xl transition flex flex-col gap-1.5 relative group ${
+                        editingScheduleId === ev.id ? 'border-amber-500/60' : 'border-app-border/40 hover:border-app-border/80'
+                      } ${deleting ? 'opacity-50' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-2 pr-16">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: ev.color }}
                           />
-                          <h4 className="text-xs font-black text-app-text">
+                          <span className="text-sm font-black text-app-text font-mono shrink-0">
+                            {formatClock(ev.startTime)}
+                          </span>
+                          <h4 className="text-xs font-bold text-app-text truncate">
                             {ev.title}
                           </h4>
                         </div>
 
                         <div className="flex items-center gap-1.5 absolute right-2.5 top-2.5 opacity-80 hover:opacity-100 transition-opacity">
-                          {canEdit && (
-                            <button
-                              onClick={() => handleEditScheduleStart(ev)}
-                              className="text-app-text-muted hover:text-amber-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
-                              title="Edit Shift"
-                            >
-                              <Pencil size={11} />
-                            </button>
-                          )}
-                          {canEdit && (
-                            <button
-                              onClick={() =>
-                                handleDeleteSchedule(ev.id, ev.employeeName)
-                              }
-                              className="text-app-text-muted hover:text-red-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
-                              title="Remove Shift"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
+                          {canEdit && confirming ? (
+                            <>
+                              <span className="text-[9px] font-bold text-red-500">Remove?</span>
+                              <button
+                                onClick={() => handleDeleteSchedule(ev.id, ev.title)}
+                                disabled={deleting}
+                                className="text-white bg-red-500 hover:bg-red-600 p-1 rounded-lg transition cursor-pointer disabled:cursor-wait"
+                                title="Yes, remove"
+                                aria-label="Yes, remove this alarm"
+                              >
+                                {deleting ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                disabled={deleting}
+                                className="text-app-text-muted p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
+                                title="Keep it"
+                                aria-label="Keep this alarm"
+                              >
+                                <X size={11} />
+                              </button>
+                            </>
+                          ) : canEdit ? (
+                            <>
+                              <button
+                                onClick={() => handleEditScheduleStart(ev)}
+                                className="text-app-text-muted hover:text-amber-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
+                                title="Edit alarm"
+                                aria-label="Edit alarm"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSchedule(ev.id, ev.title)}
+                                className="text-app-text-muted hover:text-red-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
+                                title="Remove alarm"
+                                aria-label="Remove alarm"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-[10px] text-app-text-muted font-medium border-t border-app-border/30 pt-1.5 mt-0.5">
                         <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
                           <span className="text-[8px] uppercase tracking-wider font-extrabold text-amber-500/80">
-                            Assigned Staff / Dispatchers:
+                            Rings for
                           </span>
                           <div className="flex flex-wrap gap-1">
                             {assignedIds.map((id) => {
@@ -1171,13 +1391,18 @@ export default function DashboardView() {
                             })}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 justify-end font-mono col-span-2 sm:col-span-1 self-end">
-                          <Clock
-                            size={11}
-                            className="text-amber-500 shrink-0"
-                          />
-                          <span>
-                            {ev.startTime} - {ev.endTime}
+                        <div className="flex items-center gap-1 justify-end col-span-2 sm:col-span-1 self-end">
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              status.tone === 'soon'
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                : status.tone === 'later'
+                                ? 'bg-app-card text-app-text-muted border border-app-border'
+                                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            }`}
+                          >
+                            {status.label === 'Rang' ? <Check size={10} /> : <BellRing size={10} />}
+                            {status.label}
                           </span>
                         </div>
                       </div>
@@ -1190,7 +1415,7 @@ export default function DashboardView() {
 
                       {ev.repeat !== 'None' && (
                         <span className="text-[8px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded self-start uppercase tracking-wider">
-                          Repeats {ev.repeat}
+                          {REPEAT_LABEL[ev.repeat]}
                         </span>
                       )}
                     </div>

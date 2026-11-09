@@ -46,6 +46,8 @@ export interface Transaction {
   riderName?: string;
   businessId?: string;
   referenceId?: string;
+  /** Part of a credit sale paid from the customer's wallet; the rest is owed. */
+  walletApplied?: number;
 }
 
 export type CustomerTier = 'Bronze' | 'Silver' | 'Gold';
@@ -185,6 +187,8 @@ export interface DbSchedule {
   repeat: 'None' | 'Daily' | 'Weekly' | 'Monthly';
   color: string;
   reminderSent: boolean;
+  /** The last day (YYYY-MM-DD, Nairobi) its alarm went off. */
+  lastRemindedOn: string | null;
   createdBy: string | null;
   deletedAt: string | null;
   createdAt: string;
