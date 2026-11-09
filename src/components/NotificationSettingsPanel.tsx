@@ -2,7 +2,7 @@
 // The switches for what this person gets notified about, used by the Notifications page and Settings.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bell, BellOff, Bike, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
+import { Bell, BellOff, BellRing, Bike, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
 import { NotificationPreferences, NotificationSettings } from '../services/notifications/notificationPreferences';
 import { NotificationRepository } from '../services/notifications/notificationRepository';
 import { useBusinessStore } from '../stores/businessStore';
@@ -16,7 +16,8 @@ const CATEGORY_DETAILS: Record<string, { label: string; description: string; ico
   deliveries: { label: 'Deliveries', description: 'Assigned and completed deliveries', icon: <Bike size={15} /> },
   payments: { label: 'Payments', description: 'M-Pesa results and low cash balance', icon: <CircleDollarSign size={15} /> },
   online_store: { label: 'Online store', description: 'New website orders and possible duplicate customers', icon: <ShoppingBag size={15} /> },
-  schedules: { label: 'Schedule reminders', description: 'Your upcoming shifts', icon: <CalendarClock size={15} /> },
+  schedules: { label: 'Schedule reminders', description: 'Your upcoming shifts. They ring until you accept them', icon: <CalendarClock size={15} /> },
+  unaccepted: { label: 'Alerts not accepted', description: 'When a reminder or urgent alert rings for 15 minutes and nobody accepts it', icon: <BellRing size={15} /> },
   ai: { label: 'AI insights', description: 'Business suggestions and risk alerts', icon: <Sparkles size={15} /> },
   announcements: { label: 'Announcements', description: 'Shift updates and messages from your business', icon: <Megaphone size={15} /> },
   account: { label: 'Account and security', description: 'Role invitations and account activity', icon: <ShieldCheck size={15} /> },

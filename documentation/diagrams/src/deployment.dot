@@ -1,0 +1,36 @@
+// Figure 20.1: Deployment view. Where each artefact is built, stored and executed.
+digraph deployment {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.3, ranksep=0.7, pad=0.2, compound=true];
+  node  [fontname="Arial", fontsize=9, shape=box3d, style=filled, fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  subgraph cluster_dev { label="Developer workstation"; style="rounded,dashed"; color="#94a3b8";
+    repo  [label="Git repository\n(main branch)", shape=folder];
+    keys  [label="Signing keys (offline)\n~/.config/kaykays-signing/\n~/.tauri/", shape=note, fillcolor="#fff1f2"];
+    cli   [label="Supabase CLI\n(db push, functions deploy)", shape=component];
+    vcli  [label="npm run website:deploy\n(Vercel CLI)", shape=component];
+  }
+  subgraph cluster_gh { label="GitHub (KIMGITO/ISMS, public)"; style="rounded"; color="#475569";
+    ci   [label="GitHub Actions\nbuild.yml · release-and-deploy.yml", shape=component];
+    rel  [label="GitHub Releases\n.msi · .exe · AppImage · .deb · .apk\nlatest.json", shape=folder, fillcolor="#fef3c7", color="#b45309"];
+  }
+  subgraph cluster_sb { label="Supabase cloud (one project)"; style="rounded,filled"; fillcolor="#fffbeb"; color="#b45309";
+    pg   [label="PostgreSQL\n(43 migrations in repo)", shape=cylinder];
+    fns  [label="Edge Functions\n(18 in repo)", shape=component];
+    svc  [label="Auth · Storage ·\nRealtime · pg_cron"];
+  }
+  subgraph cluster_host { label="Static hosting"; style="rounded"; color="#475569";
+    vercel [label="Vercel project\nkaykays-website\n(website/dist)"];
+  }
+  subgraph cluster_devices { label="Client devices"; style="rounded,dashed"; color="#94a3b8";
+    android [label="Android phones/tablets\n(com.kaykays.app)"];
+    desktop [label="Windows / Linux PCs\n(Tauri, com.isms.app)"];
+    browser [label="Customer browsers"];
+  }
+
+  repo -> ci [label="push / PR"]; keys -> ci [label="GitHub secrets", style=dashed];
+  ci -> rel [label="publish on\nreleasable commits"];
+  rel -> android [label="APK + SHA-256"]; rel -> desktop [label="signed updates"];
+  cli -> pg; cli -> fns; vcli -> vercel; vercel -> browser;
+  android -> svc [lhead=cluster_sb, label="HTTPS"]; desktop -> svc [lhead=cluster_sb]; browser -> svc [lhead=cluster_sb];
+}

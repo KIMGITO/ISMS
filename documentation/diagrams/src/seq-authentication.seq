@@ -1,0 +1,24 @@
+# Figure 9.1: Staff invitation acceptance and password reset with server-side codes.
+participant U "Staff member"
+participant A "Staff app"
+participant SA "Supabase Auth"
+participant OTP "auth-otp"
+participant DB "PostgreSQL"
+
+divider: joining by invitation
+A -> DB: get_invitation_by_token(code)
+DB --> A: business, role, invited email
+U -> A: sign up / sign in with the invited email
+A -> SA: signUp / signInWithPassword
+SA --> A: session (JWT)
+A -> DB: accept_invitation_with_token(code)
+note DB: refuses unless auth.users.email\nmatches the invited email (20261107002)
+divider: password reset
+A -> OTP: action "send" (email)
+OTP -> OTP: 30 / 10 min per IP; 15 / h per email
+OTP -> DB: otp_lookup_user() (login email only), otp_issue()
+OTP --> U: 6-digit code by email (never returned to the app)
+A -> OTP: action "verify_reset" (code)
+OTP -> DB: otp_check() (max 5 wrong guesses)
+A -> OTP: action "reset_password"
+OTP -> SA: update password (service role)

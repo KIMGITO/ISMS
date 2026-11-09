@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { JWT } from 'https://esm.sh/google-auth-library@9';
+import { getFcmAccess, ringMessage, sendFcm } from '../shared/fcm.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,98 +77,69 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Get Firebase credentials
-    const serviceAccountStr = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
-    if (!serviceAccountStr) {
-      console.error("[send-fcm] FIREBASE_SERVICE_ACCOUNT secret is MISSING!");
-      throw new Error("Missing FIREBASE_SERVICE_ACCOUNT secret");
-    }
-    const serviceAccount = JSON.parse(serviceAccountStr);
+    // 3. Sign in to FCM
+    const access = await getFcmAccess();
 
-    // 4. Create a JWT for Google OAuth2
-    const jwtClient = new JWT({
-      email: serviceAccount.client_email,
-      key: serviceAccount.private_key,
-      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
-    });
+    // Alerts that ring go as data-only messages, so the app's own service rings them.
+    const ring = !isDirectInvoke && targetPayload?.ring === true && !!notificationId;
 
-    // 5. Get access token
-    const { token: accessToken } = await jwtClient.getAccessToken();
-
-    // 6. Send to each device, tracking failures for token cleanup
-    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
-
+    // 4. Send to each device, tracking failures for token cleanup
     const sendPromises = tokens.map(async ({ device_token: token, user_id: tokenUserId, id: tokenRowId, sound: tokenSound }) => {
-      try {
-        // Per-device tone: stored as e.g. "notification1.mp3" or "notification1".
-        // Normalise:
-        //   - Android raw resource name (no extension, lowercase).
-        //   - iOS / APNs sound filename (with .mp3 extension).
-        const rawSound = (tokenSound && tokenSound !== '' && tokenSound !== 'none') ? tokenSound : 'notification1.mp3';
-        const androidSound = rawSound.replace(/\.mp3$/i, '');
-        const apnsSound = rawSound.endsWith('.mp3') ? rawSound : `${rawSound}.mp3`;
+      // Per-device tone: stored as e.g. "notification1.mp3" or "notification1".
+      // Normalise:
+      //   - Android raw resource name (no extension, lowercase).
+      //   - iOS / APNs sound filename (with .mp3 extension).
+      const rawSound = (tokenSound && tokenSound !== '' && tokenSound !== 'none') ? tokenSound : 'notification1.mp3';
+      const androidSound = rawSound.replace(/\.mp3$/i, '');
+      const apnsSound = rawSound.endsWith('.mp3') ? rawSound : `${rawSound}.mp3`;
 
-        const response = await fetch(fcmUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: {
-              token: token,
-              notification: {
-                title: title || "New Notification",
-                body: messageText || "You have a new message.",
-              },
-              // Android uses the bundled raw resource name (no extension).
-              // iOS uses the sound filename in the app bundle.
-              android: {
-                notification: {
-                  sound: androidSound,
-                  channel_id: 'default',
-                },
-              },
-              apns: {
-                payload: {
-                  aps: {
-                    sound: apnsSound,
-                  },
-                },
-              },
-              data: {
-                type: type || 'info',
-                notification_id: notificationId || '',
-                priority: targetPayload?.priority || 'medium',
-                action_type: targetPayload?.action_type || 'navigate',
-                action_target: targetPayload?.action_target || 'none',
-              }
-            }
+      const message = ring
+        ? ringMessage(token, {
+            id: notificationId,
+            title: title || 'Alert',
+            body: messageText || '',
+            actionTarget: targetPayload?.action_target || 'none',
+            type: type || '',
+            businessId: businessId || '',
           })
-        });
+        : {
+            token,
+            notification: {
+              title: title || "New Notification",
+              body: messageText || "You have a new message.",
+            },
+            // Android uses the bundled raw resource name (no extension).
+            // iOS uses the sound filename in the app bundle.
+            android: {
+              notification: {
+                sound: androidSound,
+                channel_id: 'default',
+              },
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: apnsSound,
+                },
+              },
+            },
+            data: {
+              type: type || 'info',
+              notification_id: notificationId || '',
+              priority: targetPayload?.priority || 'medium',
+              action_type: targetPayload?.action_type || 'navigate',
+              action_target: targetPayload?.action_target || 'none',
+            },
+          };
 
-        const result = await response.json();
-
-        if (response.ok) {
-          return { token, success: true, result, tokenRowId, tokenUserId };
-        } else {
-          // 7. Token is stale/invalid (unregistered, invalid-argument): delete it
-          const isInvalidToken =
-            result?.error?.status === 'UNREGISTERED' ||
-            result?.error?.code === 404 ||
-            result?.error?.message?.includes('invalid') ||
-            result?.error?.message?.includes('not found');
-
-          if (isInvalidToken) {
-            console.warn(`[send-fcm] Removing stale token ${token}`);
-            await supabaseClient.from('device_fcm_tokens').delete().eq('id', tokenRowId);
-          }
-          return { token, success: false, error: result?.error?.message, tokenRowId };
-        }
-      } catch (e: any) {
-        console.error(`[send-fcm] Network error sending to token:`, e);
-        return { token, success: false, error: e.message };
+      const result = await sendFcm(access, message);
+      if (!result.ok && result.staleToken) {
+        // Token is stale/invalid (unregistered, invalid-argument): delete it
+        console.warn(`[send-fcm] Removing stale token`);
+        await supabaseClient.from('device_fcm_tokens').delete().eq('id', tokenRowId);
       }
+      if (!result.ok) console.error(`[send-fcm] Send failed:`, result.error);
+      return { token, success: result.ok, error: result.error, tokenRowId, tokenUserId };
     });
 
     const results = await Promise.all(sendPromises);

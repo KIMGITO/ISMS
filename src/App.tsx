@@ -131,6 +131,7 @@ import {
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
+import RingingAlerts from './components/RingingAlerts';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Business } from './types';
@@ -660,6 +661,8 @@ export default function App() {
           setActiveTab('ai');
         } else if (targetTab === 'delivery') {
           setActiveTab('sales');
+        } else if (SCREEN_BY_ID.has(targetTab)) {
+          setActiveTab(targetTab);
         }
       }
     };
@@ -5226,6 +5229,7 @@ export default function App() {
         <FieldValidationHost />
 
         <ShortcutHelp open={showShortcutHelp} screen={activeTab as string} onClose={() => setShowShortcutHelp(false)} />
+        <RingingAlerts />
 
         {/* Interactive Onboarding Tour Guide */}
         <InteractiveGuide

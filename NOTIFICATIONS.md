@@ -66,6 +66,7 @@ A Zustand store that bridges the Repository to the UI.
 | Online store | `online_store.view` |
 | AI insights | `ai.insights` |
 | Schedules, announcements | Everyone, limited to the role named on the notification |
+| Alerts not accepted | `staff.view` (Owner, Admin, Manager) |
 | Account and security | Everyone, and it can't be turned off |
 
 Everything is on by default for the people who can have it. Pausing turns off everything except account and security alerts.
@@ -78,7 +79,7 @@ The following notification types are emitted into `public.notifications` and dis
 
 | # | `type` | Trigger / Source | Target | Priority | Payload keys |
 |---|--------|------------------|--------|----------|--------------|
-| 1 | `Schedule Reminder` | `flag_due_schedule_reminders()` (pg_cron every 15 min) | `user_id` (assigned employee) | high | `schedule_id`, `employee_id`, `shift_date`, `start_time` |
+| 1 | `Schedule Reminder` | `flag_due_schedule_reminders()` (pg_cron every 5 min, 30 min before the shift, Nairobi time, every repeat) | `user_id` (assigned employee) | high | `schedule_id`, `employee_id`, `shift_date`, `start_time` |
 | 2 | `Out Of Stock` | DB trigger `fn_check_low_stock` (products UPDATE) | role `Owner` | critical | `productId`, `productName`, `stock`, `minStock` |
 | 3 | `Stock Almost Finished` | DB trigger `fn_check_low_stock` (products UPDATE) | role `Owner` | high | `productId`, `productName`, `stock`, `minStock` |
 | 4 | `Payment Received` | RPC `log_mpesa_payment` (M-Pesa callback) | role `Owner` | high | `amount`, `phone`, `receiptNumber`, `status` |
@@ -99,6 +100,28 @@ The following notification types are emitted into `public.notifications` and dis
 | 19 | `System Update` | Build / release pipeline | all users | low | `version` |
 | 20 | `Business Announcement` | Owner broadcast | all users | low | `announcementTitle`, `announcementBody` |
 | 21 | `Scheduled Reminder` | Schedule system (legacy) | user | low | `taskTitle` |
+
+## Ringing Alerts
+
+Some alerts ring until someone taps **Accept**. There is no snooze or dismiss. Accept opens the alert's screen.
+
+**Which ones ring.** `fn_ringing_alert_target()` (migration `20261109004`) decides, and a trigger sets `ring` and `action_target` on insert. Changing that one function changes what rings everywhere.
+
+| Alert | Who | Opens |
+|---|---|---|
+| Schedule reminder | The person on the shift | Shift (`dashboard`) |
+| New delivery, or a Delivery Assigned sent to one rider | That rider | Deliveries |
+| New online order, Online payment needs checking, Delivery not completed | Everyone with `online_store.view` | Online Store |
+| M-Pesa till payment to assign | Everyone with `online_store.view` | Payments & Expenses |
+
+An alert sent to several people is accepted once for all of them. `notifications.accepted_at` and `accepted_by` record who accepted it.
+
+**How it rings.**
+- **Android:** `send-fcm` sends ringing alerts as data-only messages (`kind: ring`, high priority). `RingingMessagingService` receives every push and replaces the Capacitor plugin's own service, passing other pushes on to it. It starts `RingService`, a foreground service that plays the alarm sound in a loop and vibrates, including when the app is closed. Swiping the notification away brings it back. Accept stops the sound and opens the app, and the app then accepts the alert.
+- **Desktop and web:** `RingingAlerts.tsx` shows a full-screen alert with a looping sound while the app is open. A closed browser or desktop app can't ring.
+- **Stopping on other devices:** the app accepts through the `accept-alert` edge function. That function calls `accept_alert()` and sends `kind: ring_cancel` to every other recipient's device. When the app opens, it also stops any alert that's no longer waiting.
+
+**Not accepted.** `escalate_unaccepted_alerts()` runs every minute. After 15 minutes it sends one `Alert Not Accepted` notification to people with `staff.view`, who can switch it off under **Alerts not accepted**. After 12 hours an alert stops ringing, but it stays in the inbox.
 
 ## UI Architecture (Notification Center)
 

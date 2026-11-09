@@ -1,0 +1,23 @@
+// Figure 6.2: Life cycle of a direct till (C2B) payment in mpesa_till_payments.
+digraph till {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.35, ranksep=0.6, pad=0.2];
+  node  [fontname="Arial", fontsize=9, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  start     [label="Customer pays the till\nfrom own phone", shape=box, fillcolor="#fff7ed"];
+  cb        [label="till-callback\n?type=confirmation\n(token checked)"];
+  rec       [label="record_till_payment()"];
+  unclaimed [label="unclaimed\n(Paid to the till queue)", shape=box, style="rounded,filled,bold", fillcolor="#fef3c7", color="#b45309"];
+  recorded  [label="recorded\npayment row created:\ncustomer (debt first, then wallet)\nor walk-in", shape=box];
+  matched   [label="matched_sale\n(already rung up;\nnothing added)", shape=box];
+  ignored   [label="ignored\n(note required)", shape=box];
+
+  start -> cb -> rec -> unclaimed;
+  unclaimed -> recorded [label="handle_till_payment\n'customer' / 'walk_in'"];
+  unclaimed -> matched  [label="'sale'"];
+  unclaimed -> ignored  [label="'ignore'"];
+  matched -> unclaimed  [label="'reopen'", style=dashed, constraint=false];
+  ignored -> unclaimed  [label="'reopen'", style=dashed, constraint=false];
+  recorded -> voided [label="void_business_payment\n(reason)", style=dashed];
+  voided [label="payment voided\n(money asset reversed)", shape=box, fillcolor="#fff1f2"];
+}

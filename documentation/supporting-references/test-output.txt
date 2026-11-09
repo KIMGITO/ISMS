@@ -1,0 +1,45 @@
+🚀 Starting Application Unit Tests...
+✅ TEST PASSED: ID Utility getShortId
+✅ TEST PASSED: formatReceiptNumber Formatter
+✅ TEST PASSED: formatCustomerNumber Formatter
+✅ TEST PASSED: Receipt layout keeps every line inside the paper width
+✅ TEST PASSED: Receipt ends with the italic policy and the green thank-you; barcode can be switched off
+✅ TEST PASSED: Receipt shows the KRA block only with a real signature
+✅ TEST PASSED: Code 128 table and checksum
+✅ TEST PASSED: ESC/POS output starts with init, ends with cut, has only printable text
+✅ TEST PASSED: EmailService class and wrappers structure
+✅ TEST PASSED: toUserMessage hides technical text and keeps friendly text
+✅ TEST PASSED: scrubPersonalData removes personal details from crash reports
+✅ TEST PASSED: NotificationRepository mock initial state
+✅ TEST PASSED: hasRolePermission dynamic checks and DB overrides
+✅ TEST PASSED: BOM Batch Ingredient Requirement & Stock Shortage Calculation
+✅ TEST PASSED: Batch Cancellation Restocking vs Waste Split Logic
+✅ TEST PASSED: AI Copilot Pending Action Store & Permission Validation
+✅ TEST PASSED: Hugging Face Default Provider & Token Rotation Logic
+✅ TEST PASSED: USSD menu registers, orders and checks balances
+✅ TEST PASSED: Database role permissions match the app's role permissions
+✅ TEST PASSED: Customer merge preview matches the database rules
+✅ TEST PASSED: Mobile nav keeps at most 5 slots, Settings off the bar, Sell centred for cashiers
+✅ TEST PASSED: M-Pesa prompts accept Kenyan numbers in any common format
+✅ TEST PASSED: Release versioning reads emoji commit types
+✅ TEST PASSED: Update manifest lists signed desktop installers and the Android APK
+✅ TEST PASSED: Offline sales queue once per reference and are marked pending
+✅ TEST PASSED: App versions compare numerically
+✅ TEST PASSED: Keyboard shortcuts and search features follow the roles
+✅ TEST PASSED: Screen access follows the roles' permissions
+✅ TEST PASSED: Home figures: ranges, slots, growth and money received
+✅ TEST PASSED: Receipt shows points used, earned and the balance
+✅ TEST PASSED: Charts use Kenya time and today's hours stop at the current hour
+✅ TEST PASSED: End-of-shift report figures and text
+✅ TEST PASSED: Invoice lists every unpaid charge and its balance equals what the customer owes
+✅ TEST PASSED: Invoice for a period covers only that period's sales, with older debt optional
+✅ TEST PASSED: Points: 2 per KSh 1 paid, nothing on a credit sale, delivery excluded
+✅ TEST PASSED: A walk-in sale added to a customer later earns the same points as at the till
+✅ TEST PASSED: Points are worth less per point in higher tiers, as in the database
+✅ TEST PASSED: People never see a database ID in stock or history text
+✅ TEST PASSED: Customer names start every word with a capital
+✅ TEST PASSED: A credit sale recorded twice is one invoice line, not two with half paid
+✅ TEST PASSED: Notifications carry no internal IDs and credit sales are not payments
+🎉 All Application Unit Tests Completed Successfully!
+✅ TEST PASSED: Offline sync keeps refused sales and stops when the network drops
+exit 0

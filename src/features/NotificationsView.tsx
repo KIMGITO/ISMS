@@ -84,6 +84,7 @@ const TYPE_VISUALS: Record<string, NotifVisual> = {
   "Payment Failed": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "transactions" },
   "Schedule Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
   "Scheduled Reminder": { icon: <CalendarClock size={17} />, cls: "bg-violet-500/12 text-violet-500", category: "schedule" },
+  "Alert Not Accepted": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "activity" },
   "Role Invitation": { icon: <UserPlus size={17} />, cls: "bg-cyan-500/12 text-cyan-500", category: "activity" },
   "Account Activity": { icon: <ShieldCheck size={17} />, cls: "bg-orange-500/12 text-orange-500", category: "security" },
   "System Update": { icon: <RefreshCw size={17} />, cls: "bg-blue-500/12 text-blue-500", category: "system" },
@@ -1058,6 +1059,10 @@ function labelForTarget(target: string): string {
     case "delivery": return "delivery";
     case "customer_debt": return "customer";
     case "ai_insight": return "insight";
+    case "dashboard": return "schedule";
+    case "online-store": return "online store";
+    case "deliveries": return "deliveries";
+    case "money": return "payments";
     default: return "details";
   }
 }

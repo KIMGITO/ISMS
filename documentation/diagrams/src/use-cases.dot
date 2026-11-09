@@ -1,0 +1,42 @@
+// Figure 2.2: Principal use cases by actor. Owners and Admins can perform every staff use case.
+digraph usecases {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.18, ranksep=1.1, pad=0.2];
+  node  [fontname="Arial", fontsize=9];
+  edge  [color="#94a3b8", arrowhead=none];
+
+  node [shape=box, style="rounded,filled", fillcolor="#fff7ed", color="#b45309", width=1.5];
+  owner   [label="Owner / Admin"];
+  manager [label="Manager"];
+  cashier [label="Cashier"];
+  rider   [label="Rider"];
+  customer[label="Customer"];
+  safaricom [label="Safaricom\n(system actor)", fillcolor="#f1f5f9", color="#475569"];
+
+  subgraph cluster_sys {
+    label="ISMS"; style="rounded"; color="#475569"; fontname="Arial";
+    node [shape=ellipse, style=filled, fillcolor="#f8fafc", color="#475569", width=2.4];
+    uc_cfg   [label="Configure business,\nsettings and integrations"];
+    uc_staff [label="Manage staff, roles\nand schedules"];
+    uc_rep   [label="View Home figures\nand reports"];
+    uc_stock [label="Manage inventory\nand production"];
+    uc_cust  [label="Manage customers,\nloyalty and invoices"];
+    uc_exp   [label="Record expenses,\nvoid payments"];
+    uc_sell  [label="Sell (Quick Sale / POS)\nand issue receipts"];
+    uc_pay   [label="Take debt payments,\ntop-ups, M-Pesa prompts"];
+    uc_till  [label="Resolve till payments"];
+    uc_shift [label="Clock in, run and\nclose a shift"];
+    uc_deliv [label="Complete assigned\ndeliveries"];
+    uc_order [label="Order online or by\nUSSD and pay by M-Pesa"];
+    uc_acct  [label="Manage own account,\nschedules and rewards"];
+    uc_conf  [label="Confirm M-Pesa\npayment result"];
+  }
+
+  owner -> uc_cfg; owner -> uc_staff;
+  manager -> uc_rep; manager -> uc_stock; manager -> uc_cust; manager -> uc_exp; manager -> uc_staff;
+  cashier -> uc_sell; cashier -> uc_pay; cashier -> uc_till; cashier -> uc_shift; cashier -> uc_cust;
+  manager -> uc_sell; manager -> uc_till;
+  rider -> uc_deliv; rider -> uc_shift;
+  customer -> uc_order; customer -> uc_acct;
+  safaricom -> uc_conf [dir=back];
+  {rank=same; owner; manager; cashier; rider; customer; safaricom}
+}

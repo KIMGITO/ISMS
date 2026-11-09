@@ -1,0 +1,27 @@
+# Figure 7.1: Website order and M-Pesa STK payment.
+participant C "Customer\n(browser)"
+participant W "Website"
+participant DB "PostgreSQL\n(RPC, triggers)"
+participant CC "customer-checkout"
+participant D "Safaricom\nDaraja"
+participant WH "mpesa-webhook"
+
+C -> W: Add products, choose delivery area
+W -> DB: place_online_order(items, zone ...)
+note DB: prices, delivery fee and points\ncomputed on the server; total floored to KSh
+DB --> W: order (unpaid)
+C -> W: Pay with M-Pesa
+W -> CC: action "pay" (customer JWT)
+CC -> CC: rate limit: 6 per 10 min per customer
+CC -> DB: begin_order_payment()
+CC -> D: STK push (stkpush/v1/processrequest)
+D --> CC: CheckoutRequestID
+CC -> DB: record_order_checkout()
+CC --> W: "Check your phone"
+D --> C: PIN prompt on handset
+C --> D: enters M-Pesa PIN
+D --> WH: callback ?token=MPESA_CALLBACK_TOKEN
+WH -> DB: confirm_online_order_payment()
+note DB: inserts a transactions row: stock, points\nand money-asset triggers run; anomalies flagged
+W -> CC: action "check" (polling)
+CC --> W: paid / failed / waiting

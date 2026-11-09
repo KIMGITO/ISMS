@@ -42,7 +42,6 @@ import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import EndShiftModal from '../components/EndShiftModal';
 import NotificationService from '../services/notifications/notificationService';
-import { notificationService } from '../core/native/NotificationService';
 import { useAuthStore } from '../stores/authStore';
 import { Checkbox } from '../components/shared/Checkbox';
 
@@ -307,24 +306,31 @@ export default function DashboardView() {
     const sDay = String(selectedDate.getDate()).padStart(2, '0');
     const dateStr = `${sYear}-${sMonth}-${sDay}`;
     
+    const shift = {
+      title: title.trim(),
+      notes: notes.trim(),
+      date: dateStr,
+      startTime,
+      endTime: endTime || undefined,
+      repeat,
+      color: formColor,
+    };
+
     if (editingScheduleId) {
-      // Update existing schedule in Supabase
+      // The schedule being edited keeps its first person. Anyone added while editing gets their own copy.
       try {
-        await SupabaseService.updateSchedule({
-          id: editingScheduleId,
-          employeeId: targetEmployeeIds[0],
-          title: title.trim(),
-          notes: notes.trim(),
-          date: dateStr,
-          startTime,
-          endTime: endTime || undefined,
-          repeat,
-          color: formColor,
-        });
+        await SupabaseService.updateSchedule({ id: editingScheduleId, employeeId: targetEmployeeIds[0], ...shift });
+        await Promise.all(
+          targetEmployeeIds.slice(1).map((employeeId) =>
+            SupabaseService.createSchedule({ businessId: activeBusinessId, employeeId, createdBy: currentEmployee.id, ...shift }),
+          ),
+        );
         // Real-time will update the list automatically
         showToast(
           'Schedule Updated',
-          `Shift "${title}" updated successfully.`,
+          targetEmployeeIds.length > 1
+            ? `Shift "${title}" updated and given to ${targetEmployeeIds.length - 1} more.`
+            : `Shift "${title}" updated successfully.`,
           assignedWorker.avatar,
         );
       } catch (err) {
@@ -333,49 +339,26 @@ export default function DashboardView() {
       }
       setEditingScheduleId(null);
     } else {
-      // Create new schedule in Supabase
-      try {
-        await SupabaseService.createSchedule({
-          businessId: activeBusinessId,
-          employeeId: targetEmployeeIds[0],
-          createdBy: currentEmployee.id,
-          title: title.trim(),
-          notes: notes.trim(),
-          date: dateStr,
-          startTime,
-          endTime: endTime || undefined,
-          repeat,
-          color: formColor,
-        });
-        // Real-time will insert the row automatically
+      // One schedule per person, so each one sees it and gets their own reminder.
+      const results = await Promise.allSettled(
+        targetEmployeeIds.map((employeeId) =>
+          SupabaseService.createSchedule({ businessId: activeBusinessId, employeeId, createdBy: currentEmployee.id, ...shift }),
+        ),
+      );
+      const failed = targetEmployeeIds.filter((_, i) => results[i].status === 'rejected');
+      results.forEach((r) => r.status === 'rejected' && console.error(r.reason));
+      if (failed.length === 0) {
+        // Real-time will insert the rows automatically
         showToast(
           'Schedule Assigned',
-          `New shift "${title}" assigned.`,
+          targetEmployeeIds.length > 1
+            ? `New shift "${title}" assigned to ${targetEmployeeIds.length} people.`
+            : `New shift "${title}" assigned.`,
           assignedWorker.avatar,
         );
-
-        // If this device belongs to the assigned employee, schedule a local
-        // device reminder at the shift's start time (works even in background).
-        if (
-          targetEmployeeIds.includes(currentEmployee.id) &&
-          startTime
-        ) {
-          const reminderAt = new Date(`${dateStr}T${startTime}:00`);
-          // If the shift start time has already passed today, target tomorrow.
-          if (reminderAt.getTime() < Date.now()) {
-            reminderAt.setDate(reminderAt.getDate() + 1);
-          }
-          notificationService.scheduleReminder({
-            id: Math.floor(Math.random() * 100000),
-            title: 'Schedule Reminder',
-            body: `You are scheduled for "${title.trim()}" at ${startTime}.`,
-            scheduleAt: reminderAt,
-            extra: { scheduleId: null, employeeId: currentEmployee.id, shiftDate: dateStr, startTime },
-          }).catch(console.error);
-        }
-      } catch (err) {
-        console.error(err);
-        showToast('Error', 'Failed to create shift.');
+      } else {
+        const names = failed.map((id) => employees.find((emp) => emp.id === id)?.name || 'one person').join(', ');
+        showToast('Error', `Failed to create the shift for ${names}.`);
       }
     }
 

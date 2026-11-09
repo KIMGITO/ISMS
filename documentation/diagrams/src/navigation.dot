@@ -1,0 +1,18 @@
+// Figure 8.1: Staff app navigation groups and screens (src/utils/screens.ts).
+digraph navigation {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.12, ranksep=0.6, pad=0.2];
+  node  [fontname="Arial", fontsize=8.5, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569", height=0.28];
+  edge  [color="#94a3b8", arrowsize=0.5];
+
+  app [label="Staff app shell\n(sidebar on desktop,\nbottom bar + More sheet\non phones)", fillcolor="#fef3c7", color="#b45309", height=0.6];
+  node [fillcolor="#fff7ed", color="#b45309"];
+  g1 [label="Selling"]; g2 [label="Money"]; g3 [label="Stock"]; g4 [label="Team"]; g5 [label="Business"]; g6 [label="You & the app"];
+  node [fillcolor="#f8fafc", color="#475569"];
+  app -> {g1 g2 g3 g4 g5 g6};
+  g1 -> {qs [label="Quick Sale"] pos [label="POS"] sl [label="Sales Log"] loy [label="Loyalty"] os [label="Online Store"] del [label="Deliveries"]};
+  g2 -> {pe [label="Payments & Expenses"]};
+  g3 -> {inv [label="Inventory"] sh [label="Stock History"] bom [label="Production & BOM"]};
+  g4 -> {shift [label="Shift"] wk [label="Workers"] roles [label="Roles"]};
+  g5 -> {home [label="Home"] fb [label="Feedback"] ai [label="Assistant"] bm [label="Business Management"]};
+  g6 -> {set [label="Settings"] nt [label="Notifications"] pr [label="My Profile"] ab [label="About this app"]};
+}
