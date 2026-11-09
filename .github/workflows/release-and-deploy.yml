@@ -5,6 +5,9 @@ name: Release and Deploy
 # the release published. A failed test or build stops the run before any tag exists.
 #
 # Installed apps update themselves from the release's latest.json (see src/core/native/UpdateService.ts).
+# latest.json is also pushed to the "update-manifest" branch, because GitHub's
+# releases/latest/download link lags behind new releases and sometimes answers 504.
+# The last step downloads it the way apps do and fails the run if apps couldn't update.
 #
 # Commit rules (see scripts/release-version.mjs; emoji and scope are optional):
 #   MAJOR  🚀 feat!: / 🐛 fix!: (any type followed by "!"), or "BREAKING CHANGE" in the body
@@ -309,6 +312,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          # Also keeps Gradle itself, so a GitHub download hiccup can't break the build.
+          cache: gradle
 
       - uses: android-actions/setup-android@v3
         # The default list includes "tools", which Google removed; that fails on current runners.
@@ -353,7 +358,14 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          # Gradle and its plugins are downloaded from GitHub and Maven, which sometimes
+          # answer 502/504 for a minute. Retry instead of failing the release.
+          for attempt in 1 2 3; do
+            ./gradlew assembleRelease && break
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            echo "::warning::Gradle build failed (attempt $attempt of 3), retrying in 30s."
+            sleep 30
+          done
 
       - name: Collect the APK
         run: |
@@ -449,29 +461,82 @@ jobs:
           cat out/latest.json
           (cd out && sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS.txt)
 
-      - name: Make sure the tag is new
+      - name: Push tag
         run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "::error::$TAG already exists. Was this commit released already?"
+            # A re-run of a release that failed half way: fine if the tag is on this commit.
+            tagged=$(git rev-list -n 1 "refs/tags/$TAG")
+            if [ "$tagged" != "$GITHUB_SHA" ]; then
+              echo "::error::$TAG already exists on another commit ($tagged). Was this version released already?"
+              exit 1
+            fi
+            echo "$TAG already points at this commit; continuing."
+          else
+            git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      # gh uploads everything to a draft and only then publishes it, so apps never see a
+      # half-uploaded release. Uploads to GitHub sometimes fail with 5xx; retry them.
+      - name: Publish GitHub Release
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber \
+                && gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest \
+                && break
+            else
+              gh release create "$TAG" out/* \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$TAG" \
+                --notes-file notes/release-notes.md \
+                --verify-tag \
+                --latest \
+                && break
+            fi
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            echo "::warning::Publishing failed (attempt $attempt of 4), retrying in 20s."
+            sleep 20
+          done
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [ "$latest" != "$TAG" ]; then
+            echo "::error::GitHub reports $latest as the latest release, not $TAG."
             exit 1
           fi
 
-      - name: Push tag
+      # Apps read this branch first (MANIFEST_SOURCES in src/core/native/updateManifest.ts).
+      # A one-file commit with no history, so the branch stays tiny.
+      - name: Publish latest.json to the update-manifest branch
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/$TAG"
+          set -euo pipefail
+          blob=$(git hash-object -w out/latest.json)
+          tree=$(printf '100644 blob %s\tlatest.json\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m "latest.json for $TAG")
+          for attempt in 1 2 3; do
+            git push --force origin "$commit:refs/heads/update-manifest" && break
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 10
+          done
+          echo "MANIFEST_COMMIT=$commit" >> "$GITHUB_ENV"
+          # jsDelivr caches branches for hours; ask it to fetch the new file now.
+          curl -fsS --retry 3 "https://purge.jsdelivr.net/gh/$GITHUB_REPOSITORY@update-manifest/latest.json" >/dev/null \
+            || echo "::warning::Couldn't refresh jsDelivr's copy; it catches up on its own within 12 hours."
 
-      - name: Publish GitHub Release
+      # Downloads latest.json and every installer the way installed apps do. If this fails,
+      # apps can't update even though the release exists.
+      - name: Check that installed apps can update
         run: |
-          gh release create "$TAG" out/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$TAG" \
-            --notes-file notes/release-notes.md \
-            --verify-tag \
-            --latest
+          node scripts/verify-update-manifest.mjs --version "$VERSION" \
+            --require "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$MANIFEST_COMMIT/latest.json" \
+            --require "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/latest.json" \
+            --warn "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/update-manifest/latest.json" \
+            --warn "https://cdn.jsdelivr.net/gh/$GITHUB_REPOSITORY@update-manifest/latest.json" \
+            --warn "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
 
       # ── PLACEHOLDER: deploy ─────────────────────────────────────────────────
       # Add deployment here (web hosting, Supabase functions, a store upload...).

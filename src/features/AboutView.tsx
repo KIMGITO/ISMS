@@ -45,7 +45,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function AboutView() {
-  const { status, currentVersion, platform, availableVersion, progress, error, lastCheckedAt } = useUpdateStore();
+  const { status, currentVersion, platform, availableVersion, progress, error, errorCode, lastCheckedAt } = useUpdateStore();
   const { businesses, activeBusinessId } = useBusinessStore();
   const business = businesses.find((b) => b.id === activeBusinessId);
   const canUpdate = updateService.canUpdate();
@@ -64,7 +64,12 @@ export default function AboutView() {
   if (status === 'ready') statusText = `Version ${availableVersion} is ready`;
   if (status === 'installing') statusText = platform === 'android' ? 'Finish the install in the window Android opened.' : `Installing ${availableVersion}…`;
   if (status === 'needs-permission') statusText = <span className="text-amber-600">{error}</span>;
-  if (status === 'failed') statusText = <span className="inline-flex items-start gap-1 text-red-500"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> {error}</span>;
+  if (status === 'failed') statusText = (
+    <span className="inline-flex items-start gap-1 text-red-500">
+      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+      <span>{error}{errorCode && <span className="block text-xs opacity-70 font-mono">Code: {errorCode}</span>}</span>
+    </span>
+  );
 
   // The single action that fits the current state
   let action: { label: string; run: () => void } | null = null;

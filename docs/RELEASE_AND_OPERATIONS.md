@@ -50,7 +50,7 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < ~/.tauri/kaykays-updater.pass
 1. It works out the version from the commits since the last tag (`scripts/release-version.mjs`; preview with `node scripts/release-version.mjs`).
    `feat!:`/`fix!:` or `BREAKING CHANGE` is major, `feat:` minor, `fix:`/`perf:`/`refactor:` patch. Anything else releases nothing.
 2. It runs the type check and tests on Windows, then builds Windows (`.exe` and signed `.msi`), Linux (signed AppImage and `.deb`) and Android (signed APK).
-3. Only if all of that passed, it pushes the tag and publishes the GitHub Release with `latest.json`.
+3. Only if all of that passed, it pushes the tag and publishes the GitHub Release with `latest.json`, also pushes `latest.json` to the `update-manifest` branch, and then downloads it and every installer the way apps do (`scripts/verify-update-manifest.mjs`). If that check fails, the run fails. A re-run after a half-finished release continues where it stopped.
 
 `.github/workflows/build.yml` checks pull requests (all platforms, without update signing) and builds the APK on each push to `main`. It never publishes.
 
@@ -58,7 +58,27 @@ Windows shows a SmartScreen warning until the MSI is signed with a code-signing 
 
 ## Automatic updates
 
-Installed apps check `https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json` 15 seconds after start, when the connection comes back, and every 6 hours. When there is a newer version they send a notification and show a green bar at the top while it downloads.
+Installed apps check for `latest.json` 15 seconds after start, when the connection comes back, and every 6 hours. They try these sources in order (`MANIFEST_SOURCES` in `src/core/native/updateManifest.ts`, the same list as `plugins.updater.endpoints` in `src-tauri/tauri.conf.json`):
+
+1. `https://raw.githubusercontent.com/KIMGITO/ISMS/update-manifest/latest.json`
+2. `https://cdn.jsdelivr.net/gh/KIMGITO/ISMS@update-manifest/latest.json`
+3. `https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json` (lags behind new releases and sometimes answers 504, so it is the last fallback)
+
+GitHub's temporary errors (502/504, timeouts, dropped downloads) are retried. A background check that still fails says nothing and tries again in 30 minutes. Every failure shows one standard message with a code (Settings → About shows the code), listed in `src/core/native/updateErrors.ts`:
+
+| Code | Meaning |
+|---|---|
+| `OFFLINE` | No connection |
+| `SERVER_UNAVAILABLE` | GitHub answered 5xx or every source failed (temporary) |
+| `NETWORK` | Connection dropped or timed out (temporary) |
+| `BAD_MANIFEST` | `latest.json` missing or invalid (temporary) |
+| `DOWNLOAD_FAILED` / `CORRUPT_DOWNLOAD` | Installer download broke or didn't match its SHA-256 (temporary) |
+| `BAD_SIGNATURE` | Desktop update signature didn't verify |
+| `SIGNATURE_MISMATCH` / `NOT_NEWER` / `BAD_APK` | This APK can never install over the app; it isn't downloaded again |
+| `NEEDS_PERMISSION` | Android needs "install unknown apps" allowed |
+| `INSTALL_FAILED` / `UNKNOWN` | Anything else |
+
+When there is a newer version, a green bar shows at the top while it downloads.
 
 - **Windows and Linux AppImage:** the update is checked against the signing key, then the app restarts after a 15-second countdown. It never restarts while a sale has items; staff can press Later. The `.deb` does not update itself.
 - **Android:** the APK is downloaded and checked against its SHA-256, then Android's installer opens. Android always asks to confirm, and the first time asks to allow installs from KayKay's. Releases use version code 10,000,000 + the version (1.1.0 is 10,001,000), above any local build's timestamp code, so they always upgrade.

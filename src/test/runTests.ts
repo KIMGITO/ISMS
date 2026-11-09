@@ -32,6 +32,8 @@ import { classifyCommit, highestBump, nextVersion } from "../../scripts/release-
 // @ts-ignore plain JS module shared with the release workflow
 import { buildManifest } from "../../scripts/update-manifest.mjs";
 import { compareVersions } from "../utils/semver";
+import { UpdateError, UPDATE_MESSAGES, toUpdateError, withRetry } from "../core/native/updateErrors";
+import { MANIFEST_SOURCES, fetchManifest, parseManifest } from "../core/native/updateManifest";
 import { SCREENS, canOpenScreen } from "../utils/screens";
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 import { SupabaseService } from "../services/supabaseService";
@@ -872,5 +874,86 @@ runTest("Notifications carry no internal IDs and credit sales are not payments",
   const order = tidyNotification({ type: "Online Store", title: "New online order", message: "Order #1042 from Mary is paid." });
   if (order.message !== "Order #1042 from Mary is paid.") throw new Error("real order numbers must stay: " + order.message);
 });
+
+runTest("Update errors get one standard message each", () => {
+  const cases: [unknown, "check" | "download" | "install", string][] = [
+    [new Error("Couldn't check for updates (HTTP 504)."), "check", "SERVER_UNAVAILABLE"],
+    ["Could not fetch a valid release JSON from the remote", "check", "SERVER_UNAVAILABLE"],
+    [{ message: "Download failed with HTTP 504" }, "download", "SERVER_UNAVAILABLE"],
+    [{ message: "Download failed with HTTP 404", code: "HTTP" }, "download", "DOWNLOAD_FAILED"],
+    [{ message: "Not found", code: "HTTP" }, "check", "NETWORK"],
+    [{ message: "HTTP 404" }, "check", "BAD_MANIFEST"],
+    [{ message: "Read timed out", code: "NETWORK_ERROR" }, "download", "NETWORK"],
+    [{ message: "x", code: "SIGNATURE_MISMATCH" }, "install", "SIGNATURE_MISMATCH"],
+    [{ message: "x", code: "NEEDS_PERMISSION" }, "install", "NEEDS_PERMISSION"],
+    ["the signature verification failed", "download", "BAD_SIGNATURE"],
+    ["error sending request for url", "check", "NETWORK"],
+    ["error decoding response body: expected value at line 1", "check", "BAD_MANIFEST"],
+    ["something odd", "check", "UNKNOWN"],
+  ];
+  for (const [err, stage, want] of cases) {
+    const got = toUpdateError(err, stage);
+    if (got.code !== want) throw new Error(`${JSON.stringify(err)} at ${stage}: expected ${want}, got ${got.code}`);
+    if (got.message !== UPDATE_MESSAGES[got.code]) throw new Error("message must be the standard one");
+    if (/http|\b5\d\d\b|json/i.test(got.message)) throw new Error("raw details must not reach people: " + got.message);
+  }
+  if (!toUpdateError("HTTP 504", "check").temporary) throw new Error("a 504 is temporary");
+  if (!toUpdateError({ code: "SIGNATURE_MISMATCH" }, "install").permanent) throw new Error("a key mismatch is permanent");
+});
+
+runTest("Update manifest is checked before it is trusted", () => {
+  const ok = parseManifest(JSON.stringify({ version: "5.0.0", android: { url: "https://x/a.apk", sha256: "a".repeat(64) } }));
+  if (ok.version !== "5.0.0" || ok.android?.url !== "https://x/a.apk") throw new Error("valid manifest rejected");
+  const bad = ["<html><body><h1>504 Gateway Time-out</h1>", "{}", JSON.stringify({ version: "v5" }),
+    JSON.stringify({ version: "5.0.0", android: { url: "http://x/a.apk" } }),
+    JSON.stringify({ version: "5.0.0", android: { url: "https://x/a.apk", sha256: "abc" } })];
+  for (const body of bad) {
+    let code = "";
+    try { parseManifest(body); } catch (e) { code = (e as UpdateError).code; }
+    if (code !== "BAD_MANIFEST") throw new Error("should be refused: " + body);
+  }
+});
+
+runTest("Phones and desktops read latest.json from the same places", () => {
+  const conf = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+  const endpoints: string[] = conf.plugins.updater.endpoints;
+  if (JSON.stringify(endpoints) !== JSON.stringify(MANIFEST_SOURCES)) {
+    throw new Error("tauri.conf.json updater endpoints must match MANIFEST_SOURCES in updateManifest.ts");
+  }
+  if (!endpoints[endpoints.length - 1].includes("/releases/latest/download/")) throw new Error("keep the release link as the last fallback");
+});
+
+await (async () => {
+  const name = "Update check falls through to the next source and retries GitHub's 504s";
+  try {
+    const noSleep = async () => {};
+    const good = JSON.stringify({ version: "5.0.0" });
+    // First source 504s every time, second 504s once then works.
+    const calls: string[] = [];
+    let second = 0;
+    const m = await fetchManifest(async (url) => {
+      calls.push(url);
+      if (url === "a") return { status: 504, data: "<html>504 Gateway Time-out</html>" };
+      return ++second === 1 ? { status: 502, data: "" } : { status: 200, data: good };
+    }, ["a", "b"], [1, 1], noSleep);
+    if (m.version !== "5.0.0") throw new Error("expected the second source's manifest");
+    if (calls.filter((c) => c === "a").length !== 3) throw new Error("a 504 must be retried twice: " + calls.join());
+
+    // Every source down: one standard, temporary error.
+    let err: UpdateError | null = null;
+    try { await fetchManifest(async () => ({ status: 504, data: "" }), ["a", "b"], [1], noSleep); } catch (e) { err = e as UpdateError; }
+    if (err?.code !== "SERVER_UNAVAILABLE" || !err.temporary) throw new Error("expected SERVER_UNAVAILABLE, got " + err?.code);
+
+    // A version that can never install is not retried.
+    let tries = 0;
+    try { await withRetry(async () => { tries++; throw { code: "SIGNATURE_MISMATCH" }; }, "install", [1, 1], noSleep); } catch {}
+    if (tries !== 1) throw new Error("permanent errors must not be retried");
+    console.log(`✅ TEST PASSED: ${name}`);
+  } catch (e) {
+    console.error(`❌ TEST FAILED: ${name}`);
+    console.error(e);
+    process.exit(1);
+  }
+})();
 
 console.log("🎉 All Application Unit Tests Completed Successfully!");

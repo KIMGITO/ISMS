@@ -10,25 +10,31 @@ import { App } from "@capacitor/app";
 import { useUpdateStore } from "../../stores/updateStore";
 import { compareVersions } from "../../utils/semver";
 import { notificationService } from "./NotificationService";
+import { UpdateError, toUpdateError, withRetry, type UpdateStage } from "./updateErrors";
+import { fetchManifest } from "./updateManifest";
 
-const MANIFEST_URL = "https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json";
 export const RELEASES_PAGE = "https://github.com/KIMGITO/ISMS/releases";
 const FIRST_CHECK_DELAY_MS = 15_000;
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 /** After an automatic check fails, wait this long before trying again on its own. */
 const RETRY_AFTER_FAILURE_MS = 6 * 60 * 60 * 1000;
+/** After a temporary failure (server down, connection dropped), try again sooner. */
+const RETRY_AFTER_TEMPORARY_FAILURE_MS = 30 * 60 * 1000;
+/** How long one request for latest.json may take. */
+const MANIFEST_TIMEOUT_MS = 15_000;
 const MEMORY_KEY = "kaykays.update";
 
 /**
  * Remembered across restarts so a broken update isn't retried on every launch.
  *  blocked:  a version that can never install over this app (e.g. signed with another key)
  *  prompted: the version whose installer we already opened once on our own
- *  failedAt: when the last automatic attempt failed
+ *  failedAt: when the last automatic attempt failed; retryAfter: when to try again on our own
  */
 interface UpdateMemory {
   blocked?: { version: string; error: string };
   prompted?: string;
   failedAt?: string;
+  retryAfter?: string;
 }
 
 function readMemory(): UpdateMemory {
@@ -47,20 +53,6 @@ function remember(patch: Partial<UpdateMemory>): void {
   }
 }
 
-/** Android plugin errors that mean this exact version will never install. */
-const PERMANENT_ANDROID_ERRORS = new Set(["SIGNATURE_MISMATCH", "NOT_NEWER", "BAD_APK"]);
-
-interface AndroidManifestEntry {
-  url: string;
-  sha256?: string;
-}
-
-interface ReleaseManifest {
-  version: string;
-  notes?: string;
-  android?: AndroidManifestEntry;
-}
-
 interface AppUpdatePlugin {
   download(options: { url: string; version: string; sha256?: string }): Promise<{ path: string }>;
   install(options: { version: string }): Promise<void>;
@@ -71,15 +63,21 @@ const AppUpdate = registerPlugin<AppUpdatePlugin>("AppUpdate");
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const store = () => useUpdateStore.getState();
 
-function message(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === "string" && err) return err;
-  return fallback;
+/** Shows a failure in the bar and the About screen, with the standard message for it. */
+function showFailure(error: UpdateError) {
+  console.error(`[UpdateService] ${error.code}:`, error.detail);
+  store().set({
+    status: error.code === "NEEDS_PERMISSION" ? "needs-permission" : "failed",
+    error: error.message,
+    errorCode: error.code,
+  });
 }
 
 class UpdateService {
   private started = false;
   private busy = false;
+  /** What checkAndUpdate is doing right now, so a failure gets the right message. */
+  private stage: UpdateStage = "check";
   private pendingTauriUpdate: { install: () => Promise<void> } | null = null;
 
   /** Fills in the installed version and platform. Safe to call more than once. */
@@ -130,31 +128,43 @@ class UpdateService {
     const { status } = store();
     if (status === "ready" || status === "installing") return;
     if (automatic) {
-      const { failedAt } = readMemory();
-      if (failedAt && Date.now() - new Date(failedAt).getTime() < RETRY_AFTER_FAILURE_MS) return;
+      const { retryAfter } = readMemory();
+      if (retryAfter && Date.now() < new Date(retryAfter).getTime()) return;
     }
     if (!navigator.onLine) {
-      if (!automatic) store().set({ status: "failed", error: "You're offline. Connect to the internet and try again." });
+      if (!automatic) showFailure(new UpdateError("OFFLINE"));
       return;
     }
 
     this.busy = true;
-    store().set({ status: "checking", error: null, progress: null });
+    this.stage = "check";
+    const before = { status, error: store().error, errorCode: store().errorCode };
+    store().set({ status: "checking", error: null, errorCode: null, progress: null });
     try {
       if (isTauri()) await this.updateDesktop();
       else if (Capacitor.getPlatform() === "android") await this.updateAndroid(automatic);
       else store().set({ status: "up-to-date" });
-      remember({ failedAt: undefined });
-    } catch (err: any) {
-      const error = message(err, "The update couldn't be downloaded.");
-      console.error("[UpdateService]", err);
-      store().set({ status: "failed", error });
-      if (PERMANENT_ANDROID_ERRORS.has(err?.code) && store().availableVersion) {
+      remember({ failedAt: undefined, retryAfter: undefined });
+    } catch (err) {
+      const error = toUpdateError(err, this.stage);
+      const version = store().availableVersion;
+      if (error.permanent && version) {
         // Never download this version again on our own; a newer release is tried normally.
-        remember({ blocked: { version: store().availableVersion!, error } });
-      } else if (automatic) {
-        remember({ failedAt: new Date().toISOString() });
-        notificationService.sendLocalNotification("Update failed", "Open About this app to try again.").catch(() => {});
+        remember({ blocked: { version, error: error.message } });
+        showFailure(error);
+      } else if (automatic && error.temporary) {
+        // GitHub or the connection had a bad moment. Nothing for the person to do, so
+        // no red banner and no notification: put things back and try again soon.
+        console.warn(`[UpdateService] Background check failed (${error.code}), retrying later:`, error.detail);
+        store().set({ ...before, status: before.status === "checking" ? "idle" : before.status, progress: null });
+        remember({ failedAt: new Date().toISOString(), retryAfter: new Date(Date.now() + RETRY_AFTER_TEMPORARY_FAILURE_MS).toISOString() });
+        setTimeout(() => this.checkAndUpdate(true), RETRY_AFTER_TEMPORARY_FAILURE_MS + 1_000);
+      } else {
+        showFailure(error);
+        if (automatic) {
+          remember({ failedAt: new Date().toISOString(), retryAfter: new Date(Date.now() + RETRY_AFTER_FAILURE_MS).toISOString() });
+          notificationService.sendLocalNotification("Update failed", "Open About this app to try again.").catch(() => {});
+        }
       }
     } finally {
       store().set({ lastCheckedAt: new Date().toISOString() });
@@ -165,13 +175,13 @@ class UpdateService {
   /** Desktop: installs the downloaded update and restarts the app. */
   public async restartToUpdate(): Promise<void> {
     if (!this.pendingTauriUpdate) return;
-    store().set({ status: "installing" });
+    store().set({ status: "installing", error: null, errorCode: null });
     try {
       await this.pendingTauriUpdate.install();
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
     } catch (err) {
-      store().set({ status: "failed", error: message(err, "The update couldn't be installed.") });
+      showFailure(toUpdateError(err, "install"));
     }
   }
 
@@ -182,20 +192,16 @@ class UpdateService {
     try {
       await AppUpdate.install({ version });
       remember({ prompted: version });
-      store().set({ status: "installing", error: null });
-    } catch (err: any) {
-      if (PERMANENT_ANDROID_ERRORS.has(err?.code)) {
-        const error = message(err, "This update can't be installed over the current app.");
-        remember({ blocked: { version, error } });
-        store().set({ status: "failed", error });
-      } else if (err?.code === "NEEDS_PERMISSION") {
-        store().set({ status: "needs-permission", error: message(err, "Allow installs from this app, then try again.") });
-      } else if (err?.code === "NOT_DOWNLOADED") {
+      store().set({ status: "installing", error: null, errorCode: null });
+    } catch (err) {
+      const error = toUpdateError(err, "install");
+      if (error.code === "NOT_DOWNLOADED") {
         store().set({ status: "idle" });
         await this.checkAndUpdate();
-      } else {
-        store().set({ status: "failed", error: message(err, "The installer couldn't be opened.") });
+        return;
       }
+      if (error.permanent) remember({ blocked: { version, error: error.message } });
+      showFailure(error);
     }
   }
 
@@ -211,7 +217,8 @@ class UpdateService {
 
   private async updateDesktop(): Promise<void> {
     const { check } = await import("@tauri-apps/plugin-updater");
-    const update = await check();
+    // The updater tries each endpoint in tauri.conf.json in turn; this retries the whole round.
+    const update = await withRetry(() => check({ timeout: MANIFEST_TIMEOUT_MS }), "check");
     if (!update) {
       store().set({ status: "up-to-date", availableVersion: null });
       return;
@@ -220,25 +227,34 @@ class UpdateService {
     store().set({ status: "downloading", availableVersion: update.version, notes: update.body ?? null, progress: 0 });
     this.announce(update.version);
 
-    let total = 0;
-    let done = 0;
-    await update.download((event) => {
-      if (event.event === "Started") total = event.data.contentLength ?? 0;
-      if (event.event === "Progress") {
-        done += event.data.chunkLength;
-        store().set({ progress: total ? Math.min(100, Math.round((done / total) * 100)) : null });
-      }
-      if (event.event === "Finished") store().set({ progress: 100 });
-    });
+    this.stage = "download";
+    await withRetry(() => {
+      let total = 0;
+      let done = 0;
+      store().set({ progress: 0 });
+      return update.download((event) => {
+        if (event.event === "Started") total = event.data.contentLength ?? 0;
+        if (event.event === "Progress") {
+          done += event.data.chunkLength;
+          store().set({ progress: total ? Math.min(100, Math.round((done / total) * 100)) : null });
+        }
+        if (event.event === "Finished") store().set({ progress: 100 });
+      });
+    }, "download", [5_000, 15_000]);
 
     this.pendingTauriUpdate = update;
     store().set({ status: "ready" });
   }
 
   private async updateAndroid(automatic: boolean): Promise<void> {
-    const res = await CapacitorHttp.get({ url: MANIFEST_URL, headers: { Accept: "application/json" } });
-    if (res.status !== 200) throw new Error(`Couldn't check for updates (HTTP ${res.status}).`);
-    const manifest: ReleaseManifest = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const manifest = await fetchManifest((url) =>
+      CapacitorHttp.get({
+        url,
+        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+        connectTimeout: MANIFEST_TIMEOUT_MS,
+        readTimeout: MANIFEST_TIMEOUT_MS,
+      }),
+    );
 
     if (!manifest.android?.url || compareVersions(manifest.version, store().currentVersion) <= 0) {
       store().set({ status: "up-to-date", availableVersion: null });
@@ -252,14 +268,21 @@ class UpdateService {
       return;
     }
 
+    const apk = manifest.android;
+
     store().set({ status: "downloading", availableVersion: manifest.version, notes: manifest.notes ?? null, progress: 0 });
     if (prompted !== manifest.version) this.announce(manifest.version);
 
     const listener = await AppUpdate.addListener("progress", ({ percent }) => {
       store().set({ progress: percent >= 0 ? percent : null });
     });
+    this.stage = "download";
     try {
-      await AppUpdate.download({ url: manifest.android.url, version: manifest.version, sha256: manifest.android.sha256 });
+      await withRetry(
+        () => AppUpdate.download({ url: apk.url, version: manifest.version, sha256: apk.sha256 }),
+        "download",
+        [5_000, 15_000],
+      );
     } finally {
       listener.remove();
     }

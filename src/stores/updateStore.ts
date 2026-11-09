@@ -1,6 +1,7 @@
 // src/stores/updateStore.ts
 // State of the app's own updates, shown by the top progress bar and the About screen.
 import { create } from "zustand";
+import type { UpdateErrorCode } from "../core/native/updateErrors";
 
 export type UpdateStatus =
   | "idle"
@@ -20,7 +21,9 @@ interface UpdateState {
   notes: string | null;
   /** 0-100, or null when the size isn't known */
   progress: number | null;
+  /** The standard message for the last failure (see updateErrors.ts) */
   error: string | null;
+  errorCode: UpdateErrorCode | null;
   lastCheckedAt: string | null;
   set: (patch: Partial<Omit<UpdateState, "set">>) => void;
 }
@@ -33,6 +36,7 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   notes: null,
   progress: null,
   error: null,
+  errorCode: null,
   lastCheckedAt: null,
   set: (patch) => set(patch),
 }));

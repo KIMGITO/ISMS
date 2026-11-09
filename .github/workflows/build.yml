@@ -138,6 +138,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "21"
+          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -190,7 +191,13 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          # Gradle is downloaded from GitHub, which sometimes answers 504 for a minute.
+          for attempt in 1 2 3; do
+            ./gradlew assembleRelease && break
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            echo "::warning::Gradle build failed (attempt $attempt of 3), retrying in 30s."
+            sleep 30
+          done
 
       - name: Collect APK
         run: |

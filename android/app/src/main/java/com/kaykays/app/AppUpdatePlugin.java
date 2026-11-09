@@ -34,6 +34,15 @@ import java.util.Set;
 @CapacitorPlugin(name = "AppUpdate")
 public class AppUpdatePlugin extends Plugin {
 
+    /** An error with one of the codes the app maps to a standard message (updateErrors.ts). */
+    private static class CodedException extends Exception {
+        final String code;
+        CodedException(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+    }
+
     private File apkFile(String version) {
         File dir = new File(getContext().getCacheDir(), "updates");
         if (!dir.exists()) dir.mkdirs();
@@ -165,8 +174,9 @@ public class AppUpdatePlugin extends Plugin {
                 conn.setConnectTimeout(20000);
                 conn.setReadTimeout(30000);
                 conn.connect();
-                if (conn.getResponseCode() != 200) {
-                    throw new Exception("Download failed with HTTP " + conn.getResponseCode());
+                int status = conn.getResponseCode();
+                if (status != 200) {
+                    throw new CodedException("HTTP", "Download failed with HTTP " + status);
                 }
                 long total = conn.getContentLengthLong();
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -194,17 +204,27 @@ public class AppUpdatePlugin extends Plugin {
                 if (expectedSha != null && !expectedSha.isEmpty()) {
                     if (!hex(digest.digest()).equalsIgnoreCase(expectedSha)) {
                         partial.delete();
-                        throw new Exception("The download was damaged. Please try again.");
+                        throw new CodedException("CORRUPT_DOWNLOAD", "The download was damaged. Please try again.");
                     }
                 }
 
                 if (target.exists()) target.delete();
-                if (!partial.renameTo(target)) throw new Exception("Could not save the update.");
+                if (total > 0 && done != total) {
+                    throw new CodedException("DOWNLOAD_FAILED", "The download stopped at " + done + " of " + total + " bytes.");
+                }
+                if (!partial.renameTo(target)) throw new CodedException("DOWNLOAD_FAILED", "Could not save the update.");
 
                 finish(call, target);
+            } catch (CodedException e) {
+                partial.delete();
+                call.reject(e.getMessage(), e.code);
+            } catch (java.io.IOException e) {
+                // Dropped connection, timeout, DNS failure: worth retrying.
+                partial.delete();
+                call.reject(e.getMessage() != null ? e.getMessage() : "Network error.", "NETWORK_ERROR");
             } catch (Exception e) {
                 partial.delete();
-                call.reject(e.getMessage() != null ? e.getMessage() : "Download failed.");
+                call.reject(e.getMessage() != null ? e.getMessage() : "Download failed.", "DOWNLOAD_FAILED");
             } finally {
                 if (conn != null) conn.disconnect();
             }
