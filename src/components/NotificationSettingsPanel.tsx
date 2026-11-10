@@ -9,6 +9,7 @@ import { useBusinessStore } from '../stores/businessStore';
 import { useAppStore } from '../stores/appStore';
 import { toUserMessage } from '../utils/userError';
 import RingToneSetting from './RingToneSetting';
+import AlarmHealthCard from './AlarmHealthCard';
 
 const CATEGORY_DETAILS: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
   stock: { label: 'Stock alerts', description: 'Low stock and products running out', icon: <PackageSearch size={15} /> },
@@ -79,6 +80,7 @@ export default function NotificationSettingsPanel() {
 
   return (
     <div className="flex flex-col gap-1">
+      <AlarmHealthCard />
       <RingToneSetting />
       <button
         role="switch"

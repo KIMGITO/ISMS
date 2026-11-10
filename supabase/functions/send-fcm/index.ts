@@ -61,13 +61,14 @@ Deno.serve(async (req) => {
     const { data: tokens, error: tokensError } = await query;
 
     if (tokensError || !tokens || tokens.length === 0) {
-      console.warn("[send-fcm] No tokens found — aborting");
+      console.warn(`[send-fcm] PUSH_SEND no device tokens for ${(recipients ?? []).length} recipient(s), type=${type}`);
 
-      // Still mark the notification as "attempted" so it doesn't stay pending forever
+      // Nobody has a phone registered: say so, instead of leaving it pending forever.
+      // (The status enum is pending | delivered | failed.)
       if (notificationId) {
         await supabaseClient
           .from('notifications')
-          .update({ status: 'sent', sent_at: new Date().toISOString() })
+          .update({ status: 'failed', sent_at: new Date().toISOString() })
           .eq('id', notificationId);
       }
 
@@ -82,6 +83,13 @@ Deno.serve(async (req) => {
 
     // Alerts that ring go as data-only messages, so the app's own service rings them.
     const ring = !isDirectInvoke && targetPayload?.ring === true && !!notificationId;
+    let recordPayload: Record<string, unknown> = {};
+    try {
+      const raw = targetPayload?.payload;
+      recordPayload = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+    } catch {
+      recordPayload = {};
+    }
 
     // 4. Send to each device, tracking failures for token cleanup
     const sendPromises = tokens.map(async ({ device_token: token, user_id: tokenUserId, id: tokenRowId, sound: tokenSound }) => {
@@ -101,6 +109,9 @@ Deno.serve(async (req) => {
             actionTarget: targetPayload?.action_target || 'none',
             type: type || '',
             businessId: businessId || '',
+            scheduleId: type === 'Schedule Reminder' ? String(recordPayload.schedule_id || '') : '',
+            occurrence: type === 'Schedule Reminder' ? String(recordPayload.shift_date || '') : '',
+            startTime: type === 'Schedule Reminder' ? String(recordPayload.start_time || '') : '',
           })
         : {
             token,
@@ -114,6 +125,9 @@ Deno.serve(async (req) => {
               notification: {
                 sound: androidSound,
                 channel_id: 'default',
+                // The milk-glass status-bar icon and the app's amber.
+                icon: 'ic_stat_milk_alarm',
+                color: '#F59E0B',
               },
             },
             apns: {
@@ -134,16 +148,17 @@ Deno.serve(async (req) => {
 
       const result = await sendFcm(access, message);
       if (!result.ok && result.staleToken) {
-        // Token is stale/invalid (unregistered, invalid-argument): delete it
-        console.warn(`[send-fcm] Removing stale token`);
+        // FCM no longer knows this token (app uninstalled or data cleared).
+        console.warn(`[send-fcm] PUSH_SEND removing stale token row ${tokenRowId}`);
         await supabaseClient.from('device_fcm_tokens').delete().eq('id', tokenRowId);
       }
-      if (!result.ok) console.error(`[send-fcm] Send failed:`, result.error);
-      return { token, success: result.ok, error: result.error, tokenRowId, tokenUserId };
+      if (!result.ok) console.error(`[send-fcm] PUSH_SEND failed for token row ${tokenRowId}: ${result.error}`);
+      return { success: result.ok, error: result.error, tokenRowId, tokenUserId };
     });
 
     const results = await Promise.all(sendPromises);
     const successfulSends = results.filter((r) => r.success).length;
+    console.log(`[send-fcm] PUSH_SEND type=${type} ring=${ring} accepted=${successfulSends}/${results.length}`);
 
     // 8. ACTUALIZE DELIVERY: update the notification's delivery status
     //    pending -> sent (FCM accepted) with sent_at timestamp
@@ -151,7 +166,8 @@ Deno.serve(async (req) => {
       await supabaseClient
         .from('notifications')
         .update({
-          status: successfulSends > 0 ? 'sent' : 'delivered',
+          // "delivered" here means FCM accepted it for at least one phone.
+          status: successfulSends > 0 ? 'delivered' : 'failed',
           sent_at: new Date().toISOString(),
           delivered_at: successfulSends > 0 ? new Date().toISOString() : undefined,
         })
@@ -163,7 +179,8 @@ Deno.serve(async (req) => {
         success: true,
         sent: successfulSends,
         failed: results.length - successfulSends,
-        results,
+        // Row ids and errors only: device tokens never leave the server.
+        results: results.map(({ success, error, tokenRowId }) => ({ success, error, tokenRowId })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

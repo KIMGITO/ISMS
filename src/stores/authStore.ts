@@ -11,6 +11,7 @@ import { AuthOtpService } from "../services/authOtpService";
 import { toUserMessage } from "../utils/userError";
 import { nativePlatformService } from "../core/native/NativePlatformService";
 import { notificationService } from "../core/native/NotificationService";
+import { startAlarmSync, clearAlarms } from "../services/notifications/alarmSync";
 import { NotificationService } from "../services/notifications/notificationService";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
 import { NotificationPreferences } from "../services/notifications/notificationPreferences";
@@ -505,34 +506,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
           };
         }
 
-        // Register push token for FCM
-        try {
-          const pushGranted = await notificationService.registerPush();
-          if (pushGranted) {
-            notificationService.onPushRegistered(async (token) => {
-              // Upsert the device token for the current user in Supabase,
-              // persisting this device's selected notification tone as the
-              // FCM `sound` (per-device, so each device can have its own tone).
-              const { NotificationToneService } = await import("../services/notifications/notificationTone");
-              const toneSound = NotificationToneService.getNativeSoundName();
-
-              const { error: tokenErr } = await supabase
-                .from("device_fcm_tokens")
-                .upsert({
-                  user_id: mappedUser.id,
-                  device_token: token,
-                  device_type: nativePlatformService.isNative() ? "mobile" : "web",
-                  sound: toneSound
-                }, { onConflict: "user_id, device_token" });
-              
-              if (tokenErr) {
-                console.error("[AuthStore] Failed to save push token:", tokenErr);
-              }
-            });
-          }
-        } catch (e) {
-          console.warn("[AuthStore] Push registration error:", e);
-        }
+        // Push: asks for notification permission (Android 13+) right after sign-in, then saves
+        // this phone's token (NotificationService's "registration" listener does the saving).
+        // Reminders are copied to the phone as real alarms either way.
+        notificationService.registerPush().catch((e) => console.warn("[PUSH_REGISTRATION] error:", e));
+        startAlarmSync(mappedUser.id);
 
         // Follow changes to this person's roles, the team and its invitations, so a
         // promotion, a renamed worker or an accepted invitation shows without signing in again.
@@ -618,6 +596,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     logout: async () => {
+      // While still signed in: this phone stops getting this person's pushes and alarms.
+      const pushToken = notificationService.getPushToken();
+      if (pushToken) await SupabaseService.unregisterDeviceToken(pushToken).catch(() => undefined);
+      await clearAlarms();
+
       if (unsubPerms) {
         unsubPerms();
         unsubPerms = null;

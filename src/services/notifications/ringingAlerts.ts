@@ -25,13 +25,21 @@ export interface AcceptResult {
 }
 
 export interface NativeAccept {
+  /** The server's notification id, or "" when the phone's own alarm rang first. */
   id: string;
+  scheduleId?: string;
+  /** The reminder's day (YYYY-MM-DD) the phone rang for. */
+  occurrence?: string;
+  /** And its time (HH:mm): a reminder moved later the same day is a separate ring. */
+  time?: string;
   actionTarget?: string;
   businessId?: string;
+  /** A test alarm from Settings: nothing to accept on the server. */
+  test?: boolean;
 }
 
 interface RingAlarmPlugin {
-  getPendingAccept(): Promise<{ accept: NativeAccept | null }>;
+  takePendingAccepts(): Promise<{ accepts: NativeAccept[] }>;
   stop(options: { id: string }): Promise<void>;
   keepOnly(options: { businessId: string; ids: string[] }): Promise<void>;
   setTone(options: { sound: string }): Promise<void>;
@@ -82,16 +90,75 @@ export async function acceptAlert(id: string): Promise<AcceptResult> {
   return result;
 }
 
-/** Accept taps from the Android notification, including the one that opened the app. */
+const RETRY_KEY = "kk_pending_native_accepts_v1";
+
+function loadRetries(): NativeAccept[] {
+  try {
+    return JSON.parse(localStorage.getItem(RETRY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveRetries(list: NativeAccept[]): void {
+  try {
+    localStorage.setItem(RETRY_KEY, JSON.stringify(list.slice(-50)));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Sends an Accept tapped on the phone to the server. The phone's own alarm knows the reminder
+ * and day, not the server's notification row, so those go by schedule. Accepts that fail
+ * (offline) are kept and sent again later, so managers aren't told it was ignored.
+ */
+export async function acceptNative(data: NativeAccept): Promise<AcceptResult | null> {
+  if (data.test) return null;
+  try {
+    if (data.scheduleId && data.occurrence) {
+      const { data: result, error } = await getSupabase().rpc("accept_schedule_occurrence", {
+        p_schedule_id: data.scheduleId,
+        p_date: data.occurrence,
+        p_time: data.time || null,
+      });
+      if (error) throw error;
+      return result as AcceptResult;
+    }
+    if (data.id) return await acceptAlert(data.id);
+    return null;
+  } catch (e: any) {
+    // A refusal (not yours / not found) is final; anything else is tried again later.
+    if (e?.code !== "42501" && !/not found|not sent to you/i.test(String(e?.message))) {
+      saveRetries([...loadRetries(), data]);
+    }
+    console.warn("[ALARM_DISMISS] could not send accept to the server:", e?.message || e);
+    return null;
+  }
+}
+
+/** Sends Accepts that failed before (no internet at the time). */
+export async function retryNativeAccepts(): Promise<void> {
+  const list = loadRetries();
+  if (list.length === 0) return;
+  saveRetries([]);
+  for (const a of list) await acceptNative(a);
+}
+
+/**
+ * Accept taps from the Android alarm screen or notification, including ones made while the app
+ * was closed (the phone keeps them until the app opens).
+ */
 export async function onNativeAccept(cb: (data: NativeAccept) => void): Promise<() => void> {
   if (!ringsNatively) return () => undefined;
   const handle = await RingAlarm.addListener("accept", cb);
   try {
-    const { accept } = await RingAlarm.getPendingAccept();
-    if (accept?.id) cb(accept);
+    const { accepts } = await RingAlarm.takePendingAccepts();
+    for (const a of accepts || []) cb(a);
   } catch {
     // Older app build without the plugin.
   }
+  retryNativeAccepts().catch(() => undefined);
   return () => handle.remove();
 }
 

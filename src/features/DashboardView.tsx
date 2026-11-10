@@ -1,3 +1,4 @@
+import { syncAlarms } from '../services/notifications/alarmSync';
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import OnlineStoreAlerts from '../components/OnlineStoreAlerts';
@@ -446,6 +447,8 @@ export default function DashboardView() {
       setSelectedDate(fromDateKey(formDate));
       setCurrentMonth(fromDateKey(formDate));
       resetForm();
+      // If any of these are this person's own, set them on this phone now.
+      syncAlarms('reminder saved');
     } catch (err) {
       console.error(err);
       fail('The reminder was not saved. Check your connection and try again.', 'Reminder Not Saved');
@@ -464,6 +467,7 @@ export default function DashboardView() {
       await SupabaseService.deleteSchedule(id);
       setSchedules((prev) => prev.filter((s) => s.id !== id));
       showToast('Reminder Removed', `"${name}" won't ring any more.`, undefined, 'success');
+      syncAlarms('reminder removed');
       if (editingScheduleId === id) resetForm();
     } catch (err) {
       console.error(err);

@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useExtraModulesStore } from '../stores/extraModulesStore';
 import { useOverlay } from '../hooks/useOverlay';
+import SheetLayer from './shared/SheetLayer';
 import type { Expense } from '../types';
 import { useBusinessStore } from '../stores/businessStore';
 import { getSupabase } from '../services/supabaseClient';
@@ -133,6 +134,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
   if (!isOpen) return null;
 
   return (
+    <SheetLayer>
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
         <motion.div
@@ -151,7 +153,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-          className="relative w-full sm:max-w-lg bg-app-card rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]"
+          className="relative w-full sm:max-w-lg bg-app-card rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-var(--inset-top)-0.5rem)] sm:max-h-[92dvh]"
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
@@ -168,7 +170,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
             </button>
           </div>
 
-          <div className="px-5 pb-4 overflow-y-auto flex-1 space-y-4">
+          <div className="px-5 pb-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-4">
             {!report ? (
               <p className="text-sm text-app-text-muted py-6 text-center">You don't have an open shift.</p>
             ) : (
@@ -291,14 +293,15 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
         </motion.div>
       </div>
     </AnimatePresence>
+    </SheetLayer>
   );
 }
 
 function Tile({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
   return (
-    <div className={`rounded-xl p-3 ${strong ? 'bg-amber-500/10' : 'bg-app-bg'}`}>
+    <div className={`rounded-xl p-3 min-w-0 ${strong ? 'bg-amber-500/10' : 'bg-app-bg'}`}>
       <div className="text-[11px] text-app-text-muted">{label}</div>
-      <div className={`tabular-nums text-app-text ${strong ? 'text-lg font-semibold' : 'text-sm font-semibold'}`}>{value}</div>
+      <div className={`tabular-nums text-app-text break-words ${strong ? 'text-lg font-semibold' : 'text-sm font-semibold'}`}>{value}</div>
       {hint && <div className="text-[11px] text-app-text-muted">{hint}</div>}
     </div>
   );

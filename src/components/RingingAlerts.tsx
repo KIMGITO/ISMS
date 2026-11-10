@@ -12,6 +12,7 @@ import { canOpenScreen } from '../utils/screens';
 import { RingToneService } from '../services/notifications/notificationTone';
 import {
   acceptAlert,
+  acceptNative,
   fetchRingingAlerts,
   onNativeAccept,
   ringsNatively,
@@ -109,7 +110,16 @@ export default function RingingAlerts() {
     if (!currentEmployee) return;
     let stop: (() => void) | null = null;
     let cancelled = false;
-    onNativeAccept((data: NativeAccept) => accept(data.id, data.actionTarget)).then((fn) => {
+    onNativeAccept(async (data: NativeAccept) => {
+      // The phone already stopped ringing; tell the server, then open the alert's screen.
+      const result = await acceptNative(data);
+      if (data.id) setAlerts((prev) => prev.filter((a) => a.id !== data.id));
+      if (result?.alreadyAcceptedBy && result.alreadyAcceptedBy !== 'you') {
+        useNotificationStore.getState().showToast('Already accepted', `${result.alreadyAcceptedBy} accepted this alert.`, undefined, 'info');
+      }
+      if (!data.test) open(result?.actionTarget || data.actionTarget);
+      load();
+    }).then((fn) => {
       if (cancelled) fn();
       else stop = fn;
     });
@@ -117,7 +127,7 @@ export default function RingingAlerts() {
       cancelled = true;
       stop?.();
     };
-  }, [currentEmployee?.id, accept]);
+  }, [currentEmployee?.id, open, load]);
 
   // The Android ringing service keeps its own copy of the tone chosen in Settings.
   useEffect(() => {

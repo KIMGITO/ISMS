@@ -42,6 +42,8 @@ class NotificationService {
   private registrationListeners: Set<PushRegistrationCallback> = new Set();
   private receiveListeners: Set<PushReceivedCallback> = new Set();
   private currentPushToken: string | null = null;
+  /** Why push is or isn't working on this device, for the Settings health check. */
+  public pushState: "unknown" | "unsupported" | "no-firebase" | "denied" | "requested" | "registered" | "error" = "unknown";
 
   constructor() {
     this.initPushListeners();
@@ -57,18 +59,20 @@ class NotificationService {
     try {
       // Token registration success
       PushNotifications.addListener("registration", (token) => {
-        console.log("[PushNotifications] Device registered for push.");
+        console.log("[PUSH_REGISTRATION] FCM token received");
         this.currentPushToken = token.value;
+        this.pushState = "registered";
         this.registrationListeners.forEach((l) => l(token.value));
 
-        // Persist the token to Supabase so send-fcm can target this device
-        SupabaseService.registerDeviceToken(token.value, "capacitor")
-          .catch(err => console.error("[PushNotifications] Failed to save FCM token:", err));
+        // Saved for the signed-in person, with this phone's notification tone. register() runs
+        // on every start, so a refreshed token is saved the next time the app opens.
+        this.saveToken(token.value);
       });
 
-      // Token registration failure
+      // Token registration failure (no Google Play services, no network, bad Firebase config)
       PushNotifications.addListener("registrationError", (error) => {
-        console.error("[PushNotifications] Push registration failed:", error);
+        this.pushState = "error";
+        console.error("[PUSH_REGISTRATION] Push registration failed:", error);
       });
 
       // Notification received while app is open / in foreground
@@ -88,12 +92,39 @@ class NotificationService {
     }
   }
 
+  /**
+   * Saves the token, retrying: right after start-up the sign-in session may not be attached to
+   * requests yet ("permission denied"), and the phone may still be connecting.
+   */
+  private async saveToken(token: string): Promise<void> {
+    const delays = [0, 3000, 10000, 30000, 120000];
+    for (const delay of delays) {
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+      if (this.currentPushToken !== token) return; // replaced by a newer token
+      try {
+        if (await SupabaseService.registerDeviceToken(token, Capacitor.getPlatform(), NotificationToneService.getNativeSoundName())) return;
+      } catch (err) {
+        console.error("[PUSH_REGISTRATION] Failed to save FCM token:", err);
+      }
+    }
+  }
+
   public async registerPush(): Promise<boolean> {
     if (!nativePlatformService.isNative()) {
+      this.pushState = "unsupported";
       return false;
     }
     if (!(await isPushAvailable())) {
-      console.warn("[PushNotifications] This build has no Firebase config, so push is off.");
+      // The APK was built without google-services.json (in CI: the GOOGLE_SERVICES_JSON secret).
+      this.pushState = "no-firebase";
+      console.error("[PUSH_REGISTRATION] This build has no Firebase config, so push is off.");
+      // Phone alarms don't need push, but on Android 13+ they need this to show at all.
+      try {
+        const perm = await LocalNotifications.checkPermissions();
+        if (perm.display === "prompt" || perm.display === "prompt-with-rationale") await LocalNotifications.requestPermissions();
+      } catch {
+        // ignore
+      }
       return false;
     }
 
@@ -103,36 +134,13 @@ class NotificationService {
         perm = await PushNotifications.requestPermissions();
       }
       if (perm.receive === "granted") {
-        // Create standard channels for Android 8.0+ BEFORE calling register()
-        try {
-          await PushNotifications.createChannel({
-            id: "default",
-            name: "General Notifications",
-            description: "Standard system notifications and updates",
-            importance: 3,
-            visibility: 1
-          });
-          await PushNotifications.createChannel({
-            id: "alerts",
-            name: "High Priority Alerts",
-            description: "Critical security and stock alerts",
-            importance: 5,
-            visibility: 1
-          });
-          await PushNotifications.createChannel({
-            id: "shifts",
-            name: "Shift Notifications",
-            description: "Shift open and close reports",
-            importance: 4,
-            visibility: 1
-          });
-        } catch (e) {
-          console.warn("[PushNotifications] Could not create notification channels:", e);
-        }
-
+        // Channels are created natively at start-up (NotificationChannels.java).
         await PushNotifications.register();
+        if (this.pushState !== "registered") this.pushState = "requested";
         return true;
       }
+      this.pushState = "denied";
+      console.warn("[PUSH_REGISTRATION] notification permission:", perm.receive);
       return false;
     } catch (e) {
       console.error("[PushNotifications] Failed registering push notification permissions:", e);

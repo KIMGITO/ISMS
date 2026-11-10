@@ -1064,30 +1064,44 @@ export class SupabaseService {
   // NOTIFICATIONS & DEVICES
   // ==========================================
 
-  static async registerDeviceToken(deviceToken: string, deviceType: string = "web"): Promise<void> {
+  /**
+   * Saves this phone's push token for the signed-in person. The server makes them its only
+   * owner, so a phone someone else signed out of stops getting their notifications.
+   */
+  static async registerDeviceToken(deviceToken: string, deviceType: string = "web", sound?: string): Promise<boolean> {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn("User not authenticated, cannot register device token.");
-      return;
+    const { error } = await supabase.rpc("register_device_token", {
+      p_token: deviceToken,
+      p_platform: deviceType,
+      p_sound: sound ?? null,
+    });
+    if (!error) {
+      console.log("[PUSH_REGISTRATION] token saved for this account");
+      return true;
     }
+    if (error.code !== "PGRST202") {
+      console.error("[PUSH_REGISTRATION] could not save token:", error.message);
+      return false;
+    }
+    // Server without register_device_token yet: the old direct write.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { error: upsertError } = await supabase.from("device_fcm_tokens").upsert(
+      { user_id: user.id, device_token: deviceToken, device_type: deviceType, sound: sound ?? null, updated_at: new Date().toISOString() },
+      { onConflict: "user_id, device_token" },
+    );
+    if (upsertError) console.error("[PUSH_REGISTRATION] could not save token:", upsertError.message);
+    return !upsertError;
+  }
 
-    const { error } = await supabase
-      .from("device_fcm_tokens")
-      .upsert({
-        user_id: user.id,
-        device_token: deviceToken,
-        device_type: deviceType,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: "user_id, device_token"
-      });
-
-    if (error) {
-      console.error("Failed to register device token:", error);
-    } else {
-      console.log("Device token registered successfully.");
+  /** Sign-out: this phone stops getting the person's notifications. Call before signing out. */
+  static async unregisterDeviceToken(deviceToken: string): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc("unregister_device_token", { p_token: deviceToken });
+    if (error?.code === "PGRST202") {
+      await supabase.from("device_fcm_tokens").delete().eq("device_token", deviceToken);
+    } else if (error) {
+      console.warn("[PUSH_REGISTRATION] could not remove token:", error.message);
     }
   }
   // ==========================================

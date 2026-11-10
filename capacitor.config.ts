@@ -8,6 +8,15 @@ const config: CapacitorConfig = {
     androidScheme: 'https'
   },
   plugins: {
+    // Show pushes as system notifications while the app is open too (Android shows them
+    // itself only when the app is in the background).
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_milk_alarm',
+      iconColor: '#F59E0B',
+    },
     Keyboard: {
       resize: 'body',
     },

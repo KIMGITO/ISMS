@@ -1,6 +1,6 @@
 package com.kaykays.app;
 
-import android.content.Intent;
+import android.content.Context;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -9,10 +9,12 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.ArrayList;
 import java.util.List;
+import org.json.JSONArray;
 
 /**
  * Connects the ringing service to the web app.
- *  - "accept" event / getPendingAccept(): the person tapped Accept on a ringing alert.
+ *  - "accept" event / takePendingAccepts(): Accept was tapped (on the alarm screen or the
+ *    notification). The taps are saved, so ones made while the app was closed arrive when it opens.
  *  - stop({ id }): the alert was accepted in the app.
  *  - keepOnly({ businessId, ids }): stops alerts someone else accepted.
  *  - setTone({ sound }): the ringing tone chosen in Settings ("alarm" or a raw sound name).
@@ -21,39 +23,34 @@ import java.util.List;
 public class RingAlarmPlugin extends Plugin {
 
     private static RingAlarmPlugin instance;
-    private static JSObject pendingAccept;
 
     @Override
     public void load() {
         instance = this;
     }
 
-    /** Called by MainActivity when it is opened from Accept. */
-    static void deliverAccept(Intent intent) {
-        if (intent == null || !RingService.ACTION_ACCEPT.equals(intent.getAction())) return;
-        String id = intent.getStringExtra(RingService.EXTRA_ID);
-        if (id == null) return;
-
-        JSObject data = new JSObject();
-        data.put("id", id);
-        data.put("actionTarget", intent.getStringExtra(RingService.EXTRA_TARGET));
-        data.put("businessId", intent.getStringExtra(RingService.EXTRA_BUSINESS));
-
-        // Don't handle the same tap twice if the activity is recreated.
-        intent.setAction(Intent.ACTION_MAIN);
-
-        if (instance != null && instance.hasListeners("accept")) {
-            instance.notifyListeners("accept", data);
-        } else {
-            pendingAccept = data;
+    /** Sends waiting Accept taps to the app, if it is open and listening. */
+    static void flush(Context context) {
+        RingAlarmPlugin p = instance;
+        if (p == null || !p.hasListeners("accept")) return;
+        JSONArray list = AlarmStore.takeAccepts(context);
+        for (int i = 0; i < list.length(); i++) {
+            try {
+                p.notifyListeners("accept", JSObject.fromJSONObject(list.getJSONObject(i)));
+            } catch (Exception ignored) {
+            }
         }
     }
 
     @PluginMethod
-    public void getPendingAccept(PluginCall call) {
+    public void takePendingAccepts(PluginCall call) {
+        JSONArray list = AlarmStore.takeAccepts(getContext());
         JSObject result = new JSObject();
-        result.put("accept", pendingAccept);
-        pendingAccept = null;
+        try {
+            result.put("accepts", new JSArray(list.toString()));
+        } catch (Exception e) {
+            result.put("accepts", new JSArray());
+        }
         call.resolve(result);
     }
 

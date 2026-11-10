@@ -282,11 +282,11 @@ export default function FinanceView() {
     : [];
 
   return (
-    <div className="h-full overflow-y-auto bg-app-bg">
-      <div className="max-w-6xl mx-auto p-3 sm:p-5 space-y-4">
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
+      <div className="max-w-6xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-4 min-w-0">
         {/* Period */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none min-w-0 max-w-full">
             {RANGES.map((k) => (
               <button
                 key={k}
@@ -299,7 +299,7 @@ export default function FinanceView() {
             ))}
           </div>
           {rangeKey === 'custom' && (
-            <div className="flex items-center gap-1.5 text-xs text-app-text">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-app-text">
               <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-app-card border border-app-border rounded-lg px-2 py-1" />
               to
               <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-app-card border border-app-border rounded-lg px-2 py-1" />
@@ -322,13 +322,13 @@ export default function FinanceView() {
         {r && (
           <>
             {/* Headline: profit or loss, and how it was reached */}
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-              <section className="bg-app-card rounded-2xl p-4 shadow-xs">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <section className="bg-app-card rounded-2xl p-4 shadow-xs min-w-0">
                 <div className="flex items-center gap-2 text-sm font-semibold text-app-text">
                   {net < 0 ? <TrendingDown size={16} className="text-red-500" /> : <TrendingUp size={16} className="text-emerald-500" />}
                   {net < 0 ? 'Loss' : 'Profit'} · {RANGE_LABELS[rangeKey].toLowerCase()}
                 </div>
-                <p className={`text-3xl font-bold tabular-nums mt-1 ${net < 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>{formatKsh(net)}</p>
+                <p className={`text-3xl font-bold tabular-nums mt-1 break-words ${net < 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>{formatKsh(net)}</p>
                 <div className="mt-3">
                   <Line label="Sales" value={r.profit.sales} note={r.sales.vat > 0 ? `Without ${formatKsh(r.sales.vat)} VAT, which goes to KRA` : `${r.sales.count} sales`} />
                   <Line label="Cost of the goods sold" value={r.profit.costOfGoods} minus />
@@ -358,7 +358,7 @@ export default function FinanceView() {
               <Tile label="Unused points" value={formatKsh(r.points.outstandingValue)} note={`${Math.round(r.points.outstandingPoints).toLocaleString()} points could come off future sales`} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card title="Money that came in" subtitle={`${formatKsh(moneyInTotal)} in total`}>
                 <ShareBar parts={paidParts} />
                 {r.moneyIn.otherPayments > 0 && (
@@ -407,8 +407,8 @@ export default function FinanceView() {
                     {r.expenseList.slice(0, expShown).map((e) => (
                       <li key={e.id} className="flex items-start justify-between gap-3 py-2">
                         <span className="min-w-0">
-                          <span className="block text-[13px] text-app-text">{e.description || e.category}</span>
-                          <span className="block text-[11px] text-app-text-muted">
+                          <span className="block text-[13px] text-app-text break-words">{e.description || e.category}</span>
+                          <span className="block text-[11px] text-app-text-muted break-words">
                             {e.category} · {when(e.date)} · {e.staffName}
                             {e.source === 'petty_cash' ? ' · petty cash' : ''}
                           </span>
@@ -527,11 +527,11 @@ export default function FinanceView() {
                     return (
                       <li key={`${a.at}-${i}`} className="flex items-start justify-between gap-3 py-2">
                         <span className="min-w-0">
-                          <span className="block text-[13px] text-app-text">
+                          <span className="block text-[13px] text-app-text break-words">
                             <span className="font-medium">{meta.label}</span>
                             {detail ? <span className="text-app-text-muted"> · {detail}</span> : null}
                           </span>
-                          <span className="block text-[11px] text-app-text-muted">
+                          <span className="block text-[11px] text-app-text-muted break-words">
                             {when(a.at)}
                             {who ? ` · ${who}` : ''}
                           </span>

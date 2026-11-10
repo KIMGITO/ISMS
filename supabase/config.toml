@@ -401,6 +401,13 @@ verify_jwt = false
 [functions.customer-assistant]
 verify_jwt = false
 
+# Called by database triggers with FCM_WEBHOOK_SECRET (not a JWT); each checks it itself.
+[functions.send-fcm]
+verify_jwt = false
+
+[functions.alarm-sync]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

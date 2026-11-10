@@ -591,28 +591,7 @@ export default function App() {
     };
   }, []);
 
-  // Initialize FCM push notifications when the user logs in
-  // This must run after currentEmployee is set to ensure the token is linked to a real user.
-  const prevEmployeeId = useRef<string | null>(null);
-  useEffect(() => {
-    const employeeId = currentEmployee?.id ?? null;
-    if (employeeId && employeeId !== prevEmployeeId.current) {
-      prevEmployeeId.current = employeeId;
-      notificationService
-        .registerPush()
-        .then((granted) => {
-          if (granted) {
-            console.log('[Push] FCM registration initiated successfully.');
-          }
-        })
-        .catch((err) => {
-          console.warn('[Push] FCM registration failed:', err);
-        });
-    }
-    if (!employeeId) {
-      prevEmployeeId.current = null;
-    }
-  }, [currentEmployee]);
+  // Push registration and the phone's alarms start in authStore after sign-in.
 
   // Being offline shows as a thin strip under the header (no popups on every change),
   // with the number of sales still waiting on this device.

@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PushSupportPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
         registerPlugin(RingAlarmPlugin.class);
+        registerPlugin(AlarmSchedulerPlugin.class);
         super.onCreate(savedInstanceState);
         handleRingAccept(getIntent());
     }
@@ -25,11 +26,21 @@ public class MainActivity extends BridgeActivity {
         handleRingAccept(intent);
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Accept taps made while the app was closed or in the background.
+        RingAlarmPlugin.flush(this);
+    }
+
     /** Accept on a ringing alert: stop the sound now, then let the app accept it and open its screen. */
     private void handleRingAccept(Intent intent) {
         if (intent == null || !RingService.ACTION_ACCEPT.equals(intent.getAction())) return;
         String id = intent.getStringExtra(RingService.EXTRA_ID);
-        if (id != null) RingService.cancel(this, id);
-        RingAlarmPlugin.deliverAccept(intent);
+        // Saves the accept for the app; a no-op if the alarm screen already did.
+        if (id != null) RingService.accept(this, id);
+        // Don't handle the same tap twice if the activity is recreated.
+        intent.setAction(Intent.ACTION_MAIN);
+        RingAlarmPlugin.flush(this);
     }
 }

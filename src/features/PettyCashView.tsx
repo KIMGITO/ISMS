@@ -10,6 +10,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { toUuid } from '../utils/idUtils';
+import SheetLayer from '../components/shared/SheetLayer';
 
 const TZ = 'Africa/Nairobi';
 export const PETTY_CASH_CATEGORIES = ['Transport', 'Cleaning', 'Food & tea', 'Repairs', 'Supplies', 'Airtime', 'Other'];
@@ -166,10 +167,10 @@ export default function PettyCashView() {
   const input = 'w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500';
 
   return (
-    <div className="h-full overflow-y-auto bg-app-bg">
-      <div className="max-w-5xl mx-auto p-3 sm:p-5 grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] items-start">
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
+      <div className="max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] items-start">
         {/* Record */}
-        <form onSubmit={save} className="bg-app-card rounded-2xl p-4 space-y-3 shadow-xs">
+        <form onSubmit={save} className="bg-app-card rounded-2xl p-4 space-y-3 shadow-xs min-w-0">
           <div className="flex items-center gap-2">
             <span className="grid place-items-center size-9 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
               <Coins size={18} />
@@ -289,8 +290,8 @@ export default function PettyCashView() {
               {entries.map((e) => (
                 <li key={e.id} className={`flex items-start gap-3 px-4 py-3 ${e.removed ? 'opacity-55' : ''}`}>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-medium text-app-text ${e.removed ? 'line-through' : ''}`}>{e.description || e.category}</p>
-                    <p className="text-[11px] text-app-text-muted mt-0.5">
+                    <p className={`text-sm font-medium text-app-text break-words ${e.removed ? 'line-through' : ''}`}>{e.description || e.category}</p>
+                    <p className="text-[11px] text-app-text-muted mt-0.5 break-words">
                       {e.category} · {dayLabel(e.date)} {clock(e.date)}
                       {seesAll && e.staffName ? ` · ${e.staffName}` : ''}
                       {e.receiptRef ? ` · ${e.receiptRef}` : ''}
@@ -323,7 +324,8 @@ export default function PettyCashView() {
       </div>
 
       {removing && (
-        <div className="fixed inset-0 z-[9000] grid place-items-center p-6 bg-black/40" onClick={() => setRemoving(null)}>
+        <SheetLayer>
+        <div className="fixed inset-0 z-[9000] grid place-items-center p-4 bg-black/40" onClick={() => setRemoving(null)}>
           <div className="w-full max-w-sm bg-app-card rounded-2xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-app-text">Remove {ksh(removing.amount)} for {removing.category.toLowerCase()}?</h3>
             <p className="text-xs text-app-text-muted">The money counts as back in the till. The entry stays in the book, crossed out, with your reason.</p>
@@ -340,6 +342,7 @@ export default function PettyCashView() {
             </div>
           </div>
         </div>
+        </SheetLayer>
       )}
     </div>
   );
