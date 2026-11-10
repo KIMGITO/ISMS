@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import { ComplaintService } from '../services/complaintService';
 import { toUserMessage } from '../utils/userError';
 import {
@@ -23,6 +24,9 @@ import {
   Brain,
   Lock,
   Wand2,
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
   BarChart2,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -55,6 +59,7 @@ interface CustomerComment {
   sentiment: 'positive' | 'neutral' | 'negative';
   branch: string;
   replies: CommentReply[];
+  archivedAt?: string | null;
 }
 
 
@@ -70,6 +75,7 @@ export default function CustomerFeedbackView() {
     : false;
 
   const [comments, setComments] = useState<CustomerComment[]>([]);
+  const [feedbackView, setFeedbackView] = useState<'active' | 'archived'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
   const [sentimentFilter, setSentimentFilter] = useState<
@@ -381,6 +387,20 @@ Comment: "${comment.comment}"`;
     }
   };
 
+  const toggleArchived = async (comment: CustomerComment) => {
+    const archive = !comment.archivedAt;
+    const set = (archivedAt: string | null | undefined) =>
+      setComments((list) => list.map((c) => (c.id === comment.id ? { ...c, archivedAt } : c)));
+    set(archive ? new Date().toISOString() : null);
+    try {
+      await ComplaintService.setArchived(comment.id, archive);
+      showToast(archive ? 'Feedback archived' : 'Feedback restored', archive ? 'Find it under Archived.' : 'It is back in the list.', undefined, 'success');
+    } catch (err) {
+      set(comment.archivedAt);
+      showToast('Feedback', toUserMessage(err, 'Could not change this feedback.'), undefined, 'error');
+    }
+  };
+
   const handleDeleteComment = async (commentId: string) => {
     if (isDeletingComment[commentId]) return;
     if (
@@ -520,8 +540,10 @@ Comment: "${comment.comment}"`;
           (statusFilter === 'resolved' && c.resolved) ||
           (statusFilter === 'unresolved' && !c.resolved);
 
+        const matchesView = feedbackView === 'archived' ? !!c.archivedAt : !c.archivedAt;
+
         return (
-          matchesSearch && matchesRating && matchesSentiment && matchesStatus
+          matchesView && matchesSearch && matchesRating && matchesSentiment && matchesStatus
         );
       })
       .sort((a, b) => {
@@ -535,6 +557,7 @@ Comment: "${comment.comment}"`;
       });
   }, [
     comments,
+    feedbackView,
     searchQuery,
     ratingFilter,
     sentimentFilter,
@@ -794,6 +817,23 @@ Comment: "${comment.comment}"`;
 
           {/* Main Feedback List */}
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-xs font-semibold text-app-text-muted">
+                {feedbackView === 'archived' ? 'Archived feedback' : 'Feedback'} · {filteredComments.length}
+                <span className="md:hidden font-normal"> · swipe left to archive or delete, hold for more</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setFeedbackView(feedbackView === 'archived' ? 'active' : 'archived')}
+                className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                {feedbackView === 'archived' ? (
+                  <><ArrowLeft size={13} /> Back to feedback</>
+                ) : (
+                  <><Archive size={13} /> Archived ({comments.filter((c) => c.archivedAt).length})</>
+                )}
+              </button>
+            </div>
             {filteredComments.length === 0 ? (
               <div className="bg-app-card border border-app-border border-dashed rounded-3xl p-16 text-center max-w-xl mx-auto flex flex-col items-center justify-center gap-3">
                 <MessageSquare size={24} className="text-app-text-muted/60" />
@@ -818,13 +858,47 @@ Comment: "${comment.comment}"`;
                   },
                 );
 
+                const archiveAction = {
+                  label: comment.archivedAt ? 'Restore' : 'Archive',
+                  icon: comment.archivedAt ? <ArchiveRestore size={18} /> : <Archive size={18} />,
+                  tone: 'sky' as const,
+                  hidden: !canReply,
+                  onClick: () => toggleArchived(comment),
+                };
+                const deleteAction = {
+                  label: 'Delete',
+                  icon: <Trash2 size={18} />,
+                  tone: 'red' as const,
+                  disabled: !!isDeletingComment[comment.id],
+                  onClick: () => handleDeleteComment(comment.id),
+                };
+
                 return (
-                  <div
+                  <SwipeRow
                     key={comment.id}
-                    className={`bg-app-card border rounded-3xl p-4.5 space-y-4 relative overflow-hidden transition-all duration-200 ${
-                      comment.resolved
-                        ? 'border-app-border opacity-90'
-                        : 'border-amber-500/15 bg-gradient-to-tr from-amber-500/[0.01] to-transparent shadow-xs'
+                    title={comment.customerName}
+                    subtitle={comment.comment}
+                    actions={[archiveAction, deleteAction]}
+                    more={[
+                      {
+                        label: comment.resolved ? 'Mark not resolved' : 'Mark resolved',
+                        icon: comment.resolved ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />,
+                        onClick: () => toggleResolved(comment.id),
+                      },
+                      ...(hasAiPermission
+                        ? [
+                            { label: 'Analyse with AI', icon: <Brain size={16} />, onClick: () => handleAiAnalyze(comment) },
+                            { label: 'Draft a reply with AI', icon: <Wand2 size={16} />, onClick: () => handleAiGenerateReply(comment) },
+                          ]
+                        : []),
+                      { ...archiveAction, icon: comment.archivedAt ? <ArchiveRestore size={16} /> : <Archive size={16} /> },
+                      { ...deleteAction, icon: <Trash2 size={16} /> },
+                    ]}
+                    className={`border rounded-3xl transition-all duration-200 ${
+                      comment.resolved ? 'border-app-border opacity-90' : 'border-amber-500/15 shadow-xs'
+                    }`}
+                    contentClassName={`p-4.5 space-y-4 overflow-hidden ${
+                      comment.resolved ? '' : 'bg-gradient-to-tr from-amber-500/[0.01] to-transparent'
                     }`}
                   >
                     {/* Sentiment side-border */}
@@ -1150,7 +1224,7 @@ Comment: "${comment.comment}"`;
                         </div>
                       )}
                     </div>
-                  </div>
+                  </SwipeRow>
                 );
               })
             )}

@@ -83,7 +83,7 @@ export async function fetchOpenCredit(customerId: string): Promise<OpenCredit[]>
 
 function friendly(err: any): Error {
   const msg = String(err?.message || err || "");
-  if (/issue_invoice|invoice_counters|invoices/.test(msg) && /does not exist|not find|schema cache/i.test(msg)) {
+  if (/issue_invoice|invoice_counters|invoices|set_invoice_archived|delete_invoice|archived_at/.test(msg) && /does not exist|not find|schema cache/i.test(msg)) {
     return new Error("Invoices are not set up on the server yet. Apply the latest database update, then try again.");
   }
   return err instanceof Error ? err : new Error(msg || "Could not issue the invoice.");
@@ -122,17 +122,25 @@ export interface IssuedInvoice {
   issuedAt: string;
   balanceDue: number;
   createdBy?: string;
+  /** Set when archived: hidden from the main list but kept. */
+  archivedAt?: string | null;
   document: InvoiceDocument;
 }
 
 export async function listInvoices(customerId: string): Promise<IssuedInvoice[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("id, invoice_no, number, issued_at, balance_due, created_by, document")
-    .eq("customer_id", toUuid(customerId))
-    .order("number", { ascending: false })
-    .limit(50);
+  const query = (columns: string) =>
+    supabase
+      .from("invoices")
+      .select(columns)
+      .eq("customer_id", toUuid(customerId))
+      .order("number", { ascending: false })
+      .limit(200);
+  let { data, error } = await query("id, invoice_no, number, issued_at, balance_due, created_by, archived_at, document");
+  // Before the archive update (20261110007) is on the server there is no archived_at.
+  if (error && /archived_at/.test(String(error.message))) {
+    ({ data, error } = await query("id, invoice_no, number, issued_at, balance_due, created_by, document"));
+  }
   if (error) throw friendly(error);
   return (data || []).map((r: any) => ({
     id: r.id,
@@ -141,8 +149,21 @@ export async function listInvoices(customerId: string): Promise<IssuedInvoice[]>
     issuedAt: r.issued_at,
     balanceDue: Number(r.balance_due) || 0,
     createdBy: r.created_by || undefined,
+    archivedAt: r.archived_at || null,
     document: { ...(r.document as InvoiceDocument), number: r.number, invoiceNo: r.invoice_no },
   }));
+}
+
+/** Archives an invoice (true) or brings it back to the main list (false). */
+export async function setInvoiceArchived(invoiceId: string, archived: boolean): Promise<void> {
+  const { error } = await getSupabase().rpc("set_invoice_archived", { p_invoice_id: toUuid(invoiceId), p_archived: archived });
+  if (error) throw friendly(error);
+}
+
+/** Deletes an invoice for good. What the customer owes does not change. */
+export async function deleteInvoice(invoiceId: string): Promise<void> {
+  const { error } = await getSupabase().rpc("delete_invoice", { p_invoice_id: toUuid(invoiceId) });
+  if (error) throw friendly(error);
 }
 
 /** The number the next invoice will get, or null when it cannot be read. */

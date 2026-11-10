@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pin, X } from 'lucide-react';
+import { SwipeRow } from './shared/SwipeRow';
 import {
   CUSTOMER_TYPE_LABELS,
   Customer,
@@ -165,7 +166,14 @@ export default function TrackedReports({ businessId, transactions, customers, pr
           {items.map((item) => {
             const summary = summarize(item, transactions, customers);
             return (
-              <li key={item.id} className="flex items-center gap-3 py-2">
+              <SwipeRow
+                key={item.id}
+                as="li"
+                title={item.label}
+                subtitle={`${TYPE_LABELS[item.item_type]} · ${formatCurrency(summary.revenue)}`}
+                actions={[{ label: 'Stop tracking', icon: <X size={18} />, tone: 'red', onClick: () => handleRemove(item.id) }]}
+                contentClassName="flex items-center gap-3 py-2"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-app-text truncate">{item.label}</p>
                   <p className="text-xs text-app-text-muted">{TYPE_LABELS[item.item_type]} · {summary.detail}</p>
@@ -179,7 +187,7 @@ export default function TrackedReports({ businessId, transactions, customers, pr
                 >
                   <X size={14} />
                 </button>
-              </li>
+              </SwipeRow>
             );
           })}
         </ul>

@@ -11,6 +11,7 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { toUuid } from '../utils/idUtils';
 import SheetLayer from '../components/shared/SheetLayer';
+import { SwipeRow } from '../components/shared/SwipeRow';
 
 const TZ = 'Africa/Nairobi';
 export const PETTY_CASH_CATEGORIES = ['Transport', 'Cleaning', 'Food & tea', 'Repairs', 'Supplies', 'Airtime', 'Other'];
@@ -288,7 +289,15 @@ export default function PettyCashView() {
           ) : (
             <ul className="divide-y divide-app-border">
               {entries.map((e) => (
-                <li key={e.id} className={`flex items-start gap-3 px-4 py-3 ${e.removed ? 'opacity-55' : ''}`}>
+                <SwipeRow
+                  key={e.id}
+                  as="li"
+                  title={`${ksh(e.amount)} · ${e.category}`}
+                  subtitle={e.description || undefined}
+                  disabled={!canRemove(e)}
+                  actions={[{ label: 'Remove', icon: <Trash2 size={18} />, tone: 'red', onClick: () => { setRemoving(e); setReason(''); } }]}
+                  contentClassName={`flex items-start gap-3 px-4 py-3 ${e.removed ? 'opacity-55' : ''}`}
+                >
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm font-medium text-app-text break-words ${e.removed ? 'line-through' : ''}`}>{e.description || e.category}</p>
                     <p className="text-[11px] text-app-text-muted mt-0.5 break-words">
@@ -316,7 +325,7 @@ export default function PettyCashView() {
                       <Trash2 size={15} />
                     </button>
                   )}
-                </li>
+                </SwipeRow>
               ))}
             </ul>
           )}

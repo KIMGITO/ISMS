@@ -28,7 +28,9 @@ import {
   CheckSquare,
   RefreshCw,
   ChevronRight,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, AdjustmentType, ProductCategory } from '../types';
 import { useForm } from '../hooks/useForm';
@@ -415,10 +417,78 @@ export default function InventoryView() {
             const isLow = p.stock <= p.minStock;
             const percentage = Math.min(100, (p.stock / 100) * 100);
 
+            const startEditProduct = (p: typeof filteredProducts[number]) => {
+                          setEditingProduct(p);
+                          setEditValues({
+                            name: p.name,
+                            sku: p.sku,
+                            category: p.category,
+                            price: p.price,
+                            cost: p.cost,
+                            unit: p.unit,
+                            stock: p.stock,
+                            minStock: p.minStock,
+                            description: p.description || '',
+                            perishable: !!p.perishable,
+                            expiryDays: p.expiryDays || 7,
+                          });
+                          setEditProductImage(
+                            p.image ||
+                              'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
+                          );
+                          setEditErrors({});
+                          setIsEditingProduct(true);
+                        };
+            const removeProduct = async (p: typeof filteredProducts[number]) => {
+                          if (
+                            await appDialog.confirm({
+                              title: `Delete ${p.name}?`,
+                              message: 'The product is removed from your stock list.',
+                              confirmLabel: 'Delete',
+                              destructive: true,
+                            })
+                          ) {
+                            setIsDeletingProduct(true);
+                            try {
+                              await deleteProduct(p.id);
+                              showToast(
+                                'Product Deleted',
+                                `"${p.name}" successfully deleted.`,
+                                undefined,
+                                'success',
+                              );
+                            } catch (err: any) {
+                              showToast(
+                                'Database Error',
+                                'Failed to delete item records.',
+                                undefined,
+                                'error',
+                              );
+                            } finally {
+                              setIsDeletingProduct(false);
+                            }
+                          }
+};
+            const startAdjust = (p: typeof filteredProducts[number]) => {
+              setSelectedProduct(p);
+              setIsAdjusting(true);
+            };
+
             return (
-              <div
+              <SwipeRow
                 key={p.id}
-                className="bg-app-card rounded-2xl border border-app-border p-3.5 flex items-center justify-between gap-4 shadow-xs"
+                title={titleCase(p.name)}
+                subtitle={`${p.stock} ${titleCase(p.unit)} in stock · ${p.sku}`}
+                actions={[
+                  { label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDeleteProduct, disabled: isDeletingProduct, onClick: () => removeProduct(p) },
+                ]}
+                more={[
+                  { label: 'Adjust stock', icon: <SlidersHorizontal size={16} />, hidden: !canAdjustStock, onClick: () => startAdjust(p) },
+                  { label: 'Edit product', icon: <Pencil size={16} />, hidden: !canEditProduct, onClick: () => startEditProduct(p) },
+                  { label: 'Delete product', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDeleteProduct, disabled: isDeletingProduct, onClick: () => removeProduct(p) },
+                ]}
+                className="rounded-2xl border border-app-border shadow-xs"
+                contentClassName="p-3.5 flex items-center justify-between gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -482,28 +552,7 @@ export default function InventoryView() {
                   <div className="flex items-center gap-1.5">
                     {canEditProduct && (
                       <button
-                        onClick={() => {
-                          setEditingProduct(p);
-                          setEditValues({
-                            name: p.name,
-                            sku: p.sku,
-                            category: p.category,
-                            price: p.price,
-                            cost: p.cost,
-                            unit: p.unit,
-                            stock: p.stock,
-                            minStock: p.minStock,
-                            description: p.description || '',
-                            perishable: !!p.perishable,
-                            expiryDays: p.expiryDays || 7,
-                          });
-                          setEditProductImage(
-                            p.image ||
-                              'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
-                          );
-                          setEditErrors({});
-                          setIsEditingProduct(true);
-                        }}
+                        onClick={() => startEditProduct(p)}
                         className="p-1.5 hover:bg-amber-500/10 text-slate-400 hover:text-amber-500 border border-transparent hover:border-amber-500/20 rounded-lg transition shrink-0 cursor-pointer"
                         title="Edit Product Details"
                       >
@@ -513,36 +562,7 @@ export default function InventoryView() {
                     {canDeleteProduct && (
                       <button
                         disabled={isDeletingProduct}
-                        onClick={async () => {
-                          if (
-                            await appDialog.confirm({
-                              title: `Delete ${p.name}?`,
-                              message: 'The product is removed from your stock list.',
-                              confirmLabel: 'Delete',
-                              destructive: true,
-                            })
-                          ) {
-                            setIsDeletingProduct(true);
-                            try {
-                              await deleteProduct(p.id);
-                              showToast(
-                                'Product Deleted',
-                                `"${p.name}" successfully deleted.`,
-                                undefined,
-                                'success',
-                              );
-                            } catch (err: any) {
-                              showToast(
-                                'Database Error',
-                                'Failed to delete item records.',
-                                undefined,
-                                'error',
-                              );
-                            } finally {
-                              setIsDeletingProduct(false);
-                            }
-                          }
-                        }}
+                        onClick={() => removeProduct(p)}
                         className="p-1.5 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed text-slate-400 hover:text-red-500 border border-transparent hover:border-red-500/20 rounded-lg transition shrink-0 cursor-pointer"
                         title="Delete Product"
                       >
@@ -551,10 +571,7 @@ export default function InventoryView() {
                     )}
                     {canAdjustStock && (
                       <button
-                        onClick={() => {
-                          setSelectedProduct(p);
-                          setIsAdjusting(true);
-                        }}
+                        onClick={() => startAdjust(p)}
                         className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/25 rounded-lg text-[10px] font-black transition flex items-center gap-1 cursor-pointer"
                       >
                         <span>Adjust</span>
@@ -562,7 +579,7 @@ export default function InventoryView() {
                     )}
                   </div>
                 </div>
-              </div>
+              </SwipeRow>
             );
           })}
         </div>

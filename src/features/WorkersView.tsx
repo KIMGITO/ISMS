@@ -1,7 +1,8 @@
 import { toUserMessage } from "../utils/userError";
 import React, { useState } from "react";
 import { useAppStore } from "../stores/appStore";
-import { UserPlus, Trash2, CheckCircle2, AlertCircle, Shield, Mail, Phone, User, Edit, X, Camera, Search, Send, Copy, Clock, RefreshCw } from "lucide-react";
+import { UserPlus, Trash2, CheckCircle2, AlertCircle, Shield, Mail, Phone, User, Edit, X, Camera, Search, Send, Copy, Clock, RefreshCw, Ban } from "lucide-react";
+import { SwipeRow } from "../components/shared/SwipeRow";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { titleCase, searchMatch, formatName } from "../utils/stringUtils";
@@ -73,6 +74,76 @@ export default function WorkersView() {
 
   const activeBusinessName =
     businesses.find((b) => b.id === currentBusinessId)?.name || "Your business";
+
+  const removeWorker = async (emp: any) => {
+                                if (
+                                  await appDialog.confirm({
+                                    title: `Remove ${titleCase(emp.name)}?`,
+                                    message: 'They lose access to this business.',
+                                    confirmLabel: 'Remove',
+                                    destructive: true,
+                                  })
+                                ) {
+                                  setIsDeletingWorker(true);
+                                  try {
+                                    await deleteWorker(emp.id);
+                                    if (editingEmployeeId === emp.id) {
+                                      handleCancelEdit();
+                                    }
+                                  } catch (err: any) {
+                                    notify('error',
+                                      toUserMessage(err, 'Failed to remove worker.'),
+                                    );
+                                  } finally {
+                                    setIsDeletingWorker(false);
+                                  }
+                                }
+                              };
+
+  const cancelInvite = async (inv: any) => {
+                                  if (
+                                    await appDialog.confirm({
+                                      title: `Cancel ${titleCase(inv.name)}'s invitation?`,
+                                      message: 'The invitation link stops working straight away.',
+                                      confirmLabel: 'Cancel invitation',
+                                      cancelLabel: 'Keep',
+                                      destructive: true,
+                                    })
+                                  ) {
+                                    setIsRevokingInvite(true);
+                                    try {
+                                      await revokeInvitation(inv.id);
+                                    } catch (err: any) {
+                                      notify('error',
+                                        toUserMessage(err, 'Failed to revoke invitation.'),
+                                      );
+                                    } finally {
+                                      setIsRevokingInvite(false);
+                                    }
+                                  }
+                                };
+
+  const removeInvite = async (inv: any, displayStatus: string) => {
+                                  if (
+                                    await appDialog.confirm({
+                                      title: 'Remove this invitation?',
+                                      message: `It's ${displayStatus.toLowerCase()} and is removed from the list.`,
+                                      confirmLabel: 'Remove',
+                                      destructive: true,
+                                    })
+                                  ) {
+                                    setIsRevokingInvite(true);
+                                    try {
+                                      await revokeInvitation(inv.id);
+                                    } catch (err: any) {
+                                      notify('error',
+                                        toUserMessage(err, 'Failed to remove invitation.'),
+                                      );
+                                    } finally {
+                                      setIsRevokingInvite(false);
+                                    }
+                                  }
+                                };
 
   const handleStartEdit = (emp: any) => {
     setEditingEmployeeId(emp.id);
@@ -464,10 +535,24 @@ export default function WorkersView() {
                   const isOwner = emp.role === 'Owner';
                   const isSelf = emp.id === currentEmployee?.id;
 
+                  const canRemoveThis = !isOwner && !isSelf && canRemoveStaff;
                   return (
-                    <div
+                    <SwipeRow
                       key={emp.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-app-bg border border-app-border/70 rounded-xl gap-3 hover:border-app-border transition-colors shadow-xs"
+                      title={titleCase(emp.name)}
+                      subtitle={`${emp.role}${emp.phone ? ` · ${emp.phone}` : ''}`}
+                      surfaceClassName="bg-app-bg"
+                      actions={[
+                        { label: 'Remove', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveThis, disabled: isDeletingWorker, onClick: () => removeWorker(emp) },
+                      ]}
+                      more={[
+                        { label: 'Edit role and details', icon: <Edit size={16} />, hidden: !canUpdateStaff, onClick: () => handleStartEdit(emp) },
+                        { label: 'Copy phone number', icon: <Phone size={16} />, hidden: !emp.phone, onClick: () => copyToClipboard(emp.phone) },
+                        { label: 'Copy email', icon: <Mail size={16} />, hidden: !emp.email, onClick: () => copyToClipboard(emp.email) },
+                        { label: 'Remove from business', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveThis, disabled: isDeletingWorker, onClick: () => removeWorker(emp) },
+                      ]}
+                      className="border border-app-border/70 rounded-xl hover:border-app-border transition-colors shadow-xs"
+                      contentClassName="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 gap-3"
                     >
                       {/* Avatar and Primary Credentials */}
                       <div className="flex items-center gap-3">
@@ -530,30 +615,7 @@ export default function WorkersView() {
                           {!isOwner && !isSelf && canRemoveStaff && (
                             <button
                               disabled={isDeletingWorker}
-                              onClick={async () => {
-                                if (
-                                  await appDialog.confirm({
-                                    title: `Remove ${titleCase(emp.name)}?`,
-                                    message: 'They lose access to this business.',
-                                    confirmLabel: 'Remove',
-                                    destructive: true,
-                                  })
-                                ) {
-                                  setIsDeletingWorker(true);
-                                  try {
-                                    await deleteWorker(emp.id);
-                                    if (editingEmployeeId === emp.id) {
-                                      handleCancelEdit();
-                                    }
-                                  } catch (err: any) {
-                                    notify('error',
-                                      toUserMessage(err, 'Failed to remove worker.'),
-                                    );
-                                  } finally {
-                                    setIsDeletingWorker(false);
-                                  }
-                                }
-                              }}
+                              onClick={() => removeWorker(emp)}
                               className="p-1.5 bg-red-500/5 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed text-red-500 rounded-lg transition cursor-pointer"
                               title="Revoke Membership"
                             >
@@ -562,7 +624,7 @@ export default function WorkersView() {
                           )}
                         </div>
                       )}
-                    </div>
+                    </SwipeRow>
                   );
                 })}
             </div>
@@ -590,10 +652,26 @@ export default function WorkersView() {
                       ? 'Expired'
                       : inv.status;
 
+                  const pending = inv.status === 'Pending' && !isExpired;
                   return (
-                    <div
+                    <SwipeRow
                       key={inv.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-app-bg border border-app-border/50 rounded-xl gap-2.5"
+                      title={`${titleCase(inv.name)}'s invitation`}
+                      subtitle={`${inv.role} · ${displayStatus}`}
+                      surfaceClassName="bg-app-bg"
+                      actions={[
+                        pending
+                          ? { label: 'Revoke', icon: <Ban size={18} />, tone: 'red', hidden: !canDeleteInvite, disabled: isRevokingInvite, onClick: () => cancelInvite(inv) }
+                          : { label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDeleteInvite, disabled: isRevokingInvite, onClick: () => removeInvite(inv, displayStatus) },
+                      ]}
+                      more={[
+                        { label: 'Copy invitation code', icon: <Copy size={16} />, onClick: () => copyToClipboard(inv.invitationToken) },
+                        pending
+                          ? { label: 'Revoke invitation', icon: <Ban size={16} />, tone: 'red', hidden: !canDeleteInvite, disabled: isRevokingInvite, onClick: () => cancelInvite(inv) }
+                          : { label: 'Delete invitation', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDeleteInvite, disabled: isRevokingInvite, onClick: () => removeInvite(inv, displayStatus) },
+                      ]}
+                      className="border border-app-border/50 rounded-xl"
+                      contentClassName="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 gap-2.5"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -639,28 +717,7 @@ export default function WorkersView() {
                           ? canDeleteInvite && (
                               <button
                                 disabled={isRevokingInvite}
-                                onClick={async () => {
-                                  if (
-                                    await appDialog.confirm({
-                                      title: `Cancel ${titleCase(inv.name)}'s invitation?`,
-                                      message: 'The invitation link stops working straight away.',
-                                      confirmLabel: 'Cancel invitation',
-                                      cancelLabel: 'Keep',
-                                      destructive: true,
-                                    })
-                                  ) {
-                                    setIsRevokingInvite(true);
-                                    try {
-                                      await revokeInvitation(inv.id);
-                                    } catch (err: any) {
-                                      notify('error',
-                                        toUserMessage(err, 'Failed to revoke invitation.'),
-                                      );
-                                    } finally {
-                                      setIsRevokingInvite(false);
-                                    }
-                                  }
-                                }}
+                                onClick={() => cancelInvite(inv)}
                                 className="px-2 py-1 text-[9px] font-bold text-red-500 hover:bg-red-500/5 border border-red-500/10 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
                               >
                                 Revoke
@@ -669,27 +726,7 @@ export default function WorkersView() {
                           : canDeleteInvite && (
                               <button
                                 disabled={isRevokingInvite}
-                                onClick={async () => {
-                                  if (
-                                    await appDialog.confirm({
-                                      title: 'Remove this invitation?',
-                                      message: `It's ${displayStatus.toLowerCase()} and is removed from the list.`,
-                                      confirmLabel: 'Remove',
-                                      destructive: true,
-                                    })
-                                  ) {
-                                    setIsRevokingInvite(true);
-                                    try {
-                                      await revokeInvitation(inv.id);
-                                    } catch (err: any) {
-                                      notify('error',
-                                        toUserMessage(err, 'Failed to remove invitation.'),
-                                      );
-                                    } finally {
-                                      setIsRevokingInvite(false);
-                                    }
-                                  }
-                                }}
+                                onClick={() => removeInvite(inv, displayStatus)}
                                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
                                 title="Delete from view"
                               >
@@ -697,7 +734,7 @@ export default function WorkersView() {
                               </button>
                             )}
                       </div>
-                    </div>
+                    </SwipeRow>
                   );
                 })
               )}

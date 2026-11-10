@@ -49,6 +49,8 @@ import {
   FilePlus2,
   Boxes,
 } from 'lucide-react';
+import { SwipeRow } from '../components/shared/SwipeRow';
+import { appDialog } from '../components/AppDialog';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
 import { Checkbox } from '../components/shared/Checkbox';
@@ -256,6 +258,14 @@ export default function ProductionBOMView() {
   };
 
   const handleDeleteBatch = async (id: string) => {
+    const batch = extra.productionBatches.find((b) => b.id === id);
+    const ok = await appDialog.confirm({
+      title: batch ? `Delete the ${batch.recipeName} batch?` : 'Delete this batch?',
+      message: 'The batch record is removed for good. Stock already added or used is not changed.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await extra.deleteProductionBatch(id);
       if (res.success) {
@@ -334,6 +344,14 @@ export default function ProductionBOMView() {
 
   // Delete BOM
   const handleDeleteBom = async (id: string) => {
+    const bom = extra.billOfMaterials.find((b) => b.id === id);
+    const ok = await appDialog.confirm({
+      title: bom ? `Delete ${bom.name}?` : 'Delete this BOM?',
+      message: 'The recipe and its ingredient list are removed for good. Past batches stay.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await SupabaseService.deleteBom(id);
       extra.removeBillOfMaterial(id);
@@ -522,11 +540,17 @@ export default function ProductionBOMView() {
               ) : (
                 <div className="grid gap-2">
                   {filteredBoms.map(bom => (
-                    <motion.div
+                    <SwipeRow
                       key={bom.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-app-card border border-app-border rounded-xl p-3 hover:border-amber-500/20 transition cursor-pointer"
+                      title={bom.name}
+                      subtitle={`${bom.productName || 'No product linked'} · ${bom.ingredients?.length || 0} ingredients`}
+                      actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete, onClick: () => handleDeleteBom(bom.id) }]}
+                      more={[
+                        { label: 'Open', icon: <Layers size={16} />, onClick: () => { setSelectedBom(bom); setViewMode('bom-detail'); } },
+                        { label: 'Delete BOM', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete, onClick: () => handleDeleteBom(bom.id) },
+                      ]}
+                      className="border border-app-border rounded-xl hover:border-amber-500/20 transition"
+                      contentClassName="p-3 cursor-pointer"
                       onClick={() => { setSelectedBom(bom); setViewMode('bom-detail'); }}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -549,7 +573,7 @@ export default function ProductionBOMView() {
                           </button>
                         )}
                       </div>
-                    </motion.div>
+                    </SwipeRow>
                   ))}
                 </div>
               )}
@@ -570,11 +594,25 @@ export default function ProductionBOMView() {
               ) : (
                 <div className="grid gap-2">
                   {filteredBatches.map(batch => (
-                    <motion.div
+                    <SwipeRow
                       key={batch.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-app-card border border-app-border rounded-xl p-3"
+                      title={batch.recipeName}
+                      subtitle={`${batch.quantityProduced} ${batch.unit} · ${batch.status.replace('_', ' ')}`}
+                      actions={
+                        batch.status === 'Completed' || batch.status === 'Cancelled'
+                          ? [{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canCreateBatch, onClick: () => handleDeleteBatch(batch.id) }]
+                          : [{ label: 'Cancel', icon: <Ban size={18} />, tone: 'red', hidden: !canCreateBatch, onClick: () => openCancelModal(batch) }]
+                      }
+                      more={
+                        batch.status === 'Completed' || batch.status === 'Cancelled'
+                          ? [{ label: 'Delete batch', icon: <Trash2 size={16} />, tone: 'red', hidden: !canCreateBatch, onClick: () => handleDeleteBatch(batch.id) }]
+                          : [
+                              { label: 'Mark completed', icon: <CheckCircle2 size={16} />, hidden: !canCreateBatch, onClick: () => handleUpdateBatchStatus(batch.id, 'Completed') },
+                              { label: 'Cancel batch', icon: <Ban size={16} />, tone: 'red', hidden: !canCreateBatch, onClick: () => openCancelModal(batch) },
+                            ]
+                      }
+                      className="border border-app-border rounded-xl"
+                      contentClassName="p-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -625,7 +663,7 @@ export default function ProductionBOMView() {
                           </div>
                         )}
                       </div>
-                    </motion.div>
+                    </SwipeRow>
                   ))}
                 </div>
               )}

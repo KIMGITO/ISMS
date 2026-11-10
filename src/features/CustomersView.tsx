@@ -4,7 +4,8 @@ import { SheetLayer } from '../components/shared/SheetLayer';
 import { useBusinessStore } from '../stores/businessStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
-import { listInvoices, IssuedInvoice } from '../services/invoice/invoiceData';
+import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import type { InvoiceDocument } from '../services/invoice/types';
 import { formatInvoiceDate } from '../services/invoice/invoiceDraft';
 import React, { useState, useEffect } from "react";
@@ -14,7 +15,7 @@ import {
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
   X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
   Brain, RefreshCw,
-  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText, Gift, PanelLeftClose, PanelLeftOpen
+  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText, Gift, PanelLeftClose, PanelLeftOpen, Archive, ArchiveRestore
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
@@ -131,6 +132,7 @@ export default function CustomersView() {
   const [invoices, setInvoices] = useState<IssuedInvoice[]>([]);
   const [invoicesState, setInvoicesState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [invoicesError, setInvoicesError] = useState('');
+  const [invoiceView, setInvoiceView] = useState<'active' | 'archived'>('active');
   const [payMethod, setPayMethod] = useState<'Cash' | 'M-Pesa'>('Cash');
   const [adjustNote, setAdjustNote] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
@@ -521,6 +523,7 @@ export default function CustomersView() {
     setActiveDetailTab("money");
     setInvoices([]);
     setInvoicesState('idle');
+    setInvoiceView('active');
   }, [selectedCustomerId]);
 
   const loadInvoices = React.useCallback(() => {
@@ -540,6 +543,57 @@ export default function CustomersView() {
   useEffect(() => {
     if (activeDetailTab === 'invoice') loadInvoices();
   }, [activeDetailTab, loadInvoices]);
+
+  const removeCustomer = async (cust: { id: string; name: string }) => {
+    if (
+      !(await appDialog.confirm({
+        title: `Delete ${cust.name}?`,
+        message: 'Their profile is removed for good.',
+        confirmLabel: 'Delete',
+        destructive: true,
+      }))
+    ) return;
+    setIsDeletingCustomer(true);
+    try {
+      await deleteCustomer(cust.id);
+      if (selectedCustomerId === cust.id) setSelectedCustomerId(null);
+      showToast('Customer Deleted', `"${cust.name}" successfully deleted from database.`, undefined, 'success');
+    } catch (err: any) {
+      showToast('Database Error', toUserMessage(err, "Failed to delete customer."), undefined, 'error');
+    } finally {
+      setIsDeletingCustomer(false);
+    }
+  };
+
+  const toggleInvoiceArchived = async (inv: IssuedInvoice) => {
+    const archive = !inv.archivedAt;
+    const stamp = archive ? new Date().toISOString() : null;
+    setInvoices((list) => list.map((i) => (i.id === inv.id ? { ...i, archivedAt: stamp } : i)));
+    try {
+      await setInvoiceArchived(inv.id, archive);
+      showToast(archive ? 'Invoice archived' : 'Invoice restored', archive ? `${inv.invoiceNo} is under Archived.` : `${inv.invoiceNo} is back in the list.`, undefined, 'success');
+    } catch (err) {
+      setInvoices((list) => list.map((i) => (i.id === inv.id ? { ...i, archivedAt: inv.archivedAt } : i)));
+      showToast('Invoices', toUserMessage(err, 'Could not change that invoice.'), undefined, 'error');
+    }
+  };
+
+  const removeInvoice = async (inv: IssuedInvoice) => {
+    const ok = await appDialog.confirm({
+      title: `Delete invoice ${inv.invoiceNo}?`,
+      message: 'It is removed for good. What the customer owes does not change, and the number is not used again. Archive it instead to keep a copy.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteInvoice(inv.id);
+      setInvoices((list) => list.filter((i) => i.id !== inv.id));
+      showToast('Invoice deleted', `${inv.invoiceNo} was deleted.`, undefined, 'success');
+    } catch (err) {
+      showToast('Invoices', toUserMessage(err, 'Could not delete that invoice.'), undefined, 'error');
+    }
+  };
 
   // groupFilter is "field:value", such as "paymentTerms:weekly".
   const matchesGroup = (c: typeof customers[number]) => {
@@ -803,8 +857,18 @@ export default function CustomersView() {
                 const debt = c.debtBalance || 0;
                 const offline = (c as any).sync_status && (c as any).sync_status !== 'synced';
                 return (
-                  <button
+                  <SwipeRow
                     key={c.id}
+                    title={customerName(c.name)}
+                    subtitle={`${c.phone}${debt > 0 ? ` · owes ${formatCurrency(debt)}` : ''}`}
+                    actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDeleteCustomers, disabled: isDeletingCustomer, onClick: () => removeCustomer(c) }]}
+                    more={[
+                      { label: 'Open', icon: <ChevronRight size={16} />, onClick: () => openCustomer(c.id) },
+                      { label: 'Make invoice', icon: <FileText size={16} />, hidden: !canInvoice || debt <= 0, onClick: () => setInvoiceFor(c) },
+                      { label: 'Delete customer', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDeleteCustomers, disabled: isDeletingCustomer, onClick: () => removeCustomer(c) },
+                    ]}
+                  >
+                  <button
                     onClick={() => openCustomer(c.id)}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 cursor-pointer ${
                       isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg'
@@ -837,6 +901,7 @@ export default function CustomersView() {
                       )}
                     </span>
                   </button>
+                  </SwipeRow>
                 );
               })}
             </div>
@@ -1340,37 +1405,7 @@ export default function CustomersView() {
                         <button
                           type="button"
                           disabled={isDeletingCustomer}
-                          onClick={async () => {
-                            if (
-                              await appDialog.confirm({
-                                title: `Delete ${selectedCustomer.name}?`,
-                                message: 'Their profile is removed for good.',
-                                confirmLabel: 'Delete',
-                                destructive: true,
-                              })
-                            ) {
-                              setIsDeletingCustomer(true);
-                              try {
-                                await deleteCustomer(selectedCustomer.id);
-                                setSelectedCustomerId(null);
-                                showToast(
-                                  'Customer Deleted',
-                                  `"${selectedCustomer.name}" successfully deleted from database.`,
-                                  undefined,
-                                  'success',
-                                );
-                              } catch (err: any) {
-                                showToast(
-                                  'Database Error',
-                                  toUserMessage(err, "Failed to delete customer."),
-                                  undefined,
-                                  'error',
-                                );
-                              } finally {
-                                setIsDeletingCustomer(false);
-                              }
-                            }
-                          }}
+                          onClick={() => removeCustomer(selectedCustomer)}
                           className="w-full py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 transition cursor-pointer"
                         >
                           {isDeletingCustomer ? (
@@ -2004,40 +2039,102 @@ export default function CustomersView() {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold">Invoices sent</h4>
-                        <button type="button" onClick={loadInvoices} className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                          Refresh
-                        </button>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <h4 className="text-sm font-semibold">{invoiceView === 'archived' ? 'Archived invoices' : 'Invoices sent'}</h4>
+                        <div className="flex items-center gap-3">
+                          {(invoiceView === 'archived' || invoices.some((i) => i.archivedAt)) && (
+                            <button
+                              type="button"
+                              onClick={() => setInvoiceView(invoiceView === 'archived' ? 'active' : 'archived')}
+                              className="text-xs font-medium text-app-text-muted hover:text-app-text flex items-center gap-1 cursor-pointer"
+                            >
+                              {invoiceView === 'archived' ? <><ArrowLeft size={13} /> Back</> : <><Archive size={13} /> Archived ({invoices.filter((i) => i.archivedAt).length})</>}
+                            </button>
+                          )}
+                          <button type="button" onClick={loadInvoices} className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                            Refresh
+                          </button>
+                        </div>
                       </div>
-                      {invoicesState === 'loading' ? (
-                        <div className="py-8 flex justify-center text-app-text-muted"><RefreshCw size={16} className="animate-spin" /></div>
-                      ) : invoicesState === 'error' ? (
-                        <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">{invoicesError}</p>
-                      ) : invoices.length === 0 ? (
-                        <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">No invoices yet.</p>
-                      ) : (
-                        <ul className="rounded-2xl bg-app-bg divide-y divide-app-border/60 overflow-hidden">
-                          {invoices.map((inv) => (
-                            <li key={inv.id}>
-                              <button
-                                type="button"
-                                onClick={() => setOpenInvoice(inv.document)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-app-card cursor-pointer"
-                              >
-                                <span className="size-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 grid place-items-center shrink-0"><FileText size={16} /></span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block text-sm font-medium">{inv.invoiceNo}</span>
-                                  <span className="block text-xs text-app-text-muted truncate">
-                                    {formatInvoiceDate(inv.issuedAt)}{inv.createdBy ? ` · by ${inv.createdBy}` : ''}
-                                  </span>
-                                </span>
-                                <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(inv.balanceDue)}</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      {(() => {
+                        const shown = invoices.filter((i) => (invoiceView === 'archived' ? !!i.archivedAt : !i.archivedAt));
+                        if (invoicesState === 'loading') return <div className="py-8 flex justify-center text-app-text-muted"><RefreshCw size={16} className="animate-spin" /></div>;
+                        if (invoicesState === 'error') return <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">{invoicesError}</p>;
+                        if (shown.length === 0) {
+                          return (
+                            <p className="p-4 rounded-2xl bg-app-bg text-sm text-app-text-muted">
+                              {invoiceView === 'archived' ? 'No archived invoices.' : invoices.length > 0 ? 'Every invoice is archived.' : 'No invoices yet.'}
+                            </p>
+                          );
+                        }
+                        return (
+                          <>
+                            <ul className="rounded-2xl bg-app-bg divide-y divide-app-border/60 overflow-hidden">
+                              {shown.map((inv) => {
+                                const archived = !!inv.archivedAt;
+                                const archiveAction = {
+                                  label: archived ? 'Restore' : 'Archive',
+                                  icon: archived ? <ArchiveRestore size={18} /> : <Archive size={18} />,
+                                  tone: 'sky' as const,
+                                  hidden: !canInvoice,
+                                  onClick: () => toggleInvoiceArchived(inv),
+                                };
+                                const deleteAction = {
+                                  label: 'Delete',
+                                  icon: <Trash2 size={18} />,
+                                  tone: 'red' as const,
+                                  hidden: !canInvoice,
+                                  onClick: () => removeInvoice(inv),
+                                };
+                                return (
+                                  <SwipeRow
+                                    key={inv.id}
+                                    as="li"
+                                    surfaceClassName="bg-app-bg"
+                                    title={`Invoice ${inv.invoiceNo}`}
+                                    subtitle={`${formatInvoiceDate(inv.issuedAt)} · ${formatCurrency(inv.balanceDue)}`}
+                                    actions={[archiveAction, deleteAction]}
+                                    more={[
+                                      { label: 'Open and share', icon: <FileText size={16} />, onClick: () => setOpenInvoice(inv.document) },
+                                      { ...archiveAction, icon: archived ? <ArchiveRestore size={16} /> : <Archive size={16} /> },
+                                      { ...deleteAction, icon: <Trash2 size={16} /> },
+                                    ]}
+                                  >
+                                    <div className="flex items-center group">
+                                      <button
+                                        type="button"
+                                        onClick={() => setOpenInvoice(inv.document)}
+                                        className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 text-left hover:bg-app-card cursor-pointer"
+                                      >
+                                        <span className="size-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 grid place-items-center shrink-0"><FileText size={16} /></span>
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block text-sm font-medium">{inv.invoiceNo}</span>
+                                          <span className="block text-xs text-app-text-muted truncate">
+                                            {formatInvoiceDate(inv.issuedAt)}{inv.createdBy ? ` · by ${inv.createdBy}` : ''}
+                                          </span>
+                                        </span>
+                                        <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(inv.balanceDue)}</span>
+                                      </button>
+                                      {canInvoice && (
+                                        // Desktop: buttons on hover. Phones swipe or hold instead.
+                                        <div className="hidden md:flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                          <button type="button" onClick={() => toggleInvoiceArchived(inv)} title={archived ? 'Restore' : 'Archive'} aria-label={archived ? 'Restore invoice' : 'Archive invoice'} className="p-1.5 rounded-lg text-app-text-muted hover:text-sky-600 hover:bg-app-card cursor-pointer">
+                                            {archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                                          </button>
+                                          <button type="button" onClick={() => removeInvoice(inv)} title="Delete" aria-label="Delete invoice" className="p-1.5 rounded-lg text-app-text-muted hover:text-red-500 hover:bg-app-card cursor-pointer">
+                                            <Trash2 size={15} />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </SwipeRow>
+                                );
+                              })}
+                            </ul>
+                            {canInvoice && <p className="mt-2 text-center text-[11px] text-app-text-muted md:hidden">Swipe an invoice left to archive or delete · hold for more</p>}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

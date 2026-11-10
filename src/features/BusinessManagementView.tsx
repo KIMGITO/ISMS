@@ -1,6 +1,7 @@
 import { toUserMessage } from "../utils/userError";
 import React, { useState, useEffect } from "react";
 import { useOverlay } from '../hooks/useOverlay';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
@@ -1388,8 +1389,34 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     </div>
 
                     <div className="flex-1 overflow-x-auto min-h-[300px] max-h-[500px]">
+                      {localExpenses.length > 0 && (
+                        // Phones: cards you can swipe left to delete. Wider screens keep the table.
+                        <ul className="md:hidden divide-y divide-app-border/30">
+                          {localExpenses.map((exp) => (
+                            <SwipeRow
+                              key={exp.id}
+                              as="li"
+                              title={`${exp.category} · KSh ${Number(exp.amount).toLocaleString()}`}
+                              subtitle={exp.description || undefined}
+                              disabled={!isOwner}
+                              actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', onClick: () => handleDeleteExpense(exp.id) }]}
+                              contentClassName="flex items-start gap-3 py-2.5 px-1"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-app-text">{exp.category}</p>
+                                <p className="text-[10.5px] text-app-text-muted truncate">
+                                  {new Date(exp.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {exp.staffName ? ` · ${exp.staffName}` : ''}
+                                  {exp.description ? ` · ${exp.description}` : ''}
+                                </p>
+                              </div>
+                              <span className="text-xs font-black font-mono text-red-500 shrink-0">KSh {Number(exp.amount).toLocaleString()}</span>
+                            </SwipeRow>
+                          ))}
+                        </ul>
+                      )}
                       {localExpenses.length > 0 ? (
-                        <table className="w-full text-left border-collapse">
+                        <table className="hidden md:table w-full text-left border-collapse">
                           <thead>
                             <tr className="border-b border-app-border/40 text-[9px] text-app-text-muted font-bold uppercase tracking-wider">
                               <th className="py-2.5">Date</th>

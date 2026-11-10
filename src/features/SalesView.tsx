@@ -10,6 +10,7 @@ import { formatCurrency } from "../utils/helpers";
 import { formatReceiptNumber } from "../utils/idUtils";
 import { titleCase } from "../utils/stringUtils";
 import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
+import { SwipeRow } from "../components/shared/SwipeRow";
 
 interface GroupedTransactions {
   today: Transaction[];
@@ -125,10 +126,32 @@ export default function SalesView() {
 
 
     return (
-      <div
+      <SwipeRow
         key={tx.id}
         onClick={() => handleSelectTx(tx)}
-        className="bg-app-card rounded-2xl border border-app-border p-3.5 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-500 cursor-pointer transition select-none animate-fadeIn"
+        // Hold a sale to see everything in it without opening the receipt.
+        title={`${formatReceiptNumber(tx.id)} · ${formatCurrency(tx.finalTotal)}`}
+        subtitle={`${new Date(tx.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · ${getPaymentMethodLabel(tx.paymentMethod)} · by ${titleCase(tx.staffName)}`}
+        details={
+          <div className="space-y-1.5">
+            {tx.customerName && <p className="text-xs text-app-text-muted">Customer: <span className="text-app-text font-medium">{titleCase(tx.customerName)}</span></p>}
+            <ul className="space-y-1">
+              {(tx.items || []).map((item, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate">{item.quantity} × {titleCase(item.product?.name || 'Item')}</span>
+                  <span className="tabular-nums text-app-text-muted shrink-0">{formatCurrency((item.product?.price || 0) * item.quantity * (1 - (item.discountPercentage || 0) / 100))}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="flex justify-between font-semibold pt-1 border-t border-app-border/60">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCurrency(tx.finalTotal)}</span>
+            </p>
+          </div>
+        }
+        more={[{ label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) }]}
+        className="rounded-2xl border border-app-border shadow-2xs hover:border-amber-500 transition animate-fadeIn"
+        contentClassName="p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -179,7 +202,7 @@ export default function SalesView() {
             <FileText size={12} />
           </button>
         </div>
-      </div>
+      </SwipeRow>
     );
   };
 

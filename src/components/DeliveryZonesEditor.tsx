@@ -3,7 +3,8 @@
 // price and can change anything. Used on the Deliveries page and in Online Store settings.
 
 import React, { FormEvent, useCallback, useEffect, useState } from 'react';
-import { MapPin, Pencil } from 'lucide-react';
+import { MapPin, Pencil, Trash2 } from 'lucide-react';
+import { SwipeRow } from './shared/SwipeRow';
 import { getSupabase } from '../services/supabaseClient';
 import { useAppStore } from '../stores/appStore';
 import { formatCurrency } from '../utils/helpers';
@@ -155,7 +156,21 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
             const canDelete = isOwner || (canAdd && !!myAuthId && zone.created_by === myAuthId);
             const setBy = zone.updated_by_name || zone.created_by_name;
             return (
-              <li key={zone.id} className="flex flex-col gap-2 py-3">
+              <SwipeRow
+                key={zone.id}
+                as="li"
+                title={zone.name}
+                subtitle={formatCurrency(Number(zone.fee))}
+                disabled={isEditing || !canEdit}
+                // Opens the "Delete <area> / Keep" question on the row; nothing is deleted yet.
+                actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete, onClick: () => setConfirmDelete(zone.id) }]}
+                more={[
+                  { label: 'Edit area and price', icon: <Pencil size={16} />, onClick: () => setEditing({ id: zone.id, name: zone.name, fee: String(zone.fee) }) },
+                  { label: zone.active ? 'Turn off (hide from customers)' : 'Turn on', icon: <MapPin size={16} />, onClick: () => update(zone.id, () => ({ active: !zone.active })) },
+                  { label: 'Delete area', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete, onClick: () => setConfirmDelete(zone.id) },
+                ]}
+                contentClassName="flex flex-col gap-2 py-3"
+              >
                 {isEditing ? (
                   <form
                     onSubmit={(e) => {
@@ -216,7 +231,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
                     ))}
                   </div>
                 )}
-              </li>
+              </SwipeRow>
             );
           })}
         </ul>

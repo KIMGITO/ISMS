@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ReceiptText, FileText, Save, Printer, Bluetooth, Wifi, Trash2, Star, RefreshCw, ShieldCheck, ShieldAlert, Unplug } from 'lucide-react';
 import { Tabs } from '../TabOptions';
 import { Switch } from '../shared/Switch';
+import { SwipeRow } from '../shared/SwipeRow';
+import { appDialog } from '../AppDialog';
 import SearchableDropdown from '../SearchableDropdown';
 import { useAppStore } from '../../stores/appStore';
 import { useBusinessStore } from '../../stores/businessStore';
@@ -322,6 +324,16 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
 
   useEffect(() => printerService.onPrefsChange(setPrefs), []);
 
+  const forgetPrinter = async (printer: PrinterTarget) => {
+    const ok = await appDialog.confirm({
+      title: `Forget ${printer.name}?`,
+      message: 'It is taken off this device. Search again to add it back.',
+      confirmLabel: 'Forget',
+      destructive: true,
+    });
+    if (ok) printerService.forget(printer.id);
+  };
+
   const runTest = async (printer: PrinterTarget) => {
     await ReceiptService.printTest(settings, printer);
     setTesting(false);
@@ -354,7 +366,20 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
             const Icon = p.kind === 'bluetooth' ? Bluetooth : Wifi;
             const isDefault = prefs.defaultId === p.id;
             return (
-              <li key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-app-bg">
+              <SwipeRow
+                key={p.id}
+                as="li"
+                title={p.name}
+                subtitle={p.kind === 'network' ? `${p.address}:${p.port ?? 9100}` : p.address}
+                surfaceClassName="bg-app-bg"
+                actions={[{ label: 'Forget', icon: <Trash2 size={18} />, tone: 'red', onClick: () => forgetPrinter(p) }]}
+                more={[
+                  { label: isDefault ? 'Chosen first' : 'Choose first', icon: <Star size={16} />, disabled: isDefault, onClick: () => printerService.savePrefs({ defaultId: p.id }) },
+                  { label: 'Forget printer', icon: <Trash2 size={16} />, tone: 'red', onClick: () => forgetPrinter(p) },
+                ]}
+                className="rounded-xl"
+                contentClassName="flex items-center gap-3 px-3 py-2"
+              >
                 <Icon size={16} className="text-amber-500 shrink-0" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium truncate">{p.name}</span>
@@ -368,10 +393,10 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
                     <Star size={15} />
                   </button>
                 )}
-                <button type="button" onClick={() => printerService.forget(p.id)} className="p-2 rounded-lg hover:bg-app-card text-red-500 cursor-pointer" aria-label={`Forget ${p.name}`}>
+                <button type="button" onClick={() => forgetPrinter(p)} className="p-2 rounded-lg hover:bg-app-card text-red-500 cursor-pointer" aria-label={`Forget ${p.name}`}>
                   <Trash2 size={15} />
                 </button>
-              </li>
+              </SwipeRow>
             );
           })}
         </ul>

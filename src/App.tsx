@@ -108,6 +108,7 @@ import {
   Fingerprint,
   Volume2,
   Edit,
+  Check,
   Trash2,
   Plus,
   Camera,
@@ -142,6 +143,7 @@ import { AuthOtpService } from './services/authOtpService';
 import { toUserMessage } from './utils/userError';
 import PasswordInput from './components/shared/PasswordInput';
 import { Checkbox } from './components/shared/Checkbox';
+import { SwipeRow } from './components/shared/SwipeRow';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { ShortcutHelp } from './components/ShortcutTable';
 
@@ -4678,13 +4680,42 @@ export default function App() {
                       })
                       .map((biz) => {
                         const isActive = biz.id === activeBusinessId;
+                        const canManageBranch = hasRolePermission(currentEmployee.role, 'settings.view');
+                        const editBranch = () => {
+                          setEditingBizId(biz.id);
+                          setEditBizName(biz.name);
+                          setEditBizDesc(biz.description || '');
+                          setEditBizAddr(biz.address || '');
+                          setEditBizLogo(biz.logoUrl || '');
+                        };
+                        const removeBranch = async () => {
+                          const confirmed = await nativeUiService.confirm(
+                            'Delete Workspace',
+                            `Are you sure you want to permanently close and delete "${biz.name}"? This will hide all its associated transaction data.`,
+                          );
+                          if (confirmed) {
+                            deleteBusiness(biz.id);
+                            showToast('System Update', `Branch "${biz.name}" has been deleted.`);
+                          }
+                        };
+                        const canRemoveBranch = canManageBranch && businesses.length > 1;
                         return (
-                          <div
+                          <SwipeRow
                             key={biz.id}
-                            className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                              isActive
-                                ? 'bg-amber-500/10 border-amber-500'
-                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-amber-500/25'
+                            title={biz.name}
+                            subtitle={biz.address || biz.description || undefined}
+                            surfaceClassName="bg-slate-50 dark:bg-slate-950"
+                            actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch }]}
+                            more={[
+                              { label: isActive ? 'Current branch' : 'Switch to this branch', icon: <Check size={16} />, disabled: isActive, onClick: () => { setActiveBusinessId(biz.id); setShowBusinessDropdown(false); } },
+                              { label: 'Edit branch', icon: <Edit size={16} />, hidden: !canManageBranch, onClick: editBranch },
+                              { label: 'Delete branch', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch },
+                            ]}
+                            className={`rounded-2xl border transition-all ${
+                              isActive ? 'border-amber-500' : 'border-slate-200 dark:border-slate-800 hover:border-amber-500/25'
+                            }`}
+                            contentClassName={`p-3 flex items-center justify-between gap-3 ${
+                              isActive ? 'bg-[linear-gradient(rgba(245,158,11,0.1),rgba(245,158,11,0.1))]' : ''
                             }`}
                           >
                             <div
@@ -4720,13 +4751,7 @@ export default function App() {
                             ) && (
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
-                                  onClick={() => {
-                                    setEditingBizId(biz.id);
-                                    setEditBizName(biz.name);
-                                    setEditBizDesc(biz.description || '');
-                                    setEditBizAddr(biz.address || '');
-                                    setEditBizLogo(biz.logoUrl || '');
-                                  }}
+                                  onClick={editBranch}
                                   className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-800/80 transition text-xs flex items-center justify-center"
                                   title="Edit branch settings"
                                 >
@@ -4734,20 +4759,7 @@ export default function App() {
                                 </button>
                                 {businesses.length > 1 && (
                                   <button
-                                    onClick={async () => {
-                                      const confirmed =
-                                        await nativeUiService.confirm(
-                                          'Delete Workspace',
-                                          `Are you sure you want to permanently close and delete "${biz.name}"? This will hide all its associated transaction data.`,
-                                        );
-                                      if (confirmed) {
-                                        deleteBusiness(biz.id);
-                                        showToast(
-                                          'System Update',
-                                          `Branch "${biz.name}" has been deleted.`,
-                                        );
-                                      }
-                                    }}
+                                    onClick={removeBranch}
                                     className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 transition text-xs flex items-center justify-center"
                                     title="Close branch"
                                   >
@@ -4759,7 +4771,7 @@ export default function App() {
                                 )}
                               </div>
                             )}
-                          </div>
+                          </SwipeRow>
                         );
                       })}
 

@@ -19,17 +19,23 @@ export interface Complaint {
   sentiment: 'positive' | 'neutral' | 'negative';
   branch: string;
   replies: ComplaintReply[];
+  /** Set when archived: kept, but out of the main list. */
+  archivedAt?: string | null;
 }
 
 export class ComplaintService {
   static async list(businessId: string): Promise<Complaint[]> {
-    const { data, error } = await getSupabase()
-      .from('complaints')
-      .select('id, customer_name, rating, comment, timestamp, resolved, sentiment, branch, complaint_replies(id, author, role, message, timestamp)')
-      .eq('business_id', businessId)
-      .is('deleted_at', null)
-      .order('timestamp', { ascending: false })
-      .limit(500);
+    const query = (archive: string) =>
+      getSupabase()
+        .from('complaints')
+        .select(`id, customer_name, rating, comment, timestamp, resolved, sentiment, branch${archive}, complaint_replies(id, author, role, message, timestamp)`)
+        .eq('business_id', businessId)
+        .is('deleted_at', null)
+        .order('timestamp', { ascending: false })
+        .limit(500);
+    let { data, error } = await query(', archived_at');
+    // Before the archive update (20261110007) is on the server there is no archived_at.
+    if (error && /archived_at/.test(String(error.message))) ({ data, error } = await query(''));
     if (error) throw error;
 
     return (data || []).map((row: any) => ({
@@ -41,6 +47,7 @@ export class ComplaintService {
       resolved: row.resolved,
       sentiment: row.sentiment,
       branch: row.branch || '',
+      archivedAt: row.archived_at || null,
       replies: [...(row.complaint_replies || [])].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
     }));
   }
@@ -68,6 +75,19 @@ export class ComplaintService {
   static async setResolved(id: string, resolved: boolean): Promise<void> {
     const { error } = await getSupabase().from('complaints').update({ resolved }).eq('id', id);
     if (error) throw error;
+  }
+
+  static async setArchived(id: string, archived: boolean): Promise<void> {
+    const { error } = await getSupabase()
+      .from('complaints')
+      .update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq('id', id);
+    if (error) {
+      if (/archived_at/.test(String(error.message))) {
+        throw new Error('Archiving feedback is not set up on the server yet. Apply the latest database update, then try again.');
+      }
+      throw error;
+    }
   }
 
   static async remove(id: string): Promise<void> {

@@ -2,6 +2,7 @@ import { toUserMessage } from '../utils/userError';
 import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor } from '../services/loyalty/pointValue';
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Product, ProductCategory, PaymentMethod, Transaction } from '../types';
@@ -13,6 +14,7 @@ import {
   Users,
   Tag,
   Percent,
+  Plus,
   ArrowLeft,
   CheckCircle2,
   Truck,
@@ -458,10 +460,28 @@ export default function POSView() {
                     const lineTotalDisc =
                       lineTotalOriginal * (item.discountPercentage / 100);
 
+                    const cycleDiscount = () =>
+                      updateCartDiscount(item.product.id, item.discountPercentage === 0 ? 10 : item.discountPercentage === 10 ? 20 : 0);
                     return (
-                      <div
+                      <SwipeRow
                         key={item.product.id}
-                        className="p-3 bg-app-bg rounded-2xl border border-app-border flex items-center justify-between gap-3"
+                        title={titleCase(item.product.name)}
+                        subtitle={`${item.quantity} × KSh ${item.product.price.toFixed(0)}`}
+                        surfaceClassName="bg-app-bg"
+                        // Taking a line out of the cart is undone by adding it again, so the
+                        // paused swipe's Remove button is the only check.
+                        actions={[{ label: 'Remove', icon: <Trash2 size={18} />, tone: 'red', onClick: () => removeFromCart(item.product.id) }]}
+                        more={[
+                          { label: 'Add one more', icon: <Plus size={16} />, onClick: () => updateCartQty(item.product.id, item.quantity + 1) },
+                          {
+                            label: item.discountPercentage === 0 ? 'Give 10% off' : item.discountPercentage === 10 ? 'Make it 20% off' : 'Remove discount',
+                            icon: <Percent size={16} />,
+                            onClick: cycleDiscount,
+                          },
+                          { label: 'Remove from cart', icon: <Trash2 size={16} />, tone: 'red', onClick: () => removeFromCart(item.product.id) },
+                        ]}
+                        className="rounded-2xl border border-app-border"
+                        contentClassName="p-3 flex items-center justify-between gap-3"
                       >
                         <div className="flex-1 min-w-0">
                           <h4 className="text-xs font-bold text-app-text truncate">
@@ -506,7 +526,7 @@ export default function POSView() {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </SwipeRow>
                     );
                   })}
                 </div>

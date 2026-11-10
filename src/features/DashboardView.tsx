@@ -41,6 +41,7 @@ import {
   X,
 } from 'lucide-react';
 import AlarmTimePicker from '../components/AlarmTimePicker';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import {
   formatClock,
   formatDay,
@@ -1303,11 +1304,24 @@ export default function DashboardView() {
                   const deleting = deletingId === ev.id;
 
                   return (
-                    <div
+                    <SwipeRow
                       key={ev.id}
-                      className={`p-3 bg-app-bg border rounded-xl transition flex flex-col gap-1.5 relative group ${
+                      title={ev.title}
+                      subtitle={`${formatClock(ev.startTime)}${ev.repeat !== 'None' ? ` · ${REPEAT_LABEL[ev.repeat]}` : ''}`}
+                      surfaceClassName="bg-app-bg"
+                      disabled={!canEdit || deleting}
+                      actions={[
+                        // Asks "Remove?" on the reminder itself before anything is removed.
+                        { label: 'Remove', icon: <Trash2 size={18} />, tone: 'red', onClick: () => handleDeleteSchedule(ev.id, ev.title) },
+                      ]}
+                      more={[
+                        { label: 'Edit reminder', icon: <Pencil size={16} />, onClick: () => handleEditScheduleStart(ev) },
+                        { label: 'Remove reminder', icon: <Trash2 size={16} />, tone: 'red', onClick: () => handleDeleteSchedule(ev.id, ev.title) },
+                      ]}
+                      className={`border rounded-xl transition group ${
                         editingScheduleId === ev.id ? 'border-amber-500/60' : 'border-app-border/40 hover:border-app-border/80'
                       } ${deleting ? 'opacity-50' : ''}`}
+                      contentClassName="p-3 flex flex-col gap-1.5"
                     >
                       <div className="flex justify-between items-start gap-2 pr-16">
                         <div className="flex items-center gap-2 min-w-0">
@@ -1422,7 +1436,7 @@ export default function DashboardView() {
                           {REPEAT_LABEL[ev.repeat]}
                         </span>
                       )}
-                    </div>
+                    </SwipeRow>
                   );
                 })
               )}
