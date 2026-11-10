@@ -139,268 +139,6 @@ export default function WorkspaceAssistantView() {
     scrollToBottom();
   }, [aiChatHistory, aiIsLoading]);
 
-  const executeWorkspaceAction = async (actionData: any) => {
-    const { action, params } = actionData;
-    const currentRole: string = currentEmployee?.role || 'Staff';
-
-    if (action === 'create_schedule') {
-      const isAuthorized =
-        currentRole === 'Owner' ||
-        currentRole === 'Manager' ||
-        currentRole === 'Admin';
-      if (!isAuthorized) {
-        showToast(
-          'Access Denied',
-          'Your active role does not have permission to create schedules.',
-        );
-        return;
-      }
-
-      const assignedWorker = employees.find(
-        (emp) =>
-          emp.id === params.workerId ||
-          emp.name.toLowerCase().includes(params.workerName?.toLowerCase()),
-      );
-      if (!assignedWorker) {
-        showToast(
-          'Action Failed',
-          `Could not find worker "${
-            params.workerName || params.workerId || ''
-          }" to schedule.`,
-        );
-        return;
-      }
-
-      const LOCAL_SCHED_KEY = 'kkm_schedules_v1_store';
-      const saved = localStorage.getItem(LOCAL_SCHED_KEY);
-      const currentSchedules = saved ? JSON.parse(saved) : [];
-
-      const newSched = {
-        id: `sch-${Date.now()}`,
-        employeeId: assignedWorker.id,
-        employeeName: assignedWorker.name,
-        title: params.title || 'Assistant Guided Shift',
-        date: params.date || new Date().toISOString().split('T')[0],
-        startTime: params.startTime || '09:00',
-        endTime: params.endTime || '17:00',
-        repeat: params.repeat || 'None',
-        notes: params.notes || 'Assigned via Ai.',
-        color: params.color || '#3b82f6',
-      };
-
-      const updated = [...currentSchedules, newSched];
-      localStorage.setItem(LOCAL_SCHED_KEY, JSON.stringify(updated));
-      showToast(
-        'Schedule Created',
-        `Successfully scheduled "${newSched.title}" for ${assignedWorker.name}.`,
-        assignedWorker.avatar,
-      );
-    } else if (action === 'adjust_stock') {
-      const isAuthorized =
-        currentRole === 'Owner' ||
-        currentRole === 'Manager' ||
-        currentRole === 'Admin' ||
-        currentRole === 'Inventory Clerk' ||
-        currentRole === 'Store Supervisor';
-      if (!isAuthorized) {
-        showToast(
-          'Access Denied',
-          'Your active role does not have permission to adjust stock.',
-        );
-        return;
-      }
-
-      const prod = products.find(
-        (p) =>
-          p.id === params.productId ||
-          p.name.toLowerCase().includes(params.productName?.toLowerCase()),
-      );
-      if (!prod) {
-        showToast(
-          'Action Failed',
-          `Could not find product "${
-            params.productName || params.productId || ''
-          }" to adjust.`,
-        );
-        return;
-      }
-
-      const adjType = params.type === 'damage' ? 'Damage' : 'Restock';
-      const qty = parseFloat(params.quantity);
-      if (isNaN(qty) || qty <= 0) {
-        showToast('Action Failed', 'Invalid stock adjustment quantity.');
-        return;
-      }
-
-      const changeVal = adjType === 'Damage' ? qty * -1 : qty;
-      adjustStock(
-        prod.id,
-        changeVal,
-        adjType,
-        params.reason || 'Adjusted via Workspace Assistant',
-      );
-      showToast(
-        'Stock Adjusted',
-        `Successfully logged ${adjType} of ${qty} for ${prod.name}.`,
-      );
-    } else if (action === 'create_checkout') {
-      const isAuthorized =
-        currentRole === 'Owner' ||
-        currentRole === 'Cashier' ||
-        currentRole === 'Manager' ||
-        currentRole === 'Admin';
-      if (!isAuthorized) {
-        showToast(
-          'Access Denied',
-          'Your active role does not have permission to process sales.',
-        );
-        return;
-      }
-
-      clearCart();
-      const items = params.items || [];
-      let addedAny = false;
-
-      for (const item of items) {
-        const prod = products.find(
-          (p) =>
-            p.id === item.productId ||
-            p.name.toLowerCase().includes(item.productName?.toLowerCase()),
-        );
-        if (prod) {
-          addToCart(prod);
-          const qty = parseFloat(item.quantity) || 1;
-          if (qty > 1) {
-            updateCartQty(prod.id, qty);
-          }
-          addedAny = true;
-        }
-      }
-
-      if (!addedAny) {
-        showToast(
-          'Action Failed',
-          'Could not match any products to build the checkout cart.',
-        );
-        return;
-      }
-
-      // Redirect to the POS screen and prompt the user to manually review and complete the sale.
-      setActiveTab('pos');
-      const totalCount = items.reduce(
-        (sum: number, item: any) => sum + (parseFloat(item.quantity) || 1),
-        0,
-      );
-      showToast(
-        'POS Cart Loaded',
-        `Workspace Assistant queued ${totalCount} item(s) in your active POS tab. Review and checkout here!`,
-      );
-    } else if (action === 'create_product') {
-      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Admin';
-      if (!isAuthorized) {
-        showToast('Access Denied', 'Your active role does not have permission to create products.');
-        return;
-      }
-      try {
-        await ProductRepository.add({
-          name: params.name,
-          category: params.category || 'General Dairy',
-          price: parseFloat(params.price) || 0,
-          cost: parseFloat(params.cost) || 0,
-          image: params.image || '',
-          stock: parseFloat(params.stock) || 0,
-          minStock: parseFloat(params.minStock) || 5,
-          unit: params.unit || 'Unit',
-          sku: params.sku || `SKU-${Date.now().toString().slice(-4)}`,
-          description: params.description || '',
-          businessId: activeBusinessId,
-        });
-        showToast('Product Created', `Successfully added ${params.name} to the catalog.`);
-      } catch (err) {
-        showToast('Action Failed', 'Failed to create product.');
-      }
-    } else if (action === 'create_customer') {
-      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager';
-      if (!isAuthorized) {
-        showToast('Access Denied', 'Your active role does not have permission to create customers.');
-        return;
-      }
-      try {
-        await CustomerRepository.add({
-          name: params.name,
-          phone: params.phone || '',
-          email: params.email || '',
-          tier: params.tier || 'Bronze',
-          loyaltyPoints: params.loyaltyPoints || 0,
-          joinDate: new Date().toISOString().split('T')[0],
-          purchasesCount: 0,
-          businessId: activeBusinessId,
-        });
-        showToast('Customer Created', `Successfully added ${params.name} to your customers.`);
-      } catch (err) {
-        showToast('Action Failed', 'Failed to create customer.');
-      }
-    } else if (action === 'create_expense') {
-      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Accountant';
-      if (!isAuthorized) {
-        showToast('Access Denied', 'Your active role does not have permission to record expenses.');
-        return;
-      }
-      try {
-        await ExpenseRepository.add({
-          amount: parseFloat(params.amount) || 0,
-          category: params.category || 'Supplies',
-          description: params.description || 'AI Logged Expense',
-          date: new Date().toISOString(),
-          staffName: currentEmployee?.name || 'AI Assistant',
-          businessId: activeBusinessId,
-        });
-        showToast('Expense Logged', `Successfully logged expense for ${params.category}.`);
-      } catch (err) {
-        showToast('Action Failed', 'Failed to log expense.');
-      }
-    } else if (action === 'create_purchase') {
-      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Admin';
-      if (!isAuthorized) {
-        showToast('Access Denied', 'Your active role does not have permission to create purchases.');
-        return;
-      }
-      try {
-        useExtraModulesStore.getState().addPurchase({
-          id: `PO-${Date.now().toString().slice(-6)}`,
-          businessId: activeBusinessId,
-          supplierName: params.supplierName || 'Supplier',
-          items: params.items || [],
-          totalAmount: parseFloat(params.totalAmount) || 0,
-          status: 'Approved',
-          date: new Date().toISOString(),
-        });
-        showToast('Purchase Created', `Successfully logged purchase from ${params.supplierName}.`);
-      } catch (err) {
-        showToast('Action Failed', 'Failed to log purchase.');
-      }
-    } else if (action === 'create_recipe_bom') {
-      const isAuthorized = currentRole === 'Owner' || currentRole === 'Manager' || currentRole === 'Production Staff';
-      if (!isAuthorized) {
-        showToast('Access Denied', 'Your active role does not have permission to create recipes.');
-        return;
-      }
-      try {
-        await SupabaseService.createBom({
-          businessId: activeBusinessId,
-          productId: params.productId,
-          name: params.name,
-          yieldQuantity: parseFloat(params.yieldQuantity) || 1,
-          yieldUnit: params.yieldUnit || 'Unit',
-          ingredients: params.ingredients || [],
-        });
-        showToast('Recipe Created', `Successfully created recipe: ${params.name}.`);
-      } catch (err) {
-        showToast('Action Failed', 'Failed to create recipe.');
-      }
-    }
-  };
-
   const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
   const groupMessages = () => {
@@ -520,9 +258,10 @@ export default function WorkspaceAssistantView() {
       if (response && (response.success || response.reply)) {
         let replyText =
           response.reply || 'I received your message, but I have no response.';
-        // Owners and Admins see why the AI failed, so they can fix the AI settings.
-        if (response.success === false && response.detail && ['Owner', 'Admin', 'Administrator'].includes(currentRole)) {
-          replyText += `\n\nReason: ${response.detail}`;
+        // Owners and Admins also get one plain line on what to fix (the server only
+        // sends it to them).
+        if (response.success === false && response.ownerHint) {
+          replyText += `\n\nFor the owner: ${response.ownerHint}`;
         }
 
         // Handle AI Pending Action Drafts & Action Triggers
@@ -564,35 +303,28 @@ export default function WorkspaceAssistantView() {
         };
 
         const actionMatches = extractPendingActions(replyText);
+        let queued = 0;
         for (const { jsonStr } of actionMatches) {
           try {
             const draftData = JSON.parse(jsonStr);
-            const rawType = (draftData.type || draftData.action || '').toLowerCase().replace(/_/g, '');
-            const normalizedType = draftData.type || draftData.action || 'custom_action';
-
-            if (rawType) {
-              // 1. ALWAYS route ALL AI actions to Pending Actions Store for human review
-              usePendingActionStore.getState().addPendingAction({
-                type: normalizedType === 'createcheckout' ? 'create_checkout' : normalizedType,
-                title: draftData.title || `${normalizedType.replace(/_/g, ' ').toUpperCase()} Draft`,
-                summary: draftData.summary || 'Draft action queued for human verification',
-                requiredPermission: draftData.requiredPermission || 'pos.create_sale',
-                params: draftData.params || {},
-                createdBy: `${aiName} AI Copilot`,
-              });
-
-              // 2. For POS checkouts, also populate the active POS cart
-              if (rawType === 'createcheckout') {
-                executeWorkspaceAction({
-                  action: 'create_checkout',
-                  params: draftData.params || {},
-                });
-              }
-            }
+            const type = draftData.type || draftData.action;
+            if (!type) continue;
+            // Nothing runs yet: the person confirms in Pending Actions, where the app
+            // checks their own permission for this type (not what the AI wrote).
+            usePendingActionStore.getState().addPendingAction({
+              type,
+              title: draftData.title || 'Assistant task',
+              summary: draftData.summary || '',
+              requiredPermission: '',
+              params: draftData.params || {},
+              createdBy: `${aiName} (assistant)`,
+            });
+            queued++;
           } catch (e) {
             console.error('Failed to parse pending action trigger:', e, jsonStr);
           }
         }
+        if (queued > 0) usePendingActionStore.getState().setDrawerOpen(true);
 
         // Clean all matched action blocks from the visible chat bubble reply
         for (const { fullMatch } of actionMatches) {
@@ -619,7 +351,9 @@ export default function WorkspaceAssistantView() {
         ...prev,
         {
           role: 'assistant',
-          content: `${aiName} is currently experiencing technical difficulties.`,
+          content: navigator.onLine
+            ? `Sorry, I couldn't answer that just now. Please try again in a minute.`
+            : `You're offline, so I can't answer right now. I'll be here when you're back online.`,
           timestamp: new Date().toISOString(),
         },
       ]);

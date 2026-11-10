@@ -4,6 +4,7 @@ import EndShiftModal from './EndShiftModal';
 import { useAuthStore } from '../stores/authStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { formatCurrency } from '../utils/helpers';
+import { getSupabase, isSupabaseConfigured } from '../services/supabaseClient';
 
 const LONG_SHIFT_HOURS = 10;
 
@@ -26,9 +27,37 @@ export default function ClockBar() {
 
   const employeeId = currentEmployee?.id;
 
-  // A shift survives restarts and logouts, so it is reloaded from the database.
+  // The database holds the one open shift per person. Every device and session
+  // follows it: reload on open, on any change to this person's shifts (realtime),
+  // when the app comes back to the screen or back online, and every minute as a
+  // fallback in case the realtime connection dropped.
   useEffect(() => {
-    if (employeeId && activeBusinessId) restoreActiveShift();
+    if (!employeeId || !activeBusinessId) return;
+    restoreActiveShift();
+
+    const refresh = () => restoreActiveShift();
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    const poll = setInterval(refresh, 60000);
+
+    let channel: any = null;
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabase();
+      channel = supabase
+        .channel(`shift-watch-${employeeId}-${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `employee_id=eq.${employeeId}` }, refresh)
+        .subscribe();
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      clearInterval(poll);
+      if (channel) getSupabase().removeChannel(channel);
+    };
   }, [employeeId, activeBusinessId, restoreActiveShift]);
 
   useEffect(() => {

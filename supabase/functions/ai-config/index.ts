@@ -12,7 +12,7 @@ import {
   verifyUserMembership,
 } from "../shared/cors.ts";
 
-import { runAI, getHuggingFaceTokens } from "../shared/ai-runner.ts";
+import { runAI, getHuggingFaceTokens, ownerAIHint } from "../shared/ai-runner.ts";
 
 /** Masks an API key: first 4 chars + •••••••• + last 4 chars */
 function maskKey(key: string): string {
@@ -182,7 +182,8 @@ Deno.serve(async (req) => {
           responseSample: testResult.text.slice(0, 100),
         });
       } else {
-        return errorResponse(testResult.error || "AI Test connection failed.", 400);
+        // This is the Owner's settings screen, so the per-key detail helps them fix it.
+        return errorResponse(`${ownerAIHint(testResult.code)}${testResult.error ? ` (${testResult.error})` : ""}`, 400);
       }
 
     } else {

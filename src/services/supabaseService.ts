@@ -1195,6 +1195,21 @@ export class SupabaseService {
     };
   }
 
+  /**
+   * Closes every open shift this employee has in the business, whichever device
+   * opened it, so one clock-out ends the shift everywhere. Already-closed is fine.
+   */
+  static async closeOpenShifts(businessId: string, employeeId: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('shifts')
+      .update({ status: 'Closed', end_time: new Date().toISOString() })
+      .eq('business_id', toUuid(businessId))
+      .eq('employee_id', employeeId)
+      .eq('status', 'Active')
+      .is('end_time', null);
+    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
+  }
+
   static async closeShift(shiftId: string): Promise<void> {
     const supabase = getSupabase();
     const { error } = await supabase

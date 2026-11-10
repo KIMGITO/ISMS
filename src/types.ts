@@ -141,6 +141,8 @@ export interface Invitation {
   id: string;
   businessId: string;
   name: string;
+  /** Only set when looked up by invitation code. */
+  businessName?: string;
   email: string;
   phone: string;
   role: EmployeeRole;
@@ -499,6 +501,8 @@ export type PendingActionType =
   | 'delete_employee'
   | 'update_role'
   | 'create_shift'
+  | 'clock_in'
+  | 'clock_out'
   | 'update_shift'
   | 'delete_shift'
   

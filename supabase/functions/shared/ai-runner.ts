@@ -28,10 +28,50 @@ export interface AIRunnerOptions {
   responseSchema?: unknown;
 }
 
+/** Why the AI didn't answer, in a form the app can turn into a plain message. */
+export type AIFailureCode =
+  | "out_of_credit"   // every key has used its free monthly credit
+  | "invalid_key"     // keys rejected or missing the Inference Providers permission
+  | "no_key"          // no key set at all
+  | "busy"            // rate limits, timeouts, models not answering
+  | "disabled";       // the Owner turned the AI off
+
 export interface AIRunnerResult {
   success: boolean;
   text: string;
+  /** Technical reason, for logs and the Owner's hint. Never shown as-is to staff. */
   error?: string;
+  code?: AIFailureCode;
+}
+
+/** What anyone using the app sees when the AI can't answer. */
+export function friendlyAIMessage(code?: AIFailureCode): string {
+  switch (code) {
+    case "disabled":
+      return "The assistant is switched off for this business. The owner can turn it on in Settings.";
+    case "out_of_credit":
+    case "invalid_key":
+    case "no_key":
+      return "The assistant is resting for now. Everything else in the app works as normal. Please try again later.";
+    default:
+      return "The assistant is busy right now. Please try again in a minute.";
+  }
+}
+
+/** One plain line for Owners and Admins saying what to fix. Names secrets, never their values. */
+export function ownerAIHint(code?: AIFailureCode): string {
+  switch (code) {
+    case "out_of_credit":
+      return "All Hugging Face keys have used up this month's free credit. Add another key as a Supabase secret (HF_TOKEN_C, HF_TOKEN_D or HF_TOKEN_E) or wait for the credit to reset next month.";
+    case "invalid_key":
+      return "A Hugging Face key was refused. Check the token is valid and has the \"Make calls to Inference Providers\" permission.";
+    case "no_key":
+      return "No AI key is set. Add a Hugging Face token as the Supabase secret HF_TOKEN_A.";
+    case "disabled":
+      return "The assistant is turned off in AI settings.";
+    default:
+      return "The AI service is busy or slow right now. If this keeps happening, check the AI settings.";
+  }
 }
 
 export async function loadAISettings(businessId: string): Promise<AISettings> {
@@ -75,7 +115,7 @@ export async function runAI(settings: any, options: AIRunnerOptions): Promise<AI
   const safeSettings = settings || { provider: "huggingface", model: "Qwen/Qwen2.5-72B-Instruct", enabled: true };
 
   if (safeSettings.enabled === false) {
-    return { success: false, text: "", error: "AI is currently disabled for this business by the Owner." };
+    return { success: false, text: "", error: "AI is currently disabled for this business by the Owner.", code: "disabled" };
   }
 
   const provider = (safeSettings.provider || "huggingface").toLowerCase();
@@ -93,31 +133,36 @@ export async function runAI(settings: any, options: AIRunnerOptions): Promise<AI
 
   console.warn(`[ai-runner] Primary provider [${provider}] failed: ${primaryRes.error}. Initiating fallback chain...`);
 
-  // 2. Fallback: Try Gemini if key available
+  // 2. Fallback: Gemini, only if a key is set
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   if (geminiKey && provider !== "gemini") {
     console.log("[ai-runner] Attempting Gemini fallback...");
-    const geminiRes = await runGemini(geminiKey, { ...safeSettings, model: "gemini-1.5-flash" }, options);
+    const geminiRes = await runGemini(geminiKey, { ...safeSettings, model: "gemini-2.5-flash" }, options);
     if (geminiRes.success) return geminiRes;
     console.warn(`[ai-runner] Gemini fallback failed: ${geminiRes.error}`);
   }
 
   // 3. Fallback: Hugging Face, unless that was the provider just tried (running the
   //    whole rotation twice only doubles the calls and the credit used)
+  let hfRes: AIRunnerResult | null = null;
   if (provider !== "huggingface") {
     console.log("[ai-runner] Attempting HuggingFace fallback...");
-    const hfRes = await runHuggingFaceRotation("", safeSettings, options);
+    hfRes = await runHuggingFaceRotation("", safeSettings, options);
     if (hfRes.success) return hfRes;
     console.warn(`[ai-runner] HuggingFace fallback failed: ${hfRes.error}`);
   }
 
-  // 4. Fallback: Try OpenRouter free models
-  console.log("[ai-runner] Attempting OpenRouter fallback...");
-  const openRouterRes = await runOpenRouterFree(safeSettings, options);
-  if (openRouterRes.success) return openRouterRes;
-  console.warn(`[ai-runner] OpenRouter fallback failed: ${openRouterRes.error}`);
+  // 4. Fallback: OpenRouter free models, only if a key is set (they refuse calls without one)
+  if (Deno.env.get("OPENROUTER_API_KEY")) {
+    console.log("[ai-runner] Attempting OpenRouter fallback...");
+    const openRouterRes = await runOpenRouterFree(safeSettings, options);
+    if (openRouterRes.success) return openRouterRes;
+    console.warn(`[ai-runner] OpenRouter fallback failed: ${openRouterRes.error}`);
+  }
 
-  return primaryRes;
+  // The Hugging Face result says most about why (its keys are the main pool).
+  const failure = provider === "huggingface" ? primaryRes : (hfRes && hfRes.code !== "no_key" ? hfRes : primaryRes);
+  return { ...failure, code: failure.code || "busy" };
 }
 
 async function executeProvider(provider: string, apiKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
@@ -144,10 +189,11 @@ async function executeProvider(provider: string, apiKey: string, settings: AISet
 }
 
 
+// Rotation order: A to E first, then the older single-key names. A key set under two
+// names (e.g. HF_TOKEN_A and HUGGING_FACE_TOKEN) is only tried once.
 const HF_TOKEN_NAMES = [
-  // Newest names first. HUGGING_FACE_TOKEN is what the Supabase dashboard secret is called.
-  "HUGGING_FACE_TOKEN", "HUGGINGFACE_TOKEN", "HF_TOKEN",
   "HF_TOKEN_A", "HF_TOKEN_B", "HF_TOKEN_C", "HF_TOKEN_D", "HF_TOKEN_E",
+  "HUGGING_FACE_TOKEN", "HUGGINGFACE_TOKEN", "HF_TOKEN",
 ];
 
 /** Hugging Face keys from the Supabase secrets, with the secret's name (never shown: the value). */
@@ -166,16 +212,33 @@ export function getHuggingFaceTokens(): string[] {
   return huggingFaceTokenPool().map((p) => p.token);
 }
 
+// Keys known to be out of credit or refused, remembered while this function instance
+// stays warm, so each question doesn't spend a call on a key that can't answer.
+// Remembered by a short fingerprint of the key, so replacing a secret clears it.
+const benchedKeys = new Map<string, { reason: "out_of_credit" | "invalid_key"; until: number }>();
+const fingerprint = (token: string) => `${token.slice(0, 6)}…${token.slice(-4)}:${token.length}`;
+const CREDIT_BENCH_MS = 6 * 60 * 60 * 1000;
+const INVALID_BENCH_MS = 30 * 60 * 1000;
+
+function isBenched(token: string): boolean {
+  const b = benchedKeys.get(fingerprint(token));
+  if (!b) return false;
+  if (Date.now() > b.until) { benchedKeys.delete(fingerprint(token)); return false; }
+  return true;
+}
+
+const CREDIT_WORDS = /credit|quota|exceeded|billing|payment required|subscribe to pro|insufficient|balance/i;
+
 /**
- * Tries the Hugging Face router with each key in turn (rotation), model by model.
- * A key that is invalid, lacks permission or is out of credit is dropped for the rest
- * of the request; a model the router doesn't serve moves on to the next model. If all
- * fail, the error says what happened to each key, by secret name.
+ * Rotates through the Hugging Face keys (AI-settings key, then HF_TOKEN_A to E, then
+ * the older names) and uses the first one that is set and still has credit. A key
+ * that is out of credit or refused moves on to the next key; a model the router
+ * doesn't serve moves on to the next model with the same key.
  */
 async function runHuggingFaceRotation(dbKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
   const pool = huggingFaceTokenPool(dbKey);
   if (pool.length === 0) {
-    return { success: false, text: "", error: "No Hugging Face key is set. Add one in AI settings or as the HUGGING_FACE_TOKEN secret." };
+    return { success: false, text: "", code: "no_key", error: "No Hugging Face key is set. Add one as the HF_TOKEN_A secret." };
   }
 
   // Models the Hugging Face router serves (checked against router.huggingface.co/v1/models
@@ -194,14 +257,18 @@ async function runHuggingFaceRotation(dbKey: string, settings: AISettings, optio
     ...options.messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  // Why each key stopped being used, e.g. "HF_TOKEN_A: out of free monthly credits"
-  const dead = new Map<string, string>();
-  const modelProblems: string[] = [];
+  // Try benched keys last rather than never: credit may have reset since.
+  const ordered = [...pool.filter((p) => !isBenched(p.token)), ...pool.filter((p) => isBenched(p.token))];
 
-  for (const model of models) {
-    let modelUnavailable = false;
-    for (const { label, token } of pool) {
-      if (dead.has(label) || modelUnavailable) continue;
+  const keyStatus = new Map<string, string>();
+  const unservedModels = new Set<string>();
+  let outOfCredit = 0;
+  let refused = 0;
+
+  for (const { label, token } of ordered) {
+    let keyDone = false;
+    for (const model of models) {
+      if (keyDone || unservedModels.has(model)) continue;
 
       for (let attempt = 0; attempt < 2; attempt++) {
         let res: Response;
@@ -218,9 +285,10 @@ async function runHuggingFaceRotation(dbKey: string, settings: AISettings, optio
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(45000),
           });
         } catch (err: any) {
-          modelProblems.push(`network error reaching Hugging Face (${err?.message || "fetch failed"})`);
+          keyStatus.set(label, `no reply from Hugging Face (${err?.name === "TimeoutError" ? "timed out" : err?.message || "network error"})`);
           break;
         }
 
@@ -229,34 +297,53 @@ async function runHuggingFaceRotation(dbKey: string, settings: AISettings, optio
 
         if (res.ok) {
           const text = body?.choices?.[0]?.message?.content || "";
-          if (text.trim().length > 0) return { success: true, text };
-          modelProblems.push(`${model} returned an empty reply`);
+          if (text.trim().length > 0) {
+            benchedKeys.delete(fingerprint(token));
+            console.log(`[ai-runner] Answered with ${label} on ${model}`);
+            return { success: true, text };
+          }
+          keyStatus.set(label, `${model} returned an empty reply`);
           break;
         }
-        if (res.status === 401) { dead.set(label, "rejected: the key is invalid or expired"); break; }
-        if (res.status === 403) { dead.set(label, "not allowed: the token needs the \"Make calls to Inference Providers\" permission"); break; }
-        if (res.status === 402) { dead.set(label, "out of free monthly credits"); break; }
-        if (res.status === 429) { modelProblems.push(`${label} rate-limited on ${model}`); break; }
-        if ((res.status === 503 || res.status === 504) && attempt === 0) { await delay(1000); continue; }
+        if (res.status === 402 || CREDIT_WORDS.test(detail)) {
+          benchedKeys.set(fingerprint(token), { reason: "out_of_credit", until: Date.now() + CREDIT_BENCH_MS });
+          keyStatus.set(label, "out of free monthly credit");
+          outOfCredit++;
+          keyDone = true;
+          break;
+        }
+        if (res.status === 401 || res.status === 403) {
+          benchedKeys.set(fingerprint(token), { reason: "invalid_key", until: Date.now() + INVALID_BENCH_MS });
+          keyStatus.set(label, res.status === 401
+            ? "refused: the key is invalid or expired"
+            : "not allowed: the token needs the \"Make calls to Inference Providers\" permission");
+          refused++;
+          keyDone = true;
+          break;
+        }
+        if (res.status === 429) { keyStatus.set(label, "rate-limited"); keyDone = true; break; }
+        if (res.status >= 500 && attempt === 0) { await delay(800); continue; }
+        if (res.status >= 500) { keyStatus.set(label, `${model} is down (HTTP ${res.status})`); break; }
         // 400/404/422: usually the router doesn't serve this model; try the next model
-        modelUnavailable = true;
-        modelProblems.push(`${model}: ${detail || `HTTP ${res.status}`}`);
+        unservedModels.add(model);
+        keyStatus.set(label, `${model}: ${detail || `HTTP ${res.status}`}`);
         break;
       }
     }
   }
 
-  const keyReport = pool.map(({ label }) => `${label}: ${dead.get(label) || "accepted, but no model answered"}`);
-  const lastModel = modelProblems.length ? ` Last model problem: ${modelProblems[modelProblems.length - 1]}.` : "";
-  return { success: false, text: "", error: `Hugging Face didn't answer. ${keyReport.join("; ")}.${lastModel}` };
+  const code: AIFailureCode =
+    outOfCredit + refused === pool.length ? (outOfCredit > 0 ? "out_of_credit" : "invalid_key") : "busy";
+  const keyReport = pool.map(({ label }) => `${label}: ${keyStatus.get(label) || "no model answered"}`);
+  return { success: false, text: "", code, error: `Hugging Face didn't answer. ${keyReport.join("; ")}.` };
 }
 
 async function runOpenRouterFree(settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
   const freeModels = [
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "qwen/qwen-2.5-coder-32b-instruct:free",
-    "google/gemma-2-9b-it:free",
-    "mistralai/pixtral-12b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
   ];
 
   const orApiKey = Deno.env.get("OPENROUTER_API_KEY") || "";
@@ -331,7 +418,7 @@ async function runGemini(apiKey: string, settings: AISettings, options: AIRunner
     payload.systemInstruction = { parts: [{ text: options.systemInstruction }] };
   }
 
-  const baseModel = settings.model?.includes("gemini") ? settings.model : "gemini-1.5-flash";
+  const baseModel = settings.model?.includes("gemini") ? settings.model : "gemini-2.5-flash";
   
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${baseModel}:generateContent?key=${apiKey}`;

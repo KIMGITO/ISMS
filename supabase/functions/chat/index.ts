@@ -12,7 +12,25 @@ import {
   requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { loadAISettings, runAI } from "../shared/ai-runner.ts";
+import { loadAISettings, runAI, friendlyAIMessage, ownerAIHint } from "../shared/ai-runner.ts";
+
+// What the assistant can prepare, the permission each needs (null: everyone), and an
+// example. Mirrors ASSISTANT_ACTIONS in src/stores/pendingActionStore.ts, which checks
+// the permission again before anything runs. Only the ones this person may do are offered.
+const ACTIONS: { type: string; permission: string | null; does: string; example: string }[] = [
+  { type: "create_checkout", permission: "pos.create_sale", does: "put items in the till cart for a sale", example: '{"type":"create_checkout","title":"Sale","summary":"3 Whole Milk","params":{"items":[{"productName":"Whole Milk","quantity":3}]}}' },
+  { type: "create_customer", permission: "customers.create", does: "add a customer", example: '{"type":"create_customer","title":"New customer","summary":"John Doe","params":{"name":"John Doe","phone":"0712345678"}}' },
+  { type: "update_customer", permission: "customers.update", does: "change a customer's name, phone or email", example: '{"type":"update_customer","title":"Edit customer","summary":"New phone for Jane","params":{"customerName":"Jane Wanjiku","phone":"0722000000"}}' },
+  { type: "settle_debt", permission: "customers.debts", does: "record a payment towards a customer's debt (method Cash or M-Pesa)", example: '{"type":"settle_debt","title":"Debt payment","summary":"Jane pays 1000","params":{"customerName":"Jane Wanjiku","amount":1000,"method":"Cash"}}' },
+  { type: "adjust_wallet", permission: "customers.debts", does: "add money to a customer's wallet", example: '{"type":"adjust_wallet","title":"Wallet top-up","summary":"Jane +500","params":{"customerName":"Jane Wanjiku","amount":500}}' },
+  { type: "create_product", permission: "products.create", does: "add a product", example: '{"type":"create_product","title":"New product","summary":"Yoghurt 500ml","params":{"name":"Yoghurt 500ml","price":120,"cost":80,"stock":0,"unit":"Cup","category":"Dairy"}}' },
+  { type: "update_product", permission: "products.update", does: "change a product's price, cost, minimum stock, category or unit (not stock: use adjust_stock)", example: '{"type":"update_product","title":"Price change","summary":"Milk to 60","params":{"productName":"Whole Milk","price":60}}' },
+  { type: "adjust_stock", permission: "inventory.adjust_stock", does: "add stock (type restock) or remove damaged stock (type damage)", example: '{"type":"adjust_stock","title":"Stock adjustment","summary":"Milk -5 damaged","params":{"productName":"Whole Milk","quantity":5,"type":"damage","reason":"Spilt"}}' },
+  { type: "create_expense", permission: "expenses.create", does: "record an expense", example: '{"type":"create_expense","title":"Expense","summary":"Fuel 2500","params":{"amount":2500,"category":"Fuel","description":"Delivery motorbike"}}' },
+  { type: "create_shift", permission: "staff.schedule", does: "schedule a worker's shift (date YYYY-MM-DD, times HH:MM)", example: '{"type":"create_shift","title":"Shift","summary":"Peter Saturday 8-5","params":{"workerName":"Peter","date":"2026-11-14","startTime":"08:00","endTime":"17:00"}}' },
+  { type: "clock_in", permission: null, does: "clock the person talking to you in", example: '{"type":"clock_in","title":"Clock in","summary":"Start my shift","params":{}}' },
+  { type: "clock_out", permission: null, does: "clock the person talking to you out", example: '{"type":"clock_out","title":"Clock out","summary":"End my shift","params":{}}' },
+];
 
 Deno.serve(async (req) => {
   const corsResp = handleCors(req);
@@ -117,7 +135,6 @@ Deno.serve(async (req) => {
     const currency = biz?.currency || "KSh";
     const aiName = Deno.env.get("VITE_AI_NAME") || "Kim";
     const userRole = activeRole || "Owner";
-    const isOwner = userRole.toLowerCase() === "owner";
     const hasFullAccess = ["owner", "admin", "administrator"].includes(userRole.toLowerCase());
 
     // Permissions come from the database, never from the request. The assistant only sees
@@ -134,6 +151,9 @@ Deno.serve(async (req) => {
     const canSeeCustomers = hasFullAccess || userPerms.includes("customers.view");
     const canSeeStaff = hasFullAccess || userPerms.includes("staff.view");
     const userName = employeeName || "Operator";
+    const mayDo = (perm: string | null) => perm === null || hasFullAccess || userPerms.includes(perm);
+    const allowedActions = ACTIONS.filter((x) => mayDo(x.permission));
+    const blockedActions = ACTIONS.filter((x) => !mayDo(x.permission));
 
     // ── 3. Guard: AI not configured ─────────────────────────────────────
     if (!settings) {
@@ -147,15 +167,13 @@ Deno.serve(async (req) => {
     // ── 4. Build system instruction ──────────────────────────────────────
     const systemInstruction = `You are ${aiName}, the professional enterprise-grade Workspace Assistant for "${bizName}".
 
-OPERATOR AUTHORITY:
+OPERATOR:
 Name: ${userName}
-Active Role: ${userRole}
-Is Business Owner: ${isOwner ? "YES (Full Unrestricted Access)" : "NO"}
-Assigned Permissions: ${isOwner ? "ALL_PERMISSIONS" : JSON.stringify(userPerms)}
+Role: ${userRole}
 
-ROLE AUTHORITY RULES (CRITICAL):
-1. If the operator's role is "Owner" or Is Business Owner is YES, they have 100% FULL, UNRESTRICTED AUTHORITY for ALL operations (POS checkouts, sales, stock adjustments, customer management, staff inviting, purchases, expenses, etc.). NEVER refuse an Owner request or claim missing permissions!
-2. For non-Owners, verify assigned permissions or standard role access (e.g. pos.create_sale, pos.checkout, products.create, inventory.adjust_stock).
+WHAT THIS PERSON MAY ASK YOU TO DO:
+${allowedActions.length ? allowedActions.map((x) => "- " + x.does).join("\n") : "- Nothing that changes data. Answer questions only."}
+${blockedActions.length ? `NOT ALLOWED FOR THIS ROLE (if asked, say politely that their role can't do it and the owner can give them access; do not prepare it):\n${blockedActions.map((x) => "- " + x.does).join("\n")}` : ""}
 
 LIVE BUSINESS DATA (as of ${new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })}):
 Business: ${bizName}
@@ -191,20 +209,16 @@ STRICT FORMATTING RULES (CRITICAL MANDATORY):
 4. DO NOT use WhatsApp style formatting.
 5. Present lists using clean numbered text (1., 2., 3.) or plain text bullet lines.
 6. Keep responses clean, direct, organized, and helpful.
+7. The PENDING_ACTION line is the only exception: write its JSON exactly as shown, underscores included.
 
-AI PENDING ACTION (DRAFT) TRIGGERS:
-When the user requests an action AND you have parameters AND the operator is authorized (always authorized if Owner), append a single JSON block at the very end of your response text:
+TONE:
+Be warm, polite and brief, like a helpful colleague at the shop. Answer in the language the person writes in (English or Swahili). Use real numbers from the data above; if something is not in the data, say you don't have it rather than guessing.
 
-1. POS Sale Draft:
-[PENDING_ACTION: {"type": "create_checkout", "title": "POS Sale Draft", "summary": "3L Whole Milk", "requiredPermission": "pos.create_sale", "params": {"paymentMethod": "Cash", "items": [{"productName": "Whole Milk", "quantity": 3}]}}]
-
-2. Stock Adjustment Draft:
-[PENDING_ACTION: {"type": "adjust_stock", "title": "Stock Adjustment", "summary": "Whole Milk (-5L)", "requiredPermission": "inventory.adjust_stock", "params": {"productName": "Whole Milk", "quantity": 5, "type": "damage"}}]
-
-3. Customer/Employee/Supplier Management:
-[PENDING_ACTION: {"type": "create_customer", "title": "New Customer", "summary": "John Doe", "requiredPermission": "customers.create", "params": {"name": "John Doe", "phone": "0712345678"}}]
-[PENDING_ACTION: {"type": "create_expense", "title": "Expense Record", "summary": "Fuel (2500)", "requiredPermission": "expenses.create", "params": {"amount": 2500, "category": "Fuel"}}]
-[PENDING_ACTION: {"type": "settle_debt", "title": "Debt Settlement", "summary": "Pay 1000", "requiredPermission": "customers.debts", "params": {"customerId": "cust_1", "amount": 1000}}]`;
+HOW TO DO A TASK:
+When the person asks you to do one of the allowed tasks above and you know the details, say in one short sentence what you prepared, then add the action on its own line at the very end, exactly in this form:
+[PENDING_ACTION: {json}]
+The app shows it to the person to confirm before anything changes, so say "Tap Confirm to finish" rather than claiming it is done. Use names exactly as they appear in the data above. If a detail is missing (amount, which customer, quantity), ask for it instead of guessing. One action per task; several tasks may each have their own line.
+${allowedActions.length ? "Formats:\n" + allowedActions.map((x) => `[PENDING_ACTION: ${x.example}]`).join("\n") : ""}`;
 
     // ── 5. Call the AI ───────────────────────────────────────────────────
     const result = await runAI(settings, {
@@ -220,18 +234,17 @@ When the user requests an action AND you have parameters AND the operator is aut
       text = text.replace(/(\*\*|\*|#|`)/g, ""); // remove markdown formatting symbols (keep underscores for JSON)
       return jsonResponse({ success: true, reply: text });
     } else {
-      console.warn("[chat] AI call failed:", result.error);
+      console.warn("[chat] AI call failed:", result.code, result.error);
       return jsonResponse({
         success: false,
-        error: "The assistant is unavailable right now.",
-        // Why it failed (e.g. invalid token, rate limit). Provider messages only, never keys;
-        // the app shows it to Owners and Admins so they can fix the AI settings.
-        detail: String(result.error || "").slice(0, 300),
-        reply: "The assistant is unavailable right now. Please try again shortly. If this continues, ask the Owner to check the AI settings.",
+        code: result.code || "busy",
+        reply: friendlyAIMessage(result.code),
+        // One plain line on what to fix, shown only to Owners and Admins. Names secrets, never values.
+        ownerHint: hasFullAccess ? ownerAIHint(result.code) : undefined,
       });
     }
   } catch (err: any) {
     console.error("[chat] Critical error:", err);
-    return errorResponse("Something went wrong. Please try again.", 500);
+    return jsonResponse({ success: false, code: "busy", reply: friendlyAIMessage("busy") });
   }
 });

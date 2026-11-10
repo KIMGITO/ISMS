@@ -13,6 +13,7 @@ import { nativePlatformService } from "../core/native/NativePlatformService";
 import { notificationService } from "../core/native/NotificationService";
 import { NotificationService } from "../services/notifications/notificationService";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
+import { NotificationPreferences } from "../services/notifications/notificationPreferences";
 import { realtimeService } from "../services/realtimeService";
 import { ProductRepository, TransactionRepository, CustomerRepository, ExpenseRepository, ExpenseCategoryRepository, InventoryAdjustmentRepository } from "../services/repositories";
 import { useCartStore } from "./cartStore";
@@ -63,7 +64,9 @@ interface AuthState {
   switchBusiness: (businessId: string) => void;
   revokeInvitation: (id: string) => void;
   initializeAuthStateListener: () => (() => void);
-  hydrateAuthSessionData: (authUser: any, force?: boolean) => Promise<void>;
+  hydrateAuthSessionData: (authUser: any, force?: boolean, quiet?: boolean) => Promise<void>;
+  /** Reloads the signed-in person's role, profile and team, e.g. after an admin changes them. */
+  refreshSession: () => Promise<void>;
   isInitializing: boolean;
   isHydrating: boolean;
   initializationError: string | null;
@@ -165,6 +168,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
   let unsubPerms: (() => void) | null = null;
   let unsubMembership: (() => void) | null = null;
   let unsubPresence: (() => void) | null = null;
+  // A refresh asked for while one is running runs again afterwards, so no change is missed.
+  let hydrateAgain = false;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastFocusRefresh = 0;
+
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const refreshOnReturn = () => {
+      if (document.visibilityState !== "visible" || !get().currentUser) return;
+      if (Date.now() - lastFocusRefresh < 30000) return;
+      lastFocusRefresh = Date.now();
+      get().refreshSession().catch(console.error);
+    };
+    document.addEventListener("visibilitychange", refreshOnReturn);
+    window.addEventListener("focus", refreshOnReturn);
+  }
 
   return {
     // Basic state
@@ -289,8 +307,26 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     // Hydrate all user, membership, and business settings once authenticated
-    hydrateAuthSessionData: async (authUser, force = false) => {
+    refreshSession: () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      return new Promise<void>((resolve) => {
+        refreshTimer = setTimeout(async () => {
+          refreshTimer = null;
+          try {
+            const { data } = await getSupabase().auth.getSession();
+            const user = data.session?.user;
+            if (user) await get().hydrateAuthSessionData(user, true, true);
+          } catch (err) {
+            console.error("Could not refresh the session:", err);
+          }
+          resolve();
+        }, 250);
+      });
+    },
+
+    hydrateAuthSessionData: async (authUser, force = false, quiet = false) => {
       if (get().isHydrating) {
+        if (force) hydrateAgain = true;
         return;
       }
       
@@ -498,26 +534,31 @@ export const useAuthStore = create<AuthState>((set, get) => {
           console.warn("[AuthStore] Push registration error:", e);
         }
 
-        // Subscribe to real-time changes on business_memberships table for current user
+        // Follow changes to this person's roles, the team and its invitations, so a
+        // promotion, a renamed worker or an accepted invitation shows without signing in again.
         if (unsubMembership) unsubMembership();
         if (mappedUser.id) {
-          const userMemFilter = `user_id=eq.${toUuid(mappedUser.id)}`;
-          const memChannel = supabase
-            .channel("realtime-user-membership")
+          const refresh = () => {
+            get().refreshSession().catch(console.error);
+          };
+          let teamChannel = supabase
+            .channel(`realtime-team-${mappedUser.id}`)
             .on(
               "postgres_changes",
-              { event: "*", schema: "public", table: "business_memberships", filter: userMemFilter },
-              async (payload) => {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                  await get().hydrateAuthSessionData(user, true);
-                }
-              }
+              { event: "*", schema: "public", table: "business_memberships", filter: `user_id=eq.${toUuid(mappedUser.id)}` },
+              refresh
             )
-            .subscribe();
+            .on("postgres_changes", { event: "*", schema: "public", table: "users" }, refresh);
+          if (activeBizId) {
+            const bizFilter = `business_id=eq.${toUuid(activeBizId)}`;
+            teamChannel = teamChannel
+              .on("postgres_changes", { event: "*", schema: "public", table: "business_memberships", filter: bizFilter }, refresh)
+              .on("postgres_changes", { event: "*", schema: "public", table: "invitations", filter: bizFilter }, refresh);
+          }
+          teamChannel.subscribe();
 
           unsubMembership = () => {
-            supabase.removeChannel(memChannel);
+            supabase.removeChannel(teamChannel);
           };
         }
 
@@ -546,6 +587,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         unsubPresence = startPresenceHeartbeat(activeBizId, mappedUser.id);
       } catch (err) {
         console.error("Failed to hydrate auth session:", err);
+        // A background refresh keeps what's on screen; only sign-in clears it.
+        if (quiet) return;
         // Explicitly clear auth states and sign out if database validation fails
         set({
           currentUser: null,
@@ -561,6 +604,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await supabase.auth.signOut().catch(console.error);
       } finally {
         set({ isHydrating: false });
+        if (hydrateAgain) {
+          hydrateAgain = false;
+          get().refreshSession().catch(console.error);
+        }
       }
     },
 
@@ -616,6 +663,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
       localStorage.removeItem("kkm_notification_scheduled_tasks_v1");
 
       // Clear local repositories to prevent data leaking
+      NotificationRepository.clearMemory();
+      NotificationPreferences.clear();
       ProductRepository.setAll([]);
       TransactionRepository.setAll([]);
       CustomerRepository.setAll([]);
@@ -774,7 +823,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           localStorage.setItem("kkm_current_business_id_v2", newBizId);
-          await get().hydrateAuthSessionData(user);
+          await get().hydrateAuthSessionData(user, true);
         }
 
         useNotificationStore.getState().showToast(
@@ -985,7 +1034,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
           invitation: {
             id: invite.id,
             businessId: invite.business_id,
-            name: invite.business_name, // Returns business_name inside business_name string mapping
+            // The invitee's own name. Older databases only return the shop name, so leave it blank then.
+            name: invite.invitee_name ?? "",
+            businessName: invite.business_name || "",
             email: invite.email || "",
             phone: invite.phone || "",
             role: invite.role,
@@ -1202,14 +1253,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    // Reloads an open shift so that clock-in state survives restarts and logouts.
+    // Reloads the open shift from the database. The database is the only truth, so
+    // a clock-in or clock-out on any other device or session shows up here too.
     restoreActiveShift: async () => {
       const emp = get().currentEmployee;
       const businessId = useBusinessStore.getState().activeBusinessId;
       if (!emp || !businessId) return;
       try {
         const activeShift = await SupabaseService.fetchActiveShift(businessId, emp.id);
-        set({ activeShift });
+        const current = get().currentEmployee;
+        if (!current || current.id !== emp.id) return;
+        set({
+          activeShift,
+          currentEmployee: { ...current, activeShiftId: activeShift?.id || null },
+        });
       } catch (err) {
         console.error("Failed to restore active shift:", err);
       }
@@ -1219,14 +1276,30 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const emp = get().currentEmployee;
       const businessId = useBusinessStore.getState().activeBusinessId;
       if (!emp || !businessId) return false;
-      if (get().activeShift) return true;
 
       try {
-        const newShift = await SupabaseService.createShift({
-          businessId,
-          employeeId: emp.id,
-          startTime: new Date().toISOString(),
-        });
+        // Another device may already have clocked this person in: join that shift.
+        const existing = await SupabaseService.fetchActiveShift(businessId, emp.id);
+        if (existing) {
+          set({ activeShift: existing, currentEmployee: { ...emp, activeShiftId: existing.id } });
+          return true;
+        }
+
+        let newShift: Shift;
+        try {
+          newShift = await SupabaseService.createShift({
+            businessId,
+            employeeId: emp.id,
+            startTime: new Date().toISOString(),
+          });
+        } catch (err: any) {
+          // Two devices clocked in at the same moment; the database keeps one open shift.
+          if (err?.code !== "23505") throw err;
+          const winner = await SupabaseService.fetchActiveShift(businessId, emp.id);
+          if (!winner) throw err;
+          set({ activeShift: winner, currentEmployee: { ...emp, activeShiftId: winner.id } });
+          return true;
+        }
 
         set({
           activeShift: newShift,
@@ -1252,18 +1325,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
     punchOut: async () => {
       const shift = get().activeShift;
       const emp = get().currentEmployee;
-      if (!shift || !emp) return false;
+      const businessId = useBusinessStore.getState().activeBusinessId;
+      if (!emp || !businessId) return false;
 
       try {
-        const completedShift = await SupabaseService.updateShift({
-          ...shift,
-          endTime: new Date().toISOString(),
-          status: "Closed",
-        });
-
+        // Closes every open shift for this person, including ones opened on other
+        // devices; the realtime watch then clears the clock bar on those devices.
+        await SupabaseService.closeOpenShifts(businessId, emp.id);
+        const endTime = new Date().toISOString();
         set({
           activeShift: null,
-          shifts: get().shifts.map((s) => (s.id === shift.id ? completedShift : s)),
+          shifts: shift
+            ? get().shifts.map((s) => (s.id === shift.id ? { ...s, endTime, status: "Closed" as const } : s))
+            : get().shifts,
           currentEmployee: { ...emp, activeShiftId: null }
         });
         return true;
@@ -1296,14 +1370,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
         salesTotal: currentShift.salesTotal + finalTotal,
       };
 
+      // Display only. The database counts the sale when it is saved
+      // (fn_process_completed_transaction). Writing this copy back would count it
+      // twice and could reopen a shift another device already closed.
       set({
         activeShift: updatedShift,
         shifts: get().shifts.map((s) => (s.id === currentShift.id ? updatedShift : s)),
       });
-
-      SupabaseService.updateShift(updatedShift).catch((err) =>
-        console.error("Failed to save shift totals:", err)
-      );
     },
 
     createWorker: (worker) => {
@@ -1320,8 +1393,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           .delete()
           .eq("business_id", bizId)
           .eq("user_id", id);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) await get().hydrateAuthSessionData(user);
+        await get().refreshSession();
       }
     },
 
@@ -1330,7 +1402,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     updateProfile: async (id, updates) => {
-      // Optimistically update the UI instantly
+      const supabase = getSupabase();
+      const bizId = get().currentBusinessId;
+      const previous = { employees: get().employees, currentEmployee: get().currentEmployee };
+
+      // Show the change straight away; put it back if the server refuses.
       set((state) => ({
         employees: state.employees.map((emp) =>
           emp.id === id ? { ...emp, name: updates.name, phone: updates.phone, avatar: updates.avatar || emp.avatar, role: updates.role || emp.role } : emp
@@ -1340,25 +1416,39 @@ export const useAuthStore = create<AuthState>((set, get) => {
           : state.currentEmployee
       }));
 
-      const supabase = getSupabase();
-      const bizId = get().currentBusinessId;
-      await supabase
-        .from("users")
-        .update({
-          name: updates.name,
-          phone: formatToE164(updates.phone),
-          avatar: updates.avatar
-        })
-        .eq("id", id);
-      if (updates.role && bizId) {
-        await supabase
-          .from("business_memberships")
-          .update({ role: updates.role })
-          .eq("business_id", bizId)
-          .eq("user_id", id);
+      try {
+        const { error } = await supabase.rpc("update_team_member", {
+          p_business_id: bizId ? toUuid(bizId) : null,
+          p_user_id: toUuid(id),
+          p_name: updates.name,
+          p_phone: formatToE164(updates.phone),
+          p_avatar: updates.avatar || null,
+          p_role: updates.role || null,
+        });
+        // PGRST202: the database doesn't have update_team_member yet, so use the old direct writes.
+        if (error && error.code === "PGRST202") {
+          const { error: userErr } = await supabase
+            .from("users")
+            .update({ name: updates.name, phone: formatToE164(updates.phone), avatar: updates.avatar })
+            .eq("id", id);
+          if (userErr) throw userErr;
+          if (updates.role && bizId) {
+            const { error: roleErr } = await supabase
+              .from("business_memberships")
+              .update({ role: updates.role })
+              .eq("business_id", bizId)
+              .eq("user_id", id);
+            if (roleErr) throw roleErr;
+          }
+        } else if (error) {
+          throw error;
+        }
+      } catch (err) {
+        set(previous);
+        throw err;
       }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) await get().hydrateAuthSessionData(user);
+
+      await get().refreshSession();
     },
 
     setEmployees: (employees) => {},

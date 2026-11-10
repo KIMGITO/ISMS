@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
+import { useNotificationStore } from '../stores/notificationStore';
 
 export default function PendingActionsDrawer() {
   const {
@@ -100,7 +101,10 @@ export default function PendingActionsDrawer() {
   const handleExecute = async (id: string) => {
     setIsExecuting(id);
     try {
-      await executePendingAction(id);
+      const result = await executePendingAction(id);
+      if (!result.success) {
+        useNotificationStore.getState().showToast("Couldn't do that", result.error || 'Please try again.', undefined, 'error');
+      }
     } finally {
       setIsExecuting(null);
     }

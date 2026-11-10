@@ -12,7 +12,7 @@ import {
   requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { loadAISettings, runAI } from "../shared/ai-runner.ts";
+import { loadAISettings, runAI, friendlyAIMessage } from "../shared/ai-runner.ts";
 
 // JSON Schema for the structured BI report response
 const biReportSchema = {
@@ -324,8 +324,8 @@ Generate a comprehensive executive BI report as valid raw JSON matching the sche
     });
 
     if (!result.success) {
-      console.error("[bi-analyze] AI Runner failed:", result.error);
-      return jsonResponse({ success: false, error: result.error }, 503);
+      console.error("[bi-analyze] AI Runner failed:", result.code, result.error);
+      return jsonResponse({ success: false, code: result.code || "busy", error: friendlyAIMessage(result.code) }, 503);
     }
 
     const analysis = safeParseJson(result.text);
