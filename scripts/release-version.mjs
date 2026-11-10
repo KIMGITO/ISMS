@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // scripts/release-version.mjs
 // Works out the next version from the commits since the last vX.Y.Z tag.
 // Used by .github/workflows/release-and-deploy.yml; run it locally to preview:
@@ -73,7 +72,7 @@ export function releaseNotes(commits, previousTag, tag, repo) {
 }
 
 function git(...args) {
-  return execFileSync("git", args, { encoding: "utf8" }).trim();
+  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
 function latestTag() {
@@ -95,16 +94,25 @@ function commitsSince(tag) {
     });
 }
 
-function main() {
+/** The version this commit is released as (the last tag's version when no release is due). */
+export function computeRelease() {
   const previousTag = latestTag();
   const previous = previousTag ? previousTag.slice(1) : "0.0.0";
   const commits = commitsSince(previousTag);
   const bump = highestBump(commits);
   const version = nextVersion(previous, bump);
-  const tag = `v${version}`;
+  return { previousTag, previous, commits, bump, version, tag: `v${version}` };
+}
+
+function main() {
+  const { previousTag, commits, bump, version, tag } = computeRelease();
   const notes = releaseNotes(commits, previousTag, tag, process.env.GITHUB_REPOSITORY);
 
   for (const c of commits) console.log(`${c.bump.padEnd(5)}  ${c.subject}`);
+  // "fix reliable updates" or "feat! x" (no colon) silently count for nothing; say so.
+  for (const c of commits.filter((c) => c.type === null)) {
+    console.log(`::warning::Commit ${c.sha.slice(0, 7)} "${c.subject}" doesn't start with "type: ", so it doesn't count toward a release. Write e.g. "fix: ..." or "feat: ...".`);
+  }
   console.log(`\n${previousTag || "(no tag)"} -> ${bump === "none" ? "no release" : tag} (${bump})`);
 
   if (process.env.GITHUB_OUTPUT) {

@@ -39,7 +39,7 @@ export function reportCrash(error: unknown, source: string): void {
         p_stack: stack,
         p_screen: useUiStore.getState().activeTab,
         p_platform: Capacitor.getPlatform(),
-        p_app_version: import.meta.env.VITE_APP_VERSION || 'dev',
+        p_app_version: __APP_VERSION__,
       }),
     ).catch(() => {});
   } catch {
