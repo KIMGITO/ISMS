@@ -63,7 +63,15 @@ export default function RiderDeliveriesView() {
       showToast('Could Not Load Deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
     });
     const timer = setInterval(() => load().catch(() => undefined), REFRESH_MS);
-    return () => clearInterval(timer);
+    // Riders mostly switch back from maps or calls, so check for new work straight away.
+    const onReturn = () => {
+      if (document.visibilityState === 'visible') load().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onReturn);
+    };
   }, [load, showToast]);
 
   const updateStatus = async (delivery: Delivery, status: DeliveryStatus) => {

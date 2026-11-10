@@ -48,6 +48,18 @@ export class NotificationPreferences {
     return settings;
   }
 
+  /** On sign-out, so the next person never inherits these settings. */
+  public static clear(): void {
+    settings = null;
+    try {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith(`${CACHE_KEY}:`))
+        .forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // Nothing saved.
+    }
+  }
+
   public static async load(businessId: string): Promise<NotificationSettings | null> {
     const { data, error } = await getSupabase().rpc("get_my_notification_settings", {
       p_business_id: businessId,

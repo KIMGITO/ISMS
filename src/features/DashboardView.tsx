@@ -234,8 +234,8 @@ export default function DashboardView() {
     );
     if (todaySchedules.length > 0) {
       showToast(
-        '🔔 Alarms Today',
-        `${todaySchedules.length} alarm${
+        '🔔 Reminders Today',
+        `${todaySchedules.length} reminder${
           todaySchedules.length > 1 ? 's' : ''
         } set for you today, first at ${formatClock(
           [...todaySchedules].sort((a, b) => a.startTime.localeCompare(b.startTime))[0].startTime,
@@ -246,7 +246,7 @@ export default function DashboardView() {
     } else if (tomorrowSchedules.length > 0) {
       showToast(
         '📅 Reminder',
-        `${tomorrowSchedules.length} alarm${
+        `${tomorrowSchedules.length} reminder${
           tomorrowSchedules.length > 1 ? 's' : ''
         } set for you tomorrow.`,
         undefined,
@@ -351,12 +351,12 @@ export default function DashboardView() {
     e?.preventDefault();
     if (saving) return;
     setFormError(null);
-    const fail = (msg: string, heading = 'Check the alarm') => {
+    const fail = (msg: string, heading = 'Check the reminder') => {
       setFormError(msg);
       showToast(heading, msg, undefined, 'error');
     };
-    if (!title.trim()) return fail('Give the alarm a name, for example "Open the shop".');
-    if (targetEmployeeIds.length === 0) return fail('Choose at least one person for this alarm.');
+    if (!title.trim()) return fail('Give the reminder a name, for example "Open the shop".');
+    if (targetEmployeeIds.length === 0) return fail('Choose at least one person for this reminder.');
     if (!startTime) return fail('Pick the time it should ring.');
     if (repeat === 'None' && alarmTimeOf(formDate, startTime).getTime() <= Date.now()) {
       return fail(`${formatClock(startTime)} ${relativeDay(formDate)} has already passed. Pick a later time or a repeat.`);
@@ -410,7 +410,7 @@ export default function DashboardView() {
         );
         upsertLocal([updated, ...added]);
         showToast(
-          'Alarm Updated',
+          'Reminder Updated',
           `"${shift.title}" ${when}${added.length ? ` Also set for ${added.length} more.` : ''}`,
           assignedWorker.avatar,
           'success',
@@ -432,12 +432,12 @@ export default function DashboardView() {
           setTargetEmployeeIds(failed);
           setSaving(false);
           return fail(
-            `${saved.length ? `Saved for ${saved.length}, but not` : 'Not saved'} for ${names}. Check your connection and press Set alarm again.`,
-            'Alarm Not Saved',
+            `${saved.length ? `Saved for ${saved.length}, but not` : 'Not saved'} for ${names}. Check your connection and press Set reminder again.`,
+            'Reminder Not Saved',
           );
         }
         showToast(
-          'Alarm Set',
+          'Reminder Set',
           `"${shift.title}" ${when}${targetEmployeeIds.length > 1 ? ` Set for ${targetEmployeeIds.length} people.` : ''}`,
           assignedWorker.avatar,
           'success',
@@ -448,7 +448,7 @@ export default function DashboardView() {
       resetForm();
     } catch (err) {
       console.error(err);
-      fail('The alarm was not saved. Check your connection and try again.', 'Alarm Not Saved');
+      fail('The reminder was not saved. Check your connection and try again.', 'Reminder Not Saved');
     } finally {
       setSaving(false);
     }
@@ -463,11 +463,11 @@ export default function DashboardView() {
     try {
       await SupabaseService.deleteSchedule(id);
       setSchedules((prev) => prev.filter((s) => s.id !== id));
-      showToast('Alarm Removed', `"${name}" won't ring any more.`, undefined, 'success');
+      showToast('Reminder Removed', `"${name}" won't ring any more.`, undefined, 'success');
       if (editingScheduleId === id) resetForm();
     } catch (err) {
       console.error(err);
-      showToast('Error', 'The alarm was not removed. Check your connection and try again.', undefined, 'error');
+      showToast('Error', 'The reminder was not removed. Check your connection and try again.', undefined, 'error');
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -950,17 +950,17 @@ export default function DashboardView() {
               <h3 className="text-xs font-black text-app-text uppercase tracking-wider flex items-center gap-1.5">
                 <AlarmClock size={14} className="text-amber-500 -ml-1" />
                 {editingScheduleId
-                  ? 'Edit Alarm'
+                  ? 'Edit Reminder'
                   : canManageShifts
-                  ? 'Set An Alarm'
-                  : 'Set A Personal Alarm'}
+                  ? 'Set A Reminder'
+                  : 'Set A Personal Reminder'}
               </h3>
 
               {!showAddForm && (
                 <button
                   onClick={openCreateForm}
                   data-shortcut="new"
-                  title="Set an alarm (N)"
+                  title="Set a reminder (N)"
                   className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-lg transition hover:bg-amber-600 cursor-pointer flex items-center gap-1"
                 >
                   <Plus size={11} /> New
@@ -1019,7 +1019,7 @@ export default function DashboardView() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] text-app-text-muted font-bold uppercase block">
-                    Alarm name
+                    Reminder name
                   </label>
                   <input
                     type="text"
@@ -1201,9 +1201,9 @@ export default function DashboardView() {
                         <Loader2 size={13} className="animate-spin" /> Saving…
                       </>
                     ) : editingScheduleId ? (
-                      'Update Alarm'
+                      'Update Reminder'
                     ) : (
-                      'Set Alarm'
+                      'Set Reminder'
                     )}
                   </button>
                 </div>
@@ -1212,7 +1212,7 @@ export default function DashboardView() {
             ) : (
               <div className="text-center py-4 bg-app-bg border border-app-border/45 rounded-xl border-dashed">
                 <p className="text-[10px] text-app-text-muted font-medium">
-                  Press New (or N) to set an alarm for:
+                  Press New (or N) to set a reminder for:
                 </p>
                 <span className="text-xs font-black text-amber-500 block mt-1">
                   {formatDay(selectedDate)}
@@ -1285,7 +1285,7 @@ export default function DashboardView() {
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
               {activeSchedulesForSelected.length === 0 ? (
                 <div className="py-8 text-center text-[10px] text-app-text-muted font-medium">
-                  No alarms on this day.
+                  No reminders on this day.
                 </div>
               ) : (
                 [...activeSchedulesForSelected].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((ev) => {
@@ -1328,7 +1328,7 @@ export default function DashboardView() {
                                 disabled={deleting}
                                 className="text-white bg-red-500 hover:bg-red-600 p-1 rounded-lg transition cursor-pointer disabled:cursor-wait"
                                 title="Yes, remove"
-                                aria-label="Yes, remove this alarm"
+                                aria-label="Yes, remove this reminder"
                               >
                                 {deleting ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                               </button>
@@ -1337,7 +1337,7 @@ export default function DashboardView() {
                                 disabled={deleting}
                                 className="text-app-text-muted p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
                                 title="Keep it"
-                                aria-label="Keep this alarm"
+                                aria-label="Keep this reminder"
                               >
                                 <X size={11} />
                               </button>
@@ -1347,16 +1347,16 @@ export default function DashboardView() {
                               <button
                                 onClick={() => handleEditScheduleStart(ev)}
                                 className="text-app-text-muted hover:text-amber-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
-                                title="Edit alarm"
-                                aria-label="Edit alarm"
+                                title="Edit reminder"
+                                aria-label="Edit reminder"
                               >
                                 <Pencil size={11} />
                               </button>
                               <button
                                 onClick={() => handleDeleteSchedule(ev.id, ev.title)}
                                 className="text-app-text-muted hover:text-red-500 p-1 bg-app-card hover:bg-app-bg rounded-lg border border-app-border/40 transition cursor-pointer"
-                                title="Remove alarm"
-                                aria-label="Remove alarm"
+                                title="Remove reminder"
+                                aria-label="Remove reminder"
                               >
                                 <Trash2 size={11} />
                               </button>

@@ -51,7 +51,7 @@ export default function RingToneSetting() {
     preview(id);
     await setRingTone(id);
     const label = OPTIONS.find((o) => o.id === id)?.label || 'Tone';
-    showToast('Ringing Tone Saved', `${label} will ring for alarms and urgent alerts on this device.`, undefined, 'success');
+    showToast('Ringing Tone Saved', `${label} will ring for reminders and urgent alerts on this device.`, undefined, 'success');
   };
 
   return (
@@ -61,7 +61,7 @@ export default function RingToneSetting() {
         <h4 className="text-sm font-semibold text-app-text">Ringing alert tone</h4>
       </div>
       <p className="text-xs text-app-text-muted mb-2.5">
-        For alarms and urgent alerts. It keeps ringing until you tap Accept. Saved on this device.
+        For reminders and urgent alerts. It keeps ringing until you tap Accept. Saved on this device.
         {ringsNatively && " On the phone it rings at alarm volume, even with the app closed."}
       </p>
       <div role="radiogroup" aria-label="Ringing alert tone" className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">

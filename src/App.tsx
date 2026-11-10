@@ -2770,9 +2770,11 @@ export default function App() {
                                 Target Workspace:
                               </span>
                               <h5 className="text-[11px] font-bold text-slate-200">
-                                {businesses.find(
-                                  (b) => b.id === validatedInvite.businessId,
-                                )?.name || "KayKay's Retail Outlet"}
+                                {validatedInvite.businessName ||
+                                  businesses.find(
+                                    (b) => b.id === validatedInvite.businessId,
+                                  )?.name ||
+                                  "KayKay's Retail Outlet"}
                               </h5>
                               <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
                                 Assigned Role: {validatedInvite.role}

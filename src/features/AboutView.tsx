@@ -2,8 +2,8 @@
 // What this app is, which build is installed, and a manual update check
 // for when the automatic one failed or was missed. Laid out like iOS Settings → About.
 
-import { useEffect, type ReactNode } from 'react';
-import { RefreshCw, CheckCircle2, AlertTriangle, Smartphone, Monitor, Globe } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { RefreshCw, CheckCircle2, AlertTriangle, Smartphone, Monitor, Globe, ChevronDown } from 'lucide-react';
 import { useUpdateStore } from '../stores/updateStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { updateService } from '../core/native/UpdateService';
@@ -47,6 +47,9 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export default function AboutView() {
   const { status, currentVersion, platform, availableVersion, progress, error, errorCode, lastCheckedAt } = useUpdateStore();
   const { businesses, activeBusinessId } = useBusinessStore();
+  const [shortcutsOpen, setShortcutsOpen] = useState(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches,
+  );
   const business = businesses.find((b) => b.id === activeBusinessId);
   const canUpdate = updateService.canUpdate();
   const isBusy = status === 'checking' || status === 'downloading' || status === 'installing';
@@ -133,12 +136,23 @@ export default function AboutView() {
           )}
         </Group>
 
-        <section id="keyboard-shortcuts">
-          <h2 className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Keyboard shortcuts</h2>
-          <div className="bg-app-card rounded-lg p-3">
-            <ShortcutTable />
-          </div>
-        </section>
+        {/* Phones rarely have a keyboard, so the list starts closed there. */}
+        <details
+          id="keyboard-shortcuts"
+          open={shortcutsOpen}
+          onToggle={(e) => setShortcutsOpen(e.currentTarget.open)}
+          className="group"
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted [&::-webkit-details-marker]:hidden">
+            Keyboard shortcuts
+            <ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          {shortcutsOpen && (
+            <div className="bg-app-card rounded-lg p-3">
+              <ShortcutTable />
+            </div>
+          )}
+        </details>
 
         {business && (business.contactPhone || business.contactEmail) && (
           <Group title="Help" footer="For help with this app, contact your manager.">

@@ -256,7 +256,11 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           relevance: score + 15,
           action: () => {
             go(f.screen);
-            if (f.id === "keyboard-shortcuts") setTimeout(() => document.getElementById("keyboard-shortcuts")?.scrollIntoView({ behavior: "smooth" }), 300);
+            if (f.id === "keyboard-shortcuts") setTimeout(() => {
+              const section = document.getElementById("keyboard-shortcuts");
+              if (section instanceof HTMLDetailsElement) section.open = true;
+              section?.scrollIntoView({ behavior: "smooth" });
+            }, 300);
           },
         });
       }
