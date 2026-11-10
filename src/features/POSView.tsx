@@ -28,6 +28,7 @@ import { formatReceiptNumber } from '../utils/idUtils';
 import { getSupabase } from '../services/supabaseClient';
 import { QuantityInput } from '../components/shared/QuantityInput';
 import { Switch } from '../components/shared/Switch';
+import { DeliveryZone, fetchActiveZones } from '../components/DeliveryZonesEditor';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 
@@ -146,6 +147,13 @@ export default function POSView() {
   useEffect(() => {
     if (activeBusinessId) fetchPointSettings(activeBusinessId).then(setPointSettings);
   }, [activeBusinessId]);
+
+  // Riders set the area prices; the till offers them as quick fees.
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  useEffect(() => {
+    if (!activeBusinessId || !isDelivery) return;
+    fetchActiveZones(activeBusinessId).then(setDeliveryZones).catch(() => setDeliveryZones([]));
+  }, [activeBusinessId, isDelivery]);
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
@@ -653,6 +661,36 @@ export default function POSView() {
 
                   {isDelivery && (
                     <div className="space-y-3 pt-2 border-t border-app-border/40 animate-fade-in">
+                      {deliveryZones.length > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[9px] font-black text-app-text-muted uppercase">Area</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {deliveryZones.map((zone) => {
+                              const chosen = deliveryFee === Number(zone.fee) && deliveryLocation.trim() === zone.name;
+                              return (
+                                <button
+                                  key={zone.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setDeliveryFee(Number(zone.fee));
+                                    // Only fill the location if nothing more exact was typed.
+                                    if (!deliveryLocation.trim() || deliveryZones.some((z) => z.name === deliveryLocation.trim())) {
+                                      setDeliveryLocation(zone.name);
+                                    }
+                                  }}
+                                  className={`min-h-9 rounded-lg border px-2.5 text-[11px] font-bold transition cursor-pointer ${
+                                    chosen
+                                      ? 'border-amber-500 bg-amber-500 text-slate-950'
+                                      : 'border-app-border bg-app-bg text-app-text hover:border-amber-500'
+                                  }`}
+                                >
+                                  {zone.name} · {Number(zone.fee)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
@@ -730,9 +768,14 @@ export default function POSView() {
                                 setRiderName('');
                               }
                             }}
-                            placeholder="Choose a rider"
+                            placeholder="Any rider can accept"
                             searchPlaceholder="Search riders"
                           />
+                          {!riderName.trim() && (
+                            <p className="text-[10px] text-app-text-muted">
+                              With no rider chosen, every rider gets a delivery request and the first to accept takes it.
+                            </p>
+                          )}
 
                           {(selectedRiderId === 'custom_name' ||
                             !riders.some(

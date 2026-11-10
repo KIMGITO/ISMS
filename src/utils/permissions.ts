@@ -278,8 +278,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'deliveries.assign', category: 'Orders & Deliveries', description: 'Assign routes to couriers' },
   { code: 'deliveries.complete', category: 'Orders & Deliveries', description: 'Mark deliveries as successfully completed' },
   { code: 'deliveries.cancel', category: 'Orders & Deliveries', description: 'Flag deliveries as failed' },
-  { code: 'deliveries.delivery_price', category: 'Orders & Deliveries', description: 'Adjust delivery fee bands' },
-  { code: 'deliveries.delivery_zones', category: 'Orders & Deliveries', description: 'Configure spatial delivery regions' },
+  { code: 'deliveries.delivery_price', category: 'Orders & Deliveries', description: 'Change delivery area prices' },
+  { code: 'deliveries.delivery_zones', category: 'Orders & Deliveries', description: 'Add and edit delivery areas and their prices' },
   { code: 'deliveries.manage', category: 'Orders & Deliveries', description: 'Access courier fleet manager' },
 
   // Suppliers & Purchases
@@ -435,6 +435,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'dashboard.view',
       'business.view', 'settings.theme',
       'deliveries.view', 'deliveries.complete', 'deliveries.cancel',
+      'deliveries.delivery_zones', 'deliveries.delivery_price',
       'notifications.view', 'ai.use'
     ]
   }

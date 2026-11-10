@@ -26,6 +26,7 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { STARTER_GUIDES } from './onlineStoreStarterGuides';
 import { Switch } from '../components/shared/Switch';
+import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 
 type TabId = 'orders' | 'messages' | 'feedback' | 'guides' | 'settings';
 
@@ -634,87 +635,6 @@ function GuidesTab({ businessId }: { businessId: string }) {
   );
 }
 
-interface DeliveryZoneRow {
-  id: string;
-  name: string;
-  fee: number;
-}
-
-function DeliveryZonesCard({ businessId }: { businessId: string }) {
-  const reportError = useReportError();
-  const [zones, setZones] = useState<DeliveryZoneRow[]>([]);
-  const [name, setName] = useState('');
-  const [fee, setFee] = useState('');
-
-  const load = useCallback(async () => {
-    const { data, error } = await getSupabase()
-      .from('delivery_zones')
-      .select('id, name, fee')
-      .eq('business_id', businessId)
-      .order('name');
-    if (error) throw error;
-    setZones(data as DeliveryZoneRow[]);
-  }, [businessId]);
-
-  useEffect(() => {
-    load().catch((err) => reportError(err, 'Could not load delivery areas.'));
-  }, [load, reportError]);
-
-  const handleAdd = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await getSupabase()
-        .from('delivery_zones')
-        .insert({ business_id: businessId, name: name.trim(), fee: Number(fee) || 0 });
-      if (error) throw error;
-      setName('');
-      setFee('');
-      await load();
-    } catch (err) {
-      reportError(err, 'Could not add this delivery area.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await getSupabase().from('delivery_zones').delete().eq('id', id);
-      if (error) throw error;
-      await load();
-    } catch (err) {
-      reportError(err, 'Could not delete this delivery area.');
-    }
-  };
-
-  return (
-    <div className={`${cardClass} space-y-3`}>
-      <div>
-        <h3 className="text-sm font-semibold text-app-text">Delivery areas (optional)</h3>
-        <p className="text-xs text-app-text-muted">
-          With no areas, every delivery uses the delivery fee. Once you add one, customers must choose an area
-          and pay its price. Past orders keep the price they were charged.
-        </p>
-      </div>
-      {zones.length > 0 && (
-        <ul className="divide-y divide-app-border">
-          {zones.map((zone) => (
-            <li key={zone.id} className="flex items-center justify-between gap-3 py-2 text-sm text-app-text">
-              <span className="min-w-0 truncate">{zone.name}: Ksh {zone.fee}</span>
-              <button type="button" onClick={() => handleDelete(zone.id)} className="text-xs font-medium text-red-500">
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
-        <input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Area name" aria-label="Area name" className={inputClass} />
-        <input required type="number" min="0" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="Price (Ksh)" aria-label="Price in Ksh" className={inputClass} />
-        <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Add</button>
-      </form>
-    </div>
-  );
-}
-
 function PointsSettingsCard({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
@@ -861,7 +781,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <DeliveryZonesCard businessId={businessId} />
+      <DeliveryZonesEditor businessId={businessId} />
       <PointsSettingsCard businessId={businessId} />
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>

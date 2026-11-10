@@ -1,9 +1,12 @@
 // src/features/RiderDeliveriesView.tsx
-// A rider's own deliveries and history. The database only returns deliveries assigned to them.
+// The rider's delivery cycle: open requests anyone can accept, their own deliveries (start,
+// delivered, couldn't deliver, give back), history, and the delivery areas and prices.
+// The database decides what each person sees; a request shows the phone number only once accepted.
 
 import { Tabs } from '../components/TabOptions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapPin, Phone, Truck } from 'lucide-react';
+import { Clock, MapPin, Navigation, Phone, Truck, Wallet } from 'lucide-react';
+import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import { getSupabase } from '../services/supabaseClient';
 import { useAppStore } from '../stores/appStore';
 import { useBusinessStore } from '../stores/businessStore';
@@ -12,6 +15,7 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 
 type DeliveryStatus = 'assigned' | 'out_for_delivery' | 'delivered' | 'failed';
+type TabId = 'requests' | 'mine' | 'history' | 'zones';
 
 interface Delivery {
   source: 'online' | 'sale';
@@ -27,39 +31,75 @@ interface Delivery {
   status: DeliveryStatus;
   assigned_at: string;
   delivered_at: string | null;
+  created_at?: string;
   items: string | null;
+  // Added in 20261110003; missing before that migration runs.
+  payment?: string | null;
+  balance_due?: number | null;
 }
 
 const STATUS_LABELS: Record<DeliveryStatus, string> = {
-  assigned: 'To deliver',
+  assigned: 'Accepted',
   out_for_delivery: 'On the way',
   delivered: 'Delivered',
   failed: 'Not delivered',
 };
 
-const REFRESH_MS = 30000;
+const REFRESH_MS = 20000;
+
+const primaryClass = 'min-h-11 flex-1 rounded-xl bg-amber-500 px-4 text-sm font-bold text-slate-950 disabled:opacity-40';
+const secondaryClass = 'min-h-11 rounded-xl border border-app-border px-4 text-sm font-medium disabled:opacity-40';
+
+const keyOf = (d: Delivery) => `${d.source}-${d.id}`;
+
+function waitingFor(iso: string) {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `Waiting ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `Waiting ${hours} h ${minutes % 60} min` : `Waiting ${Math.floor(hours / 24)} d`;
+}
+
+const isMissingFunction = (err: unknown) => (err as { code?: string } | null)?.code === 'PGRST202';
 
 export default function RiderDeliveriesView() {
   const { currentEmployee, showToast } = useAppStore();
   const { activeBusinessId } = useBusinessStore();
-  const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
-  const [tab, setTab] = useState<'active' | 'history'>('active');
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [mine, setMine] = useState<Delivery[] | null>(null);
+  const [requests, setRequests] = useState<Delivery[] | null>(null);
+  const [requestsMissing, setRequestsMissing] = useState(false);
+  const [tab, setTab] = useState<TabId | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [confirmFail, setConfirmFail] = useState<string | null>(null);
 
   const role = currentEmployee?.role ?? '';
+  const isRider = role === 'Rider';
   const canComplete = hasRolePermission(role, 'deliveries.complete');
   const canCancel = hasRolePermission(role, 'deliveries.cancel');
 
   const load = useCallback(async () => {
     if (!activeBusinessId) return;
-    const { data, error } = await getSupabase().rpc('get_my_deliveries', { p_business_id: activeBusinessId });
-    if (error) throw error;
-    setDeliveries(data as Delivery[]);
+    const supabase = getSupabase();
+    const [own, open] = await Promise.all([
+      supabase.rpc('get_my_deliveries', { p_business_id: activeBusinessId }),
+      supabase.rpc('get_delivery_requests', { p_business_id: activeBusinessId }),
+    ]);
+    if (own.error) throw own.error;
+    setMine((own.data ?? []) as Delivery[]);
+    if (open.error) {
+      if (!isMissingFunction(open.error)) throw open.error;
+      setRequestsMissing(true);
+      setRequests([]);
+    } else {
+      setRequestsMissing(false);
+      setRequests((open.data ?? []) as Delivery[]);
+    }
   }, [activeBusinessId]);
 
   useEffect(() => {
     load().catch((err) => {
-      setDeliveries([]);
+      setMine((m) => m ?? []);
+      setRequests((r) => r ?? []);
       showToast('Could Not Load Deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
     });
     const timer = setInterval(() => load().catch(() => undefined), REFRESH_MS);
@@ -74,125 +114,225 @@ export default function RiderDeliveriesView() {
     };
   }, [load, showToast]);
 
-  const updateStatus = async (delivery: Delivery, status: DeliveryStatus) => {
-    setBusyId(delivery.id);
+  const act = async (delivery: Delivery, fn: string, params: Record<string, unknown>, done?: string) => {
+    setBusyKey(keyOf(delivery));
     try {
-      const { error } = await getSupabase().rpc('rider_update_delivery', {
-        p_source: delivery.source,
-        p_id: delivery.id,
-        p_status: status,
-      });
+      const { error } = await getSupabase().rpc(fn, { p_source: delivery.source, p_id: delivery.id, ...params });
       if (error) throw error;
-      await load();
+      setConfirmFail(null);
+      if (done) showToast('Deliveries', done, undefined, 'success');
+      await load().catch(() => undefined);
+      return true;
     } catch (err) {
       showToast('Could Not Update', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      load().catch(() => undefined);
+      return false;
     } finally {
-      setBusyId(null);
+      setBusyKey(null);
     }
   };
 
+  const accept = (d: Delivery) =>
+    act(d, 'rider_accept_delivery', {}, `${d.customer_name}'s delivery is yours. You'll find it under Mine.`).then((ok) => {
+      if (ok) setTab('mine');
+    });
+  const giveBack = (d: Delivery) => act(d, 'rider_release_delivery', {}, 'Delivery put back in the requests.');
+  const setStatus = (d: Delivery, status: DeliveryStatus) => act(d, 'rider_update_delivery', { p_status: status });
+
   const active = useMemo(
-    () => (deliveries ?? []).filter((d) => d.status === 'assigned' || d.status === 'out_for_delivery'),
-    [deliveries],
+    () => (mine ?? []).filter((d) => d.status === 'assigned' || d.status === 'out_for_delivery'),
+    [mine],
   );
-  const history = useMemo(
-    () => (deliveries ?? []).filter((d) => d.status === 'delivered' || d.status === 'failed'),
-    [deliveries],
-  );
+  const history = useMemo(() => (mine ?? []).filter((d) => d.status === 'delivered' || d.status === 'failed'), [mine]);
   const delivered = history.filter((d) => d.status === 'delivered');
-  const customerCount = new Set(delivered.map((d) => d.customer_phone || d.customer_name)).size;
-  const visible = tab === 'active' ? active : history;
+  const fees = delivered.reduce((sum, d) => sum + Number(d.delivery_fee || 0), 0);
+
+  // Open on the tab with work in it.
+  const currentTab: TabId = tab ?? (active.length > 0 ? 'mine' : 'requests');
+
+  const renderDetails = (d: Delivery, showPhone: boolean) => {
+    const due = Number(d.balance_due || 0);
+    const place = [d.area, d.address].filter(Boolean).join(', ');
+    return (
+      <>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">{d.customer_name}</h3>
+          <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold">
+            {currentTab === 'requests' ? (d.source === 'online' ? 'Website order' : 'Till sale') : STATUS_LABELS[d.status]}
+          </span>
+        </div>
+        <p className="flex items-center gap-1 text-xs text-app-text-muted">
+          <Clock size={12} />
+          {d.reference} ·{' '}
+          {currentTab === 'requests'
+            ? waitingFor(d.created_at ?? d.assigned_at)
+            : new Date(d.delivered_at ?? d.assigned_at).toLocaleString()}
+        </p>
+        {d.items && <p className="text-sm">{d.items}</p>}
+        <p className="flex items-start gap-2 text-sm">
+          <MapPin size={14} className="mt-0.5 shrink-0 text-amber-500" />
+          {place || <span className="text-app-text-muted">No location given. Ask the shop.</span>}
+        </p>
+        {d.notes && <p className="text-sm text-app-text-muted">Note: {d.notes}</p>}
+        {showPhone && d.customer_phone && (
+          <a href={`tel:${d.customer_phone}`} className="flex min-h-11 items-center gap-2 text-sm font-medium underline">
+            <Phone size={14} className="text-amber-500" /> {d.customer_phone}
+          </a>
+        )}
+        <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-app-bg p-3 text-sm">
+          <span>
+            <span className="font-semibold">{formatCurrency(Number(d.amount))}</span>
+            {Number(d.delivery_fee) > 0 && (
+              <span className="text-app-text-muted"> including {formatCurrency(Number(d.delivery_fee))} delivery</span>
+            )}
+          </span>
+          {d.payment && (
+            <span className="flex items-center gap-1 text-xs text-app-text-muted">
+              <Wallet size={12} /> {d.payment}
+            </span>
+          )}
+          {due > 0 && (
+            <span className="w-full text-xs font-semibold text-amber-600">Not yet paid: {formatCurrency(due)}</span>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  const renderList = (list: Delivery[] | null, empty: string, render: (d: Delivery) => React.ReactNode) => {
+    if (list === null) return <p className="text-sm text-app-text-muted">Loading deliveries…</p>;
+    if (list.length === 0) return <p className="text-sm text-app-text-muted">{empty}</p>;
+    return list.map((d) => (
+      <article key={keyOf(d)} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
+        {render(d)}
+      </article>
+    ));
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-app-bg p-4 pb-nav font-sans text-app-text">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <h2 className="flex items-center gap-2 text-lg font-bold">
-          <Truck size={18} className="text-amber-500" /> My Deliveries
+          <Truck size={18} className="text-amber-500" /> Deliveries
         </h2>
 
-        <dl className="grid grid-cols-3 gap-2 rounded-2xl border border-app-border bg-app-card p-3 text-center">
-          <div>
-            <dt className="text-xs text-app-text-muted">Delivered</dt>
-            <dd className="text-lg font-bold">{delivered.length}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-app-text-muted">Customers</dt>
-            <dd className="text-lg font-bold">{customerCount}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-app-text-muted">Value</dt>
-            <dd className="text-lg font-bold">{formatCurrency(delivered.reduce((sum, d) => sum + Number(d.amount), 0))}</dd>
-          </div>
-        </dl>
+        {isRider && (
+          <dl className="grid grid-cols-3 gap-2 rounded-2xl border border-app-border bg-app-card p-3 text-center">
+            <div>
+              <dt className="text-xs text-app-text-muted">Delivered</dt>
+              <dd className="text-lg font-bold">{delivered.length}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-app-text-muted">On my list</dt>
+              <dd className="text-lg font-bold">{active.length}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-app-text-muted">Delivery fees</dt>
+              <dd className="text-lg font-bold">{formatCurrency(fees)}</dd>
+            </div>
+          </dl>
+        )}
 
-        <Tabs<typeof tab>
+        <Tabs<TabId>
           tabs={[
-            { id: 'active' as const, label: 'To deliver', badge: active.length },
-            { id: 'history' as const, label: 'History', badge: history.length },
+            { id: 'requests' as const, label: 'Requests', badge: requests?.length ?? 0 },
+            ...(isRider
+              ? [
+                  { id: 'mine' as const, label: 'Mine', badge: active.length },
+                  { id: 'history' as const, label: 'History', badge: history.length },
+                ]
+              : []),
+            { id: 'zones' as const, label: 'Areas & prices' },
           ]}
-          activeTab={tab}
+          activeTab={currentTab}
           onChange={setTab}
         />
 
-        {deliveries === null && <p className="text-sm text-app-text-muted">Loading deliveries…</p>}
-        {deliveries !== null && visible.length === 0 && (
-          <p className="text-sm text-app-text-muted">
-            {tab === 'active' ? 'Nothing to deliver right now.' : 'No past deliveries yet.'}
-          </p>
-        )}
-
-        {visible.map((delivery) => (
-          <article key={`${delivery.source}-${delivery.id}`} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-bold">{delivery.customer_name}</h3>
-              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold">
-                {STATUS_LABELS[delivery.status]}
-              </span>
-            </div>
-            <p className="text-xs text-app-text-muted">
-              {delivery.reference} · {new Date(delivery.delivered_at ?? delivery.assigned_at).toLocaleString()}
-            </p>
-            {delivery.items && <p className="text-sm">{delivery.items}</p>}
-            {(delivery.address || delivery.area) && (
-              <p className="flex items-start gap-2 text-sm">
-                <MapPin size={14} className="mt-0.5 shrink-0 text-amber-500" />
-                {[delivery.area, delivery.address].filter(Boolean).join(', ')}
+        {currentTab === 'requests' && (
+          <>
+            {requestsMissing && (
+              <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                Delivery requests need the latest database update. Ask the owner to apply it.
               </p>
             )}
-            {delivery.notes && <p className="text-sm text-app-text-muted">{delivery.notes}</p>}
-            {delivery.customer_phone && (
-              <a href={`tel:${delivery.customer_phone}`} className="flex min-h-11 items-center gap-2 text-sm font-medium underline">
-                <Phone size={14} className="text-amber-500" /> {delivery.customer_phone}
-              </a>
+            {!isRider && (
+              <p className="text-xs text-app-text-muted">
+                Deliveries waiting for a rider. Riders accept them from here. To give one to a rider yourself, use Online Store orders.
+              </p>
             )}
-            <p className="text-sm font-semibold">
-              {formatCurrency(Number(delivery.amount))}
-              {Number(delivery.delivery_fee) > 0 && (
-                <span className="font-normal text-app-text-muted"> including {formatCurrency(Number(delivery.delivery_fee))} delivery</span>
-              )}
-            </p>
+            {renderList(requests, 'No delivery requests right now. New ones show up here and you get a notification.', (d) => (
+              <>
+                {renderDetails(d, false)}
+                {isRider && canComplete && (
+                  <button type="button" disabled={busyKey === keyOf(d)} onClick={() => accept(d)} className={primaryClass}>
+                    Accept delivery
+                  </button>
+                )}
+              </>
+            ))}
+          </>
+        )}
 
-            {tab === 'active' && (
-              <div className="flex flex-wrap gap-2">
-                {canComplete && delivery.status === 'assigned' && (
-                  <button type="button" disabled={busyId === delivery.id} onClick={() => updateStatus(delivery, 'out_for_delivery')} className="min-h-11 flex-1 rounded-xl bg-amber-500 px-4 text-sm font-bold text-slate-950 disabled:opacity-40">
-                    Start delivery
-                  </button>
+        {currentTab === 'mine' &&
+          renderList(active, 'Nothing on your list. Check Requests for deliveries to accept.', (d) => {
+            const busy = busyKey === keyOf(d);
+            const place = [d.address, d.area].filter(Boolean).join(', ');
+            return (
+              <>
+                {renderDetails(d, true)}
+                {place && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-11 items-center gap-2 text-sm font-medium underline"
+                  >
+                    <Navigation size={14} className="text-amber-500" /> Open in maps
+                  </a>
                 )}
-                {canComplete && delivery.status === 'out_for_delivery' && (
-                  <button type="button" disabled={busyId === delivery.id} onClick={() => updateStatus(delivery, 'delivered')} className="min-h-11 flex-1 rounded-xl bg-amber-500 px-4 text-sm font-bold text-slate-950 disabled:opacity-40">
-                    Mark delivered
-                  </button>
+                {confirmFail === keyOf(d) ? (
+                  <div className="flex flex-col gap-2 rounded-xl border border-red-500/40 p-3">
+                    <p className="text-sm">
+                      Mark this as not delivered? The shop is told so they can sort it out with the customer.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} onClick={() => setStatus(d, 'failed')} className="min-h-11 flex-1 rounded-xl bg-red-500 px-4 text-sm font-bold text-white disabled:opacity-40">
+                        Yes, not delivered
+                      </button>
+                      <button type="button" onClick={() => setConfirmFail(null)} className={secondaryClass}>Back</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {canComplete && d.status === 'assigned' && (
+                      <button type="button" disabled={busy} onClick={() => setStatus(d, 'out_for_delivery')} className={primaryClass}>
+                        Start delivery
+                      </button>
+                    )}
+                    {canComplete && d.status === 'out_for_delivery' && (
+                      <button type="button" disabled={busy} onClick={() => setStatus(d, 'delivered')} className={primaryClass}>
+                        Mark delivered
+                      </button>
+                    )}
+                    {canComplete && d.status === 'assigned' && !requestsMissing && (
+                      <button type="button" disabled={busy} onClick={() => giveBack(d)} className={secondaryClass}>
+                        Give back
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button type="button" disabled={busy} onClick={() => setConfirmFail(keyOf(d))} className={secondaryClass}>
+                        Couldn't deliver
+                      </button>
+                    )}
+                  </div>
                 )}
-                {canCancel && (
-                  <button type="button" disabled={busyId === delivery.id} onClick={() => updateStatus(delivery, 'failed')} className="min-h-11 rounded-xl border border-app-border px-4 text-sm font-medium disabled:opacity-40">
-                    Couldn't deliver
-                  </button>
-                )}
-              </div>
-            )}
-          </article>
-        ))}
+              </>
+            );
+          })}
+
+        {currentTab === 'history' && renderList(history, 'No past deliveries yet.', (d) => renderDetails(d, true))}
+
+        {currentTab === 'zones' && activeBusinessId && <DeliveryZonesEditor businessId={activeBusinessId} />}
       </div>
     </div>
   );
