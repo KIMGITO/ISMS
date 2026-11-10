@@ -421,11 +421,54 @@ jobs:
           retention-days: 30
 
   # ──────────────────────────────────────────
+  # 2d. Build the customer website (website/, kaykays.com)
+  # ──────────────────────────────────────────
+  # Built with every app release, so the website and the app always ship against the
+  # same database changes. A broken website stops the release like a broken app build.
+  # The built site is kept as the "website-dist" artifact of the run.
+  build-website:
+    name: Build customer website
+    needs: version
+    if: needs.version.outputs.bump != 'none'
+    runs-on: ubuntu-24.04
+    env:
+      VITE_SITE_URL: ${{ secrets.VITE_SITE_URL }}
+      VITE_WEBSITE_SLUG: ${{ secrets.VITE_WEBSITE_SLUG || 'kaykays' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: eval "$INSTALL_COMMAND"
+      - name: Type check
+        run: npm run website:lint
+      # Also writes a page per product, guide and policy from the live storefront.
+      - name: Build
+        run: npm run website:build
+      - name: Check the build
+        run: |
+          set -euo pipefail
+          for page in index.html 404.html robots.txt; do
+            [ -f "website/dist/$page" ] || { echo "::error::website/dist/$page is missing from the build."; exit 1; }
+          done
+          if [ -z "$VITE_SITE_URL" ]; then
+            echo "::warning::VITE_SITE_URL is not set, so this build asks search engines not to index the site."
+          fi
+          echo "Website pages built: $(find website/dist -name index.html | wc -l)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: website-dist
+          path: website/dist
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────
   # 3. Tag and publish (only reached when every build succeeded)
   # ──────────────────────────────────────────
   release:
     name: Tag and publish ${{ needs.version.outputs.tag }}
-    needs: [version, build-windows, build-linux, build-android]
+    needs: [version, build-windows, build-linux, build-android, build-website]
     runs-on: ubuntu-24.04
     permissions:
       contents: write # push the tag and create the release

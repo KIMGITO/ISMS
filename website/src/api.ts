@@ -49,11 +49,58 @@ export interface Storefront {
     deliveryFee: number;
     minOrder: number;
     assistantEnabled: boolean;
+    /** Added in 20261110006, so older databases leave these out. */
+    openingHours?: string | null;
+    whatsapp?: string | null;
   };
+  /** Staff-written text for info pages, keyed by page id (about, terms…). Empty means use the default. */
+  pages?: Partial<Record<string, string>>;
+  loyalty?: {
+    pointsPerShilling: number;
+    valueBronze: number;
+    valueSilver: number;
+    valueGold: number;
+    minRedeem: number;
+  };
+  /** Approved reviews, newest first (20261110008). */
+  reviews?: Review[];
+  /** Promo codes staff chose to advertise on the website (20261110008). */
+  promotions?: Promotion[];
   deliveryZones: DeliveryZone[];
   branches: { name: string; address: string | null }[];
   products: Product[];
   articles: Article[];
+}
+
+export interface Review {
+  id: string;
+  /** Null for a review of the shop as a whole. */
+  productId: string | null;
+  rating: number;
+  title: string | null;
+  body: string;
+  name: string;
+  verified: boolean;
+  featured: boolean;
+  reply: string | null;
+  createdAt: string;
+}
+
+export interface Promotion {
+  code: string;
+  description: string | null;
+  kind: 'percent' | 'amount';
+  value: number;
+  minOrder: number;
+  endsAt: string | null;
+}
+
+export interface PromoCheck {
+  code: string;
+  description: string | null;
+  kind: 'percent' | 'amount';
+  value: number;
+  saving: number;
 }
 
 export interface Account {
@@ -89,6 +136,9 @@ export interface Order {
   delivery_fee: number;
   discount: number;
   total: number;
+  points_value?: number;
+  promo_code?: string | null;
+  promo_value?: number;
   mpesa_receipt: string | null;
   created_at: string;
   online_order_items: OrderItem[];
@@ -134,6 +184,8 @@ export interface AssistantReply {
   pendingProductId?: string | null;
   addToCart?: { productId: string; quantity: number; name: string; total: number } | null;
   link?: { label: string; href: string } | null;
+  /** A product the assistant talked about, which the chat offers to open. */
+  productId?: string | null;
 }
 
 /**
@@ -230,28 +282,63 @@ export const createAccount = (name: string, phone: string) =>
 export const updateAccount = (name: string, phone: string, address: string, notes: string) =>
   rpc('update_my_account', { p_name: name, p_phone: phone, p_address: address, p_notes: notes });
 
-export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number) =>
-  rpc<string>('place_online_order', { p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId, p_points: points });
+/** The promo code is only sent when there is one, so ordering still works on a database without promo codes. */
+export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number, promoCode: string | null = null) =>
+  rpc<string>('place_online_order', {
+    p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId, p_points: points,
+    ...(promoCode ? { p_promo_code: promoCode } : {}),
+  });
+
+export const checkPromoCode = (code: string, subtotal: number) =>
+  rpc<PromoCheck>('check_promo_code', { p_slug: WEBSITE_SLUG, p_code: code, p_subtotal: subtotal });
+
+export const submitReview = (productId: string | null, rating: number, title: string, body: string) =>
+  rpc<string>('submit_my_review', { p_product_id: productId, p_rating: rating, p_title: title, p_body: body });
+
+export interface MyReview {
+  id: string;
+  product_id: string | null;
+  rating: number;
+  title: string | null;
+  body: string;
+  status: 'pending' | 'approved' | 'hidden';
+}
+
+/** The signed-in customer's own reviews. Empty on a database without reviews. */
+export async function fetchMyReviews(): Promise<MyReview[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+  const { data, error } = await supabase
+    .from('website_reviews')
+    .select('id, product_id, rating, title, body, status')
+    .eq('account_id', session.user.id);
+  if (error) return [];
+  return (data ?? []) as MyReview[];
+}
 
 export const cancelOrder = (orderId: string) => rpc('cancel_my_order', { p_order_id: orderId });
 
-const ORDER_COLUMNS =
+const BASE_ORDER_COLUMNS =
   'id, order_number, status, fulfilment, delivery_address, subtotal, delivery_fee, discount, total, mpesa_receipt, created_at, online_order_items(*)';
+const ORDER_COLUMNS = `${BASE_ORDER_COLUMNS}, points_value, promo_code, promo_value`;
+
+/** Asks for the promo columns, and falls back if the database doesn't have them yet (error 42703). */
+async function selectOrders<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string } | null }>): Promise<T> {
+  let result = await run(ORDER_COLUMNS);
+  if (result.error?.code === '42703') result = await run(BASE_ORDER_COLUMNS);
+  if (result.error) throw result.error;
+  return result.data;
+}
 
 export async function fetchOrders(): Promise<Order[]> {
-  const { data, error } = await supabase
-    .from('online_orders')
-    .select(ORDER_COLUMNS)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as Order[];
+  const data = await selectOrders((columns) =>
+    supabase.from('online_orders').select(columns).order('created_at', { ascending: false }).limit(50));
+  return (data ?? []) as unknown as Order[];
 }
 
 export async function fetchOrder(id: string): Promise<Order | null> {
-  const { data, error } = await supabase.from('online_orders').select(ORDER_COLUMNS).eq('id', id).maybeSingle();
-  if (error) throw error;
-  return data as Order | null;
+  const data = await selectOrders((columns) => supabase.from('online_orders').select(columns).eq('id', id).maybeSingle());
+  return data as unknown as Order | null;
 }
 
 export const startPayment = (orderId: string, phone: string) =>

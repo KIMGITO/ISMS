@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { RichText } from '../RichText';
 import { Article } from '../api';
 import { articlePhoto, PHOTOS, photoUrl } from '../images';
 import { useStorefront } from '../store';
@@ -19,44 +19,12 @@ export function ArticleCard({ article }: { article: Article }) {
         </div>
         <div className="p-5">
           <p className="eyebrow">{article.category}</p>
-          <h3 className="mt-2 font-display text-2xl leading-tight"><DisplayText>{article.title}</DisplayText></h3>
+          <h3 className="mt-2 font-display text-2xl font-medium leading-tight"><DisplayText>{article.title}</DisplayText></h3>
           <p className="mt-2 line-clamp-3 text-muted">{article.summary}</p>
         </div>
       </a>
     </li>
   );
-}
-
-/** Renders ## headings, "- " lists and paragraphs as React nodes, so stored text can never inject HTML. */
-function ArticleBody({ body }: { body: string }) {
-  const blocks: ReactNode[] = [];
-  let list: string[] = [];
-  const flush = () => {
-    if (list.length > 0) {
-      blocks.push(
-        <ul key={blocks.length} className="list-disc space-y-1.5 pl-6">
-          {list.map((item, i) => <li key={i}>{item}</li>)}
-        </ul>,
-      );
-      list = [];
-    }
-  };
-
-  for (const raw of body.split('\n')) {
-    const line = raw.trim();
-    if (line.startsWith('- ')) {
-      list.push(line.slice(2));
-      continue;
-    }
-    flush();
-    if (line.startsWith('## ')) {
-      blocks.push(<h2 key={blocks.length} className="pt-3 text-2xl font-bold">{line.slice(3)}</h2>);
-    } else if (line) {
-      blocks.push(<p key={blocks.length}>{line}</p>);
-    }
-  }
-  flush();
-  return <div className="article-body mt-6 space-y-4 text-lg leading-relaxed">{blocks}</div>;
 }
 
 export default function ArticlesPage({ slug }: { slug?: string }) {
@@ -80,10 +48,10 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
         <img
           src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 1200, 700)}
           alt=""
-          className="mt-6 aspect-[12/7] w-full bg-sand object-cover"
+          className="mt-6 aspect-[12/7] w-full rounded-2xl bg-sand object-cover"
         />
         {article.summary && <p className="mt-6 text-xl leading-relaxed text-muted">{article.summary}</p>}
-        <ArticleBody body={article.body} />
+        <RichText body={article.body} className="mt-6 text-lg" />
       </article>
     );
   }

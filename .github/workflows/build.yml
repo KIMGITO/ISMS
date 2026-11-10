@@ -34,6 +34,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # The customer website shares the database, so a change that breaks it fails here too.
+      - name: Check and build the customer website
+        run: |
+          npm run website:lint
+          npm run website:build
       # Pull requests from forks get no secrets, so only real builds insist on them.
       - name: Refuse to build an installer that cannot connect
         if: github.event_name != 'pull_request'

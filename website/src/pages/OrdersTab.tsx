@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, RotateCcw, Smartphone } from 'lucide-react';
 import { cancelOrder, checkPayment, fetchOrder, fetchOrders, friendlyError, Order, startPayment } from '../api';
 import { navigate } from '../router';
+import { CheckoutSteps } from './CartPage';
 import { useAuth, useCart, useStorefront } from '../store';
 import { cardClass, ErrorText, fieldClass, formatDateTime, formatPrice, formatQuantity, Loading, primaryButton, secondaryButton, StatusBadge } from '../ui';
 
@@ -31,6 +32,10 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
         if (status !== 'pending_payment') {
           setWaiting(false);
           if (status === 'payment_failed') setError("The payment wasn't completed. You can try again.");
+          if (status === 'paid' || status === 'preparing') {
+            navigate(`/order-confirmed/${order.id}`);
+            return;
+          }
           await onChange();
         }
       } catch {
@@ -80,6 +85,7 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
 
   return (
     <form onSubmit={handlePay} className="space-y-4 rounded-xl bg-amber-50 p-5">
+      <CheckoutSteps step={3} />
       {timedOut && (
         <p role="status" className="rounded-lg bg-white px-3.5 py-2.5">
           We haven't received confirmation yet. If you already paid, please wait a few minutes and refresh this page before paying again.
@@ -96,7 +102,24 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
         </button>
         <button type="button" disabled={busy} onClick={handleCancel} className={secondaryButton}>Cancel order</button>
       </div>
+      <p className="text-sm text-muted">
+        A Safaricom prompt will appear on this phone. <a href="/payments" className="underline hover:text-ink">How payment works</a>
+      </p>
     </form>
+  );
+}
+
+/** Points, promo code and the rounding to whole shillings, each on its own line. */
+export function OrderDiscounts({ order, currency }: { order: Order; currency: string }) {
+  const points = Number(order.points_value ?? 0);
+  const promo = Number(order.promo_value ?? 0);
+  const rounding = Number(order.discount) - points - promo;
+  return (
+    <>
+      {promo > 0 && <div className="flex justify-between"><dt className="text-muted">Promo {order.promo_code}</dt><dd>-{formatPrice(currency, promo)}</dd></div>}
+      {points > 0 && <div className="flex justify-between"><dt className="text-muted">Points</dt><dd>-{formatPrice(currency, points)}</dd></div>}
+      {rounding > 0.004 && <div className="flex justify-between"><dt className="text-muted">Rounded down</dt><dd>-{formatPrice(currency, rounding)}</dd></div>}
+    </>
   );
 }
 
@@ -134,8 +157,14 @@ function OrderDetail({ orderId }: { orderId: string }) {
       <p className="mt-1 text-muted">{formatDateTime(order.created_at)}</p>
 
       {order.status === 'paid' && (
-        <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-3 font-medium text-emerald-900">
+        <p role="status" className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-3 font-medium text-emerald-900">
           <CheckCircle2 size={20} className="shrink-0" aria-hidden /> Thank you! We received your payment.
+          <a href={`/order-confirmed/${order.id}`} className="underline">See confirmation</a>
+        </p>
+      )}
+      {order.status === 'completed' && (
+        <p className="mt-4 rounded-lg bg-sand px-3.5 py-3">
+          Enjoyed your order? <a href="/reviews" className="font-medium underline">Leave a review</a> to help other customers.
         </p>
       )}
 
@@ -155,9 +184,7 @@ function OrderDetail({ orderId }: { orderId: string }) {
         {order.delivery_fee > 0 && (
           <div className="flex justify-between"><dt className="text-muted">Delivery</dt><dd>{formatPrice(currency, order.delivery_fee)}</dd></div>
         )}
-        {order.discount > 0 && (
-          <div className="flex justify-between"><dt className="text-muted">Rounded down</dt><dd>-{formatPrice(currency, order.discount)}</dd></div>
-        )}
+        <OrderDiscounts order={order} currency={currency} />
         <div className="flex justify-between text-xl font-bold"><dt>Total</dt><dd>{formatPrice(currency, order.total)}</dd></div>
         {order.mpesa_receipt && (
           <div className="flex justify-between gap-3"><dt className="text-muted">M-Pesa receipt</dt><dd className="break-all">{order.mpesa_receipt}</dd></div>

@@ -1,19 +1,101 @@
-import { useState } from 'react';
-import { Check, CreditCard, Minus, Plus, ShoppingCart, Truck } from 'lucide-react';
+import { ReactNode, useEffect, useState } from 'react';
+import { Check, ChevronDown, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
 import { productPaths } from '../seo';
-import { useCart, useStorefront } from '../store';
-import { DisplayText, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, secondaryButton } from '../ui';
+import { navigate } from '../router';
+import { useRecent, useStorefront } from '../store';
+import { formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, TrustStrip } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
-import ProductCard from './ProductCard';
+import ProductCard, { SaveButton, useAddToCart } from './ProductCard';
+import { ProductReviews, RatingLine } from './Reviews';
+
+function Accordion({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
+  return (
+    <details className="accordion border-b border-line" open={open}>
+      <summary className="flex min-h-14 items-center justify-between gap-3 font-semibold">
+        {title}
+        <ChevronDown size={18} className="accordion-icon shrink-0 text-muted" aria-hidden />
+      </summary>
+      <div className="pb-5 leading-relaxed text-muted">{children}</div>
+    </details>
+  );
+}
+
+function QuantityPicker({ value, onChange, unit }: { value: number; onChange: (value: number) => void; unit: string }) {
+  return (
+    <div className="flex h-12 items-center rounded-full border border-line bg-white">
+      <button aria-label="Less" onClick={() => onChange(Math.max(0.5, value - (value > 1 ? 1 : 0.5)))} className="grid size-12 place-items-center">
+        <Minus size={17} aria-hidden />
+      </button>
+      <label>
+        <span className="sr-only">Amount in {unit}</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0.5"
+          max="1000"
+          step="0.5"
+          value={value}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (next > 0 && next <= 1000) onChange(next);
+          }}
+          className="h-full w-14 bg-transparent text-center text-base font-semibold"
+        />
+      </label>
+      <button aria-label="More" onClick={() => onChange(value + 1)} className="grid size-12 place-items-center">
+        <Plus size={17} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function ShareButton({ title }: { title: string }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // The person closed the share sheet, or the clipboard is blocked.
+    }
+  };
+  return (
+    <button onClick={share} className="grid size-10 place-items-center rounded-full border border-line bg-white hover:border-ink" aria-label={copied ? 'Link copied' : `Share ${title}`}>
+      {copied ? <Check size={17} aria-hidden /> : <Share2 size={17} aria-hidden />}
+    </button>
+  );
+}
 
 export default function ProductPage({ path }: { path: string }) {
-  const { products, business, settings } = useStorefront();
-  const add = useCart((s) => s.add);
+  const site = useStorefront();
+  const { products, business, settings, deliveryZones } = site;
+  const addToCart = useAddToCart();
+  const recentIds = useRecent((s) => s.ids);
+  const view = useRecent((s) => s.view);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
   const paths = productPaths(products);
   const product = products.find((p) => paths.get(p.id) === path);
+
+  useEffect(() => {
+    if (product) view(product.id);
+    setQuantity(1);
+    setAdded(false);
+  }, [product?.id, view]);
+
+  // The phone add-to-cart bar sits above the tab bar, so floating buttons move up to clear it.
+  useEffect(() => {
+    if (!product?.inStock) return;
+    document.documentElement.style.setProperty('--float-offset', '4.25rem');
+    return () => { document.documentElement.style.removeProperty('--float-offset'); };
+  }, [product?.inStock]);
 
   if (!product) {
     return (
@@ -23,93 +105,160 @@ export default function ProductPage({ path }: { path: string }) {
     );
   }
 
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id && p.inStock).slice(0, 3);
+  const related = products.filter((p) => p.category === product.category && p.id !== product.id && p.inStock).slice(0, 4);
+  const recent = recentIds.filter((id) => id !== product.id).map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 4);
+  const lineTotal = product.price * quantity;
+  const handleAdd = () => {
+    addToCart(product, quantity);
+    setAdded(true);
+  };
+  const buyNow = () => {
+    addToCart(product, quantity);
+    navigate('/cart');
+  };
+
+  const deliveryText = !settings.deliveryEnabled
+    ? 'We are not delivering right now. Order online and pick up from us.'
+    : deliveryZones.length > 0
+      ? `We deliver to ${deliveryZones.length} ${deliveryZones.length === 1 ? 'area' : 'areas'}, from ${formatPrice(business.currency, Math.min(...deliveryZones.map((z) => Number(z.fee))))}. Choose yours at checkout.`
+      : Number(settings.deliveryFee) > 0
+        ? `Delivery is ${formatPrice(business.currency, settings.deliveryFee)} per order, or pick up for free.`
+        : 'Free delivery, or pick up from us.';
 
   return (
-    <div className={pageClass}>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Shop', href: '/shop' }, { label: product.name }]} />
-      <div className="mt-4 grid gap-8 md:grid-cols-2 lg:gap-12">
-        <div className="aspect-square overflow-hidden bg-sand">
-          <ProductImage product={product} width={1000} />
-        </div>
-        <div>
-          <p className="font-medium text-brand-deep">{product.category}</p>
-          <h1 className="display-lg mt-1"><DisplayText>{product.name}</DisplayText></h1>
-          <p className="mt-4 text-3xl font-bold">
-            {formatPrice(business.currency, product.price)}
-            <span className="text-base font-normal text-muted"> per {perUnit(product.unit)}</span>
-          </p>
-          <p className={`mt-2 font-medium ${product.inStock ? 'text-emerald-700' : 'text-red-700'}`}>
-            {product.inStock ? 'In stock' : 'Out of stock'}
-          </p>
-          {product.description && <p className="mt-5 text-lg leading-relaxed text-muted">{product.description}</p>}
-
-          {product.inStock && (
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <div className="flex items-center self-start">
-                <button
-                  aria-label="Less"
-                  onClick={() => setQuantity(Math.max(0.5, quantity - (quantity > 1 ? 1 : 0.5)))}
-                  className="grid size-12 place-items-center rounded-l-lg border border-line"
-                >
-                  <Minus size={17} aria-hidden />
-                </button>
-                <label>
-                  <span className="sr-only">Amount in {product.unit}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0.5"
-                    max="1000"
-                    step="0.5"
-                    value={quantity}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      if (value > 0 && value <= 1000) setQuantity(value);
-                    }}
-                    className="h-12 w-20 border-y border-line text-center text-base"
-                  />
-                </label>
-                <button aria-label="More" onClick={() => setQuantity(quantity + 1)} className="grid size-12 place-items-center rounded-r-lg border border-line">
-                  <Plus size={17} aria-hidden />
-                </button>
-              </div>
-              <button
-                onClick={() => {
-                  add(product.id, quantity);
-                  setAdded(true);
-                }}
-                className={`${primaryButton} min-h-12 sm:flex-1`}
-              >
-                {added ? <Check size={18} aria-hidden /> : <ShoppingCart size={18} aria-hidden />}
-                {added ? 'Added to cart' : 'Add to cart'}
-              </button>
+    <>
+      <div className={pageClass}>
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Shop', href: '/shop' },
+            { label: product.category, href: `/shop?category=${encodeURIComponent(product.category)}` },
+            { label: product.name },
+          ]}
+        />
+        <div className="mt-4 grid gap-8 md:grid-cols-2 lg:gap-14">
+          <div className="relative md:sticky md:top-36 md:self-start">
+            <div className="aspect-square overflow-hidden rounded-2xl bg-sand">
+              <ProductImage product={product} width={1000} />
             </div>
-          )}
-          {added && <a href="/cart" className={`${secondaryButton} mt-3 w-full`}>View cart and check out</a>}
+            {!product.inStock && <span className="absolute left-4 top-4 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-cream">Sold out</span>}
+          </div>
 
-          <ul className="mt-6 space-y-2.5 border-t border-line pt-5 text-muted">
-            <li className="flex items-center gap-2.5"><CreditCard size={19} className="shrink-0" aria-hidden /> Pay securely with M-Pesa</li>
-            <li className="flex items-center gap-2.5">
-              <Truck size={19} className="shrink-0" aria-hidden />
-              {!settings.deliveryEnabled
-                ? 'Pick up in store'
-                : settings.deliveryFee > 0
-                  ? `Delivery for ${formatPrice(business.currency, settings.deliveryFee)}, or pick up in store`
-                  : 'Delivery or pick up in store'}
-            </li>
-          </ul>
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <a href={`/shop?category=${encodeURIComponent(product.category)}`} className="eyebrow py-1 hover:underline">{product.category}</a>
+              <div className="flex gap-2">
+                <ShareButton title={product.name} />
+                <SaveButton productId={product.id} name={product.name} className="border border-line shadow-none" />
+              </div>
+            </div>
+            <h1 className="display-lg mt-1">{product.name}</h1>
+            <RatingLine reviews={(site.reviews ?? []).filter((r) => r.productId === product.id)} href="#reviews" className="mt-2" />
+            <p className="mt-4 text-3xl font-bold">
+              {formatPrice(business.currency, product.price)}
+              <span className="text-base font-normal text-muted"> per {perUnit(product.unit)}</span>
+            </p>
+            <p className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${product.inStock ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
+              <span className={`size-2 rounded-full ${product.inStock ? 'bg-emerald-600' : 'bg-red-600'}`} />
+              {product.inStock ? 'In stock, ready to order' : 'Out of stock right now'}
+            </p>
+            {product.description && <p className="mt-5 text-lg leading-relaxed text-muted">{product.description}</p>}
+
+            {product.inStock ? (
+              <div className="mt-7 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <QuantityPicker value={quantity} onChange={setQuantity} unit={product.unit} />
+                  <p className="text-muted">Total <span className="font-bold text-ink">{formatPrice(business.currency, lineTotal)}</span></p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button onClick={handleAdd} className="btn btn-primary min-h-12">
+                    {added ? <Check size={18} aria-hidden /> : <ShoppingBag size={18} aria-hidden />}
+                    {added ? 'Added. Add more?' : 'Add to cart'}
+                  </button>
+                  <button onClick={buyNow} className="btn btn-accent min-h-12">Buy now</button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-7 rounded-xl bg-sand p-4">
+                <p className="font-semibold">Back soon</p>
+                <p className="mt-1 text-muted">
+                  Save it to find it quickly later, or <a href="/account/messages" className="font-medium text-ink underline">ask us</a> when it will be back.
+                </p>
+              </div>
+            )}
+
+            <dl className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line text-sm">
+              {[
+                ['Category', product.category],
+                ['Sold per', perUnit(product.unit)],
+                ['Availability', product.inStock ? 'In stock' : 'Out of stock'],
+                ['Sold by', business.name],
+              ].map(([label, value]) => (
+                <div key={label} className="bg-white px-4 py-3">
+                  <dt className="text-muted">{label}</dt>
+                  <dd className="mt-0.5 font-semibold capitalize">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-6 border-t border-line">
+              <Accordion title="Delivery & pickup" open>
+                <p>{deliveryText}</p>
+                {Number(settings.minOrder) > 0 && <p className="mt-2">Minimum order {formatPrice(business.currency, settings.minOrder)}.</p>}
+                <a href="/delivery" className="mt-2 inline-block font-medium text-ink underline">Delivery details</a>
+              </Accordion>
+              <Accordion title="Payment">
+                <p>Pay with M-Pesa. After you order we send a prompt to your phone. Enter your PIN and you're done. Every paid order earns reward points.</p>
+                <a href="/payments" className="mt-2 inline-block font-medium text-ink underline">How payment works</a>
+              </Accordion>
+              <Accordion title="Freshness & returns">
+                <p>Keep fresh dairy in the fridge as soon as it arrives. If anything is wrong with your order, tell us within 24 hours and we'll replace or refund it.</p>
+                <a href="/returns" className="mt-2 inline-block font-medium text-ink underline">Returns & refunds</a>
+              </Accordion>
+              <Accordion title="Order it regularly">
+                <p>Need this every week? Set up a regular order and we'll prepare it on your chosen days.</p>
+                <a href="/account/schedules" className="mt-2 inline-block font-medium text-ink underline">Set up a regular order</a>
+              </Accordion>
+            </div>
+          </div>
         </div>
+
+        <div className="mt-12"><TrustStrip site={site} compact /></div>
+
+        <ProductReviews productId={product.id} productName={product.name} />
+
+        {related.length > 0 && (
+          <section className="mt-14" aria-labelledby="related-heading">
+            <h2 id="related-heading" className="display-md">More {product.category}</h2>
+            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+              {related.map((p) => <ProductCard key={p.id} product={p} />)}
+            </ul>
+          </section>
+        )}
+        {recent.length > 0 && (
+          <section className="mt-14" aria-labelledby="recent-heading">
+            <h2 id="recent-heading" className="display-md">Recently viewed</h2>
+            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+              {recent.map((p) => <ProductCard key={p.id} product={p} />)}
+            </ul>
+          </section>
+        )}
       </div>
 
-      {related.length > 0 && (
-        <section className="mt-14">
-          <h2 className="text-2xl font-bold">You may also like</h2>
-          <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-            {related.map((p) => <ProductCard key={p.id} product={p} />)}
-          </ul>
-        </section>
+      {product.inStock && <div className="h-16 md:hidden" aria-hidden />}
+      {product.inStock && (
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-white/95 px-4 py-2.5 backdrop-blur md:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{product.name}</p>
+              <p className="text-sm text-muted">{formatPrice(business.currency, lineTotal)}</p>
+            </div>
+            <button onClick={handleAdd} className="btn btn-primary min-h-11 shrink-0 px-5">
+              {added ? <Check size={17} aria-hidden /> : <ShoppingBag size={17} aria-hidden />} {added ? 'Added' : 'Add'}
+            </button>
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }

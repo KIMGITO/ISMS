@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { CalendarClock, Gift, LogOut, MessageSquare, Package, UserRound } from 'lucide-react';
 import { fetchMessages, friendlyError, supabase, updateAccount } from '../api';
-import { useAuth } from '../store';
+import { useAuth, useCart } from '../store';
+import { navigate } from '../router';
+import { RETURN_KEY } from './CartPage';
 import { ErrorText, fieldClass, Loading, pageClass, primaryButton, secondaryButton } from '../ui';
 import { AuthForms, FinishAccountForm } from './AuthForms';
 import OrdersTab from './OrdersTab';
@@ -84,6 +86,16 @@ export default function AccountPage({ route }: { route: string[] }) {
   const account = useAuth((s) => s.account);
   const [unread, setUnread] = useState(0);
   const tab = TABS.some((t) => t.id === route[0]) ? route[0] : 'orders';
+
+  // A shopper who signed in from checkout (Google returns here) goes back to it.
+  useEffect(() => {
+    if (!account) return;
+    try {
+      const back = sessionStorage.getItem(RETURN_KEY);
+      sessionStorage.removeItem(RETURN_KEY);
+      if (back && useCart.getState().lines.length > 0) navigate(back, { replace: true });
+    } catch { /* stay on the account page */ }
+  }, [account]);
 
   useEffect(() => {
     if (!account) return;

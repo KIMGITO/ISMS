@@ -12,7 +12,7 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
 
 ## Going live
 
-1. Apply the migrations, including `20261105002_security_hardening.sql` and `20261105010_customer_portal.sql`.
+1. Apply the migrations, including `20261105002_security_hardening.sql`, `20261105010_customer_portal.sql`, `20261110006_website_pages.sql` and `20261110008_reviews_promotions.sql`.
 2. Set the M-Pesa secrets. Start with `MPESA_ENV=sandbox`. The variables are listed in `.env.example`:
 
        supabase secrets set MPESA_ENV=sandbox MPESA_CONSUMER_KEY=... MPESA_CONSUMER_SECRET=... \
@@ -27,11 +27,12 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
    - Set the website name to `kaykays`. The site stays hidden until this is set.
    - Set the delivery fee, which starts at 0, or add delivery areas with their own prices.
    - Untick any products customers shouldn't see. Every product priced above 0 is shown by default.
-6. In **Online Store > Guides**, add the starter guides, check them, then publish them.
-7. Fill in the business description, address, phone and email in **Business Management**.
-8. Run `npm run website:build` and upload `website/dist` to any static host.
+6. In **Online Store > Pages**, add opening hours and a WhatsApp number, then read every page. Each starts with standard text built from your live settings; edit any you want, and have a lawyer check Terms, Privacy and Returns before launch.
+7. In **Online Store > Guides**, add the starter guides, check them, then publish them.
+8. Fill in the business description, address, phone and email in **Business Management**.
+9. Run `npm run website:build` and upload `website/dist` to any static host.
    The host must serve `index.html` for unknown paths. The build includes `_redirects` (Netlify, Cloudflare Pages) and `404.html` (GitHub Pages). For other hosts, add a rewrite rule.
-9. Make a real sandbox payment, then switch to `MPESA_ENV=production` with live till credentials (`MPESA_TRANSACTION_TYPE=CustomerBuyGoodsOnline`, `MPESA_SHORTCODE` set to the store number, `MPESA_PARTY_B` set to the till number) and make one small real payment before announcing the site.
+10. Make a real sandbox payment, then switch to `MPESA_ENV=production` with live till credentials (`MPESA_TRANSACTION_TYPE=CustomerBuyGoodsOnline`, `MPESA_SHORTCODE` set to the store number, `MPESA_PARTY_B` set to the till number) and make one small real payment before announcing the site.
 
 ## Connecting kaykays.com
 
@@ -48,9 +49,9 @@ It reads `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WEBSITE_SLUG` (def
 
 ## Look and photos
 
-`src/theme.css` holds the whole public look: colours, fonts (Italiana and Manrope), buttons, fields and corners. The staff app's styles are separate, in `src/index.css`.
+`src/theme.css` holds the whole public look: colours, fonts (Fraunces for headings, Plus Jakarta Sans for text), buttons, fields and corners. The staff app's styles are separate, in `src/index.css`.
 
-The home page hero is a carousel in `src/pages/HeroCarousel.tsx`. Scroll and hover animations are in the Motion block of `theme.css`, and anyone whose device asks for reduced motion gets a still page. Italiana draws a nearly invisible hyphen, so wrap display text that may contain one in `DisplayText`.
+The home page hero is a carousel in `src/pages/HeroCarousel.tsx`. Scroll and hover animations are in the Motion block of `theme.css`, and anyone whose device asks for reduced motion gets a still page.
 
 `src/images.ts` holds the temporary Unsplash photos, each with its credit shown in the footer. A product or guide with its own image never uses them, so adding real photos in the staff app replaces them. Replace the hero photo by setting a cover image on the business.
 
@@ -69,3 +70,21 @@ Refunds are manual. Cancelling a paid order from the site isn't supported, so st
 **Schedules.** A daily job (`run_customer_portal_daily`, 05:00 Nairobi) raises due schedules as unpaid orders and messages the customer, because M-Pesa needs their PIN for each payment. It also cancels orders left unpaid for 48 hours. It needs `pg_cron`; without it, call the function from an external scheduler.
 
 **Customer records.** Each website account gets a new `customers` row. It isn't matched to an existing customer by phone, because the phone number is unverified and matching would expose that customer's history.
+
+## Pages
+
+Shop: home (offers, reviews), shop and search results (category, search, sort and stock filters kept in the address), product pages with reviews, cart drawer, cart with promo codes, checkout, order confirmation, saved items, recently viewed. Account: orders, track order, regular orders, rewards, messages, profile. Info: About, Help & FAQs, Delivery & pickup, Payments, Returns & refunds, Terms, Privacy, Cookies, Contact, Feedback, Guides and a site map.
+
+`src/infoPages.ts` holds the info pages and their standard text, built from live data: delivery areas and fees, minimum order, points rule, branches, contacts and opening hours. Staff text from **Online Store > Pages** replaces a page; clearing it brings the standard text back. Page text supports `## heading`, `- list`, `1. step`, `**bold**` and `[link](/path)`.
+
+Phones get a bottom tab bar (Home, Shop, Saved, Cart, Account), a menu drawer and a sticky add-to-cart bar on product pages.
+
+## Reviews and promo codes
+
+Signed-in customers review products or the shop. Reviews wait under **Online Store > Reviews** until staff approve them; staff can reply and feature one on the home page. "Verified buyer" is set by the database from paid orders.
+
+Promo codes are made under **Online Store > Promotions**. The cart checks a code with `check_promo_code`, but only `place_online_order` applies it, after normal pricing; the saving comes off products only and is stored in `online_orders.discount`, so sales, profit and points stay right. Codes marked "Advertise" show on the home page.
+
+## Releases
+
+Every app release (`.github/workflows/release-and-deploy.yml`) also type-checks and builds the website (`build-website`); a broken website stops the release, and the build is kept as the `website-dist` artifact. Pull requests build it too. Going live is still `npm run website:deploy` (or Vercel's own Git deploys) until a deploy job with a `VERCEL_TOKEN` secret is added.

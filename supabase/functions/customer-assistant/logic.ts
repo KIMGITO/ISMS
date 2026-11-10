@@ -4,6 +4,9 @@
 // Availability, quantities and totals are decided here from live stock. The language
 // model is only used for general milk-care questions and never receives stock or cost
 // figures, so it can't reveal them however it is asked.
+//
+// Nothing here writes to the database. Replies can only ask the page to do things the
+// customer then confirms: offer an "Add to cart" button, open a product, or follow a link.
 
 export interface CatalogProduct {
   id: string;
@@ -12,6 +15,8 @@ export interface CatalogProduct {
   price: number;
   unit: string;
   stock: number;
+  /** The shop's reorder level. At or below it, stock is "limited" and never shown as a number. */
+  minStock: number;
 }
 
 export interface CatalogArticle {
@@ -39,6 +44,8 @@ export interface AssistantReply {
   pendingProductId?: string | null;
   addToCart?: { productId: string; quantity: number; name: string; total: number } | null;
   link?: { label: string; href: string } | null;
+  /** Product the page can offer to open. The page builds the link from its own catalogue. */
+  productId?: string | null;
   /** True when the question should go to the language model. */
   needsModel?: boolean;
 }
@@ -54,14 +61,20 @@ const NUMBER_WORDS: Record<string, number> = {
 const STOP_WORDS = new Set([
   "do", "you", "we", "have", "any", "the", "a", "an", "some", "i", "want", "need", "would", "like", "to", "get",
   "buy", "order", "of", "is", "are", "there", "please", "can", "much", "how", "many", "for", "and", "your", "our",
-  "in", "stock", "available", "price", "cost",
+  "in", "stock", "available", "price", "cost", "now", "today", "still", "left", "got", "sell", "store", "shop",
+  "niko", "mna", "mnayo", "kuna", "ziko", "iko", "nataka", "bei",
 ]);
+
+/** Swahili and common spellings mapped to the words used in product names. */
+const SYNONYMS: Record<string, string> = { maziwa: "milk", mala: "mala", lala: "mala", yoghurt: "yogurt", yougurt: "yogurt", mtindi: "mala" };
 
 const has = (text: string, pattern: RegExp) => pattern.test(text);
 
 function words(text: string): string[] {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).map((w) => SYNONYMS[w] ?? w);
 }
+
+const isLimited = (product: CatalogProduct) => product.stock > 0 && product.stock <= product.minStock;
 
 const stem = (word: string) => word.replace(/(es|s)$/, "");
 
@@ -115,6 +128,19 @@ function assessQuantity(product: CatalogProduct, quantity: number, ctx: Assistan
     reply: `Yes, we can supply ${amount(quantity, product.unit)} of ${product.name}. That comes to ${money(ctx, total)}${ctx.deliveryEnabled ? " before any delivery fee" : ""}.`,
     pendingProductId: null,
     addToCart: { productId: product.id, quantity, name: product.name, total },
+    productId: product.id,
+  };
+}
+
+/** "Do you have X?" Above the reorder level it's a plain yes; at or below it, a yes that warns it's limited. */
+function inStockReply(product: CatalogProduct, ctx: AssistantContext): AssistantReply {
+  const price = `${money(ctx, product.price)} per ${perUnit(product.unit)}`;
+  return {
+    reply: isLimited(product)
+      ? `Yes, we have ${product.name} at ${price}, but only a limited amount is left. How much would you like? I'll check we can cover it.`
+      : `Yes, we have ${product.name} at ${price}. How much would you like?`,
+    pendingProductId: product.id,
+    productId: product.id,
   };
 }
 
@@ -160,7 +186,9 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
   const quantity = parseQuantity(text);
 
   // An article question mentions milk too, so check for this before product matching.
-  const careQuestion = has(text, /\b(preserv|store|storing|storage|keep|fridge|refrigerat|boil|spoil|sour|bad|expire|shelf|freez|last|how long|safe)/);
+  // "Do you have milk in store?" is about stock, not storage, so that phrase doesn't count.
+  const careText = text.replace(/\bin (the )?(store|shop)\b/g, " ");
+  const careQuestion = has(careText, /\b(preserv|store|storing|storage|keep|fridge|refrigerat|boil|spoil|sour|bad|expire|shelf|freez|last|how long|safe)/);
   if (careQuestion && quantity === null) {
     const article = findArticle(text, ctx.articles);
     return {
@@ -175,7 +203,10 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
     const available = matches.filter((p) => p.stock > 0);
     if (available.length === 0) return outOfStock(matches[0], ctx);
     if (available.length > 1) {
-      const names = available.slice(0, 5).map((p) => `${p.name} (${money(ctx, p.price)} per ${perUnit(p.unit)})`).join(", ");
+      const names = available
+        .slice(0, 5)
+        .map((p) => `${p.name} (${money(ctx, p.price)} per ${perUnit(p.unit)}${isLimited(p) ? ", limited" : ""})`)
+        .join(", ");
       return { reply: `Yes, we have ${names}. Which one would you like, and how much?`, pendingProductId: null };
     }
     matches.splice(0, matches.length, available[0]);
@@ -186,10 +217,7 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
   if (product) {
     if (quantity !== null) return assessQuantity(product, quantity, ctx);
     if (product.stock <= 0) return outOfStock(product, ctx);
-    return {
-      reply: `Yes, we have ${product.name} at ${money(ctx, product.price)} per ${perUnit(product.unit)}. How much would you like?`,
-      pendingProductId: product.id,
-    };
+    return inStockReply(product, ctx);
   }
 
   if (has(text, /\b(deliver|delivery|shipping|bring)/)) {

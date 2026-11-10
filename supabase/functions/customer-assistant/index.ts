@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const [productResult, articleResult] = await Promise.all([
       admin
         .from("products")
-        .select("id, name, category, price, unit, stock")
+        .select("id, name, category, price, unit, stock, min_stock")
         .eq("business_id", business.id)
         .eq("show_on_website", true)
         .gt("price", 0)
@@ -84,7 +84,10 @@ Deno.serve(async (req) => {
       paymentMethods: business.default_payment_methods ?? [],
       address: business.address,
       phone: business.contact_phone || null,
-      products: (products ?? []).map((p: any) => ({ ...p, price: Number(p.price), stock: Number(p.stock) })),
+      products: (products ?? []).map((p: any) => ({
+        id: p.id, name: p.name, category: p.category, unit: p.unit,
+        price: Number(p.price), stock: Number(p.stock), minStock: Number(p.min_stock ?? 0),
+      })),
       articles: articles ?? [],
     };
 

@@ -3,6 +3,7 @@ import { Check, MessageCircleQuestion, Send, ShoppingCart, X } from 'lucide-reac
 import { askAssistant, AssistantReply, friendlyError } from './api';
 import { useCart, useStorefront } from './store';
 import { formatPrice, primaryButton } from './ui';
+import { productPaths } from './seo';
 
 interface ChatMessage {
   id: number;
@@ -14,7 +15,8 @@ interface ChatMessage {
 const SUGGESTIONS = ['Do you have milk?', 'How do I store milk?', 'Do you deliver?'];
 
 export default function Assistant() {
-  const { business } = useStorefront();
+  const { business, products } = useStorefront();
+  const paths = productPaths(products);
   const add = useCart((s) => s.add);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -69,7 +71,7 @@ export default function Assistant() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Ask us"
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-30 flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-brand-deep font-semibold text-white shadow-lg transition hover:brightness-110 md:bottom-6 md:right-6 md:px-4"
+        className="fixed bottom-[calc(5rem+var(--float-offset,0px)+env(safe-area-inset-bottom))] right-4 z-30 flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-brand-deep font-semibold text-white shadow-lg transition hover:brightness-110 md:px-4 lg:bottom-6 lg:right-6"
       >
         <MessageCircleQuestion size={21} aria-hidden />
         <span className="hidden md:inline">Ask us</span>
@@ -80,7 +82,7 @@ export default function Assistant() {
   return (
     <section
       aria-label="Shop assistant"
-      className="assistant-enter fixed inset-0 z-40 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(36rem,calc(100dvh-3rem))] sm:w-96 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-2xl"
+      className="assistant-enter fixed inset-0 z-50 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(36rem,calc(100dvh-3rem))] sm:w-96 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-2xl"
     >
       <header className="flex items-center justify-between gap-3 bg-brand-deep px-4 py-3 text-white">
         <div className="min-w-0">
@@ -116,6 +118,20 @@ export default function Assistant() {
                     ? 'Added to cart'
                     : `Add to cart · ${formatPrice(business.currency, message.reply.addToCart.total)}`}
                 </button>
+              )}
+              {added.includes(message.id) && (
+                <a href="/cart" onClick={() => setOpen(false)} className="mt-1 inline-block py-1.5 font-medium text-brand-deep underline">
+                  Go to cart
+                </a>
+              )}
+              {message.reply?.productId && paths.get(message.reply.productId) && !added.includes(message.id) && (
+                <a
+                  href={paths.get(message.reply.productId)}
+                  onClick={() => setOpen(false)}
+                  className="mt-1 mr-4 inline-block py-1.5 font-medium text-brand-deep underline"
+                >
+                  See product
+                </a>
               )}
               {message.reply?.link && (
                 <a

@@ -100,3 +100,59 @@ export function startAuthListener() {
     setTimeout(() => applySession(session), 0);
   });
 }
+
+interface SavedState {
+  ids: string[];
+  toggle: (productId: string) => void;
+}
+
+/** Products a shopper has saved for later. Kept on this device only. */
+export const useSaved = create<SavedState>()(
+  persist(
+    (set) => ({
+      ids: [],
+      toggle: (productId) =>
+        set((s) => ({ ids: s.ids.includes(productId) ? s.ids.filter((id) => id !== productId) : [productId, ...s.ids] })),
+    }),
+    { name: 'kaykays-saved', storage: safeStorage },
+  ),
+);
+
+interface RecentState {
+  ids: string[];
+  view: (productId: string) => void;
+}
+
+/** The last few products opened on this device, newest first. */
+export const useRecent = create<RecentState>()(
+  persist(
+    (set) => ({
+      ids: [],
+      view: (productId) => set((s) => ({ ids: [productId, ...s.ids.filter((id) => id !== productId)].slice(0, 8) })),
+    }),
+    { name: 'kaykays-recent', storage: safeStorage },
+  ),
+);
+
+/** The slide-in cart and the mobile menu. Only one is open at a time. */
+export const usePanels = create<{ panel: 'cart' | 'menu' | null; open: (panel: 'cart' | 'menu') => void; close: () => void }>((set) => ({
+  panel: null,
+  open: (panel) => set({ panel }),
+  close: () => set({ panel: null }),
+}));
+
+/** A short message after adding to cart, with a shortcut to the cart. */
+export const useToast = create<{ message: string | null; id: number; show: (message: string) => void; hide: () => void }>((set) => ({
+  message: null,
+  id: 0,
+  show: (message) => set((s) => ({ message, id: s.id + 1 })),
+  hide: () => set({ message: null }),
+}));
+
+/** The promo code typed in the cart, carried to checkout. The server checks it again there. */
+export const usePromo = create<{ code: string; setCode: (code: string) => void }>()(
+  persist(
+    (set) => ({ code: '', setCode: (code) => set({ code }) }),
+    { name: 'kaykays-promo', storage: safeStorage },
+  ),
+);

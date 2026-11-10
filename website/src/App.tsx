@@ -4,6 +4,7 @@ import { fetchStorefront } from './api';
 import { Route, startLinkInterceptor, useRoute } from './router';
 import { startAuthListener, useAuth, useSite } from './store';
 import { Loading, Notice, primaryButton } from './ui';
+import { useHashScroll } from './router';
 import { usePageMeta } from './usePageMeta';
 import Layout from './Layout';
 import Assistant from './Assistant';
@@ -16,6 +17,11 @@ import FeedbackPage from './pages/FeedbackPage';
 import ContactPage from './pages/ContactPage';
 import AccountPage from './pages/AccountPage';
 import { NewPasswordForm } from './pages/AuthForms';
+import InfoPage from './pages/InfoPage';
+import { NotFoundPage, OrderConfirmedPage, SavedPage, SitemapPage, TrackPage } from './pages/ExtraPages';
+import { CheckoutPage } from './pages/CartPage';
+import { ReviewsPage } from './pages/Reviews';
+import { infoPage } from './infoPages';
 
 /** Applies the business's brand colour, keeping button text readable on it. */
 function applyBrandColor(color: string | null) {
@@ -37,7 +43,14 @@ function Page({ route }: { route: Route }) {
     case undefined:
       return <HomePage />;
     case 'shop':
-      return <ShopPage initialQuery={route.query.get('q') ?? ''} />;
+    case 'search':
+      return <ShopPage route={route} />;
+    case 'checkout':
+      return <CheckoutPage />;
+    case 'order-confirmed':
+      return id ? <OrderConfirmedPage orderId={id} /> : <NotFoundPage />;
+    case 'reviews':
+      return <ReviewsPage />;
     case 'products':
       return <ProductPage path={`/products/${id}`} />;
     case 'cart':
@@ -50,12 +63,16 @@ function Page({ route }: { route: Route }) {
       return <ContactPage />;
     case 'account':
       return <AccountPage route={route.parts.slice(1)} />;
-    default:
-      return (
-        <Notice title="We can't find that page" body="It may have been moved. Try our shop instead.">
-          <a href="/shop" className={`${primaryButton} mt-6`}>Go to the shop</a>
-        </Notice>
-      );
+    case 'saved':
+      return <SavedPage />;
+    case 'track':
+      return <TrackPage />;
+    case 'sitemap':
+      return <SitemapPage />;
+    default: {
+      const page = id === undefined ? infoPage(section) : undefined;
+      return page ? <InfoPage page={page} /> : <NotFoundPage />;
+    }
   }
 }
 
@@ -65,11 +82,22 @@ export default function App() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'unpublished' | 'error'>('loading');
   const route = useRoute();
   usePageMeta(route.parts, site);
+  useHashScroll(route, status === 'ready');
 
   const load = async () => {
     setStatus('loading');
     try {
-      const data = await fetchStorefront();
+      // A brief network hiccup shouldn't show an error page, so try up to three times.
+      let data: Awaited<ReturnType<typeof fetchStorefront>> = null;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          data = await fetchStorefront();
+          break;
+        } catch (err) {
+          if (attempt >= 3) throw err;
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1200));
+        }
+      }
       if (!data) {
         setStatus('unpublished');
         return;
@@ -103,7 +131,7 @@ export default function App() {
 
   return (
     <>
-      <Layout section={route.parts[0] ?? ''}>
+      <Layout section={route.parts[0] ?? ''} path={`/${route.parts.join('/')}${route.query.size ? `?${route.query}` : ''}`}>
         {/* Account tabs keep their shell, so only other page changes fade in. */}
         <div key={route.parts[0] === 'account' ? 'account' : route.parts.join('/')} className="page-enter">
           <Page route={route} />

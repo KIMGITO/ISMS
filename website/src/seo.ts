@@ -1,6 +1,7 @@
 // Page titles, descriptions and structured data. Used in the browser and by
 // scripts/prerender.ts, so everything here is plain data with no browser or Vite APIs.
 import type { Article, Product, Storefront } from './api';
+import { infoPage, InfoPageDef } from './infoPages';
 
 export interface PageMeta {
   title: string;
@@ -89,6 +90,22 @@ export const shopMeta = (site: Storefront, siteUrl: string): PageMeta => ({
   jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Shop', '/shop']])],
 });
 
+function productRating(productId: string, site: Storefront) {
+  const reviews = (site.reviews ?? []).filter((r) => r.productId === productId);
+  if (!reviews.length) return {};
+  const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  return {
+    aggregateRating: { '@type': 'AggregateRating', ratingValue: average.toFixed(1), reviewCount: reviews.length },
+    review: reviews.slice(0, 5).map((r) => ({
+      '@type': 'Review',
+      reviewRating: { '@type': 'Rating', ratingValue: r.rating },
+      author: { '@type': 'Person', name: r.name },
+      datePublished: r.createdAt.slice(0, 10),
+      reviewBody: r.body,
+    })),
+  };
+}
+
 export function productMeta(product: Product, path: string, site: Storefront, siteUrl: string): PageMeta {
   const { name: business, currency } = site.business;
   return {
@@ -109,6 +126,7 @@ export function productMeta(product: Product, path: string, site: Storefront, si
         category: product.category,
         image: absolute(siteUrl, product.image),
         brand: { '@type': 'Brand', name: business },
+        ...productRating(product.id, site),
         offers: {
           '@type': 'Offer',
           url: `${siteUrl}${path}`,
@@ -183,6 +201,39 @@ export const notFoundMeta = (site: Storefront, path: string): PageMeta => ({
   noindex: true,
 });
 
+export const infoMeta = (page: InfoPageDef, site: Storefront, siteUrl: string): PageMeta => ({
+  title: `${page.title} | ${site.business.name}`,
+  description: clip(`${page.summary} ${site.business.name}, Kenya.`),
+  path: page.path,
+  jsonLd: [
+    ...(page.id === 'about' ? [businessJsonLd(site, siteUrl)] : []),
+    breadcrumbs(siteUrl, [['Home', '/'], [page.label, page.path]]),
+  ],
+});
+
+export function reviewsMeta(site: Storefront, siteUrl: string): PageMeta {
+  const reviews = site.reviews ?? [];
+  const average = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+  return {
+    title: `Customer reviews | ${site.business.name}`,
+    description: clip(reviews.length
+      ? `Rated ${average.toFixed(1)} out of 5 by ${reviews.length} customers. Read what customers say about ${site.business.name}.`
+      : `Read and write reviews of ${site.business.name}'s milk, dairy and delivery.`),
+    path: '/reviews',
+    jsonLd: [
+      ...(reviews.length ? [{ ...businessJsonLd(site, siteUrl), aggregateRating: { '@type': 'AggregateRating', ratingValue: average.toFixed(1), reviewCount: reviews.length } }] : []),
+      breadcrumbs(siteUrl, [['Home', '/'], ['Reviews', '/reviews']]),
+    ],
+  };
+}
+
+export const sitemapMeta = (site: Storefront, siteUrl: string): PageMeta => ({
+  title: `Site map | ${site.business.name}`,
+  description: clip(`Every page on the ${site.business.name} website: shop, products, help, policies and guides.`),
+  path: '/sitemap',
+  jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Site map', '/sitemap']])],
+});
+
 export function metaForRoute(parts: string[], site: Storefront, siteUrl: string): PageMeta {
   const [section, id] = parts;
   const path = `/${parts.join('/')}`;
@@ -209,7 +260,23 @@ export function metaForRoute(parts: string[], site: Storefront, siteUrl: string)
       return privateMeta(site, 'Your cart', path);
     case 'account':
       return privateMeta(site, 'My account', path);
-    default:
-      return notFoundMeta(site, path);
+    case 'saved':
+      return privateMeta(site, 'Saved items', path);
+    case 'search':
+      return privateMeta(site, 'Search results', path);
+    case 'checkout':
+      return privateMeta(site, 'Checkout', path);
+    case 'order-confirmed':
+      return privateMeta(site, 'Order confirmed', path);
+    case 'reviews':
+      return reviewsMeta(site, siteUrl);
+    case 'track':
+      return privateMeta(site, 'Track your order', path);
+    case 'sitemap':
+      return sitemapMeta(site, siteUrl);
+    default: {
+      const page = id === undefined ? infoPage(section) : undefined;
+      return page ? infoMeta(page, site, siteUrl) : notFoundMeta(site, path);
+    }
   }
 }

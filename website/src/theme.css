@@ -1,49 +1,52 @@
 /*
  * KayKay's public website theme. The look of every public page is set here:
- * warm sand and espresso, burnt amber for feature sections, an elegant display
- * serif for headlines and square-cornered controls.
+ * warm cream and espresso with a burnt amber accent, Fraunces for headlines,
+ * Plus Jakarta Sans for everything else, and soft rounded controls.
  * The staff app has its own styles in src/index.css and shares nothing with this file.
  */
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: "Italiana", "Times New Roman", serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
 
   /* Palette */
-  --color-cream: #fbf7f0;
-  --color-sand: #f3e9da;
-  --color-sand-deep: #e6d5bb;
-  --color-ink: #241710;
-  --color-muted: #6a5849;
-  --color-line: #e5d9c7;
+  --color-cream: #fffdf9;
+  --color-sand: #f6eee2;
+  --color-sand-deep: #ead9c1;
+  --color-ink: #23160e;
+  --color-muted: #6b5a4b;
+  --color-line: #eadfce;
   --color-ember: #c2571a;
-  --color-brand-deep: #8a3a10;
+  --color-brand-deep: #9a4313;
   --color-hero: #2b1409;
+  --color-leaf: #2f6b45;
 
   /* A business's own colour, when set, replaces these on small accents. Buttons stay espresso. */
-  --color-brand: var(--brand-primary, #241710);
-  --color-on-brand: var(--brand-on-primary, #fbf7f0);
+  --color-brand: var(--brand-primary, #23160e);
+  --color-on-brand: var(--brand-on-primary, #fffdf9);
 
   /* Pages use Tailwind's amber and gray for soft backgrounds, so they follow the palette here. */
-  --color-amber-50: #f8f1e6;
-  --color-amber-100: #f3e9da;
-  --color-gray-50: #f3e9da;
-  --color-gray-200: #e6d5bb;
-  --color-gray-600: #6a5849;
+  --color-amber-50: #fbf4ea;
+  --color-amber-100: #f6eee2;
+  --color-gray-50: #f6eee2;
+  --color-gray-200: #ead9c1;
+  --color-gray-600: #6b5a4b;
 
-  /* Square corners everywhere except circles and pills. */
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 3px;
-  --radius-2xl: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+
+  --shadow-soft: 0 1px 2px rgb(35 22 14 / 0.05), 0 8px 24px -12px rgb(35 22 14 / 0.18);
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 6rem;
+    scroll-padding-top: 8rem;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -51,16 +54,16 @@
     background-color: var(--color-cream);
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Italiana has one weight, so a bold utility must not fake a heavier one. */
   h1,
   h2 {
     font-family: var(--font-display);
-    font-weight: 400;
-    font-synthesis: none;
-    letter-spacing: -0.005em;
-    line-height: 1.08;
+    font-weight: 500;
+    font-optical-sizing: auto;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
     text-wrap: balance;
   }
 
@@ -72,6 +75,13 @@
     outline: 2px solid var(--color-ember);
     outline-offset: 2px;
   }
+
+  /* Space for the phone tab bar, so it never covers the end of a page. */
+  @media (max-width: 63.99rem) {
+    body {
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
 }
 
 @layer components {
@@ -81,10 +91,11 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.625rem 1.5rem;
+    padding: 0.625rem 1.375rem;
+    border-radius: 999px;
     font-weight: 600;
-    letter-spacing: -0.01em;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
+    letter-spacing: -0.005em;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   }
 
   .btn:disabled {
@@ -105,6 +116,17 @@
     border-color: var(--color-brand-deep);
   }
 
+  .btn-accent {
+    background: var(--color-ember);
+    color: #fff;
+    border: 1px solid var(--color-ember);
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    background: var(--color-brand-deep);
+    border-color: var(--color-brand-deep);
+  }
+
   .btn-secondary {
     background: #fff;
     color: var(--color-ink);
@@ -119,11 +141,19 @@
     margin-top: 0.375rem;
     width: 100%;
     border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
     background: #fff;
     padding: 0.625rem 0.875rem;
     font-size: 1rem;
     font-weight: 400;
     color: var(--color-ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .field:focus {
+    border-color: var(--color-ember);
+    box-shadow: 0 0 0 3px rgb(194 87 26 / 0.15);
+    outline: none;
   }
 
   .field::placeholder {
@@ -132,29 +162,61 @@
 
   .card {
     border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
     background: #fff;
   }
 
+  .chip {
+    display: inline-flex;
+    min-height: 2.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: #fff;
+    padding: 0 1rem;
+    font-weight: 500;
+    color: var(--color-muted);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  }
+
+  .chip:hover {
+    color: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+
+  .chip[aria-pressed="true"],
+  .chip[aria-current="page"] {
+    border-color: var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-cream);
+  }
+
   .eyebrow {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--color-brand-deep);
   }
 
   .display-xl {
-    font-size: clamp(2.875rem, 6.4vw, 5.25rem);
+    font-size: clamp(2.5rem, 5.8vw, 4.75rem);
   }
 
   .display-lg {
-    font-size: clamp(2.25rem, 4.4vw, 3.75rem);
+    font-size: clamp(1.875rem, 3.6vw, 3rem);
+  }
+
+  .display-md {
+    font-size: clamp(1.5rem, 2.6vw, 2.125rem);
   }
 
   .site-gutter {
     margin-inline: auto;
     width: 100%;
-    max-width: 88rem;
+    max-width: 84rem;
     padding-inline: 1rem;
   }
 
@@ -170,6 +232,15 @@
     }
   }
 
+  /* Horizontal scrollers (chips, product rails) without a visible scrollbar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* The burnt amber panels used for feature sections and the footer. */
   .ember-panel {
     background:
@@ -179,7 +250,7 @@
   }
 
   .photo-warm {
-    filter: sepia(0.22) saturate(1.08);
+    filter: sepia(0.18) saturate(1.06);
   }
 
   .card-lift img {
@@ -187,12 +258,46 @@
   }
 
   .card-lift:hover img {
-    transform: scale(1.03);
+    transform: scale(1.04);
   }
 
-  .article-body h2 {
-    padding-top: 0.75rem;
-    font-size: 1.875rem;
+  .rich-text h2 {
+    font-size: 1.625rem;
+  }
+
+  .rich-text a {
+    word-break: break-word;
+  }
+
+  /* Accordions built from <details>. */
+  .accordion summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .accordion summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .accordion[open] .accordion-icon {
+    rotate: 180deg;
+  }
+
+  .accordion-icon {
+    transition: rotate 0.2s ease;
+  }
+
+  /* Hero carousel: tall enough to feel generous, short enough that products show
+     below it on the first screen. svh, so it doesn't jump with a phone's address bar. */
+  .hero-full {
+    min-height: clamp(26rem, 72vh, 42rem);
+    min-height: clamp(26rem, 72svh, 42rem);
+  }
+
+  /* Slide-in panels: cart drawer and menu. */
+  .drawer-backdrop {
+    background: rgb(20 12 6 / 0.45);
+    backdrop-filter: blur(2px);
   }
 }
 
@@ -242,13 +347,6 @@
     animation: rise-in 0.8s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
-  /* Hero carousel: fills the screen below the sticky header (4.5rem + its 1px border).
-     svh, so it doesn't jump when a phone's address bar slides away. Taller content
-     (a sideways phone) still grows it. */
-  .hero-full {
-    min-height: max(30rem, calc(100vh - 4.5rem - 1px - env(safe-area-inset-top, 0px)));
-    min-height: max(30rem, calc(100svh - 4.5rem - 1px - env(safe-area-inset-top, 0px)));
-  }
 
   /* Hero carousel */
   .hero-slide {
@@ -339,6 +437,22 @@
   .assistant-enter {
     animation: rise-in 0.3s ease both;
   }
+
+  .drawer-right {
+    animation: slide-from-right 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .drawer-left {
+    animation: slide-from-left 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .drawer-backdrop {
+    animation: page-enter 0.2s ease both;
+  }
+
+  .toast-enter {
+    animation: rise-in 0.3s ease both;
+  }
 }
 
 /* The carousel still changes slide without motion, so the inactive ones must stay hidden. */
@@ -370,6 +484,16 @@
 
 @keyframes marquee {
   to { transform: translateX(-50%); }
+}
+
+@keyframes slide-from-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+@keyframes slide-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
 }
 
 @keyframes count-pop {

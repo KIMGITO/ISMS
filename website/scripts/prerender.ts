@@ -11,6 +11,7 @@ import { config } from 'dotenv';
 import type { Storefront } from '../src/api';
 import { HERO_SHARE_IMAGE } from '../src/images';
 import { metaForRoute, PageMeta, productPaths } from '../src/seo';
+import { INFO_PAGES, infoPageText, plainText } from '../src/infoPages';
 
 const root = join(import.meta.dirname, '..');
 const dist = join(root, 'dist');
@@ -92,6 +93,13 @@ async function main() {
       [['articles'], `<h1>Milk guides</h1>${articleLinks}`],
       [['contact'], `<h1>Contact ${escapeHtml(business.name)}</h1><p>${escapeHtml(business.address ?? '')}</p><p>${escapeHtml(business.contactPhone ?? '')}</p>`],
       [['feedback'], `<h1>Share your feedback</h1>`],
+      [['reviews'], `<h1>Customer reviews</h1>${list((site.reviews ?? []).slice(0, 30).map((r) => `<li>${'★'.repeat(r.rating)} ${escapeHtml(r.name)}: ${escapeHtml(r.body)}</li>`))}`],
+      [['sitemap'], `<h1>Site map</h1>${productLinks}${list(INFO_PAGES.map((p) => `<li><a href="${p.path}">${escapeHtml(p.label)}</a></li>`))}${articleLinks}`],
+      ...INFO_PAGES.map((page): [string[], string] => [
+        [page.id],
+        `<article><h1>${escapeHtml(page.title)}</h1>${infoPageText(page.id, site).split('\n').filter((line) => line.trim()).map((line) =>
+          line.startsWith('## ') ? `<h2>${escapeHtml(plainText(line.slice(3)))}</h2>` : `<p>${escapeHtml(plainText(line.replace(/^(- |\d+\. )/, '')))}</p>`).join('')}</article>`,
+      ]),
       ...products.map((p): [string[], string] => [
         (paths.get(p.id) as string).split('/').filter(Boolean),
         `<h1>${escapeHtml(p.name)}</h1><p>${escapeHtml(p.description ?? '')}</p><p>${escapeHtml(business.currency)} ${p.price} per ${escapeHtml(p.unit)}</p><p>${p.inStock ? 'In stock' : 'Out of stock'}</p>`,
@@ -116,7 +124,7 @@ async function main() {
   if (SITE_URL) {
     writeFileSync(
       join(dist, 'robots.txt'),
-      `User-agent: *\nAllow: /\nDisallow: /account\nDisallow: /cart\n\nSitemap: ${SITE_URL}/sitemap.xml\n`,
+      `User-agent: *\nAllow: /\nDisallow: /account\nDisallow: /cart\nDisallow: /saved\nDisallow: /track\nDisallow: /checkout\nDisallow: /order-confirmed\nDisallow: /search\n\nSitemap: ${SITE_URL}/sitemap.xml\n`,
     );
     writeFileSync(
       join(dist, 'sitemap.xml'),

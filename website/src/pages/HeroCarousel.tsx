@@ -1,9 +1,8 @@
 import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Check, Pause, Play, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { PHOTOS, photoUrl } from '../images';
-import { productPaths } from '../seo';
-import { useCart, useStorefront } from '../store';
-import { DisplayText, formatPrice, perUnit, ProductImage } from '../ui';
+import { useStorefront } from '../store';
+import { DisplayText } from '../ui';
 
 const SLIDE_MS = 6500;
 
@@ -29,40 +28,6 @@ const srcSet = (photo: Photo, ratio: number, widths: number[]) =>
   widths.map((width) => `${photoUrl(photo, width, Math.round(width * ratio))} ${width}w`).join(', ');
 const wideSet = (photo: Photo) => srcSet(photo, 0.62, [800, 1400, 2000, 2600]);
 const tallSet = (photo: Photo) => srcSet(photo, 1.9, [480, 720, 1080, 1440]);
-
-function HeroProduct() {
-  const { products, business } = useStorefront();
-  const add = useCart((s) => s.add);
-  const [added, setAdded] = useState(false);
-  const product = products.find((p) => p.inStock);
-  if (!product) return null;
-  const href = productPaths(products).get(product.id);
-
-  return (
-    <div className="hero-rise card hidden w-48 shrink-0 text-center shadow-sm lg:block xl:w-56">
-      <div className="p-3">
-        <a href={href} className="font-medium hover:underline">{product.name}</a>
-        <p className="mt-0.5 font-semibold">
-          {formatPrice(business.currency, product.price)}
-          <span className="text-sm font-normal text-muted"> / {perUnit(product.unit)}</span>
-        </p>
-      </div>
-      <div className="relative">
-        <div className="aspect-[5/4] overflow-hidden"><ProductImage product={product} width={400} /></div>
-        <button
-          aria-label={`Add ${product.name} to cart`}
-          onClick={() => {
-            add(product.id);
-            setAdded(true);
-          }}
-          className="plus-button absolute bottom-0 left-1/2 grid size-11 -translate-x-1/2 translate-y-1/2 place-items-center rounded-full border border-line bg-white shadow-md hover:bg-ink hover:text-cream"
-        >
-          {added ? <Check size={18} aria-hidden /> : <Plus size={18} strokeWidth={1.6} aria-hidden />}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function HeroCarousel() {
   const { business, articles } = useStorefront();
@@ -189,10 +154,9 @@ export default function HeroCarousel() {
               ? 'bg-gradient-to-b from-black/70 via-black/45 to-black/75 lg:bg-gradient-to-r lg:from-[#2b1409] lg:from-[20%] lg:via-[#2b1409]/70 lg:via-[45%] lg:to-transparent lg:to-[80%]'
               : 'bg-gradient-to-b from-sand/90 via-sand/25 via-45% to-sand/90 lg:bg-gradient-to-r lg:from-sand lg:from-[38%] lg:via-sand/70 lg:via-[52%] lg:to-transparent lg:to-[72%]'}`}
             />
-            <div className="hero-full site-gutter flex flex-col justify-between gap-10 pb-24 pt-12 lg:py-16">
+            <div className="hero-full site-gutter flex flex-col justify-between gap-10 pb-24 pt-12 lg:pb-24 lg:pt-16">
               <Heading className="hero-rise display-xl max-w-[13ch]"><DisplayText>{slide.title}</DisplayText></Heading>
               <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:gap-12">
-                {index === 0 && <HeroProduct />}
                 <div className="max-w-md lg:pb-6">
                   <p className="hero-rise text-lg leading-relaxed">{slide.body}</p>
                   <div className="hero-rise mt-6 flex flex-wrap gap-3">
@@ -206,7 +170,7 @@ export default function HeroCarousel() {
         );
       })}
 
-      <div className="absolute bottom-4 left-4 z-10 flex items-center bg-white/95 text-ink shadow-sm sm:left-6 lg:left-1/2 lg:-translate-x-1/2">
+      <div className="absolute bottom-4 left-4 z-10 flex items-center overflow-hidden rounded-full bg-white/95 text-ink shadow-sm sm:left-6 lg:left-1/2 lg:-translate-x-1/2">
         <button onClick={() => goTo(active - 1)} aria-label="Previous slide" className="grid size-11 place-items-center hover:bg-sand">
           <ChevronLeft size={19} strokeWidth={1.6} aria-hidden />
         </button>
