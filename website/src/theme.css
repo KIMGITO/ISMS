@@ -261,14 +261,6 @@
     transform: scale(1.04);
   }
 
-  .rich-text h2 {
-    font-size: 1.625rem;
-  }
-
-  .rich-text a {
-    word-break: break-word;
-  }
-
   /* Accordions built from <details>. */
   .accordion summary {
     list-style: none;

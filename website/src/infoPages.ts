@@ -32,8 +32,7 @@ export const INFO_PAGES: InfoPageDef[] = [
 ];
 
 /** Plain text, for search and descriptions. */
-export const plainText = (body: string) =>
-  body.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[#*]+/g, '').replace(/\s+/g, ' ').trim();
+export { plainText } from './richFormat';
 
 export const infoPage = (id: string) => INFO_PAGES.find((p) => p.id === id || p.path === `/${id}`);
 

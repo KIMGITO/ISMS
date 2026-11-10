@@ -30,6 +30,7 @@ import { defaultInfoPageText, INFO_PAGES, InfoPageId } from '../../website/src/i
 import type { Storefront } from '../../website/src/api';
 import { Switch } from '../components/shared/Switch';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
+import PageEditor from '../components/website/PageEditor';
 
 type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'promotions' | 'guides' | 'pages' | 'settings';
 
@@ -540,6 +541,10 @@ function GuidesTab({ businessId }: { businessId: string }) {
   };
 
   const save = async (guide: Guide) => {
+    if (!guide.body.trim()) {
+      reportError(new Error('Write the guide text before saving.'), 'Write the guide text before saving.');
+      return;
+    }
     setBusy(true);
     try {
       const fields = {
@@ -574,7 +579,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
           e.preventDefault();
           save(editing);
         }}
-        className={`${cardClass} max-w-3xl space-y-3`}
+        className={`${cardClass} space-y-3`}
       >
         <label className="block text-sm font-medium text-app-text">
           Title
@@ -588,11 +593,17 @@ function GuidesTab({ businessId }: { businessId: string }) {
           Short summary
           <textarea rows={2} value={editing.summary} onChange={(e) => setEditing({ ...editing, summary: e.target.value })} className={`${inputClass} mt-1`} />
         </label>
-        <label className="block text-sm font-medium text-app-text">
-          Guide text
-          <span className="block font-normal text-app-text-muted">Start a line with ## for a heading, or - for a list item.</span>
-          <textarea required rows={14} value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} className={`${inputClass} mt-1`} />
-        </label>
+        <div className="space-y-1">
+          <span className="block text-sm font-medium text-app-text">Guide text</span>
+          <PageEditor
+            key={editing.id ?? 'new'}
+            value={editing.body}
+            onChange={(body) => setEditing((current) => (current ? { ...current, body } : current))}
+            businessId={businessId}
+            header={{ eyebrow: editing.category || 'Guide', title: editing.title, summary: editing.summary }}
+            placeholder="Write the guide here. Add headings, lists and photos from the toolbar."
+          />
+        </div>
         <Switch
           className="min-h-10"
           checked={editing.published}
@@ -1249,17 +1260,22 @@ function PagesTab({ businessId }: { businessId: string }) {
             </button>
           )}
         </div>
-        <textarea
+        <PageEditor
+          key={selected}
           value={text}
-          onChange={(e) => setPages({ ...pages, [selected]: e.target.value })}
-          rows={22}
-          placeholder={standard || 'Leave empty to use the standard text.'}
-          className={`${inputClass} font-mono text-[13px] leading-relaxed`}
+          onChange={(next) => setPages((current) => ({ ...current, [selected]: next }))}
+          businessId={businessId}
+          fallback={standard}
+          header={{ eyebrow: page.eyebrow, title: page.title, summary: page.summary }}
+          sectionHeadings
+          placeholder="Leave empty to use the standard text, or start writing your own."
+          previewNote={
+            selected === 'help'
+              ? 'On the website, each heading on this page becomes a question customers tap to open, with a search box above.'
+              : 'On the website, pages with more than three headings also get an "On this page" list of the headings.'
+          }
         />
-        <p className="text-xs text-app-text-muted">
-          Format: start a line with ## for a heading, - for a list item or 1. for a numbered step. **Bold** and [link text](/delivery) also work.
-          {page.legal && ' Legal pages: have a lawyer check them before launch.'}
-        </p>
+        {page.legal && <p className="text-xs text-app-text-muted">Legal pages: have a lawyer check them before launch.</p>}
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={saving} className={primaryClass}><Save size={16} /> {saving ? 'Saving…' : 'Save pages'}</button>
           {text.trim() && (

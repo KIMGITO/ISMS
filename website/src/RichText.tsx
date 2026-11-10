@@ -1,90 +1,152 @@
-import { ReactNode } from 'react';
+import { CSSProperties, HTMLAttributes, ReactNode } from 'react';
+import './richText.css';
+import { Block, ImageStyle, InlineNode, parseDocument, parseInline, readHeadingLine, TextStyle } from './richFormat';
 
 /**
- * Renders the small text format used by guides and info pages:
- *   ## Heading        ### Smaller heading
- *   - list item       1. numbered item
- *   **bold**          [label](/path or https://…)
+ * Renders the website's page and guide text (see richFormat.ts for the format).
  * Everything becomes React nodes, so stored text can never inject HTML.
+ * The staff app's page editor uses renderBlock for its live preview, so the
+ * preview is drawn by exactly this code and richText.css.
  */
 
-const INLINE = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(((?:\/|https:\/\/|mailto:|tel:)[^)\s]*)\)/g;
+function renderInline(nodes: InlineNode[]): ReactNode[] {
+  return nodes.map((node, i) => {
+    switch (node.t) {
+      case 'text':
+        return node.v;
+      case 'b':
+        return <strong key={i}>{renderInline(node.c)}</strong>;
+      case 'i':
+        return <em key={i}>{renderInline(node.c)}</em>;
+      case 's':
+        return <s key={i}>{renderInline(node.c)}</s>;
+      case 'mark':
+        return <mark key={i}>{renderInline(node.c)}</mark>;
+      case 'a': {
+        const external = node.href.startsWith('https://');
+        return (
+          <a key={i} href={node.href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+            {renderInline(node.c)}
+          </a>
+        );
+      }
+    }
+  });
+}
 
-export function inline(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let last = 0;
-  for (const match of text.matchAll(INLINE)) {
-    if (match.index > last) nodes.push(text.slice(last, match.index));
-    if (match[1]) {
-      nodes.push(<strong key={match.index} className="font-semibold text-ink">{match[1]}</strong>);
-    } else {
-      const href = match[3];
-      const external = href.startsWith('https://');
-      nodes.push(
-        <a
-          key={match.index}
-          href={href}
-          className="font-medium text-brand-deep underline underline-offset-2 hover:text-ink"
-          {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+export const inline = (text: string): ReactNode[] => renderInline(parseInline(text));
+
+/** Class names for a text block's style tag. */
+export function textStyleClass(style: TextStyle): string {
+  return [
+    style.align && `rt-align-${style.align}`,
+    style.size && `rt-size-${style.size}`,
+    style.font && `rt-font-${style.font}`,
+    style.color && `rt-color-${style.color}`,
+    style.box && `rt-box rt-box-${style.box}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+const RATIO_CSS = (ratio: ImageStyle['ratio']) => (ratio === 'auto' ? undefined : ratio.replace(':', ' / '));
+
+export function imageCss(style: ImageStyle): { frame: CSSProperties; img: CSSProperties } {
+  const position = `${style.x}% ${style.y}%`;
+  return {
+    frame: { aspectRatio: RATIO_CSS(style.ratio) },
+    img: {
+      objectPosition: position,
+      transformOrigin: position,
+      transform: style.zoom > 1 ? `scale(${style.zoom})` : undefined,
+    },
+  };
+}
+
+export interface RenderOptions {
+  /** Extra props for the block's outer element (the preview uses these to select blocks). */
+  props?: HTMLAttributes<HTMLElement> & { [data: `data-${string}`]: string | number | undefined };
+  /** Drawn inside a photo's frame, on top of the photo (the preview's handles). */
+  frameExtra?: ReactNode;
+  /** Page sections: "## " headings drawn at the size the info pages use. */
+  sectionHeadings?: boolean;
+}
+
+export function renderBlock(block: Block, key: number | string, options: RenderOptions = {}): ReactNode {
+  const { props = {}, frameExtra, sectionHeadings } = options;
+  const join = (...names: (string | false | undefined)[]) =>
+    [...names, props.className].filter(Boolean).join(' ');
+  const rest = { ...props, className: undefined };
+
+  switch (block.type) {
+    case 'hr':
+      return <hr key={key} {...rest} className={join('rt-hr')} />;
+
+    case 'img': {
+      const { style } = block;
+      const css = imageCss(style);
+      const floated = style.width !== 'full' && style.align !== 'center';
+      return (
+        <figure
+          key={key}
+          {...rest}
+          className={join('rt-figure', `rt-w-${style.width}`, floated ? `rt-float-${style.align}` : 'rt-center')}
         >
-          {match[2]}
-        </a>,
+          <div className="rt-frame" style={css.frame}>
+            <img
+              src={block.src}
+              alt={block.alt}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className={style.ratio === 'auto' ? 'rt-img-natural' : 'rt-img-cover'}
+              style={css.img}
+            />
+            {frameExtra}
+          </div>
+          {block.caption && <figcaption>{inline(block.caption)}</figcaption>}
+        </figure>
       );
     }
-    last = match.index + match[0].length;
+
+    case 'ul':
+    case 'ol': {
+      const items = block.items.map((item, i) => <li key={i}>{inline(item)}</li>);
+      const className = join('rt-list', textStyleClass(block.style));
+      return block.type === 'ol'
+        ? <ol key={key} {...rest} className={className}>{items}</ol>
+        : <ul key={key} {...rest} className={className}>{items}</ul>;
+    }
+
+    case 'h2':
+      return (
+        <h2 key={key} {...rest} className={join(sectionHeadings ? 'rt-h2 rt-section' : 'rt-h2', textStyleClass(block.style))}>
+          {inline(block.text)}
+        </h2>
+      );
+    case 'h3':
+      return <h3 key={key} {...rest} className={join('rt-h3', textStyleClass(block.style))}>{inline(block.text)}</h3>;
+    case 'quote':
+      return <blockquote key={key} {...rest} className={join('rt-quote', textStyleClass(block.style))}>{inline(block.text)}</blockquote>;
+    case 'p':
+      return <p key={key} {...rest} className={join(textStyleClass(block.style))}>{inline(block.text)}</p>;
   }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
 }
 
 export function RichText({ body, className = '' }: { body: string; className?: string }) {
-  const blocks: ReactNode[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
-  const flush = () => {
-    if (!list) return;
-    const items = list.items.map((item, i) => <li key={i}>{inline(item)}</li>);
-    blocks.push(
-      list.ordered
-        ? <ol key={blocks.length} className="list-decimal space-y-1.5 pl-6">{items}</ol>
-        : <ul key={blocks.length} className="list-disc space-y-1.5 pl-6">{items}</ul>,
-    );
-    list = null;
-  };
-
-  for (const raw of body.split('\n')) {
-    const line = raw.trim();
-    const bullet = /^[-*] (.*)/.exec(line);
-    const numbered = /^\d+[.)] (.*)/.exec(line);
-    if (bullet || numbered) {
-      const ordered = Boolean(numbered);
-      if (list && list.ordered !== ordered) flush();
-      list ??= { ordered, items: [] };
-      list.items.push((bullet ?? numbered)![1]);
-      continue;
-    }
-    flush();
-    if (line.startsWith('### ')) {
-      blocks.push(<h3 key={blocks.length} className="pt-2 text-lg font-semibold">{inline(line.slice(4))}</h3>);
-    } else if (line.startsWith('## ')) {
-      blocks.push(<h2 key={blocks.length} className="pt-4 text-2xl">{inline(line.slice(3))}</h2>);
-    } else if (line) {
-      blocks.push(<p key={blocks.length}>{inline(line)}</p>);
-    }
-  }
-  flush();
-  return <div className={`rich-text space-y-4 leading-relaxed text-ink/85 ${className}`}>{blocks}</div>;
+  return <div className={`rich-text ${className}`}>{parseDocument(body).map((block, i) => renderBlock(block, i))}</div>;
 }
 
 /** Splits text at "## " headings, for pages shown as sections or questions. */
-export function splitSections(body: string): { heading: string; body: string }[] {
-  const sections: { heading: string; body: string }[] = [];
+export function splitSections(body: string): { heading: string; headingStyle: TextStyle; body: string }[] {
+  const sections: { heading: string; headingStyle: TextStyle; body: string }[] = [];
   for (const raw of body.split('\n')) {
-    const line = raw.trim();
-    if (line.startsWith('## ')) sections.push({ heading: line.slice(3), body: '' });
+    const heading = readHeadingLine(raw);
+    if (heading) sections.push({ heading: heading.text, headingStyle: heading.style, body: '' });
     else if (sections.length) sections[sections.length - 1].body += `${raw}\n`;
-    else if (line) sections.push({ heading: '', body: `${raw}\n` });
+    else if (raw.trim()) sections.push({ heading: '', headingStyle: {}, body: `${raw}\n` });
   }
   return sections;
 }
 
-export { plainText } from './infoPages';
+export { plainText } from './richFormat';

@@ -1,7 +1,7 @@
 // Page titles, descriptions and structured data. Used in the browser and by
 // scripts/prerender.ts, so everything here is plain data with no browser or Vite APIs.
 import type { Article, Product, Storefront } from './api';
-import { infoPage, InfoPageDef } from './infoPages';
+import { infoPage, InfoPageDef, plainText } from './infoPages';
 
 export interface PageMeta {
   title: string;
@@ -151,7 +151,7 @@ export function articleMeta(article: Article, site: Storefront, siteUrl: string)
   const path = `/articles/${article.slug}`;
   return {
     title: `${article.title} | ${site.business.name}`,
-    description: clip(article.summary || article.body),
+    description: clip(article.summary || plainText(article.body)),
     path,
     image: article.coverImageUrl,
     type: 'article',

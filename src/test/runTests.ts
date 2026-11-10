@@ -38,6 +38,8 @@ import { MANIFEST_SOURCES, fetchManifest, parseManifest } from "../core/native/u
 import { SCREENS, canOpenScreen } from "../utils/screens";
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 import { SupabaseService } from "../services/supabaseService";
+import { parseDocument, serializeDocument, plainText as pagePlainText, parseInline } from "../../website/src/richFormat";
+import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 import { buildShiftReport, shiftReportText } from "../services/shiftReport";
 
@@ -524,6 +526,48 @@ runTest("Update manifest lists signed desktop installers and the Android APK", (
   });
 }
 
+runTest("Website page text: old pages read the same, new formatting and photos round-trip", () => {
+  const site: any = {
+    business: { name: "KayKay's", description: "", address: "Kenol", contactEmail: "a@b.co", contactPhone: "0712 345 678", currency: "KSh" },
+    settings: { deliveryEnabled: true, deliveryFee: 50, minOrder: 100, assistantEnabled: true, openingHours: "Mon to Sat", whatsapp: null },
+    deliveryZones: [{ id: "z", name: "Town", fee: 50 }], branches: [], loyalty: undefined, pages: {},
+  };
+  // Every standard page survives a trip through the editor unchanged.
+  for (const page of INFO_PAGES) {
+    const text = defaultInfoPageText(page.id, site);
+    const once = parseDocument(text);
+    const again = parseDocument(serializeDocument(once));
+    if (JSON.stringify(once) !== JSON.stringify(again)) throw new Error(`${page.id} changed after editing round trip`);
+  }
+  const doc = [
+    "## Fresh milk {align=center color=accent}",
+    "We deliver **daily** with _care_, ==every== ~~sometimes~~ morning. {size=lg font=serif box=sand}",
+    '![Milk on a table](https://x.supabase.co/a.webp "Our milk") {ratio=16:9 x=30 y=70 zoom=1.5 width=md align=right}',
+    "---",
+    "> Best milk in town",
+    "- one {align=center}",
+    "- two",
+    "1. first",
+  ].join("\n");
+  const blocks = parseDocument(doc);
+  if (blocks.length !== 7) throw new Error(`expected 7 blocks, got ${blocks.length}`);
+  const img: any = blocks[2];
+  if (img.type !== "img" || img.style.width !== "md" || img.style.x !== 30 || img.style.zoom !== 1.5 || img.caption !== "Our milk") throw new Error("photo not read: " + JSON.stringify(img));
+  if ((blocks[0] as any).style.align !== "center" || (blocks[1] as any).style.box !== "sand") throw new Error("style tags not read");
+  if (serializeDocument(blocks) !== doc) throw new Error("round trip changed the text:\n" + serializeDocument(blocks));
+  // Unsafe or unknown input stays plain text.
+  const unsafe = parseDocument("![x](javascript:alert(1))\nHello {onclick=alert}\n[bad](javascript:alert(1))");
+  if (unsafe.some((b) => b.type === "img")) throw new Error("non-https photo accepted");
+  if ((unsafe[1] as any).text !== "Hello {onclick=alert}") throw new Error("unknown style tag should stay as text");
+  if (parseInline("[bad](javascript:alert(1))").some((n) => n.t === "a")) throw new Error("unsafe link accepted");
+  // Out-of-range photo values are clamped.
+  const wild: any = parseDocument("![a](https://x/y.jpg) {x=500 zoom=9}")[0];
+  if (wild.style.x !== 100 || wild.style.zoom !== 3) throw new Error("photo values not clamped");
+  if (pagePlainText("**Hi** _there_ [shop](/shop)\n![a](https://x/y.jpg \"Cap\")") !== "Hi there shop Cap") throw new Error("plain text: " + pagePlainText("**Hi** _there_ [shop](/shop)"));
+  // snake_case words are not italic.
+  if (parseInline("order_ref_number").length !== 1) throw new Error("underscores inside words must not italicise");
+});
+
 const offlineSale = (ref: string): any => ({
   id: `tx-${ref}`, referenceId: ref, businessId: "biz", items: [], total: 100, discount: 0, tax: 0,
   finalTotal: 100, paymentMethod: "Cash", staffId: "s", staffName: "S", status: "Synced", timestamp: new Date().toISOString(),
@@ -754,6 +798,7 @@ runTest("End-of-shift report figures and text", () => {
       sale("b", "M-Pesa", 180, 3),
       sale("c", "Credit", 60, 1, 9, "e1", { customerId: "c1", customerName: "Ann" }),
       sale("d", "Card", 60, 1),
+      sale("e", "Bank", 40, 1),
       sale("x", "Cash", 999, 1, 8, "someone-else"),
       sale("y", "Cash", 999, 1, 16),
     ],
@@ -764,7 +809,7 @@ runTest("End-of-shift report figures and text", () => {
     productionBatches: [],
     billOfMaterials: [],
   });
-  eq([r.salesCount, r.salesTotal, r.cash, r.mpesa, r.credit, r.other], [4, 420, 120, 180, 60, 60], "only this person's sales in this shift, every payment type counted");
+  eq([r.salesCount, r.salesTotal, r.cash, r.mpesa, r.credit, r.card, r.bank], [5, 460, 120, 180, 60, 60, 40], "only this person's sales in this shift, every payment type counted");
   eq(r.expectedCash, 120 + 50 - 30, "cash expected = cash sales + cash debt repaid - cash expenses");
   eq(r.products.map((p) => [p.sold, p.earned, p.left]), [[7, 420, 40]], "products sold");
   const text = shiftReportText(r, { countedCash: 130, notes: "All good" });

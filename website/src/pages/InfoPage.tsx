@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Mail, MessageCircle, Phone, Search } from 'lucide-react';
 import { INFO_PAGES, InfoPageDef, infoPageText } from '../infoPages';
-import { plainText, RichText, splitSections } from '../RichText';
+import { inline, plainText, RichText, splitSections, textStyleClass } from '../RichText';
 import { slugify } from '../seo';
 import { useStorefront } from '../store';
 import { PageHeader, pageClass } from '../ui';
@@ -35,7 +35,7 @@ function Faq({ text }: { text: string }) {
   const questions = useMemo(() => splitSections(text).filter((s) => s.heading), [text]);
   const intro = splitSections(text).find((s) => !s.heading);
   const shown = term.trim()
-    ? questions.filter((q) => `${q.heading} ${plainText(q.body)}`.toLowerCase().includes(term.trim().toLowerCase()))
+    ? questions.filter((q) => `${plainText(q.heading)} ${plainText(q.body)}`.toLowerCase().includes(term.trim().toLowerCase()))
     : questions;
 
   // A link like /help#how-do-i-pay opens that question.
@@ -65,9 +65,9 @@ function Faq({ text }: { text: string }) {
       </label>
       <div className="mt-6 divide-y divide-line rounded-xl border border-line bg-white">
         {shown.map((q) => (
-          <details key={q.heading} id={slugify(q.heading)} className="accordion group px-5" open={Boolean(term.trim())}>
+          <details key={q.heading} id={slugify(plainText(q.heading))} className="accordion group px-5" open={Boolean(term.trim())}>
             <summary className="flex min-h-16 items-center justify-between gap-4 py-3 text-[1.0625rem] font-semibold">
-              {q.heading}
+              <span className={textStyleClass(q.headingStyle)}>{inline(q.heading)}</span>
               <ChevronDown size={19} className="accordion-icon shrink-0 text-muted" aria-hidden />
             </summary>
             <RichText body={q.body} className="pb-5" />
@@ -91,7 +91,7 @@ function PolicyBody({ text, children }: { text: string; children?: ReactNode }) 
             <ol className="mt-2 space-y-0.5 text-[0.9375rem]">
               {headings.map((s) => (
                 <li key={s.heading}>
-                  <a href={`#${slugify(s.heading)}`} className="block rounded-md px-2 py-1.5 text-muted hover:bg-sand hover:text-ink">{s.heading}</a>
+                  <a href={`#${slugify(plainText(s.heading))}`} className="block rounded-md px-2 py-1.5 text-muted hover:bg-sand hover:text-ink">{plainText(s.heading)}</a>
                 </li>
               ))}
             </ol>
@@ -100,8 +100,8 @@ function PolicyBody({ text, children }: { text: string; children?: ReactNode }) 
       )}
       <div className="max-w-3xl space-y-8">
         {sections.map((s, index) => (
-          <section key={index} id={s.heading ? slugify(s.heading) : undefined} className="scroll-mt-36">
-            {s.heading && <h2 className="display-md">{s.heading}</h2>}
+          <section key={index} id={s.heading ? slugify(plainText(s.heading)) : undefined} className="scroll-mt-36">
+            {s.heading && <h2 className={`display-md ${textStyleClass(s.headingStyle)}`}>{inline(s.heading)}</h2>}
             <RichText body={s.body} className={s.heading ? 'mt-3' : 'text-lg'} />
           </section>
         ))}

@@ -11,7 +11,8 @@ import { config } from 'dotenv';
 import type { Storefront } from '../src/api';
 import { HERO_SHARE_IMAGE } from '../src/images';
 import { metaForRoute, PageMeta, productPaths } from '../src/seo';
-import { INFO_PAGES, infoPageText, plainText } from '../src/infoPages';
+import { INFO_PAGES, infoPageText } from '../src/infoPages';
+import { Block, parseDocument, plainText } from '../src/richFormat';
 
 const root = join(import.meta.dirname, '..');
 const dist = join(root, 'dist');
@@ -24,6 +25,27 @@ const SLUG = process.env.VITE_WEBSITE_SLUG || 'kaykays';
 
 const escapeHtml = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Page or guide text as plain HTML for crawlers: headings, paragraphs, list items and photos. */
+const bodyHtml = (body: string) =>
+  parseDocument(body)
+    .map((block: Block) => {
+      switch (block.type) {
+        case 'hr':
+          return '<hr>';
+        case 'img':
+          return `<figure><img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt)}">${block.caption ? `<figcaption>${escapeHtml(plainText(block.caption))}</figcaption>` : ''}</figure>`;
+        case 'ul':
+        case 'ol':
+          return `<${block.type}>${block.items.map((item) => `<li>${escapeHtml(plainText(item))}</li>`).join('')}</${block.type}>`;
+        case 'h2':
+        case 'h3':
+          return `<${block.type}>${escapeHtml(plainText(block.text))}</${block.type}>`;
+        default:
+          return `<p>${escapeHtml(plainText(block.text))}</p>`;
+      }
+    })
+    .join('');
 
 /** JSON-LD sits inside a script tag, so "<" must not be able to close it. */
 const safeJson = (data: object) => JSON.stringify(data).replace(/</g, '\\u003c');
@@ -97,8 +119,7 @@ async function main() {
       [['sitemap'], `<h1>Site map</h1>${productLinks}${list(INFO_PAGES.map((p) => `<li><a href="${p.path}">${escapeHtml(p.label)}</a></li>`))}${articleLinks}`],
       ...INFO_PAGES.map((page): [string[], string] => [
         [page.id],
-        `<article><h1>${escapeHtml(page.title)}</h1>${infoPageText(page.id, site).split('\n').filter((line) => line.trim()).map((line) =>
-          line.startsWith('## ') ? `<h2>${escapeHtml(plainText(line.slice(3)))}</h2>` : `<p>${escapeHtml(plainText(line.replace(/^(- |\d+\. )/, '')))}</p>`).join('')}</article>`,
+        `<article><h1>${escapeHtml(page.title)}</h1>${bodyHtml(infoPageText(page.id, site))}</article>`,
       ]),
       ...products.map((p): [string[], string] => [
         (paths.get(p.id) as string).split('/').filter(Boolean),
@@ -106,8 +127,7 @@ async function main() {
       ]),
       ...articles.map((a): [string[], string] => [
         ['articles', a.slug],
-        `<article><h1>${escapeHtml(a.title)}</h1><p>${escapeHtml(a.summary)}</p>${a.body.split('\n').filter(Boolean).map((line) =>
-          line.startsWith('## ') ? `<h2>${escapeHtml(line.slice(3))}</h2>` : `<p>${escapeHtml(line.replace(/^- /, ''))}</p>`).join('')}</article>`,
+        `<article><h1>${escapeHtml(a.title)}</h1><p>${escapeHtml(a.summary)}</p>${bodyHtml(a.body)}</article>`,
       ]),
     ];
 

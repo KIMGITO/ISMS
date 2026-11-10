@@ -1,0 +1,245 @@
+/*
+ * Page and guide text on the website (RichText.tsx). Self-contained on purpose: the
+ * staff app's page editor imports this same file for its live preview, and the app
+ * has a different theme, so nothing here relies on Tailwind or on the app's styles.
+ * Colours read the website's palette when present and fall back to the same values.
+ *
+ * Base rules sit inside :where() so they stay weak, and the style-tag classes further
+ * down (rt-align-*, rt-size-*, rt-font-*, rt-color-*, rt-box-*) always win over them.
+ */
+
+:root {
+  --rt-ink: var(--color-ink, #23160e);
+  --rt-muted: var(--color-muted, #6b5a4b);
+  --rt-accent: var(--color-brand-deep, #9a4313);
+  --rt-orange: var(--color-ember, #c2571a);
+  --rt-green: var(--color-leaf, #2f6b45);
+  --rt-line: var(--color-line, #eadfce);
+  --rt-sand: var(--color-sand, #f6eee2);
+  --rt-mark: #fbe3a6;
+  --rt-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --rt-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rt-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.rich-text {
+  display: flow-root;
+  container-type: inline-size;
+  line-height: 1.625;
+  color: color-mix(in srgb, var(--rt-ink) 85%, transparent);
+  overflow-wrap: break-word;
+}
+
+.rich-text > :where(* + *) {
+  margin-top: 1rem;
+}
+
+/* ---- Headings ---- */
+:where(.rich-text .rt-h2) {
+  padding-top: 1rem;
+  font-family: var(--rt-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+:where(.rich-text .rt-h2.rt-section) {
+  padding-top: 1.5rem;
+  font-size: clamp(1.5rem, 2.6vw, 2.125rem);
+  color: var(--rt-ink);
+}
+
+:where(.rich-text .rt-h3) {
+  padding-top: 0.5rem;
+  font-family: var(--rt-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* ---- Lists, quotes, dividers ---- */
+:where(.rich-text .rt-list) {
+  padding-left: 1.5rem;
+}
+
+:where(.rich-text ul.rt-list) {
+  list-style: disc;
+}
+
+:where(.rich-text ol.rt-list) {
+  list-style: decimal;
+}
+
+:where(.rich-text .rt-list > li + li) {
+  margin-top: 0.375rem;
+}
+
+:where(.rich-text .rt-quote) {
+  border-left: 3px solid var(--rt-accent);
+  padding: 0.25rem 0 0.25rem 1.125rem;
+  font-family: var(--rt-serif);
+  font-size: 1.125em;
+  font-style: italic;
+  color: var(--rt-ink);
+}
+
+.rich-text > .rt-hr {
+  margin-block: 1.75rem;
+  border: 0;
+  border-top: 1px solid var(--rt-line);
+}
+
+/* ---- Inline formatting ---- */
+:where(.rich-text) strong {
+  font-weight: 600;
+  color: var(--rt-ink);
+}
+
+:where([class*="rt-color-"]) strong {
+  color: inherit;
+}
+
+:where(.rich-text) em {
+  font-style: italic;
+}
+
+:where(.rich-text) s {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+:where(.rich-text) mark {
+  border-radius: 0.2em;
+  background: var(--rt-mark);
+  padding: 0 0.15em;
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+:where(.rich-text) a {
+  font-weight: 500;
+  color: var(--rt-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+:where(.rich-text) a:hover {
+  color: var(--rt-ink);
+}
+
+/* ---- Text style tags. Global, so page section headings outside .rich-text use them too. ---- */
+.rt-align-left { text-align: left; }
+.rt-align-center { text-align: center; }
+.rt-align-right { text-align: right; }
+.rt-align-justify { text-align: justify; }
+
+.rt-size-sm { font-size: 0.875em; }
+.rt-size-lg { font-size: 1.2em; }
+.rt-size-xl { font-size: 1.5em; line-height: 1.35; }
+h2.rt-size-sm { font-size: 1.25rem; }
+h2.rt-size-lg { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+h2.rt-size-xl { font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.05; }
+
+.rt-font-sans { font-family: var(--rt-sans); }
+.rt-font-serif { font-family: var(--rt-serif); }
+.rt-font-mono { font-family: var(--rt-mono); font-size: 0.95em; }
+
+.rt-color-muted { color: var(--rt-muted); }
+.rt-color-accent { color: var(--rt-accent); }
+.rt-color-orange { color: var(--rt-orange); }
+.rt-color-green { color: var(--rt-green); }
+
+.rt-box {
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+}
+
+.rt-box-sand { background: var(--rt-sand); }
+.rt-box-amber { background: #fbf0dc; }
+.rt-box-green { background: #e6f0e8; }
+.rt-box-outline { border: 1px solid var(--rt-line); }
+.rt-list.rt-box { padding-left: 2.5rem; }
+.rt-list.rt-align-center,
+.rt-list.rt-align-right {
+  list-style-position: inside;
+  padding-left: 0;
+}
+
+/* ---- Photos ---- */
+.rich-text .rt-figure {
+  margin-inline: 0;
+  margin-bottom: 0;
+}
+
+.rich-text .rt-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--rt-sand);
+}
+
+.rich-text .rt-img-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rich-text .rt-img-natural {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.rich-text figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--rt-muted);
+  text-align: center;
+}
+
+.rich-text .rt-w-sm { width: 33.333%; }
+.rich-text .rt-w-md { width: 50%; }
+.rich-text .rt-w-lg { width: 75%; }
+.rich-text .rt-w-full { width: 100%; }
+.rich-text .rt-center { margin-inline: auto; }
+
+/* The top margin matches the gap above the text beside it, so both start level. */
+.rich-text .rt-figure.rt-float-left {
+  float: left;
+  margin: 1.375rem 1.5rem 0.75rem 0;
+}
+
+.rich-text .rt-figure.rt-float-right {
+  float: right;
+  margin: 1.375rem 0 0.75rem 1.5rem;
+}
+
+.rich-text > .rt-figure:first-child {
+  margin-top: 0.375rem;
+}
+
+/* Headings and dividers start below a photo that text was flowing around. */
+.rich-text > .rt-h2,
+.rich-text > .rt-hr {
+  clear: both;
+}
+
+/* Too narrow for text beside a photo: photos sit on their own line. */
+@container (max-width: 34rem) {
+  .rich-text .rt-w-sm,
+  .rich-text .rt-w-md {
+    width: 75%;
+  }
+
+  .rich-text .rt-figure.rt-float-left,
+  .rich-text .rt-figure.rt-float-right {
+    float: none;
+    width: 100%;
+    margin: 1rem 0 0;
+  }
+}
