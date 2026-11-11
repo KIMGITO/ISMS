@@ -34,6 +34,7 @@ export const GO_TO_KEYS: Record<ScreenId, string> = {
   pos: "p",
   inventory: "i",
   "stock-history": "k",
+  "stock-transfers": "q",
   sales: "l",
   customers: "c",
   money: "m",
@@ -126,6 +127,7 @@ const pages: Shortcut[] = [
   { id: "shift-month", keys: "M", key: "m", target: "toggle-month", action: "Show the month / one week", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "shift-form-save", keys: "Ctrl+Enter", action: "Save the reminder (in the form)", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "shift-form-cancel", keys: "Esc", action: "Close the reminder form", scope: "dashboard", permissions: ["dashboard.view"] },
+  { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
 ];
@@ -173,6 +175,7 @@ export const FEATURES: AppFeature[] = [
   { id: "offline-sales", title: "Offline sales", description: "Sales made without internet sync when you are back online", screen: "sales", permissions: ["pos.create_sale"], keywords: ["offline", "sync", "no internet", "waiting to sync"] },
   { id: "receipt-settings", title: "Receipts and printers", description: "Receipt layout, paper size, printers and barcodes", screen: "settings", permissions: ["settings.tax"], keywords: ["receipt", "printer", "bluetooth", "thermal", "paper", "barcode", "qr"] },
   { id: "kra-etims", title: "KRA eTIMS", description: "Sign sales with KRA eTIMS", screen: "settings", permissions: ["settings.tax"], keywords: ["kra", "etims", "tax", "vat", "invoice"] },
+  { id: "branch-transfers", title: "Move stock between branches", description: "Main sends stock; the branch confirms what arrived. Not a sale, so profit is unchanged", screen: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.receive_stock"], keywords: ["transfer", "branch", "supply", "send", "receive", "dispatch"] },
   { id: "home-dashboard", title: "Home figures", description: "Sales, stock and customer figures at a glance", screen: "home", permissions: ["home.view"], keywords: ["dashboard", "figures", "charts", "today"] },
   { id: "app-update", title: "App updates", description: "Check for and install a new version", screen: "about", permissions: [], keywords: ["update", "version", "upgrade", "install"] },
   { id: "keyboard-shortcuts", title: "Keyboard shortcuts", description: "Every shortcut your role can use", screen: "about", permissions: [], keywords: ["keyboard", "shortcut", "keys", "hotkey"] },

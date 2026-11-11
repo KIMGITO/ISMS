@@ -17,6 +17,13 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
     defaultPriority: "high",
     defaultActionTarget: "inventory",
   },
+  "Stock Transfer": {
+    type: "Stock Transfer",
+    defaultTitle: "Stock on the way",
+    defaultMessageTemplate: "{message}",
+    defaultPriority: "high",
+    defaultActionTarget: "stock-transfers",
+  },
   "Out Of Stock": {
     type: "Out Of Stock",
     defaultTitle: "Out of stock",

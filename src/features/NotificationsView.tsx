@@ -67,6 +67,7 @@ interface NotifVisual {
 
 const TYPE_VISUALS: Record<string, NotifVisual> = {
   "Out Of Stock": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "inventory" },
+  "Stock Transfer": { icon: <PackageSearch size={17} />, cls: "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400", category: "inventory" },
   "Stock Almost Finished": { icon: <PackageSearch size={17} />, cls: "bg-amber-500/12 text-amber-600 dark:text-amber-400", category: "inventory" },
   "AI Business Insight": { icon: <Brain size={17} />, cls: "bg-indigo-500/12 text-indigo-500", category: "activity" },
   "AI Recommendation": { icon: <Sparkles size={17} />, cls: "bg-fuchsia-500/12 text-fuchsia-500", category: "activity" },
@@ -1063,6 +1064,7 @@ function labelForTarget(target: string): string {
     case "online-store": return "online store";
     case "deliveries": return "deliveries";
     case "money": return "payments";
+    case "stock-transfers": return "transfers";
     default: return "details";
   }
 }

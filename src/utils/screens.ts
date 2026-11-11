@@ -7,7 +7,7 @@ import { hasRolePermission } from "./permissions";
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
-  | "business-management" | "money" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history";
+  | "business-management" | "money" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -31,6 +31,7 @@ export const SCREENS: AppScreen[] = [
   { id: "pos", group: "Selling", title: "POS", description: "Full checkout with cart, discounts and customers", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every restock, wastage, count and production change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
+  { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Send stock to another branch and receive what branches send you", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way"], permissions: ["inventory.transfer_stock", "inventory.receive_stock"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
   { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till and prompts", keywords: ["payments", "expenses", "mpesa", "m-pesa", "till", "void", "money", "cash", "stk"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.verify", "expenses.view", "expenses.create"] },

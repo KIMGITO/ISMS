@@ -207,7 +207,10 @@ export type AdjustmentType =
   | 'Production Consumption'
   | 'Production Output'
   | 'Production Reversal'
-  | 'Production Waste';
+  | 'Production Waste'
+  | 'Transfer Out'
+  | 'Transfer In'
+  | 'Transfer Return';
 
 export interface InventoryAdjustment {
   id: string;
@@ -236,6 +239,7 @@ export interface SyncState {
 export type NotificationType =
   | "Stock Almost Finished"
   | "Out Of Stock"
+  | "Stock Transfer"
   | "Low Cash Balance"
   | "Debt Due Reminder"
   | "Delivery Assigned"
@@ -266,6 +270,7 @@ export type NotificationActionTarget =
   | "customer_debt"
   | "ai_insight"
   | "sales"
+  | "stock-transfers"
   | "none";
 
 export interface AppNotification {

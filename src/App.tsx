@@ -13,6 +13,7 @@ import AboutView from './features/AboutView';
 import { updateService } from './core/native/UpdateService';
 import InventoryView from './features/InventoryView';
 import StockHistoryView from './features/StockHistoryView';
+import StockTransfersView from './features/StockTransfersView';
 import SalesView from './features/SalesView';
 import CustomersView from './features/CustomersView';
 import CommunicationCenterView from './features/CommunicationCenterView';
@@ -131,6 +132,7 @@ import {
   Info,
   Wallet,
   History,
+  ArrowRightLeft,
   PieChart,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
@@ -149,6 +151,7 @@ import { ShortcutHelp } from './components/ShortcutTable';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
+const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
 const SCREEN_MOTION = {
@@ -167,6 +170,7 @@ const MOBILE_TABS = [
   { id: 'pos', label: 'POS', icon: ShoppingCart, permission: 'pos.create_sale' },
   { id: 'inventory', label: 'Inventory', icon: Boxes, permission: 'inventory.view' },
   { id: 'stock-history', label: 'Stock History', icon: History, permission: 'inventory.stock_history' },
+  { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
@@ -3565,6 +3569,13 @@ export default function App() {
                       permission: 'inventory.stock_history' as const,
                     },
                     {
+                      id: 'stock-transfers',
+                      label: 'Stock Transfers',
+                      icon: ArrowRightLeft,
+                      desc: 'Send to and receive from branches',
+                      permission: TRANSFER_PERMISSIONS,
+                    },
+                    {
                       id: 'sales',
                       label: 'Sales Log',
                       icon: Receipt,
@@ -4055,6 +4066,17 @@ export default function App() {
                       >
                         <SecurityGuard permission="inventory.stock_history">
                           <StockHistoryView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'stock-transfers' && (
+                      <motion.div
+                        key="stock-transfers-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={TRANSFER_PERMISSIONS as any}>
+                          <StockTransfersView />
                         </SecurityGuard>
                       </motion.div>
                     )}

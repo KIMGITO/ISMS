@@ -14,7 +14,8 @@ import type { AdjustmentType, InventoryAdjustment } from '../types';
 const HIDDEN_KEY = 'kkm_hidden_inventory_logs';
 const TZ = 'Africa/Nairobi';
 
-type Filter = 'all' | 'in' | 'out' | AdjustmentType;
+type Filter = 'all' | 'in' | 'out' | 'transfers' | AdjustmentType;
+const TRANSFER_TYPES: AdjustmentType[] = ['Transfer Out', 'Transfer In', 'Transfer Return'];
 
 const TYPE_LABEL: Record<AdjustmentType, string> = {
   Restock: 'Restock',
@@ -24,6 +25,9 @@ const TYPE_LABEL: Record<AdjustmentType, string> = {
   'Production Output': 'Produced',
   'Production Reversal': 'Production undone',
   'Production Waste': 'Production waste',
+  'Transfer Out': 'Sent to branch',
+  'Transfer In': 'From branch',
+  'Transfer Return': 'Transfer cancelled',
 };
 
 const TYPE_TONE: Record<AdjustmentType, string> = {
@@ -34,6 +38,9 @@ const TYPE_TONE: Record<AdjustmentType, string> = {
   'Production Output': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   'Production Reversal': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   'Production Waste': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  'Transfer Out': 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  'Transfer In': 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  'Transfer Return': 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
 };
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -45,6 +52,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'Reconciliation', label: 'Counts' },
   { id: 'Production Output', label: 'Produced' },
   { id: 'Production Consumption', label: 'Used' },
+  { id: 'transfers', label: 'Transfers' },
 ];
 
 const fmtQty = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -99,7 +107,8 @@ export default function StockHistoryView() {
       if (hiddenSet.has(adj.id)) return false;
       if (filter === 'in' && !(adj.quantityAdjusted > 0)) return false;
       if (filter === 'out' && !(adj.quantityAdjusted < 0)) return false;
-      if (filter !== 'all' && filter !== 'in' && filter !== 'out' && adj.type !== filter) return false;
+      if (filter === 'transfers' && !TRANSFER_TYPES.includes(adj.type)) return false;
+      if (filter !== 'all' && filter !== 'in' && filter !== 'out' && filter !== 'transfers' && adj.type !== filter) return false;
       if (query.trim()) {
         const hay = [adj.productName, adj.reason, adj.staffName, adj.referenceNumber, adj.notes, adj.type].filter(Boolean).join(' ');
         if (!searchMatch(hay, query)) return false;
