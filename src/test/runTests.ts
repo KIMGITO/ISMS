@@ -45,6 +45,7 @@ import { parseDocument, serializeDocument, plainText as pagePlainText, parseInli
 import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 import { buildShiftReport, shiftReportText } from "../services/shiftReport";
+import { PHONE_BRAND_TIPS, brandFor, stepDone } from "../utils/alarmPhoneTips";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -994,6 +995,28 @@ runTest("Update manifest is checked before it is trusted", () => {
     try { parseManifest(body); } catch (e) { code = (e as UpdateError).code; }
     if (code !== "BAD_MANIFEST") throw new Error("should be refused: " + body);
   }
+});
+
+runTest("Alarm help shows each phone its own brand's switches first", () => {
+  const cases: [string, string | null][] = [
+    ["TECNO MOBILE LIMITED", "transsion"], ["INFINIX MOBILITY LIMITED", "transsion"], ["itel", "transsion"],
+    ["samsung", "samsung"], ["Xiaomi", "xiaomi"], ["Redmi", "xiaomi"], ["OPPO", "oppo"], ["realme", "oppo"],
+    ["OnePlus", "oppo"], ["vivo", "vivo"], ["HUAWEI", "huawei"], ["HONOR", "huawei"],
+    ["Google", null], ["motorola", null], ["", null],
+  ];
+  for (const [maker, id] of cases) {
+    const got = brandFor(maker)?.id ?? null;
+    if (got !== id) throw new Error(`${JSON.stringify(maker)} should be ${id}, got ${got}`);
+  }
+  for (const b of PHONE_BRAND_TIPS) {
+    if (b.steps.length === 0) throw new Error(`${b.name} has no steps`);
+    for (const step of b.steps) if (!step.target) throw new Error(`${b.name}: "${step.text}" opens nothing`);
+  }
+  // Ticks only for settings Android reports; an older app build without "overlay" says "can't tell".
+  const status = { fullScreen: true, batteryUnrestricted: false, overlay: true } as any;
+  if (stepDone("fullScreen", status) !== true || stepDone("battery", status) !== false) throw new Error("wrong tick");
+  if (stepDone("overlay", status) !== true || stepDone("overlay", { ...status, overlay: undefined }) !== null) throw new Error("overlay tick");
+  if (stepDone("autostart", status) !== null || stepDone("fullScreen", null) !== null) throw new Error("should be unknown");
 });
 
 runTest("Phones and desktops read latest.json from the same places", () => {

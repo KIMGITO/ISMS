@@ -107,6 +107,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- One-tap "Unrestricted battery" from the alarm help (sideloaded app, not Play-listed). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Reminders are alarms: they ring at the exact minute, and come back after a reboot.
          USE_EXACT_ALARM (Android 13+) is granted at install for alarm-clock features;

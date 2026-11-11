@@ -20,13 +20,24 @@ export interface AlarmStatus {
   exactAlarms: boolean;
   fullScreen: boolean;
   batteryUnrestricted: boolean;
+  /** "Display over other apps". Missing on app builds before 6.1. */
+  overlay?: boolean;
   pushAvailable: boolean;
   scheduled: number;
   nextAt: number;
   signedInOwner: boolean;
 }
 
-export type AlarmSettingsTarget = "notifications" | "alarmChannel" | "exactAlarm" | "fullScreen" | "battery" | "app";
+/**
+ * Android screens the app can open. Builds before 6.1 only know the first six; older phones
+ * open the app's info page for the rest.
+ *  lockScreen: the app's notification page (lock screen visibility lives there)
+ *  overlay: "Display over other apps"
+ *  autostart / brandPermissions / powerSaver: the phone brand's own screens, where it has them
+ */
+export type AlarmSettingsTarget =
+  | "notifications" | "alarmChannel" | "exactAlarm" | "fullScreen" | "battery" | "app"
+  | "lockScreen" | "overlay" | "autostart" | "brandPermissions" | "powerSaver";
 
 interface AlarmSchedulerPlugin {
   replaceAll(options: { ownerId: string; alarms: unknown[] }): Promise<{ saved: number; scheduled: number; nextAt: number }>;

@@ -8,6 +8,7 @@ import { useUpdateStore } from '../stores/updateStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { updateService } from '../core/native/UpdateService';
 import { ShortcutTable } from '../components/ShortcutTable';
+import AlarmScreenHelp from '../components/AlarmScreenHelp';
 
 const PLATFORM_LABEL = {
   windows: 'Windows',
@@ -153,6 +154,8 @@ export default function AboutView() {
             </div>
           )}
         </details>
+
+        <AlarmScreenHelp />
 
         {business && (business.contactPhone || business.contactEmail) && (
           <Group title="Help" footer="For help with this app, contact your manager.">
