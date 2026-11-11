@@ -2,6 +2,7 @@
 import { UploadClient } from '../domain/ports';
 import { UploadItem, UploadOptions } from '../domain/entities';
 import { getSupabase, isSupabaseConfigured } from '../../supabaseClient';
+import { uploadToStorage } from '../storageUpload';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { useAuthStore } from '../../../stores/authStore';
 
@@ -98,24 +99,19 @@ export class SupabaseUploadClient implements UploadClient {
       // Progress stepped to 60 (Pre-flight creation step safely removed to prevent 403 errors)
       onProgress?.(60);
 
-      // Upload file directly to the database-provisioned bucket
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, fileToUpload, {
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      onProgress?.(90);
+      // Upload with real byte progress, mapped onto 60 to 98 of the overall bar.
+      const storedPath = await uploadToStorage(
+        bucketName,
+        filePath,
+        fileToUpload,
+        { cacheControl: '3600', upsert: true, contentType: fileToUpload.type || undefined },
+        (percent) => onProgress?.(60 + Math.round(percent * 0.38)),
+      );
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from(bucketName)
-        .getPublicUrl(data.path);
+        .getPublicUrl(storedPath);
 
       onProgress?.(100);
 
@@ -141,6 +137,7 @@ export class SupabaseUploadClient implements UploadClient {
       } else if (
         friendlyError.toLowerCase().includes('networkerror') ||
         friendlyError.toLowerCase().includes('fetch') ||
+        friendlyError.toLowerCase().includes('network request failed') ||
         err.name === 'TypeError'
       ) {
         friendlyError = `CORS or Network Error: Disallowed reading remote resource at ${supabaseUrl}/storage/v1/object. Please verify that your Supabase URL is configured correctly, your network connection is active, and CORS origins are allowed in your Supabase storage settings.`;

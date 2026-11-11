@@ -117,7 +117,7 @@ export class ProcessUploadUseCase {
           let height = img.height;
 
           // 1. Handle Resize/Compression limits
-          const maxDimension = 1024;
+          const maxDimension = options?.maxDimension ?? 1024;
           if (options?.compress && (width > maxDimension || height > maxDimension)) {
             if (width > height) {
               height = Math.round((height * maxDimension) / width);

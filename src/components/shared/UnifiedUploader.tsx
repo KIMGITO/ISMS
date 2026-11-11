@@ -3,7 +3,7 @@ import { toUserMessage } from "../../utils/userError";
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
-  RefreshCw, Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2
+  Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { uploadService } from "../../services/uploadService";
@@ -11,7 +11,35 @@ import { MediaType, UploadItem } from "../../services/upload/domain/entities";
 import { devicePermissionService } from "../../services/devicePermissionService";
 import { Switch } from './Switch';
 import { nativePlatformService } from "../../core/native/NativePlatformService";
-import { isBackgroundRemovalReady, removeBackground, RemovalProgress } from "../../services/backgroundRemoval";
+import { isBackgroundRemovalReady, isRemovalCancelled, removeBackground, RemovalProgress } from "../../services/backgroundRemoval";
+import ProgressBar from "./ProgressBar";
+import { useOverlay } from "../../hooks/useOverlay";
+
+/** Downloads an image and reports 0 to 100 when the server says how big it is. */
+async function fetchBlobWithProgress(url: string, onProgress: (percent: number) => void): Promise<Blob> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not get that image (${res.status}).`);
+  const total = Number(res.headers.get("content-length")) || 0;
+  if (!res.body || !total) {
+    const blob = await res.blob();
+    onProgress(100);
+    return blob;
+  }
+  const reader = res.body.getReader();
+  const chunks: BlobPart[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onProgress(Math.min(99, Math.round((received / total) * 100)));
+  }
+  onProgress(100);
+  return new Blob(chunks, { type: res.headers.get("content-type") || "image/jpeg" });
+}
+
+const formatSeconds = (s: number) => (s >= 90 ? `${Math.round(s / 60)} min` : `${s} s`);
 
 /** Phones and tablets have a camera; computers have a webcam. */
 function cameraWord(): "Camera" | "Webcam" {
@@ -57,12 +85,32 @@ const LOCAL_FALLBACK_CATALOG = [
   { keywords: ["butter", "cream", "bakery"], label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
 ];
 
+export interface UploaderPreset {
+  id: string;
+  label: string;
+  /** The image that is used when picked. */
+  url: string;
+  /** A smaller copy for the grid; `url` when missing. */
+  thumb?: string;
+}
+
 interface UnifiedUploaderProps {
-  onUploadSuccess: (url: string) => void;
+  /** `info.name` is the original file name, useful as a starting alt text. */
+  onUploadSuccess: (url: string, info?: { name: string }) => void;
   onUploadError?: (error: string) => void;
   allowedTypes?: MediaType[];
   maxSizeMb?: number;
-  cropAspect?: number; // e.g. 1 for square (avatars), 1.77 for 16:9, etc.
+  /** Width / height of the crop, e.g. 1 for square avatars. "original" keeps the photo's own shape. */
+  cropAspect?: number | "original";
+  /** Width in pixels of the saved image (never enlarged past the photo's own size). Defaults to 400. */
+  outputWidth?: number;
+  /** Controlled mode: the parent opens and closes the uploader, and no trigger button is drawn. */
+  open?: boolean;
+  onClose?: () => void;
+  /** Heading of the dialog. */
+  title?: string;
+  /** Pictures shown in the gallery tab before anything is searched. */
+  presetImages?: UploaderPreset[];
   buttonText?: string;
   className?: string;
   triggerElement?: React.ReactNode;
@@ -81,9 +129,17 @@ export default function UnifiedUploader({
   className = "",
   triggerElement,
   bucketName,
-  allowBackgroundRemoval = true
+  allowBackgroundRemoval = true,
+  outputWidth = 400,
+  open,
+  onClose,
+  title = "Unified Media Uploader",
+  presetImages,
 }: UnifiedUploaderProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const presets: UploaderPreset[] = presetImages ?? UNSPLASH_PRESETS;
+  const controlled = open !== undefined;
+  const [isOpenState, setIsOpen] = useState(false);
+  const isOpen = controlled ? Boolean(open) : isOpenState;
   const [activeTab, setActiveTab] = useState<"device" | "camera" | "url" | "unsplash">("device");
   const [dragOver, setDragOver] = useState(false);
 
@@ -91,7 +147,7 @@ export default function UnifiedUploader({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [unsplashQuery, setUnsplashQuery] = useState("");
-  const [unsplashResults, setUnsplashResults] = useState(UNSPLASH_PRESETS);
+  const [unsplashResults, setUnsplashResults] = useState<UploaderPreset[]>(presets);
   const [unsplashLoading, setUnsplashLoading] = useState(false);
   const [unsplashError, setUnsplashError] = useState("");
 
@@ -119,10 +175,12 @@ export default function UnifiedUploader({
   const [bgProgress, setBgProgress] = useState<RemovalProgress | null>(null);
   const [bgError, setBgError] = useState("");
   const [bgModelReady, setBgModelReady] = useState(false);
+  const bgAbortRef = useRef<AbortController | null>(null);
+  const originalNameRef = useRef("");
 
   // Upload progress states
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "completed" | "failed" | "queued">("idle");
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "fetching" | "uploading" | "completed" | "failed" | "queued">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [currentUploadItem, setCurrentUploadItem] = useState<UploadItem | null>(null);
 
@@ -144,13 +202,18 @@ export default function UnifiedUploader({
   const viewportSize = 240;
   let cropBoxWidth = 180;
   let cropBoxHeight = 180;
+  // "original" follows the picture itself, so the whole photo fits the frame at the start.
+  const aspect =
+    cropAspect === "original"
+      ? (imgNaturalSize.w && imgNaturalSize.h ? imgNaturalSize.w / imgNaturalSize.h : 1)
+      : cropAspect;
 
-  if (cropAspect > 1) {
+  if (aspect > 1) {
     cropBoxWidth = 210;
-    cropBoxHeight = 210 / cropAspect;
-  } else if (cropAspect < 1) {
+    cropBoxHeight = 210 / aspect;
+  } else if (aspect < 1) {
     cropBoxHeight = 210;
-    cropBoxWidth = 210 * cropAspect;
+    cropBoxWidth = 210 * aspect;
   }
 
   const cropBoxX = (viewportSize - cropBoxWidth) / 2;
@@ -384,6 +447,7 @@ export default function UnifiedUploader({
 
     setErrorMessage("");
     setSelectedFile(file);
+    originalNameRef.current = file.name;
 
     if (type === "image") {
       const reader = new FileReader();
@@ -427,15 +491,6 @@ export default function UnifiedUploader({
       img.src = src;
       img.onload = () => {
         try {
-          const targetWidth = 400;
-          const targetHeight = Math.round(400 / cropAspect);
-          
-          const canvas = document.createElement("canvas");
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return reject("Canvas 2D Context empty");
-
           // Natural image width/height at viewport scale
           const W = img.naturalWidth * baseScale * zoom;
           const H = img.naturalHeight * baseScale * zoom;
@@ -454,6 +509,16 @@ export default function UnifiedUploader({
           const w_nat = cropBoxWidth / S;
           const h_nat = cropBoxHeight / S;
 
+          // Never enlarge past the photo's own pixels.
+          const targetWidth = Math.max(1, Math.min(outputWidth, Math.round(w_nat)));
+          const targetHeight = Math.max(1, Math.round(targetWidth / aspect));
+
+          const canvas = document.createElement("canvas");
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject("Canvas 2D Context empty");
+
           // Draw slice from natural image onto canvas
           ctx.drawImage(img, x_nat, y_nat, w_nat, h_nat, 0, 0, targetWidth, targetHeight);
 
@@ -471,30 +536,40 @@ export default function UnifiedUploader({
 
   // Standard url loader
   const handleUrlLoad = async () => {
-    if (!urlInput.trim()) return;
+    const link = urlInput.trim().replace(/^http:\/\//i, "https://");
+    if (!link) return;
+    if (!/^https:\/\/\S+$/i.test(link)) {
+      setErrorMessage("Paste a full link starting with https://");
+      return;
+    }
+    await loadRemoteImage(link, link.split("/").pop()?.split("?")[0] || "linked image");
+  };
+
+  /**
+   * Downloads a picture from a link (or the gallery) so it can be cropped, cut out and stored
+   * here. Some sites refuse to hand their pictures to apps; then the link itself is used.
+   */
+  const loadRemoteImage = async (url: string, name: string) => {
     setErrorMessage("");
+    setUploadStatus("fetching");
+    setUploadProgress(0);
     try {
-      setUploadStatus("uploading");
-      setUploadProgress(20);
-      const res = await fetch(urlInput);
-      const blob = await res.blob();
+      const blob = await fetchBlobWithProgress(url, setUploadProgress);
       const type = mapMimeToCategory(blob.type);
-      
-      const file = new File([blob], `imported_image_${Date.now()}.jpg`, { type: blob.type });
+      const file = new File([blob], name.includes(".") ? name : `${name}.jpg`, { type: blob.type || "image/jpeg" });
       setSelectedFile(file);
-      
+      originalNameRef.current = name;
       if (type === "image") {
-        const objectUrl = URL.createObjectURL(blob);
-        setEditImageSrc(objectUrl);
+        setEditImageSrc(URL.createObjectURL(blob));
         setUploadStatus("idle");
         setIsEditing(true);
       } else {
         triggerUpload(file, type);
       }
     } catch (err) {
-      const mockFile = new File([], "url_referenced_image", { type: "image/jpeg" });
-      setSelectedFile(mockFile);
-      triggerUpload(mockFile, "image", urlInput);
+      console.warn("Could not download the picture; using its link instead.", err);
+      originalNameRef.current = name;
+      finishWith(url);
     }
   };
 
@@ -522,8 +597,8 @@ export default function UnifiedUploader({
     try {
       const resultUrl = await uploadService.execute(
         item,
-        { compress: compressToggle, crop: false, bucketName },
-        (progress) => setUploadProgress(progress)
+        { compress: compressToggle, crop: false, bucketName, maxDimension: Math.max(1024, outputWidth) },
+        (progress) => setUploadProgress((p) => Math.max(p, progress))
       );
 
       if (item.status === "queued_offline") {
@@ -531,11 +606,7 @@ export default function UnifiedUploader({
       } else {
         setUploadStatus("completed");
         setUploadProgress(100);
-        setTimeout(() => {
-          setIsOpen(false);
-          onUploadSuccess(resultUrl);
-          resetState();
-        }, 800);
+        setTimeout(() => finishWith(resultUrl), 600);
       }
     } catch (err: any) {
       console.error("Upload failed:", err);
@@ -544,6 +615,21 @@ export default function UnifiedUploader({
       onUploadError?.(toUserMessage(err, "Upload failed"));
     }
   };
+
+  /** Hands the finished picture to the caller and closes. */
+  const finishWith = (url: string) => {
+    onUploadSuccess(url, { name: originalNameRef.current });
+    closeUploader();
+  };
+
+  const closeUploader = () => {
+    resetState();
+    if (controlled) onClose?.();
+    else setIsOpen(false);
+  };
+
+  // The phone's back button closes the uploader (and stops any work) instead of leaving the screen.
+  useOverlay(isOpen, closeUploader, "dialog");
 
   const handleRetry = async () => {
     if (!currentUploadItem) return;
@@ -554,7 +640,7 @@ export default function UnifiedUploader({
     setSelectedFile(null);
     setUrlInput("");
     setUnsplashQuery("");
-    setUnsplashResults(UNSPLASH_PRESETS);
+    setUnsplashResults(presets);
     setUnsplashHasMore(false);
     setUnsplashPage(1);
     setUnsplashMoreError("");
@@ -565,9 +651,10 @@ export default function UnifiedUploader({
     setErrorMessage("");
     setUnsplashError("");
     setCurrentUploadItem(null);
+    cancelBackground();
     setBgOriginalSrc(null);
-    setBgProgress(null);
     setBgError("");
+    originalNameRef.current = "";
     stopCamera();
   };
 
@@ -575,19 +662,42 @@ export default function UnifiedUploader({
     if (isEditing && allowBackgroundRemoval) isBackgroundRemovalReady().then(setBgModelReady);
   }, [isEditing, allowBackgroundRemoval]);
 
+  /** Stops a running removal at once; the model's memory is given back. */
+  const cancelBackground = () => {
+    bgAbortRef.current?.abort();
+    bgAbortRef.current = null;
+    setBgProgress(null);
+  };
+
+  // Closing the app screen mid-removal must stop the work too.
+  useEffect(() => () => bgAbortRef.current?.abort(), []);
+
   const handleRemoveBackground = async () => {
-    if (!editImageSrc || bgProgress) return;
+    if (!editImageSrc || bgAbortRef.current) return;
+    const controller = new AbortController();
+    bgAbortRef.current = controller;
+    const source = editImageSrc;
     setBgError("");
     setBgProgress({ stage: bgModelReady ? "preparing" : "downloading", percent: 0 });
     try {
-      const cutout = await removeBackground(editImageSrc, setBgProgress, { aspect: cropAspect });
-      setBgOriginalSrc(editImageSrc);
+      const cutout = await removeBackground(
+        source,
+        (p) => { if (!controller.signal.aborted) setBgProgress(p); },
+        { aspect: cropAspect === "original" ? undefined : cropAspect, signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      setBgOriginalSrc(source);
       setEditImageSrc(cutout);
       setBgModelReady(true);
     } catch (err) {
-      setBgError(toUserMessage(err, "Could not remove the background. Check your connection and try again."));
+      if (controller.signal.aborted || isRemovalCancelled(err)) return;
+      console.error("Background removal failed:", err);
+      setBgError(toUserMessage(err, "Could not remove the background on this device. Try again, or use a smaller photo."));
     } finally {
-      setBgProgress(null);
+      if (bgAbortRef.current === controller) {
+        bgAbortRef.current = null;
+        setBgProgress(null);
+      }
     }
   };
 
@@ -597,13 +707,18 @@ export default function UnifiedUploader({
     setBgOriginalSrc(null);
   };
 
-  const bgStatusText = !bgProgress
+  const bgLabel = !bgProgress
     ? ""
     : bgProgress.stage === "downloading"
-      ? `Getting the remover ready (first time only)${bgProgress.percent !== undefined ? ` · ${bgProgress.percent}%` : ""}`
+      ? bgModelReady ? "Loading the remover" : "Downloading the remover"
       : bgProgress.stage === "preparing"
-        ? "Starting up…"
-        : "Removing background… this can take up to a minute";
+        ? "Starting the remover"
+        : "Removing background";
+  const bgDetail = !bgProgress
+    ? ""
+    : bgProgress.stage === "working"
+      ? `Step 2 of 2 · ${bgProgress.secondsLeft ? `about ${formatSeconds(bgProgress.secondsLeft)} left` : "finishing up"}`
+      : `Step 1 of 2${bgProgress.stage === "downloading" && !bgModelReady ? " · about 45 MB, first time only" : ""}`;
 
   const UNSPLASH_PER_PAGE = 24;
 
@@ -615,7 +730,7 @@ export default function UnifiedUploader({
     const query = rawQuery.trim().toLowerCase();
     const seq = page === 1 ? ++searchSeq.current : searchSeq.current;
     if (!query) {
-      setUnsplashResults(UNSPLASH_PRESETS);
+      setUnsplashResults(presets);
       setUnsplashError("");
       setUnsplashHasMore(false);
       setUnsplashPage(1);
@@ -669,7 +784,8 @@ export default function UnifiedUploader({
       const results = (data?.results || []).map((item: any) => ({
         id: item.id,
         label: item.alt_description || item.description || `${query} photo`,
-        url: item.urls.small || item.urls.regular,
+        url: outputWidth > 400 ? item.urls.regular || item.urls.small : item.urls.small || item.urls.regular,
+        thumb: item.urls.small || item.urls.thumb,
       }));
       const totalPages = Number(data?.total_pages) || 0;
       searchCache.current[key] = { results, totalPages };
@@ -757,7 +873,7 @@ export default function UnifiedUploader({
 
   return (
     <>
-      {triggerElement ? (
+      {controlled ? null : triggerElement ? (
         <div onClick={() => setIsOpen(true)} className="cursor-pointer">
           {triggerElement}
         </div>
@@ -785,14 +901,12 @@ export default function UnifiedUploader({
               <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                 <div className="flex items-center gap-2">
                   <Upload size={16} className="text-brand-500" />
-                  <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">Unified Media Uploader</h3>
+                  <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">{title}</h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    resetState();
-                    setIsOpen(false);
-                  }}
+                  aria-label="Close"
+                  onClick={closeUploader}
                   className="p-1.5 hover:bg-app-bg text-app-text-muted hover:text-app-text rounded-xl transition cursor-pointer"
                 >
                   <X size={16} />
@@ -828,9 +942,9 @@ export default function UnifiedUploader({
                     className="relative mx-auto rounded-3xl overflow-hidden bg-app-text/5 border-2 border-app-border flex items-center justify-center cursor-move touch-none select-none"
                   >
                     {bgProgress && (
-                      <div className="absolute inset-0 z-10 grid place-items-center bg-app-bg/70 backdrop-blur-[1px]">
-                        <div className="p-3 bg-brand-500/10 text-brand-500 rounded-full animate-spin">
-                          <RefreshCw size={20} />
+                      <div className="absolute inset-0 z-10 flex items-end bg-app-bg/60 p-3" aria-live="polite">
+                        <div className="w-full rounded-xl bg-app-card/95 p-2.5 shadow-lg">
+                          <ProgressBar size="compact" percent={bgProgress.percent ?? 0} label={bgLabel} detail={bgDetail} />
                         </div>
                       </div>
                     )}
@@ -902,28 +1016,33 @@ export default function UnifiedUploader({
                           >
                             <Undo2 size={11} /> Undo
                           </button>
+                        ) : bgProgress ? (
+                          <button
+                            type="button"
+                            onClick={cancelBackground}
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                          >
+                            <X size={11} /> Cancel
+                          </button>
                         ) : (
                           <button
                             type="button"
                             onClick={handleRemoveBackground}
-                            disabled={Boolean(bgProgress)}
-                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 disabled:opacity-60 text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
                           >
-                            <Eraser size={11} /> {bgProgress ? "Working" : "Remove"}
+                            <Eraser size={11} /> Remove
                           </button>
                         )}
                       </div>
-                      {bgProgress && (
-                        <div aria-live="polite">
-                          <span className="text-[8.5px] text-app-text-muted font-bold block">{bgStatusText}</span>
-                          {bgProgress.stage === "downloading" && bgProgress.percent !== undefined && (
-                            <div className="w-full bg-app-border h-1 rounded-full overflow-hidden mt-1">
-                              <div className="bg-brand-500 h-full transition-all duration-300" style={{ width: `${bgProgress.percent}%` }} />
-                            </div>
-                          )}
+                      {bgError && (
+                        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600">
+                          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                          <span className="min-w-0 flex-1">{bgError}</span>
+                          <button type="button" onClick={handleRemoveBackground} className="shrink-0 font-bold underline cursor-pointer">
+                            Try again
+                          </button>
                         </div>
                       )}
-                      {bgError && <span role="alert" className="text-[8.5px] text-red-500 font-bold">{bgError}</span>}
                     </div>
                   )}
 
@@ -939,7 +1058,12 @@ export default function UnifiedUploader({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsEditing(false)}
+                      onClick={() => {
+                        cancelBackground();
+                        setBgError("");
+                        setBgOriginalSrc(null);
+                        setIsEditing(false);
+                      }}
                       className="flex-1 py-2 bg-app-bg border border-app-border hover:bg-app-card text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
                     >
                       Back
@@ -954,35 +1078,33 @@ export default function UnifiedUploader({
                     </button>
                   </div>
                 </div>
-              ) : uploadStatus === "uploading" || uploadStatus === "completed" || uploadStatus === "failed" || uploadStatus === "queued" ? (
+              ) : uploadStatus !== "idle" ? (
                 /* PROGRESS & RETRY SCREEN */
                 <div className="flex flex-col items-center gap-4 py-6 text-center">
-                  {uploadStatus === "uploading" && (
-                    <>
-                      <div className="p-4 bg-brand-500/10 text-brand-500 rounded-full animate-spin">
-                        <RefreshCw size={24} />
-                      </div>
-                      <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider">Uploading payload...</h4>
-                        <div className="w-48 bg-app-border h-1.5 rounded-full overflow-hidden mt-3 mx-auto">
-                          <div 
-                            className="bg-brand-500 h-full transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-app-text-muted font-bold block mt-1">{uploadProgress}%</span>
-                      </div>
-                    </>
+                  {(uploadStatus === "uploading" || uploadStatus === "fetching") && (
+                    <div className="w-full max-w-xs py-4" aria-live="polite">
+                      <ProgressBar
+                        percent={uploadProgress}
+                        label={uploadStatus === "fetching" ? "Getting the picture" : "Uploading"}
+                        detail={
+                          uploadStatus === "fetching"
+                            ? "Downloading it so you can crop it"
+                            : uploadProgress < 60
+                              ? "Making it web-sized"
+                              : "Sending it to your shop's storage"
+                        }
+                      />
+                    </div>
                   )}
 
                   {uploadStatus === "completed" && (
                     <>
-                      <div className="p-4 bg-success/15 text-success rounded-full animate-bounce">
-                        <Check size={28} />
+                      <div className="w-full max-w-xs py-2">
+                        <ProgressBar percent={100} label="Uploaded" />
                       </div>
-                      <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-success">Upload Complete!</h4>
-                        <p className="text-[9px] text-app-text-muted mt-1 font-medium">Replicating public storage URLs...</p>
+                      <div className="flex items-center gap-1.5 text-success">
+                        <Check size={18} />
+                        <h4 className="text-[11px] font-black uppercase tracking-wider">Upload complete</h4>
                       </div>
                     </>
                   )}
@@ -1000,10 +1122,7 @@ export default function UnifiedUploader({
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsOpen(false);
-                          resetState();
-                        }}
+                        onClick={closeUploader}
                         className="py-2 px-4 bg-brand-500 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
                       >
                         Got It
@@ -1104,7 +1223,9 @@ export default function UnifiedUploader({
                       </div>
                       <div>
                         <span className="text-xs font-extrabold text-app-text block">Drag & Drop files here</span>
-                        <span className="text-[8.5px] text-app-text-muted font-medium block mt-1">PNG, JPG, PDF, CSV, Excel or Word up to {maxSizeMb}MB</span>
+                        <span className="text-[8.5px] text-app-text-muted font-medium block mt-1">
+                          {allowedTypes.length === 1 && allowedTypes[0] === "image" ? "PNG, JPG or WebP photos" : "PNG, JPG, PDF, CSV, Excel or Word"} up to {maxSizeMb}MB
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -1220,8 +1341,7 @@ export default function UnifiedUploader({
                           disabled={unsplashLoading}
                           className="py-1.5 px-3 bg-app-border hover:bg-brand-500/10 disabled:opacity-50 text-app-text font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0 flex items-center gap-1"
                         >
-                          {unsplashLoading && <RefreshCw size={10} className="animate-spin text-brand-500" />}
-                          <span>Find</span>
+                          <span>{unsplashLoading ? "Finding…" : "Find"}</span>
                         </button>
                       </div>
 
@@ -1263,30 +1383,13 @@ export default function UnifiedUploader({
                           {unsplashResults.map((item) => (
                             <div 
                               key={item.id}
-                              onClick={async () => {
-                                try {
-                                  setUploadStatus("uploading");
-                                  setUploadProgress(30);
-                                  const res = await fetch(item.url);
-                                  const blob = await res.blob();
-                                  const mockFile = new File([blob], `unsplash_${item.id}.jpg`, { type: "image/jpeg" });
-                                  setSelectedFile(mockFile);
-                                  const objectUrl = URL.createObjectURL(blob);
-                                  setEditImageSrc(objectUrl);
-                                  setUploadStatus("idle");
-                                  setIsEditing(true);
-                                } catch {
-                                  const mockFile = new File([], `unsplash_${item.id}.jpg`, { type: "image/jpeg" });
-                                  setSelectedFile(mockFile);
-                                  triggerUpload(mockFile, "image", item.url);
-                                }
-                              }}
+                              onClick={() => void loadRemoteImage(item.url, item.label || `photo_${item.id}`)}
                               // Square by padding, not aspect-ratio: the Linux app's WebKit stacks
                               // aspect-ratio tiles on top of each other inside a scrolling grid.
                               className="relative block w-full h-0 pb-[100%] rounded-xl overflow-hidden cursor-pointer hover:border-brand-500 border border-app-border/40 group bg-app-text/5"
                             >
                               <img
-                                src={item.url}
+                                src={item.thumb || item.url}
                                 alt={item.label}
                                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 loading="lazy"
@@ -1299,7 +1402,7 @@ export default function UnifiedUploader({
                         </div>
                         <div className="py-2 text-center text-[10px] text-app-text-muted">
                           {unsplashLoadingMore ? (
-                            <span className="inline-flex items-center gap-1.5"><RefreshCw size={11} className="animate-spin" /> Loading more…</span>
+                            <span>Loading more…</span>
                           ) : unsplashMoreError ? (
                             <button type="button" onClick={() => { setUnsplashMoreError(""); void searchUnsplash(unsplashQuery, unsplashPage + 1); }} className="underline cursor-pointer">
                               {unsplashMoreError} Try again

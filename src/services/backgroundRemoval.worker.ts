@@ -60,10 +60,10 @@ function loadSegmenter() {
   return segmenterPromise;
 }
 
-self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
-  const { id, width, height, pixels } = event.data;
+async function handle({ id, width, height, pixels }: WorkerRequest) {
   currentId = id;
   try {
+    progress('preparing', 0);
     const segmenter = await loadSegmenter();
     progress('working');
     const { RawImage } = await import('@huggingface/transformers');
@@ -74,4 +74,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
   } catch (err) {
     post({ id, type: 'error', message: err instanceof Error ? err.message : String(err) });
   }
+}
+
+// One photo at a time: two runs of the model side by side can run a phone out of memory.
+let queue: Promise<void> = Promise.resolve();
+self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
+  const request = event.data;
+  queue = queue.then(() => handle(request));
 });

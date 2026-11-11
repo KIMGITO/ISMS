@@ -37,4 +37,6 @@ export interface UploadOptions {
   allowedTypes?: MediaType[];
   maxSizeMb?: number;
   bucketName?: string;
+  /** Longest side after compression, in pixels. Defaults to 1024. */
+  maxDimension?: number;
 }

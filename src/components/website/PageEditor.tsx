@@ -15,7 +15,6 @@ import {
   ImagePlus,
   Italic,
   Link as LinkIcon,
-  Loader2,
   Monitor,
   Move,
   PenLine,
@@ -44,9 +43,32 @@ import { renderBlock } from '../../../website/src/RichText';
 import { toUserMessage } from '../../utils/userError';
 import { clearFormatting, inlineToHtml, normaliseLink, toggleHighlight } from './editableDom';
 import { FocalLayer, ImageBlock, ImageCard, withAlign } from './ImageControls';
-import ImagePicker, { PickedImage } from './ImagePicker';
+import UnifiedUploader, { UploaderPreset } from '../shared/UnifiedUploader';
+import ProgressBar from '../shared/ProgressBar';
+import { CREDITED_PHOTOS, photoUrl } from '../../../website/src/images';
 import InlineEditable, { EditableHandle, FocusRequest } from './InlineEditable';
 import { uploadPageImage } from './pageImages';
+
+interface PickedImage {
+  src: string;
+  alt: string;
+}
+
+/** The website's own photos, offered in the uploader's gallery before anything is searched. */
+const WEBSITE_PHOTOS: UploaderPreset[] = CREDITED_PHOTOS.map((photo) => ({
+  id: photo.id,
+  label: photo.alt,
+  url: photoUrl(photo, 1600),
+  thumb: photoUrl(photo, 400, 400),
+}));
+
+/** A starting alt text from a file name: "fresh-milk_2.jpg" becomes "fresh milk 2". */
+const altFromName = (name = '') =>
+  name
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/^(img|image|photo|dsc|pxl|linked image)\s*\d*/i, '')
+    .trim();
 
 // ---------------------------------------------------------------------------
 // Blocks with ids, for React keys and focus
@@ -315,7 +337,8 @@ export default function PageEditor({
   const [device, setDevice] = useState<'desktop' | 'phone'>('desktop');
   const [picker, setPicker] = useState<{ replace: string | null } | null>(null);
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  // Percent of a pasted photo's upload, or null when none is running.
+  const [uploading, setUploading] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const [dropMarker, setDropMarker] = useState<{ top: number; left: number; width: number; side: ImageAlign } | null>(null);
 
@@ -551,14 +574,14 @@ export default function PageEditor({
   };
 
   const uploadAndInsert = async (file: File, afterId: string | null) => {
-    setUploading(true);
+    setUploading(0);
     try {
-      const src = await uploadPageImage(businessId, file);
+      const src = await uploadPageImage(businessId, file, setUploading);
       insertBlocks([{ id: newId(), type: 'img', src, alt: '', caption: '', style: { ...DEFAULT_IMAGE_STYLE, ratio: '16:9' } }], afterId);
     } catch (err) {
       setNotice(toUserMessage(err, 'Could not upload the photo.'));
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
@@ -1098,7 +1121,7 @@ export default function PageEditor({
           <ToolSelect label="Background box" value={activeStyle.box ?? ''} disabled={!textTools} options={BOX_OPTIONS} onChange={(v) => setStyle({ box: (v || undefined) as TextStyle['box'] })} />
           <Divider />
           <ToolButton label="Add a photo" onClick={() => setPicker({ replace: null })}>
-            {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+            <ImagePlus size={16} />
           </ToolButton>
           <ToolSelect
             label="Add a block"
@@ -1151,6 +1174,11 @@ export default function PageEditor({
             </button>
           </div>
         )}
+        {uploading !== null && (
+          <div className="border-t border-app-border px-3 py-2" aria-live="polite">
+            <ProgressBar size="compact" percent={uploading} label="Uploading pasted photo" />
+          </div>
+        )}
         {notice && (
           <p role="status" className="border-t border-app-border bg-amber-500/10 px-3 py-1.5 text-xs text-app-text">
             {notice}
@@ -1175,12 +1203,17 @@ export default function PageEditor({
         </>
       )}
 
-      <ImagePicker
+      <UnifiedUploader
         open={picker !== null}
-        businessId={businessId}
-        title={picker?.replace ? 'Change photo' : 'Add a photo'}
         onClose={() => setPicker(null)}
-        onPick={placePhoto}
+        title={picker?.replace ? 'Change photo' : 'Add a photo'}
+        allowedTypes={['image']}
+        bucketName="business-logos"
+        maxSizeMb={15}
+        cropAspect="original"
+        outputWidth={1600}
+        presetImages={WEBSITE_PHOTOS}
+        onUploadSuccess={(src, info) => placePhoto({ src, alt: altFromName(info?.name) })}
       />
     </div>
   );
