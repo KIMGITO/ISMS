@@ -74,24 +74,10 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Linux dependencies
-        # A stalled mirror once hung this step for over half an hour; fail fast instead.
-        timeout-minutes: 10
+        # The script retries stalled downloads; this only stops a run that can't recover.
+        timeout-minutes: 30
         if: matrix.os-name == 'Linux'
-        run: |
-          # Skip rebuilding the man-page index after installing; on GitHub's runners it
-          # takes minutes and nothing here reads man pages.
-          echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
-          sudo rm -f /var/lib/man-db/auto-update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            pkg-config \
-            build-essential \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev
+        run: bash scripts/install-linux-deps.sh
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
