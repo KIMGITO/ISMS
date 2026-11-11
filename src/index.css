@@ -261,10 +261,13 @@ input[type="number"] {
   --mobile-nav-gap: 0.5rem;   /* above the phone's own bar */
   --mobile-edge: 2px;         /* left/right space on phones */
   /* Room a scrolling screen leaves at the bottom so its last item clears the nav */
-  --mobile-nav-space: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + var(--inset-bottom) + 1rem);
+  --mobile-nav-room: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + var(--inset-bottom) + 1rem);
+  /* Where floating buttons/toasts sit: just above the nav, lower when it is hidden */
+  --mobile-nav-space: var(--mobile-nav-room);
 }
 
-/* Nav hidden (double-tap): screens stop leaving room for it */
+/* Nav hidden: floating buttons drop down. Scroll padding (pb-nav) does NOT change, so
+   screens never grow or shrink while you scroll and content never jumps. */
 :root[data-nav-hidden] {
   --mobile-nav-space: calc(var(--inset-bottom) + 1rem);
 }
@@ -296,10 +299,11 @@ input[type="number"] {
   }
 }
 
-/* Bottom padding for scrolling screens: clears the floating nav and the phone's own bar */
+/* Bottom padding for scrolling screens: clears the floating nav and the phone's own bar.
+   Fixed size whether the nav is shown or hidden: the nav floats over content, it never
+   resizes the screen (changing it mid-scroll made content jump at the end of a list). */
 @utility pb-nav {
-  padding-bottom: var(--mobile-nav-space);
-  transition: padding-bottom 380ms var(--ease-ios); /* eases with the nav as it hides/shows */
+  padding-bottom: var(--mobile-nav-room);
   @media (width >= 48rem) {
     padding-bottom: 6rem;
   }
