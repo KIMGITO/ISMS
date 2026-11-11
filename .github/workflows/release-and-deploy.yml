@@ -30,6 +30,8 @@ permissions:
   contents: read
 
 env:
+  # Skip onnxruntime-node's GPU download on install; the app only uses it in the browser.
+  ONNXRUNTIME_NODE_INSTALL: skip
   NODE_VERSION: "22"
   # ── PLACEHOLDERS: your app's commands ───────────────────────────────────────
   INSTALL_COMMAND: "npm ci"

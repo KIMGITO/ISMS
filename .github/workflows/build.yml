@@ -13,6 +13,8 @@ on:
   workflow_dispatch:
 
 env:
+  # Skip onnxruntime-node's GPU download on install; the app only uses it in the browser.
+  ONNXRUNTIME_NODE_INSTALL: skip
   VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
   VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
   VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
