@@ -1,6 +1,6 @@
 import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
-import { Product } from '../api';
+import { pointsOn, Product } from '../api';
 import { PHOTOS, photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
 import { HERO_DRAW_ORDER, heroImageSlots, safeHref, visibleHeroSlides } from '../heroSlides';
@@ -230,7 +230,9 @@ function CategoryBanners() {
     }));
   const extras = [
     { kicker: 'Every week', title: 'Regular orders', href: '/account/schedules', photo: PHOTOS.pour, cta: 'Set up' },
-    { kicker: `${loyalty?.pointsPerShilling ?? 2} points per shilling`, title: 'Rewards', href: '/account/rewards', photo: PHOTOS.butter, cta: 'My points' },
+    ...(pointsOn({ loyalty })
+      ? [{ kicker: `${loyalty?.pointsPerShilling ?? 2} points per shilling`, title: 'Rewards', href: '/account/rewards', photo: PHOTOS.butter, cta: 'My points' }]
+      : []),
     { kicker: 'Milk care', title: 'Guides', href: '/articles', photo: PHOTOS.bottleTray, cta: 'Read' },
   ];
   const cards = [...fromCategories, ...extras].slice(0, 3);

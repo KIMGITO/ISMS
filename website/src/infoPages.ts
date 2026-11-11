@@ -3,7 +3,7 @@
 // it stays true as staff change settings in the app. Staff can replace any page's text
 // in the app under Online Store > Pages; an empty page uses the default below.
 // Plain data with no browser APIs, because scripts/prerender.ts and seo.ts import it.
-import type { Storefront } from './api';
+import { pointsOn, type Storefront } from './api';
 
 export type InfoPageId = 'about' | 'help' | 'delivery' | 'payments' | 'returns' | 'terms' | 'privacy' | 'cookies';
 
@@ -41,6 +41,9 @@ const money = (site: Storefront, amount: number) =>
 
 /** "Silver: 100 points = KSh 1" style lines from the live points settings. */
 function pointsLines(site: Storefront): string[] {
+  if (!pointsOn(site)) {
+    return ['Reward points are paused at the moment, so orders don\'t earn or use points. Points you already have stay in your account.'];
+  }
   const l = site.loyalty ?? { pointsPerShilling: 2, valueBronze: 0.02, valueSilver: 0.01, valueGold: 0.005, minRedeem: 100 };
   const per = (value: number) => (value > 0 ? Math.round(1 / value) : 0);
   return [

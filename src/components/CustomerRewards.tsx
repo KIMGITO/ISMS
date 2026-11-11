@@ -54,6 +54,8 @@ export default function CustomerRewards({ customer, formatCurrency }: Props) {
     }
   };
 
+  if (!settings.enabled) return null; // points switched off for this business
+
   return (
     <div className="bg-app-bg p-2.5 rounded-xl border border-app-border flex flex-col gap-1.5">
       <div className="flex items-center gap-2">

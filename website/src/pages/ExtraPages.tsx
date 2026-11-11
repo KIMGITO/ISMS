@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { CalendarClock, CheckCircle2, MessageCircle, Truck } from 'lucide-react';
-import { fetchOrder } from '../api';
+import { fetchOrder, pointsOn } from '../api';
 import { formatQuantity } from '../ui';
 import { CheckoutSteps } from './CartPage';
 import { OrderDiscounts } from './OrdersTab';
@@ -207,7 +207,8 @@ export function NotFoundPage() {
 
 /** /order-confirmed/:id, shown once M-Pesa or the card payment is confirmed. */
 export function OrderConfirmedPage({ orderId }: { orderId: string }) {
-  const { business, settings } = useStorefront();
+  const site = useStorefront();
+  const { business, settings } = site;
   const ready = useAuth((s) => s.ready);
   const account = useAuth((s) => s.account);
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
@@ -290,7 +291,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
           <OrderDiscounts order={order} currency={business.currency} />
           <div className="flex justify-between text-xl font-semibold"><dt>{paid ? 'Paid' : 'To pay'}</dt><dd>{formatPrice(business.currency, order.total)}</dd></div>
         </dl>
-        {paid && <p className="mt-3 text-sm text-muted">This order earns you reward points. See them under <a href="/account/rewards" className="underline">Rewards</a>.</p>}
+        {paid && pointsOn(site) && <p className="mt-3 text-sm text-muted">This order earns you reward points. See them under <a href="/account/rewards" className="underline">Rewards</a>.</p>}
       </section>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3">

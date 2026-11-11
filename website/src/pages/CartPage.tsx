@@ -304,7 +304,7 @@ export function CheckoutPage() {
   const maxPoints = rewards && rewards.pointValue > 0
     ? Math.max(0, Math.min(rewards.points, Math.floor((beforePoints - 1) / rewards.pointValue)))
     : 0;
-  const canUsePoints = Boolean(rewards) && maxPoints >= (rewards?.minRedeem ?? Infinity);
+  const canUsePoints = Boolean(rewards) && rewards?.enabled !== false && maxPoints >= (rewards?.minRedeem ?? Infinity);
   const typedPoints = Number(points) > 0 ? Math.floor(Number(points)) : 0;
   const pointsUsed = usePoints && canUsePoints ? Math.min(Math.max(typedPoints, rewards!.minRedeem), maxPoints) : 0;
   const pointsValue = rewards ? pointsUsed * rewards.pointValue : 0;
@@ -400,7 +400,7 @@ export function CheckoutPage() {
               <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
               <span className="text-sm">After you place the order, we send a prompt to <strong>{account.phone}</strong>. Enter your PIN to pay. <a href="/payments" className="underline">How it works</a></span>
             </div>
-            {rewards && (
+            {rewards && rewards.enabled !== false && (
               <PointsPanel
                 rewards={rewards}
                 currency={business.currency}

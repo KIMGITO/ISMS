@@ -1,5 +1,5 @@
 import { toUserMessage } from '../utils/userError';
-import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor } from '../services/loyalty/pointValue';
+import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, usePointsEnabled } from '../services/loyalty/pointValue';
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import { SwipeRow } from '../components/shared/SwipeRow';
@@ -155,6 +155,7 @@ export default function POSView() {
   useEffect(() => {
     if (activeBusinessId) fetchPointSettings(activeBusinessId).then(setPointSettings);
   }, [activeBusinessId]);
+  const pointsOn = usePointsEnabled(activeBusinessId) && pointSettings.enabled;
 
   // Riders set the area prices; the till offers them as quick fees.
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
@@ -217,7 +218,7 @@ export default function POSView() {
   cartDiscount = Math.min(cartDiscount, subtotalBeforeCartDiscount);
 
   // Points the customer is using, at the business's value per point (the till checks again)
-  const pointsNum = selectedCustomer ? Math.min(Math.max(0, Math.floor(Number(pointsToUse) || 0)), selectedCustomer.loyaltyPoints || 0) : 0;
+  const pointsNum = pointsOn && selectedCustomer ? Math.min(Math.max(0, Math.floor(Number(pointsToUse) || 0)), selectedCustomer.loyaltyPoints || 0) : 0;
   const pointValue = pointValueFor(pointSettings, selectedCustomer?.tier);
   const pointsDiscount = Math.min(Math.round(pointsNum * pointValue * 100) / 100, subtotalBeforeCartDiscount - cartDiscount);
 
@@ -269,7 +270,7 @@ export default function POSView() {
       let discountType = cartDiscountType;
       let discountValue = cartDiscountValue;
       const points = Number(pointsToUse);
-      if (selectedCustomer && points > 0) {
+      if (pointsOn && selectedCustomer && points > 0) {
         const { data, error } = await getSupabase().rpc('spend_points_at_till', {
           p_customer_id: selectedCustomer.id,
           p_points: points,
@@ -595,11 +596,13 @@ export default function POSView() {
                           {selectedCustomer.tier}
                         </span>{' '}
                       </p>
-                      <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                        <div className="rounded-lg bg-app-bg px-2 py-1">
-                          <div className="text-[10px] text-app-text-muted">Points</div>
-                          <div className="font-bold text-amber-600 dark:text-amber-400 tabular-nums">{(selectedCustomer.loyaltyPoints || 0).toLocaleString()}</div>
-                        </div>
+                      <div className={`grid ${pointsOn ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 mt-1.5`}>
+                        {pointsOn && (
+                          <div className="rounded-lg bg-app-bg px-2 py-1">
+                            <div className="text-[10px] text-app-text-muted">Points</div>
+                            <div className="font-bold text-amber-600 dark:text-amber-400 tabular-nums">{(selectedCustomer.loyaltyPoints || 0).toLocaleString()}</div>
+                          </div>
+                        )}
                         <div className="rounded-lg bg-app-bg px-2 py-1">
                           <div className="text-[10px] text-app-text-muted">Wallet</div>
                           <div className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">KSh {(selectedCustomer.walletBalance || 0).toLocaleString()}</div>
@@ -633,7 +636,7 @@ export default function POSView() {
                         sublabel: [
                           cust.phone,
                           `${cust.tier}`,
-                          `${(cust.loyaltyPoints || 0).toLocaleString()} pts`,
+                          pointsOn ? `${(cust.loyaltyPoints || 0).toLocaleString()} pts` : '',
                           (cust.walletBalance || 0) > 0 ? `Wallet KSh ${(cust.walletBalance || 0).toLocaleString()}` : '',
                           (cust.debtBalance || 0) > 0 ? `Owes KSh ${(cust.debtBalance || 0).toLocaleString()}` : '',
                         ].filter(Boolean).join(' · '),
@@ -860,7 +863,7 @@ export default function POSView() {
                   )}
                 </div>
 
-                {selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
+                {pointsOn && selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
                   <label className="flex flex-col gap-1 p-3 bg-app-bg/50 border border-app-border rounded-2xl text-xs font-medium text-app-text">
                     Use points ({selectedCustomer.loyaltyPoints.toLocaleString()} available)
                     <input

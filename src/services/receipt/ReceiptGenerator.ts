@@ -12,6 +12,8 @@ export interface ReceiptExtras {
   pointsUsed?: { points: number; value: number } | null;
   /** The customer's points balance now */
   customerPoints?: number;
+  /** Points switched off for the business: the receipt says nothing about points */
+  pointsOff?: boolean;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -89,7 +91,7 @@ function formatTime(date: Date, format: BusinessReceiptSettings["timeFormat"]): 
 /** Maps a saved sale onto what a receipt shows. Uses only the sale's own figures. */
 /** Points on the receipt: only for a named customer, and only when there is something to say. */
 function loyaltyFor(tx: Transaction, extras: ReceiptExtras): ReceiptContent["loyalty"] {
-  if (!tx.customerId) return undefined;
+  if (!tx.customerId || extras.pointsOff) return undefined;
   const pointsUsed = extras.pointsUsed?.points || 0;
   const pointsValue = round2(extras.pointsUsed?.value || 0);
   // Same rule as the database: 2 per KSh 1 paid; on a credit sale only the wallet-paid part earns.

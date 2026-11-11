@@ -1,5 +1,5 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchPointSettings, pointsPerShilling } from '../services/loyalty/pointValue';
+import { fetchPointSettings, pointsPerShilling, setPointsEnabled } from '../services/loyalty/pointValue';
 import { useOverlay } from '../hooks/useOverlay';
 import {
   AlertTriangle,
@@ -663,9 +663,12 @@ function PointsSettingsCard({ businessId }: { businessId: string }) {
   // Entered as "points for KSh 1" per tier; stored as the KSh value of one point.
   const [perKsh, setPerKsh] = useState({ bronze: '50', silver: '100', gold: '200' });
   const [minRedeem, setMinRedeem] = useState('100');
+  const [enabled, setEnabled] = useState(true);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     fetchPointSettings(businessId).then((s) => {
+      setEnabled(s.enabled);
       setPerKsh({ bronze: String(pointsPerShilling(s.bronze)), silver: String(pointsPerShilling(s.silver)), gold: String(pointsPerShilling(s.gold)) });
       setMinRedeem(String(s.minRedeem));
     });
@@ -691,6 +694,28 @@ function PointsSettingsCard({ businessId }: { businessId: string }) {
     }
   };
 
+  // Saved straight away, on its own: the tier values below keep whatever they were.
+  const toggle = async () => {
+    const next = !enabled;
+    setSwitching(true);
+    try {
+      const { error } = await getSupabase().from('loyalty_settings').upsert({ business_id: businessId, points_enabled: next });
+      if (error) throw error;
+      setEnabled(next);
+      setPointsEnabled(businessId, next);
+      showToast(
+        next ? 'Points On' : 'Points Off',
+        next ? 'Customers earn and use points again.' : 'Customers keep their points but can\'t earn or use them until you switch this back on.',
+        undefined,
+        'success',
+      );
+    } catch (err) {
+      reportError(err, 'Could not switch points.');
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   const row = (tier: 'bronze' | 'silver' | 'gold', label: string) => {
     const n = Number(perKsh[tier]) || 0;
     return (
@@ -704,8 +729,18 @@ function PointsSettingsCard({ businessId }: { businessId: string }) {
 
   return (
     <form onSubmit={handleSave} className={`${cardClass} space-y-3`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-app-text">Loyalty points</h3>
+          <p className="text-xs text-app-text-muted">
+            {enabled ? 'On: customers earn and use points.' : 'Off: nobody earns or uses points. Balances are kept for when you switch back on.'}
+          </p>
+        </div>
+        <Switch checked={enabled} onChange={() => toggle()} disabled={switching} ariaLabel="Loyalty points" />
+      </div>
+      {enabled && (
+      <>
       <div>
-        <h3 className="text-sm font-semibold text-app-text">Loyalty points</h3>
         <p className="text-xs text-app-text-muted">
           Customers earn 2 points for every Ksh 1 they pay for. Credit sales earn when paid: 1 point for every Ksh 1 paid towards the debt.
           Points are worth less in higher tiers, so small customers feel the reward and big spenders cost less. Points are not cash: they come off a purchase or pay off debt.
@@ -721,6 +756,8 @@ function PointsSettingsCard({ businessId }: { businessId: string }) {
         <input required type="number" min="1" value={minRedeem} onChange={(e) => setMinRedeem(e.target.value)} className={inputClass} />
       </label>
       <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Save</button>
+      </>
+      )}
     </form>
   );
 }

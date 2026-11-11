@@ -12,6 +12,7 @@ import { PrinterTarget } from "../printer/types";
 import { ReceiptShareService } from "./ReceiptShareService";
 import { kraService } from "../kra/kraService";
 import { getTillPoints } from "../loyalty/tillPoints";
+import { loadPointsEnabled } from "../loyalty/pointValue";
 
 export class ReceiptService {
   public static getSettings(businessId: string): BusinessReceiptSettings {
@@ -29,11 +30,15 @@ export class ReceiptService {
     extras: Omit<ReceiptExtras, "kra"> = {},
   ): Promise<{ content: ReceiptContent; settings: BusinessReceiptSettings }> {
     const settings = this.getSettings(businessId);
-    const [kra, pointsUsed] = await Promise.all([
+    const [kra, pointsUsed, pointsOn] = await Promise.all([
       kraService.getSignature(tx.id).catch(() => null),
       tx.customerId ? getTillPoints(tx.id) : Promise.resolve(null),
+      tx.customerId ? loadPointsEnabled(businessId).catch(() => true) : Promise.resolve(true),
     ]);
-    return { content: buildReceiptContent(tx, settings, { ...extras, pointsUsed, kra: kra ?? undefined }), settings };
+    return {
+      content: buildReceiptContent(tx, settings, { ...extras, pointsUsed, pointsOff: !pointsOn, kra: kra ?? undefined }),
+      settings,
+    };
   }
 
   public static lines(content: ReceiptContent, settings: BusinessReceiptSettings): ReceiptLine[] {

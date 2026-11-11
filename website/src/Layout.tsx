@@ -3,6 +3,7 @@ import {
   ArrowUp, Bell, ChevronDown, ChevronRight, Clock, Heart, Home, LayoutGrid, Lock, Mail, MapPin, Menu, MessageCircle, Minus, Phone, Plus,
   Search, ShoppingBag, ShoppingCart, Star, Trash2, User, X,
 } from 'lucide-react';
+import { pointsOn } from './api';
 import { CREDITED_PHOTOS } from './images';
 import { INFO_PAGES } from './infoPages';
 import { navigate } from './router';
@@ -257,7 +258,8 @@ function DrawerLinks({ title, links }: { title: string; links: { href: string; l
 }
 
 function MenuDrawer() {
-  const { business, settings } = useStorefront();
+  const site = useStorefront();
+  const { business, settings } = site;
   const panel = usePanels((s) => s.panel);
   const close = usePanels((s) => s.close);
   const account = useAuth((s) => s.account);
@@ -278,7 +280,7 @@ function MenuDrawer() {
             <span className="grid size-11 shrink-0 place-items-center rounded-full bg-white"><User size={20} aria-hidden /></span>
             <span className="min-w-0">
               <span className="block font-medium">{account ? `Hello, ${account.name.split(' ')[0]}` : 'Sign in or create an account'}</span>
-              <span className="block text-sm text-muted">{account ? 'Orders, rewards and messages' : 'Track orders and earn points'}</span>
+              <span className="block text-sm text-muted">{account ? 'Orders, rewards and messages' : pointsOn(site) ? 'Track orders and earn points' : 'Track your orders'}</span>
             </span>
           </a>
           <DrawerLinks
@@ -310,7 +312,8 @@ function MenuDrawer() {
 }
 
 function CartDrawer() {
-  const { products, business, settings } = useStorefront();
+  const site = useStorefront();
+  const { products, business, settings } = site;
   const { lines, setQuantity, remove } = useCart();
   const panel = usePanels((s) => s.panel);
   const close = usePanels((s) => s.close);
@@ -383,7 +386,7 @@ function CartDrawer() {
               <p className="text-sm text-muted">
                 {shortBy > 0
                   ? `Add ${formatPrice(business.currency, shortBy)} more to reach the minimum order.`
-                  : 'Delivery, if any, and points are worked out at checkout.'}
+                  : pointsOn(site) ? 'Delivery, if any, and points are worked out at checkout.' : 'Delivery, if any, is worked out at checkout.'}
               </p>
               <a href="/cart" onClick={close} className="btn btn-accent w-full">Checkout</a>
               <button onClick={close} className="btn btn-secondary w-full">Continue shopping</button>

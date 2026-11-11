@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Check, ChevronDown, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { pointsOn } from '../api';
 import { productPaths } from '../seo';
 import { navigate } from '../router';
 import { useRecent, useStorefront } from '../store';
@@ -210,7 +211,7 @@ export default function ProductPage({ path }: { path: string }) {
                 <a href="/delivery" className="mt-2 inline-block font-medium text-ink underline">Delivery details</a>
               </Accordion>
               <Accordion title="Payment">
-                <p>Pay with M-Pesa. After you order we send a prompt to your phone. Enter your PIN and you're done. Every paid order earns reward points.</p>
+                <p>Pay with M-Pesa. After you order we send a prompt to your phone. Enter your PIN and you're done.{pointsOn(site) && ' Every paid order earns reward points.'}</p>
                 <a href="/payments" className="mt-2 inline-block font-medium text-ink underline">How payment works</a>
               </Accordion>
               <Accordion title="Freshness & returns">

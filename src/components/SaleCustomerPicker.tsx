@@ -7,6 +7,7 @@ import { useCustomerStore } from '../stores/customerStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { attachSaleToCustomer, cannotAttachReason } from '../services/saleCustomer';
 import { toUserMessage } from '../utils/userError';
+import { usePointsEnabled } from '../services/loyalty/pointValue';
 
 interface Props {
   transaction: Transaction;
@@ -22,15 +23,16 @@ export function SaleCustomerPicker({ transaction, onAttached, compact, className
   const [open, setOpen] = useState(false);
   const [customerId, setCustomerId] = useState('');
   const [saving, setSaving] = useState(false);
+  const pointsOn = usePointsEnabled(transaction.businessId);
 
   const items = useMemo(
     () =>
       customers.map((c) => ({
         id: c.id,
         label: c.name,
-        sublabel: [c.phone, c.accountNumber && `Acc ${c.accountNumber}`, `${(c.loyaltyPoints || 0).toLocaleString()} pts`].filter(Boolean).join(' · '),
+        sublabel: [c.phone, c.accountNumber && `Acc ${c.accountNumber}`, pointsOn && `${(c.loyaltyPoints || 0).toLocaleString()} pts`].filter(Boolean).join(' · '),
       })),
-    [customers],
+    [customers, pointsOn],
   );
 
   if (cannotAttachReason(transaction)) return null;
@@ -42,7 +44,7 @@ export function SaleCustomerPicker({ transaction, onAttached, compact, className
     try {
       const result = await attachSaleToCustomer(transaction, customer);
       const total = (customer.loyaltyPoints || 0) + (result.points || 0);
-      const pts = result.points > 0 ? ` +${result.points.toLocaleString()} points (${total.toLocaleString()} in total).` : ` ${total.toLocaleString()} points in total.`;
+      const pts = !pointsOn ? '' : result.points > 0 ? ` +${result.points.toLocaleString()} points (${total.toLocaleString()} in total).` : ` ${total.toLocaleString()} points in total.`;
       showToast(
         'Customer added',
         result.offline ? `${customer.name}${pts} when the sale syncs.` : `Sale is on ${customer.name}'s account.${pts}`,

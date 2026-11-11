@@ -51,6 +51,12 @@ export default function RewardsTab() {
         <div><dt className="text-muted">Owed</dt><dd className="text-xl font-semibold">Ksh {rewards.debt}</dd></div>
       </dl>
 
+      {rewards.enabled === false ? (
+        <p className="rounded-xl bg-sand p-4 text-muted">
+          Reward points are paused at the moment. You can't earn or use points for now, but the points you
+          have stay in your account.
+        </p>
+      ) : (
       <div>
         <h2 className="text-xl font-semibold">Redeem points</h2>
         <p className="mt-1 text-muted">
@@ -68,6 +74,7 @@ export default function RewardsTab() {
           {busy ? 'Please wait…' : 'Redeem'}
         </button>
       </div>
+      )}
     </div>
   );
 }

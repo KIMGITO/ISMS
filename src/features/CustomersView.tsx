@@ -4,6 +4,7 @@ import { SheetLayer } from '../components/shared/SheetLayer';
 import { useBusinessStore } from '../stores/businessStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
+import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
 import { SwipeRow } from '../components/shared/SwipeRow';
 import type { InvoiceDocument } from '../services/invoice/types';
@@ -108,6 +109,7 @@ export default function CustomersView() {
   } = useAppStore();
   // The phone's back button closes a customer's details before leaving the screen.
   useOverlay(!!selectedCustomerId, () => setSelectedCustomerId(null), 'screen');
+  const pointsOn = usePointsEnabled(activeBusinessId); // off: points are hidden here
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("all");
   const [newGroups, setNewGroups] = useState<CustomerGroupValues>({
@@ -780,17 +782,19 @@ export default function CustomersView() {
             </button>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              data-shortcut="points"
-              onClick={() => {
-                setSelectedCustomerId(null);
-                setShowPoints(true);
-              }}
-              aria-pressed={showPoints}
-              className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${showPoints ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
-            >
-              <Gift size={15} /> Points
-            </button>
+            {pointsOn && (
+              <button
+                data-shortcut="points"
+                onClick={() => {
+                  setSelectedCustomerId(null);
+                  setShowPoints(true);
+                }}
+                aria-pressed={showPoints}
+                className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${showPoints ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
+              >
+                <Gift size={15} /> Points
+              </button>
+            )}
             {canMergeCustomers && (
               <button
                 onClick={() => setShowDuplicates(true)}
@@ -898,12 +902,12 @@ export default function CustomersView() {
                           <span className="block text-sm font-semibold text-red-600 dark:text-red-400 tabular-nums">{formatCurrency(debt)}</span>
                           <span className="block text-[11px] text-app-text-muted">owes</span>
                         </>
-                      ) : (
+                      ) : pointsOn ? (
                         <>
                           <span className="block text-sm font-semibold text-app-text tabular-nums">{(c.loyaltyPoints || 0).toLocaleString()}</span>
                           <span className="block text-[11px] text-app-text-muted">points</span>
                         </>
-                      )}
+                      ) : null}
                     </span>
                   </button>
                   </SwipeRow>
@@ -991,14 +995,16 @@ export default function CustomersView() {
               </div>
 
               {/* Balances */}
-              <div className="grid grid-cols-3 gap-1.5 mt-3">
-                <div className="rounded-lg bg-app-bg px-2.5 py-1.5">
-                  <div className="text-[11px] text-app-text-muted">Points</div>
-                  <div className="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums flex items-center gap-1">
-                    <Star size={12} className="fill-current" />
-                    {(selectedCustomer.loyaltyPoints || 0).toLocaleString()}
+              <div className={`grid ${pointsOn ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 mt-3`}>
+                {pointsOn && (
+                  <div className="rounded-lg bg-app-bg px-2.5 py-1.5">
+                    <div className="text-[11px] text-app-text-muted">Points</div>
+                    <div className="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums flex items-center gap-1">
+                      <Star size={12} className="fill-current" />
+                      {(selectedCustomer.loyaltyPoints || 0).toLocaleString()}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className={`rounded-lg px-2.5 py-1.5 ${(selectedCustomer.debtBalance || 0) > 0 ? 'bg-red-500/10' : 'bg-app-bg'}`}>
                   <div className="text-[11px] text-app-text-muted">Owes (KSh)</div>
                   <div className={`text-sm font-semibold tabular-nums leading-tight break-all ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>
