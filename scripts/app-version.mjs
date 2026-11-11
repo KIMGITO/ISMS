@@ -67,18 +67,25 @@ function fromGit() {
   }
 }
 
+// Published releases live in a public repo (docs/GOING_PRIVATE.md), which stays readable
+// when the code repo is private; the code repo is only tried after it.
+const RELEASES_REPO = process.env.RELEASES_REPO || "KIMGITO/kaykays-releases";
+
 async function fromManifest() {
-  try {
-    const res = await fetch(`https://raw.githubusercontent.com/${repoSlug()}/update-manifest/latest.json`, {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    const { version } = await res.json();
-    const clean = String(version || "").replace(/^v/, "");
-    return SEMVER.test(clean) ? clean : null;
-  } catch {
-    return null;
+  for (const repo of [...new Set([RELEASES_REPO, repoSlug()])]) {
+    try {
+      const res = await fetch(`https://raw.githubusercontent.com/${repo}/update-manifest/latest.json`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const { version } = await res.json();
+      const clean = String(version || "").replace(/^v/, "");
+      if (SEMVER.test(clean)) return clean;
+    } catch {
+      // try the next repo
+    }
   }
+  return null;
 }
 
 export async function resolveAppVersion() {

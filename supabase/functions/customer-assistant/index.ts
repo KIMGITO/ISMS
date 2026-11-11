@@ -3,12 +3,12 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { handleCors, jsonResponse, errorResponse } from "../shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse, clientIp } from "../shared/cors.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
-import { acceptModelReply, AssistantContext, buildModelPrompt, decide, OFF_TOPIC_REPLY } from "./logic.ts";
+import { acceptModelReply, AssistantContext, buildModelPrompt, decide } from "./logic.ts";
 
 async function visitorKey(req: Request): Promise<string> {
-  const ip = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+  const ip = clientIp(req);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
   return Array.from(new Uint8Array(digest).slice(0, 12)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: settingsError } = await admin
       .from("website_settings")
-      .select("delivery_enabled, delivery_fee, assistant_enabled")
+      .select("*") // "*" so a column a newer migration adds (opening_hours) is optional
       .eq("business_id", business.id)
       .maybeSingle();
     if (settingsError) throw settingsError;
@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
       paymentMethods: business.default_payment_methods ?? [],
       address: business.address,
       phone: business.contact_phone || null,
+      openingHours: (settings as any)?.opening_hours?.trim() || null,
       products: (products ?? []).map((p: any) => ({
         id: p.id, name: p.name, category: p.category, unit: p.unit,
         price: Number(p.price), stock: Number(p.stock), minStock: Number(p.min_stock ?? 0),
@@ -91,22 +92,21 @@ Deno.serve(async (req) => {
       articles: articles ?? [],
     };
 
-    const result = decide(text, typeof pendingProductId === "string" ? pendingProductId : null, ctx);
-    if (!result.needsModel) {
-      const { needsModel: _ignored, ...reply } = result;
-      return jsonResponse(reply);
-    }
+    const { needsModel, ...decided } = decide(text, typeof pendingProductId === "string" ? pendingProductId : null, ctx);
+    if (!needsModel) return jsonResponse(decided);
 
     // The model gets the prompt and the customer's text, and nothing from the stock query.
-    let reply = OFF_TOPIC_REPLY;
+    // If it is down, refuses, or says something we won't pass on, the customer gets the
+    // relevant fallback `decide` prepared instead of an error.
     const ai = await runAI(await loadAISettings(business.id), {
       systemInstruction: buildModelPrompt(ctx),
       messages: [{ role: "user", content: text }],
       responseMimeType: "application/json",
     }).catch(() => null);
-    if (ai?.success) reply = acceptModelReply(ai.text);
+    const modelReply = ai?.success ? acceptModelReply(ai.text) : null;
+    if (!ai?.success) console.warn("[customer-assistant] model unavailable:", ai?.code ?? "error");
 
-    return jsonResponse({ reply, pendingProductId: null });
+    return jsonResponse(modelReply ? { reply: modelReply, pendingProductId: null } : decided);
   } catch (err: any) {
     console.error("[customer-assistant]", err);
     return errorResponse("The assistant is having trouble. Please try again.", 500);

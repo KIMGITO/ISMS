@@ -17,8 +17,9 @@ export interface ShiftReport {
   salesTotal: number;
   cash: number;
   mpesa: number;
+  card: number;
+  bank: number;
   credit: number;
-  other: number;
   deliveries: number;
   expensesTotal: number;
   /** Cash sales + cash debt repaid − cash expenses */
@@ -67,7 +68,8 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     cash: 0,
     mpesa: 0,
     credit: 0,
-    other: 0,
+    card: 0,
+    bank: 0,
     deliveries: 0,
     expensesTotal: 0,
     expectedCash: 0,
@@ -87,7 +89,9 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     report.salesTotal += amount;
     if (tx.isDelivery) report.deliveries += 1;
     if (tx.paymentMethod === 'Cash') report.cash += amount;
-    else if (tx.paymentMethod === 'M-Pesa' || tx.paymentMethod === 'Mobile_Wallet') report.mpesa += amount;
+    else if (tx.paymentMethod === 'M-Pesa') report.mpesa += amount;
+    else if (tx.paymentMethod === 'Card') report.card += amount;
+    else if (tx.paymentMethod === 'Bank') report.bank += amount;
     else if (tx.paymentMethod === 'Credit' || tx.paymentMethod === 'Credit_Debt') {
       report.credit += amount;
       const key = tx.customerId || tx.customerName || 'unknown';
@@ -96,7 +100,7 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
       row.amount += amount;
       tx.items.forEach((i) => row.items.push(`${i.quantity} × ${i.product.name}`));
       credit.set(key, row);
-    } else report.other += amount;
+    }
 
     for (const item of tx.items) {
       const id = item.product.id || item.product.name;
@@ -167,7 +171,8 @@ export function shiftReportText(r: ShiftReport, extra: { countedCash?: number | 
   lines.push(`- Cash: ${ksh(r.cash)}`);
   lines.push(`- M-Pesa: ${ksh(r.mpesa)}`);
   if (r.credit) lines.push(`- On credit: ${ksh(r.credit)}`);
-  if (r.other) lines.push(`- Card/bank/other: ${ksh(r.other)}`);
+  if (r.card) lines.push(`- Card: ${ksh(r.card)}`);
+  if (r.bank) lines.push(`- Bank: ${ksh(r.bank)}`);
   if (r.deliveries) lines.push(`- Deliveries: ${r.deliveries}`);
   lines.push('');
   lines.push('*Cash drawer*');

@@ -23,7 +23,21 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self' ipc: http://ipc.localhost",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src": "'self' data: https://fonts.gstatic.com",
+        "img-src": "'self' data: blob: https:",
+        "media-src": "'self' data: blob:",
+        "connect-src": "'self' ipc: http://ipc.localhost https: wss://*.supabase.co",
+        "frame-src": "'self' blob:",
+        "worker-src": "'self' blob:",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'self'"
+      },
+      "devCsp": null
     }
   },
   "bundle": {
@@ -49,8 +63,10 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDMzYyRjM0MTIyODc1OEEKUldTS2RTZ1NOQzgyN004WVBUcHpjVStUbW54S0paL0NZNXpWUUI5Mmp5UG5NQ2c0ZUFuOUtLQ3QK",
       "endpoints": [
+        "https://raw.githubusercontent.com/KIMGITO/kaykays-releases/update-manifest/latest.json",
+        "https://cdn.jsdelivr.net/gh/KIMGITO/kaykays-releases@update-manifest/latest.json",
+        "https://github.com/KIMGITO/kaykays-releases/releases/latest/download/latest.json",
         "https://raw.githubusercontent.com/KIMGITO/ISMS/update-manifest/latest.json",
-        "https://cdn.jsdelivr.net/gh/KIMGITO/ISMS@update-manifest/latest.json",
         "https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json"
       ],
       "windows": {

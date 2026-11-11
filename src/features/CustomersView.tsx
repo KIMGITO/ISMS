@@ -29,7 +29,8 @@ import { formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
 import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
-import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS } from "../types";
+import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS, type MoneyMethod } from "../types";
+import { MONEY_METHODS } from "../utils/paymentMethods";
 import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
@@ -133,7 +134,7 @@ export default function CustomersView() {
   const [invoicesState, setInvoicesState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [invoicesError, setInvoicesError] = useState('');
   const [invoiceView, setInvoiceView] = useState<'active' | 'archived'>('active');
-  const [payMethod, setPayMethod] = useState<'Cash' | 'M-Pesa'>('Cash');
+  const [payMethod, setPayMethod] = useState<MoneyMethod>('Cash');
   const [adjustNote, setAdjustNote] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
@@ -336,7 +337,7 @@ export default function CustomersView() {
     const custTxs = transactions.filter((t) => t.customerId === selectedCustomerId);
     custTxs.forEach((tx) => {
       const isCredit = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit' || (tx.paymentMethod as string) === 'Account';
-      const isWallet = (tx.paymentMethod as string) === 'Wallet' || tx.paymentMethod === 'Mobile_Wallet';
+      const isWallet = (tx.paymentMethod as string) === 'Wallet';
 
       let statusLabel = `Paid (${tx.paymentMethod || 'Cash'})`;
       let statusStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
@@ -351,6 +352,10 @@ export default function CustomersView() {
         statusLabel = 'Paid in Full (Cash)';
       } else if (tx.paymentMethod === 'M-Pesa') {
         statusLabel = 'Paid in Full (M-Pesa)';
+      } else if (tx.paymentMethod === 'Card') {
+        statusLabel = 'Paid in Full (Card)';
+      } else if (tx.paymentMethod === 'Bank') {
+        statusLabel = 'Paid in Full (Bank)';
       }
 
       events.push({
@@ -1104,8 +1109,8 @@ export default function CustomersView() {
                             <span className={`text-sm font-semibold tabular-nums ${debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text-muted'}`}>Owes {formatCurrency(debt)}</span>
                           </div>
                           <p className="text-xs text-app-text-muted mt-0.5">Money paid towards what they owe.</p>
-                          <div className="grid grid-cols-2 gap-2 mt-3" role="radiogroup" aria-label="Paid by">
-                            {(['Cash', 'M-Pesa'] as const).map((m) => (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3" role="radiogroup" aria-label="Paid by">
+                            {MONEY_METHODS.map((m) => (
                               <button
                                 key={m}
                                 type="button"

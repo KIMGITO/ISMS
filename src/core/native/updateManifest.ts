@@ -7,12 +7,22 @@
 // branch, which raw.githubusercontent.com and jsDelivr serve from separate CDNs.
 // Keep this list in the same order as plugins.updater.endpoints in src-tauri/tauri.conf.json
 // (a test checks this).
+//
+// Releases live in RELEASES_REPO, a public repo that holds only installers and latest.json,
+// so the code repo (KIMGITO/ISMS) can be private. Apps built before the move only know the
+// ISMS addresses; those stay last here until every device has updated past the move, and
+// simply fail over once ISMS is private. See docs/GOING_PRIVATE.md.
 
 import { UpdateError, codeForHttp, toUpdateError, withRetry } from "./updateErrors";
 
+export const RELEASES_REPO = "KIMGITO/kaykays-releases";
+
 export const MANIFEST_SOURCES = [
+  `https://raw.githubusercontent.com/${RELEASES_REPO}/update-manifest/latest.json`,
+  `https://cdn.jsdelivr.net/gh/${RELEASES_REPO}@update-manifest/latest.json`,
+  `https://github.com/${RELEASES_REPO}/releases/latest/download/latest.json`,
+  // Old home, while it is still public.
   "https://raw.githubusercontent.com/KIMGITO/ISMS/update-manifest/latest.json",
-  "https://cdn.jsdelivr.net/gh/KIMGITO/ISMS@update-manifest/latest.json",
   "https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json",
 ] as const;
 

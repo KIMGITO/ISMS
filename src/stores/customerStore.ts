@@ -1,7 +1,7 @@
 // src/stores/customerStore.ts
 import { create } from "zustand";
 import { customerName } from "../utils/stringUtils";
-import { Customer } from "../types";
+import { Customer, type MoneyMethod } from "../types";
 import { useBusinessStore } from "./businessStore";
 import { CustomerRepository } from "../services/repositories";
 import { normalizePhone } from "../utils/phoneUtils";
@@ -27,7 +27,7 @@ interface CustomerState {
   payCustomerDebt: (
     customerId: string,
     amount: number,
-    method: 'Cash' | 'M-Pesa',
+    method: MoneyMethod,
     cashierName: string,
     note?: string,
     id?: string

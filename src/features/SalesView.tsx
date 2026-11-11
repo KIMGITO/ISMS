@@ -28,8 +28,6 @@ function getPaymentMethodLabel(method: string | undefined): string {
       return 'Card';
     case 'Bank':
       return 'Bank Transfer';
-    case 'Mobile_Wallet':
-      return 'Mobile Wallet';
     case 'Credit_Debt':
       return 'Credit Sale';
     case 'Credit':

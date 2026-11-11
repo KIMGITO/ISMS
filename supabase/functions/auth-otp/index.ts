@@ -4,7 +4,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { handleCors, jsonResponse, errorResponse, enforceRateLimit } from "../shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse, enforceRateLimit, clientIp } from "../shared/cors.ts";
 
 const OTP_TYPES = ["signup", "password_reset"];
 const MIN_PASSWORD_LENGTH = 8;
@@ -52,9 +52,9 @@ Deno.serve(async (req) => {
     }
 
     // Per-code guess limits live in otp_check. This stops one source probing many accounts.
-    const clientIp = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+    const ip = clientIp(req);
     const limited =
-      (await enforceRateLimit(`otp:ip:${clientIp}`, 30, 600)) ||
+      (await enforceRateLimit(`otp:ip:${ip}`, 30, 600)) ||
       (await enforceRateLimit(`otp:email:${email}`, 15, 3600));
     if (limited) return limited;
 

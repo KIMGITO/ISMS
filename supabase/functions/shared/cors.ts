@@ -209,6 +209,17 @@ export async function contactAllowed(
   return data === true;
 }
 
+/**
+ * The caller's IP, for rate limits. Prefers headers the platform's own proxies set
+ * (a caller can't forge them), and only then the first X-Forwarded-For entry, which a
+ * caller can write themselves. Per-email and per-shop limits back this up either way.
+ */
+export function clientIp(req: Request): string {
+  const trusted = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip");
+  if (trusted && trusted.trim()) return trusted.trim();
+  return (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+}
+
 export async function enforceRateLimit(
   key: string,
   limit: number,

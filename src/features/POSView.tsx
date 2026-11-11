@@ -33,6 +33,8 @@ import { Switch } from '../components/shared/Switch';
 import { DeliveryZone, fetchActiveZones } from '../components/DeliveryZonesEditor';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
+import CardChargeSheet, { type CardChargeResult, describeCard } from '../components/payments/CardChargeSheet';
+import { CardRepository } from '../services/repositories';
 
 const POS_SHORTCUTS: { title: string; items: [string, string][] }[] = [
   {
@@ -99,6 +101,10 @@ export default function POSView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
+  // Card: the sheet takes the card first, then the sale is saved. A card already paid is kept
+  // here, so if saving the sale fails, trying again doesn't charge the card twice.
+  const [cardSheetOpen, setCardSheetOpen] = useState(false);
+  const [paidCard, setPaidCard] = useState<CardChargeResult | null>(null);
   const [note, setNote] = useState('');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
@@ -228,14 +234,32 @@ export default function POSView() {
     if (error) console.error('Could not return points after a failed sale:', error.code);
   };
 
+  // The card is already paid, so the cashier must know not to charge it again.
+  const cardFailNote = (card: CardChargeResult | null, message: string) =>
+    card ? `${message} The card is already paid (${card.reference}); press Complete sale again and it won't be charged twice.` : message;
+
   // A failed sale shows in the cart and pops up like everywhere else, so it can't go unseen
   const failCheckout = (message: string) => {
     setCheckoutError(message);
     showToast('Sale not completed', message, undefined, 'error');
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (cardArg?: CardChargeResult) => {
     if (isCheckingOut) return;
+    let card: CardChargeResult | null = null;
+    if (paymentMethod === 'Card') {
+      if (cart.length === 0) return;
+      card = cardArg ?? paidCard;
+      if (!card) {
+        setCheckoutError(null);
+        setCardSheetOpen(true);
+        return;
+      }
+      if (Math.abs(card.amountPaid - Math.round(finalTotal * 100) / 100) > 0.009) {
+        failCheckout(`The card paid KSh ${card.amountPaid.toLocaleString()} (ref ${card.reference}) but the sale is now KSh ${finalTotal.toFixed(2)}. Put the cart back to that amount, or refund the card in Paystack and start again.`);
+        return;
+      }
+    }
     setIsCheckingOut(true);
     setCheckoutError(null);
     let redemptionId: string | null = null;
@@ -257,9 +281,16 @@ export default function POSView() {
         discountType = 'amount';
         discountValue = cartDiscount + Number(data.value);
       }
-      const saleNote = isDelivery && deliveryLocation.trim()
-        ? [`Deliver to: ${deliveryLocation.trim()}`, note].filter(Boolean).join('. ')
-        : note;
+      const cardNote = card
+        ? card.via === 'machine'
+          ? `Card machine, approval ${card.reference}${card.last4 ? `, card •••• ${card.last4}` : ''}`
+          : `Card ${describeCard(card.brand, card.last4)} (Paystack ${card.reference})`.replace('Card  (', 'Card (')
+        : '';
+      const saleNote = [
+        isDelivery && deliveryLocation.trim() ? `Deliver to: ${deliveryLocation.trim()}` : '',
+        cardNote,
+        note,
+      ].filter(Boolean).join('. ');
       const result = await checkout(
         paymentMethod,
         saleNote,
@@ -271,6 +302,11 @@ export default function POSView() {
         isDelivery ? riderName : '',
       );
       if (result.success && result.transaction) {
+        setPaidCard(null);
+        if (card?.cardPaymentId && !result.offline) {
+          await CardRepository.attachToSale(card.cardPaymentId, result.transaction.id).catch((e) =>
+            console.error('Could not link the card payment to the sale:', e?.code));
+        }
         // The receipt shows the points used; linked to the sale so reprints show them too
         if (redemptionId && pointsSpent) {
           await recordTillPoints(result.transaction.id, redemptionId, pointsSpent).catch(() => {});
@@ -305,11 +341,11 @@ export default function POSView() {
         );
       } else {
         await refundPoints(redemptionId);
-        failCheckout(result.error || 'The sale could not be saved. Try again.');
+        failCheckout(cardFailNote(card, result.error || 'The sale could not be saved. Try again.'));
       }
     } catch (err: any) {
       await refundPoints(redemptionId);
-      failCheckout(toUserMessage(err, 'The sale could not be saved. Try again.'));
+      failCheckout(cardFailNote(card, toUserMessage(err, 'The sale could not be saved. Try again.')));
     } finally {
       setIsCheckingOut(false);
     }
@@ -362,7 +398,7 @@ export default function POSView() {
         return;
       }
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt' };
+        const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt', '4': 'Card', '5': 'Bank' };
         if (methods[k]) return done(), setPaymentMethod(methods[k]);
         const code = e.code;
         if (code === 'KeyD') return done(), setIsDelivery((v) => !v);
@@ -614,23 +650,32 @@ export default function POSView() {
                   )}
                 </div>
 
-                {/* Payment & note: side by side only when the panel is wide enough */}
-                <div className="grid grid-cols-1 @md:grid-cols-2 gap-3">
+                {/* Payment on its own row (five choices), then the note */}
+                <div className="grid grid-cols-1 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
                       Payment
                     </label>
-                    <div className="h-10 grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
+                    <div className="h-10 grid grid-cols-5 gap-1 bg-app-bg p-1 rounded-xl border border-app-border" role="radiogroup" aria-label="Payment">
                       {(
                         [
-                          { value: 'Cash', label: 'Cash' },
-                          { value: 'M-Pesa', label: 'M-Pesa' },
-                          { value: 'Credit_Debt', label: 'Credit' },
+                          { value: 'Cash', label: 'Cash', shortcut: 'pos-cash' },
+                          { value: 'M-Pesa', label: 'M-Pesa', shortcut: 'pos-mpesa' },
+                          { value: 'Card', label: 'Card', shortcut: 'pos-card' },
+                          { value: 'Bank', label: 'Bank', shortcut: 'pos-bank' },
+                          { value: 'Credit_Debt', label: 'Credit', shortcut: 'pos-credit' },
                         ] as const
                       ).map((method) => (
                         <button
                           key={method.value}
-                          onClick={() => setPaymentMethod(method.value)}
+                          type="button"
+                          role="radio"
+                          aria-checked={paymentMethod === method.value}
+                          data-shortcut={method.shortcut}
+                          onClick={() => {
+                            setPaymentMethod(method.value);
+                            if (method.value !== 'Card') setPaidCard(null);
+                          }}
                           className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
                             paymentMethod === method.value
                               ? 'bg-amber-500 text-slate-950 shadow'
@@ -993,7 +1038,7 @@ export default function POSView() {
                   </button>
                 )}
                 <button
-                  onClick={handleCheckout}
+                  onClick={() => void handleCheckout()}
                   disabled={isCheckingOut || cart.length === 0}
                   title="Complete sale (F9 or Ctrl+Enter)"
                   className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 disabled:opacity-55 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1005,7 +1050,7 @@ export default function POSView() {
                     </>
                   ) : (
                     <span className="flex items-center gap-2">
-                      Complete sale · KSh {finalTotal.toFixed(0)}
+                      {paymentMethod === 'Card' && !paidCard ? 'Charge card' : 'Complete sale'} · KSh {finalTotal.toFixed(0)}
                       {isWide && <kbd className="px-1.5 py-0.5 rounded bg-slate-950/15 text-[10px] font-mono">F9</kbd>}
                     </span>
                   )}
@@ -1339,6 +1384,19 @@ export default function POSView() {
         )}
       </AnimatePresence>
       </SheetLayer>
+      <CardChargeSheet
+        open={cardSheetOpen}
+        amount={Math.round(finalTotal * 100) / 100}
+        purpose="sale"
+        customer={selectedCustomer}
+        description={`Sale of ${cart.length} ${cart.length === 1 ? 'item' : 'items'}`}
+        onPaid={(result) => {
+          setCardSheetOpen(false);
+          setPaidCard(result);
+          void handleCheckout(result);
+        }}
+        onClose={() => setCardSheetOpen(false)}
+      />
       <ReceiptSheet
         transaction={receiptTx}
         startPrinting={receiptAutoPrint}

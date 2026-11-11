@@ -235,6 +235,10 @@ jobs:
 
       - name: Install Linux dependencies
         run: |
+          # Skip rebuilding the man-page index after installing; on GitHub's runners it
+          # takes minutes and nothing here reads man pages.
+          echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
+          sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev librsvg2-dev patchelf libssl-dev pkg-config \
@@ -477,6 +481,10 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       # RELEASE_TOKEN is optional; see the setup notes. Without it the built-in token is used.
       GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+      # The public repo installed apps update from. Set the Actions variable RELEASES_REPO
+      # (e.g. KIMGITO/kaykays-releases) to move releases out of this repo; see docs/GOING_PRIVATE.md.
+      PUBLIC_REPO: ${{ vars.RELEASES_REPO || github.repository }}
+      HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -499,13 +507,33 @@ jobs:
           path: notes
 
       # Installed apps read this to find, verify and download the new version.
+      # Download links point at PUBLIC_REPO, where the installers are published.
       - name: Write latest.json
         run: |
           node scripts/update-manifest.mjs \
-            --version "$VERSION" --tag "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --version "$VERSION" --tag "$TAG" --repo "$PUBLIC_REPO" \
             --notes notes/release-notes.md --dir out > out/latest.json
           cat out/latest.json
           (cd out && sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS.txt)
+
+      # Where this release goes: PUBLIC_REPO always, and this code repo too while it is still
+      # public, so apps built before the move (which only know this repo) find the update
+      # that teaches them the new address. Once this repo is private it is skipped by itself.
+      - name: Choose where to publish
+        run: |
+          set -euo pipefail
+          targets="$PUBLIC_REPO"
+          if [ "$PUBLIC_REPO" != "$GITHUB_REPOSITORY" ]; then
+            if [ "$HAS_RELEASE_TOKEN" != "true" ]; then
+              echo "::error::RELEASES_REPO is $PUBLIC_REPO, so the RELEASE_TOKEN secret is needed (a token that can write to both repos). See docs/GOING_PRIVATE.md."
+              exit 1
+            fi
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)" = "false" ]; then
+              targets="$targets $GITHUB_REPOSITORY"
+            fi
+          fi
+          echo "Publishing to: $targets"
+          echo "TARGETS=$targets" >> "$GITHUB_ENV"
 
       - name: Push tag
         run: |
@@ -528,61 +556,70 @@ jobs:
 
       # gh uploads everything to a draft and only then publishes it, so apps never see a
       # half-uploaded release. Uploads to GitHub sometimes fail with 5xx; retry them.
+      # In the releases repo (no code there) gh makes the tag on its default branch.
       - name: Publish GitHub Release
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4; do
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber \
-                && gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest \
-                && break
-            else
-              gh release create "$TAG" out/* \
-                --repo "$GITHUB_REPOSITORY" \
-                --title "$TAG" \
-                --notes-file notes/release-notes.md \
-                --verify-tag \
-                --latest \
-                && break
+          for repo in $TARGETS; do
+            verify=""
+            [ "$repo" = "$GITHUB_REPOSITORY" ] && verify="--verify-tag"
+            for attempt in 1 2 3 4; do
+              if gh release view "$TAG" --repo "$repo" >/dev/null 2>&1; then
+                gh release upload "$TAG" out/* --repo "$repo" --clobber \
+                  && gh release edit "$TAG" --repo "$repo" --draft=false --latest \
+                  && break
+              else
+                gh release create "$TAG" out/* \
+                  --repo "$repo" \
+                  --title "$TAG" \
+                  --notes-file notes/release-notes.md \
+                  $verify \
+                  --latest \
+                  && break
+              fi
+              if [ "$attempt" = 4 ]; then exit 1; fi
+              echo "::warning::Publishing to $repo failed (attempt $attempt of 4), retrying in 20s."
+              sleep 20
+            done
+            latest=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
+            if [ "$latest" != "$TAG" ]; then
+              echo "::error::GitHub reports $latest as the latest release of $repo, not $TAG."
+              exit 1
             fi
-            if [ "$attempt" = 4 ]; then exit 1; fi
-            echo "::warning::Publishing failed (attempt $attempt of 4), retrying in 20s."
-            sleep 20
           done
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
-          if [ "$latest" != "$TAG" ]; then
-            echo "::error::GitHub reports $latest as the latest release, not $TAG."
-            exit 1
-          fi
 
       # Apps read this branch first (MANIFEST_SOURCES in src/core/native/updateManifest.ts).
-      # A one-file commit with no history, so the branch stays tiny.
+      # A one-commit branch with no history, so it stays tiny. It also carries logo.png,
+      # which emails link to (send-email), since the code repo may be private.
       - name: Publish latest.json to the update-manifest branch
         run: |
           set -euo pipefail
           blob=$(git hash-object -w out/latest.json)
-          tree=$(printf '100644 blob %s\tlatest.json\n' "$blob" | git mktree)
+          logo=$(git hash-object -w public/logo.png)
+          tree=$(printf '100644 blob %s\tlatest.json\n100644 blob %s\tlogo.png\n' "$blob" "$logo" | git mktree)
           commit=$(git commit-tree "$tree" -m "latest.json for $TAG")
-          for attempt in 1 2 3; do
-            git push --force origin "$commit:refs/heads/update-manifest" && break
-            if [ "$attempt" = 3 ]; then exit 1; fi
-            sleep 10
+          for repo in $TARGETS; do
+            for attempt in 1 2 3; do
+              git push --force "https://github.com/$repo.git" "$commit:refs/heads/update-manifest" && break
+              if [ "$attempt" = 3 ]; then exit 1; fi
+              sleep 10
+            done
+            # jsDelivr caches branches for hours; ask it to fetch the new file now.
+            curl -fsS --retry 3 "https://purge.jsdelivr.net/gh/$repo@update-manifest/latest.json" >/dev/null \
+              || echo "::warning::Couldn't refresh jsDelivr's copy for $repo; it catches up on its own within 12 hours."
           done
           echo "MANIFEST_COMMIT=$commit" >> "$GITHUB_ENV"
-          # jsDelivr caches branches for hours; ask it to fetch the new file now.
-          curl -fsS --retry 3 "https://purge.jsdelivr.net/gh/$GITHUB_REPOSITORY@update-manifest/latest.json" >/dev/null \
-            || echo "::warning::Couldn't refresh jsDelivr's copy; it catches up on its own within 12 hours."
 
       # Downloads latest.json and every installer the way installed apps do. If this fails,
       # apps can't update even though the release exists.
       - name: Check that installed apps can update
         run: |
           node scripts/verify-update-manifest.mjs --version "$VERSION" \
-            --require "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$MANIFEST_COMMIT/latest.json" \
-            --require "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/latest.json" \
-            --warn "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/update-manifest/latest.json" \
-            --warn "https://cdn.jsdelivr.net/gh/$GITHUB_REPOSITORY@update-manifest/latest.json" \
-            --warn "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
+            --require "https://raw.githubusercontent.com/$PUBLIC_REPO/$MANIFEST_COMMIT/latest.json" \
+            --require "https://github.com/$PUBLIC_REPO/releases/download/$TAG/latest.json" \
+            --warn "https://raw.githubusercontent.com/$PUBLIC_REPO/update-manifest/latest.json" \
+            --warn "https://cdn.jsdelivr.net/gh/$PUBLIC_REPO@update-manifest/latest.json" \
+            --warn "https://github.com/$PUBLIC_REPO/releases/latest/download/latest.json"
 
       # ── PLACEHOLDER: deploy ─────────────────────────────────────────────────
       # Add deployment here (web hosting, Supabase functions, a store upload...).

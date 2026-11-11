@@ -19,6 +19,9 @@ import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
+import { cardDetails, fromSubunits, keyEnvironment, newReference, signatureMatches, toSubunits, transactionOutcome } from "../../supabase/functions/card-payments/paystack";
+import { MONEY_METHODS, isMoneyMethod, methodLabel, normalizeReference } from "../utils/paymentMethods";
+import { createHmac } from "node:crypto";
 import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../services/loyalty/tillPoints";
 import { cannotAttachReason } from "../services/saleCustomer";
 import { SHORTCUTS, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
@@ -811,7 +814,7 @@ runTest("End-of-shift report figures and text", () => {
   });
   eq([r.salesCount, r.salesTotal, r.cash, r.mpesa, r.credit, r.card, r.bank], [5, 460, 120, 180, 60, 60, 40], "only this person's sales in this shift, every payment type counted");
   eq(r.expectedCash, 120 + 50 - 30, "cash expected = cash sales + cash debt repaid - cash expenses");
-  eq(r.products.map((p) => [p.sold, p.earned, p.left]), [[7, 420, 40]], "products sold");
+  eq(r.products.map((p) => [p.sold, p.earned, p.left]), [[8, 480, 40]], "products sold");
   const text = shiftReportText(r, { countedCash: 130, notes: "All good" });
   if (!text.includes("short by KSh 10")) throw new Error("counted cash difference missing:\n" + text);
   if (text.includes("```")) throw new Error("report should be plain text");
@@ -1027,6 +1030,53 @@ await (async () => {
     let tries = 0;
     try { await withRetry(async () => { tries++; throw { code: "SIGNATURE_MISMATCH" }; }, "install", [1, 1], noSleep); } catch {}
     if (tries !== 1) throw new Error("permanent errors must not be retried");
+    console.log(`✅ TEST PASSED: ${name}`);
+  } catch (e) {
+    console.error(`❌ TEST FAILED: ${name}`);
+    console.error(e);
+    process.exit(1);
+  }
+})();
+
+runTest("Money comes in four ways only, the same in the app and the database", () => {
+  if (JSON.stringify(MONEY_METHODS) !== JSON.stringify(["Cash", "M-Pesa", "Card", "Bank"])) throw new Error("the four methods changed");
+  for (const old of ["Mobile_Wallet", "Other", "Credit_Debt", ""]) if (isMoneyMethod(old)) throw new Error(`${old} is not a way money comes in`);
+  if (methodLabel("Credit_Debt") !== "Credit") throw new Error("credit label");
+  if (normalizeReference("M-Pesa", " sxk2 m9q1tz ") !== "SXK2M9Q1TZ") throw new Error("M-Pesa codes are capitals without spaces");
+  if (normalizeReference("Bank", "  FT 1234  ") !== "FT 1234") throw new Error("bank references stay as typed");
+
+  // Every table that stores a method allows exactly these four (transactions also allow credit).
+  const migration = readFileSync("supabase/migrations/20261110009_four_payment_methods_cards.sql", "utf8");
+  for (const constraint of ["payments_method_check", "money_assets_method_check", "expenses_payment_method_check", "debt_payments_payment_method_check"]) {
+    const line = migration.split("\n").find((l) => l.includes(`ADD CONSTRAINT ${constraint}`));
+    if (!line || !line.includes("'Cash', 'M-Pesa', 'Card', 'Bank'")) throw new Error(`${constraint} must allow the four methods`);
+  }
+  console.log("   (debt_payments accepts Card and Bank: a Bank payment against a small debt no longer fails)");
+});
+
+runTest("Card amounts and Paystack answers are read correctly", () => {
+  if (toSubunits(23000) !== 2300000 || toSubunits(0.2) !== 20 || toSubunits(19.99) !== 1999) throw new Error("KES to cents");
+  if (fromSubunits(1999) !== 19.99) throw new Error("cents to KES");
+  if (keyEnvironment("sk_test_abc123") !== "test" || keyEnvironment("sk_live_abc123") !== "live") throw new Error("key mode");
+  if (keyEnvironment("pk_live_abc") !== null || keyEnvironment("sk_live_") !== null) throw new Error("only secret keys");
+  const a = newReference(), b = newReference();
+  if (a === b || !/^KK[0-9A-Z]{12,}$/.test(a)) throw new Error(`reference looks wrong: ${a}`);
+  if (transactionOutcome("success") !== "success" || transactionOutcome("abandoned") !== "failed" || transactionOutcome("ongoing") !== "pending") throw new Error("outcome");
+  const card = cardDetails({ authorization: { last4: "4081", brand: "visa " } });
+  if (card.last4 !== "4081" || card.brand !== "visa") throw new Error("card details");
+  if (cardDetails({ authorization: { last4: "40x1" } }).last4 !== null) throw new Error("bad last4 is dropped");
+});
+
+(async () => {
+  const name = "Paystack webhooks are only trusted with the right signature";
+  try {
+    const secret = "sk_test_signing";
+    const body = JSON.stringify({ event: "charge.success", data: { reference: "KKABC" } });
+    const good = createHmac("sha512", secret).update(body).digest("hex");
+    if (!(await signatureMatches(secret, body, good))) throw new Error("a correct signature must match");
+    if (await signatureMatches("sk_test_other", body, good)) throw new Error("another business's key must not match");
+    if (await signatureMatches(secret, body + " ", good)) throw new Error("a changed body must not match");
+    if (await signatureMatches(secret, body, null)) throw new Error("no signature must not match");
     console.log(`✅ TEST PASSED: ${name}`);
   } catch (e) {
     console.error(`❌ TEST FAILED: ${name}`);

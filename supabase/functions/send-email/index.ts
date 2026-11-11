@@ -36,8 +36,8 @@ const LOGO_BASE64 =
 // Outlook and showed as a broken picture. Resend gets a public HTTPS copy instead.
 export const LOGO_CID = "kaykays-logo";
 const HOSTED_LOGO_URL =
-  Deno.env.get("EMAIL_LOGO_URL") || "https://raw.githubusercontent.com/KIMGITO/ISMS/main/public/logo.png";
-const APP_DOWNLOAD_URL = Deno.env.get("APP_DOWNLOAD_URL") || "https://github.com/KIMGITO/ISMS/releases/latest";
+  Deno.env.get("EMAIL_LOGO_URL") || "https://raw.githubusercontent.com/KIMGITO/kaykays-releases/update-manifest/logo.png";
+const APP_DOWNLOAD_URL = Deno.env.get("APP_DOWNLOAD_URL") || "https://github.com/KIMGITO/kaykays-releases/releases/latest";
 
 /** Every value put into an email is escaped, so names can't inject HTML. */
 function esc(value: unknown): string {

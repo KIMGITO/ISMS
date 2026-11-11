@@ -24,7 +24,10 @@ export interface CartItem {
 }
 
 
-export type PaymentMethod = 'Cash' | 'Card' | 'Mobile_Wallet' | 'M-Pesa' | 'Credit_Debt' | 'Bank' | 'Credit' | 'Other';
+/** The four ways money comes in. Nothing else is accepted anywhere. */
+export type MoneyMethod = 'Cash' | 'M-Pesa' | 'Card' | 'Bank';
+/** How a sale is paid: one of the four, or on credit (owed by the customer). */
+export type PaymentMethod = MoneyMethod | 'Credit_Debt' | 'Credit';
 
 export interface Transaction {
   id: string;
@@ -365,7 +368,7 @@ export interface DebtPayment {
   customerId: string;
   amountPaid: number;
   remainingDebt: number;
-  paymentMethod: 'Cash' | 'M-Pesa';
+  paymentMethod: MoneyMethod;
   recordedBy: string;
   note?: string;
   created_at?: string;
@@ -378,7 +381,7 @@ export interface Payment {
   businessId: string;
   referenceCode: string;
   amount: number;
-  method: 'M-Pesa' | 'Cash' | 'Card' | 'Bank' | 'Mobile_Wallet' | 'Other';
+  method: MoneyMethod;
   senderName: string;
   senderPhone?: string;
   status: 'Success' | 'Pending' | 'Failed' | 'Voided';
@@ -401,7 +404,7 @@ export interface Payment {
 export interface MoneyAsset {
   id: string;
   businessId: string;
-  method: PaymentMethod;
+  method: MoneyMethod;
   balance: number;
   lastPaymentAt?: string;
   created_at?: string;

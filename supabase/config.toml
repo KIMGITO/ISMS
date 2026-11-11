@@ -408,6 +408,10 @@ verify_jwt = false
 [functions.alarm-sync]
 verify_jwt = false
 
+# Paystack calls this without a Supabase token; the body's signature is checked instead.
+[functions.card-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

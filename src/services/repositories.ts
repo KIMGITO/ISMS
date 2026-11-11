@@ -1430,3 +1430,152 @@ export class ProductCategoryRepository {
     throw error;
   }
 }
+
+// ─────────────────────────────────────────────
+// CARD PAYMENTS (PAYSTACK) REPOSITORY
+// The Paystack key stays on the server; charging and checking go through the
+// card-payments edge function. Rows are read directly, under RLS.
+// ─────────────────────────────────────────────
+export interface CardStatus {
+  connected: boolean;
+  environment: "test" | "live" | null;
+  onlineEnabled: boolean;
+  terminalId: string | null;
+  terminalName: string | null;
+  status: "connected" | "error" | null;
+  lastError: string | null;
+  webhookUrl: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export type CardChannel = "online" | "terminal";
+export type CardPurpose = "sale" | "payment" | "online_order";
+
+export interface CardPayment {
+  id: string;
+  reference: string;
+  status: "pending" | "success" | "failed" | "cancelled";
+  channel: CardChannel;
+  purpose: CardPurpose;
+  amount: number;
+  amountPaid: number | null;
+  authorizationUrl: string | null;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  failureReason: string | null;
+  paymentId: string | null;
+  transactionId?: string | null;
+  payerName?: string | null;
+  description?: string | null;
+  requestedBy?: string | null;
+  createdAt?: string;
+  paidAt?: string | null;
+}
+
+function cardRow(r: any): CardPayment {
+  return {
+    id: r.id,
+    reference: r.reference,
+    status: r.status,
+    channel: r.channel,
+    purpose: r.purpose,
+    amount: Number(r.amount),
+    amountPaid: r.amount_paid === null || r.amount_paid === undefined ? null : Number(r.amount_paid),
+    authorizationUrl: r.authorization_url,
+    cardBrand: r.card_brand,
+    cardLast4: r.card_last4,
+    failureReason: r.failure_reason,
+    paymentId: r.payment_id,
+    transactionId: r.transaction_id,
+    payerName: r.payer_name,
+    description: r.description,
+    requestedBy: r.requested_by,
+    createdAt: r.created_at,
+    paidAt: r.paid_at,
+  };
+}
+
+export class CardRepository {
+  private static call(action: string, extra: Record<string, unknown> = {}) {
+    return SupabaseService.callEdgeFunction("card-payments", {
+      action,
+      businessId: getActiveBusinessId(),
+      ...extra,
+    });
+  }
+
+  public static status(): Promise<CardStatus> {
+    return this.call("status");
+  }
+
+  /** Leave secretKey empty to keep the saved key and change only the other settings. */
+  public static async saveSettings(settings: { secretKey?: string; terminalId?: string; onlineEnabled: boolean }): Promise<void> {
+    await this.call("save_settings", settings);
+  }
+
+  public static async remove(): Promise<void> {
+    await this.call("remove");
+  }
+
+  public static async charge(params: {
+    channel: CardChannel;
+    purpose: "sale" | "payment";
+    amount: number;
+    customerId?: string;
+    email?: string;
+    payerName?: string;
+    payerPhone?: string;
+    description?: string;
+  }): Promise<CardPayment> {
+    const data = await this.call("charge", params);
+    return data.payment;
+  }
+
+  public static async check(reference: string): Promise<CardPayment> {
+    const data = await this.call("check", { reference });
+    return data.payment;
+  }
+
+  public static async cancel(reference: string): Promise<CardPayment> {
+    const data = await this.call("cancel", { reference });
+    return data.payment;
+  }
+
+  public static async attachToSale(cardPaymentId: string, transactionId: string): Promise<void> {
+    const { error } = await getSupabase().rpc("attach_card_payment_to_sale", {
+      p_card_payment_id: cardPaymentId,
+      p_transaction_id: toUuid(transactionId),
+    });
+    if (error) throw error;
+  }
+
+  public static async getRecent(): Promise<CardPayment[]> {
+    const { data, error } = await getSupabase()
+      .from("card_payments")
+      .select("*")
+      .eq("business_id", getActiveBusinessId())
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) {
+      // A database without card payments yet shows an empty list, not an error.
+      if (error.code === "42P01" || error.code === "PGRST205") return [];
+      triggerNetworkFailureEvent();
+      throw error;
+    }
+    return (data || []).map(cardRow);
+  }
+
+  public static subscribe(callback: (rows: CardPayment[]) => void): () => void {
+    this.getRecent().then(callback).catch(console.error);
+    if (typeof global !== "undefined" && (global as any).IS_TEST) return () => {};
+    const businessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`realtime-card-payments-${businessId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_payments", filter: `business_id=eq.${businessId}` },
+        () => { this.getRecent().then(callback).catch(console.error); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }
+}

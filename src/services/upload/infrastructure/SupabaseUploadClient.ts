@@ -87,7 +87,12 @@ export class SupabaseUploadClient implements UploadClient {
       // Determine path prefix based on tenant (active business ID) or user ID
       const businessId = useAuthStore.getState().currentBusinessId;
       const userId = useAuthStore.getState().currentUser?.id;
-      const pathPrefix = businessId || userId || 'global';
+      // Storage only accepts files inside a business folder or the uploader's own folder.
+      const pathPrefix = businessId || userId;
+      if (!pathPrefix) throw new Error('Please sign in again before uploading.');
+      if (fileToUpload.type === 'image/svg+xml') {
+        throw new Error('SVG images are not accepted. Please choose a JPG, PNG or WebP photo.');
+      }
       const filePath = `${pathPrefix}/${Date.now()}_${sanitizedName}`;
 
       // Progress stepped to 60 (Pre-flight creation step safely removed to prevent 403 errors)
@@ -128,7 +133,12 @@ export class SupabaseUploadClient implements UploadClient {
         localStorage.getItem('kkm_supabase_url') ||
         'https://your-project.supabase.co';
 
-      if (
+      // The bucket refuses file types and sizes it doesn't take (see 20261111001).
+      if (/mime type|not supported|415/i.test(friendlyError)) {
+        friendlyError = 'That kind of file is not accepted here. Please choose a JPG, PNG or WebP photo (or a PDF for receipts).';
+      } else if (/exceeded the maximum|too large|413/i.test(friendlyError)) {
+        friendlyError = 'That file is too large. Photos can be up to 10 MB and receipts up to 20 MB.';
+      } else if (
         friendlyError.toLowerCase().includes('networkerror') ||
         friendlyError.toLowerCase().includes('fetch') ||
         err.name === 'TypeError'

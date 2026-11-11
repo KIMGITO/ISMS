@@ -181,7 +181,8 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
                   <Tile label="Cash" value={ksh(report.cash)} />
                   <Tile label="M-Pesa" value={ksh(report.mpesa)} />
                   <Tile label="On credit" value={ksh(report.credit)} />
-                  {report.other > 0 && <Tile label="Card, bank, other" value={ksh(report.other)} />}
+                  {report.card > 0 && <Tile label="Card" value={ksh(report.card)} />}
+                  {report.bank > 0 && <Tile label="Bank" value={ksh(report.bank)} />}
                   {report.expensesTotal > 0 && <Tile label="Expenses" value={ksh(report.expensesTotal)} />}
                 </div>
 

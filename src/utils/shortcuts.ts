@@ -95,6 +95,8 @@ const pages: Shortcut[] = [
   { id: "pos-cash", keys: "Alt+1", action: "Pay by cash", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-mpesa", keys: "Alt+2", action: "Pay by M-Pesa", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-credit", keys: "Alt+3", action: "Sell on credit", scope: "pos", permissions: ["customers.debts", "pos.create_sale"] },
+  { id: "pos-card", keys: "Alt+4", action: "Pay by card", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-bank", keys: "Alt+5", action: "Pay by bank transfer", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-customer", keys: "Alt+C", action: "Choose a customer", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-delivery", keys: "Alt+D", action: "Delivery on / off", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-note", keys: "Alt+N", action: "Add a note", scope: "pos", permissions: ["pos.create_sale"] },

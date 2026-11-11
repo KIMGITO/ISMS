@@ -11,9 +11,9 @@ import { useUpdateStore } from "../../stores/updateStore";
 import { compareVersions } from "../../utils/semver";
 import { notificationService } from "./NotificationService";
 import { UpdateError, toUpdateError, withRetry, type UpdateStage } from "./updateErrors";
-import { fetchManifest } from "./updateManifest";
+import { RELEASES_REPO, fetchManifest } from "./updateManifest";
 
-export const RELEASES_PAGE = "https://github.com/KIMGITO/ISMS/releases";
+export const RELEASES_PAGE = `https://github.com/${RELEASES_REPO}/releases`;
 const FIRST_CHECK_DELAY_MS = 15_000;
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 /** After an automatic check fails, wait this long before trying again on its own. */

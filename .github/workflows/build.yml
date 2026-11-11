@@ -76,6 +76,10 @@ jobs:
       - name: Install Linux dependencies
         if: matrix.os-name == 'Linux'
         run: |
+          # Skip rebuilding the man-page index after installing; on GitHub's runners it
+          # takes minutes and nothing here reads man pages.
+          echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
+          sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev \

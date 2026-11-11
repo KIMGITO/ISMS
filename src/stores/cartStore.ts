@@ -14,9 +14,9 @@ import { CustomerRepository } from "../services/repositories";
 import { NotificationService } from "../services/notifications/notificationService";
 import { kraService } from "../services/kra/kraService";
 
-/** How a payment method reads in a message: "M-Pesa", "Mobile wallet", "Cash". */
+/** How a payment method reads in a message: "M-Pesa", "bank transfer", "Cash". */
 function paymentMethodName(method: string): string {
-  const names: Record<string, string> = { Mobile_Wallet: "mobile wallet", Credit_Debt: "credit", Bank: "bank transfer" };
+  const names: Record<string, string> = { Credit_Debt: "credit", Bank: "bank transfer" };
   return names[method] || method.replace(/_/g, " ");
 }
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";

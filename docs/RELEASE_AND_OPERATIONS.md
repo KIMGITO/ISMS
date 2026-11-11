@@ -60,9 +60,12 @@ Windows shows a SmartScreen warning until the MSI is signed with a code-signing 
 
 Installed apps check for `latest.json` 15 seconds after start, when the connection comes back, and every 6 hours. They try these sources in order (`MANIFEST_SOURCES` in `src/core/native/updateManifest.ts`, the same list as `plugins.updater.endpoints` in `src-tauri/tauri.conf.json`):
 
-1. `https://raw.githubusercontent.com/KIMGITO/ISMS/update-manifest/latest.json`
-2. `https://cdn.jsdelivr.net/gh/KIMGITO/ISMS@update-manifest/latest.json`
-3. `https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json` (lags behind new releases and sometimes answers 504, so it is the last fallback)
+1. `https://raw.githubusercontent.com/KIMGITO/kaykays-releases/update-manifest/latest.json`
+2. `https://cdn.jsdelivr.net/gh/KIMGITO/kaykays-releases@update-manifest/latest.json`
+3. `https://github.com/KIMGITO/kaykays-releases/releases/latest/download/latest.json` (lags behind new releases and sometimes answers 504)
+4. The same `update-manifest` and release links in `KIMGITO/ISMS`, the old home, for apps built before the move. They stop answering once `ISMS` is private.
+
+`kaykays-releases` is a public repo with only installers and `latest.json`, so the code repo can be private. CI publishes there when the Actions variable `RELEASES_REPO` is set; see `docs/GOING_PRIVATE.md`.
 
 GitHub's temporary errors (502/504, timeouts, dropped downloads) are retried. A background check that still fails says nothing and tries again in 30 minutes. Every failure shows one standard message with a code (Settings → About shows the code), listed in `src/core/native/updateErrors.ts`:
 

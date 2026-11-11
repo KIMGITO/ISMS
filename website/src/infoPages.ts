@@ -167,6 +167,8 @@ function defaultText(id: InfoPageId, site: Storefront): string {
         `3. A prompt from Safaricom appears on your phone showing **${name}** and the amount.`,
         '4. Enter your M-Pesa PIN. The order page updates by itself once payment is confirmed.',
         '5. You receive an M-Pesa message with the receipt number. The receipt number also appears on your order.',
+        '## Paying by card',
+        'When card payment is available, the payment screen offers **Card (Visa, Mastercard)**. You go to Paystack\'s secure page to enter your card, then come straight back to your order. We never see or keep your card number.',
         '## Good to know',
         '- Totals are rounded **down** to whole shillings, because M-Pesa does not accept cents.',
         '- An order is only marked paid when Safaricom confirms the payment. Nobody can mark it paid by hand on the website.',

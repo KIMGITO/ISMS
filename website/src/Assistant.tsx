@@ -54,8 +54,16 @@ export default function Assistant() {
       setPendingProductId(reply.pendingProductId ?? null);
       setMessages((m) => [...m, { id: m.length, from: 'assistant', text: reply.reply, reply }]);
     } catch (err) {
-      const text = friendlyError(err, "Sorry, I'm having trouble right now. Please try again.");
-      setMessages((m) => [...m, { id: m.length, from: 'assistant', text }]);
+      // Still point somewhere useful: the shop works without the assistant, and the team can answer.
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      const text = offline
+        ? "You seem to be offline. Check your connection and ask again. You can still look through the shop."
+        : friendlyError(err, "Sorry, I can't answer right now. Please try again in a moment, look through the shop, or contact our team.");
+      const reply: AssistantReply = {
+        reply: text,
+        link: offline ? { label: 'Go to the shop', href: '/shop' } : { label: 'Contact us', href: '/contact' },
+      };
+      setMessages((m) => [...m, { id: m.length, from: 'assistant', text, reply }]);
     } finally {
       setBusy(false);
     }

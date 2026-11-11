@@ -13,7 +13,7 @@ date: "9 November 2026"
 |---|---|
 | Document version | 4.2.1, matching app release v4.2.1 |
 | Date | 9 November 2026 |
-| Repository | `github.com/KIMGITO/ISMS` |
+| Repository | `github.com/KIMGITO/ISMS` (code; to become private) and `github.com/KIMGITO/kaykays-releases` (public: installers and `latest.json`) |
 | Product name | KayKay's (package `com.kaykays.app`, desktop identifier `com.isms.app`) |
 | Status | Staff app released; customer website, M-Pesa till flow, dial-code ordering and KRA eTIMS built but not yet run against the live providers |
 
@@ -1422,7 +1422,7 @@ The updater key pair is in `~/.tauri/`; its public half is in `src-tauri/tauri.c
 
 # 21. Automatic updates
 
-Installed apps check `https://github.com/KIMGITO/ISMS/releases/latest/download/latest.json` 15 seconds after start, whenever the connection comes back, and every 6 hours. When a newer version exists they send a notification and show a green bar at the top while it downloads.
+Installed apps check `latest.json` (in `KIMGITO/kaykays-releases`, see `MANIFEST_SOURCES` in `src/core/native/updateManifest.ts`) 15 seconds after start, whenever the connection comes back, and every 6 hours. When a newer version exists they send a notification and show a green bar at the top while it downloads.
 
 | Platform | Behaviour |
 |---|---|

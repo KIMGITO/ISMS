@@ -140,6 +140,9 @@ export interface Order {
   promo_code?: string | null;
   promo_value?: number;
   mpesa_receipt: string | null;
+  /** Added in 20261110009; older databases leave these out. */
+  payment_method?: 'M-Pesa' | 'Card' | null;
+  payment_reference?: string | null;
   created_at: string;
   online_order_items: OrderItem[];
 }
@@ -320,11 +323,13 @@ export const cancelOrder = (orderId: string) => rpc('cancel_my_order', { p_order
 
 const BASE_ORDER_COLUMNS =
   'id, order_number, status, fulfilment, delivery_address, subtotal, delivery_fee, discount, total, mpesa_receipt, created_at, online_order_items(*)';
-const ORDER_COLUMNS = `${BASE_ORDER_COLUMNS}, points_value, promo_code, promo_value`;
+const PROMO_ORDER_COLUMNS = `${BASE_ORDER_COLUMNS}, points_value, promo_code, promo_value`;
+const ORDER_COLUMNS = `${PROMO_ORDER_COLUMNS}, payment_method, payment_reference`;
 
-/** Asks for the promo columns, and falls back if the database doesn't have them yet (error 42703). */
+/** Asks for the newest columns, and falls back while the database doesn't have them yet (error 42703). */
 async function selectOrders<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string } | null }>): Promise<T> {
   let result = await run(ORDER_COLUMNS);
+  if (result.error?.code === '42703') result = await run(PROMO_ORDER_COLUMNS);
   if (result.error?.code === '42703') result = await run(BASE_ORDER_COLUMNS);
   if (result.error) throw result.error;
   return result.data;
@@ -346,6 +351,22 @@ export const startPayment = (orderId: string, phone: string) =>
 
 export const checkPayment = (orderId: string) =>
   callFunction<{ status: OrderStatus }>('customer-checkout', { action: 'check', orderId });
+
+/** Starts a Paystack card checkout. Send the customer to authorizationUrl; Paystack sends them back to returnUrl. */
+export const startCardPayment = (orderId: string, returnUrl: string) =>
+  callFunction<{ authorizationUrl: string; reference: string }>('card-payments', { action: 'order_start', orderId, returnUrl });
+
+export const checkCardPayment = (orderId: string, reference?: string) =>
+  callFunction<{ status: OrderStatus }>('card-payments', { action: 'order_check', orderId, reference });
+
+/** Whether the shop takes cards online. False on a database without card payments yet. */
+export async function acceptsCards(): Promise<boolean> {
+  try {
+    return (await rpc<boolean>('website_accepts_cards', { p_slug: WEBSITE_SLUG })) === true;
+  } catch {
+    return false;
+  }
+}
 
 export async function fetchSchedules(): Promise<Schedule[]> {
   const { data, error } = await supabase

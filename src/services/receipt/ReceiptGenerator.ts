@@ -19,10 +19,8 @@ const PAYMENT_LABELS: Record<string, string> = {
   "M-Pesa": "M-Pesa",
   Card: "Card",
   Bank: "Bank transfer",
-  Mobile_Wallet: "Wallet",
   Credit_Debt: "Credit",
   Credit: "Credit",
-  Other: "Other",
 };
 
 export function paymentLabel(method: string | undefined): string {

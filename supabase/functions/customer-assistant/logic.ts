@@ -34,6 +34,7 @@ export interface AssistantContext {
   paymentMethods: string[];
   address: string | null;
   phone: string | null;
+  openingHours?: string | null;
   products: CatalogProduct[];
   articles: CatalogArticle[];
 }
@@ -46,12 +47,36 @@ export interface AssistantReply {
   link?: { label: string; href: string } | null;
   /** Product the page can offer to open. The page builds the link from its own catalogue. */
   productId?: string | null;
-  /** True when the question should go to the language model. */
+  /** True when the question should go to the language model. `reply` then holds what to say if it can't answer. */
   needsModel?: boolean;
 }
 
-export const OFF_TOPIC_REPLY =
-  "I can only help with our products, orders, delivery and looking after your milk. For anything else, please message our team from your account.";
+/** For anything the rules don't cover and the model can't or won't answer: say what the assistant can do. */
+function helpReply(ctx: AssistantContext): AssistantReply {
+  return {
+    reply: `I'm not able to answer that one. I can check whether we have a product, price an order, and tell you about delivery, payment, your orders and looking after your milk. For example, ask "Do you have milk?" For anything else, our team at ${ctx.businessName} can help.`,
+    link: { label: "Contact us", href: "/contact" },
+    pendingProductId: null,
+  };
+}
+
+/** A milk-care question with no matching guide, for when the model is down or unsure. Stays to basics we can stand by. */
+function careFallback(ctx: AssistantContext): AssistantReply {
+  return {
+    reply: `I can't answer that in detail right now. The basics: keep fresh milk covered in the fridge, use it within a few days of opening, and don't drink it if it smells or tastes sour.${ctx.articles.length ? " Our guides have more." : ` Our team at ${ctx.businessName} can tell you more.`}`,
+    link: ctx.articles.length ? { label: "Read our guides", href: "/articles" } : { label: "Contact us", href: "/contact" },
+    pendingProductId: null,
+  };
+}
+
+/** What the customer seemed to ask for, cleaned to plain words so it's safe to repeat back. */
+function askedItem(text: string): string {
+  const item = words(text)
+    .filter((w) => !STOP_WORDS.has(w) && !(w in NUMBER_WORDS) && !/^\d/.test(w) && /^[a-z]+$/.test(w))
+    .slice(0, 3)
+    .join(" ");
+  return item.length >= 3 && item.length <= 30 ? item : "";
+}
 
 const NUMBER_WORDS: Record<string, number> = {
   half: 0.5, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
@@ -62,7 +87,7 @@ const STOP_WORDS = new Set([
   "do", "you", "we", "have", "any", "the", "a", "an", "some", "i", "want", "need", "would", "like", "to", "get",
   "buy", "order", "of", "is", "are", "there", "please", "can", "much", "how", "many", "for", "and", "your", "our",
   "in", "stock", "available", "price", "cost", "now", "today", "still", "left", "got", "sell", "store", "shop",
-  "niko", "mna", "mnayo", "kuna", "ziko", "iko", "nataka", "bei",
+  "niko", "mna", "mnayo", "kuna", "ziko", "iko", "nataka", "bei", "ya", "za", "la", "wa", "na",
 ]);
 
 /** Swahili and common spellings mapped to the words used in product names. */
@@ -191,11 +216,11 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
   const careQuestion = has(careText, /\b(preserv|store|storing|storage|keep|fridge|refrigerat|boil|spoil|sour|bad|expire|shelf|freez|last|how long|safe)/);
   if (careQuestion && quantity === null) {
     const article = findArticle(text, ctx.articles);
+    if (!article) return { ...careFallback(ctx), needsModel: true };
     return {
-      reply: article ? `${article.summary || article.title} You can read more in our guide.` : "",
-      link: article ? { label: article.title, href: `/articles/${article.slug}` } : null,
+      reply: `${article.summary || article.title} You can read more in our guide.`,
+      link: { label: article.title, href: `/articles/${article.slug}` },
       pendingProductId: null,
-      needsModel: !article,
     };
   }
 
@@ -231,6 +256,15 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
   if (has(text, /\b(pay|payment|mpesa|m pesa|m-pesa|cash|card)/)) {
     return { reply: "You pay online with M-Pesa at checkout. You'll get a prompt on your phone to enter your PIN.", pendingProductId: pending?.id ?? null };
   }
+  if (has(text, /\b(open|opening|close|closing|hours|time|saa ngapi|sunday|saturday|holiday)/)) {
+    return {
+      reply: ctx.openingHours
+        ? `Our opening hours: ${ctx.openingHours}. You can order online at any time.`
+        : `You can order online at any time. For our shop hours, please call or message us.${ctx.phone ? ` Our number is ${ctx.phone}.` : ""}`,
+      link: { label: "Find us", href: "/contact" },
+      pendingProductId: pending?.id ?? null,
+    };
+  }
   if (has(text, /\b(where|location|address|branch|find you|located|phone|call|contact|email)/)) {
     const parts = [ctx.address ? `You can find us at ${ctx.address}.` : "", ctx.phone ? `Our number is ${ctx.phone}.` : ""].filter(Boolean);
     return {
@@ -260,8 +294,20 @@ export function decide(message: string, pendingProductId: string | null, ctx: As
     };
   }
 
-  // Anything left goes to the model, which may still refuse it.
-  return { reply: "", needsModel: true, pendingProductId: null };
+  // Asked for something we don't list: say so and point to what we have, rather than "I can't help".
+  const item = askedItem(text);
+  const asksForProduct = has(text, /\b(do (you|u|we) (have|sell|stock)|have you got|you got|is there|are there|any|available|sell|nataka|niko na|mna|kuna|ziko|iko|bei ya|how much (is|are|for)|price of)\b/);
+  if (item && (asksForProduct || quantity !== null)) {
+    const names = ctx.products.filter((p) => p.stock > 0).slice(0, 4).map((p) => p.name);
+    return {
+      reply: `Sorry, we don't have ${item} in our shop.${names.length ? ` We do have ${names.join(", ")}.` : ""} If you're looking for something special, our team can tell you if we can get it.`,
+      link: { label: "See all products", href: "/shop" },
+      pendingProductId: null,
+    };
+  }
+
+  // Anything left goes to the model, which may still refuse it. The reply is used if it can't answer.
+  return { ...helpReply(ctx), needsModel: true };
 }
 
 export function buildModelPrompt(ctx: AssistantContext): string {
@@ -282,19 +328,19 @@ Reply with JSON only: {"onTopic": boolean, "reply": string}. Keep "reply" under 
 ${guides || "No guides are available."}`;
 }
 
-/** Checks the model's output before a customer can see it. Anything doubtful becomes a refusal. */
-export function acceptModelReply(raw: string): string {
+/** Checks the model's output before a customer can see it. Returns null when it is doubtful, so the caller uses its fallback. */
+export function acceptModelReply(raw: string): string | null {
   let parsed: any;
   try {
     const match = raw.match(/\{[\s\S]*\}/);
     parsed = JSON.parse(match ? match[0] : raw);
   } catch {
-    return OFF_TOPIC_REPLY;
+    return null;
   }
   const reply = typeof parsed?.reply === "string" ? parsed.reply.trim() : "";
-  if (parsed?.onTopic !== true || !reply || reply.length > 500) return OFF_TOPIC_REPLY;
+  if (parsed?.onTopic !== true || !reply || reply.length > 500) return null;
   if (/https?:|www\.|<[a-z]|```|\b(ksh|kes|shilling|discount|free of charge|in stock|out of stock|guarantee)/i.test(reply)) {
-    return OFF_TOPIC_REPLY;
+    return null;
   }
   return reply;
 }

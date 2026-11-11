@@ -40,8 +40,6 @@ const PAYMENT_TYPES: Record<string, string> = {
   Bank: "04",
   Card: "05",
   "M-Pesa": "06",
-  Mobile_Wallet: "06",
-  Other: "07",
 };
 
 const PIN = /^[A-Z][0-9]{9}[A-Z]$/;

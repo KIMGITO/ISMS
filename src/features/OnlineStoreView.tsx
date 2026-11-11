@@ -93,6 +93,8 @@ interface StaffOrder {
   notes: string | null;
   total: number;
   mpesa_receipt: string | null;
+  payment_method?: 'M-Pesa' | 'Card' | null;
+  payment_reference?: string | null;
   needs_attention: boolean;
   attention_reason: string | null;
   created_at: string;
@@ -259,6 +261,7 @@ function OrdersTab({ businessId }: { businessId: string }) {
               <p className="mt-2 text-sm font-bold text-app-text">
                 Ksh {Number(order.total).toLocaleString()}
                 {order.mpesa_receipt && <span className="font-normal text-app-text-muted"> · M-Pesa {order.mpesa_receipt}</span>}
+                {order.payment_method === 'Card' && order.payment_reference && <span className="font-normal text-app-text-muted"> · Card {order.payment_reference}</span>}
               </p>
               {order.needs_attention && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600">

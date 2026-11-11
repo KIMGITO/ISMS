@@ -116,7 +116,7 @@ export class SupabaseService {
     
     // 1. Insert transaction header (include id if generated on client)
     // Only credit sales carry an unpaid balance. Fully-paid methods
-    // (Cash, M-Pesa, Card, Bank, Mobile_Wallet) must record amount_paid
+    // (Cash, M-Pesa, Card, Bank) must record amount_paid
     // = final_total so the DB trigger does NOT create a false debt record.
     const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
 

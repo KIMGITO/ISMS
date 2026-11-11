@@ -9,6 +9,9 @@ import {
   ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban
 } from "lucide-react";
 import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
+import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
+import CardChargeSheet, { type CardChargeResult, describeCard } from "../components/payments/CardChargeSheet";
+import { MONEY_METHODS, methodLabel, normalizeReference, referenceHint } from "../utils/paymentMethods";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { validatePhone, normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
 import { hasRolePermission } from "../utils/permissions";
@@ -18,7 +21,7 @@ import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
 import { canOpenScreen } from "../utils/screens";
 import { useUiStore } from "../stores/uiStore";
-import type { ExpenseCategory } from "../types";
+import type { ExpenseCategory, MoneyMethod } from "../types";
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
 import { useKraStatus } from '../services/kra/kraService';
@@ -35,7 +38,23 @@ const COLOR_PRESETS = [
   { name: "Monochrome Sleek", primary: "#94a3b8", secondary: "#0f172a", label: "Silver & Charcoal" }
 ];
 
-type MoneyTab = "payments" | "expenses" | "mpesa";
+type MoneyTab = "payments" | "expenses" | "mpesa" | "cards";
+
+const METHOD_ICONS: Record<MoneyMethod, React.ReactNode> = {
+  Cash: <Banknote size={14} className="text-amber-500" />,
+  "M-Pesa": <Smartphone size={14} className="text-emerald-500" />,
+  Card: <CreditCard size={14} className="text-blue-500" />,
+  Bank: <Landmark size={14} className="text-violet-500" />,
+};
+
+/** The picked day at the current time when it is today, otherwise midday, so it sorts and shows on the right day. */
+function paymentDateIso(day: string): string {
+  const today = new Date();
+  const local = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (day === local(today)) return today.toISOString();
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0).toISOString();
+}
 
 /**
  * section "business": branches and business details (business.update).
@@ -97,6 +116,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const moneyTabs = ([
     { id: "payments", label: "Payments", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.view") || hasRolePermission(role, "payments.cash") || hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") },
     { id: "mpesa", label: "M-Pesa", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") || hasRolePermission(role, "settings.integrations") },
+    { id: "cards", label: "Cards", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.card") || hasRolePermission(role, "payments.view") || hasRolePermission(role, "settings.integrations") },
     { id: "expenses", label: "Expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
   ] as { id: MoneyTab; label: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
   const [activeSubTab, setActiveSubTab] = useState<"details" | MoneyTab>(
@@ -112,7 +132,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [expStaffName, setExpStaffName] = useState("");
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [localExpenses, setLocalExpenses] = useState<any[]>([]);
-  const [expPaymentMethod, setExpPaymentMethod] = useState<string>("Cash");
+  const [expPaymentMethod, setExpPaymentMethod] = useState<MoneyMethod>("Cash");
   const [localCategories, setLocalCategories] = useState<ExpenseCategory[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -126,7 +146,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
   // Payments States - Modern Redesigned
   const [payRef, setPayRef] = useState("");
   const [payAmount, setExpPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState<"M-Pesa" | "Cash" | "Card" | "Bank" | "Mobile_Wallet" | "Other">("M-Pesa");
+  const [payMethod, setPayMethod] = useState<MoneyMethod>("M-Pesa");
+  const [chargingCard, setChargingCard] = useState(false);
   const [paySenderName, setPaySenderName] = useState("");
   const [paySenderPhone, setPaySenderPhone] = useState("");
   const [payStatus, setPayStatus] = useState<"Success" | "Pending" | "Failed">("Success");
@@ -219,71 +240,125 @@ export default function BusinessManagementView({ section = "business" }: { secti
     }
   };
 
+  const resetPaymentForm = () => {
+    setPayRef("");
+    setExpPayAmount("");
+    setPaySenderName("");
+    setPaySenderPhone("");
+    setPayCustomerId("");
+    setPayDescription("");
+    setPayType("walk-in");
+    setPaySearchQuery("");
+  };
+
+  /** Checks the form. Returns an error message, or null when it can be recorded. */
+  const paymentFormError = (needsReference: boolean): string | null => {
+    const amountNum = Number(payAmount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return "Enter the amount received.";
+    if (Math.round(amountNum * 100) !== Math.round(amountNum * 100 * 1000) / 1000) return "Use at most 2 decimal places.";
+    if (payType === "customer" && !payCustomerId) return "Choose the customer from the list, or switch to Walk-in.";
+    if (!paySenderName.trim()) return "Enter who paid.";
+    if (needsReference && !payRef.trim()) return `Enter the ${referenceHint(payMethod)?.label.toLowerCase() || "reference"}.`;
+    if (payRef.trim()) {
+      const ref = normalizeReference(payMethod, payRef).toLowerCase();
+      const dup = localPayments.find((p) => p.status !== "Voided" && String(p.referenceCode || "").toLowerCase() === ref);
+      if (dup) {
+        return `${payRef.trim()} was already recorded on ${new Date(dup.date).toLocaleDateString()} for KSh ${Number(dup.amount).toLocaleString()}${dup.senderName ? ` from ${dup.senderName}` : ""}. Void that one first if it was wrong.`;
+      }
+    }
+    return null;
+  };
+
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeBusinessId) return;
-    const amountNum = Number(payAmount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      showToast("Error", "Amount must be a positive number.", undefined, "error");
+    const problem = paymentFormError(payMethod !== "Cash");
+    if (problem) {
+      showToast("Check the payment", problem, undefined, "error");
       return;
     }
-    if (!payRef.trim() && payMethod !== 'Cash') {
-      showToast("Error", "Reference code is required.", undefined, "error");
-      return;
-    }
-    if (!paySenderName.trim()) {
-      showToast("Error", "Customer/Sender name is required.", undefined, "error");
-      return;
-    }
+    const amountNum = Math.round(Number(payAmount) * 100) / 100;
     setPaymentSubmitting(true);
     try {
       const { PaymentRepository } = await import("../services/repositories");
-      const selectedCustomer = localCustomers.find(c => c.id === payCustomerId);
+      const selectedCustomer = payType === "customer" ? localCustomers.find(c => c.id === payCustomerId) : undefined;
+      // The list as it was before this submit (this handler's closure doesn't see later updates).
+      const knownIds = new Set(localPayments.map((p) => p.id));
 
-      await PaymentRepository.add({
-        referenceCode: payRef.trim(),
+      const saved = await PaymentRepository.add({
+        referenceCode: normalizeReference(payMethod, payRef),
         amount: amountNum,
         method: payMethod,
         senderName: paySenderName.trim(),
         senderPhone: paySenderPhone.trim() ? normalizePhone(paySenderPhone) : undefined,
         status: payStatus,
-        date: new Date(payDate).toISOString(),
+        date: paymentDateIso(payDate),
         businessId: activeBusinessId,
-        customerId: payCustomerId || undefined,
-        paymentType: payType,
+        customerId: selectedCustomer?.id,
+        paymentType: selectedCustomer ? "customer" : "walk-in",
         description: payDescription.trim() || undefined,
         recordedBy: currentEmployee?.name || "System",
       });
 
+      // Same reference already recorded (e.g. on another device just now): the server returns that one.
+      if (knownIds.has(saved.id) || Math.abs(Number(saved.amount) - amountNum) > 0.001) {
+        showToast("Already recorded", `This reference was already recorded for KSh ${Number(saved.amount).toLocaleString()}. Nothing was added.`, undefined, "error");
+        return;
+      }
+
       // Only a successful payment moves money balances or a customer's account.
+      const debt = Number(selectedCustomer?.debtBalance || 0);
       const appliedMsg = payStatus !== "Success"
         ? ` Saved as ${payStatus.toLowerCase()}, so no balances changed.`
-        : selectedCustomer && Number(selectedCustomer.debtBalance || 0) > 0
-          ? " It paid down their debt first; anything left went to their wallet."
+        : selectedCustomer && debt > 0
+          ? amountNum > debt
+            ? ` KSh ${debt.toLocaleString()} cleared their debt and KSh ${(Math.round((amountNum - debt) * 100) / 100).toLocaleString()} went to their wallet.`
+            : " It paid down their debt."
           : selectedCustomer
             ? " It went to their wallet."
             : "";
 
       showToast(
         "Payment Recorded",
-        `Payment recorded${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
+        `KSh ${amountNum.toLocaleString()} by ${methodLabel(payMethod)}${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
         undefined,
         "success"
       );
-      setPayRef("");
-      setExpPayAmount("");
-      setPaySenderName("");
-      setPaySenderPhone("");
-      setPayCustomerId("");
-      setPayDescription("");
-      setPayType("walk-in");
-      setPaySearchQuery("");
+      resetPaymentForm();
     } catch (err: any) {
       console.error(err);
-      showToast("Error", toUserMessage(err, "Failed to record payment."), undefined, "error");
+      showToast("Payment not recorded", toUserMessage(err, "Failed to record payment."), undefined, "error");
     } finally {
       setPaymentSubmitting(false);
     }
+  };
+
+  const startCardCharge = () => {
+    const problem = paymentFormError(false);
+    if (problem) {
+      showToast("Check the payment", problem, undefined, "error");
+      return;
+    }
+    setChargingCard(true);
+  };
+
+  // Paid online or on the reader: the server already recorded the payment.
+  const onCardCharged = (result: CardChargeResult) => {
+    setChargingCard(false);
+    if (result.via === "machine") {
+      // Card machine: the approval code becomes the reference, then it's recorded like any payment.
+      setPayRef(result.reference);
+      if (result.last4) setPayDescription((d) => d || `Card •••• ${result.last4}`);
+      showToast("Approval code added", "Press Record Payment to save it.", undefined, "info");
+      return;
+    }
+    showToast(
+      "Card payment received",
+      `KSh ${result.amountPaid.toLocaleString()} ${describeCard(result.brand, result.last4)} was recorded.`.replace(/\s+\./, "."),
+      undefined,
+      "success",
+    );
+    resetPaymentForm();
   };
 
   // Sync state with active business on load or change
@@ -1338,16 +1413,9 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         Payment Method / Source *
                       </label>
                       <SearchableDropdown
-                        items={[
-                          { id: 'Cash', label: 'Cash' },
-                          { id: 'M-Pesa', label: 'M-Pesa' },
-                          { id: 'Card', label: 'Card' },
-                          { id: 'Bank', label: 'Bank' },
-                          { id: 'Mobile_Wallet', label: 'Mobile Wallet' },
-                          { id: 'Other', label: 'Other' },
-                        ]}
+                        items={MONEY_METHODS.map((m) => ({ id: m, label: methodLabel(m) }))}
                         selectedValue={expPaymentMethod}
-                        onChange={setExpPaymentMethod}
+                        onChange={(val) => setExpPaymentMethod(val as MoneyMethod)}
                         placeholder="Choose a payment method"
                       />
                     </div>
@@ -1495,26 +1563,29 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 <MpesaPaymentsPanel customers={localCustomers} />
               )}
 
+              {isMoney && activeSubTab === 'cards' && <CardPaymentsPanel />}
+
+              <CardChargeSheet
+                open={chargingCard}
+                amount={Number(payAmount) || 0}
+                purpose="payment"
+                customer={payType === 'customer' ? localCustomers.find((c) => c.id === payCustomerId) ?? null : null}
+                payerName={paySenderName.trim() || undefined}
+                description={payDescription.trim() || undefined}
+                onPaid={onCardCharged}
+                onClose={() => setChargingCard(false)}
+              />
+
               {isMoney && activeSubTab === 'payments' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
                   {/* Money Assets Overview Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {localMoneyAssets.length === 0 && (
                       <>
-                        {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Mobile_Wallet', 'Other'] as const).map((m) => (
+                        {MONEY_METHODS.map((m) => (
                           <div key={m} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                             <div className="flex items-center gap-2">
-                              {m === 'M-Pesa' || m === 'Mobile_Wallet' ? (
-                                <Smartphone size={14} className="text-emerald-500" />
-                              ) : m === 'Cash' ? (
-                                <Banknote size={14} className="text-amber-500" />
-                              ) : m === 'Card' ? (
-                                <CreditCard size={14} className="text-blue-500" />
-                              ) : m === 'Bank' ? (
-                                <Landmark size={14} className="text-violet-500" />
-                              ) : (
-                                <Wallet size={14} className="text-slate-500" />
-                              )}
+                              {METHOD_ICONS[m]}
                               <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
                                 {m}
                               </span>
@@ -1529,20 +1600,10 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         ))}
                       </>
                     )}
-                    {localMoneyAssets.map((asset) => (
+                    {[...localMoneyAssets].sort((x, y) => MONEY_METHODS.indexOf(x.method) - MONEY_METHODS.indexOf(y.method)).map((asset) => (
                       <div key={asset.id || asset.method} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
-                          {asset.method === 'M-Pesa' || asset.method === 'Mobile_Wallet' ? (
-                            <Smartphone size={14} className="text-emerald-500" />
-                          ) : asset.method === 'Cash' ? (
-                            <Banknote size={14} className="text-amber-500" />
-                          ) : asset.method === 'Card' ? (
-                            <CreditCard size={14} className="text-blue-500" />
-                          ) : asset.method === 'Bank' ? (
-                            <Landmark size={14} className="text-violet-500" />
-                          ) : (
-                            <Wallet size={14} className="text-slate-500" />
-                          )}
+                          {METHOD_ICONS[asset.method as MoneyMethod] ?? <Wallet size={14} className="text-slate-500" />}
                           <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
                             {asset.method}
                           </span>
@@ -1723,7 +1784,9 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <input
                               type="number"
                               required
-                              min="1"
+                              min="0.01"
+                              step="0.01"
+                              inputMode="decimal"
                               placeholder="0.00"
                               value={payAmount}
                               onChange={(e) => setExpPayAmount(e.target.value)}
@@ -1747,48 +1810,50 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             </button>
                           </div>
                           {payMethodDisplay === 'modern' ? (
-                            <div className="grid grid-cols-2 gap-1.5">
-                              {(['M-Pesa', 'Cash', 'Card', 'Bank', 'Mobile_Wallet', 'Other'] as const).map((m) => {
-                                const icons: Record<string, React.ReactNode> = {
-                                  'M-Pesa': <Smartphone size={14} className="text-emerald-500" />,
-                                  'Cash': <Banknote size={14} className="text-amber-500" />,
-                                  'Card': <CreditCard size={14} className="text-blue-500" />,
-                                  'Bank': <Landmark size={14} className="text-violet-500" />,
-                                  'Other': <CircleDollarSign size={14} className="text-slate-500" />,
-                                };
-                                return (
-                                  <button
-                                    type="button"
-                                    key={m}
-                                    onClick={() => setPayMethod(m)}
-                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
-                                      payMethod === m
-                                        ? 'border-amber-500 bg-amber-500/5'
-                                        : 'border-app-border bg-app-bg/40 hover:border-amber-500/30'
-                                    }`}
-                                  >
-                                    {icons[m]}
-                                    <span className={`text-[10px] font-black ${payMethod === m ? 'text-amber-500' : 'text-app-text'}`}>
-                                      {m}
-                                    </span>
-                                  </button>
-                                );
-                              })}
+                            <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Payment method">
+                              {MONEY_METHODS.map((m) => (
+                                <button
+                                  type="button"
+                                  key={m}
+                                  role="radio"
+                                  aria-checked={payMethod === m}
+                                  onClick={() => setPayMethod(m)}
+                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                                    payMethod === m
+                                      ? 'border-amber-500 bg-amber-500/5'
+                                      : 'border-app-border bg-app-bg/40 hover:border-amber-500/30'
+                                  }`}
+                                >
+                                  {METHOD_ICONS[m]}
+                                  <span className={`text-[10px] font-black ${payMethod === m ? 'text-amber-500' : 'text-app-text'}`}>
+                                    {methodLabel(m)}
+                                  </span>
+                                </button>
+                              ))}
                             </div>
                           ) : (
                             <SearchableDropdown
-                              items={[
-                                { id: 'M-Pesa', label: 'M-Pesa' },
-                                { id: 'Cash', label: 'Cash' },
-                                { id: 'Card', label: 'Card' },
-                                { id: 'Bank', label: 'Bank Transfer' },
-                                { id: 'Mobile_Wallet', label: 'Mobile Wallet' },
-                                { id: 'Other', label: 'Other' },
-                              ]}
+                              items={MONEY_METHODS.map((m) => ({ id: m, label: m === 'Bank' ? 'Bank transfer' : methodLabel(m) }))}
                               selectedValue={payMethod}
-                              onChange={(val) => setPayMethod(val as any)}
+                              onChange={(val) => setPayMethod(val as MoneyMethod)}
                               placeholder="Select method..."
                             />
+                          )}
+                          {payMethod === 'Card' && (
+                            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 space-y-2">
+                              <p className="text-[10px] text-app-text-muted">
+                                Used a card machine? Type its approval code below and record. Or charge the card now, online or on the card reader.
+                              </p>
+                              {hasRolePermission(role, "payments.card") && (
+                                <button
+                                  type="button"
+                                  onClick={startCardCharge}
+                                  className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                  <CreditCard size={13} /> Charge card{Number(payAmount) > 0 ? ` KSh ${Number(payAmount).toLocaleString()}` : ''}
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -1828,12 +1893,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div className="flex flex-col gap-1.5 sm:col-span-2">
                             <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                              Reference Code / M-Pesa ID 
+                              {referenceHint(payMethod)?.label ?? 'Reference (optional)'}{payMethod !== 'Cash' ? ' *' : ''}
                             </label>
                             <input
                               type="text"
-                              required={payMethod != 'Cash'}
-                              placeholder="e.g. SXK2M9Q1TZ"
+                              required={payMethod !== 'Cash'}
+                              placeholder={referenceHint(payMethod)?.placeholder ?? 'Receipt number, if any'}
                               value={payRef}
                               onChange={(e) => setPayRef(e.target.value)}
                               className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"

@@ -205,7 +205,7 @@ export function NotFoundPage() {
   );
 }
 
-/** /order-confirmed/:id, shown once M-Pesa confirms the payment. */
+/** /order-confirmed/:id, shown once M-Pesa or the card payment is confirmed. */
 export function OrderConfirmedPage({ orderId }: { orderId: string }) {
   const { business, settings } = useStorefront();
   const ready = useAuth((s) => s.ready);
@@ -250,6 +250,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
         <p className="mt-3 text-lg text-muted">
           Order <strong className="text-ink">#{order.order_number}</strong>
           {order.mpesa_receipt && <> · M-Pesa receipt <strong className="text-ink">{order.mpesa_receipt}</strong></>}
+          {order.payment_method === 'Card' && order.payment_reference && <> · Paid by card, reference <strong className="text-ink">{order.payment_reference}</strong></>}
         </p>
         {!paid && <a href={`/account/orders/${order.id}`} className={`${primaryButton} mt-5`}>Pay now</a>}
       </div>

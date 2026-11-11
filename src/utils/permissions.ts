@@ -147,6 +147,7 @@ export type PermissionCode =
   | 'payments.refund'
   | 'payments.mpesa'
   | 'payments.cash'
+  | 'payments.card'
   | 'payments.manage'
   // Reports & AI
   | 'reports.view'
@@ -329,6 +330,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'payments.refund', category: 'Expenses & Payments', description: 'Process payment chargebacks' },
   { code: 'payments.mpesa', category: 'Expenses & Payments', description: 'Trigger M-Pesa push API' },
   { code: 'payments.cash', category: 'Expenses & Payments', description: 'Accept physical cash ledger' },
+  { code: 'payments.card', category: 'Expenses & Payments', description: 'Charge cards online or on a card reader' },
   { code: 'payments.manage', category: 'Expenses & Payments', description: 'Audit payment configurations' },
 
   // Staff & Roles
@@ -407,7 +409,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'production.view', 'production.create', 'production.update', 'production.approve',
       'bom.view', 'bom.create', 'bom.update',
       'expenses.view', 'expenses.create', 'expenses.update', 'pettycash.record', 'finance.view',
-      'payments.view', 'payments.verify', 'payments.cash',
+      'payments.view', 'payments.verify', 'payments.cash', 'payments.card',
       'reports.view', 'reports.sales', 'reports.inventory', 'reports.customers', 'reports.profit', 'reports.deliveries',
       'notifications.view', 'notifications.send', 'communication.view', 'communication.send',
       'ai.use', 'ai.insights',
@@ -424,7 +426,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.cancel_sale', 'pos.discount', 'pos.walkin_customer',
       'customers.view', 'customers.create', 'customers.debts', 'customers.loyalty', 'customers.schedules',
       'orders.view', 'orders.create', 'orders.update', 'orders.assign_rider',
-      'payments.cash', 'payments.mpesa', 'payments.verify', 'pettycash.record',
+      'payments.cash', 'payments.mpesa', 'payments.card', 'payments.verify', 'pettycash.record',
       'notifications.view', 'ai.use'
     ]
   },
