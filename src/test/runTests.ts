@@ -738,6 +738,11 @@ runTest("Home figures: ranges, slots, growth and money received", () => {
   const withPoints = analyse({ transactions: [], expenses: [], debtPayments: [], payments: [], pointsToDebt: [{ date: at(3), value: 25 }] }, week, buckets);
   eq(withPoints.total.profit, -25, "points used for debt come off profit");
   eq(withPoints.total.pointsCost, 25, "points cost is shown");
+  eq(withPoints.series.reduce((n, p) => n + p.spending, 0), 25, "points used for debt count as spending");
+  // Points used at the till are already off the sale, so profit is not cut twice.
+  const discounted = analyse({ transactions: [], expenses: [], debtPayments: [], payments: [], pointsDiscounts: [{ date: at(3), value: 40 }] }, week, buckets);
+  eq(discounted.total.pointsDiscounts, 40, "points discounts are shown as spent");
+  eq(discounted.total.profit, 0, "points discounts do not come off profit twice");
 
   const rows = analyseBranches(
     [{ id: "a", name: "A" }, { id: "b", name: "B" }],

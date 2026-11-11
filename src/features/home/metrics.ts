@@ -237,6 +237,8 @@ export interface Snapshot {
   expenses: number;
   /** Debt paid off with loyalty points: no money came in, so it is a cost. */
   pointsCost: number;
+  /** Points taken off the price at the till or online. Already off sales, so not off profit again. */
+  pointsDiscounts: number;
   profit: number;
   creditSales: number;
   received: Record<MethodKey, number>;
@@ -252,6 +254,7 @@ function emptySnapshot(): Snapshot {
     cost: 0,
     expenses: 0,
     pointsCost: 0,
+    pointsDiscounts: 0,
     profit: 0,
     creditSales: 0,
     received: { "M-Pesa": 0, Cash: 0, Card: 0, Bank: 0, Credit: 0 },
@@ -283,6 +286,8 @@ export interface DashboardInput {
    * total, so they are not listed here.
    */
   pointsToDebt?: { date: string; value: number }[];
+  /** Points used as a discount at the till or online. Shown as money spent, not taken off profit again. */
+  pointsDiscounts?: { date: string; value: number }[];
 }
 
 /**
@@ -381,6 +386,15 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     } else if (inRange(ts, prev)) previous.pointsCost += r.value || 0;
   }
 
+  for (const r of input.pointsDiscounts || []) {
+    const ts = kenyaTime(r.date);
+    if (!Number.isFinite(ts)) continue;
+    if (inRange(ts, range)) {
+      const i = bucketIndex(ts, buckets);
+      if (i >= 0) perSlot[i].pointsDiscounts += r.value || 0;
+    } else if (inRange(ts, prev)) previous.pointsDiscounts += r.value || 0;
+  }
+
   for (const s of [...perSlot, previous]) s.profit = s.sales - s.cost - s.expenses - s.pointsCost;
 
   const series: SeriesPoint[] = buckets.map((b, i) => ({
@@ -393,7 +407,7 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     profit: perSlot[i].profit,
     prevSales: prevSlotSales[i],
     received: moneyReceived(perSlot[i]),
-    spending: perSlot[i].cost + perSlot[i].expenses,
+    spending: perSlot[i].cost + perSlot[i].expenses + perSlot[i].pointsCost,
   }));
 
   const cumulative: Snapshot[] = [];
@@ -410,6 +424,7 @@ function mergeSnapshots(a: Snapshot, b: Snapshot): Snapshot {
   out.cost = a.cost + b.cost;
   out.expenses = a.expenses + b.expenses;
   out.pointsCost = a.pointsCost + b.pointsCost;
+  out.pointsDiscounts = a.pointsDiscounts + b.pointsDiscounts;
   out.profit = a.profit + b.profit;
   out.creditSales = a.creditSales + b.creditSales;
   for (const m of METHODS) out.received[m] = a.received[m] + b.received[m];

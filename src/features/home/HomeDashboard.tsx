@@ -69,8 +69,10 @@ export default function HomeDashboard() {
     };
   }, [activeBusinessId]);
 
-  // Debt paid off with loyalty points is a cost (no money came in), so it comes off profit.
+  // Points spent. Debt paid off with points is a cost (no money came in), so it comes off profit.
+  // Points used at the till or online are already off the sale, so they are only shown as spent.
   const [pointsToDebt, setPointsToDebt] = useState<{ date: string; value: number }[]>([]);
+  const [pointsDiscounts, setPointsDiscounts] = useState<{ date: string; value: number }[]>([]);
   useEffect(() => {
     if (!activeBusinessId) return;
     let live = true;
@@ -78,9 +80,8 @@ export default function HomeDashboard() {
       .then(({ getSupabase }) =>
         getSupabase()
           .from("loyalty_redemptions")
-          .select("created_at, value")
+          .select("created_at, value, kind")
           .eq("business_id", toUuid(activeBusinessId))
-          .eq("kind", "account")
           .is("refunded_at", null)
           .order("created_at", { ascending: false })
           .limit(5000),
@@ -88,7 +89,9 @@ export default function HomeDashboard() {
       .then(({ data, error }) => {
         // Before the points migration the column does not exist; profit then counts no points.
         if (!live || error) return;
-        setPointsToDebt((data || []).map((r: any) => ({ date: r.created_at, value: Number(r.value) || 0 })));
+        const rows = (data || []).map((r: any) => ({ date: r.created_at, value: Number(r.value) || 0, kind: r.kind }));
+        setPointsToDebt(rows.filter((r) => r.kind === "account"));
+        setPointsDiscounts(rows.filter((r) => r.kind !== "account"));
       })
       .catch(() => {});
     return () => {
@@ -112,8 +115,8 @@ export default function HomeDashboard() {
   const playback = usePlayback(buckets, range.start);
 
   const data = useMemo(
-    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments, pointsToDebt }, range, buckets),
-    [transactions, expenses, debtPayments, payments, pointsToDebt, range, buckets],
+    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments, pointsToDebt, pointsDiscounts }, range, buckets),
+    [transactions, expenses, debtPayments, payments, pointsToDebt, pointsDiscounts, range, buckets],
   );
   const { total, previous, series, cumulative } = data;
   const at = (frame: number | null) => (frame === null ? total : cumulative[frame] || total);
@@ -170,9 +173,14 @@ export default function HomeDashboard() {
   const productScale = Math.max(0, ...[...total.products.values()].map((p) => p.revenue));
   const expenseRows = (frame: number | null) => {
     const s = at(frame);
-    return [{ key: "cogs", label: "Cost of goods sold", value: s.cost }, ...[...s.expenseCategories.entries()].map(([k, v]) => ({ key: k, label: k, value: v }))];
+    return [
+      { key: "cogs", label: "Cost of goods sold", value: s.cost },
+      ...[...s.expenseCategories.entries()].map(([k, v]) => ({ key: k, label: k, value: v })),
+      ...(s.pointsCost > 0 ? [{ key: "points-debt", label: "Points: debt paid off", value: s.pointsCost }] : []),
+      ...(s.pointsDiscounts > 0 ? [{ key: "points-discounts", label: "Points: discounts", value: s.pointsDiscounts, note: "already off sales" }] : []),
+    ];
   };
-  const expenseScale = Math.max(total.cost, ...total.expenseCategories.values(), 0);
+  const expenseScale = Math.max(total.cost, total.pointsCost, total.pointsDiscounts, ...total.expenseCategories.values(), 0);
   const methodParts = (frame: number | null) => {
     const r = at(frame).received;
     return METHODS.map((m, i) => ({ key: m, label: METHOD_LABEL[m], value: r[m], color: m === "Credit" ? "var(--viz-muted)" : CATEGORY_COLORS[i] }));
@@ -308,7 +316,7 @@ export default function HomeDashboard() {
     {
       id: "expenses",
       title: "Where money went",
-      subtitle: "Cost of goods and expenses",
+      subtitle: "Cost of goods, expenses and points used",
       playable: true,
       render: ({ full, frame }) => <RankedBars rows={expenseRows(frame)} scaleMax={expenseScale} limit={full ? 15 : 5} color="var(--viz-2)" />,
       table: (frame) => ({ columns: ["Category", "Amount"], rows: expenseRows(frame).sort((a, b) => b.value - a.value).map((r) => [r.label, formatKsh(r.value)]) }),
@@ -322,7 +330,7 @@ export default function HomeDashboard() {
   const sideCharts = charts.filter((c) => c.id !== "trend");
 
   // ---------- The four figures that matter, each with its trend and one line of meaning ----------
-  const spending = total.cost + total.expenses;
+  const spending = total.cost + total.expenses + total.pointsCost;
   const margin = total.sales > 0 ? (total.profit / total.sales) * 100 : null;
   const aov = total.orders ? total.sales / total.orders : 0;
   const received = moneyReceived(total);
@@ -344,7 +352,7 @@ export default function HomeDashboard() {
       meaning: total.creditSales > 0 ? `${formatKsh(total.creditSales, true)} sold on credit` : "No credit sales",
     },
     {
-      label: "Spending", value: formatKsh(spending, true), full: formatKsh(spending), change: growth(spending, previous.cost + previous.expenses), polarity: "down",
+      label: "Spending", value: formatKsh(spending, true), full: formatKsh(spending), change: growth(spending, previous.cost + previous.expenses + previous.pointsCost), polarity: "down",
       spark: series.map((p) => p.spending), color: "var(--viz-2)",
       meaning: spending > 0 ? `${Math.round((total.cost / spending) * 100)}% is stock sold` : "Nothing spent yet",
     },
