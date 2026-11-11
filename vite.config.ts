@@ -35,6 +35,10 @@ export default defineConfig(async ({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 2000, // Increased to suppress the warning without breaking the chunk graph
-    }
+    },
+    // The background-removal worker loads its runtime with dynamic imports, which needs ES workers.
+    worker: {
+      format: 'es',
+    },
   };
 });

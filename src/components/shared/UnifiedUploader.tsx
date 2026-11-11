@@ -3,7 +3,7 @@ import { toUserMessage } from "../../utils/userError";
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
-  RefreshCw, Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move
+  RefreshCw, Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { uploadService } from "../../services/uploadService";
@@ -11,6 +11,7 @@ import { MediaType, UploadItem } from "../../services/upload/domain/entities";
 import { devicePermissionService } from "../../services/devicePermissionService";
 import { Switch } from './Switch';
 import { nativePlatformService } from "../../core/native/NativePlatformService";
+import { isBackgroundRemovalReady, removeBackground, RemovalProgress } from "../../services/backgroundRemoval";
 
 /** Phones and tablets have a camera; computers have a webcam. */
 function cameraWord(): "Camera" | "Webcam" {
@@ -66,6 +67,8 @@ interface UnifiedUploaderProps {
   className?: string;
   triggerElement?: React.ReactNode;
   bucketName?: string;
+  /** Offer "Remove background" on the crop screen. On by default for images. */
+  allowBackgroundRemoval?: boolean;
 }
 
 export default function UnifiedUploader({
@@ -77,7 +80,8 @@ export default function UnifiedUploader({
   buttonText = "Upload File",
   className = "",
   triggerElement,
-  bucketName
+  bucketName,
+  allowBackgroundRemoval = true
 }: UnifiedUploaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"device" | "camera" | "url" | "unsplash">("device");
@@ -109,6 +113,12 @@ export default function UnifiedUploader({
   const [cropPanX, setCropPanX] = useState(0);
   const [cropPanY, setCropPanY] = useState(0);
   const [compressToggle, setCompressToggle] = useState(true);
+
+  // Background removal: runs on this device; the original is kept so it can be undone.
+  const [bgOriginalSrc, setBgOriginalSrc] = useState<string | null>(null);
+  const [bgProgress, setBgProgress] = useState<RemovalProgress | null>(null);
+  const [bgError, setBgError] = useState("");
+  const [bgModelReady, setBgModelReady] = useState(false);
 
   // Upload progress states
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -555,8 +565,45 @@ export default function UnifiedUploader({
     setErrorMessage("");
     setUnsplashError("");
     setCurrentUploadItem(null);
+    setBgOriginalSrc(null);
+    setBgProgress(null);
+    setBgError("");
     stopCamera();
   };
+
+  useEffect(() => {
+    if (isEditing && allowBackgroundRemoval) isBackgroundRemovalReady().then(setBgModelReady);
+  }, [isEditing, allowBackgroundRemoval]);
+
+  const handleRemoveBackground = async () => {
+    if (!editImageSrc || bgProgress) return;
+    setBgError("");
+    setBgProgress({ stage: bgModelReady ? "preparing" : "downloading", percent: 0 });
+    try {
+      const cutout = await removeBackground(editImageSrc, setBgProgress, { aspect: cropAspect });
+      setBgOriginalSrc(editImageSrc);
+      setEditImageSrc(cutout);
+      setBgModelReady(true);
+    } catch (err) {
+      setBgError(toUserMessage(err, "Could not remove the background. Check your connection and try again."));
+    } finally {
+      setBgProgress(null);
+    }
+  };
+
+  const handleUndoBackground = () => {
+    if (!bgOriginalSrc) return;
+    setEditImageSrc(bgOriginalSrc);
+    setBgOriginalSrc(null);
+  };
+
+  const bgStatusText = !bgProgress
+    ? ""
+    : bgProgress.stage === "downloading"
+      ? `Getting the remover ready (first time only)${bgProgress.percent !== undefined ? ` · ${bgProgress.percent}%` : ""}`
+      : bgProgress.stage === "preparing"
+        ? "Starting up…"
+        : "Removing background… this can take up to a minute";
 
   const UNSPLASH_PER_PAGE = 24;
 
@@ -772,9 +819,21 @@ export default function UnifiedUploader({
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     onPointerCancel={handlePointerUp}
-                    style={{ width: `${viewportSize}px`, height: `${viewportSize}px` }}
+                    style={{
+                      width: `${viewportSize}px`,
+                      height: `${viewportSize}px`,
+                      // A checkerboard shows where the picture is now see-through.
+                      ...(bgOriginalSrc ? { background: "repeating-conic-gradient(#d4d4d8 0 25%, #ffffff 0 50%) 0 0 / 16px 16px" } : {}),
+                    }}
                     className="relative mx-auto rounded-3xl overflow-hidden bg-app-text/5 border-2 border-app-border flex items-center justify-center cursor-move touch-none select-none"
                   >
+                    {bgProgress && (
+                      <div className="absolute inset-0 z-10 grid place-items-center bg-app-bg/70 backdrop-blur-[1px]">
+                        <div className="p-3 bg-brand-500/10 text-brand-500 rounded-full animate-spin">
+                          <RefreshCw size={20} />
+                        </div>
+                      </div>
+                    )}
                     {/* Rendered Absolute Image */}
                     {editImageSrc && (
                       <img
@@ -821,6 +880,53 @@ export default function UnifiedUploader({
                     <span className="flex items-center gap-1"><Move size={10} /> Pan Active</span>
                   </div>
 
+                  {/* Background removal: free, on this device */}
+                  {allowBackgroundRemoval && (
+                    <div className="flex flex-col gap-2 py-2 border-t border-app-border/40 px-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-app-text text-[10px] block">Remove background</span>
+                          <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">
+                            {bgOriginalSrc
+                              ? "Done. The product now sits on a clear background."
+                              : bgModelReady
+                                ? "Cuts the product out of its photo. Free, on this device."
+                                : "Free, on this device. First use downloads about 45 MB once."}
+                          </span>
+                        </div>
+                        {bgOriginalSrc ? (
+                          <button
+                            type="button"
+                            onClick={handleUndoBackground}
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                          >
+                            <Undo2 size={11} /> Undo
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleRemoveBackground}
+                            disabled={Boolean(bgProgress)}
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 disabled:opacity-60 text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                          >
+                            <Eraser size={11} /> {bgProgress ? "Working" : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                      {bgProgress && (
+                        <div aria-live="polite">
+                          <span className="text-[8.5px] text-app-text-muted font-bold block">{bgStatusText}</span>
+                          {bgProgress.stage === "downloading" && bgProgress.percent !== undefined && (
+                            <div className="w-full bg-app-border h-1 rounded-full overflow-hidden mt-1">
+                              <div className="bg-brand-500 h-full transition-all duration-300" style={{ width: `${bgProgress.percent}%` }} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {bgError && <span role="alert" className="text-[8.5px] text-red-500 font-bold">{bgError}</span>}
+                    </div>
+                  )}
+
                   {/* Compression Options */}
                   <div className="flex items-center justify-between gap-4 py-2 border-t border-app-border/40 px-2">
                     <div>
@@ -841,7 +947,8 @@ export default function UnifiedUploader({
                     <button
                       type="button"
                       onClick={handleCropSave}
-                      className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                      disabled={Boolean(bgProgress)}
+                      className="flex-1 py-2 disabled:opacity-50 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
                     >
                       Crop & Save
                     </button>
