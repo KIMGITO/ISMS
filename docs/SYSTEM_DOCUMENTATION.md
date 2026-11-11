@@ -5,7 +5,7 @@ version: "4.2.1"
 date: "9 November 2026"
 ---
 
-# KayKay's ISMS — System Documentation
+# KayKay's App — System Documentation
 
 **Integrated Shop Management System (ISMS)** for KayKay's: the staff app (Android, Windows, Linux), the customer website, dial-code ordering, and the Supabase backend that serves them all.
 
