@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { Product, InventoryAdjustment, AdjustmentType } from "../types";
 import { useAuthStore } from "./authStore";
 import { useNotificationStore } from "./notificationStore";
-import { useBusinessStore } from "./businessStore";
+import { onBranchChange, useBusinessStore } from "./businessStore";
 import { ProductRepository, InventoryAdjustmentRepository, ProductCategoryRepository } from "../services/repositories";
 import { toUserMessage } from "../utils/userError";
 import { normalizeForStorage } from "../utils/stringUtils";
@@ -79,8 +79,10 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
 
   // Listen to business transitions dynamically after all modules load to avoid circular init issues
   setTimeout(() => {
-    useBusinessStore.subscribe((state) => {
-      setupSubscriptions(state.activeBusinessId);
+    // New branch: drop the old branch's stock at once, then load this one's.
+    onBranchChange((id) => {
+      set({ products: [], adjustments: [], categories: [] });
+      setupSubscriptions(id);
     });
     setupSubscriptions(useBusinessStore.getState().activeBusinessId);
   }, 0);

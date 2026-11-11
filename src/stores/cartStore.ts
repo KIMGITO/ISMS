@@ -6,7 +6,7 @@ import { useInventoryStore } from "./inventoryStore";
 import { useTransactionStore } from "./transactionStore";
 import { useCustomerStore } from "./customerStore";
 import { useNotificationStore } from "./notificationStore";
-import { useBusinessStore } from "./businessStore";
+import { onBranchChange, useBusinessStore } from "./businessStore";
 import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
 import { getSupabase } from "../services/supabaseClient";
@@ -339,3 +339,6 @@ export const useCartStore = create<CartState>((set, get) => ({
     }
   },
 }));
+
+// The cart and chosen customer belong to the branch they were picked in.
+setTimeout(() => onBranchChange(() => useCartStore.getState().clearCart()), 0);

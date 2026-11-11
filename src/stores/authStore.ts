@@ -1,7 +1,7 @@
 // src/stores/authStore.ts
 import { create } from "zustand";
 import { User, Business, BusinessMembership, Invitation, Employee, Shift, EmployeeRole } from "../types";
-import { useBusinessStore } from "./businessStore";
+import { onBranchChange, useBusinessStore } from "./businessStore";
 import { useNotificationStore } from "./notificationStore";
 import { isSupabaseConfigured, getSupabase } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
@@ -1168,8 +1168,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const user = get().currentUser;
       if (!user) return;
 
-      const hasMem = get().memberships.some(m => m.businessId === businessId && m.status === "Active");
-      if (!hasMem) {
+      const allowed =
+        get().memberships.some(m => m.businessId === businessId && m.status === "Active") ||
+        useBusinessStore.getState().businesses.some(b => b.id === businessId);
+      if (!allowed) {
         useNotificationStore.getState().showToast(
           "Access Denied",
           "You are not a member of this business.",
@@ -1179,14 +1181,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return;
       }
 
-      localStorage.setItem("kkm_current_business_id_v2", businessId);
+      // The branch-change listener below reloads role, team and notifications for it.
       useBusinessStore.getState().setActiveBusinessId(businessId);
-      
-      const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await get().hydrateAuthSessionData(session.user);
-      }
     },
 
     // Revoke Invitation
@@ -1514,3 +1510,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
     }
   };
 });
+
+// A branch switch is a full change: whatever started it (menu, Branches screen, a new
+// branch), reload who this person is there (role, team, notifications, presence).
+// Skipped while a sign-in reload is running, since that reload is what set the branch.
+setTimeout(() => {
+  onBranchChange((businessId) => {
+    const auth = useAuthStore.getState();
+    if (!businessId || !auth.currentUser || auth.isHydrating) return;
+    auth.refreshSession().catch(console.error);
+  });
+}, 0);

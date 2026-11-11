@@ -4,7 +4,7 @@ import { Transaction, DebtPayment } from "../types";
 import { TransactionRepository } from "../services/repositories";
 import { networkService } from "../services/networkService";
 import { SupabaseService } from "../services/supabaseService";
-import { useBusinessStore } from "./businessStore";
+import { onBranchChange, useBusinessStore } from "./businessStore";
 import { salesOutbox } from "../services/offline/salesOutbox";
 
 interface TransactionState {
@@ -47,8 +47,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => {
 
   // Listen to business transitions dynamically after all modules load to avoid circular init issues
   setTimeout(() => {
-    useBusinessStore.subscribe((state) => {
-      setupSubscription(state.activeBusinessId);
+    // New branch: drop the old branch's sales at once, then load this one's.
+    onBranchChange((id) => {
+      set({ transactions: [], debtPayments: [] });
+      setupSubscription(id);
     });
     setupSubscription(useBusinessStore.getState().activeBusinessId);
   }, 0);

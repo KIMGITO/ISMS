@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { customerName } from "../utils/stringUtils";
 import { Customer, type MoneyMethod } from "../types";
-import { useBusinessStore } from "./businessStore";
+import { onBranchChange, useBusinessStore } from "./businessStore";
 import { CustomerRepository } from "../services/repositories";
 import { normalizePhone } from "../utils/phoneUtils";
 import { checkPermissionGate } from "../utils/permissions";
@@ -74,8 +74,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
 
   // Listen to business transitions dynamically after all modules load to avoid circular init issues
   setTimeout(() => {
-    useBusinessStore.subscribe((state) => {
-      setupSubscription(state.activeBusinessId);
+    // New branch: drop the old branch's customers at once, then load this one's.
+    onBranchChange((id) => {
+      set({ customers: [] });
+      setupSubscription(id);
     });
     setupSubscription(useBusinessStore.getState().activeBusinessId);
   }, 0);

@@ -371,6 +371,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
 
     setActiveBusinessId: (id) => {
       localStorage.setItem(localActiveBusinessIdKey, id);
+      // The sign-in reload picks the branch from this key; keep it on the branch now open.
+      if (id) localStorage.setItem("kkm_current_business_id_v2", id);
       if (id === get().activeBusinessId) return;
       // Each business has its own settings: show its saved copy straight away, then refresh
       set({ activeBusinessId: id, integrationConfigs: getSavedConfigs(id) });
@@ -382,3 +384,16 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
     }
   };
 });
+
+/**
+ * Runs `fn` with the new branch id whenever the active branch changes (and not on other
+ * business-store updates, like settings being refreshed). Returns the unsubscribe.
+ */
+export function onBranchChange(fn: (businessId: string) => void): () => void {
+  let last = useBusinessStore.getState().activeBusinessId;
+  return useBusinessStore.subscribe((state) => {
+    if (state.activeBusinessId === last) return;
+    last = state.activeBusinessId;
+    fn(last);
+  });
+}

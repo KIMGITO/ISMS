@@ -1383,7 +1383,7 @@ export default function App() {
     if (isTourOpen) setShowNav(true);
   }, [isTourOpen]);
 
-  // Screens only leave room at the bottom for the nav while it is shown
+  // Floating buttons follow the nav down when it hides (screen padding stays fixed)
   useEffect(() => {
     document.documentElement.toggleAttribute('data-nav-hidden', !showNav);
   }, [showNav]);
@@ -4023,7 +4023,9 @@ export default function App() {
                 {/* CORE VIEWPORT CARDS: pull down from the top of a screen to refresh
                     (app-screens: phone edge spacing in index.css) */}
                 <PullToRefresh onRefresh={refreshApp} className="app-viewport flex-1 overflow-hidden relative">
-                  <ErrorBoundary key={refreshKey} resetKey={activeTab}>
+                  {/* Keyed by branch too: switching branch rebuilds every screen, so nothing a
+                      screen loaded or was editing for the old branch carries over. */}
+                  <ErrorBoundary key={`${refreshKey}:${activeBusinessId}`} resetKey={activeTab}>
                   <AnimatePresence mode="wait">
                     {activeTab === 'sell' && (
                       <motion.div
