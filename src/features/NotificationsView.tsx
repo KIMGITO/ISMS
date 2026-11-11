@@ -223,6 +223,9 @@ export default function NotificationsView() {
     toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
 
+  // Delete/archive show at once; if the database refuses, the rows come back with this message.
+  useEffect(() => NotificationRepository.onSaveFailed((msg) => showToast(msg, "danger")), [showToast]);
+
   // ---- Lists ----
   const feed = useMemo(() => [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [items]);
 
@@ -288,10 +291,8 @@ export default function NotificationsView() {
     setConfirm({ ids, title: one?.title || `${ids.length} notifications` });
   };
   const doDelete = (ids: string[]) => {
-    ids.forEach((id) => {
-      NotificationService.delete(id);
-      forget(id);
-    });
+    NotificationService.deleteMany(ids);
+    ids.forEach(forget);
     showToast(ids.length === 1 ? "Deleted" : `${ids.length} deleted`, "danger");
   };
   const markAllRead = () => {

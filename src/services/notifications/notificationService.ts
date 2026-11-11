@@ -233,6 +233,11 @@ export class NotificationService {
     NotificationRepository.delete(id);
   }
 
+  /** Deletes several at once (one database call). */
+  public static deleteMany(ids: string[]): void {
+    NotificationRepository.deleteMany(ids);
+  }
+
   /**
    * Restores a soft-deleted notification
    */

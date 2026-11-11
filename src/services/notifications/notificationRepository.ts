@@ -16,6 +16,17 @@ export type SQLiteRow<T> = T & {
 
 let notifications: SQLiteRow<AppNotification>[] = [];
 const subscribers = new Set<(notifications: SQLiteRow<AppNotification>[]) => void>();
+const failureListeners = new Set<(message: string) => void>();
+
+/** A change shown at once didn't save: put the rows back as they were and say so. */
+function undo(before: SQLiteRow<AppNotification>[], message: string) {
+  for (const row of before) {
+    const i = notifications.findIndex((n) => n.id === row.id);
+    if (i !== -1) notifications[i] = row;
+  }
+  notify();
+  failureListeners.forEach((cb) => cb(message));
+}
 
 function notify() {
   const active = notifications
@@ -161,6 +172,7 @@ export class NotificationRepository {
     const uuidId = toUuid(id);
     const idx = notifications.findIndex((n) => n.id === id || n.id === uuidId);
     if (idx === -1) return null;
+    const before = notifications[idx];
     const now = new Date().toISOString();
     notifications[idx] = {
       ...notifications[idx],
@@ -186,6 +198,7 @@ export class NotificationRepository {
       .then(({ error }) => {
         if (error) {
           console.error("[NotificationRepository] Error updating notification on Supabase:", error);
+          undo([before], "That change didn't save. Check your connection and try again.");
         }
       });
 
@@ -236,31 +249,40 @@ export class NotificationRepository {
   }
 
   public static delete(id: string, lastModifiedBy = "user"): boolean {
-    const uuidId = toUuid(id);
-    const idx = notifications.findIndex((n) => n.id === id || n.id === uuidId);
-    if (idx === -1) return false;
+    return this.deleteMany([id], lastModifiedBy) > 0;
+  }
+
+  /**
+   * Hides the notifications at once, then deletes them in the database through
+   * delete_my_notifications (a plain update is refused there: see 20261111005).
+   * If that fails they come back, with a message.
+   */
+  public static deleteMany(ids: string[], lastModifiedBy = "user"): number {
+    const wanted = new Set(ids.flatMap((id) => [id, toUuid(id)]));
+    const before = notifications.filter((n) => wanted.has(n.id) && !n.deleted_at);
+    if (before.length === 0) return 0;
     const now = new Date().toISOString();
-    notifications[idx] = {
-      ...notifications[idx],
-      deleted_at: now,
-      updated_at: now,
-      last_modified_by: lastModifiedBy,
-    };
+    notifications = notifications.map((n) =>
+      before.includes(n) ? { ...n, deleted_at: now, updated_at: now, last_modified_by: lastModifiedBy } : n
+    );
     notify();
 
-    // Async update on Supabase
-    const supabase = getSupabase();
-    supabase
-      .from("notifications")
-      .update({ deleted_at: now })
-      .eq("id", uuidId)
+    getSupabase()
+      .rpc("delete_my_notifications", { p_ids: before.map((n) => toUuid(n.id)) })
       .then(({ error }) => {
         if (error) {
-          console.error("[NotificationRepository] Error deleting notification on Supabase:", error);
+          console.error("[NotificationRepository] Error deleting notifications on Supabase:", error);
+          undo(before, before.length === 1 ? "That notification couldn't be deleted. Try again." : "Those notifications couldn't be deleted. Try again.");
         }
       });
 
-    return true;
+    return before.length;
+  }
+
+  /** Called with a message whenever a change shown on screen fails to save. */
+  public static onSaveFailed(cb: (message: string) => void): () => void {
+    failureListeners.add(cb);
+    return () => failureListeners.delete(cb);
   }
 
   public static subscribe(callback: (notifications: SQLiteRow<AppNotification>[]) => void): () => void {
