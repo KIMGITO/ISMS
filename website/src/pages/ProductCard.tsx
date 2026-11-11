@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Check, Heart, Plus } from 'lucide-react';
+import { Check, Heart, ShoppingCart, Star } from 'lucide-react';
 import { Product } from '../api';
 import { productPaths } from '../seo';
 import { useCart, useSaved, useStorefront, useToast } from '../store';
 import { formatPrice, perUnit, ProductImage } from '../ui';
-import { Stars } from './Reviews';
 
 export function SaveButton({ productId, name, className = '' }: { productId: string; name: string; className?: string }) {
   const saved = useSaved((s) => s.ids.includes(productId));
@@ -15,9 +14,9 @@ export function SaveButton({ productId, name, className = '' }: { productId: str
       onClick={() => toggle(productId)}
       aria-pressed={saved}
       aria-label={saved ? `Remove ${name} from saved items` : `Save ${name} for later`}
-      className={`grid size-10 place-items-center rounded-full bg-white/95 shadow-sm transition hover:scale-105 ${saved ? 'text-ember' : 'text-ink'} ${className}`}
+      className={`grid place-items-center rounded-full bg-white/95 shadow-sm transition hover:scale-105 ${saved ? 'text-ember' : 'text-ink'} ${className}`}
     >
-      <Heart size={18} strokeWidth={1.8} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+      <Heart size={15} strokeWidth={1.9} fill={saved ? 'currentColor' : 'none'} aria-hidden />
     </button>
   );
 }
@@ -41,31 +40,42 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
   const [justAdded, setJustAdded] = useState(false);
   const Tag = as;
 
+  // A small bordered card: photo on a soft tile, category and rating, name, price in green and an "Add" pill.
   return (
-    <Tag className="card card-lift group flex flex-col overflow-hidden">
+    <Tag className="group flex min-w-0 flex-col rounded-lg border border-line bg-white p-1.5 transition hover:border-ember/40 hover:shadow-soft sm:p-2.5">
       <div className="relative">
-        <a href={href} className="block aspect-square overflow-hidden bg-sand" tabIndex={-1} aria-hidden>
-          <ProductImage product={product} width={500} />
+        <a href={href} className="block aspect-square overflow-hidden rounded-md bg-shell" tabIndex={-1} aria-hidden>
+          <span className="block size-full transition duration-500 group-hover:scale-[1.04]">
+            <ProductImage product={product} width={500} />
+          </span>
         </a>
-        <SaveButton productId={product.id} name={product.name} className="absolute right-2.5 top-2.5" />
         {!product.inStock && (
-          <span className="absolute left-2.5 top-2.5 rounded-full bg-ink/90 px-2.5 py-1 text-xs font-semibold text-cream">Sold out</span>
+          <span className="absolute left-2 top-2 rounded-full bg-ink/90 px-2.5 py-0.5 text-[0.6875rem] font-medium text-cream">Sold out</span>
         )}
+        <SaveButton
+          productId={product.id}
+          name={product.name}
+          className="absolute -bottom-3.5 left-1/2 size-7 -translate-x-1/2 border border-line shadow-none hover:scale-110 sm:-bottom-4 sm:size-8"
+        />
       </div>
-      <div className="flex flex-1 flex-col p-3 sm:p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{product.category}</p>
-        <h3 className="mt-1 line-clamp-2 text-[0.9375rem] font-semibold leading-snug sm:text-base">
-          <a href={href} className="hover:text-brand-deep">{product.name}</a>
+      <div className="flex flex-1 flex-col px-0.5 pb-0.5 pt-4 sm:px-1.5 sm:pt-5">
+        <div className="flex items-center justify-between gap-1 text-[0.625rem] text-muted sm:gap-2 sm:text-[0.6875rem]">
+          <span className="truncate">{product.category}</span>
+          {ratings.length > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Star size={11} className="text-star" fill="currentColor" strokeWidth={0} aria-hidden />
+              {average.toFixed(1)}
+              <span className="sr-only"> out of 5 from {ratings.length} {ratings.length === 1 ? 'review' : 'reviews'}</span>
+            </span>
+          )}
+        </div>
+        <h3 className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug sm:mt-1 sm:text-sm">
+          <a href={href} className="hover:text-ember">{product.name}</a>
         </h3>
-        {ratings.length > 0 && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-            <Stars rating={average} size={13} /> <span>({ratings.length})</span>
-          </p>
-        )}
-        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-          <p className="min-w-0 font-bold leading-tight sm:text-lg">
-            {formatPrice(business.currency, product.price)}
-            <span className="block text-xs font-normal text-muted sm:inline sm:text-sm"> / {perUnit(product.unit)}</span>
+        <div className="mt-auto flex flex-col gap-1.5 pt-2 sm:flex-row sm:items-end sm:justify-between sm:pt-2.5">
+          <p className="min-w-0 leading-tight">
+            <span className="hidden text-[0.6875rem] text-muted sm:block">per {perUnit(product.unit)}</span>
+            <span className="block text-[0.8125rem] font-semibold text-leaf sm:text-base">{formatPrice(business.currency, product.price)}</span>
           </p>
           {product.inStock ? (
             <button
@@ -75,14 +85,13 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
                 setJustAdded(true);
                 setTimeout(() => setJustAdded(false), 1500);
               }}
-              className={`grid size-10 shrink-0 place-items-center rounded-full transition sm:size-11 ${
-                justAdded ? 'bg-leaf text-white' : 'bg-ink text-cream hover:bg-ember'
-              }`}
+              className={`btn btn-sm shrink-0 gap-1 px-3 max-sm:min-h-7 max-sm:w-full max-sm:text-[0.6875rem] ${justAdded ? 'border border-leaf bg-leaf text-white' : 'btn-primary'}`}
             >
-              {justAdded ? <Check size={18} aria-hidden /> : <Plus size={19} strokeWidth={2} aria-hidden />}
+              {justAdded ? <Check size={14} aria-hidden /> : <ShoppingCart size={14} aria-hidden />}
+              <span>{justAdded ? 'Added' : 'Add'}</span>
             </button>
           ) : (
-            <a href={href} className="shrink-0 py-2 text-sm font-medium text-muted underline">Details</a>
+            <a href={href} className="shrink-0 py-1 text-center text-xs text-muted underline">Details</a>
           )}
         </div>
       </div>

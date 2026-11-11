@@ -37,7 +37,7 @@ export function CheckoutSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
         const state = number < step ? 'done' : number === step ? 'current' : 'next';
         const content = (
           <>
-            <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${state === 'next' ? 'border border-line text-muted' : 'bg-ink text-cream'}`}>
+            <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${state === 'next' ? 'border border-line text-muted' : 'bg-ink text-cream'}`}>
               {state === 'done' ? <CheckCircle2 size={15} aria-hidden /> : number}
             </span>
             <span className={`truncate ${state === 'next' ? 'text-muted' : ''} ${state === 'current' ? '' : 'hidden md:inline'}`}>{label}</span>
@@ -171,7 +171,7 @@ export default function CartPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2 className="truncate font-sans text-lg font-semibold tracking-normal"><a href={paths.get(product.id)} className="hover:underline">{product.name}</a></h2>
+                    <h2 className="truncate text-lg font-medium"><a href={paths.get(product.id)} className="hover:underline">{product.name}</a></h2>
                     <p className="text-sm text-muted">{formatPrice(business.currency, product.price)} / {perUnit(product.unit)}</p>
                     {!product.inStock && <p className="text-sm font-medium text-red-700">Out of stock. Remove it to order.</p>}
                   </div>
@@ -208,7 +208,7 @@ export default function CartPage() {
                       <Plus size={17} aria-hidden />
                     </button>
                   </div>
-                  <p className="font-bold">{formatPrice(business.currency, product.price * line.quantity)}</p>
+                  <p className="font-semibold">{formatPrice(business.currency, product.price * line.quantity)}</p>
                 </div>
               </div>
             </li>
@@ -216,13 +216,13 @@ export default function CartPage() {
         </ul>
 
         <aside className={`${cardClass} space-y-5 p-5 lg:sticky lg:top-36`} aria-label="Order summary">
-          <h2 className="font-sans text-xl font-bold tracking-normal">Order summary</h2>
+          <h2 className="text-xl font-medium">Order summary</h2>
           <PromoField subtotal={subtotal} />
           <dl className="space-y-1.5 border-t border-line pt-4">
             <div className="flex justify-between gap-3"><dt className="text-muted">Products ({rows.length})</dt><dd>{formatPrice(business.currency, subtotal)}</dd></div>
             {saving > 0 && <div className="flex justify-between gap-3 text-emerald-800"><dt>Promo {promo?.code}</dt><dd>-{formatPrice(business.currency, saving)}</dd></div>}
             <div className="flex justify-between gap-3"><dt className="text-muted">Delivery</dt><dd className="text-muted">At checkout</dd></div>
-            <div className="flex justify-between gap-3 pt-1 text-xl font-bold"><dt>Estimated total</dt><dd>{formatPrice(business.currency, Math.floor(subtotal - saving))}</dd></div>
+            <div className="flex justify-between gap-3 pt-1 text-xl font-semibold"><dt>Estimated total</dt><dd>{formatPrice(business.currency, Math.floor(subtotal - saving))}</dd></div>
           </dl>
           <DeliveryEstimate />
           {shortBy > 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm">Add {formatPrice(business.currency, shortBy)} more to reach the minimum order of {formatPrice(business.currency, settings.minOrder)}.</p>}
@@ -331,7 +331,7 @@ export function CheckoutPage() {
         <div className="space-y-6">
           <section className={`${cardClass} p-5`}>
             <div className="flex items-start justify-between gap-3">
-              <h2 className="font-sans text-lg font-bold tracking-normal">1. Your details</h2>
+              <h2 className="text-lg font-medium">1. Your details</h2>
               <a href="/account/profile" className="text-sm font-medium underline">Change</a>
             </div>
             <p className="mt-2 font-medium">{account.name}</p>
@@ -339,7 +339,7 @@ export function CheckoutPage() {
           </section>
 
           <section className={`${cardClass} space-y-4 p-5`}>
-            <h2 className="font-sans text-lg font-bold tracking-normal">2. Delivery or pickup</h2>
+            <h2 className="text-lg font-medium">2. Delivery or pickup</h2>
             <fieldset>
               <legend className="sr-only">How would you like to receive it?</legend>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -386,9 +386,9 @@ export function CheckoutPage() {
           </section>
 
           <section className={`${cardClass} space-y-4 p-5`}>
-            <h2 className="font-sans text-lg font-bold tracking-normal">3. Payment</h2>
+            <h2 className="text-lg font-medium">3. Payment</h2>
             <div className="flex items-center gap-3 rounded-xl border border-ink bg-amber-50 p-4">
-              <span className="rounded-md bg-white px-2.5 py-1 text-xs font-extrabold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
+              <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
               <span className="text-sm">After you place the order, we send a prompt to <strong>{account.phone}</strong>. Enter your PIN to pay. <a href="/payments" className="underline">How it works</a></span>
             </div>
             {rewards && rewards.points >= rewards.minRedeem && (
@@ -401,7 +401,7 @@ export function CheckoutPage() {
         </div>
 
         <aside className={`${cardClass} space-y-4 p-5 lg:sticky lg:top-36`} aria-label="Order summary">
-          <h2 className="font-sans text-xl font-bold tracking-normal">Order summary</h2>
+          <h2 className="text-xl font-medium">Order summary</h2>
           <ul className="max-h-64 space-y-3 overflow-y-auto">
             {rows.map(({ line, product }) => (
               <li key={product.id} className="flex items-center gap-3">
@@ -420,7 +420,7 @@ export function CheckoutPage() {
             {fulfilment === 'delivery' && <div className="flex justify-between gap-3"><dt className="text-muted">Delivery</dt><dd>{deliveryZones.length > 0 && !zone ? 'Choose area' : formatPrice(business.currency, fee)}</dd></div>}
             {saving > 0 && <div className="flex justify-between gap-3 text-emerald-800"><dt>Promo {promo?.code}</dt><dd>-{formatPrice(business.currency, saving)}</dd></div>}
             {pointsValue > 0 && <div className="flex justify-between gap-3"><dt className="text-muted">Points</dt><dd>-{formatPrice(business.currency, pointsValue)}</dd></div>}
-            <div className="flex justify-between gap-3 pt-1 text-xl font-bold"><dt>Total</dt><dd>{formatPrice(business.currency, total)}</dd></div>
+            <div className="flex justify-between gap-3 pt-1 text-xl font-semibold"><dt>Total</dt><dd>{formatPrice(business.currency, total)}</dd></div>
           </dl>
           {belowMinimum && <p className="text-muted">The minimum order is {formatPrice(business.currency, settings.minOrder)}.</p>}
           {promoCode && !promo && promoError && <p className="text-sm text-red-800">The promo code won't be used: {promoError}</p>}

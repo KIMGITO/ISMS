@@ -16,7 +16,7 @@ export function Stars({ rating, size = 16, className = '' }: { rating: number; s
             <Star size={size} className="absolute inset-0 text-sand-deep" fill="currentColor" strokeWidth={0} aria-hidden />
             {fill > 0 && (
               <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
-                <Star size={size} className="text-[#e0a526]" fill="currentColor" strokeWidth={0} aria-hidden />
+                <Star size={size} className="text-star" fill="currentColor" strokeWidth={0} aria-hidden />
               </span>
             )}
           </span>
@@ -61,7 +61,7 @@ export function ReviewSummary({ reviews, onFilter, active }: { reviews: Review[]
   return (
     <div className="card flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:p-6">
       <div className="shrink-0 text-center sm:w-40">
-        <p className="font-display text-5xl font-medium">{count ? average.toFixed(1) : '–'}</p>
+        <p className="text-5xl font-medium">{count ? average.toFixed(1) : '–'}</p>
         <Stars rating={average} size={18} className="mt-2" />
         <p className="mt-1 text-sm text-muted">{count} {count === 1 ? 'review' : 'reviews'}</p>
       </div>
@@ -72,7 +72,7 @@ export function ReviewSummary({ reviews, onFilter, active }: { reviews: Review[]
             <>
               <span className="w-12 shrink-0 text-sm font-medium">{star} star</span>
               <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-sand">
-                <span className="block h-full rounded-full bg-[#e0a526]" style={{ width: `${share}%` }} />
+                <span className="block h-full rounded-full bg-star" style={{ width: `${share}%` }} />
               </span>
               <span className="w-8 shrink-0 text-right text-sm text-muted">{n}</span>
             </>
@@ -140,7 +140,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (value: numb
           <label key={n} className="cursor-pointer rounded-md p-1 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ember">
             <input type="radio" name="rating" value={n} checked={value === n} onChange={() => onChange(n)} className="sr-only" />
             <span className="sr-only">{n} {n === 1 ? 'star' : 'stars'}, {labels[n - 1]}</span>
-            <Star size={30} strokeWidth={1.5} className={n <= value ? 'text-[#e0a526]' : 'text-sand-deep'} fill="currentColor" aria-hidden />
+            <Star size={30} strokeWidth={1.5} className={n <= value ? 'text-star' : 'text-sand-deep'} fill="currentColor" aria-hidden />
           </label>
         ))}
         {value > 0 && <span className="ml-2 font-medium text-muted">{labels[value - 1]}</span>}
@@ -286,37 +286,36 @@ export function Testimonials() {
   const { count, average } = reviewStats(reviews);
 
   return (
-    <section className="site-gutter py-12 sm:py-16" aria-labelledby="testimonials-heading">
-      <Reveal className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Reviews</p>
-          <h2 id="testimonials-heading" className="display-lg mt-1.5">What Our Customers Say</h2>
-          {count > 0 && (
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-muted">
-              <Stars rating={average} size={18} />
-              <span><strong className="text-ink">{average.toFixed(1)} out of 5</strong> from {count} {count === 1 ? 'review' : 'reviews'}</span>
-            </p>
-          )}
-        </div>
-        <a href="/reviews" className="shrink-0 py-3 text-[0.9375rem] font-semibold underline decoration-line underline-offset-4 hover:decoration-ink">
-          {count ? 'Read all reviews' : 'Write the first review'}
-        </a>
+    <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="testimonials-heading">
+      <Reveal className="section-title">
+        <h2 id="testimonials-heading" className="display-lg">What Customers Say</h2>
+        {count > 0 ? (
+          <p className="mt-1.5 flex flex-wrap items-center justify-center gap-2 text-sm text-muted">
+            <Stars rating={average} size={15} />
+            <span><strong className="font-medium text-ink">{average.toFixed(1)} out of 5</strong> from {count} {count === 1 ? 'review' : 'reviews'}</span>
+            <a href="/reviews" className="font-medium text-ember">See all</a>
+          </p>
+        ) : (
+          <p className="mt-1.5 text-sm text-muted max-sm:hidden">Reviews from families who order from us.</p>
+        )}
       </Reveal>
       {picks.length > 0 ? (
-        <ul className="no-scrollbar -mx-4 mt-6 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
+        <ul className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:mt-8 sm:gap-4 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
           {picks.map((review) => (
-            <li key={review.id} className="w-[82vw] max-w-sm shrink-0 snap-start lg:w-auto lg:max-w-none">
-              <figure className="card flex h-full flex-col p-6">
-                <Quote size={28} className="text-ember/70" aria-hidden />
-                <Stars rating={review.rating} className="mt-3" />
-                <blockquote className="mt-3 flex-1 text-lg leading-relaxed">
-                  {review.title && <p className="font-semibold">{review.title}</p>}
-                  <p className="line-clamp-5 text-ink/85">{review.body}</p>
+            <li key={review.id} className="w-[80vw] max-w-sm shrink-0 snap-start lg:w-auto lg:max-w-none">
+              <figure className="flex h-full flex-col rounded-lg border border-line bg-white p-5 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <Stars rating={review.rating} />
+                  <Quote size={22} className="text-ember/30" aria-hidden />
+                </div>
+                <blockquote className="mt-3 flex-1 text-sm leading-relaxed sm:text-[0.9375rem]">
+                  {review.title && <p className="font-medium">{review.title}</p>}
+                  <p className="line-clamp-4 text-muted">{review.body}</p>
                 </blockquote>
-                <figcaption className="mt-5 flex items-center gap-3 border-t border-line pt-4">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sand font-bold">{review.name.charAt(0)}</span>
+                <figcaption className="mt-5 flex items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-tint-peach font-medium text-ember">{review.name.charAt(0)}</span>
                   <span className="text-sm">
-                    <span className="block font-semibold">{review.name}</span>
+                    <span className="block font-medium">{review.name}</span>
                     {review.verified && <span className="inline-flex items-center gap-1 text-leaf"><BadgeCheck size={14} aria-hidden /> Verified buyer</span>}
                   </span>
                 </figcaption>
@@ -325,9 +324,9 @@ export function Testimonials() {
           ))}
         </ul>
       ) : (
-        <div className="mt-6 rounded-2xl bg-sand p-6 sm:p-8">
-          <p className="text-lg font-semibold">Ordered from {business.name}?</p>
-          <p className="mt-1 max-w-xl text-muted">Your review helps other families choose, and tells us what to keep doing well.</p>
+        <div className="mx-auto mt-6 max-w-xl rounded-lg border border-line bg-white p-6 text-center sm:mt-8 sm:p-8">
+          <p className="font-medium">Ordered from {business.name}?</p>
+          <p className="mt-1 text-sm text-muted">Your review helps other families choose.</p>
           <a href="/reviews" className="btn btn-primary mt-4">Write a review</a>
         </div>
       )}

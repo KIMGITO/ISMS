@@ -1,92 +1,177 @@
-import { ArrowRight, ChevronDown, Gift, Tag } from 'lucide-react';
+import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
+import { Product } from '../api';
 import { PHOTOS, photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
 import { formatDate, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
 import { Testimonials } from './Reviews';
-import HeroCarousel from './HeroCarousel';
 import ProductCard from './ProductCard';
 import { ArticleCard } from './ArticlesPage';
 
-const STEPS = [
-  { title: 'Choose your milk', body: 'Browse the shop, or ask our assistant what is available today.' },
-  { title: 'Pay with M-Pesa', body: 'Enter your PIN when the prompt reaches your phone. That is all.' },
-  { title: 'Delivery or pickup', body: 'Have it brought to you, or collect it from us when it suits you.' },
-];
+type Photo = Parameters<typeof photoUrl>[0];
 
-function Categories() {
-  const { products } = useStorefront();
-  const counts = new Map<string, number>();
-  for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
-  const categories = Array.from(counts.entries()).slice(0, 8);
-  if (categories.length < 2) return null;
+const SLIDE_MS = 7000;
+
+const prefersReducedMotion = () =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** The product photo in a large circle with two small circles beside it, like a cut-out product cluster. */
+function PhotoCluster({ main, mainAlt, small }: { main: string; mainAlt: string; small: [Photo, Photo] }) {
   return (
-    <section className="site-gutter py-12 sm:py-16" aria-labelledby="categories-heading">
-      <Reveal>
-        <SectionHeader eyebrow="Our dairy" title="Shop by Category" id="categories-heading" link={{ href: '/shop', label: 'All products' }} />
-      </Reveal>
-      <RevealList className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-4">
-        {categories.map(([category, count]) => (
-          <li key={category} className="w-[42vw] shrink-0 snap-start sm:w-auto">
-            <a href={`/shop?category=${encodeURIComponent(category)}`} className="card-lift group relative block aspect-[4/5] overflow-hidden rounded-xl bg-sand">
-              <img src={photoUrl(productPhoto(category), 600, 750)} alt="" loading="lazy" className="size-full object-cover" />
-              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent p-4 pt-16 text-white">
-                <span className="min-w-0">
-                  <span className="block font-display text-xl font-medium leading-tight sm:text-2xl">{category}</span>
-                  <span className="text-sm text-white/80">{count} {count === 1 ? 'product' : 'products'}</span>
-                </span>
-                <ArrowRight size={19} strokeWidth={1.8} className="shrink-0 transition group-hover:translate-x-1" aria-hidden />
-              </span>
-            </a>
-          </li>
-        ))}
-      </RevealList>
-    </section>
+    <div className="relative mx-auto aspect-square w-full max-w-[9.5rem] min-[400px]:max-w-[10.5rem] sm:max-w-[18rem] lg:max-w-[22rem]">
+      <img src={main} alt={mainAlt} className="size-full rounded-full object-cover shadow-soft ring-[5px] ring-white sm:ring-[12px]" />
+      <img
+        src={photoUrl(small[0], 240, 240)}
+        alt=""
+        className="absolute -left-3 bottom-[8%] size-[32%] rounded-full object-cover shadow-soft ring-4 ring-white sm:-left-6 sm:ring-[6px]"
+      />
+      <img
+        src={photoUrl(small[1], 200, 200)}
+        alt=""
+        className="absolute -right-2 top-[6%] size-[24%] rounded-full object-cover shadow-soft ring-4 ring-white sm:-right-4 sm:ring-[6px]"
+      />
+    </div>
   );
 }
 
-/** The dark feature panel. */
-function HowItWorks() {
+/**
+ * The opening slider: a soft sand panel, a short headline and one button, the photo cluster on the
+ * right, arrows on wide screens and dots on phones, and a round button in a notch that jumps to the products.
+ */
+function Hero() {
+  const { business, articles } = useStorefront();
+  const slides = [
+    {
+      title: 'Fresh Milk Daily, Delivered to Your Door',
+      body: 'Order online and pay with M-Pesa.',
+      cta: { label: 'Explore shop', href: '/shop' },
+      main: photoUrl(PHOTOS.glassLight, 700, 700),
+      alt: PHOTOS.glassLight.alt,
+      small: [PHOTOS.butter, PHOTOS.yoghurt] as [Photo, Photo],
+    },
+    // The shop's own cover photo, when set, gets a slide of its own rather than leading the page.
+    ...(business.coverImageUrl
+      ? [{
+          title: 'From Our Farm to Your Fridge',
+          body: 'Delivery or pickup, your choice.',
+          cta: { label: 'Order now', href: '/shop' },
+          main: business.coverImageUrl,
+          alt: '',
+          small: [PHOTOS.bottle, PHOTOS.splash] as [Photo, Photo],
+        }]
+      : []),
+    {
+      title: 'Yoghurt, Butter and More From Our Dairy',
+      body: 'Everything fresh, every day.',
+      cta: { label: 'Shop dairy', href: '/shop' },
+      main: photoUrl(PHOTOS.yoghurt, 700, 700),
+      alt: PHOTOS.yoghurt.alt,
+      small: [PHOTOS.bottle, PHOTOS.splash] as [Photo, Photo],
+    },
+    {
+      title: 'Never Run Out of Milk Again',
+      body: 'Pick your days. We prepare each order.',
+      cta: { label: 'Set up regular orders', href: '/account/schedules' },
+      main: photoUrl(PHOTOS.bottle, 700, 700),
+      alt: PHOTOS.bottle.alt,
+      small: [PHOTOS.glassLight, PHOTOS.butter] as [Photo, Photo],
+    },
+    ...(articles.length > 0
+      ? [{
+          title: 'Keep Your Milk Fresh for Longer',
+          body: 'Simple guides for your kitchen.',
+          cta: { label: 'Read our guides', href: '/articles' },
+          main: photoUrl(PHOTOS.bottleTray, 700, 700),
+          alt: PHOTOS.bottleTray.alt,
+          small: [PHOTOS.splash, PHOTOS.yoghurt] as [Photo, Photo],
+        }]
+      : []),
+  ];
+  const count = slides.length;
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(prefersReducedMotion);
+  const touchStart = useRef<number | null>(null);
+
+  const goTo = useCallback((index: number) => setActive((index + count) % count), [count]);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setTimeout(() => { if (!document.hidden) goTo(active + 1); }, SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [active, paused, goTo]);
+
+  const onTouchEnd = (e: TouchEvent) => {
+    if (touchStart.current === null) return;
+    const distance = e.changedTouches[0].clientX - touchStart.current;
+    touchStart.current = null;
+    if (Math.abs(distance) > 45) goTo(active + (distance < 0 ? 1 : -1));
+  };
+
+  const arrow = 'absolute top-1/2 z-10 hidden size-9 -translate-y-1/2 place-items-center rounded-full bg-white text-ink shadow-soft transition hover:bg-ember hover:text-white sm:grid';
+
   return (
-    <section className="site-gutter py-4">
-      <Reveal className="ember-panel relative grid gap-8 overflow-hidden rounded-2xl p-6 sm:p-10 lg:grid-cols-[1.1fr_0.8fr_1fr] lg:gap-10 lg:p-14">
-        <div className="flex flex-col justify-between gap-10">
-          <p className="max-w-xs leading-relaxed text-cream/85">From the pasture to your fridge, with ordering that takes a minute or less.</p>
-          <h2 className="display-lg">Good milk, made easy to order</h2>
+    <section className="site-gutter pt-3 sm:pt-6" aria-roledescription="carousel" aria-label="Welcome">
+      <div className="relative pb-7 sm:pb-9">
+        <div
+          className="soft-panel relative grid touch-pan-y overflow-hidden rounded-2xl"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(prefersReducedMotion())}
+          onTouchStart={(e) => { touchStart.current = e.touches[0].clientX; }}
+          onTouchEnd={onTouchEnd}
+        >
+          {slides.map((slide, index) => {
+            const isActive = index === active;
+            const Heading = index === 0 ? 'h1' : 'h2';
+            return (
+              <div
+                key={slide.title}
+                role="group"
+                aria-roledescription="slide"
+                aria-label={`${index + 1} of ${count}`}
+                aria-hidden={!isActive}
+                {...({ inert: !isActive } as object)}
+                className={`grid grid-cols-[1.2fr_1fr] items-center gap-3 px-4 pb-11 pt-6 transition-opacity duration-700 [grid-area:1/1] sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 md:grid-cols-[1.15fr_1fr] lg:px-20 lg:pb-20 lg:pt-14 ${isActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+              >
+                <div>
+                  <Heading className="display-xl max-w-[18ch] max-sm:text-[1.3125rem] max-sm:leading-tight">{slide.title}</Heading>
+                  <p className="mt-1.5 text-xs text-muted sm:mt-3 sm:text-[0.9375rem]">{slide.body}</p>
+                  <a href={slide.cta.href} className="btn btn-primary mt-3.5 max-sm:min-h-9 max-sm:px-3.5 max-sm:text-xs sm:mt-7">
+                    {slide.cta.label} <ShoppingCart size={16} aria-hidden />
+                  </a>
+                </div>
+                {(isActive || index === (active + 1) % count) && (
+                  <PhotoCluster main={slide.main} mainAlt={slide.alt} small={slide.small} />
+                )}
+              </div>
+            );
+          })}
+
+          <button onClick={() => goTo(active - 1)} aria-label="Previous slide" className={`${arrow} left-3 lg:left-5`}>
+            <ChevronLeft size={18} aria-hidden />
+          </button>
+          <button onClick={() => goTo(active + 1)} aria-label="Next slide" className={`${arrow} right-3 lg:right-5`}>
+            <ChevronRight size={18} aria-hidden />
+          </button>
+          <div className="absolute bottom-3 left-6 z-10 flex gap-1.5 sm:hidden">
+            {slides.map((slide, index) => (
+              <button
+                key={slide.title}
+                onClick={() => goTo(index)}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-current={index === active}
+                className={`h-1.5 rounded-full transition-all ${index === active ? 'w-5 bg-ember' : 'w-1.5 bg-ink/20'}`}
+              />
+            ))}
+          </div>
         </div>
-        <img
-          src={photoUrl(PHOTOS.cow, 700, 900)}
-          alt={PHOTOS.cow.alt}
-          loading="lazy"
-          className="aspect-[4/3] w-full rounded-lg object-cover object-[60%_50%] lg:aspect-auto lg:h-full lg:min-h-[28rem]"
-        />
-        <ol className="flex flex-col justify-end gap-7">
-          {STEPS.map((step, index) => (
-            <li key={step.title} className="border-t border-white/20 pt-4">
-              <p className="text-sm text-cream/70">0{index + 1}</p>
-              <h3 className="mt-1 font-display text-2xl font-medium">{step.title}</h3>
-              <p className="mt-1 leading-relaxed text-cream/85">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </Reveal>
-    </section>
-  );
-}
 
-function RegularOrders() {
-  return (
-    <section className="site-gutter grid items-center gap-8 py-14 sm:py-20 lg:grid-cols-2 lg:gap-16">
-      <Reveal>
-        <img src={photoUrl(PHOTOS.pour, 1000, 800)} alt={PHOTOS.pour.alt} loading="lazy" className="aspect-[5/4] w-full object-cover" />
-      </Reveal>
-      <Reveal>
-        <p className="eyebrow">Regular orders</p>
-        <h2 className="display-lg mt-2">Never Run Out of Milk</h2>
-        <p className="mt-4 max-w-md text-lg leading-relaxed text-muted">
-          Choose your products and your days. We prepare your order on each of those days and send you a message to pay for it.
-        </p>
-        <a href="/account/schedules" className="btn btn-primary mt-6">Set Up a Schedule</a>
-      </Reveal>
+        {/* The notch: a page-coloured circle biting into the panel, holding the jump button. */}
+        <div className="absolute bottom-0 left-1/2 grid size-[4.5rem] -translate-x-1/2 place-items-center rounded-full bg-cream sm:size-[5.5rem]">
+          <a href="#popular" aria-label="Jump to products" className="grid size-11 place-items-center rounded-full bg-ember text-white shadow-soft transition hover:bg-brand-deep sm:size-14">
+            <ArrowDown size={20} aria-hidden />
+          </a>
+        </div>
+      </div>
     </section>
   );
 }
@@ -96,19 +181,18 @@ function Promotions() {
   const { promotions = [], business } = useStorefront();
   if (promotions.length === 0) return null;
   return (
-    <section className="site-gutter pt-10 sm:pt-14" aria-label="Offers">
+    <section className="site-gutter pt-8" aria-label="Offers">
       <ul className="grid gap-3 md:grid-cols-2">
         {promotions.slice(0, 4).map((promo) => (
-          <li key={promo.code} className="flex flex-wrap items-center gap-4 rounded-2xl border border-dashed border-ember/50 bg-amber-50 p-5">
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-ember"><Tag size={22} aria-hidden /></span>
+          <li key={promo.code} className="flex items-center gap-3 rounded-lg border border-dashed border-ember/50 bg-amber-50 p-3.5 sm:gap-4 sm:p-4">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-ember"><Tag size={18} aria-hidden /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-lg font-bold">{promotionLabel(promo, business.currency)}</p>
-              <p className="text-sm text-muted">
-                {promo.description || 'Enter the code in your cart.'}
-                {promo.endsAt && ` Ends ${formatDate(promo.endsAt)}.`}
+              <p className="text-sm font-medium leading-snug sm:text-[0.9375rem]">{promotionLabel(promo, business.currency)}</p>
+              <p className="truncate text-xs text-muted">
+                {promo.endsAt ? `Ends ${formatDate(promo.endsAt)}` : promo.description || 'Use the code at checkout'}
               </p>
             </div>
-            <span className="rounded-lg border-2 border-ink px-3 py-1.5 font-mono text-base font-bold tracking-wider">{promo.code}</span>
+            <span className="shrink-0 rounded-md bg-white px-2.5 py-1 font-mono text-sm font-semibold tracking-wider ring-1 ring-line">{promo.code}</span>
           </li>
         ))}
       </ul>
@@ -116,113 +200,156 @@ function Promotions() {
   );
 }
 
-function RewardsBanner() {
-  const { loyalty, business } = useStorefront();
-  const perShilling = loyalty?.pointsPerShilling ?? 2;
+// Three across even on phones, like a shop shelf; six on wide screens.
+const productGrid = 'grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
+
+function ProductSection({ id, title, subtitle, products, link }: { id: string; title: string; subtitle: string; products: Product[]; link?: boolean }) {
   return (
-    <section className="site-gutter pb-12 sm:pb-16">
-      <Reveal className="flex flex-col gap-5 rounded-2xl bg-sand p-6 sm:flex-row sm:items-center sm:p-10">
-        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white text-ember"><Gift size={26} strokeWidth={1.6} aria-hidden /></span>
-        <div className="flex-1">
-          <h2 className="display-md">Earn points on every order</h2>
-          <p className="mt-2 max-w-xl text-muted">
-            Get {perShilling} points for every {business.currency} 1 you pay, then use them for money off your next order.
-          </p>
+    <section id={id} className="site-gutter scroll-mt-32 pt-12 sm:pt-16" aria-labelledby={`${id}-heading`}>
+      <Reveal><SectionHeader center id={`${id}-heading`} title={title} subtitle={subtitle} /></Reveal>
+      <RevealList className={`mt-6 sm:mt-8 ${productGrid}`}>
+        {products.map((product) => <ProductCard key={product.id} product={product} />)}
+      </RevealList>
+      {link && (
+        <div className="mt-6 text-center">
+          <a href="/shop" className="btn btn-secondary">View all products <ArrowRight size={15} aria-hidden /></a>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <a href="/account/rewards" className="btn btn-primary">See my points</a>
-          <a href="/help#how-do-reward-points-work" className="btn btn-secondary">How it works</a>
-        </div>
+      )}
+    </section>
+  );
+}
+
+/** The wide two-part banner between product rows: brand colour on the left, photo cut on a slant. */
+function PromoBanner() {
+  const halves = [
+    { kicker: '100%', title: 'Natural', body: 'Pure farm milk', photo: PHOTOS.pour, bg: 'bg-[#f3b04a]', href: '/shop' },
+    { kicker: 'Fresh', title: 'Every day', body: 'Yoghurt, butter and more', photo: PHOTOS.yoghurt, bg: 'bg-[#f6cf7d]', href: '/shop' },
+  ];
+  return (
+    <section className="site-gutter pt-12 sm:pt-16" aria-label="Featured">
+      <Reveal className="grid grid-cols-2 overflow-hidden rounded-xl">
+        {halves.map((half) => (
+          <a key={half.title} href={half.href} className={`group relative flex h-24 items-center overflow-hidden sm:h-44 ${half.bg}`}>
+            <img
+              src={photoUrl(half.photo, 700, 400)}
+              alt=""
+              loading="lazy"
+              className="absolute inset-y-0 right-0 h-full w-1/2 object-cover sm:w-[58%] transition duration-700 [clip-path:polygon(22%_0,100%_0,100%_100%,0_100%)] group-hover:scale-105"
+            />
+            <span className="relative z-10 pl-3 sm:pl-10">
+              <span className="block text-[0.625rem] font-medium text-brand-deep sm:text-sm">{half.kicker}</span>
+              <span className="block text-base font-semibold leading-tight text-ember sm:text-4xl">{half.title}</span>
+              <span className="mt-0.5 hidden text-sm text-ink/70 sm:block">{half.body}</span>
+            </span>
+            <span className="absolute bottom-2 right-2 z-10 rounded-full bg-white/95 px-2 py-0.5 text-[0.625rem] font-medium text-ink shadow-soft sm:bottom-5 sm:right-6 sm:px-3 sm:py-1 sm:text-sm">
+              Shop now
+            </span>
+          </a>
+        ))}
       </Reveal>
     </section>
   );
 }
 
-const HELP_TOPICS = [
-  { q: 'How do I pay?', href: '/payments' },
-  { q: 'How much is delivery?', href: '/delivery' },
-  { q: 'Where is my order?', href: '/track' },
-  { q: 'Something was wrong with my order', href: '/returns' },
-];
+/** Three photo-backed cards: the biggest categories, topped up with regular orders and rewards. */
+function CategoryBanners() {
+  const { products, loyalty } = useStorefront();
+  const counts = new Map<string, number>();
+  for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+  const fromCategories = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([category, count]) => ({
+      kicker: `${count} ${count === 1 ? 'product' : 'products'}`,
+      title: category,
+      href: `/shop?category=${encodeURIComponent(category)}`,
+      photo: productPhoto(category),
+      cta: 'Order now',
+    }));
+  const extras = [
+    { kicker: 'Every week', title: 'Regular orders', href: '/account/schedules', photo: PHOTOS.pour, cta: 'Set up' },
+    { kicker: `${loyalty?.pointsPerShilling ?? 2} points per shilling`, title: 'Rewards', href: '/account/rewards', photo: PHOTOS.butter, cta: 'My points' },
+    { kicker: 'Milk care', title: 'Guides', href: '/articles', photo: PHOTOS.bottleTray, cta: 'Read' },
+  ];
+  const cards = [...fromCategories, ...extras].slice(0, 3);
+  const looks = [
+    { bg: 'bg-[#f6d27a]', fade: 'from-[#f6d27a]', text: 'text-ink', button: 'btn-dark' },
+    { bg: 'bg-hero', fade: 'from-hero', text: 'text-cream', button: 'btn-primary' },
+    { bg: 'bg-[#f2b27c]', fade: 'from-[#f2b27c]', text: 'text-ink', button: 'btn-dark' },
+  ];
 
-function HelpPanel() {
   return (
-    <section className="site-gutter grid gap-6 py-12 sm:py-16 lg:grid-cols-2 lg:gap-12">
-      <Reveal>
-        <p className="eyebrow">Customer care</p>
-        <h2 className="display-lg mt-1.5">Questions? We're Here to Help</h2>
-        <p className="mt-3 max-w-md text-lg text-muted">Find quick answers, or tell us what you liked, what to improve and what you'd like us to stock.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <a href="/help" className="btn btn-primary">Visit the help centre</a>
-          <a href="/feedback" className="btn btn-secondary">Share feedback</a>
-        </div>
-      </Reveal>
-      <Reveal>
-        <ul className="divide-y divide-line rounded-xl border border-line bg-white">
-          {HELP_TOPICS.map((topic) => (
-            <li key={topic.q}>
-              <a href={topic.href} className="flex min-h-16 items-center justify-between gap-3 px-5 font-semibold transition hover:bg-amber-50">
-                {topic.q}
-                <ChevronDown size={18} className="-rotate-90 text-muted" aria-hidden />
+    <section className="site-gutter pt-12 sm:pt-16" aria-label="Browse">
+      <RevealList className="grid gap-3 sm:gap-5 md:grid-cols-3">
+        {cards.map((card, index) => {
+          const look = looks[index];
+          return (
+            <li key={card.title}>
+              <a href={card.href} className={`group relative flex h-28 overflow-hidden rounded-xl sm:h-52 ${look.bg} ${look.text}`}>
+                <img
+                  src={photoUrl(card.photo, 600, 420)}
+                  alt=""
+                  loading="lazy"
+                  className="absolute inset-y-0 right-0 h-full w-2/3 object-cover transition duration-700 group-hover:scale-105"
+                />
+                <span className={`absolute inset-y-0 left-0 w-2/3 bg-gradient-to-r ${look.fade} from-45% to-transparent`} aria-hidden />
+                <span className="relative z-10 flex flex-col p-3.5 sm:p-5">
+                  <span className="text-xs font-medium text-ember">{card.kicker}</span>
+                  <span className="mt-0.5 text-lg font-medium capitalize leading-tight sm:text-xl">{card.title}</span>
+                  <span className={`btn btn-sm mt-auto w-fit ${look.button}`}>{card.cta}</span>
+                </span>
               </a>
             </li>
-          ))}
-        </ul>
-      </Reveal>
+          );
+        })}
+      </RevealList>
     </section>
   );
 }
 
 export default function HomePage() {
   const site = useStorefront();
-  const { products, articles } = site;
+  const { products, articles, reviews = [] } = site;
   const recentIds = useRecent((s) => s.ids);
-  const featured = products.filter((p) => p.inStock).slice(0, 8);
-  const recent = recentIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 4);
+
+  const popular = [...products].sort((a, b) => Number(b.inStock) - Number(a.inStock)).slice(0, 12);
+  const reviewCount = (id: string) => reviews.filter((r) => r.productId === id).length;
+  const bestSellers = products.length > 6
+    ? products.filter((p) => p.inStock).sort((a, b) => reviewCount(b.id) - reviewCount(a.id)).slice(0, 6)
+    : [];
+  const recent = recentIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 6);
 
   return (
     <>
-      <HeroCarousel />
-      <div className="site-gutter -mt-px pt-6 sm:pt-8"><TrustStrip site={site} /></div>
+      <Hero />
       <Promotions />
-      <Categories />
-      {featured.length > 0 && (
-        <section className="bg-sand/70">
-          <div className="site-gutter py-12 sm:py-16">
-            <Reveal>
-              <SectionHeader eyebrow="In stock now" title="Available Today" link={{ href: '/shop', label: 'See all' }} />
-            </Reveal>
-            <RevealList className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-              {featured.map((product) => <ProductCard key={product.id} product={product} />)}
-            </RevealList>
-          </div>
-        </section>
+      {popular.length > 0 && (
+        <ProductSection
+          id="popular"
+          title="Popular Products"
+          subtitle="Fresh from our dairy and ready to order today."
+          products={popular}
+          link={products.length > popular.length}
+        />
       )}
-      <div className="py-10 sm:py-14"><HowItWorks /></div>
+      <PromoBanner />
+      {bestSellers.length > 0 && (
+        <ProductSection id="best" title="Best Sellers" subtitle="The products our customers order most." products={bestSellers} />
+      )}
+      <CategoryBanners />
+      <div className="site-gutter pt-12 sm:pt-16"><TrustStrip site={site} /></div>
       <Testimonials />
-      <RegularOrders />
-      <RewardsBanner />
       {recent.length > 0 && (
-        <section className="site-gutter pb-12 sm:pb-16">
-          <SectionHeader title="Recently Viewed" link={{ href: '/shop', label: 'Keep shopping' }} />
-          <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-            {recent.map((product) => <ProductCard key={product.id} product={product} />)}
-          </ul>
-        </section>
+        <ProductSection id="recent" title="Recently Viewed" subtitle="Pick up where you left off." products={recent} />
       )}
       {articles.length > 0 && (
-        <section className="bg-sand/70">
-          <div className="site-gutter py-12 sm:py-16">
-            <Reveal>
-              <SectionHeader eyebrow="Milk care" title="Guides for Your Kitchen" link={{ href: '/articles', label: 'All guides' }} />
-            </Reveal>
-            <RevealList className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {articles.slice(0, 3).map((article) => <ArticleCard key={article.id} article={article} />)}
-            </RevealList>
-          </div>
+        <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="guides-heading">
+          <Reveal><SectionHeader center id="guides-heading" title="Milk Guides" subtitle="How to store, handle and enjoy your milk." /></Reveal>
+          <RevealList className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-3 max-sm:[&>li]:w-[78vw] max-sm:[&>li]:max-w-xs max-sm:[&>li]:shrink-0 max-sm:[&>li]:snap-start">
+            {articles.slice(0, 3).map((article) => <ArticleCard key={article.id} article={article} />)}
+          </RevealList>
         </section>
       )}
-      <HelpPanel />
     </>
   );
 }

@@ -12,13 +12,13 @@
   --rt-ink: var(--color-ink, #23160e);
   --rt-muted: var(--color-muted, #6b5a4b);
   --rt-accent: var(--color-brand-deep, #9a4313);
-  --rt-orange: var(--color-ember, #c2571a);
+  --rt-orange: #c2571a;
   --rt-green: var(--color-leaf, #2f6b45);
-  --rt-line: var(--color-line, #eadfce);
+  --rt-line: var(--color-line, #efe5d7);
   --rt-sand: var(--color-sand, #f6eee2);
   --rt-mark: #fbe3a6;
-  --rt-serif: "Fraunces", Georgia, "Times New Roman", serif;
-  --rt-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rt-serif: Georgia, "Times New Roman", serif;
+  --rt-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --rt-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -37,8 +37,8 @@
 /* ---- Headings ---- */
 :where(.rich-text .rt-h2) {
   padding-top: 1rem;
-  font-family: var(--rt-serif);
-  font-size: 1.5rem;
+  font-family: var(--rt-sans);
+  font-size: 1.375rem;
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -47,7 +47,7 @@
 
 :where(.rich-text .rt-h2.rt-section) {
   padding-top: 1.5rem;
-  font-size: clamp(1.5rem, 2.6vw, 2.125rem);
+  font-size: clamp(1.375rem, 1.15rem + 1vw, 1.875rem);
   color: var(--rt-ink);
 }
 
@@ -79,9 +79,8 @@
 :where(.rich-text .rt-quote) {
   border-left: 3px solid var(--rt-accent);
   padding: 0.25rem 0 0.25rem 1.125rem;
-  font-family: var(--rt-serif);
   font-size: 1.125em;
-  font-style: italic;
+  font-weight: 600;
   color: var(--rt-ink);
 }
 

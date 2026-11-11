@@ -26,7 +26,7 @@ export function SavedPage() {
       </PageHeader>
       <div className={pageClass}>
         {saved.length > 0 ? (
-          <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+          <ul className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
             {saved.map((product) => <ProductCard key={product.id} product={product} />)}
           </ul>
         ) : (
@@ -197,7 +197,7 @@ export function NotFoundPage() {
         </div>
       </div>
       {picks.length > 0 && (
-        <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <ul className="mt-10 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
           {picks.map((p) => <ProductCard key={p.id} product={p} />)}
         </ul>
       )}
@@ -257,13 +257,13 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
 
       {paid && (
         <section className="card mt-8 p-5 sm:p-6">
-          <h2 className="flex items-center gap-2 font-sans text-lg font-bold tracking-normal">
+          <h2 className="flex items-center gap-2 text-lg font-medium">
             <Truck size={20} className="text-ember" aria-hidden /> What happens next
           </h2>
           <ol className="mt-4 space-y-3">
             {steps.map((step, index) => (
               <li key={step} className="flex gap-3">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sand text-sm font-bold">{index + 1}</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sand text-sm font-semibold">{index + 1}</span>
                 <span className="pt-0.5">{step}</span>
               </li>
             ))}
@@ -276,7 +276,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
       )}
 
       <section className="card mt-6 p-5 sm:p-6">
-        <h2 className="font-sans text-lg font-bold tracking-normal">Order summary</h2>
+        <h2 className="text-lg font-medium">Order summary</h2>
         <ul className="mt-3 divide-y divide-line">
           {order.online_order_items.map((item) => (
             <li key={item.id} className="flex justify-between gap-3 py-3">
@@ -288,7 +288,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
         <dl className="mt-2 space-y-1.5 border-t border-line pt-3">
           {order.delivery_fee > 0 && <div className="flex justify-between"><dt className="text-muted">Delivery</dt><dd>{formatPrice(business.currency, order.delivery_fee)}</dd></div>}
           <OrderDiscounts order={order} currency={business.currency} />
-          <div className="flex justify-between text-xl font-bold"><dt>{paid ? 'Paid' : 'To pay'}</dt><dd>{formatPrice(business.currency, order.total)}</dd></div>
+          <div className="flex justify-between text-xl font-semibold"><dt>{paid ? 'Paid' : 'To pay'}</dt><dd>{formatPrice(business.currency, order.total)}</dd></div>
         </dl>
         {paid && <p className="mt-3 text-sm text-muted">This order earns you reward points. See them under <a href="/account/rewards" className="underline">Rewards</a>.</p>}
       </section>

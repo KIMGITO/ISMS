@@ -11,7 +11,7 @@ function ContactCard() {
   const { business, settings } = useStorefront();
   const whatsapp = settings.whatsapp || business.contactPhone;
   return (
-    <aside className="rounded-2xl bg-sand p-6">
+    <aside className="rounded-lg border border-line bg-shell p-5 sm:p-6">
       <h2 className="display-md">Still need help?</h2>
       <p className="mt-2 text-muted">Our team reads every message.{settings.openingHours ? ` We're open ${settings.openingHours}.` : ''}</p>
       <div className="mt-4 flex flex-wrap gap-3">
@@ -66,7 +66,7 @@ function Faq({ text }: { text: string }) {
       <div className="mt-6 divide-y divide-line rounded-xl border border-line bg-white">
         {shown.map((q) => (
           <details key={q.heading} id={slugify(plainText(q.heading))} className="accordion group px-5" open={Boolean(term.trim())}>
-            <summary className="flex min-h-16 items-center justify-between gap-4 py-3 text-[1.0625rem] font-semibold">
+            <summary className="flex min-h-14 items-center justify-between gap-4 py-3 text-[0.9375rem] font-medium sm:text-base">
               <span className={textStyleClass(q.headingStyle)}>{inline(q.heading)}</span>
               <ChevronDown size={19} className="accordion-icon shrink-0 text-muted" aria-hidden />
             </summary>

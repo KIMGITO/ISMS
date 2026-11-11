@@ -45,14 +45,14 @@ export default function RewardsTab() {
   return (
     <div className="max-w-xl space-y-6">
       <dl className="grid grid-cols-2 gap-4 rounded-xl border border-line bg-white p-5">
-        <div><dt className="text-muted">Points</dt><dd className="text-2xl font-bold">{rewards.points}</dd></div>
-        <div><dt className="text-muted">Tier</dt><dd className="text-2xl font-bold">{rewards.tier}</dd></div>
+        <div><dt className="text-muted">Points</dt><dd className="text-2xl font-semibold">{rewards.points}</dd></div>
+        <div><dt className="text-muted">Tier</dt><dd className="text-2xl font-semibold">{rewards.tier}</dd></div>
         <div><dt className="text-muted">Wallet</dt><dd className="text-xl font-semibold">Ksh {rewards.wallet}</dd></div>
         <div><dt className="text-muted">Owed</dt><dd className="text-xl font-semibold">Ksh {rewards.debt}</dd></div>
       </dl>
 
       <div>
-        <h2 className="text-xl font-bold">Redeem points</h2>
+        <h2 className="text-xl font-semibold">Redeem points</h2>
         <p className="mt-1 text-muted">
           Each point is worth Ksh {rewards.pointValue}. You can redeem from {rewards.minRedeem} points.
           You can also use points in your cart to pay part of an order. Redeeming here clears anything you

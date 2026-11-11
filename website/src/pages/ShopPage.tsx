@@ -91,12 +91,12 @@ export default function ShopPage({ route }: { route: Route }) {
                     <button
                       onClick={() => update({ category: name })}
                       aria-pressed={category === name}
-                      className={`flex min-h-10 w-full items-center justify-between rounded-lg px-3 text-left font-medium transition ${
-                        category === name ? 'bg-ink text-cream' : 'hover:bg-sand'
+                      className={`flex min-h-10 w-full items-center justify-between rounded-md px-3 text-left text-sm capitalize transition ${
+                        category === name ? 'bg-ember text-white' : 'hover:bg-shell hover:text-ember'
                       }`}
                     >
                       <span className="truncate">{name === 'All' ? 'All products' : name}</span>
-                      <span className={`text-sm ${category === name ? 'text-cream/70' : 'text-muted'}`}>{count}</span>
+                      <span className={`text-sm ${category === name ? 'text-white/80' : 'text-muted'}`}>{count}</span>
                     </button>
                   </li>
                 ))}
@@ -132,7 +132,7 @@ export default function ShopPage({ route }: { route: Route }) {
                 value={q}
                 onChange={(e) => update({ q: e.target.value })}
                 placeholder="Search products"
-                className="h-11 w-full rounded-full border border-line bg-white pl-10 pr-4 text-base"
+                className="h-11 w-full rounded-md border border-line bg-white pl-10 pr-4 text-base focus:border-ember focus:outline-none"
               />
             </label>
             <p className="mr-auto text-muted" aria-live="polite">
@@ -144,7 +144,7 @@ export default function ShopPage({ route }: { route: Route }) {
             </label>
             <label className="flex items-center gap-2 text-sm font-medium">
               <span className="hidden sm:inline">Sort by</span>
-              <select value={sort} onChange={(e) => update({ sort: e.target.value })} className="h-10 rounded-full border border-line bg-white px-3 text-sm font-medium">
+              <select value={sort} onChange={(e) => update({ sort: e.target.value })} className="h-10 rounded-md border border-line bg-white px-3 text-sm">
                 {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </label>
@@ -160,11 +160,11 @@ export default function ShopPage({ route }: { route: Route }) {
           )}
 
           {visible.length > 0 ? (
-            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
+            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
               {visible.map((product) => <ProductCard key={product.id} product={product} />)}
             </ul>
           ) : (
-            <div className="mt-8 rounded-xl border border-dashed border-line p-10 text-center">
+            <div className="mt-8 rounded-lg border border-dashed border-line p-8 text-center sm:p-10">
               <p className="text-lg font-semibold">
                 {products.length === 0 ? 'Our product list is coming soon' : 'No products match'}
               </p>

@@ -2,14 +2,14 @@ import { RichText } from '../RichText';
 import { Article } from '../api';
 import { articlePhoto, PHOTOS, photoUrl } from '../images';
 import { useStorefront } from '../store';
-import { cardClass, DisplayText, formatDate, Notice, PageHero, pageClass, RevealList } from '../ui';
+import { DisplayText, formatDate, Notice, PageHero, pageClass, RevealList } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 export function ArticleCard({ article }: { article: Article }) {
   return (
-    <li className={`${cardClass} card-lift overflow-hidden`}>
+    <li className="group overflow-hidden rounded-lg border border-line bg-white transition hover:border-ember/40 hover:shadow-soft">
       <a href={`/articles/${article.slug}`} className="flex h-full flex-col">
-        <div className="aspect-[4/3] overflow-hidden bg-sand">
+        <div className="aspect-[16/10] overflow-hidden bg-sand">
           <img
             src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 800, 600)}
             alt=""
@@ -17,10 +17,10 @@ export function ArticleCard({ article }: { article: Article }) {
             className="size-full object-cover"
           />
         </div>
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <p className="eyebrow">{article.category}</p>
-          <h3 className="mt-2 font-display text-2xl font-medium leading-tight"><DisplayText>{article.title}</DisplayText></h3>
-          <p className="mt-2 line-clamp-3 text-muted">{article.summary}</p>
+          <h3 className="mt-1 text-[0.9375rem] font-medium leading-snug group-hover:text-ember sm:text-base"><DisplayText>{article.title}</DisplayText></h3>
+          <p className="mt-1 line-clamp-2 text-sm text-muted">{article.summary}</p>
         </div>
       </a>
     </li>
@@ -48,7 +48,7 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
         <img
           src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 1200, 700)}
           alt=""
-          className="mt-6 aspect-[12/7] w-full rounded-2xl bg-sand object-cover"
+          className="mt-6 aspect-[12/7] w-full rounded-xl bg-sand object-cover"
         />
         {article.summary && <p className="mt-6 text-xl leading-relaxed text-muted">{article.summary}</p>}
         <RichText body={article.body} className="mt-6 text-lg" />

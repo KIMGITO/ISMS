@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'lucide-react';
 import { Order, OrderStatus, Product, Storefront } from './api';
 import { photoUrl, productPhoto } from './images';
 
 export const primaryButton = 'btn btn-primary';
 export const secondaryButton = 'btn btn-secondary';
 export const fieldClass = 'field';
-export const pageClass = 'site-gutter py-8 sm:py-12';
+export const pageClass = 'site-gutter py-6 sm:py-10';
 export const cardClass = 'card';
 
 export const formatPrice = (currency: string, price: number) =>
@@ -63,7 +63,7 @@ export function ProductImage({ product, width = 640 }: { product: Pick<Product, 
       alt={product.name}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="size-full bg-sand object-cover"
+      className="size-full object-cover"
     />
   );
 }
@@ -109,7 +109,10 @@ export function RevealList({ children, className = '' }: { children: ReactNode; 
   return <ul ref={ref} className={`reveal-list ${className}`}>{children}</ul>;
 }
 
-/** The banner at the top of inner pages. */
+/**
+ * The banner at the top of inner pages: the same soft sand panel as the home hero,
+ * with the photo in a circle on wider screens. Phones get the title and breadcrumbs only.
+ */
 export function PageHero({ eyebrow, title, body, photo, children }: {
   eyebrow?: string;
   title: string;
@@ -118,24 +121,19 @@ export function PageHero({ eyebrow, title, body, photo, children }: {
   children?: ReactNode;
 }) {
   return (
-    // The photo fills the whole banner on every screen; a sand fade keeps the words readable.
-    <section className="relative isolate flex min-h-[17rem] items-end overflow-hidden bg-sand sm:min-h-[20rem] sm:items-center">
-      <picture>
-        <source media="(orientation: portrait)" srcSet={[480, 720, 1080].map((w) => `${photoUrl(photo, w, Math.round(w * 1.1))} ${w}w`).join(', ')} sizes="100vw" />
+    <section className="site-gutter pt-4 sm:pt-6">
+      <div className="soft-panel relative isolate grid items-center gap-6 overflow-hidden rounded-2xl px-5 py-7 sm:grid-cols-[1fr_auto] sm:px-12 sm:py-10">
+        <div className="min-w-0">
+          {children}
+          {eyebrow && <p className="eyebrow rise-in mt-3 max-sm:hidden">{eyebrow}</p>}
+          <h1 className="display-lg rise-in mt-1.5 max-w-xl">{title}</h1>
+          {body && <p className="rise-in-late mt-2 max-w-md text-muted max-sm:hidden">{body}</p>}
+        </div>
         <img
-          src={photoUrl(photo, 1400, 700)}
-          srcSet={[800, 1400, 2000].map((w) => `${photoUrl(photo, w, Math.round(w * 0.5))} ${w}w`).join(', ')}
-          sizes="100vw"
+          src={photoUrl(photo, 480, 480)}
           alt=""
-          className="photo-warm absolute inset-0 -z-20 h-full w-full object-cover"
+          className="rise-in-late hidden size-40 rounded-full object-cover ring-8 ring-white sm:block lg:size-48"
         />
-      </picture>
-      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-sand from-25% via-sand/75 via-55% to-sand/10 sm:bg-gradient-to-r sm:from-sand sm:from-35% sm:via-sand/70 sm:via-55% sm:to-transparent" />
-      <div className="site-gutter w-full py-8 sm:py-12">
-        {children}
-        {eyebrow && <p className="eyebrow rise-in mt-3">{eyebrow}</p>}
-        <h1 className="display-lg rise-in mt-2 max-w-xl">{title}</h1>
-        {body && <p className="rise-in-late mt-4 max-w-md text-lg leading-relaxed text-muted">{body}</p>}
       </div>
     </section>
   );
@@ -174,32 +172,60 @@ export function Loading() {
   );
 }
 
-/** A section title with an optional "see all" link on the right. */
-export function SectionHeader({ eyebrow, title, id, link }: { eyebrow?: string; title: string; id?: string; link?: { href: string; label: string } }) {
+/**
+ * A section title. Left-aligned with a "see all" link on the right by default;
+ * `center` gives the shop's centred title with a short muted line under it.
+ */
+export function SectionHeader({ eyebrow, title, id, link, subtitle, center = false }: {
+  eyebrow?: string;
+  title: string;
+  id?: string;
+  link?: { href: string; label: string };
+  subtitle?: string;
+  center?: boolean;
+}) {
+  if (center) {
+    return (
+      <div className="section-title">
+        <h2 id={id} className="display-lg">{title}</h2>
+        {subtitle && <p className="mt-1.5 text-sm text-muted max-sm:hidden">{subtitle}</p>}
+      </div>
+    );
+  }
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="min-w-0">
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h2 id={id} className="display-lg mt-1.5">{title}</h2>
+        {eyebrow && <p className="eyebrow max-sm:hidden">{eyebrow}</p>}
+        <h2 id={id} className="display-lg sm:mt-1">{title}</h2>
+        {subtitle && <p className="mt-1 text-sm text-muted max-sm:hidden">{subtitle}</p>}
       </div>
       {link && (
-        <a href={link.href} className="shrink-0 py-3 text-[0.9375rem] font-semibold underline decoration-line underline-offset-4 hover:decoration-ink">
-          {link.label}
+        <a href={link.href} className="group inline-flex shrink-0 items-center gap-1 py-2 text-sm font-medium text-ember">
+          {link.label} <ArrowRight size={15} className="transition group-hover:translate-x-0.5" aria-hidden />
         </a>
       )}
     </div>
   );
 }
 
-/** A plain banner for inner pages that don't need a photo. */
+const TINTS = ['bg-tint-sand', 'bg-tint-peach', 'bg-tint-butter', 'bg-tint-sage', 'bg-tint-blush'];
+
+/** A soft background class picked from the text, so the same category always gets the same colour. */
+export function tintFor(text: string) {
+  let hash = 0;
+  for (const char of text) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return TINTS[hash % TINTS.length];
+}
+
+/** A plain banner for inner pages that don't need a photo. Same panel as PageHero. */
 export function PageHeader({ eyebrow, title, body, children }: { eyebrow?: string; title: string; body?: string; children?: ReactNode }) {
   return (
-    <section className="border-b border-line bg-sand/60">
-      <div className="site-gutter py-8 sm:py-12">
+    <section className="site-gutter pt-4 sm:pt-6">
+      <div className="soft-panel rounded-2xl px-5 py-6 sm:px-12 sm:py-10">
         {children}
-        {eyebrow && <p className="eyebrow mt-3">{eyebrow}</p>}
+        {eyebrow && <p className="eyebrow mt-3 max-sm:hidden">{eyebrow}</p>}
         <h1 className="display-lg mt-1.5 max-w-3xl">{title}</h1>
-        {body && <p className="mt-3 max-w-2xl text-lg leading-relaxed text-muted">{body}</p>}
+        {body && <p className="mt-2 max-w-2xl text-muted max-sm:hidden">{body}</p>}
       </div>
     </section>
   );
@@ -219,15 +245,16 @@ export function TrustStrip({ site, compact = false }: { site: Storefront; compac
     { icon: BadgeCheck, title: 'Fresh guarantee', body: 'Problem? We put it right', href: '/returns' },
     { icon: Headphones, title: 'Real people', body: business.contactPhone ? `Call ${business.contactPhone}` : 'Message us any time', href: '/contact' },
   ];
+  // Bordered boxes with the icon on the left. Phones see the icon and title; the line under it joins in on wider screens.
   return (
-    <ul className={`grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-4 ${compact ? 'text-sm' : ''}`}>
+    <ul className={`grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4 ${compact ? 'text-sm' : ''}`}>
       {items.map(({ icon: Icon, title, body, href }) => (
-        <li key={title} className="bg-white">
-          <a href={href} className={`flex h-full items-start gap-3 transition hover:bg-amber-50 ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
-            <Icon size={compact ? 20 : 24} strokeWidth={1.6} className="mt-0.5 shrink-0 text-ember" aria-hidden />
+        <li key={title}>
+          <a href={href} className={`flex h-full items-center gap-3 rounded-lg border border-line bg-white transition hover:border-ember/50 ${compact ? 'p-3' : 'p-3 sm:px-5 sm:py-4'}`}>
+            <Icon size={compact ? 22 : 28} strokeWidth={1.5} className="shrink-0 text-ember" aria-hidden />
             <span className="min-w-0">
-              <span className="block font-semibold leading-snug">{title}</span>
-              <span className="mt-0.5 block text-sm leading-snug text-muted">{body}</span>
+              <span className="block text-[0.8125rem] font-medium leading-snug sm:text-sm">{title}</span>
+              <span className="mt-0.5 hidden text-xs leading-snug text-muted sm:block">{body}</span>
             </span>
           </a>
         </li>

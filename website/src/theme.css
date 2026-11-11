@@ -1,45 +1,63 @@
 /*
- * KayKay's public website theme. The look of every public page is set here:
- * warm cream and espresso with a burnt amber accent, Fraunces for headlines,
- * Plus Jakarta Sans for everything else, and soft rounded controls.
+ * KayKay's public website theme. The look of every public page is set here.
+ * Brand: warm cream and espresso with a burnt amber (ember) accent and leaf green for prices.
+ * Layout language follows a clean grocery-shop style: white page, thin warm borders, small
+ * bordered product cards, soft rounded panels, pill buttons, centred section titles.
+ * One font (Poppins) at every size, on a short type scale that shrinks on phones.
  * The staff app has its own styles in src/index.css and shares nothing with this file.
  */
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sans);
 
-  /* Palette */
+  /* Brand palette */
   --color-cream: #fffdf9;
   --color-sand: #f6eee2;
   --color-sand-deep: #ead9c1;
+  --color-shell: #faf6f0;
   --color-ink: #23160e;
-  --color-muted: #6b5a4b;
-  --color-line: #eadfce;
+  --color-muted: #7a6858;
+  --color-line: #efe5d7;
   --color-ember: #c2571a;
   --color-brand-deep: #9a4313;
   --color-hero: #2b1409;
   --color-leaf: #2f6b45;
+  --color-star: #e7a019;
 
-  /* A business's own colour, when set, replaces these on small accents. Buttons stay espresso. */
-  --color-brand: var(--brand-primary, #23160e);
-  --color-on-brand: var(--brand-on-primary, #fffdf9);
+  /* Soft panels for banners, chosen by name so each category keeps its colour. */
+  --color-tint-sand: #f6eee2;
+  --color-tint-peach: #fbe7d6;
+  --color-tint-butter: #faefcf;
+  --color-tint-sage: #e6efe2;
+  --color-tint-blush: #f8e3dc;
+
+  /* A business's own colour, when set, replaces these on small accents. */
+  --color-brand: var(--brand-primary, #c2571a);
+  --color-on-brand: var(--brand-on-primary, #ffffff);
 
   /* Pages use Tailwind's amber and gray for soft backgrounds, so they follow the palette here. */
   --color-amber-50: #fbf4ea;
   --color-amber-100: #f6eee2;
-  --color-gray-50: #f6eee2;
+  --color-gray-50: #faf6f0;
   --color-gray-200: #ead9c1;
-  --color-gray-600: #6b5a4b;
+  --color-gray-600: #7a6858;
+
+  /* One short type scale. The larger steps shrink on phones so nothing shouts. */
+  --text-lg: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  --text-lg--line-height: 1.65;
+  --text-xl: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
+  --text-2xl: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  --text-3xl: clamp(1.25rem, 1.1rem + 0.8vw, 1.75rem);
 
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --radius-2xl: 22px;
+  --radius-2xl: 24px;
 
-  --shadow-soft: 0 1px 2px rgb(35 22 14 / 0.05), 0 8px 24px -12px rgb(35 22 14 / 0.18);
+  --shadow-soft: 0 1px 2px rgb(35 22 14 / 0.04), 0 10px 28px -14px rgb(35 22 14 / 0.2);
 }
 
 @layer base {
@@ -47,12 +65,15 @@
     scroll-behavior: smooth;
     scroll-padding-top: 8rem;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     font-family: var(--font-sans);
+    font-size: 0.9375rem;
     background-color: var(--color-cream);
     color: var(--color-ink);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -61,14 +82,14 @@
   h2 {
     font-family: var(--font-display);
     font-weight: 500;
-    font-optical-sizing: auto;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
     text-wrap: balance;
   }
 
   h3 {
     font-family: var(--font-sans);
+    font-weight: 500;
   }
 
   :focus-visible {
@@ -87,15 +108,24 @@
 @layer components {
   .btn {
     display: inline-flex;
-    min-height: 2.875rem;
+    min-height: 2.75rem;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.625rem 1.375rem;
+    padding: 0.5rem 1.25rem;
     border-radius: 999px;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 500;
     letter-spacing: -0.005em;
+    white-space: nowrap;
     transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+
+  @media (min-width: 40rem) {
+    .btn {
+      min-height: 2.875rem;
+      padding-inline: 1.5rem;
+    }
   }
 
   .btn:disabled {
@@ -105,15 +135,33 @@
     color: var(--color-muted);
   }
 
+  /* The main action everywhere: ember, like the shop's orange buttons. */
   .btn-primary {
-    background: var(--color-ink);
-    color: var(--color-cream);
-    border: 1px solid var(--color-ink);
+    background: var(--color-ember);
+    color: #fff;
+    border: 1px solid var(--color-ember);
   }
 
   .btn-primary:hover:not(:disabled) {
     background: var(--color-brand-deep);
     border-color: var(--color-brand-deep);
+  }
+
+  /* Small pill, used for "Add" on product cards and banner buttons. */
+  .btn-sm {
+    min-height: 2.125rem;
+    padding: 0.25rem 0.875rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-dark {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    border: 1px solid var(--color-ink);
+  }
+
+  .btn-dark:hover:not(:disabled) {
+    background: var(--color-hero);
   }
 
   .btn-accent {
@@ -168,7 +216,7 @@
 
   .chip {
     display: inline-flex;
-    min-height: 2.5rem;
+    min-height: 2.375rem;
     flex-shrink: 0;
     align-items: center;
     gap: 0.375rem;
@@ -176,6 +224,7 @@
     border-radius: 999px;
     background: #fff;
     padding: 0 1rem;
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--color-muted);
     transition: background-color 0.2s, color 0.2s, border-color 0.2s;
@@ -188,35 +237,37 @@
 
   .chip[aria-pressed="true"],
   .chip[aria-current="page"] {
-    border-color: var(--color-ink);
-    background: var(--color-ink);
-    color: var(--color-cream);
+    border-color: var(--color-ember);
+    background: var(--color-ember);
+    color: #fff;
   }
 
   .eyebrow {
     font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-brand-deep);
+    color: var(--color-ember);
   }
 
+  /* Three headline sizes for the whole site. Phones get the small end. */
   .display-xl {
-    font-size: clamp(2.5rem, 5.8vw, 4.75rem);
+    font-size: clamp(1.625rem, 1.1rem + 2.6vw, 3.25rem);
+    line-height: 1.15;
   }
 
   .display-lg {
-    font-size: clamp(1.875rem, 3.6vw, 3rem);
+    font-size: clamp(1.375rem, 1.15rem + 1.1vw, 2.125rem);
   }
 
   .display-md {
-    font-size: clamp(1.5rem, 2.6vw, 2.125rem);
+    font-size: clamp(1.125rem, 1.02rem + 0.5vw, 1.5rem);
   }
 
   .site-gutter {
     margin-inline: auto;
     width: 100%;
-    max-width: 84rem;
+    max-width: 82rem;
     padding-inline: 1rem;
   }
 
@@ -228,7 +279,18 @@
 
   @media (min-width: 80rem) {
     .site-gutter {
-      padding-inline: 2.5rem;
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Vertical rhythm between home page sections: one value, so spacing is even everywhere. */
+  .section-space {
+    padding-block: 2.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .section-space {
+      padding-block: 4rem;
     }
   }
 
@@ -241,7 +303,7 @@
     display: none;
   }
 
-  /* The burnt amber panels used for feature sections and the footer. */
+  /* The burnt amber panels used for feature sections. */
   .ember-panel {
     background:
       radial-gradient(70% 90% at 45% 35%, #b84f15 0%, transparent 70%),
@@ -249,8 +311,23 @@
     color: var(--color-cream);
   }
 
-  .photo-warm {
-    filter: sepia(0.18) saturate(1.06);
+  /* The soft sand panel behind the hero and page banners, with a faint doodle pattern. */
+  .soft-panel {
+    background-color: var(--color-sand);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgb(154 67 19 / 0.09) 1.2px, transparent 0),
+      radial-gradient(90% 90% at 80% 40%, #fbf4ea 0%, transparent 60%);
+    background-size: 22px 22px, 100% 100%;
+  }
+
+  /* Centred section title with a short muted line under it. */
+  .section-title {
+    text-align: center;
+  }
+
+  .section-title p {
+    margin-inline: auto;
+    max-width: 32rem;
   }
 
   .card-lift img {
@@ -279,13 +356,6 @@
     transition: rotate 0.2s ease;
   }
 
-  /* Hero carousel: tall enough to feel generous, short enough that products show
-     below it on the first screen. svh, so it doesn't jump with a phone's address bar. */
-  .hero-full {
-    min-height: clamp(26rem, 72vh, 42rem);
-    min-height: clamp(26rem, 72svh, 42rem);
-  }
-
   /* Slide-in panels: cart drawer and menu. */
   .drawer-backdrop {
     background: rgb(20 12 6 / 0.45);
@@ -300,8 +370,8 @@
 @media (prefers-reduced-motion: no-preference) {
   .reveal {
     opacity: 0;
-    transform: translateY(1.75rem);
-    transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transform: translateY(1.25rem);
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 
   .reveal.is-visible {
@@ -311,8 +381,8 @@
 
   .reveal-list > * {
     opacity: 0;
-    transform: translateY(1.5rem);
-    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transform: translateY(1rem);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 
   .reveal-list.is-visible > * {
@@ -320,71 +390,27 @@
     transform: none;
   }
 
-  .reveal-list > *:nth-child(2) { transition-delay: 0.08s; }
-  .reveal-list > *:nth-child(3) { transition-delay: 0.16s; }
-  .reveal-list > *:nth-child(4) { transition-delay: 0.24s; }
-  .reveal-list > *:nth-child(5) { transition-delay: 0.32s; }
-  .reveal-list > *:nth-child(6) { transition-delay: 0.4s; }
+  .reveal-list > *:nth-child(2) { transition-delay: 0.06s; }
+  .reveal-list > *:nth-child(3) { transition-delay: 0.12s; }
+  .reveal-list > *:nth-child(4) { transition-delay: 0.18s; }
+  .reveal-list > *:nth-child(5) { transition-delay: 0.24s; }
+  .reveal-list > *:nth-child(6) { transition-delay: 0.3s; }
 
   .page-enter {
     animation: page-enter 0.5s ease both;
   }
 
-  /* Inner page banners and the login panel. */
+  /* Inner page banners, the home hero and the login panel. */
   .rise-in {
-    animation: rise-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: rise-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
   .rise-in-late {
-    animation: rise-in 0.8s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: rise-in 0.7s 0.12s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
-
-  /* Hero carousel */
-  .hero-slide {
-    opacity: 0;
-    transition: opacity 1s ease;
-  }
-
-  .hero-slide.is-active {
-    opacity: 1;
-    z-index: 1;
-  }
-
-  .hero-photo {
-    transform: scale(1.09);
-    transition: transform 9s linear;
-  }
-
-  .hero-slide.is-active .hero-photo {
-    transform: scale(1);
-  }
-
-  .hero-rise {
-    opacity: 0;
-    transform: translateY(1.5rem);
-    transition: opacity 0.5s ease, transform 0.5s ease;
-  }
-
-  .hero-slide.is-active .hero-rise {
-    opacity: 1;
-    transform: none;
-    transition: opacity 0.9s ease 0.25s, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s;
-  }
-
-  .hero-slide.is-active p.hero-rise { transition-delay: 0.45s; }
-  .hero-slide.is-active div.hero-rise { transition-delay: 0.6s; }
-
-  .hero-progress {
-    animation: hero-progress linear both;
-  }
-
-  .marquee-track {
-    animation: marquee 34s linear infinite;
-  }
-
-  .marquee:hover .marquee-track {
-    animation-play-state: paused;
+  .float-slow {
+    animation: float-slow 7s ease-in-out infinite;
   }
 
   /* Small responses */
@@ -401,8 +427,8 @@
   }
 
   .card-lift:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 34px -20px rgb(36 23 16 / 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px -20px rgb(35 22 14 / 0.4);
   }
 
   .plus-button {
@@ -447,35 +473,18 @@
   }
 }
 
-/* The carousel still changes slide without motion, so the inactive ones must stay hidden. */
-@media (prefers-reduced-motion: reduce) {
-  .hero-slide:not(.is-active) {
-    visibility: hidden;
-  }
-
-  .marquee-track {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-}
-
 @keyframes page-enter {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(1.5rem); }
+  from { opacity: 0; transform: translateY(1.25rem); }
   to { opacity: 1; transform: none; }
 }
 
-@keyframes hero-progress {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes marquee {
-  to { transform: translateX(-50%); }
+@keyframes float-slow {
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes slide-from-right {

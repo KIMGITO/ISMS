@@ -35,7 +35,7 @@ export default function ContactPreferences() {
 
   return (
     <section className="mt-8 border-t border-line pt-6">
-      <h2 className="text-xl font-bold">Messages from us</h2>
+      <h2 className="text-xl font-semibold">Messages from us</h2>
       {choices && (
         <div className="mt-3 space-y-3">
           <label className="flex min-h-11 items-start gap-3">

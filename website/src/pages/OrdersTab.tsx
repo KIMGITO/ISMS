@@ -240,7 +240,7 @@ function OrderDetail({ orderId }: { orderId: string }) {
         <ArrowLeft size={18} aria-hidden /> All orders
       </a>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">Order #{order.order_number}</h2>
+        <h2 className="text-2xl font-semibold">Order #{order.order_number}</h2>
         <StatusBadge status={order.status} />
       </div>
       <p className="mt-1 text-muted">{formatDateTime(order.created_at)}</p>
@@ -274,7 +274,7 @@ function OrderDetail({ orderId }: { orderId: string }) {
           <div className="flex justify-between"><dt className="text-muted">Delivery</dt><dd>{formatPrice(currency, order.delivery_fee)}</dd></div>
         )}
         <OrderDiscounts order={order} currency={currency} />
-        <div className="flex justify-between text-xl font-bold"><dt>Total</dt><dd>{formatPrice(currency, order.total)}</dd></div>
+        <div className="flex justify-between text-xl font-semibold"><dt>Total</dt><dd>{formatPrice(currency, order.total)}</dd></div>
         {order.mpesa_receipt && (
           <div className="flex justify-between gap-3"><dt className="text-muted">M-Pesa receipt</dt><dd className="break-all">{order.mpesa_receipt}</dd></div>
         )}
@@ -342,7 +342,7 @@ export default function OrdersTab({ orderId }: { orderId?: string }) {
             </p>
             <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm text-muted">
               <span>{formatDateTime(order.created_at)}</span>
-              <span className="text-base font-bold text-ink">{formatPrice(currency, order.total)}</span>
+              <span className="text-base font-semibold text-ink">{formatPrice(currency, order.total)}</span>
             </div>
           </a>
         </li>

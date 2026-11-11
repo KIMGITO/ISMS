@@ -11,7 +11,7 @@ import { ProductReviews, RatingLine } from './Reviews';
 function Accordion({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
   return (
     <details className="accordion border-b border-line" open={open}>
-      <summary className="flex min-h-14 items-center justify-between gap-3 font-semibold">
+      <summary className="flex min-h-14 items-center justify-between gap-3 font-medium">
         {title}
         <ChevronDown size={18} className="accordion-icon shrink-0 text-muted" aria-hidden />
       </summary>
@@ -138,8 +138,10 @@ export default function ProductPage({ path }: { path: string }) {
         />
         <div className="mt-4 grid gap-8 md:grid-cols-2 lg:gap-14">
           <div className="relative md:sticky md:top-36 md:self-start">
-            <div className="aspect-square overflow-hidden rounded-2xl bg-sand">
-              <ProductImage product={product} width={1000} />
+            <div className="aspect-square overflow-hidden rounded-xl border border-line bg-shell p-3 sm:p-5">
+              <div className="size-full overflow-hidden rounded-lg">
+                <ProductImage product={product} width={1000} />
+              </div>
             </div>
             {!product.inStock && <span className="absolute left-4 top-4 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-cream">Sold out</span>}
           </div>
@@ -149,14 +151,14 @@ export default function ProductPage({ path }: { path: string }) {
               <a href={`/shop?category=${encodeURIComponent(product.category)}`} className="eyebrow py-1 hover:underline">{product.category}</a>
               <div className="flex gap-2">
                 <ShareButton title={product.name} />
-                <SaveButton productId={product.id} name={product.name} className="border border-line shadow-none" />
+                <SaveButton productId={product.id} name={product.name} className="size-10 border border-line shadow-none" />
               </div>
             </div>
             <h1 className="display-lg mt-1">{product.name}</h1>
             <RatingLine reviews={(site.reviews ?? []).filter((r) => r.productId === product.id)} href="#reviews" className="mt-2" />
-            <p className="mt-4 text-3xl font-bold">
+            <p className="mt-3 text-3xl font-semibold text-leaf">
               {formatPrice(business.currency, product.price)}
-              <span className="text-base font-normal text-muted"> per {perUnit(product.unit)}</span>
+              <span className="text-sm font-normal text-muted"> per {perUnit(product.unit)}</span>
             </p>
             <p className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${product.inStock ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
               <span className={`size-2 rounded-full ${product.inStock ? 'bg-emerald-600' : 'bg-red-600'}`} />
@@ -168,14 +170,14 @@ export default function ProductPage({ path }: { path: string }) {
               <div className="mt-7 space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <QuantityPicker value={quantity} onChange={setQuantity} unit={product.unit} />
-                  <p className="text-muted">Total <span className="font-bold text-ink">{formatPrice(business.currency, lineTotal)}</span></p>
+                  <p className="text-muted">Total <span className="font-semibold text-ink">{formatPrice(business.currency, lineTotal)}</span></p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button onClick={handleAdd} className="btn btn-primary min-h-12">
                     {added ? <Check size={18} aria-hidden /> : <ShoppingBag size={18} aria-hidden />}
                     {added ? 'Added. Add more?' : 'Add to cart'}
                   </button>
-                  <button onClick={buyNow} className="btn btn-accent min-h-12">Buy now</button>
+                  <button onClick={buyNow} className="btn btn-dark min-h-12">Buy now</button>
                 </div>
               </div>
             ) : (
@@ -230,7 +232,7 @@ export default function ProductPage({ path }: { path: string }) {
         {related.length > 0 && (
           <section className="mt-14" aria-labelledby="related-heading">
             <h2 id="related-heading" className="display-md">More {product.category}</h2>
-            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
               {related.map((p) => <ProductCard key={p.id} product={p} />)}
             </ul>
           </section>
@@ -238,7 +240,7 @@ export default function ProductPage({ path }: { path: string }) {
         {recent.length > 0 && (
           <section className="mt-14" aria-labelledby="recent-heading">
             <h2 id="recent-heading" className="display-md">Recently viewed</h2>
-            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
               {recent.map((p) => <ProductCard key={p.id} product={p} />)}
             </ul>
           </section>

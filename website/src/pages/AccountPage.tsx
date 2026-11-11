@@ -110,7 +110,7 @@ export default function AccountPage({ route }: { route: string[] }) {
 
   return (
     <div className={pageClass}>
-      <h1 className="text-4xl font-bold">Hello, {account.name.split(' ')[0]}</h1>
+      <h1 className="text-4xl font-semibold">Hello, {account.name.split(' ')[0]}</h1>
       <nav aria-label="Account" className="-mx-4 mt-6 flex gap-2 overflow-x-auto border-b border-line px-4 pb-3 sm:mx-0 sm:px-0">
         {TABS.map(({ id, label, icon: Icon }) => (
           <a
@@ -123,7 +123,7 @@ export default function AccountPage({ route }: { route: string[] }) {
           >
             <Icon size={18} aria-hidden /> {label}
             {id === 'messages' && unread > 0 && (
-              <span className="grid size-5 place-items-center rounded-full bg-brand-deep text-xs font-bold text-white">{unread}</span>
+              <span className="grid size-5 place-items-center rounded-full bg-brand-deep text-xs font-semibold text-white">{unread}</span>
             )}
           </a>
         ))}
