@@ -3,7 +3,7 @@ import {
   ArrowUp, Bell, ChevronDown, ChevronRight, Clock, Heart, Home, LayoutGrid, Lock, Mail, MapPin, Menu, MessageCircle, Minus, Phone, Plus,
   Search, ShoppingBag, ShoppingCart, Star, Trash2, User, X,
 } from 'lucide-react';
-import { pointsOn } from './api';
+import { pointsOn } from './points';
 import { CREDITED_PHOTOS } from './images';
 import { INFO_PAGES } from './infoPages';
 import { navigate } from './router';

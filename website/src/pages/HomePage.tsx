@@ -1,6 +1,7 @@
 import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
-import { pointsOn, Product } from '../api';
+import { Product } from '../api';
+import { pointsOn } from '../points';
 import { PHOTOS, photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
 import { HERO_DRAW_ORDER, heroImageSlots, safeHref, visibleHeroSlides } from '../heroSlides';

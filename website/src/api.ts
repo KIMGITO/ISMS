@@ -409,6 +409,3 @@ export async function fetchMessages(): Promise<Message[]> {
 
 export const sendMessage = (body: string) => rpc('send_customer_message', { p_body: body });
 export const markMessagesRead = () => rpc('mark_my_messages_read');
-
-/** Is the shop running reward points? Older databases don't say, which means yes. */
-export const pointsOn = (site: Pick<Storefront, 'loyalty'> | null | undefined) => site?.loyalty?.enabled !== false;

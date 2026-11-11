@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Check, ChevronDown, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
-import { pointsOn } from '../api';
+import { pointsOn } from '../points';
 import { productPaths } from '../seo';
 import { navigate } from '../router';
 import { useRecent, useStorefront } from '../store';

@@ -3,7 +3,8 @@
 // it stays true as staff change settings in the app. Staff can replace any page's text
 // in the app under Online Store > Pages; an empty page uses the default below.
 // Plain data with no browser APIs, because scripts/prerender.ts and seo.ts import it.
-import { pointsOn, type Storefront } from './api';
+import type { Storefront } from './api';
+import { pointsOn } from './points';
 
 export type InfoPageId = 'about' | 'help' | 'delivery' | 'payments' | 'returns' | 'terms' | 'privacy' | 'cookies';
 

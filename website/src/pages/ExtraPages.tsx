@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { CalendarClock, CheckCircle2, MessageCircle, Truck } from 'lucide-react';
-import { fetchOrder, pointsOn } from '../api';
+import { fetchOrder } from '../api';
+import { pointsOn } from '../points';
 import { formatQuantity } from '../ui';
 import { CheckoutSteps } from './CartPage';
 import { OrderDiscounts } from './OrdersTab';
