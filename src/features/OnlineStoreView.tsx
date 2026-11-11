@@ -31,8 +31,9 @@ import type { Storefront } from '../../website/src/api';
 import { Switch } from '../components/shared/Switch';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import PageEditor from '../components/website/PageEditor';
+import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
 
-type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'promotions' | 'guides' | 'pages' | 'settings';
+type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'promotions' | 'guides' | 'pages' | 'banner' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'orders', label: 'Orders' },
@@ -41,6 +42,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'promotions', label: 'Promotions' },
   { id: 'guides', label: 'Guides' },
+  { id: 'banner', label: 'Home banner' },
   { id: 'pages', label: 'Pages' },
   { id: 'settings', label: 'Website' },
 ];
@@ -1297,7 +1299,7 @@ export default function OnlineStoreView() {
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const canManageWebsite = role ? hasRolePermission(role, 'business.update') : false;
   const [tab, setTab] = useState<TabId>('orders');
-  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'guides', 'pages', 'reviews', 'promotions'].includes(t.id));
+  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'guides', 'pages', 'banner', 'reviews', 'promotions'].includes(t.id));
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 pb-nav">
@@ -1321,6 +1323,7 @@ export default function OnlineStoreView() {
             {tab === 'feedback' && <FeedbackTab businessId={businessId} />}
             {tab === 'guides' && canManageWebsite && <GuidesTab businessId={businessId} />}
             {tab === 'pages' && canManageWebsite && <PagesTab businessId={businessId} />}
+            {tab === 'banner' && canManageWebsite && <HeroSlidesEditor businessId={businessId} />}
             {tab === 'reviews' && canManageWebsite && <ReviewsTab businessId={businessId} />}
             {tab === 'promotions' && canManageWebsite && <PromotionsTab businessId={businessId} />}
             {tab === 'settings' && canManageWebsite && <SettingsTab businessId={businessId} />}

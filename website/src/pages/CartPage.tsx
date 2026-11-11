@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Gift, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
 import { checkPromoCode, CartLine, fetchRewards, friendlyError, placeOrder, Product, PromoCheck, Rewards } from '../api';
 import { navigate } from '../router';
 import { productPaths } from '../seo';
@@ -254,6 +254,7 @@ export function CheckoutPage() {
   const [address, setAddress] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [rewards, setRewards] = useState<Rewards | null>(null);
+  const [usePoints, setUsePoints] = useState(false);
   const [points, setPoints] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -296,9 +297,17 @@ export function CheckoutPage() {
 
   const zone = deliveryZones.find((z) => z.id === zoneId);
   const fee = fulfilment !== 'delivery' ? 0 : Number(deliveryZones.length > 0 ? zone?.fee ?? 0 : settings.deliveryFee);
-  const pointsUsed = Number(points) > 0 ? Math.floor(Number(points)) : 0;
-  const pointsValue = rewards ? pointsUsed * rewards.pointValue : 0;
   const saving = promo?.saving ?? 0;
+  // The same limits the server enforces (fn_build_online_order): from the minimum, up to the
+  // balance, and always leaving at least 1 shilling to pay by M-Pesa.
+  const beforePoints = subtotal + fee - saving;
+  const maxPoints = rewards && rewards.pointValue > 0
+    ? Math.max(0, Math.min(rewards.points, Math.floor((beforePoints - 1) / rewards.pointValue)))
+    : 0;
+  const canUsePoints = Boolean(rewards) && maxPoints >= (rewards?.minRedeem ?? Infinity);
+  const typedPoints = Number(points) > 0 ? Math.floor(Number(points)) : 0;
+  const pointsUsed = usePoints && canUsePoints ? Math.min(Math.max(typedPoints, rewards!.minRedeem), maxPoints) : 0;
+  const pointsValue = rewards ? pointsUsed * rewards.pointValue : 0;
   // M-Pesa only takes whole shillings, so the server rounds the total down the same way.
   const total = Math.floor(subtotal + fee - pointsValue - saving);
   const belowMinimum = subtotal < settings.minOrder;
@@ -391,11 +400,22 @@ export function CheckoutPage() {
               <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
               <span className="text-sm">After you place the order, we send a prompt to <strong>{account.phone}</strong>. Enter your PIN to pay. <a href="/payments" className="underline">How it works</a></span>
             </div>
-            {rewards && rewards.points >= rewards.minRedeem && (
-              <label className="block font-medium">
-                Use points <span className="font-normal text-muted">({rewards.points} available, each worth {formatPrice(business.currency, rewards.pointValue)})</span>
-                <input type="number" inputMode="numeric" min={rewards.minRedeem} max={rewards.points} value={points} onChange={(e) => setPoints(e.target.value)} placeholder={`From ${rewards.minRedeem} points`} className={fieldClass} />
-              </label>
+            {rewards && (
+              <PointsPanel
+                rewards={rewards}
+                currency={business.currency}
+                enabled={usePoints}
+                canUse={canUsePoints}
+                maxPoints={maxPoints}
+                value={points}
+                used={pointsUsed}
+                usedValue={pointsValue}
+                onToggle={(on) => {
+                  setUsePoints(on);
+                  if (on && !points) setPoints(String(maxPoints));
+                }}
+                onChange={setPoints}
+              />
             )}
           </section>
         </div>
@@ -419,7 +439,7 @@ export function CheckoutPage() {
             <div className="flex justify-between gap-3"><dt className="text-muted">Products</dt><dd>{formatPrice(business.currency, subtotal)}</dd></div>
             {fulfilment === 'delivery' && <div className="flex justify-between gap-3"><dt className="text-muted">Delivery</dt><dd>{deliveryZones.length > 0 && !zone ? 'Choose area' : formatPrice(business.currency, fee)}</dd></div>}
             {saving > 0 && <div className="flex justify-between gap-3 text-emerald-800"><dt>Promo {promo?.code}</dt><dd>-{formatPrice(business.currency, saving)}</dd></div>}
-            {pointsValue > 0 && <div className="flex justify-between gap-3"><dt className="text-muted">Points</dt><dd>-{formatPrice(business.currency, pointsValue)}</dd></div>}
+            {pointsValue > 0 && <div className="flex justify-between gap-3 text-leaf"><dt>Points ({pointsUsed.toLocaleString('en-KE')})</dt><dd>-{formatPrice(business.currency, pointsValue)}</dd></div>}
             <div className="flex justify-between gap-3 pt-1 text-xl font-semibold"><dt>Total</dt><dd>{formatPrice(business.currency, total)}</dd></div>
           </dl>
           {belowMinimum && <p className="text-muted">The minimum order is {formatPrice(business.currency, settings.minOrder)}.</p>}
@@ -438,6 +458,84 @@ export function CheckoutPage() {
           </p>
         </aside>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Lets a signed-in customer take reward points off this order. Only a request: the server checks
+ * the balance, the minimum and the tier value again, and takes the points in the same transaction
+ * that creates the order (they come back automatically if the order is cancelled or never paid).
+ */
+function PointsPanel({ rewards, currency, enabled, canUse, maxPoints, value, used, usedValue, onToggle, onChange }: {
+  rewards: Rewards;
+  currency: string;
+  enabled: boolean;
+  canUse: boolean;
+  maxPoints: number;
+  value: string;
+  used: number;
+  usedValue: number;
+  onToggle: (on: boolean) => void;
+  onChange: (value: string) => void;
+}) {
+  const perShilling = rewards.pointValue > 0 ? Math.round(1 / rewards.pointValue) : 0;
+  const balance = rewards.points.toLocaleString('en-KE');
+  const worth = formatPrice(currency, Math.floor(rewards.points * rewards.pointValue));
+
+  if (!canUse) {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-line bg-shell p-3.5 text-sm">
+        <Gift size={18} className="mt-0.5 shrink-0 text-ember" aria-hidden />
+        <p className="text-muted">
+          You have <strong className="font-medium text-ink">{balance} points</strong>.{' '}
+          {rewards.points < rewards.minRedeem
+            ? `You can use them once you have ${rewards.minRedeem.toLocaleString('en-KE')}.`
+            : 'This order is too small to use them; add a little more to your cart.'}
+        </p>
+      </div>
+    );
+  }
+
+  const typed = Number(value);
+  const outOfRange = enabled && value !== '' && (typed < rewards.minRedeem || typed > maxPoints);
+  return (
+    <div className={`rounded-lg border p-3.5 transition ${enabled ? 'border-ember bg-amber-50' : 'border-line bg-white'}`}>
+      <label className="flex cursor-pointer items-center gap-3">
+        <input type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-ember)]" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">Use my points</span>
+          <span className="block text-xs text-muted">{balance} points, worth {worth} · {perShilling} points = {formatPrice(currency, 1)}</span>
+        </span>
+        <Gift size={18} className="shrink-0 text-ember" aria-hidden />
+      </label>
+      {enabled && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">Points to use</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={rewards.minRedeem}
+                max={maxPoints}
+                step={1}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className={`${fieldClass} mt-0`}
+              />
+            </label>
+            <button type="button" onClick={() => onChange(String(maxPoints))} className="btn btn-secondary btn-sm shrink-0">
+              Use most
+            </button>
+          </div>
+          <p className={`text-xs ${outOfRange ? 'text-red-800' : 'text-muted'}`}>
+            {outOfRange
+              ? `Choose between ${rewards.minRedeem.toLocaleString('en-KE')} and ${maxPoints.toLocaleString('en-KE')} points. We'll use ${used.toLocaleString('en-KE')}.`
+              : `${used.toLocaleString('en-KE')} points take ${formatPrice(currency, usedValue)} off. At least ${formatPrice(currency, 1)} is paid by M-Pesa.`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

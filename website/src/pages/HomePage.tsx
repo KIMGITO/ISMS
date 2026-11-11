@@ -3,108 +3,70 @@ import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } f
 import { Product } from '../api';
 import { PHOTOS, photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
+import { HERO_DRAW_ORDER, heroImageSlots, safeHref, visibleHeroSlides } from '../heroSlides';
 import { formatDate, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
 import { Testimonials } from './Reviews';
 import ProductCard from './ProductCard';
 import { ArticleCard } from './ArticlesPage';
-
-type Photo = Parameters<typeof photoUrl>[0];
 
 const SLIDE_MS = 7000;
 
 const prefersReducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The product photo in a large circle with two small circles beside it, like a cut-out product cluster. */
-function PhotoCluster({ main, mainAlt, small }: { main: string; mainAlt: string; small: [Photo, Photo] }) {
+/**
+ * Product pictures placed like a shop-window display: the main product with up to two smaller
+ * ones beside and in front. Best with cut-outs (background removed in the app's uploader).
+ */
+function ProductDisplay({ images, title, eager }: { images: string[]; title: string; eager: boolean }) {
+  const slots = heroImageSlots(images.length);
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[9.5rem] min-[400px]:max-w-[10.5rem] sm:max-w-[18rem] lg:max-w-[22rem]">
-      <img src={main} alt={mainAlt} className="size-full rounded-full object-cover shadow-soft ring-[5px] ring-white sm:ring-[12px]" />
-      <img
-        src={photoUrl(small[0], 240, 240)}
-        alt=""
-        className="absolute -left-3 bottom-[8%] size-[32%] rounded-full object-cover shadow-soft ring-4 ring-white sm:-left-6 sm:ring-[6px]"
-      />
-      <img
-        src={photoUrl(small[1], 200, 200)}
-        alt=""
-        className="absolute -right-2 top-[6%] size-[24%] rounded-full object-cover shadow-soft ring-4 ring-white sm:-right-4 sm:ring-[6px]"
-      />
+    <div className="relative mx-auto aspect-square w-full max-w-[10rem] min-[400px]:max-w-[11rem] sm:max-w-[19rem] lg:max-w-[24rem]">
+      {/* A soft floor shadow so the products stand on the panel rather than float. */}
+      <span className="absolute inset-x-[8%] bottom-[3%] h-[10%] rounded-[50%] bg-hero/15 blur-md" aria-hidden />
+      {HERO_DRAW_ORDER.filter((index) => index < images.length).map((index) => (
+        <img
+          key={`${index}-${images[index]}`}
+          src={images[index]}
+          alt={index === 0 ? title : ''}
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager && index === 0 ? 'high' : 'auto'}
+          style={{ position: 'absolute', ...slots[index] }}
+          className="object-contain object-bottom drop-shadow-[0_14px_16px_rgba(35,22,14,0.22)]"
+        />
+      ))}
     </div>
   );
 }
 
 /**
- * The opening slider: a soft sand panel, a short headline and one button, the photo cluster on the
- * right, arrows on wide screens and dots on phones, and a round button in a notch that jumps to the products.
+ * The opening slider: a soft sand panel, a short headline and one button, a product display on the
+ * right, arrows on wide screens (swipe on phones), and a round button in a notch that jumps to the products.
+ * Slides come from Online Store > Home banner in the app, or the built-in ones (heroSlides.ts).
  */
 function Hero() {
-  const { business, articles } = useStorefront();
-  const slides = [
-    {
-      title: 'Fresh Milk Daily, Delivered to Your Door',
-      body: 'Order online and pay with M-Pesa.',
-      cta: { label: 'Explore shop', href: '/shop' },
-      main: photoUrl(PHOTOS.glassLight, 700, 700),
-      alt: PHOTOS.glassLight.alt,
-      small: [PHOTOS.butter, PHOTOS.yoghurt] as [Photo, Photo],
-    },
-    // The shop's own cover photo, when set, gets a slide of its own rather than leading the page.
-    ...(business.coverImageUrl
-      ? [{
-          title: 'From Our Farm to Your Fridge',
-          body: 'Delivery or pickup, your choice.',
-          cta: { label: 'Order now', href: '/shop' },
-          main: business.coverImageUrl,
-          alt: '',
-          small: [PHOTOS.bottle, PHOTOS.splash] as [Photo, Photo],
-        }]
-      : []),
-    {
-      title: 'Yoghurt, Butter and More From Our Dairy',
-      body: 'Everything fresh, every day.',
-      cta: { label: 'Shop dairy', href: '/shop' },
-      main: photoUrl(PHOTOS.yoghurt, 700, 700),
-      alt: PHOTOS.yoghurt.alt,
-      small: [PHOTOS.bottle, PHOTOS.splash] as [Photo, Photo],
-    },
-    {
-      title: 'Never Run Out of Milk Again',
-      body: 'Pick your days. We prepare each order.',
-      cta: { label: 'Set up regular orders', href: '/account/schedules' },
-      main: photoUrl(PHOTOS.bottle, 700, 700),
-      alt: PHOTOS.bottle.alt,
-      small: [PHOTOS.glassLight, PHOTOS.butter] as [Photo, Photo],
-    },
-    ...(articles.length > 0
-      ? [{
-          title: 'Keep Your Milk Fresh for Longer',
-          body: 'Simple guides for your kitchen.',
-          cta: { label: 'Read our guides', href: '/articles' },
-          main: photoUrl(PHOTOS.bottleTray, 700, 700),
-          alt: PHOTOS.bottleTray.alt,
-          small: [PHOTOS.splash, PHOTOS.yoghurt] as [Photo, Photo],
-        }]
-      : []),
-  ];
+  const { articles, heroSlides } = useStorefront();
+  const slides = visibleHeroSlides(heroSlides, articles.length > 0);
   const count = slides.length;
-  const [active, setActive] = useState(0);
+  const [rawActive, setActive] = useState(0);
+  // Saved slides can arrive after the built-in ones, so the position is kept inside the new count.
+  const active = count > 0 ? rawActive % count : 0;
   const [paused, setPaused] = useState(prefersReducedMotion);
   const touchStart = useRef<number | null>(null);
 
   const goTo = useCallback((index: number) => setActive((index + count) % count), [count]);
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || count < 2) return;
     const timer = setTimeout(() => { if (!document.hidden) goTo(active + 1); }, SLIDE_MS);
     return () => clearTimeout(timer);
-  }, [active, paused, goTo]);
+  }, [active, paused, count, goTo]);
 
   const onTouchEnd = (e: TouchEvent) => {
     if (touchStart.current === null) return;
     const distance = e.changedTouches[0].clientX - touchStart.current;
     touchStart.current = null;
-    if (Math.abs(distance) > 45) goTo(active + (distance < 0 ? 1 : -1));
+    if (count > 1 && Math.abs(distance) > 45) goTo(active + (distance < 0 ? 1 : -1));
   };
 
   const arrow = 'absolute top-1/2 z-10 hidden size-9 -translate-y-1/2 place-items-center rounded-full bg-white text-ink shadow-soft transition hover:bg-ember hover:text-white sm:grid';
@@ -113,56 +75,56 @@ function Hero() {
     <section className="site-gutter pt-3 sm:pt-6" aria-roledescription="carousel" aria-label="Welcome">
       <div className="relative pb-7 sm:pb-9">
         <div
-          className="soft-panel relative grid touch-pan-y overflow-hidden rounded-2xl"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(prefersReducedMotion())}
+          className="soft-panel relative touch-pan-y overflow-hidden rounded-2xl"
+          // Only a real mouse pauses it: a tap on a phone would otherwise pause it for good.
+          onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPaused(true); }}
+          onPointerLeave={(e) => { if (e.pointerType === 'mouse') setPaused(prefersReducedMotion()); }}
           onTouchStart={(e) => { touchStart.current = e.touches[0].clientX; }}
           onTouchEnd={onTouchEnd}
         >
+          {/* The slides sit side by side on a track that slides left, so the hero visibly moves. */}
+          <div
+            className="flex transition-transform duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none"
+            style={{ transform: `translateX(-${active * 100}%)` }}
+          >
           {slides.map((slide, index) => {
             const isActive = index === active;
             const Heading = index === 0 ? 'h1' : 'h2';
             return (
               <div
-                key={slide.title}
+                key={slide.id || index}
                 role="group"
                 aria-roledescription="slide"
                 aria-label={`${index + 1} of ${count}`}
                 aria-hidden={!isActive}
                 {...({ inert: !isActive } as object)}
-                className={`grid grid-cols-[1.2fr_1fr] items-center gap-3 px-4 pb-11 pt-6 transition-opacity duration-700 [grid-area:1/1] sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 md:grid-cols-[1.15fr_1fr] lg:px-20 lg:pb-20 lg:pt-14 ${isActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                className="grid w-full shrink-0 grid-cols-[1.2fr_1fr] items-center gap-3 px-4 pb-11 pt-6 sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 md:grid-cols-[1.15fr_1fr] lg:px-20 lg:pb-20 lg:pt-14"
               >
                 <div>
                   <Heading className="display-xl max-w-[18ch] max-sm:text-[1.3125rem] max-sm:leading-tight">{slide.title}</Heading>
-                  <p className="mt-1.5 text-xs text-muted sm:mt-3 sm:text-[0.9375rem]">{slide.body}</p>
-                  <a href={slide.cta.href} className="btn btn-primary mt-3.5 max-sm:min-h-9 max-sm:px-3.5 max-sm:text-xs sm:mt-7">
-                    {slide.cta.label} <ShoppingCart size={16} aria-hidden />
-                  </a>
+                  {slide.body?.trim() && <p className="mt-1.5 text-xs text-muted sm:mt-3 sm:text-[0.9375rem]">{slide.body}</p>}
+                  {slide.ctaLabel?.trim() && (
+                    <a href={safeHref(slide.ctaHref)} className="btn btn-primary mt-3.5 max-sm:min-h-9 max-sm:px-3.5 max-sm:text-xs sm:mt-7">
+                      {slide.ctaLabel} <ShoppingCart size={16} aria-hidden />
+                    </a>
+                  )}
                 </div>
-                {(isActive || index === (active + 1) % count) && (
-                  <PhotoCluster main={slide.main} mainAlt={slide.alt} small={slide.small} />
-                )}
+                <ProductDisplay images={slide.images} title={slide.title} eager={index === 0} />
               </div>
             );
           })}
-
-          <button onClick={() => goTo(active - 1)} aria-label="Previous slide" className={`${arrow} left-3 lg:left-5`}>
-            <ChevronLeft size={18} aria-hidden />
-          </button>
-          <button onClick={() => goTo(active + 1)} aria-label="Next slide" className={`${arrow} right-3 lg:right-5`}>
-            <ChevronRight size={18} aria-hidden />
-          </button>
-          <div className="absolute bottom-3 left-6 z-10 flex gap-1.5 sm:hidden">
-            {slides.map((slide, index) => (
-              <button
-                key={slide.title}
-                onClick={() => goTo(index)}
-                aria-label={`Go to slide ${index + 1}`}
-                aria-current={index === active}
-                className={`h-1.5 rounded-full transition-all ${index === active ? 'w-5 bg-ember' : 'w-1.5 bg-ink/20'}`}
-              />
-            ))}
           </div>
+
+          {count > 1 && (
+            <>
+              <button onClick={() => goTo(active - 1)} aria-label="Previous slide" className={`${arrow} left-3 lg:left-5`}>
+                <ChevronLeft size={18} aria-hidden />
+              </button>
+              <button onClick={() => goTo(active + 1)} aria-label="Next slide" className={`${arrow} right-3 lg:right-5`}>
+                <ChevronRight size={18} aria-hidden />
+              </button>
+            </>
+          )}
         </div>
 
         {/* The notch: a page-coloured circle biting into the panel, holding the jump button. */}

@@ -54,7 +54,12 @@ export function StatusBadge({ status }: { status: Order['status'] }) {
   );
 }
 
-export function ProductImage({ product, width = 640 }: { product: Pick<Product, 'image' | 'name'> & { category?: string }; width?: number }) {
+/** `fit="contain"` shows the whole picture (product cut-outs); the default fills the box. */
+export function ProductImage({ product, width = 640, fit = 'cover' }: {
+  product: Pick<Product, 'image' | 'name'> & { category?: string };
+  width?: number;
+  fit?: 'cover' | 'contain';
+}) {
   const [failed, setFailed] = useState(false);
   const photo = productPhoto(`${product.name} ${product.category ?? ''}`);
   return (
@@ -63,7 +68,7 @@ export function ProductImage({ product, width = 640 }: { product: Pick<Product, 
       alt={product.name}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="size-full object-cover"
+      className={`size-full ${fit === 'contain' && product.image && !failed ? 'object-contain' : 'object-cover'}`}
     />
   );
 }

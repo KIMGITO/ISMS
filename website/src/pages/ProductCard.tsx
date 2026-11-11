@@ -69,7 +69,7 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
             </span>
           )}
         </div>
-        <h3 className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug sm:mt-1 sm:text-sm">
+        <h3 className="mt-0.5 line-clamp-2 min-h-[2.75em] text-xs font-medium leading-snug sm:mt-1 sm:text-sm">
           <a href={href} className="hover:text-ember">{product.name}</a>
         </h3>
         <div className="mt-auto flex flex-col gap-1.5 pt-2 sm:flex-row sm:items-end sm:justify-between sm:pt-2.5">

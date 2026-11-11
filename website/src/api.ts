@@ -1,3 +1,4 @@
+import type { HeroSlide } from './heroSlides';
 import { createClient } from '@supabase/supabase-js';
 
 export const WEBSITE_SLUG = import.meta.env.VITE_WEBSITE_SLUG || 'kaykays';
@@ -55,6 +56,8 @@ export interface Storefront {
   };
   /** Staff-written text for info pages, keyed by page id (about, terms…). Empty means use the default. */
   pages?: Partial<Record<string, string>>;
+  /** Home banner slides from Online Store > Home banner (20261111002). Empty or missing: built-in slides. */
+  heroSlides?: HeroSlide[];
   loyalty?: {
     pointsPerShilling: number;
     valueBronze: number;
