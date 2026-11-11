@@ -161,7 +161,11 @@ export default function AboutView() {
           </Group>
         )}
 
-        <p className="text-center text-xs text-app-text-muted">© 2026 KayKay's. All rights reserved.</p>
+        <p className="text-center text-xs text-app-text-muted">
+          © 2026 KayKay's. All rights reserved.
+          <br />
+          Licensed software: use needs a paid licence. Copying or sharing the app is not allowed.
+        </p>
       </div>
     </div>
   );

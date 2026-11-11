@@ -1,184 +1,176 @@
-PROPRIETARY SOFTWARE LICENSE AGREEMENT
-ISMS Business Management System (ISMS)
+COMMERCIAL SOFTWARE LICENSE AGREEMENT
+ISMS Business Management System (distributed as the "KayKay's" apps)
 
-Copyright (c) 2024–2026 Dennis Kimanthi. All Rights Reserved.
+Copyright (c) 2024-2026 Dennis Kimanthi. All rights reserved.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                           PROPRIETARY LICENSE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT - READ CAREFULLY. This is paid software. Downloading it is free;
+using it is not. You may only install and use it under a paid License from
+the Licensor.
 
-IMPORTANT — READ CAREFULLY BEFORE USING THIS SOFTWARE.
+===============================================================================
+1. DEFINITIONS
+===============================================================================
 
-This Proprietary Software License Agreement ("Agreement") is a legal contract
-between you (an individual or legal entity, "Licensee") and Dennis Kimanthi
-("Licensor") for the use of the ISMS Business Management System software,
-including all associated source code, compiled binaries, documentation, data,
-configuration files, databases, and accompanying materials (collectively, the
-"Software").
+"Licensor" means Dennis Kimanthi.
 
-By installing, copying, downloading, accessing, or otherwise using the Software,
-you agree to be bound by the terms of this Agreement. If you do not agree to the
-terms, do not install or use the Software.
+"Software" means the ISMS Business Management System in any form: the
+Windows, Linux and Android apps, their installers and updates, the web app,
+the server functions and database design, the source code, documentation and
+all related materials.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. GRANT OF LICENSE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"License" means a right to use the Software that the Licensor has granted in
+writing (for example an invoice, receipt, order confirmation or license key)
+after payment of the License fee. It names the business it is for and may set
+a number of devices or users and a period.
 
-Subject to the terms and conditions of this Agreement and payment of applicable
-license fees, the Licensor grants the Licensee a limited, non-exclusive,
-non-transferable, non-sublicensable license to:
+"Licensee" or "you" means the business or person the License is issued to.
 
-  (a) Install and use the Software solely for the Licensee's own internal
-      business operations;
-  (b) Make a reasonable number of copies of the Software solely for backup or
-      archival purposes.
+===============================================================================
+2. DOWNLOADING IS NOT A LICENSE
+===============================================================================
 
-This license does not include the right to use the Software for the benefit of
-any third party, including in any hosted or SaaS offering.
+Installers may be published where anyone can download them, so that paying
+customers can install and update the Software. Being able to download,
+install, open or sign in to the Software does not give anyone the right to use
+it. Without a valid, paid License you may not use the Software for any purpose.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. RESTRICTIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+3. WHAT A PAID LICENSE ALLOWS
+===============================================================================
 
-The Licensee shall NOT, directly or indirectly:
+While your License is paid up and in force, the Licensor grants you a limited,
+non-exclusive, non-transferable, non-sublicensable right to:
 
-  (a) Copy, reproduce, redistribute, sublicense, sell, resell, transfer, assign,
-      or otherwise dispose of the Software or any portion thereof;
-  (b) Decompile, disassemble, reverse-engineer, or attempt to derive the source
-      code or underlying algorithms of any compiled portion of the Software;
-  (c) Modify, translate, adapt, or create derivative works based upon the
-      Software;
-  (d) Remove, alter, or obscure any copyright notices, trademarks, proprietary
-      legends, or other notices of the Licensor contained in or on the Software;
-  (e) Use the Software to develop a competing product or service;
-  (f) Make the Software available over a network where it could be used by
-      multiple users simultaneously without a valid multi-seat license;
-  (g) Use the Software for any illegal, fraudulent, or unauthorized purpose.
+  (a) install and use the Software for your own business's internal operations,
+      on the devices and by the users your License covers;
+  (b) receive the updates the Licensor publishes during the License period;
+  (c) let your own customers use the customer-facing features (such as your
+      online shop or customer account pages). Your customers do not need a
+      License of their own for that.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3. INTELLECTUAL PROPERTY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+4. WHAT YOU MAY NOT DO
+===============================================================================
 
-The Software and all copies thereof are proprietary to the Licensor and title
-thereto remains in the Licensor. All rights in the Software not specifically
-granted in this Agreement are reserved to the Licensor.
+You may not, and may not let anyone else:
 
-The Software is protected by applicable copyright laws, trade secret laws,
-international copyright treaties, and other intellectual property laws and
-treaties.
+  (a) use the Software without a paid License, or beyond what your License
+      covers (more businesses, branches, devices or users than you paid for);
+  (b) copy, share, redistribute, publish, mirror, sell, resell, rent, lend or
+      sublicense the Software, its installers or its updates, including by
+      sharing download links, installer files, license keys or log-in accounts
+      with anyone outside your business;
+  (c) decompile, disassemble or reverse-engineer the Software, or try to obtain
+      its source code, except where the law expressly allows it despite this
+      restriction;
+  (d) modify, translate or create derivative works of the Software;
+  (e) remove, hide or bypass any license check, access control, copyright
+      notice or other protection in the Software;
+  (f) use the Software, or knowledge gained from it, to build or offer a
+      competing product or service, or to run the Software as a service for
+      other businesses;
+  (g) use the Software for anything illegal or fraudulent.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. CONFIDENTIALITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+5. SOURCE CODE
+===============================================================================
 
-The Software contains trade secrets and proprietary information belonging to the
-Licensor. The Licensee agrees to maintain the confidentiality of the Software
-and to use the Software only as permitted under this Agreement. The Licensee
-will not disclose the Software or any portion thereof to any third party without
-the prior written consent of the Licensor.
+The source code is the Licensor's confidential trade secret. No License
+includes the source code. Any copy of the source code, however it was
+obtained, including copies made while it was publicly visible online, gives
+no right to use, copy, modify, build, run or share it, and must be deleted.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. LICENSE FEES AND PAYMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+6. FEES AND NON-PAYMENT
+===============================================================================
 
-Use of this Software requires payment of the applicable license fee as agreed
-separately between the Licensor and the Licensee. Failure to pay the applicable
-fees will result in immediate termination of this Agreement and revocation of
-the license granted herein.
+License fees, the period they cover and how they are paid are set out in your
+invoice, order or separate agreement. If fees are not paid when due, the
+Licensor may, after notice, suspend your access to the Software, its updates
+and the online services it depends on until payment is made, and may end the
+License under section 8.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-6. TERM AND TERMINATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+7. YOUR BUSINESS DATA
+===============================================================================
 
-This Agreement is effective until terminated. The Licensor may terminate this
-Agreement immediately upon written notice if:
+The business records you enter into the Software (sales, customers, stock and
+so on) remain yours. The Licensor processes them only to provide the Software
+and its online services to you, and in line with the Data Protection Act,
+2019 of Kenya. If your License ends, you may ask for an export of your data
+within 30 days.
 
-  (a) The Licensee breaches any term of this Agreement and fails to cure such
-      breach within fourteen (14) days of receiving written notice thereof;
-  (b) The Licensee becomes insolvent, makes an assignment for the benefit of
-      creditors, or becomes subject to any bankruptcy or insolvency proceeding.
+===============================================================================
+8. TERM AND TERMINATION
+===============================================================================
 
-Upon termination, the Licensee must immediately cease all use of the Software,
-destroy all copies in its possession or control, and certify in writing to the
-Licensor that it has done so.
+Your License lasts for the period you paid for, or until it ends under this
+section. The Licensor may end it by written notice if you:
 
-Sections 3 (Intellectual Property), 4 (Confidentiality), 7 (Disclaimer of
-Warranties), 8 (Limitation of Liability), and 9 (General) shall survive any
-termination of this Agreement.
+  (a) break this Agreement and do not fix the breach within 14 days of notice
+      (or at once, for a breach of section 4(b), 4(e) or 5); or
+  (b) do not pay fees within 14 days of notice that they are overdue.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-7. DISCLAIMER OF WARRANTIES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When your License ends you must stop using the Software and delete every copy
+you have. Sections 4, 5, 9, 10, 11 and 13 continue to apply after it ends.
 
-THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. TO THE MAXIMUM
-EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR EXPRESSLY DISCLAIMS ALL
-WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
-NON-INFRINGEMENT.
+===============================================================================
+9. OWNERSHIP
+===============================================================================
 
-THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL MEET THE LICENSEE'S
-REQUIREMENTS, THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR
-ERROR-FREE, OR THAT DEFECTS IN THE SOFTWARE WILL BE CORRECTED.
+The Software is licensed, not sold. The Licensor owns the Software and all
+intellectual property in it, including every copy and update. All rights not
+expressly granted to you are reserved.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-8. LIMITATION OF LIABILITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===============================================================================
+10. NO WARRANTY
+===============================================================================
 
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
-LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO LOSS OF BUSINESS, LOSS OF
-PROFITS, LOSS OF DATA, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN
-CONNECTION WITH THE USE OR INABILITY TO USE THE SOFTWARE, EVEN IF THE LICENSOR
-HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+TO THE EXTENT THE LAW ALLOWS, THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. THE LICENSOR DOES NOT
+PROMISE THAT THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE.
 
-IN NO EVENT SHALL THE LICENSOR'S TOTAL AGGREGATE LIABILITY TO THE LICENSEE
-EXCEED THE TOTAL LICENSE FEES PAID BY THE LICENSEE TO THE LICENSOR FOR THE
-SOFTWARE DURING THE TWELVE (12) MONTHS PRECEDING THE EVENT GIVING RISE TO SUCH
-LIABILITY.
+===============================================================================
+11. LIMITATION OF LIABILITY
+===============================================================================
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-9. GENERAL
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TO THE EXTENT THE LAW ALLOWS, THE LICENSOR IS NOT LIABLE FOR ANY INDIRECT,
+INCIDENTAL, SPECIAL OR CONSEQUENTIAL LOSS, INCLUDING LOST PROFITS, LOST DATA
+OR BUSINESS INTERRUPTION. THE LICENSOR'S TOTAL LIABILITY IS LIMITED TO THE
+LICENSE FEES YOU PAID IN THE 12 MONTHS BEFORE THE EVENT THAT CAUSED IT.
 
-  (a) Governing Law: This Agreement shall be governed by and construed in
-      accordance with the laws of Kenya, without regard to its conflict of law
-      provisions.
+===============================================================================
+12. CHANGES TO THIS AGREEMENT
+===============================================================================
 
-  (b) Entire Agreement: This Agreement constitutes the entire agreement between
-      the parties with respect to the subject matter hereof and supersedes all
-      prior and contemporaneous agreements, understandings, negotiations, and
-      discussions between the parties.
+The Licensor may update this Agreement for new versions of the Software. The
+version included with a release applies to that release. Changes do not
+reduce your rights for a period you have already paid for.
 
-  (c) Severability: If any provision of this Agreement is held to be invalid or
-      unenforceable, the remaining provisions shall continue in full force and
-      effect.
+===============================================================================
+13. GENERAL
+===============================================================================
 
-  (d) Waiver: No waiver of any breach of this Agreement shall constitute a
-      waiver of any subsequent breach.
+  (a) This Agreement is governed by the laws of Kenya, and the courts of Kenya
+      have jurisdiction over any dispute about it.
+  (b) This Agreement, together with your invoice, order or any separate signed
+      agreement, is the whole agreement about the Software. If they conflict,
+      the separate signed agreement wins.
+  (c) If any part of this Agreement cannot be enforced, the rest still
+      applies.
+  (d) Not enforcing a term once does not waive it.
+  (e) You may not transfer your License without the Licensor's written
+      consent.
 
-  (e) Amendments: This Agreement may only be modified by a written instrument
-      signed by both parties.
+===============================================================================
+14. CONTACT
+===============================================================================
 
-  (f) No Assignment: The Licensee may not assign or transfer this Agreement or
-      any rights or obligations hereunder without the prior written consent of
-      the Licensor.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-10. CONTACT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-For licensing inquiries, support, or legal notices, please contact:
+To buy a License, or for questions and legal notices:
 
   Dennis Kimanthi
-  Software Author & Licensor
   Email: kimanthidennis02@gmail.com
-  Project: ISMS Business Management System (ISMS)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Copyright (c) 2024–2026 Dennis Kimanthi. All Rights Reserved.
-Unauthorized use, reproduction, or distribution of this Software, in whole or
-in part, is strictly prohibited and will be prosecuted to the fullest extent
-of applicable law.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Copyright (c) 2024-2026 Dennis Kimanthi. All rights reserved.
+Unauthorised use, copying or distribution of this Software is prohibited.

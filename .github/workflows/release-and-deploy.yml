@@ -514,6 +514,8 @@ jobs:
             --version "$VERSION" --tag "$TAG" --repo "$PUBLIC_REPO" \
             --notes notes/release-notes.md --dir out > out/latest.json
           cat out/latest.json
+          # The licence terms go out with every release, next to the installers.
+          cp LICENSE out/LICENSE.txt
           (cd out && sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS.txt)
 
       # Where this release goes: PUBLIC_REPO always, and this code repo too while it is still

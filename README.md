@@ -318,3 +318,13 @@ supabase functions deploy chat
 supabase functions deploy twilio-sms
 supabase functions deploy mpesa-callback
 ```
+
+---
+
+## 📜 License
+
+Commercial software. Copyright (c) 2024-2026 Dennis Kimanthi. All rights reserved.
+
+The installers can be downloaded freely, but using the app requires a paid licence, and the
+software, its installers and this source code may not be copied, shared or redistributed.
+See [LICENSE](LICENSE) for the full terms. To buy a licence: kimanthidennis02@gmail.com

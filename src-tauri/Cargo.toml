@@ -1,9 +1,10 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
+description = "ISMS Business Management System (KayKay's). Commercial software, see LICENSE."
+authors = ["Dennis Kimanthi"]
+license-file = "../LICENSE"
+publish = false
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
