@@ -1,5 +1,5 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchPointSettings, pointsPerShilling, setPointsEnabled } from '../services/loyalty/pointValue';
+import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { useOverlay } from '../hooks/useOverlay';
 import {
   AlertTriangle,
@@ -657,112 +657,8 @@ function GuidesTab({ businessId }: { businessId: string }) {
   );
 }
 
-function PointsSettingsCard({ businessId }: { businessId: string }) {
-  const reportError = useReportError();
-  const showToast = useNotificationStore((s) => s.showToast);
-  // Entered as "points for KSh 1" per tier; stored as the KSh value of one point.
-  const [perKsh, setPerKsh] = useState({ bronze: '50', silver: '100', gold: '200' });
-  const [minRedeem, setMinRedeem] = useState('100');
-  const [enabled, setEnabled] = useState(true);
-  const [switching, setSwitching] = useState(false);
-
-  useEffect(() => {
-    fetchPointSettings(businessId).then((s) => {
-      setEnabled(s.enabled);
-      setPerKsh({ bronze: String(pointsPerShilling(s.bronze)), silver: String(pointsPerShilling(s.silver)), gold: String(pointsPerShilling(s.gold)) });
-      setMinRedeem(String(s.minRedeem));
-    });
-  }, [businessId]);
-
-  const handleSave = async (e: FormEvent) => {
-    e.preventDefault();
-    const v = (n: string) => Math.round((1 / Math.max(1, Number(n) || 1)) * 10000) / 10000;
-    try {
-      const { error } = await getSupabase().from('loyalty_settings').upsert({
-        business_id: businessId,
-        value_bronze: v(perKsh.bronze),
-        value_silver: v(perKsh.silver),
-        value_gold: v(perKsh.gold),
-        // Older app versions read this single value.
-        point_value: Math.max(0.01, Math.round(v(perKsh.silver) * 100) / 100),
-        min_redeem_points: Number(minRedeem),
-      });
-      if (error) throw error;
-      showToast('Points Saved', 'Your points settings are saved.', undefined, 'success');
-    } catch (err) {
-      reportError(err, 'Could not save points settings.');
-    }
-  };
-
-  // Saved straight away, on its own: the tier values below keep whatever they were.
-  const toggle = async () => {
-    const next = !enabled;
-    setSwitching(true);
-    try {
-      const { error } = await getSupabase().from('loyalty_settings').upsert({ business_id: businessId, points_enabled: next });
-      if (error) throw error;
-      setEnabled(next);
-      setPointsEnabled(businessId, next);
-      showToast(
-        next ? 'Points On' : 'Points Off',
-        next ? 'Customers earn and use points again.' : 'Customers keep their points but can\'t earn or use them until you switch this back on.',
-        undefined,
-        'success',
-      );
-    } catch (err) {
-      reportError(err, 'Could not switch points.');
-    } finally {
-      setSwitching(false);
-    }
-  };
-
-  const row = (tier: 'bronze' | 'silver' | 'gold', label: string) => {
-    const n = Number(perKsh[tier]) || 0;
-    return (
-      <label className="block text-sm font-medium text-app-text">
-        {label}: points for Ksh 1
-        <input required type="number" min="1" step="1" value={perKsh[tier]} onChange={(e) => setPerKsh((p) => ({ ...p, [tier]: e.target.value }))} className={inputClass} />
-        <span className="block mt-1 text-xs font-normal text-app-text-muted">{n > 0 ? `${Math.round((2 / n) * 1000) / 10}% back on what they pay` : ''}</span>
-      </label>
-    );
-  };
-
-  return (
-    <form onSubmit={handleSave} className={`${cardClass} space-y-3`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-app-text">Loyalty points</h3>
-          <p className="text-xs text-app-text-muted">
-            {enabled ? 'On: customers earn and use points.' : 'Off: nobody earns or uses points. Balances are kept for when you switch back on.'}
-          </p>
-        </div>
-        <Switch checked={enabled} onChange={() => toggle()} disabled={switching} ariaLabel="Loyalty points" />
-      </div>
-      {enabled && (
-      <>
-      <div>
-        <p className="text-xs text-app-text-muted">
-          Customers earn 2 points for every Ksh 1 they pay for. Credit sales earn when paid: 1 point for every Ksh 1 paid towards the debt.
-          Points are worth less in higher tiers, so small customers feel the reward and big spenders cost less. Points are not cash: they come off a purchase or pay off debt.
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {row('bronze', 'Bronze')}
-        {row('silver', 'Silver')}
-        {row('gold', 'Gold')}
-      </div>
-      <label className="block text-sm font-medium text-app-text">
-        Fewest points that can be used
-        <input required type="number" min="1" value={minRedeem} onChange={(e) => setMinRedeem(e.target.value)} className={inputClass} />
-      </label>
-      <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">Save</button>
-      </>
-      )}
-    </form>
-  );
-}
-
 function SettingsTab({ businessId }: { businessId: string }) {
+  const role = useAuthStore((s) => s.currentEmployee?.role);
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
   const [slug, setSlug] = useState('');
@@ -841,7 +737,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <DeliveryZonesEditor businessId={businessId} />
-      <PointsSettingsCard businessId={businessId} />
+      {canConfigurePoints(role) && <PointsSettings businessId={businessId} />}
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
         <label className="block text-sm font-medium text-app-text">

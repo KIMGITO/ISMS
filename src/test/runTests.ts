@@ -24,7 +24,7 @@ import { MONEY_METHODS, isMoneyMethod, methodLabel, normalizeReference } from ".
 import { createHmac } from "node:crypto";
 import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../services/loyalty/tillPoints";
 import { cannotAttachReason } from "../services/saleCustomer";
-import { SHORTCUTS, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
+import { SHORTCUTS, FEATURES, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
 import { customerName, readableIds } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
@@ -650,11 +650,20 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
   for (const sc of SHORTCUTS.filter((x) => x.target)) {
     if (!code.includes(`data-shortcut="${sc.target}"`)) throw new Error(`no button tagged ${sc.target} for ${sc.id}`);
   }
+  for (const f of FEATURES.filter((x) => x.target)) {
+    if (!code.includes(`data-shortcut="${f.target}"`)) throw new Error(`no button tagged ${f.target} for search result ${f.id}`);
+  }
+  // Points settings: only roles allowed to change them find them.
+  const findsPointSettings = (role: string) => featuresFor(role).some((f) => f.id === "points-settings");
+  if (!findsPointSettings("Owner")) throw new Error("an owner should find points settings");
+  if (findsPointSettings("Cashier") || findsPointSettings("Manager") || findsPointSettings("Rider")) throw new Error("only loyalty.configure finds points settings");
+  if (featuresFor("Cashier").some((f) => ["promo-codes", "website-banner", "points-cost"].includes(f.id))) throw new Error("a cashier must not find website or finance features");
+  if (!featuresFor("Rider").some((f) => f.id === "delivery-requests")) throw new Error("a rider should find delivery requests");
 });
 
 runTest("Screen access follows the roles' permissions", () => {

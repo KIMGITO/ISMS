@@ -256,6 +256,12 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           relevance: score + 15,
           action: () => {
             go(f.screen);
+            // Open the exact panel, e.g. Points on Loyalty. A button the role can't use isn't rendered.
+            if (f.target) setTimeout(() => {
+              const button = document.querySelector<HTMLElement>(`[data-shortcut="${f.target}"]`);
+              if (button && button.getAttribute("aria-pressed") !== "true") button.click();
+              if (f.id === "points-settings") setTimeout(() => document.getElementById("points-settings")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+            }, 350);
             if (f.id === "keyboard-shortcuts") setTimeout(() => {
               const section = document.getElementById("keyboard-shortcuts");
               if (section instanceof HTMLDetailsElement) section.open = true;

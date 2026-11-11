@@ -4,6 +4,7 @@ import { SheetLayer } from '../components/shared/SheetLayer';
 import { useBusinessStore } from '../stores/businessStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
+import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
 import { SwipeRow } from '../components/shared/SwipeRow';
@@ -220,6 +221,8 @@ export default function CustomersView() {
   // Centralized permission validations
   const canViewCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.view") : false;
   const canAdjustPoints = currentEmployee ? hasRolePermission(currentEmployee.role, "loyalty.adjust") : false;
+  const canConfigurePointsHere = canConfigurePoints(currentEmployee?.role);
+  const [pointsReportKey, setPointsReportKey] = useState(0);
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
   const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
@@ -782,9 +785,10 @@ export default function CustomersView() {
             </button>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {pointsOn && (
+            {(pointsOn || canConfigurePointsHere) && (
               <button
                 data-shortcut="points"
+                title={canConfigurePointsHere ? 'Points report and points settings' : 'Points report'}
                 onClick={() => {
                   setSelectedCustomerId(null);
                   setShowPoints(true);
@@ -938,7 +942,26 @@ export default function CustomersView() {
         {showPoints && !selectedCustomer && activeBusinessId ? (
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className={`px-3 pt-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
-              <PointsReport businessId={activeBusinessId} customers={customers} onBack={() => setShowPoints(false)} onOpenCustomer={openCustomer} />
+              {pointsOn ? (
+                <PointsReport
+                  key={pointsReportKey}
+                  businessId={activeBusinessId}
+                  customers={customers}
+                  onBack={() => setShowPoints(false)}
+                  onOpenCustomer={openCustomer}
+                  settings={canConfigurePointsHere ? <PointsSettings businessId={activeBusinessId} onSaved={() => setPointsReportKey((k) => k + 1)} /> : undefined}
+                />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowPoints(false)} aria-label="Back" className="p-2 -ml-2 rounded-xl hover:bg-app-card cursor-pointer lg:hidden">
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="text-base font-semibold">Loyalty points are off</h2>
+                  </div>
+                  {canConfigurePointsHere && <PointsSettings businessId={activeBusinessId} />}
+                </div>
+              )}
             </div>
           </div>
         ) : selectedCustomer ? (

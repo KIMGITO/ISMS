@@ -44,11 +44,13 @@ const KIND_LABEL: Record<Redemption['kind'], string> = {
   account: 'Paid off debt',
 };
 
-export function PointsReport({ businessId, customers, onBack, onOpenCustomer }: {
+export function PointsReport({ businessId, customers, onBack, onOpenCustomer, settings: settingsPanel }: {
   businessId: string;
   customers: Customer[];
   onBack?: () => void;
   onOpenCustomer: (id: string) => void;
+  /** Points settings, for roles allowed to change them; shown under the heading. */
+  settings?: React.ReactNode;
 }) {
   const [range, setRange] = useState<Range>('this_month');
   const [settings, setSettings] = useState<PointSettings>(DEFAULT_POINT_SETTINGS);
@@ -174,6 +176,8 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer }: 
           <RefreshCw size={16} className={state === 'loading' ? 'animate-spin' : ''} />
         </button>
       </div>
+
+      {settingsPanel}
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none" role="radiogroup" aria-label="Period">
         {RANGES.map((r) => (

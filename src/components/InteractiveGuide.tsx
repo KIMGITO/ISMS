@@ -7,6 +7,10 @@ export interface TourStep {
   content: string;
   placement?: "top" | "bottom" | "left" | "right";
   tab?: string;
+  /** Any one of these shows the step (on top of being able to open `tab`). Empty or missing: anyone. */
+  permissions?: string[];
+  /** Leave the step out on phones (e.g. keyboard tips). */
+  desktopOnly?: boolean;
 }
 
 interface InteractiveGuideProps {

@@ -263,7 +263,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'customers.schedules', category: 'Customers & Loyalty', description: 'Manage milk delivery subscriptions' },
   { code: 'customers.manage', category: 'Customers & Loyalty', description: 'Configure customer settings' },
   { code: 'loyalty.view', category: 'Customers & Loyalty', description: 'View loyalty setups' },
-  { code: 'loyalty.configure', category: 'Customers & Loyalty', description: 'Adjust point tier scales' },
+  { code: 'loyalty.configure', category: 'Customers & Loyalty', description: 'Switch points on or off and set what a point is worth' },
   { code: 'loyalty.adjust', category: 'Customers & Loyalty', description: 'Manually override points' },
 
   // Orders & Deliveries

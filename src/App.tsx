@@ -250,7 +250,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-brand-header',
     title: 'Your business',
-    content: 'The branch you are working in. If you work at more than one, switch here.',
+    content: 'The branch you are working in. If you work at more than one, switch here. Switching changes everything: screens, cart, figures, your role and notifications all reload for that branch.',
     placement: 'right',
   },
   {
@@ -290,9 +290,23 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-inventory',
     title: 'Inventory',
-    content: 'Products, stock levels and categories. Record restocks, wastage and counts here.',
+    content: 'Products, stock levels and categories. Record restocks, wastage and counts here. When you add a product photo, Remove background cuts it out for free on this device.',
     placement: 'right',
     tab: 'inventory',
+  },
+  {
+    targetSelector: '#sidebar-tab-stock-history',
+    title: 'Stock History',
+    content: 'Every restock, wastage, count, transfer and production change to stock, with who did it.',
+    placement: 'right',
+    tab: 'stock-history',
+  },
+  {
+    targetSelector: '#sidebar-tab-stock-transfers',
+    title: 'Stock Transfers',
+    content: 'Send stock to another branch, and confirm what arrived from one. A transfer is not a sale, so profit does not change.',
+    placement: 'right',
+    tab: 'stock-transfers',
   },
   {
     targetSelector: '#sidebar-tab-sales',
@@ -304,9 +318,17 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-customers',
     title: 'Loyalty',
-    content: 'Customers, their points, debts and wallets. Each customer has an account number for M-Pesa.',
+    content: 'Customers, their points, debts, wallets and invoices. Each customer has an account number for M-Pesa. Swipe an invoice to delete it; hold it to archive.',
     placement: 'right',
     tab: 'customers',
+  },
+  {
+    targetSelector: '[data-shortcut="points"]',
+    title: 'Manage points',
+    content: 'Tap Points to switch loyalty points on or off, set what a point is worth for Bronze, Silver and Gold, and see the points report. Switching off keeps every balance.',
+    placement: 'bottom',
+    tab: 'customers',
+    permissions: ['loyalty.configure'],
   },
   {
     targetSelector: '#sidebar-tab-money',
@@ -316,9 +338,23 @@ const tourSteps: TourStep[] = [
     tab: 'money',
   },
   {
+    targetSelector: '#sidebar-tab-petty-cash',
+    title: 'Petty Cash',
+    content: 'Record money taken from the till to spend, and what it was spent on.',
+    placement: 'right',
+    tab: 'petty-cash',
+  },
+  {
+    targetSelector: '#sidebar-tab-finance',
+    title: 'Finances',
+    content: 'Profit or loss, income, spending, debts, wallets, and what loyalty points cost you.',
+    placement: 'right',
+    tab: 'finance',
+  },
+  {
     targetSelector: '#sidebar-tab-deliveries',
     title: 'Deliveries',
-    content: 'Delivery tasks assigned to riders, and their progress.',
+    content: 'Open delivery requests riders can accept or give back, their own deliveries, and the areas you deliver to with their prices.',
     placement: 'right',
     tab: 'deliveries',
   },
@@ -330,9 +366,17 @@ const tourSteps: TourStep[] = [
     tab: 'online-store',
   },
   {
+    targetSelector: '#sidebar-tab-online-store',
+    title: 'Your website',
+    content: 'Also in Online Store: the home banner, website pages, promo codes, reviews, delivery areas and website settings.',
+    placement: 'right',
+    tab: 'online-store',
+    permissions: ['business.update'],
+  },
+  {
     targetSelector: '#sidebar-tab-feedback',
     title: 'Feedback',
-    content: 'Reviews, suggestions and complaints from customers.',
+    content: 'Reviews, suggestions and complaints from customers. Hold one to archive it.',
     placement: 'right',
     tab: 'feedback',
   },
@@ -388,7 +432,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-about',
     title: 'About this app',
-    content: 'The version you have. Updates install by themselves; if one fails, check for updates here.',
+    content: 'The version you have and every keyboard shortcut your role can use. Updates install by themselves; if one fails, check for updates here.',
     placement: 'right',
     tab: 'about',
   },
@@ -401,13 +445,19 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#global-search-container',
     title: 'Search',
-    content: 'Find any screen, product, customer, receipt or payment by typing a few letters.',
+    content: 'Find any screen, product, customer, receipt or payment by typing a few letters. It also finds features by name, such as "points settings" or "promo codes", and keyboard shortcuts. You only see what your role can use.',
     placement: 'bottom',
+  },
+  {
+    title: 'Keyboard shortcuts',
+    content: 'Press Ctrl+K to search, ? to see the shortcuts for the screen you are on, and G then a letter to jump to a screen (G then H for Home). The full list for your role is in About this app.',
+    placement: 'bottom',
+    desktopOnly: true,
   },
   {
     targetSelector: '#header-notification-bell',
     title: 'Notifications',
-    content: 'Alerts such as low stock, M-Pesa payments and shift reports.',
+    content: 'Alerts such as low stock, M-Pesa payments and shift reports. Swipe one to delete it.',
     placement: 'left',
   },
   {
@@ -423,6 +473,8 @@ function tourStepsFor(role: string | undefined): TourStep[] {
   const onPhone = typeof window !== 'undefined' && window.innerWidth < 768;
   return tourSteps.filter((step) => {
     if (step.tab && !canOpenScreen(role, step.tab)) return false;
+    if (step.permissions?.length && !(role && step.permissions.some((code) => hasRolePermission(role, code as any)))) return false;
+    if (step.desktopOnly && onPhone) return false;
     // "More" only exists on phones.
     if (step.targetSelector === '#mobile-tab-more' && !onPhone) return false;
     return true;
