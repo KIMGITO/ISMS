@@ -8,6 +8,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { appDialog } from './AppDialog';
+import SearchableDropdown from './SearchableDropdown';
 import { toUserMessage } from '../utils/userError';
 import { deleteLogsBefore, fetchLogSizes, LOG_LABELS, LogName, MIN_AGE_DAYS } from '../services/logCleanup';
 
@@ -103,7 +104,7 @@ export default function LogCleanupPanel() {
 
       {error && <p className="p-3 rounded-xl bg-red-500/10 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      <ul className="divide-y divide-app-border rounded-2xl ring-1 ring-app-border overflow-hidden">
+      <ul className="divide-y divide-app-border rounded-2xl ring-1 ring-app-border">
         {LOGS.map((log) => {
           const size = sizes?.[log];
           return (
@@ -119,16 +120,13 @@ export default function LogCleanupPanel() {
                 {size?.oldest ? ` Oldest: ${new Date(size.oldest).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}.` : ''}
               </p>
               <div className="flex items-center gap-2">
-                <select
-                  value={age[log]}
-                  onChange={(e) => setAge((a) => ({ ...a, [log]: e.target.value }))}
-                  aria-label={`Which ${LOG_LABELS[log].title.toLowerCase()} entries to delete`}
-                  className="flex-1 min-w-0 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
-                >
-                  {agesFor(log).map((a) => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </select>
+                <SearchableDropdown
+                  items={agesFor(log).map((a) => ({ id: a.id, label: a.label }))}
+                  selectedValue={age[log]}
+                  onChange={(v) => setAge((a) => ({ ...a, [log]: v }))}
+                  placeholder="How old"
+                  className="flex-1 min-w-0"
+                />
                 <button
                   onClick={() => void clear(log)}
                   disabled={!size || size.count === 0 || busy !== null}
