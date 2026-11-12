@@ -38,6 +38,21 @@ export interface InvoiceTexts {
   stampColor: string;
   /** Period a new invoice starts with. */
   defaultPeriod: InvoicePeriodPreset;
+  /** Logo height on the page, in mm (A5). */
+  logoSize: number;
+  /** Where the stamp was dragged to, in mm from its usual place beside the totals. */
+  stampOffset: { x: number; y: number };
+  /** The receipt's extra QR code (Settings → Receipts → Codes). */
+  showQr: boolean;
+  /** Close with the receipt's line after the totals, returns policy and thank-you line. */
+  closingFromReceipt: boolean;
+}
+
+/** The receipt's closing texts, copied onto the invoice when it is made. */
+export interface InvoiceClosing {
+  message?: string;
+  policy?: string;
+  thankYou?: string;
 }
 
 export type InvoicePeriodPreset = "all" | "this_week" | "last_week" | "this_month" | "last_month" | "custom";
@@ -84,6 +99,9 @@ export interface InvoiceDocument {
   lines: InvoiceLine[];
   totals: InvoiceTotals;
   texts: InvoiceTexts;
+  /** From the receipt settings when the invoice was made; kept with the issued invoice. */
+  closing?: InvoiceClosing;
+  qr?: { url: string; caption: string };
 }
 
 /** An open credit record with its sale, as read from the database. */

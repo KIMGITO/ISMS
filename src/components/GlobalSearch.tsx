@@ -17,7 +17,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { getSupabase } from "../services/supabaseClient";
 import { SCREENS, canOpenScreen, type ScreenId } from "../utils/screens";
 import { featuresFor, shortcutsFor, scopeLabel } from "../utils/shortcuts";
-import { formatReceiptNumber } from "../utils/idUtils";
+import { formatReceiptNumber, toUuid } from "../utils/idUtils";
+import { receiptCode, matchesReceipt, mentionsReceipt } from "../utils/references";
+import { formatReceiptNo } from "../services/receipt/ReceiptGenerator";
+import { ReceiptService } from "../services/receipt/ReceiptService";
+import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
 
 interface SearchResult {
   id: string;
@@ -41,6 +45,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const { shifts, activeShift, currentEmployee, invitations, users } = useAuthStore();
   const { notifications } = useNotificationStore();
+  const setSearchTarget = useUiStore((st) => st.setSearchTarget);
+  const setSelectedCustomerId = useUiStore((st) => st.setSelectedCustomerId);
   
   // Extra modules state
   const extra = useExtraModulesStore();
@@ -121,7 +127,10 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       case "Inventory":
       case "Inventory Transactions":
         return hasRolePermission(currentEmployee.role, "inventory.view");
+      case "Stock History":
+        return canOpenScreen(currentEmployee.role, "stock-history");
       case "Customers":
+      case "Invoices":
         return hasRolePermission(currentEmployee.role, "customers.view");
       case "Suppliers":
         return hasRolePermission(currentEmployee.role, "suppliers.view");
@@ -178,6 +187,53 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     }
   };
 
+  // Invoices are kept on the server only: look their numbers up shortly after typing stops.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3 || !activeBusinessId || !hasAccessToCategory("Invoices")) return;
+    let live = true;
+    const timer = setTimeout(async () => {
+      try {
+        const { data, error } = await getSupabase()
+          .from("invoices")
+          .select("id, invoice_no, customer_id, balance_due, issued_at")
+          .eq("business_id", toUuid(activeBusinessId))
+          .ilike("invoice_no", `%${q.replace(/[%_,()]/g, "")}%`)
+          .order("number", { ascending: false })
+          .limit(8);
+        if (!live || error || !data?.length) return;
+        const exact = q.toLowerCase();
+        const hits: SearchResult[] = data.map((r: any) => {
+          const customer = customers.find((c) => c.id === r.customer_id);
+          return {
+            id: `invoice-${r.id}`,
+            title: `Invoice ${r.invoice_no}${customer ? ` · ${customer.name}` : ""}`,
+            subtitle: `Issued ${String(r.issued_at || "").slice(0, 10).split("-").reverse().join("/")} · Balance due ${formatInvoiceMoney(Number(r.balance_due) || 0, "KSh")} · Opens on the customer's invoices`,
+            category: "Invoices",
+            relevance: String(r.invoice_no).toLowerCase() === exact ? 115 : 95,
+            action: () => {
+              setSearchTarget({ kind: "invoice", customerId: r.customer_id, invoiceId: r.id });
+              setSelectedCustomerId(r.customer_id);
+              onNavigateTab("customers");
+              setIsOpen(false);
+              setQuery("");
+            },
+          };
+        });
+        setResults((prev) => {
+          const rest = prev.filter((x) => x.category !== "Invoices");
+          return [...hits, ...rest].sort((a, b) => (a.category < b.category ? -1 : a.category > b.category ? 1 : b.relevance - a.relevance));
+        });
+      } catch {
+        // Offline or invoices not set up: the other results still show.
+      }
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, activeBusinessId, isOpen]);
+
   const handleSearch = (text: string) => {
     setQuery(text);
     if (!text.trim()) {
@@ -187,6 +243,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
 
     const matched: SearchResult[] = [];
     const lower = text.toLowerCase().trim();
+    // A receipt number in any form (RCT-2026-ABCD1234, TXN-ABCD1234, ABCD1234).
+    const code = receiptCode(text);
+    const receiptSettings = activeBusinessId ? ReceiptService.getSettings(activeBusinessId) : null;
 
     // Helper to calculate relevance score
     const getRelevance = (field: string, targetQuery: string) => {
@@ -388,7 +447,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       const matchProd = getRelevance(adj.productName, lower);
       const matchReason = getRelevance(adj.reason || "", lower);
       const matchType = getRelevance(adj.type, lower);
-      const score = Math.max(matchProd, matchReason, matchType);
+      const matchRef = adj.referenceNumber ? getRelevance(adj.referenceNumber, lower) : 0;
+      const score = Math.max(matchProd, matchReason, matchType, matchRef);
       if (score > 0) {
         matched.push({
           id: `adj-${adj.id}`,
@@ -405,6 +465,29 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         });
       }
     });
+
+    // 5b. A receipt number: the stock that sale moved, all in one result that opens the
+    // stock log filtered to that receipt.
+    if (code) {
+      const moved = adjustments.filter((adj) => mentionsReceipt(adj.referenceNumber, code) || mentionsReceipt(adj.notes, code));
+      if (moved.length) {
+        const ref = moved[0].referenceNumber || `TXN-${code}`;
+        matched.push({
+          id: `stock-ref-${code}`,
+          title: `Stock moved by receipt ${ref}`,
+          subtitle: moved.slice(0, 3).map((a) => `${a.productName} ${a.quantityAdjusted > 0 ? "+" : ""}${a.quantityAdjusted}`).join(" · ") + (moved.length > 3 ? ` · and ${moved.length - 3} more` : ""),
+          category: "Stock History",
+          businessName: activeBizName,
+          relevance: 90,
+          action: () => {
+            setSearchTarget({ kind: "stock", query: ref });
+            onNavigateTab("stock-history");
+            setIsOpen(false);
+            setQuery("");
+          }
+        });
+      }
+    }
 
     // 6. Search Customers
     customers.forEach(c => {
@@ -453,23 +536,26 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 8. Search Sales
+    // 8. Search Sales, by any form of the receipt number, customer or payment method
     transactions.forEach(t => {
       const receipt = formatReceiptNumber(t.id);
-      const matchId = getRelevance(receipt, lower);
+      const printed = receiptSettings ? formatReceiptNo(t.id, t.timestamp, receiptSettings) : receipt;
+      const matchCode = code && matchesReceipt(t.id, code) ? (code.length >= 8 ? 100 : 85) : 0;
+      const matchId = Math.max(matchCode, getRelevance(receipt, lower), getRelevance(printed, lower));
       const matchCust = t.customerName ? getRelevance(t.customerName, lower) : 0;
       const matchMethod = getRelevance(t.paymentMethod, lower);
       const score = Math.max(matchId, matchCust, matchMethod);
       if (score > 0) {
         matched.push({
           id: `sale-${t.id}`,
-          title: `Receipt ${receipt}${t.customerName ? ` · ${t.customerName}` : ""}`,
-          subtitle: `Total: KSh ${t.finalTotal.toFixed(2)} · Method: ${t.paymentMethod} · Operator: ${t.staffName} · Status: ${t.status}`,
+          title: `Receipt ${printed}${t.customerName ? ` · ${t.customerName}` : ""}`,
+          subtitle: `${new Date(t.timestamp).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })} · KSh ${t.finalTotal.toFixed(2)} · ${t.paymentMethod} · By ${t.staffName}${printed !== receipt ? ` · Logs: ${receipt}` : ""}`,
           category: "Sales",
           businessName: activeBizName,
           status: t.status,
           relevance: score + 15,
           action: () => {
+            setSearchTarget({ kind: "sale", id: t.id });
             onNavigateTab("sales");
             setIsOpen(false);
             setQuery("");

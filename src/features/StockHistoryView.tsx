@@ -5,12 +5,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowDownRight, ArrowUpRight, CheckSquare, Copy, Eye, EyeOff, History, Search, Share2, Square, Trash2, X,
+  ArrowDownRight, ArrowUpRight, CheckSquare, Copy, Eye, EyeOff, History, ReceiptText, Search, Share2, Square, Trash2, X,
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { useOverlay } from '../hooks/useOverlay';
 import SheetLayer from '../components/shared/SheetLayer';
 import { searchMatch } from '../utils/stringUtils';
+import { useUiStore } from '../stores/uiStore';
+import { mentionsReceipt, receiptCode, receiptCodeIn } from '../utils/references';
+import { getShortId } from '../utils/idUtils';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { appDialog } from '../components/AppDialog';
@@ -104,6 +107,15 @@ export default function StockHistoryView() {
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+
+  // Opened from search with a receipt number: show what that sale moved.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== 'stock') return;
+    setQuery(searchTarget.query);
+    setFilter('all');
+    useUiStore.getState().setSearchTarget(null);
+  }, [searchTarget]);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState<InventoryAdjustment | null>(null);
@@ -118,6 +130,9 @@ export default function StockHistoryView() {
       if (filter === 'transfers' && !TRANSFER_TYPES.includes(adj.type)) return false;
       if (filter !== 'all' && filter !== 'in' && filter !== 'out' && filter !== 'transfers' && adj.type !== filter) return false;
       if (query.trim()) {
+        // Any form of a receipt number finds the sale's stock moves (logs say TXN-…, the paper RCT-2026-…).
+        const code = receiptCode(query);
+        if (code && (mentionsReceipt(adj.referenceNumber, code) || mentionsReceipt(adj.notes, code))) return true;
         const hay = [adj.productName, adj.reason, adj.staffName, adj.referenceNumber, adj.notes, adj.type].filter(Boolean).join(' ');
         if (!searchMatch(hay, query)) return false;
       }
@@ -398,6 +413,17 @@ function AdjustmentReceipt({
 }: { adj: InventoryAdjustment; unit: string; onClose: () => void; onHide: () => void; onCopied: () => void; onDelete?: () => void }) {
   const up = adj.quantityAdjusted > 0;
   const u = unit ? ` ${unit}` : '';
+  // A sale's stock move names its receipt: link back to that sale.
+  const { transactions } = useAppStore();
+  const saleCode = receiptCodeIn(adj.referenceNumber) || receiptCodeIn(adj.notes) || receiptCodeIn(adj.reason);
+  const sale = saleCode ? (Array.isArray(transactions) ? transactions : []).find((t) => getShortId(t.id) === saleCode) : undefined;
+  const openSale = () => {
+    if (!sale) return;
+    const ui = useUiStore.getState();
+    ui.setSearchTarget({ kind: 'sale', id: sale.id });
+    onClose();
+    ui.setActiveTab('sales');
+  };
   const rows: [string, string][] = [
     ['Reference', shortRef(adj)],
     ['Date', fullDate(adj.timestamp)],
@@ -466,6 +492,12 @@ function AdjustmentReceipt({
         {adj.reason && <p className="font-sans text-xs"><span className="text-app-text-muted">Reason: </span>{adj.reason}</p>}
         {adj.notes && <p className="font-sans text-xs mt-1"><span className="text-app-text-muted">Notes: </span>{adj.notes}</p>}
       </div>
+
+      {sale && (
+        <button onClick={openSale} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-app-bg text-app-text text-sm font-medium hover:bg-app-border/50">
+          <ReceiptText size={16} /> Open the sale that moved this stock
+        </button>
+      )}
 
       <div className="flex gap-2 mt-3">
         <button onClick={onHide} title="Hide on this device" aria-label="Hide on this device" className="flex items-center justify-center px-4 py-3 rounded-xl bg-app-bg text-app-text">

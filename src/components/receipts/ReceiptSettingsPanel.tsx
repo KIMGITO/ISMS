@@ -20,7 +20,8 @@ import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
 import { InvoicePaper } from '../invoices/InvoicePaper';
 import { InvoiceTexts, InvoicePeriodPreset } from '../../services/invoice/types';
-import { getInvoiceTexts, saveInvoiceTexts, invoiceAccent } from '../../services/invoice/invoiceSettings';
+import { contactsLine, getInvoiceTexts, saveInvoiceTexts, invoiceAccent, receiptClosing } from '../../services/invoice/invoiceSettings';
+import { InvoiceLookControls } from '../invoices/InvoiceLookControls';
 import { nextInvoiceNumber } from '../../services/invoice/invoiceData';
 import { addDays, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
 
@@ -50,6 +51,20 @@ function Field({ title, hint, children }: { title: string; hint?: string; childr
   );
 }
 
+/** A detail kept in Business settings: shown here, changed there. */
+function BusinessValue({ title, value, fallback }: { title: string; value?: string; fallback?: string }) {
+  const v = (value || '').trim();
+  return (
+    <div className="block min-w-0">
+      <span className={label}>{title}</span>
+      <div className="w-full bg-app-bg/60 text-app-text px-3 py-2 rounded-lg text-sm truncate" title={v || fallback || ''}>
+        {v || fallback || <span className="text-app-text-muted">Not set</span>}
+      </div>
+      {!v && fallback && <span className="block mt-1 text-xs text-app-text-muted">From the old receipt settings until it is set in Business settings.</span>}
+    </div>
+  );
+}
+
 /** The app's dropdown for a fixed list of choices. A choice that isn't available yet says why and can't be picked. */
 function Pick({ value, options, onChange }: { value: string; options: { id: string; label: string; sublabel?: string; disabled?: boolean }[]; onChange: (v: string) => void }) {
   return (
@@ -69,6 +84,7 @@ export default function ReceiptSettingsPanel() {
   const { showToast, currentEmployee, transactions } = useAppStore();
   const activeBusinessId = useBusinessStore((s) => s.activeBusinessId);
   const receiptConfig = useBusinessStore((s) => s.integrationConfigs['receipt']);
+  const business = useBusinessStore((s) => s.businesses.find((b) => b.id === s.activeBusinessId));
   const role = currentEmployee?.role || 'Staff';
   const canConnectKra = hasRolePermission(role, 'settings.integrations');
 
@@ -79,7 +95,7 @@ export default function ReceiptSettingsPanel() {
 
   useEffect(() => {
     if (activeBusinessId && !dirty) setSettings(ReceiptService.getSettings(activeBusinessId));
-  }, [activeBusinessId, receiptConfig]);
+  }, [activeBusinessId, receiptConfig, business?.address, business?.contactPhone, business?.contactEmail]);
 
   const update = (patch: Partial<BusinessReceiptSettings>) => {
     setSettings((s) => ({ ...s, ...patch }));
@@ -213,17 +229,11 @@ export default function ReceiptSettingsPanel() {
               <Field title="Name on receipt">
                 <input className={input} value={settings.businessName} onChange={(e) => update({ businessName: e.target.value })} />
               </Field>
-              <Field title="Phone">
-                <input className={input} value={settings.phone} onChange={(e) => update({ phone: e.target.value })} inputMode="tel" />
-              </Field>
+              <BusinessValue title="Phone" value={business?.contactPhone} fallback={settings.phone} />
               <div className="sm:col-span-2">
-                <Field title="Address">
-                  <input className={input} value={settings.address} onChange={(e) => update({ address: e.target.value })} />
-                </Field>
+                <BusinessValue title="Address" value={business?.address} fallback={settings.address} />
               </div>
-              <Field title="Email">
-                <input className={input} value={settings.email} onChange={(e) => update({ email: e.target.value })} inputMode="email" />
-              </Field>
+              <BusinessValue title="Email" value={business?.contactEmail} fallback={settings.email} />
               <Field title="Website">
                 <input className={input} value={settings.website} onChange={(e) => update({ website: e.target.value })} />
               </Field>
@@ -233,7 +243,9 @@ export default function ReceiptSettingsPanel() {
               <Field title="Business registration no.">
                 <input className={input} value={settings.registrationNumber} onChange={(e) => update({ registrationNumber: e.target.value })} />
               </Field>
-              <p className="sm:col-span-2 text-xs text-app-text-muted">Empty fields are left off the receipt.</p>
+              <p className="sm:col-span-2 text-xs text-app-text-muted">
+                Phone, address and email come from Business settings and are used on receipts and invoices alike. Change them there. Empty fields are left off the receipt.
+              </p>
             </div>
           )}
 
@@ -630,7 +642,8 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
 
   const prefix = texts.prefix.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const nextLabel = next == null ? 'set when the first invoice is issued' : `${prefix ? `${prefix}-` : ''}${String(next).padStart(4, '0')}`;
-  const footer = texts.footer || [receipt.phone, receipt.address, receipt.website].filter(Boolean).join('   ');
+  const footer = contactsLine(receipt);
+  const fromReceipt = receiptClosing(receipt);
 
   // Preview only: one example line so the layout can be judged. Real invoices use real sales.
   const issuedAt = todayIso();
@@ -647,6 +660,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
     lines: [{ id: 'example', kind: 'product' as const, description: 'Example product', quantity: 2, unitPrice: 100, amount: 200 }],
     totals: { subtotal: 200, discount: 0, tax: 0, paid: 0, balance: 200 },
     texts: { ...texts, footer },
+    ...fromReceipt,
   };
 
   return (
@@ -668,7 +682,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
           </Field>
           <Field title="Thank-you line"><input className={input} value={texts.thankYou} onChange={(e) => set({ thankYou: e.target.value })} /></Field>
         </div>
-        <Field title="Footer (contacts)" hint="Empty uses the shop phone, address and website."><input className={input} value={texts.footer} onChange={(e) => set({ footer: e.target.value })} /></Field>
+        <p className="text-xs text-app-text-muted">The footer shows the phone, email, address and website from Business settings{footer ? `: ${footer}` : '. None are set yet.'}</p>
 
         <Switch checked={texts.showPaymentDetails} onChange={(v) => set({ showPaymentDetails: v })} label="Show how to pay" description="Payment methods and details, such as your M-Pesa till or bank account." />
         {texts.showPaymentDetails && (
@@ -697,6 +711,8 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
           </div>
         )}
 
+        <InvoiceLookControls texts={texts} set={set} receipt={fromReceipt} hasLogo={!!business?.logoUrl} />
+
         <details className="rounded-xl bg-app-bg p-3">
           <summary className="text-sm font-medium cursor-pointer">Column and block labels</summary>
           <div className="grid grid-cols-2 gap-3 mt-3">
@@ -723,7 +739,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
       <div className="min-w-0">
         <p className={label}>Preview <span className="ml-1 px-1.5 py-0.5 rounded bg-app-bg text-[10px]">Example line</span></p>
         <div className="bg-app-bg rounded-xl p-3 max-h-[36rem] overflow-y-auto">
-          <InvoicePaper doc={sample} />
+          <InvoicePaper doc={sample} onStampMove={(stampOffset) => set({ stampOffset })} />
         </div>
       </div>
     </div>
@@ -734,7 +750,8 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
 export function InvoiceSettingsPanel() {
   const activeBusinessId = useBusinessStore((s) => s.activeBusinessId);
   const receiptConfig = useBusinessStore((s) => s.integrationConfigs['receipt']);
-  const receipt = useMemo(() => ReceiptService.getSettings(activeBusinessId || ''), [activeBusinessId, receiptConfig]);
+  const businesses = useBusinessStore((s) => s.businesses);
+  const receipt = useMemo(() => ReceiptService.getSettings(activeBusinessId || ''), [activeBusinessId, receiptConfig, businesses]);
   if (!activeBusinessId) return null;
   return (
     <div className="bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 flex flex-col gap-4" id="invoice-settings">

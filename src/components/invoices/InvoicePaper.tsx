@@ -1,12 +1,24 @@
 // The invoice as it will look on A5 paper. Same sections as invoicePdf.ts.
 // It scales with its container (sizes are in cqw), so it fits any screen without overflowing.
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { InvoiceDocument } from '../../services/invoice/types';
-import { formatInvoiceDate, formatInvoiceMoney, formatPeriod, formatQty, headingNumber } from '../../services/invoice/invoiceDraft';
-import { initials, stampLines } from '../../services/invoice/invoicePdf';
+import { formatInvoiceDate, formatInvoiceMoney, formatPeriod, formatQty } from '../../services/invoice/invoiceDraft';
+import { closingOf, initials, logoHeightOf, stampLines, stampOffsetOf, STAMP_LIMITS, THANKS_GREEN } from '../../services/invoice/invoicePdf';
 
-export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; className?: string }) {
+/** mm on the A5 page as a CSS length that scales with the preview. */
+const mm = (v: number) => `calc(${v} * 100cqw / 148)`;
+
+interface Props {
+  doc: InvoiceDocument;
+  className?: string;
+  /** When given, the stamp can be dragged (or moved with the arrow keys) and this gets its new place. */
+  onStampMove?: (offset: { x: number; y: number }) => void;
+}
+
+export function InvoicePaper({ doc, className = '', onStampMove }: Props) {
   const t = doc.texts;
+  const closing = closingOf(doc);
   const cur = doc.currency;
   const accent = doc.accent;
   const money = (v: number) => formatInvoiceMoney(v, '').trim();
@@ -15,6 +27,7 @@ export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; cl
   return (
     <div className={`w-full ${className}`} style={{ containerType: 'inline-size' }}>
       <div
+        data-invoice-paper
         className="relative bg-white text-[#111827] shadow-sm ring-1 ring-black/10 flex flex-col overflow-hidden"
         // A5 is 148 x 210 mm; 1mm = 100cqw / 148. At least one page tall; long invoices grow
         // here, while the PDF moves them onto more pages.
@@ -24,11 +37,11 @@ export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; cl
         <div style={{ height: '1.35%', background: accent }} />
         <div className="flex-1 flex flex-col" style={{ padding: '0 8.1%' }}>
           {/* Logo */}
-          <div style={{ marginTop: '6.8%', height: '8.2cqw' }}>
+          <div style={{ marginTop: '6.8%', height: mm(logoHeightOf(doc)) }}>
             {doc.logoUrl && !logoFailed ? (
-              <img src={doc.logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-full w-auto object-contain" />
+              <img src={doc.logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-full w-auto object-contain object-left" style={{ maxWidth: mm(logoHeightOf(doc) * 3) }} />
             ) : (
-              <span className="inline-grid place-items-center rounded-full text-white font-bold h-full aspect-square" style={{ background: accent, fontSize: '0.95em' }}>
+              <span className="inline-grid place-items-center rounded-full text-white font-bold h-full aspect-square" style={{ background: accent, fontSize: mm(logoHeightOf(doc) * 0.35) }}>
                 {initials(doc.from.name)}
               </span>
             )}
@@ -36,7 +49,7 @@ export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; cl
 
           {/* Title and number */}
           <div className="flex items-baseline justify-between gap-2" style={{ marginTop: '6%' }}>
-            <h2 style={{ fontSize: '2.05em', lineHeight: 1.1 }}>{[t.title, headingNumber(doc)].filter(Boolean).join(' ')}</h2>
+            <h2 style={{ fontSize: '2.05em', lineHeight: 1.1 }}>{t.title}</h2>
             <span className="text-[#78808e]" style={{ fontSize: '0.95em' }}>{doc.invoiceNo || 'Number given when issued'}</span>
           </div>
           <div className="border-t border-[#e2e6ec]" style={{ marginTop: '3%' }} />
@@ -116,7 +129,7 @@ export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; cl
                 </>
               )}
               </div>
-              {t.showStamp && <Stamp doc={doc} />}
+              {t.showStamp && <Stamp doc={doc} onMove={onStampMove} />}
             </div>
             <div className="shrink-0" style={{ width: '48%', lineHeight: 1.9 }}>
               <Row label="Subtotal" value={formatInvoiceMoney(doc.totals.subtotal, cur)} />
@@ -132,17 +145,52 @@ export function InvoicePaper({ doc, className = '' }: { doc: InvoiceDocument; cl
               )}
             </div>
           </div>
+
+          {/* Closing, as on the receipt: the line after the totals, the returns policy, the QR code */}
+          {(closing.message || closing.policy || closing.qr) && (
+            <div className="flex items-end justify-between gap-4" style={{ marginTop: '5%', fontSize: '0.85em', lineHeight: 1.45 }}>
+              <div className="min-w-0 flex-1 text-center">
+                {closing.message && <div className="whitespace-pre-line break-words">{closing.message}</div>}
+                {closing.policy && <div className="italic text-[#78808e] whitespace-pre-line break-words" style={{ marginTop: closing.message ? '0.5em' : 0 }}>{closing.policy}</div>}
+              </div>
+              {closing.qr && (
+                <div className="shrink-0 text-center" style={{ width: mm(24) }}>
+                  <QrImage data={closing.qr.url} />
+                  <div className="text-[#78808e]" style={{ fontSize: '0.85em', lineHeight: 1.2 }}>{closing.qr.caption}</div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex-1" style={{ minHeight: '1.5em' }} />
         </div>
 
         {/* Footer band */}
         <div className="flex items-center justify-between gap-3 bg-[#f6f8fb]" style={{ padding: '4.5% 8.1%' }}>
-          <span style={{ fontSize: '1.65em' }}>{t.thankYou}</span>
+          <span
+            className={closing.thankYouStyled ? 'font-bold' : ''}
+            style={{ fontSize: closing.thankYouStyled ? '1.35em' : '1.65em', color: closing.thankYouStyled ? THANKS_GREEN : undefined }}
+          >
+            {closing.thankYou}
+          </span>
           <span className="text-[#78808e] text-right min-w-0 break-words" style={{ fontSize: '0.85em' }}>{t.footer}</span>
         </div>
       </div>
     </div>
   );
+}
+
+function QrImage({ data }: { data: string }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    let live = true;
+    QRCode.toDataURL(data, { errorCorrectionLevel: 'M', margin: 1, width: 240 })
+      .then((url) => live && setSrc(url))
+      .catch(() => live && setSrc(''));
+    return () => {
+      live = false;
+    };
+  }, [data]);
+  return src ? <img src={src} alt="QR code" className="w-full aspect-square [image-rendering:pixelated]" /> : <div className="w-full aspect-square" />;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -154,14 +202,65 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** The business stamp, drawn the same way as in the PDF. */
-function Stamp({ doc }: { doc: InvoiceDocument }) {
+/** The business stamp, drawn the same way as in the PDF. Draggable when `onMove` is given. */
+function Stamp({ doc, onMove }: { doc: InvoiceDocument; onMove?: (offset: { x: number; y: number }) => void }) {
   const st = stampLines(doc);
   const c = doc.texts.stampColor;
+  const saved = stampOffsetOf(doc);
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+  const start = useRef<{ px: number; py: number; ox: number; oy: number; mmPerPx: number } | null>(null);
+  const pos = drag || saved;
+  const clampPos = (x: number, y: number) => ({
+    x: Math.round(Math.min(STAMP_LIMITS.maxX, Math.max(STAMP_LIMITS.minX, x)) * 10) / 10,
+    y: Math.round(Math.min(STAMP_LIMITS.maxY, Math.max(STAMP_LIMITS.minY, y)) * 10) / 10,
+  });
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!onMove || e.button > 0) return;
+    const paper = e.currentTarget.closest('[data-invoice-paper]') as HTMLElement | null;
+    if (!paper) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    start.current = { px: e.clientX, py: e.clientY, ox: saved.x, oy: saved.y, mmPerPx: 148 / paper.clientWidth };
+    setDrag(saved);
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const s = start.current;
+    if (!s) return;
+    setDrag(clampPos(s.ox + (e.clientX - s.px) * s.mmPerPx, s.oy + (e.clientY - s.py) * s.mmPerPx));
+  };
+  const onPointerUp = () => {
+    if (!start.current) return;
+    start.current = null;
+    if (drag && onMove) onMove(drag);
+    setDrag(null);
+  };
+  const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!onMove) return;
+    const step = e.shiftKey ? 5 : 1;
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    onMove(clampPos(saved.x + d[0], saved.y + d[1]));
+  };
+
   // Text sits inside the inner ring: two name lines at 29 and 38, one at 38.
   const nameY = (i: number) => (st.name.length > 1 ? 29 + i * 9 : 38);
   return (
-    <svg viewBox="0 0 100 100" className="shrink-0" style={{ width: '17.5cqw', height: '17.5cqw', opacity: 0.85 }} role="img" aria-label={`Stamp: ${doc.from.name}`}>
+    <svg
+      viewBox="0 0 100 100"
+      className={`shrink-0 relative z-10 ${onMove ? 'cursor-move touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-full' : ''}`}
+      style={{ width: mm(26), height: mm(26), opacity: 0.85, transform: `translate(${mm(pos.x)}, ${mm(pos.y)})` }}
+      role="img"
+      aria-label={onMove ? `Stamp: ${doc.from.name}. Drag, or use the arrow keys, to move it.` : `Stamp: ${doc.from.name}`}
+      tabIndex={onMove ? 0 : undefined}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={onKeyDown}
+    >
+      {onMove && <title>Drag to move the stamp</title>}
       <g transform="rotate(-12 50 50)" fill={c} stroke={c} fontFamily="Helvetica, Arial, sans-serif" textAnchor="middle">
         <circle cx="50" cy="50" r="48" fill="none" strokeWidth="2.6" />
         <circle cx="50" cy="50" r="42" fill="none" strokeWidth="1.1" />

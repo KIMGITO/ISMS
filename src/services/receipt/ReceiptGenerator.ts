@@ -44,7 +44,8 @@ export function formatReceiptNo(txId: string, timestamp: string | undefined, set
   return `${prefix}-${year}-${shortId}`;
 }
 
-function extraQr(settings: BusinessReceiptSettings, receiptNumber: string): ReceiptContent["extraQr"] {
+/** The extra QR code chosen in the receipt settings. `about` names the paper in the WhatsApp greeting. */
+export function extraQr(settings: BusinessReceiptSettings, receiptNumber: string, about = "receipt"): ReceiptContent["extraQr"] {
   switch (settings.extraQr) {
     case "business_website": {
       const site = settings.website.trim().replace(/^https?:\/\//, "");
@@ -53,7 +54,7 @@ function extraQr(settings: BusinessReceiptSettings, receiptNumber: string): Rece
     case "whatsapp_chat": {
       const phone = settings.phone.replace(/\D/g, "").replace(/^0/, "254");
       return phone
-        ? { url: `https://wa.me/${phone}?text=${encodeURIComponent(`Hello, about receipt ${receiptNumber}`)}`, caption: "Chat with us on WhatsApp" }
+        ? { url: `https://wa.me/${phone}?text=${encodeURIComponent(`Hello, about ${about} ${receiptNumber}`.trim())}`, caption: "Chat with us on WhatsApp" }
         : undefined;
     }
     case "google_review":

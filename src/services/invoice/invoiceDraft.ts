@@ -78,16 +78,19 @@ export function buildInvoiceLines(credits: OpenCredit[], owesNow: number, period
   return { lines, totals: { subtotal, discount, tax, paid, balance: owed } };
 }
 
-/** Joins lines for the same product at the same price (dates are dropped). */
+/**
+ * Joins lines for the same product at the same price, and delivery fees of the same amount
+ * into one "Delivery" line (dates are dropped). Amounts are summed, so totals do not change.
+ */
 export function combineSameProducts(lines: InvoiceLine[]): InvoiceLine[] {
   const out: InvoiceLine[] = [];
   const index = new Map<string, number>();
   for (const l of lines) {
-    if (l.kind !== "product") {
+    if (l.kind === "charge") {
       out.push({ ...l });
       continue;
     }
-    const key = `${l.description.trim().toLowerCase()}|${l.unitPrice}|${l.unit || ""}`;
+    const key = l.kind === "delivery" ? `delivery|${l.unitPrice}` : `product|${l.description.trim().toLowerCase()}|${l.unitPrice}|${l.unit || ""}`;
     const at = index.get(key);
     if (at === undefined) {
       index.set(key, out.length);
@@ -98,6 +101,8 @@ export function combineSameProducts(lines: InvoiceLine[]): InvoiceLine[] {
       m.amount = round2(m.amount + l.amount);
     }
   }
+  // A delivery line that now stands for several trips says so.
+  for (const l of out) if (l.kind === "delivery" && l.quantity > 1 && l.description === "Delivery") l.description = "Deliveries";
   return out;
 }
 
@@ -121,6 +126,8 @@ export function buildInvoiceDocument(args: {
   currency: string;
   accent: string;
   logoUrl?: string;
+  closing?: InvoiceDocument["closing"];
+  qr?: InvoiceDocument["qr"];
   combine?: boolean;
   issuedAt?: string;
   period?: InvoicePeriod;
@@ -139,6 +146,8 @@ export function buildInvoiceDocument(args: {
     lines: args.combine ? combineSameProducts(lines) : lines,
     totals,
     texts: args.texts,
+    closing: args.closing,
+    qr: args.qr,
   };
 }
 
@@ -157,10 +166,6 @@ export function formatQty(q: number): string {
   return String(Math.round((Number(q) || 0) * 1000) / 1000);
 }
 
-/** "Invoice 003" style heading number. */
-export function headingNumber(doc: InvoiceDocument): string {
-  return doc.number ? String(doc.number).padStart(3, "0") : "";
-}
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 

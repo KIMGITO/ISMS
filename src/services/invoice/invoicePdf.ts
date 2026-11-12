@@ -1,7 +1,8 @@
 // A5 invoice PDF. Mirrors InvoicePaper (the on-screen preview), section by section.
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 import { InvoiceDocument } from "./types";
-import { formatInvoiceDate, formatInvoiceMoney, formatPeriod, formatQty, headingNumber } from "./invoiceDraft";
+import { formatInvoiceDate, formatInvoiceMoney, formatPeriod, formatQty } from "./invoiceDraft";
 
 const W = 148;
 const H = 210;
@@ -47,6 +48,38 @@ export async function loadLogo(url?: string): Promise<string | null> {
     };
     img.src = url;
   });
+}
+
+/** Same green as the receipt's thank-you line. */
+export const THANKS_GREEN = "#15803D";
+
+/** How far the stamp may be dragged from its usual place, in mm. */
+export const STAMP_LIMITS = { minX: -60, maxX: 70, minY: -170, maxY: 60 };
+
+/** Invoices issued before the logo could be resized keep the size they were issued with. */
+export function logoHeightOf(inv: InvoiceDocument): number {
+  const n = Number(inv.texts.logoSize);
+  return Number.isFinite(n) && n > 0 ? n : 12;
+}
+
+export function stampOffsetOf(inv: InvoiceDocument): { x: number; y: number } {
+  const o = inv.texts.stampOffset;
+  return o && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : { x: 0, y: 0 };
+}
+
+/** What closes the invoice: the receipt's texts and QR code when chosen, else the invoice's thank-you line. */
+export function closingOf(inv: InvoiceDocument) {
+  const t = inv.texts;
+  const fromReceipt = t.closingFromReceipt !== false && !!inv.closing;
+  const c = fromReceipt ? inv.closing! : {};
+  const thankYouStyled = fromReceipt && !!c.thankYou;
+  return {
+    message: c.message,
+    policy: c.policy,
+    thankYou: thankYouStyled ? c.thankYou! : t.thankYou,
+    thankYouStyled,
+    qr: t.showQr !== false ? inv.qr : undefined,
+  };
 }
 
 export function initials(name: string): string {
@@ -113,6 +146,8 @@ export async function buildInvoicePdf(inv: InvoiceDocument): Promise<jsPDF> {
   const t = inv.texts;
   const cur = inv.currency;
   const logo = await loadLogo(inv.logoUrl);
+  const closing = closingOf(inv);
+  const qrImage = closing.qr ? await QRCode.toDataURL(closing.qr.url, { errorCorrectionLevel: "M", margin: 1, width: 360 }).catch(() => null) : null;
 
   const color = (c: RGB) => doc.setTextColor(c[0], c[1], c[2]);
   const font = (size: number, style: "normal" | "bold" = "normal") => {
@@ -156,22 +191,28 @@ export async function buildInvoicePdf(inv: InvoiceDocument): Promise<jsPDF> {
   let y = 10;
   if (logo) {
     const props = doc.getImageProperties(logo);
-    const h = 12;
-    const w = Math.min(36, (props.width / props.height) * h);
+    // Wide logos are capped at three times their height, and never wider than the page.
+    let h = logoHeightOf(inv);
+    let w = (props.width / props.height) * h;
+    const maxW = Math.min(h * 3, W - 2 * M);
+    if (w > maxW) {
+      h = (h * maxW) / w;
+      w = maxW;
+    }
     doc.addImage(logo, "PNG", M, y, w, h);
   } else {
+    const r = logoHeightOf(inv) / 2;
     doc.setFillColor(accent[0], accent[1], accent[2]);
-    doc.circle(M + 6, y + 6, 6, "F");
-    font(8.5, "bold");
+    doc.circle(M + r, y + r, r, "F");
+    font(8.5 * (r / 6), "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(initials(inv.from.name), M + 6, y + 7.3, { align: "center" });
+    doc.text(initials(inv.from.name), M + r, y + r + 1.3 * (r / 6), { align: "center" });
   }
-  y += 22;
+  y += Math.max(12, logoHeightOf(inv)) + 10;
 
   font(16);
   color(INK);
-  const heading = [t.title, headingNumber(inv)].filter(Boolean).join(" ");
-  doc.text(heading, M, y);
+  doc.text(t.title || "", M, y);
   if (inv.invoiceNo) {
     font(8);
     color(MUTED);
@@ -315,7 +356,13 @@ export async function buildInvoicePdf(inv: InvoiceDocument): Promise<jsPDF> {
 
   const blockTop = y - totals.length * 5.2 - 1.5;
   const stampR = 13;
-  if (t.showStamp) drawStamp(doc, inv, labelX - stampR - 4, blockTop + stampR - 2, stampR);
+  // Drawn last (below), so a stamp dragged over the footer stays on top.
+  const off = stampOffsetOf(inv);
+  const stampAt = {
+    cx: Math.min(W - stampR - 1, Math.max(stampR + 1, labelX - stampR - 4 + off.x)),
+    cy: Math.min(H - stampR - 1, Math.max(stampR + 1, blockTop + stampR - 2 + off.y)),
+  };
+  let payBottom = 0;
   if (t.showPaymentDetails && t.paymentInstructions) {
     font(7.5);
     color(MUTED);
@@ -328,20 +375,75 @@ export async function buildInvoicePdf(inv: InvoiceDocument): Promise<jsPDF> {
     font(7.5);
     color(INK);
     doc.text(lines, M, top + 4.5);
+    payBottom = top + 4.5 + lines.length * 3.3;
+  }
+  // The closing starts below the totals, the payment details and the stamp in its usual place.
+  y = Math.max(y + (owedNowNote ? 10 : 6), payBottom + 4, t.showStamp ? blockTop + 2 * stampR : 0);
+
+  // ---- Closing, as on the receipt: line after the totals, returns policy, QR code ----
+  const qrMm = 22;
+  const textW = W - 2 * M - (qrImage ? qrMm + 6 : 0);
+  font(7.5);
+  const msgLines: string[] = closing.message ? doc.splitTextToSize(closing.message, textW) : [];
+  font(7.5);
+  const policyLines: string[] = closing.policy ? doc.splitTextToSize(closing.policy, textW) : [];
+  const textH = (msgLines.length + policyLines.length) * 3.6 + (msgLines.length && policyLines.length ? 1.5 : 0);
+  let stampDrawn = false;
+  const closingH = Math.max(textH, qrImage ? qrMm + 4 : 0);
+  if (closingH > 0) {
+    if (y + 4 + closingH > H - FOOTER_H - 3) {
+      // The stamp belongs with the totals, on this page.
+      if (t.showStamp) drawStamp(doc, inv, stampAt.cx, stampAt.cy, stampR);
+      stampDrawn = true;
+      doc.addPage();
+      topBar();
+      y = 16;
+    }
+    y += 4;
+    const bottom = y + closingH;
+    let ty = bottom - textH + 2.6;
+    const tx = M + textW / 2;
+    font(7.5);
+    color(INK);
+    for (const l of msgLines) {
+      doc.text(l, tx, ty, { align: "center" });
+      ty += 3.6;
+    }
+    if (msgLines.length && policyLines.length) ty += 1.5;
+    doc.setFont("helvetica", "italic");
+    color(MUTED);
+    for (const l of policyLines) {
+      doc.text(l, tx, ty, { align: "center" });
+      ty += 3.6;
+    }
+    if (qrImage && closing.qr) {
+      const qx = W - M - qrMm;
+      doc.addImage(qrImage, "PNG", qx, bottom - qrMm - 4, qrMm, qrMm);
+      font(6);
+      color(MUTED);
+      doc.text(doc.splitTextToSize(closing.qr.caption, qrMm + 6)[0], qx + qrMm / 2, bottom - 1, { align: "center" });
+    }
   }
 
   // ---- Footer band (last page) ----
   doc.setFillColor(BAND[0], BAND[1], BAND[2]);
   doc.rect(0, H - FOOTER_H, W, FOOTER_H, "F");
-  font(13);
-  color(INK);
-  if (t.thankYou) doc.text(t.thankYou, M, H - FOOTER_H / 2 + 1.8);
+  const thanksSize = closing.thankYouStyled ? 11 : 13;
+  font(thanksSize, closing.thankYouStyled ? "bold" : "normal");
+  if (closing.thankYouStyled) {
+    const g = hexToRgb(THANKS_GREEN);
+    doc.setTextColor(g[0], g[1], g[2]);
+  } else color(INK);
+  const thanks = closing.thankYou ? (doc.splitTextToSize(closing.thankYou, (W - 2 * M) * 0.55)[0] as string) : "";
+  if (thanks) doc.text(thanks, M, H - FOOTER_H / 2 + 1.8);
+  const thanksW = thanks ? doc.getTextWidth(thanks) : 0;
   if (t.footer) {
     font(7);
     color(MUTED);
-    const room = W - 2 * M - (t.thankYou ? doc.getTextWidth(t.thankYou) * (13 / 7) + 8 : 0);
+    const room = W - 2 * M - (thanks ? thanksW + 8 : 0);
     const f = doc.splitTextToSize(t.footer, Math.max(40, room)).slice(0, 2);
     doc.text(f, W - M, H - FOOTER_H / 2 + (f.length > 1 ? -0.6 : 1.2), { align: "right" });
   }
+  if (t.showStamp && !stampDrawn) drawStamp(doc, inv, stampAt.cx, stampAt.cy, stampR);
   return doc;
 }

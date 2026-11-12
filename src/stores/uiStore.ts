@@ -6,7 +6,15 @@ export interface ChatMessage {
   timestamp?: string;
 }
 
+/** Something search found, for the screen it opens on to show straight away. */
+export type SearchTarget =
+  | { kind: "sale"; id: string }
+  | { kind: "invoice"; customerId: string; invoiceId: string }
+  | { kind: "stock"; query: string };
+
 interface UiState {
+  searchTarget: SearchTarget | null;
+  setSearchTarget: (target: SearchTarget | null) => void;
   aiIsLoading: boolean;
   setAiIsLoading:(loading:  boolean)=> void;
   showNav: boolean;
@@ -63,6 +71,8 @@ export const useUiStore = create<UiState>((set, get) => ({
     localStorage.setItem(localChatHistoryKey, JSON.stringify(nextHistory));
     set({ aiChatHistory: nextHistory });
   },
+  searchTarget: null,
+  setSearchTarget: (target) => set({ searchTarget: target }),
   selectedCustomerId: null,
   setSelectedCustomerId: (id) => set({ selectedCustomerId: id }),
   activeInvoiceData: null,

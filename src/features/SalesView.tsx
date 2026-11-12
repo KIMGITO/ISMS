@@ -1,7 +1,8 @@
 // src/features/SalesView.tsx
 // Re-engineered Chat-Style Accordion Chronological Sales Tracker
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
 import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
@@ -45,6 +46,15 @@ function getPaymentMethodLabel(method: string | undefined): string {
 export default function SalesView() {
   const { transactions, currentEmployee, showToast } = useAppStore();
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  // Opened from search (a receipt number): show that sale's receipt straight away.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== "sale") return;
+    const tx = transactions.find((t) => t.id === searchTarget.id);
+    if (tx) setSelectedTx(tx);
+    useUiStore.getState().setSearchTarget(null);
+  }, [searchTarget, transactions]);
 
   // Owners and admins can delete sales older than 90 days (swipe left on a phone, right-click
   // or hold elsewhere). The database enforces the same age.

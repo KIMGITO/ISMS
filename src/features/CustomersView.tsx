@@ -2,6 +2,7 @@ import { toUserMessage } from "../utils/userError";
 import { customerName } from '../utils/stringUtils';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import { useBusinessStore } from '../stores/businessStore';
+import { useUiStore } from '../stores/uiStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
 import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
@@ -528,9 +529,13 @@ export default function CustomersView() {
     }
   }, [selectedCustomerId, selectedCustomer]);
 
+  // An invoice found by search opens on its customer's invoices.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+
   // A different customer starts on their money; their invoices load when that tab opens.
   useEffect(() => {
-    setActiveDetailTab("money");
+    const target = useUiStore.getState().searchTarget;
+    setActiveDetailTab(target?.kind === "invoice" && target.customerId === selectedCustomerId ? "invoice" : "money");
     setInvoices([]);
     setInvoicesState('idle');
     setInvoiceView('active');
@@ -553,6 +558,23 @@ export default function CustomersView() {
   useEffect(() => {
     if (activeDetailTab === 'invoice') loadInvoices();
   }, [activeDetailTab, loadInvoices]);
+
+  useEffect(() => {
+    if (searchTarget?.kind !== 'invoice' || searchTarget.customerId !== selectedCustomerId) return;
+    if (activeDetailTab !== 'invoice') {
+      setActiveDetailTab('invoice');
+      return;
+    }
+    if (invoicesState === 'error') {
+      useUiStore.getState().setSearchTarget(null);
+      return;
+    }
+    const found = invoices.find((i) => i.id === searchTarget.invoiceId);
+    if (!found) return; // still loading
+    if (found.archivedAt) setInvoiceView('archived');
+    setOpenInvoice(found.document);
+    useUiStore.getState().setSearchTarget(null);
+  }, [searchTarget, selectedCustomerId, activeDetailTab, invoices, invoicesState]);
 
   const removeCustomer = async (cust: { id: string; name: string }) => {
     if (

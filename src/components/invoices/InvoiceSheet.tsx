@@ -15,10 +15,11 @@ import { ReceiptService } from '../../services/receipt/ReceiptService';
 import type { Customer } from '../../types';
 import { InvoiceDocument, InvoiceLine, InvoicePeriod, InvoicePeriodPreset, InvoiceTexts, OpenCredit } from '../../services/invoice/types';
 import { addDays, buildInvoiceDocument, buildInvoiceLines, combineSameProducts, formatInvoiceMoney, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
-import { getInvoiceTexts, invoiceAccent, saveInvoiceTexts } from '../../services/invoice/invoiceSettings';
+import { getInvoiceTexts, invoiceAccent, receiptClosing, saveInvoiceTexts } from '../../services/invoice/invoiceSettings';
 import { fetchOpenCredit, issueInvoice, nextInvoiceNumber } from '../../services/invoice/invoiceData';
 import { InvoiceShareService } from '../../services/invoice/InvoiceShareService';
 import { InvoicePaper } from './InvoicePaper';
+import { InvoiceLookControls } from './InvoiceLookControls';
 
 interface Props {
   /** Make a new invoice for this customer. */
@@ -98,7 +99,6 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
     setEmail(realEmail);
     const shop = ReceiptService.getSettings(activeBusinessId);
     const texts = getInvoiceTexts(activeBusinessId);
-    if (!texts.footer) texts.footer = [shop.phone, shop.address, shop.website].filter(Boolean).join('   ');
     setPreset(texts.defaultPeriod);
     setIncludeEarlier(true);
     const startPeriod: InvoicePeriod | undefined =
@@ -115,6 +115,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
             currency: shop.currencyFormat || 'KSh',
             accent: invoiceAccent(business),
             logoUrl: business?.logoUrl,
+            ...receiptClosing(shop),
             period: startPeriod,
             texts,
             from: {
@@ -446,7 +447,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                             checked={combine}
                             onChange={toggleCombine}
                             label="Combine the same product"
-                            description="One line per product and price. Resets edited descriptions."
+                            description="One line per product and price, and one per delivery fee. Totals stay the same. Resets edited descriptions."
                             className="mb-3"
                           />
                           {doc.lines.length === 0 && (
@@ -510,12 +511,13 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                             description="Your stamp with the invoice date, beside the totals."
                           />
                           <div className="grid grid-cols-2 gap-3">
-                            <Field label="Thank-you line"><input className={field} value={doc.texts.thankYou} onChange={(e) => setTexts({ thankYou: e.target.value })} /></Field>
+                            <Field label="Thank-you line" hint={doc.texts.closingFromReceipt !== false && doc.closing?.thankYou ? 'The receipt\'s is used while "Close like the receipt" is on.' : undefined}><input className={field} value={doc.texts.thankYou} onChange={(e) => setTexts({ thankYou: e.target.value })} /></Field>
                             <Field label="Days to pay">
                               <input type="number" min={0} max={365} className={field} value={doc.texts.dueDays} onChange={(e) => setTexts({ dueDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) })} />
                             </Field>
                           </div>
-                          <Field label="Footer (contacts)"><input className={field} value={doc.texts.footer} onChange={(e) => setTexts({ footer: e.target.value })} /></Field>
+                          <InvoiceLookControls texts={doc.texts} set={setTexts} receipt={{ closing: doc.closing, qr: doc.qr }} hasLogo={!!doc.logoUrl} />
+                          <p className="text-xs text-app-text-muted">Address, phone and email come from Business settings.</p>
                           <button onClick={saveTexts} disabled={!textsDirty || busy !== null} className={`${btn} w-full bg-app-bg hover:bg-app-border/50`}>
                             {busy === 'save' ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />} Use these texts for new invoices
                           </button>
@@ -527,7 +529,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
 
                   {/* Preview */}
                   <div className={`min-h-0 overflow-y-auto overscroll-contain bg-app-bg p-3 sm:p-5 ${pane === 'preview' ? 'block' : 'hidden lg:block'}`}>
-                    <InvoicePaper doc={doc} className="mx-auto max-w-[40rem]" />
+                    <InvoicePaper doc={doc} className="mx-auto max-w-[40rem]" onStampMove={isIssued ? undefined : (stampOffset) => setTexts({ stampOffset })} />
                   </div>
                 </div>
               )}

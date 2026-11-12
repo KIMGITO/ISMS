@@ -28,6 +28,9 @@ import { SHORTCUTS, FEATURES, GO_TO_KEYS, shortcutsFor, featuresFor } from "../u
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
 import { customerName, readableIds } from "../utils/stringUtils";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
+import { contactsLine, defaultInvoiceTexts, receiptClosing } from "../services/invoice/invoiceSettings";
+import { closingOf } from "../services/invoice/invoicePdf";
+import { matchesReceipt, mentionsReceipt, receiptCode, receiptCodeIn } from "../utils/references";
 import { mergeDuplicateCredits } from "../services/invoice/invoiceData";
 import { tidyNotification } from "../services/notifications/notificationText";
 import { NotificationTemplates } from "../services/notifications/notificationTemplates";
@@ -869,6 +872,44 @@ runTest("Invoice lists every unpaid charge and its balance equals what the custo
   const combined = combineSameProducts(lines);
   const milk = combined.filter((l) => l.description === "Milk 500ml");
   if (milk.length !== 1 || milk[0].quantity !== 20 || milk[0].amount !== 1200) throw new Error("same products not combined");
+});
+
+runTest("Combining joins delivery fees of the same amount and keeps the total", () => {
+  const sale = (id: string, fee: number) => ({ id, createdAt: `2026-11-0${id}T08:00:00Z`, amountOwed: 100 + fee, amountPaid: 0, balance: 100 + fee, saleId: `t${id}`, sale: { id: `t${id}`, timestamp: `2026-11-0${id}T08:00:00Z`, tax: 0, deliveryFee: fee, finalTotal: 100 + fee, items: [{ name: "Bread", unitPrice: 50, quantity: 2 }] } });
+  const credits: any[] = [sale("1", 200), sale("2", 200), sale("3", 150)];
+  const { lines } = buildInvoiceLines(credits, 850);
+  const combined = combineSameProducts(lines);
+  const deliveries = combined.filter((l) => l.kind === "delivery");
+  if (deliveries.length !== 2) throw new Error(`expected 2 delivery lines (200 and 150), got ${deliveries.length}`);
+  const two = deliveries.find((l) => l.unitPrice === 200)!;
+  if (two.quantity !== 2 || two.amount !== 400 || two.description !== "Deliveries") throw new Error(`200 fee line: ${JSON.stringify(two)}`);
+  const sum = (ls: typeof lines) => Math.round(ls.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+  if (sum(combined) !== sum(lines)) throw new Error("combining changed the total");
+});
+
+runTest("A receipt number finds its sale and logs in any printed form", () => {
+  const id = "abcd1234-5678-4000-8000-000000000001";
+  for (const typed of ["RCT-2026-ABCD1234", "TXN-ABCD1234", "abcd1234", "RCT-ABCD1234", "abcd12", id]) {
+    const code = receiptCode(typed);
+    if (!code || !matchesReceipt(id, code)) throw new Error(`${typed} did not find the sale`);
+    if (!mentionsReceipt("TXN-ABCD1234", code)) throw new Error(`${typed} did not find the stock log`);
+  }
+  if (receiptCode("milk") || receiptCode("1200")) throw new Error("ordinary words or prices taken for receipts");
+  if (receiptCodeIn("Sold, receipt TXN-ABCD1234") !== "ABCD1234") throw new Error("log link");
+  if (mentionsReceipt("TXN-FFABCD12", "ABCD12")) throw new Error("matched the middle of another code");
+});
+
+runTest("Invoice closes like the receipt; title is only what was typed", () => {
+  const shop = { ...normalizeReceiptSettings({}), footerMessage: "Goods once sold", returnPolicy: "Returns within 7 days", thankYouMessage: "Asante!", extraQr: "custom_url" as const, customQrUrl: "https://shop.example/pay" };
+  const extras = receiptClosing(shop);
+  if (extras.closing?.policy !== "Returns within 7 days" || extras.qr?.url !== "https://shop.example/pay") throw new Error(JSON.stringify(extras));
+  const texts = { ...defaultInvoiceTexts(), title: "Statement" };
+  const doc: any = { texts, closing: extras.closing, qr: extras.qr, number: 3 };
+  const c = closingOf(doc);
+  if (c.thankYou !== "Asante!" || !c.thankYouStyled || !c.qr) throw new Error(JSON.stringify(c));
+  const off = closingOf({ ...doc, texts: { ...texts, closingFromReceipt: false, showQr: false } });
+  if (off.thankYou !== texts.thankYou || off.policy || off.qr) throw new Error(JSON.stringify(off));
+  if (contactsLine({ phone: "0712", email: "a@b.co", address: "Nairobi", website: "" }) !== "0712   a@b.co   Nairobi") throw new Error("contacts line");
 });
 
 runTest("Invoice for a period covers only that period's sales, with older debt optional", () => {

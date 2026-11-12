@@ -118,8 +118,14 @@ export class ReceiptSettingsService {
     const state = useBusinessStore.getState();
     const business = state.businesses.find((b) => b.id === businessId);
     const settings = normalizeReceiptSettings(state.integrationConfigs["receipt"], business);
-    // Tax always follows the business setting used at checkout.
     if (business) {
+      // Address, phone and email follow Business settings. The copy saved with the receipt
+      // settings only fills in what the business has not set.
+      for (const [key, value] of [["address", business.address], ["phone", business.contactPhone], ["email", business.contactEmail]] as const) {
+        const v = (value || "").trim();
+        if (v) settings[key] = v;
+      }
+      // Tax always follows the business setting used at checkout.
       settings.isTaxEnabled = business.isTaxEnabled !== false;
       if (typeof business.taxPercentage === "number") settings.taxPercentage = business.taxPercentage;
     }
