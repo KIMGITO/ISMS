@@ -11,8 +11,16 @@ export interface HeroSlide {
   ctaHref?: string;
   /** 1 to 3 pictures: the main product first, then one on the left, then a small one in front. */
   images: string[];
+  /** Where each picture sits, set by dragging and zooming in the app. Missing: the automatic layout. */
+  positions?: HeroBox[];
   hidden?: boolean;
 }
+
+/** A picture's box in the square display, in percent of its size: left, top, width, height. */
+export interface HeroBox { x: number; y: number; w: number; h: number }
+
+/** Same limits as the database: a picture may hang partly outside the display, but not vanish. */
+export const HERO_BOX_LIMITS = { minXY: -50, maxXY: 100, minSize: 8, maxSize: 200 } as const;
 
 export const HERO_LIMITS = { slides: 6, images: 3, title: 90, body: 160, ctaLabel: 30, ctaHref: 300 } as const;
 
@@ -75,26 +83,42 @@ export function isSafeHeroImage(src: string): boolean {
   return /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/[A-Za-z0-9._~%!$&'()*+,;=:@/?-]*$/.test(src) || /^\/hero\/[a-z0-9-]+\.(webp|png|jpg)$/.test(src);
 }
 
-export interface HeroSlot { left?: string; right?: string; top?: string; bottom?: string; width?: string; height?: string }
-
 /**
- * Where each picture sits in the square display, by how many there are, as inline styles so the
- * website and the app's preview lay out the same. Index 0 is the main product; 1 stands to its
- * left (behind it); 2 is a small one in front on the right.
+ * The automatic layout, used until staff move a picture. Index 0 is the main product; 1 stands to
+ * its left (behind it); 2 is a small one in front on the right.
  */
-export function heroImageSlots(count: number): HeroSlot[] {
-  if (count <= 1) return [{ left: '6%', right: '6%', top: '2%', bottom: '4%' }];
-  if (count === 2) {
-    return [
-      { right: '0', width: '66%', top: '2%', bottom: '4%' },
-      { left: '0', width: '40%', height: '72%', bottom: '4%' },
-    ];
-  }
-  return [
-    { left: '18%', right: '14%', top: '2%', bottom: '4%' },
-    { left: '0', width: '34%', height: '70%', bottom: '4%' },
-    { right: '0', width: '32%', height: '34%', bottom: '2%' },
-  ];
+export function defaultHeroBoxes(count: number): HeroBox[] {
+  if (count <= 1) return [{ x: 6, y: 2, w: 88, h: 94 }];
+  if (count === 2) return [{ x: 34, y: 2, w: 66, h: 94 }, { x: 0, y: 24, w: 40, h: 72 }];
+  return [{ x: 18, y: 2, w: 68, h: 94 }, { x: 0, y: 26, w: 34, h: 70 }, { x: 68, y: 64, w: 32, h: 34 }];
+}
+
+const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+
+export function isValidHeroBox(box: unknown): box is HeroBox {
+  if (!box || typeof box !== 'object') return false;
+  const { x, y, w, h } = box as HeroBox;
+  const L = HERO_BOX_LIMITS;
+  return [x, y].every((n) => finite(n) && n >= L.minXY && n <= L.maxXY)
+    && [w, h].every((n) => finite(n) && n >= L.minSize && n <= L.maxSize);
+}
+
+/** Keeps a box inside the limits and rounds it to one decimal, as it is saved. */
+export function clampHeroBox(box: HeroBox): HeroBox {
+  const L = HERO_BOX_LIMITS;
+  const clamp = (n: number, lo: number, hi: number) => Math.round(Math.min(hi, Math.max(lo, n)) * 10) / 10;
+  return { x: clamp(box.x, L.minXY, L.maxXY), y: clamp(box.y, L.minXY, L.maxXY), w: clamp(box.w, L.minSize, L.maxSize), h: clamp(box.h, L.minSize, L.maxSize) };
+}
+
+/** The boxes to draw: the saved ones when there is one valid box per picture, else the automatic layout. */
+export function heroBoxes(count: number, positions?: HeroBox[]): HeroBox[] {
+  if (positions && positions.length === count && positions.every(isValidHeroBox)) return positions;
+  return defaultHeroBoxes(count);
+}
+
+/** Inline style for a picture's box, the same on the website and in the app's editor. */
+export function heroBoxStyle(box: HeroBox) {
+  return { position: 'absolute' as const, left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%`, height: `${box.h}%` };
 }
 
 /** Drawing order: the left picture first (behind), then the main one, then the small one in front. */
@@ -104,7 +128,12 @@ export const HERO_DRAW_ORDER = [1, 0, 2] as const;
 export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: boolean): HeroSlide[] {
   const usable = (saved ?? [])
     .filter((slide) => !slide.hidden && slide.title?.trim())
-    .map((slide) => ({ ...slide, images: (slide.images ?? []).filter(isSafeHeroImage).slice(0, HERO_LIMITS.images) }))
+    .map((slide) => {
+      const images = (slide.images ?? []).filter(isSafeHeroImage).slice(0, HERO_LIMITS.images);
+      // A picture dropped above would shift every box after it, so positions only count when nothing was dropped.
+      const positions = images.length === (slide.images ?? []).length ? slide.positions : undefined;
+      return { ...slide, images, positions };
+    })
     .filter((slide) => slide.images.length > 0);
   if (usable.length > 0) return usable.slice(0, HERO_LIMITS.slides);
   return DEFAULT_HERO_SLIDES.filter((slide) => hasArticles || slide.ctaHref !== '/articles');

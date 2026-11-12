@@ -2,9 +2,10 @@
 // Each slide has a headline, a short line, a button (label + where it goes) and 1 to 3 product
 // pictures. Pictures upload through the app's uploader, which can remove the background so the
 // product stands on the banner like a shop display. Saved to website_settings.hero_slides; the
-// database checks every field again (fn_valid_hero_slides, migration 20261111002).
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
+// database checks every field again (fn_valid_hero_slides, migrations 20261111002 + 20261112004).
+// Pictures can be dragged and zoomed anywhere in the display; their boxes are saved as positions.
+import { FormEvent, KeyboardEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, Minus, Move, Plus, RotateCcw, Save, Trash2, X, ZoomIn } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
 import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -14,9 +15,14 @@ import {
   HERO_DRAW_ORDER,
   HERO_LIMITS,
   HERO_STOCK_IMAGES,
+  HeroBox,
   HeroSlide,
-  heroImageSlots,
+  clampHeroBox,
+  defaultHeroBoxes,
+  heroBoxStyle,
+  heroBoxes,
   isSafeHeroImage,
+  isValidHeroBox,
   safeHref,
 } from '../../../website/src/heroSlides';
 
@@ -64,16 +70,204 @@ function cleanSlide(slide: HeroSlide): HeroSlide {
     out.ctaLabel = slide.ctaLabel.trim();
     out.ctaHref = (slide.ctaHref ?? '/shop').trim() || '/shop';
   }
+  if (slide.positions && slide.positions.length === out.images.length && slide.positions.every(isValidHeroBox)) {
+    out.positions = slide.positions.map(clampHeroBox);
+  }
   if (slide.hidden) out.hidden = true;
   return out;
 }
 
+/** Grows or shrinks a box around its centre, keeping its shape. */
+function zoomBox(box: HeroBox, factor: number): HeroBox {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  let w = box.w * factor;
+  let h = box.h * factor;
+  // Stop at the size limits without bending the shape.
+  const limit = Math.min(200 / Math.max(w, h), 1) * Math.max(8 / Math.min(w, h), 1);
+  w *= limit;
+  h *= limit;
+  return clampHeroBox({ x: cx - w / 2, y: cy - h / 2, w, h });
+}
+
+/**
+ * The picture area of the banner, where staff place pictures freely: drag one to move it, scroll
+ * or pinch to zoom it, or select it and use the arrow keys and + / -. Positions are percentages of
+ * the square, so the website draws the same layout at every screen size.
+ */
+function ArrangeDisplay({ slide, onPositions }: { slide: HeroSlide; onPositions: (boxes: HeroBox[]) => void }) {
+  const boxes = heroBoxes(slide.images.length, slide.positions);
+  const [selected, setSelected] = useState<number | null>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const boxesRef = useRef(boxes);
+  boxesRef.current = boxes;
+  const onPositionsRef = useRef(onPositions);
+  onPositionsRef.current = onPositions;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  // Pointers currently down, and what the gesture started from.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<{ index: number; start: HeroBox; px: number; py: number; distance: number } | null>(null);
+
+  const update = (index: number, box: HeroBox) => {
+    onPositionsRef.current(boxesRef.current.map((b, i) => (i === index ? clampHeroBox(box) : b)));
+  };
+
+  // Wheel zoom needs a non-passive listener so the page doesn't scroll at the same time.
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+    const onWheel = (e: WheelEvent) => {
+      const index = selectedRef.current;
+      if (index === null || !boxesRef.current[index]) return;
+      e.preventDefault();
+      const next = zoomBox(boxesRef.current[index], e.deltaY < 0 ? 1.06 : 1 / 1.06);
+      onPositionsRef.current(boxesRef.current.map((b, i) => (i === index ? next : b)));
+    };
+    area.addEventListener('wheel', onWheel, { passive: false });
+    return () => area.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const toPercent = (dx: number, dy: number) => {
+    const rect = areaRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return { dx: 0, dy: 0 };
+    return { dx: (dx / rect.width) * 100, dy: (dy / rect.height) * 100 };
+  };
+
+  const pinchDistance = () => {
+    const [a, b] = [...pointers.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
+
+  const onImageDown = (e: PointerEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (gesture.current) {
+      onAreaDown(e);
+      return;
+    }
+    setSelected(index);
+    areaRef.current?.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gesture.current = { index, start: boxesRef.current[index], px: e.clientX, py: e.clientY, distance: pinchDistance() };
+  };
+
+  const onAreaDown = (e: PointerEvent) => {
+    // A second finger anywhere on the display pinches the picture being moved.
+    if (gesture.current) {
+      areaRef.current?.setPointerCapture(e.pointerId);
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      gesture.current = { ...gesture.current, start: boxesRef.current[gesture.current.index], px: e.clientX, py: e.clientY, distance: pinchDistance() };
+    } else {
+      setSelected(null);
+    }
+  };
+
+  const onMove = (e: PointerEvent) => {
+    const g = gesture.current;
+    if (!g || !pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size >= 2 && g.distance > 0) {
+      update(g.index, zoomBox(g.start, pinchDistance() / g.distance));
+    } else if (pointers.current.size === 1) {
+      const { dx, dy } = toPercent(e.clientX - g.px, e.clientY - g.py);
+      update(g.index, { ...g.start, x: g.start.x + dx, y: g.start.y + dy });
+    }
+  };
+
+  const onUp = (e: PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    const g = gesture.current;
+    if (!g) return;
+    const rest = [...pointers.current.values()][0];
+    // Lifting one finger of a pinch carries on as a drag from where things are now.
+    gesture.current = rest ? { index: g.index, start: boxesRef.current[g.index], px: rest.x, py: rest.y, distance: 0 } : null;
+  };
+
+  const onKey = (e: KeyboardEvent) => {
+    if (!boxes.length) return;
+    // Tab focuses the display; the main picture is the one the keys move until another is picked.
+    const index = selected !== null && boxes[selected] ? selected : 0;
+    const step = e.shiftKey ? 5 : 1;
+    const box = boxes[index];
+    const moves: Record<string, HeroBox> = {
+      ArrowLeft: { ...box, x: box.x - step },
+      ArrowRight: { ...box, x: box.x + step },
+      ArrowUp: { ...box, y: box.y - step },
+      ArrowDown: { ...box, y: box.y + step },
+      '+': zoomBox(box, 1.06),
+      '=': zoomBox(box, 1.06),
+      '-': zoomBox(box, 1 / 1.06),
+    };
+    const next = moves[e.key];
+    if (!next) return;
+    e.preventDefault();
+    setSelected(index);
+    update(index, next);
+  };
+
+  const zoomSelected = (factor: number) => {
+    if (selected !== null && boxes[selected]) update(selected, zoomBox(boxes[selected], factor));
+  };
+
+  return (
+    <div className="w-full">
+      <div
+        ref={areaRef}
+        tabIndex={slide.images.length ? 0 : -1}
+        onKeyDown={onKey}
+        onPointerDown={onAreaDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+        aria-label="Picture layout. Drag a picture to move it, scroll or pinch to resize it, or use the arrow keys and + / -."
+        className="relative mx-auto aspect-square w-full max-w-[16rem] touch-none select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        style={{ backgroundImage: 'linear-gradient(rgba(35,22,14,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(35,22,14,0.06) 1px, transparent 1px)', backgroundSize: '25% 25%', outline: '1px dashed #ead9c1' }}
+      >
+        {slide.images.length === 0 && (
+          <div className="grid size-full place-items-center rounded-lg border-2 border-dashed text-xs" style={{ borderColor: '#ead9c1', color: '#7a6858' }}>
+            Add a picture
+          </div>
+        )}
+        {HERO_DRAW_ORDER.filter((i) => i < slide.images.length).map((i) => (
+          <div
+            key={`${i}-${slide.images[i]}`}
+            onPointerDown={(e) => onImageDown(e, i)}
+            className="cursor-grab active:cursor-grabbing"
+            style={{ ...heroBoxStyle(boxes[i]), outline: selected === i ? '2px solid #c2571a' : 'none', outlineOffset: 2, borderRadius: 6 }}
+          >
+            <img
+              src={slide.images[i]}
+              alt=""
+              draggable={false}
+              className="pointer-events-none size-full"
+              style={{ objectFit: 'contain', objectPosition: 'bottom', filter: 'drop-shadow(0 10px 12px rgba(35,22,14,0.22))' }}
+            />
+          </div>
+        ))}
+      </div>
+      {slide.images.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-xs" style={{ color: '#7a6858' }}>
+          {selected === null ? (
+            <span className="inline-flex items-center gap-1"><Move size={13} /> Drag a picture to move it</span>
+          ) : (
+            <>
+              <button type="button" onClick={() => zoomSelected(1 / 1.1)} className="grid size-7 place-items-center rounded-full bg-white shadow" aria-label="Make picture smaller"><Minus size={14} /></button>
+              <span className="inline-flex items-center gap-1"><ZoomIn size={13} /> Scroll or pinch to resize</span>
+              <button type="button" onClick={() => zoomSelected(1.1)} className="grid size-7 place-items-center rounded-full bg-white shadow" aria-label="Make picture bigger"><Plus size={14} /></button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** A small copy of the website banner, laid out with the same rules, so staff see what customers get. */
-function SlidePreview({ slide }: { slide: HeroSlide }) {
-  const slots = heroImageSlots(slide.images.length);
+function SlidePreview({ slide, onPositions }: { slide: HeroSlide; onPositions: (boxes: HeroBox[]) => void }) {
   return (
     <div
-      className="grid grid-cols-[1.2fr_1fr] items-center gap-3 overflow-hidden rounded-xl p-4"
+      className="grid grid-cols-[1fr_1.2fr] items-center gap-3 overflow-hidden rounded-xl p-4"
       style={{ background: '#f6eee2', color: '#23160e', fontFamily: 'Poppins, ui-sans-serif, system-ui, sans-serif', opacity: slide.hidden ? 0.5 : 1 }}
     >
       <div className="min-w-0">
@@ -85,21 +279,7 @@ function SlidePreview({ slide }: { slide: HeroSlide }) {
           </span>
         )}
       </div>
-      <div className="relative mx-auto aspect-square w-full max-w-[11rem]">
-        {slide.images.length === 0 && (
-          <div className="grid size-full place-items-center rounded-lg border-2 border-dashed text-xs" style={{ borderColor: '#ead9c1', color: '#7a6858' }}>
-            Add a picture
-          </div>
-        )}
-        {HERO_DRAW_ORDER.filter((i) => i < slide.images.length).map((i) => (
-          <img
-            key={`${i}-${slide.images[i]}`}
-            src={slide.images[i]}
-            alt=""
-            style={{ position: 'absolute', ...slots[i], objectFit: 'contain', objectPosition: 'bottom', filter: 'drop-shadow(0 10px 12px rgba(35,22,14,0.22))' }}
-          />
-        ))}
-      </div>
+      <ArrangeDisplay slide={slide} onPositions={onPositions} />
     </div>
   );
 }
@@ -118,6 +298,14 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
   const set = (patch: Partial<HeroSlide>) => onChange({ ...slide, ...patch });
   const full = slide.images.length >= HERO_LIMITS.images;
   const roles = ['Main product', 'Left, behind', 'Small, in front'];
+  // A new picture starts where the automatic layout would put it; pictures already placed stay put.
+  const addImage = (src: string) => {
+    const images = [...slide.images, src].slice(0, HERO_LIMITS.images);
+    const positions = slide.positions && slide.positions.length === slide.images.length
+      ? [...slide.positions, defaultHeroBoxes(images.length)[images.length - 1]].slice(0, images.length)
+      : undefined;
+    set({ images, positions });
+  };
 
   return (
     <section className={`${cardClass} space-y-4`}>
@@ -136,7 +324,14 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
         </div>
       </div>
 
-      <SlidePreview slide={slide} />
+      <SlidePreview slide={slide} onPositions={(positions) => set({ positions })} />
+      {slide.positions && (
+        <div className="-mt-2 flex justify-end">
+          <button type="button" className={secondaryClass} onClick={() => set({ positions: undefined })}>
+            <RotateCcw size={15} /> Automatic layout
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-app-text sm:col-span-2">
@@ -185,7 +380,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
 
       <div>
         <p className="text-sm font-medium text-app-text">Pictures <span className="font-normal text-app-text-muted">({slide.images.length} of {HERO_LIMITS.images})</span></p>
-        <p className="text-xs text-app-text-muted">Photos with the background removed look best. When uploading, tap "Remove" on the crop screen.</p>
+        <p className="text-xs text-app-text-muted">Photos with the background removed look best. When uploading, tap "Remove" on the crop screen. Drag and zoom the pictures in the banner above to place them.</p>
         <ul className="mt-2 grid grid-cols-3 gap-2">
           {slide.images.map((src, i) => (
             <li key={`${i}-${src}`} className="relative rounded-lg border border-app-border p-1.5" style={{ background: 'repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 0 0 / 12px 12px' }}>
@@ -193,7 +388,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
               <span className="mt-1 block rounded bg-app-card/90 px-1 text-center text-[10px] font-medium text-app-text-muted">{roles[i]}</span>
               <button
                 type="button"
-                onClick={() => set({ images: slide.images.filter((_, k) => k !== i) })}
+                onClick={() => set({ images: slide.images.filter((_, k) => k !== i), positions: slide.positions?.filter((_, k) => k !== i) })}
                 className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-app-card text-app-text shadow"
                 aria-label={`Remove picture ${i + 1}`}
               >
@@ -209,7 +404,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
               bucketName="business-logos"
               cropAspect={1}
               buttonText="Upload picture"
-              onUploadSuccess={(url) => set({ images: [...slide.images, url].slice(0, HERO_LIMITS.images) })}
+              onUploadSuccess={(url) => addImage(url)}
             />
             <button type="button" className={secondaryClass} onClick={() => setStockOpen(!stockOpen)}>
               <ImagePlus size={15} /> {stockOpen ? 'Close' : 'Choose a ready cut-out'}
@@ -222,7 +417,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
               <li key={image.src}>
                 <button
                   type="button"
-                  onClick={() => set({ images: [...slide.images, image.src].slice(0, HERO_LIMITS.images) })}
+                  onClick={() => addImage(image.src)}
                   className="w-full rounded-lg border border-app-border bg-app-bg p-1 hover:border-brand-500"
                   title={image.label}
                 >

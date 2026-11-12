@@ -4,7 +4,7 @@ import { Product } from '../api';
 import { pointsOn } from '../points';
 import { PHOTOS, photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
-import { HERO_DRAW_ORDER, heroImageSlots, safeHref, visibleHeroSlides } from '../heroSlides';
+import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle, safeHref, visibleHeroSlides } from '../heroSlides';
 import { formatDate, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
 import { Testimonials } from './Reviews';
 import ProductCard from './ProductCard';
@@ -19,8 +19,8 @@ const prefersReducedMotion = () =>
  * Product pictures placed like a shop-window display: the main product with up to two smaller
  * ones beside and in front. Best with cut-outs (background removed in the app's uploader).
  */
-function ProductDisplay({ images, title, eager }: { images: string[]; title: string; eager: boolean }) {
-  const slots = heroImageSlots(images.length);
+function ProductDisplay({ images, positions, title, eager }: { images: string[]; positions?: HeroBox[]; title: string; eager: boolean }) {
+  const boxes = heroBoxes(images.length, positions);
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[10rem] min-[400px]:max-w-[11rem] sm:max-w-[19rem] lg:max-w-[24rem]">
       {/* A soft floor shadow so the products stand on the panel rather than float. */}
@@ -32,7 +32,7 @@ function ProductDisplay({ images, title, eager }: { images: string[]; title: str
           alt={index === 0 ? title : ''}
           loading={eager ? 'eager' : 'lazy'}
           fetchPriority={eager && index === 0 ? 'high' : 'auto'}
-          style={{ position: 'absolute', ...slots[index] }}
+          style={heroBoxStyle(boxes[index])}
           className="object-contain object-bottom drop-shadow-[0_14px_16px_rgba(35,22,14,0.22)]"
         />
       ))}
@@ -110,7 +110,7 @@ function Hero() {
                     </a>
                   )}
                 </div>
-                <ProductDisplay images={slide.images} title={slide.title} eager={index === 0} />
+                <ProductDisplay images={slide.images} positions={slide.positions} title={slide.title} eager={index === 0} />
               </div>
             );
           })}
