@@ -1,7 +1,7 @@
 // src/services/backgroundRemoval.worker.ts
 //
-// Runs the background-removal model off the main thread, so the app keeps responding while a
-// photo is processed (about half a minute on a phone). See backgroundRemoval.ts for the why.
+// Browser engine: runs the background-removal model off the main thread, on the GPU (WebGPU)
+// when there is one, otherwise on one CPU thread. See backgroundRemoval.ts for the other engines.
 
 import ortLoaderUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url';
 import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url';
@@ -23,6 +23,19 @@ const progress = (stage: 'downloading' | 'preparing' | 'working', percent?: numb
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let segmenterPromise: Promise<any> | null = null;
+/** Set once the GPU failed on this device: from then on only the CPU is used. */
+let gpuFailed = false;
+
+async function hasGpu(): Promise<boolean> {
+  if (gpuFailed) return false;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gpu = (self.navigator as any)?.gpu;
+    return Boolean(gpu && (await gpu.requestAdapter()));
+  } catch {
+    return false;
+  }
+}
 
 function loadSegmenter() {
   if (segmenterPromise) return segmenterPromise;
@@ -42,9 +55,8 @@ function loadSegmenter() {
       onnx.wasm.numThreads = 1;
     }
 
-    return pipeline('background-removal', MODEL_ID, {
-      device: 'wasm',
-      dtype: 'q8',
+    const options = {
+      dtype: 'q8' as const,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (event: any) => {
         if (event?.status === 'progress' && typeof event.progress === 'number' && /\.onnx$/.test(event.file ?? '')) {
@@ -53,7 +65,16 @@ function loadSegmenter() {
           progress('preparing');
         }
       },
-    });
+    };
+    // The GPU takes seconds where the single CPU thread takes close to a minute.
+    if (await hasGpu()) {
+      try {
+        return { gpu: true, run: await pipeline('background-removal', MODEL_ID, { ...options, device: 'webgpu' }) };
+      } catch {
+        gpuFailed = true;
+      }
+    }
+    return { gpu: false, run: await pipeline('background-removal', MODEL_ID, { ...options, device: 'wasm' }) };
   })();
   // A failed download must not stick: the next try starts again.
   segmenterPromise.catch(() => { segmenterPromise = null; });
@@ -64,10 +85,20 @@ async function handle({ id, width, height, pixels }: WorkerRequest) {
   currentId = id;
   try {
     progress('preparing', 0);
-    const segmenter = await loadSegmenter();
-    progress('working');
     const { RawImage } = await import('@huggingface/transformers');
-    const output = await segmenter(new RawImage(pixels, width, height, 4));
+    let segmenter = await loadSegmenter();
+    progress('working');
+    let output;
+    try {
+      output = await segmenter.run(new RawImage(pixels, width, height, 4));
+    } catch (err) {
+      if (!segmenter.gpu) throw err;
+      // The GPU gave up (driver or memory): do this photo, and the rest, on the CPU.
+      gpuFailed = true;
+      segmenterPromise = null;
+      segmenter = await loadSegmenter();
+      output = await segmenter.run(new RawImage(pixels, width, height, 4));
+    }
     const result = (Array.isArray(output) ? output[0] : output).rgba();
     const data = new Uint8ClampedArray(result.data);
     post({ id, type: 'done', width: result.width, height: result.height, pixels: data }, [data.buffer]);

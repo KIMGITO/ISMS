@@ -2,6 +2,7 @@ import WhatsAppSettingsPanel from "../components/WhatsAppSettingsPanel";
 import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Archive,
   Bot,
   CloudUpload,
   MessageCircle,
@@ -9,6 +10,8 @@ import {
 } from 'lucide-react';
 import { PasswordInput } from '../components/shared/PasswordInput';
 import { NavSection, SectionNav } from '../components/shared/SectionNav';
+import LogCleanupPanel from '../components/LogCleanupPanel';
+import { isAdminRole } from '../services/logCleanup';
 import { useAppStore } from '../stores/appStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
@@ -76,7 +79,7 @@ interface SettingsViewProps {
   onRestartTour?: () => void;
 }
 
-type SectionId = 'receipts' | 'invoices' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'database' | 'device' | 'notifications' | 'help' | 'session';
+type SectionId = 'receipts' | 'invoices' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'records' | 'database' | 'device' | 'notifications' | 'help' | 'session';
 
 const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode })[] = [
   { id: 'receipts', group: 'Shop', label: 'Receipts & printing', description: 'Paper, shop details, printers and KRA eTIMS', icon: ReceiptText, keywords: 'tax kra etims printer bluetooth wifi thermal qr barcode paper', permission: 'settings.tax' },
@@ -85,6 +88,7 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
   { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
+  { id: 'records', group: 'Data', label: 'Old records', description: 'Delete old logs (owners and admins)', icon: Archive, keywords: 'logs history clear delete stock points audit space' },
   { id: 'database', group: 'Data', label: 'Database', description: 'Supabase connection (developers)', icon: Database, keywords: 'supabase', permission: 'settings.integrations' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
   { id: 'notifications', group: 'Account', label: 'Notifications', description: 'Choose what you get notified about', icon: Bell, keywords: 'alerts mute pause push' },
@@ -784,7 +788,8 @@ export default function SettingsView({
   const allowedSections = SETTINGS_SECTIONS.filter(
     (section) =>
       (!section.permission || hasRolePermission(currentRole, section.permission)) &&
-      (section.id !== 'database' || configManager.getActiveEnvironment() === 'Developer Mode'),
+      (section.id !== 'database' || configManager.getActiveEnvironment() === 'Developer Mode') &&
+      (section.id !== 'records' || isAdminRole(currentRole)),
   );
   const [selectedSection, setActiveSection] = useState<SectionId | null>(null);
   const activeSection = selectedSection ?? allowedSections[0].id;
@@ -2303,6 +2308,8 @@ export default function SettingsView({
               )}
 
               {/* Section Divider */}
+
+              {activeSection === 'records' && isAdminRole(currentRole) && <LogCleanupPanel />}
 
               {/* Supabase & Cloud Database Integrations (Admins & Owners only) */}
               {activeSection === 'database' && hasRolePermission(currentRole, 'settings.integrations') &&

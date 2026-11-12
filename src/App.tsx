@@ -576,10 +576,10 @@ export default function App() {
     if (!currentEmployee) return;
     const completed = localStorage.getItem('isms-onboarding-completed');
     if (completed === 'true') return;
-    // Delay slightly so the UI is fully settled before the overlay appears
+    // Give people a few seconds to look at the app before the tour appears.
     const timer = setTimeout(() => {
       setIsTourOpen(true);
-    }, 1500);
+    }, 6500);
     return () => clearTimeout(timer);
   }, [currentEmployee?.id]); // re-check whenever the logged-in user changes
   const [isCreatingBusiness, setIsCreatingBusiness] = useState(false);

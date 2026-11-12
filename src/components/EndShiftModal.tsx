@@ -288,7 +288,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
               className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-semibold disabled:opacity-60"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
-              {saving ? 'Ending shift…' : 'End shift and send report'}
+              <span className="whitespace-nowrap">{saving ? 'Ending…' : 'End & send report'}</span>
             </button>
           </div>
         </motion.div>

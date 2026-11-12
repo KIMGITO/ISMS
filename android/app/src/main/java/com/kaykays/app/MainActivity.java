@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ScreenOrientationPlugin.class);
         registerPlugin(RingAlarmPlugin.class);
         registerPlugin(AlarmSchedulerPlugin.class);
+        registerPlugin(SubjectSegmentationPlugin.class);
         super.onCreate(savedInstanceState);
         handleRingAccept(getIntent());
     }

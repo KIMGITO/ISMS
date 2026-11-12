@@ -2,7 +2,7 @@
 // Each entry is saved as a cash expense, so it comes off the cash balance and shows on the
 // Finances page. Staff see their own entries; managers see everyone's.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Coins, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, Coins, Pencil, Plus, RotateCcw, Settings2, Trash2, X } from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
 import { useBusinessStore } from '../stores/businessStore';
 import { useAuthStore } from '../stores/authStore';
@@ -12,9 +12,17 @@ import { toUserMessage } from '../utils/userError';
 import { toUuid } from '../utils/idUtils';
 import SheetLayer from '../components/shared/SheetLayer';
 import { SwipeRow } from '../components/shared/SwipeRow';
+import { appDialog } from '../components/AppDialog';
+import { isAdminRole } from '../services/logCleanup';
 
 const TZ = 'Africa/Nairobi';
+/** Used until the business's own list loads, or if it can't be loaded. Admins edit the list. */
 export const PETTY_CASH_CATEGORIES = ['Transport', 'Cleaning', 'Food & tea', 'Repairs', 'Supplies', 'Airtime', 'Other'];
+
+interface Category {
+  id: string | null;
+  name: string;
+}
 
 interface Entry {
   id: string;
@@ -64,8 +72,71 @@ export default function PettyCashView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const isAdmin = isAdminRole(role);
+  const [categories, setCategories] = useState<Category[]>(PETTY_CASH_CATEGORIES.map((name) => ({ id: null, name })));
+  const [editingCats, setEditingCats] = useState(false);
+  const [catDraft, setCatDraft] = useState('');
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [catBusy, setCatBusy] = useState(false);
+
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(PETTY_CASH_CATEGORIES[0]);
+
+  const loadCategories = useCallback(async () => {
+    if (!businessId) return;
+    const { data, error } = await getSupabase()
+      .from('petty_cash_categories')
+      .select('id, name')
+      .eq('business_id', toUuid(businessId))
+      .order('sort_order')
+      .order('name');
+    // Before the categories migration (or offline): keep the built-in list.
+    if (error || !data || data.length === 0) return;
+    const list = data.map((r: any) => ({ id: r.id as string, name: r.name as string }));
+    setCategories(list);
+    setCategory((current) => (list.some((c) => c.name === current) ? current : list[0].name));
+  }, [businessId]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
+
+  const saveCategory = async (id: string | null, name: string) => {
+    if (!businessId || catBusy || !name.trim()) return false;
+    setCatBusy(true);
+    const { error } = await getSupabase().rpc('save_petty_cash_category', {
+      p_business_id: toUuid(businessId),
+      p_id: id,
+      p_name: name.trim(),
+    });
+    setCatBusy(false);
+    if (error) {
+      showToast('Not saved', toUserMessage(error, 'Could not save. Check your connection.'), undefined, 'error');
+      return false;
+    }
+    await loadCategories();
+    if (id) void load(); // Renamed: past entries carry the new name.
+    return true;
+  };
+
+  const removeCategory = async (c: Category) => {
+    if (!businessId || !c.id || catBusy) return;
+    const ok = await appDialog.confirm({
+      title: `Remove "${c.name}"?`,
+      message: 'It stops showing as a choice. Past entries keep it.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (!ok) return;
+    setCatBusy(true);
+    const { error } = await getSupabase().rpc('delete_petty_cash_category', { p_business_id: toUuid(businessId), p_id: c.id });
+    setCatBusy(false);
+    if (error) {
+      showToast('Not removed', toUserMessage(error, 'Could not remove. Check your connection.'), undefined, 'error');
+      return;
+    }
+    await loadCategories();
+  };
   const [description, setDescription] = useState('');
   const [receiptRef, setReceiptRef] = useState('');
   const [saving, setSaving] = useState(false);
@@ -197,20 +268,130 @@ export default function PettyCashView() {
           </label>
 
           <div>
-            <span className="block text-xs font-medium text-app-text-muted mb-1">Spent on</span>
-            <div className="flex flex-wrap gap-1.5">
-              {PETTY_CASH_CATEGORIES.map((c) => (
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-medium text-app-text-muted">Spent on</span>
+              {isAdmin && categories.some((c) => c.id) && (
                 <button
                   type="button"
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  aria-pressed={category === c}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${category === c ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
+                  onClick={() => {
+                    setEditingCats((v) => !v);
+                    setRenaming(null);
+                    setCatDraft('');
+                  }}
+                  title={editingCats ? 'Done editing' : 'Edit the choices'}
+                  aria-label={editingCats ? 'Done editing the choices' : 'Edit the choices'}
+                  className={`p-1.5 rounded-lg cursor-pointer ${editingCats ? 'bg-amber-500 text-slate-950' : 'text-app-text-muted hover:bg-app-bg'}`}
                 >
-                  {c}
+                  {editingCats ? <Check size={14} /> : <Settings2 size={14} />}
                 </button>
-              ))}
+              )}
             </div>
+            {!editingCats ? (
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map((c) => (
+                  <button
+                    type="button"
+                    key={c.name}
+                    onClick={() => setCategory(c.name)}
+                    aria-pressed={category === c.name}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${category === c.name ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <ul className="rounded-xl border border-app-border divide-y divide-app-border">
+                  {categories.map((c) => (
+                    <li key={c.id ?? c.name} className="flex items-center gap-1.5 px-2 py-1.5">
+                      {renaming && renaming.id === c.id ? (
+                        <>
+                          <input
+                            autoFocus
+                            value={renaming.name}
+                            onChange={(e) => setRenaming({ id: renaming.id, name: e.target.value })}
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (await saveCategory(renaming.id, renaming.name)) setRenaming(null);
+                              } else if (e.key === 'Escape') setRenaming(null);
+                            }}
+                            maxLength={40}
+                            aria-label="New name"
+                            className="flex-1 min-w-0 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                          <button
+                            type="button"
+                            disabled={catBusy || !renaming.name.trim()}
+                            onClick={async () => { if (await saveCategory(renaming.id, renaming.name)) setRenaming(null); }}
+                            title="Save name"
+                            aria-label="Save name"
+                            className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-app-bg disabled:opacity-40 cursor-pointer"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button type="button" onClick={() => setRenaming(null)} title="Cancel" aria-label="Cancel" className="p-1.5 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer">
+                            <X size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 min-w-0 truncate text-xs text-app-text">{c.name}</span>
+                          <button
+                            type="button"
+                            disabled={!c.id || catBusy}
+                            onClick={() => c.id && setRenaming({ id: c.id, name: c.name })}
+                            title="Rename"
+                            aria-label={`Rename ${c.name}`}
+                            className="p-1.5 rounded-lg text-app-text-muted hover:bg-app-bg disabled:opacity-40 cursor-pointer"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!c.id || catBusy || categories.length <= 1}
+                            onClick={() => void removeCategory(c)}
+                            title="Remove"
+                            aria-label={`Remove ${c.name}`}
+                            className="p-1.5 rounded-lg text-app-text-muted hover:text-red-500 hover:bg-app-bg disabled:opacity-40 cursor-pointer"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={catDraft}
+                    onChange={(e) => setCatDraft(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (await saveCategory(null, catDraft)) setCatDraft('');
+                      }
+                    }}
+                    maxLength={40}
+                    placeholder="New choice, e.g. Fuel"
+                    aria-label="New choice"
+                    className={`${input} py-2 text-xs`}
+                  />
+                  <button
+                    type="button"
+                    disabled={catBusy || !catDraft.trim()}
+                    onClick={async () => { if (await saveCategory(null, catDraft)) setCatDraft(''); }}
+                    title="Add choice"
+                    aria-label="Add choice"
+                    className="shrink-0 grid place-items-center size-9 rounded-xl bg-amber-500 text-slate-950 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+                <p className="text-[11px] text-app-text-muted">Renaming also renames past entries. Removing keeps past entries as they are.</p>
+              </div>
+            )}
           </div>
 
           <label className="block text-xs font-medium text-app-text-muted">

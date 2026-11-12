@@ -349,9 +349,10 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
             type="button"
             onClick={() => setTesting(true)}
             disabled={!printerService.canPrint()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-bg text-sm font-medium disabled:opacity-50 cursor-pointer"
+            title="Find a printer and print a test page"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-bg text-sm font-medium disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
-            <Printer size={14} /> Find printer & print test page
+            <Printer size={14} /> Test print
           </button>
         </div>
         {!printerService.canPrint() && <p className="text-xs text-app-text-muted">{support.reason}</p>}

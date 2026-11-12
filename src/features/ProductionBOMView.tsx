@@ -1119,9 +1119,10 @@ export default function ProductionBOMView() {
                     onClick={() => {
                       setCancellationItems(prev => prev.map(item => ({ ...item, returnQty: item.consumedQty, isDamaged: false })));
                     }}
-                    className="text-[9.5px] font-black text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                    title="Return all ingredients"
+                    className="shrink-0 whitespace-nowrap text-[9.5px] font-black text-emerald-400 hover:text-emerald-300 cursor-pointer"
                   >
-                    Return All Ingredients
+                    Return all
                   </button>
                 </div>
 
@@ -1212,7 +1213,7 @@ export default function ProductionBOMView() {
                   className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-slate-800 text-white font-black rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />}
-                  {isSubmitting ? 'Cancelling...' : 'Cancel Batch & Apply Restock'}
+                  <span className="whitespace-nowrap">{isSubmitting ? 'Cancelling…' : 'Cancel & restock'}</span>
                 </button>
               </div>
             </motion.div>

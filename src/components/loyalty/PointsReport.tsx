@@ -2,13 +2,16 @@
 // period, and who used points where. Points used to pay off debt cost the business on top of
 // sales, so that figure is also taken off profit on the Home screen.
 import React, { useEffect, useMemo, useState } from 'react';
-import { Gift, RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe } from 'lucide-react';
+import { Gift, RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe, Trash2 } from 'lucide-react';
 import { getSupabase } from '../../services/supabaseClient';
 import { toUuid } from '../../utils/idUtils';
 import { formatCurrency } from '../../utils/helpers';
 import { customerName } from '../../utils/stringUtils';
 import { toUserMessage } from '../../utils/userError';
 import type { Customer } from '../../types';
+import { appDialog } from '../AppDialog';
+import { deleteLogRows, useIsAdmin } from '../../services/logCleanup';
+import { useNotificationStore } from '../../stores/notificationStore';
 import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, pointsPerShilling, PointSettings } from '../../services/loyalty/pointValue';
 
 type Range = 'this_month' | 'last_month' | 'this_year' | 'all';
@@ -129,6 +132,26 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
   }, [load]);
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
+  const isAdmin = useIsAdmin();
+  const showToast = useNotificationStore((s) => s.showToast);
+  /** Owners and admins can delete a "who used points" record. Balances don't change. */
+  const deleteUse = async (r: Redemption) => {
+    const ok = await appDialog.confirm({
+      title: `Delete this record of ${r.points.toLocaleString()} points used?`,
+      message: "Only the record goes: the customer's balance stays. It no longer counts in this report or in profit, and can't be refunded later.",
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteLogRows(businessId, 'points_used', [r.id]);
+      setUsed((list) => list.filter((x) => x.id !== r.id));
+      showToast('Deleted', 'Record deleted.', undefined, 'success');
+    } catch (err) {
+      showToast('Not deleted', toUserMessage(err, 'Could not delete. Check your connection.'), undefined, 'error');
+    }
+  };
 
   // Held now, by tier, at each tier's value.
   const held = useMemo(() => {
@@ -261,8 +284,8 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
               const c = byId.get(r.customerId);
               const Icon = r.kind === 'account' ? CreditCard : r.kind === 'online' ? Globe : ShoppingBag;
               return (
-                <li key={r.id}>
-                  <button type="button" onClick={() => c && onOpenCustomer(c.id)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-app-bg cursor-pointer">
+                <li key={r.id} className="flex items-center">
+                  <button type="button" onClick={() => c && onOpenCustomer(c.id)} className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left hover:bg-app-bg cursor-pointer">
                     <span className={`size-8 rounded-lg grid place-items-center shrink-0 ${r.kind === 'account' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                       <Icon size={15} />
                     </span>
@@ -278,6 +301,17 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
                       <span className="block text-xs text-app-text-muted tabular-nums">{formatCurrency(r.value)}</span>
                     </span>
                   </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => void deleteUse(r)}
+                      title="Delete this record"
+                      aria-label="Delete this record"
+                      className="shrink-0 p-2 mr-1 rounded-lg text-app-text-muted hover:text-red-500 hover:bg-app-bg cursor-pointer"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </li>
               );
             })}

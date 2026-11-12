@@ -2409,7 +2409,7 @@ export default function CustomersView() {
                         <span>Enrolling...</span>
                       </>
                     ) : (
-                      'Enroll Customer Profile'
+                      <span className="whitespace-nowrap">Add customer</span>
                     )}
                   </button>
                 </div>

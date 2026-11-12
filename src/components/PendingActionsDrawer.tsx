@@ -395,9 +395,10 @@ export default function PendingActionsDrawer() {
               </button>
               <button
                 onClick={handleSaveVerifiedParams}
-                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5"
+                title="Save and mark verified"
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
               >
-                <CheckCircle2 size={12} /> Save & Mark Verified
+                <CheckCircle2 size={12} /> Verify
               </button>
             </div>
           </motion.div>

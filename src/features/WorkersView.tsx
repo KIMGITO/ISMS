@@ -1,5 +1,5 @@
 import { toUserMessage } from "../utils/userError";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useAppStore } from "../stores/appStore";
 import { UserPlus, Trash2, CheckCircle2, AlertCircle, Shield, Mail, Phone, User, Edit, X, Camera, Search, Send, Copy, Clock, RefreshCw, Ban } from "lucide-react";
 import { SwipeRow } from "../components/shared/SwipeRow";
@@ -49,6 +49,8 @@ export default function WorkersView() {
 
   // Edit employee state (for role updates)
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const formBoxRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingWorker, setIsDeletingWorker] = useState(false);
   const [isRevokingInvite, setIsRevokingInvite] = useState(false);
@@ -163,6 +165,12 @@ export default function WorkersView() {
       setSelectedCountryCode("+254");
       setPhone(emp.phone);
     }
+
+    // Bring the form into view (it sits above the list on phones) and put the cursor in it.
+    requestAnimationFrame(() => {
+      formBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInputRef.current?.focus({ preventScroll: true });
+    });
   };
 
   const handleCancelEdit = () => {
@@ -263,7 +271,7 @@ export default function WorkersView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Form Box (Invite or Edit depending on state) */}
-        <div className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-4 shadow-sm self-start">
+        <div ref={formBoxRef} className={`lg:col-span-1 bg-app-card border rounded-2xl p-4 shadow-sm self-start scroll-mt-4 transition-colors ${editingEmployeeId ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-app-border'}`}>
           {canInviteStaff || canUpdateStaff ? (
             <>
               <div className="flex items-center justify-between mb-3 border-b border-app-border/40 pb-2">
@@ -293,6 +301,7 @@ export default function WorkersView() {
                   <div className="relative">
                     <input
                       type="text"
+                      ref={nameInputRef}
                       placeholder="e.g. Kipchoge Keino"
                       value={name}
                       onChange={(e) => setName(e.target.value)}

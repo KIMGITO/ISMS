@@ -1,14 +1,20 @@
 // Stock History: every change to stock (restocks, wastage, counts, production), moved out
-// of Inventory. Tap a change to see it as a receipt. Hiding logs only affects this device.
+// of Inventory. Tap a change to see it as a receipt. Hiding logs only affects this device;
+// owners and admins can also delete logs for everyone (stock levels don't change).
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowDownRight, ArrowUpRight, CheckSquare, Copy, Eye, EyeOff, History, Search, Share2, Square, X,
+  ArrowDownRight, ArrowUpRight, CheckSquare, Copy, Eye, EyeOff, History, Search, Share2, Square, Trash2, X,
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { useOverlay } from '../hooks/useOverlay';
 import SheetLayer from '../components/shared/SheetLayer';
 import { searchMatch } from '../utils/stringUtils';
+import { useInventoryStore } from '../stores/inventoryStore';
+import { useBusinessStore } from '../stores/businessStore';
+import { appDialog } from '../components/AppDialog';
+import { deleteLogRows, useIsAdmin } from '../services/logCleanup';
+import { toUserMessage } from '../utils/userError';
 import type { AdjustmentType, InventoryAdjustment } from '../types';
 
 const HIDDEN_KEY = 'kkm_hidden_inventory_logs';
@@ -142,6 +148,41 @@ export default function StockHistoryView() {
     setSelected([]);
     setSelecting(false);
   };
+  const isAdmin = useIsAdmin();
+  const businessId = useBusinessStore((s) => s.activeBusinessId);
+  const [deleting, setDeleting] = useState(false);
+  /** Deletes logs for everyone. Stock levels stay as they are. */
+  const deleteLogs = async (ids: string[]) => {
+    if (!businessId || ids.length === 0 || deleting) return false;
+    const many = ids.length === 1 ? 'this stock log' : `${ids.length} stock logs`;
+    const ok = await appDialog.confirm({
+      title: `Delete ${many}?`,
+      message: 'They are removed for everyone and can\'t be brought back. Stock levels stay as they are.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return false;
+    setDeleting(true);
+    try {
+      const n = await deleteLogRows(businessId, 'stock', ids);
+      const gone = new Set(ids);
+      useInventoryStore.setState((st) => ({ adjustments: st.adjustments.filter((a) => !gone.has(a.id)) }));
+      showToast('Deleted', `${n} ${n === 1 ? 'log' : 'logs'} deleted.`, undefined, 'success');
+      return true;
+    } catch (err) {
+      showToast('Not deleted', toUserMessage(err, 'Could not delete. Check your connection.'), undefined, 'error');
+      return false;
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const deleteSelected = async () => {
+    if (await deleteLogs(selected)) {
+      setSelected([]);
+      setSelecting(false);
+    }
+  };
+
   const restore = () => {
     setHidden([]);
     showToast('Restored', 'Hidden logs are showing again.', undefined, 'success');
@@ -196,13 +237,26 @@ export default function StockHistoryView() {
               <span className="text-app-text-muted">{hidden.length} hidden on this device</span>
             )}
             {selecting ? (
-              <button
-                onClick={hideSelected}
-                disabled={selected.length === 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 font-medium disabled:opacity-40"
-              >
-                <EyeOff size={13} /> Hide {selected.length || ''}
-              </button>
+              <span className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={hideSelected}
+                  disabled={selected.length === 0}
+                  title="Hide on this device"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-app-bg text-app-text font-medium disabled:opacity-40 whitespace-nowrap"
+                >
+                  <EyeOff size={13} /> Hide {selected.length || ''}
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => void deleteSelected()}
+                    disabled={selected.length === 0 || deleting}
+                    title="Delete for everyone"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 font-medium disabled:opacity-40 whitespace-nowrap"
+                  >
+                    <Trash2 size={13} /> Delete {selected.length || ''}
+                  </button>
+                )}
+              </span>
             ) : (
               <button onClick={restore} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
                 <Eye size={13} /> Show hidden
@@ -308,6 +362,7 @@ export default function StockHistoryView() {
                     showToast('Hidden', 'Log hidden on this device.', undefined, 'success');
                   }}
                   onCopied={() => showToast('Copied', 'Stock receipt copied.', undefined, 'success')}
+                  onDelete={isAdmin ? async () => { if (await deleteLogs([open.id])) setOpen(null); } : undefined}
                 />
               </motion.div>
             </>
@@ -319,8 +374,8 @@ export default function StockHistoryView() {
 }
 
 function AdjustmentReceipt({
-  adj, unit, onClose, onHide, onCopied,
-}: { adj: InventoryAdjustment; unit: string; onClose: () => void; onHide: () => void; onCopied: () => void }) {
+  adj, unit, onClose, onHide, onCopied, onDelete,
+}: { adj: InventoryAdjustment; unit: string; onClose: () => void; onHide: () => void; onCopied: () => void; onDelete?: () => void }) {
   const up = adj.quantityAdjusted > 0;
   const u = unit ? ` ${unit}` : '';
   const rows: [string, string][] = [
@@ -393,9 +448,14 @@ function AdjustmentReceipt({
       </div>
 
       <div className="flex gap-2 mt-3">
-        <button onClick={onHide} className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-app-bg text-app-text text-sm font-medium">
-          <EyeOff size={16} /> Hide
+        <button onClick={onHide} title="Hide on this device" aria-label="Hide on this device" className="flex items-center justify-center px-4 py-3 rounded-xl bg-app-bg text-app-text">
+          <EyeOff size={16} />
         </button>
+        {onDelete && (
+          <button onClick={onDelete} title="Delete for everyone" aria-label="Delete for everyone" className="flex items-center justify-center px-4 py-3 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
+            <Trash2 size={16} />
+          </button>
+        )}
         <button onClick={share} className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-amber-500 text-slate-950 text-sm font-semibold">
           {typeof navigator !== 'undefined' && 'share' in navigator ? <Share2 size={16} /> : <Copy size={16} />}
           {typeof navigator !== 'undefined' && 'share' in navigator ? 'Share' : 'Copy'}

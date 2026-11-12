@@ -1,3 +1,5 @@
+mod bg_removal;
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
   // Only plain links that the OS should hand to a browser, mail or phone app. Anything
@@ -136,7 +138,10 @@ pub fn run() {
       open_url,
       network_printer::printer_scan_network,
       network_printer::printer_probe,
-      network_printer::printer_send
+      network_printer::printer_send,
+      bg_removal::bg_model_ready,
+      bg_removal::bg_save_model,
+      bg_removal::bg_remove
     ])
     .setup(|app| {
       // Updates come from GitHub Releases, signed with the key in TAURI_SIGNING_PRIVATE_KEY.

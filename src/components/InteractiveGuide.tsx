@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, ChevronLeft, ChevronRight, HelpCircle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, HelpCircle, SkipForward, Check } from "lucide-react";
 
 export interface TourStep {
   targetSelector?: string;
@@ -345,30 +345,34 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
             />
           </div>
 
-          {/* Actions Footer */}
+          {/* Actions Footer: icons only, so nothing wraps on a phone */}
           <div className="flex justify-between items-center mt-1.5 gap-2">
             <button
               onClick={onClose}
-              className="px-2.5 py-1.5 text-[9px] font-bold text-app-text-muted hover:text-app-text uppercase tracking-wider transition cursor-pointer"
+              title="Skip the tour"
+              aria-label="Skip the tour"
+              className="size-9 grid place-items-center rounded-xl text-app-text-muted hover:text-app-text hover:bg-app-bg transition cursor-pointer"
             >
-              Skip
+              <SkipForward size={16} />
             </button>
             <div className="flex gap-1.5">
               {!isFirstStep && (
                 <button
                   onClick={handlePrev}
-                  className="px-3 py-1.5 bg-app-bg hover:bg-app-border border border-app-border text-app-text font-bold rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                  title="Previous"
+                  aria-label="Previous step"
+                  className="size-9 grid place-items-center bg-app-bg hover:bg-app-border border border-app-border text-app-text rounded-xl transition cursor-pointer"
                 >
-                  <ChevronLeft size={11} />
-                  <span>Prev</span>
+                  <ChevronLeft size={18} />
                 </button>
               )}
               <button
                 onClick={handleNext}
-                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer flex items-center gap-1 shadow-sm"
+                title={isLastStep ? "Finish" : "Next"}
+                aria-label={isLastStep ? "Finish the tour" : "Next step"}
+                className="size-9 grid place-items-center bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition cursor-pointer shadow-sm"
               >
-                <span>{isLastStep ? "Finish" : "Next"}</span>
-                <ChevronRight size={11} />
+                {isLastStep ? <Check size={18} /> : <ChevronRight size={18} />}
               </button>
             </div>
           </div>

@@ -718,7 +718,7 @@ export default function UnifiedUploader({
     ? ""
     : bgProgress.stage === "working"
       ? `Step 2 of 2 · ${bgProgress.secondsLeft ? `about ${formatSeconds(bgProgress.secondsLeft)} left` : "finishing up"}`
-      : `Step 1 of 2${bgProgress.stage === "downloading" && !bgModelReady ? " · about 45 MB, first time only" : ""}`;
+      : `Step 1 of 2${bgProgress.stage === "downloading" && !bgModelReady ? " · first time only" : ""}`;
 
   const UNSPLASH_PER_PAGE = 24;
 
@@ -1005,7 +1005,7 @@ export default function UnifiedUploader({
                               ? "Done. The product now sits on a clear background."
                               : bgModelReady
                                 ? "Cuts the product out of its photo. Free, on this device."
-                                : "Free, on this device. First use downloads about 45 MB once."}
+                                : "Free, on this device. First use downloads it once (about 45 MB on a computer)."}
                           </span>
                         </div>
                         {bgOriginalSrc ? (

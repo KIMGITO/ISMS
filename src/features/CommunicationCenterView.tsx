@@ -279,7 +279,7 @@ export default function CommunicationCenterView() {
           }`}
         >
           <MessageSquare size={13} className="shrink-0" />
-          <span className="truncate">Customer Messaging</span>
+          <span className="truncate">Customers</span>
         </button>
         <button
           onClick={() => setActiveChannel("reminders")}
@@ -290,7 +290,7 @@ export default function CommunicationCenterView() {
           }`}
         >
           <BellRing size={13} className="shrink-0" />
-          <span className="truncate">Staff Reminders</span>
+          <span className="truncate">Reminders</span>
           {unreadReminderCount > 0 && (
             <span className="px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[9px] font-bold shrink-0">
               {unreadReminderCount}

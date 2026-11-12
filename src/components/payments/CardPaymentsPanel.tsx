@@ -185,7 +185,7 @@ export default function CardPaymentsPanel() {
                 </>
               )}
               <button type="button" disabled={busy === 'save' || (!status?.connected && !secretKey.trim())} onClick={() => void save()} className="px-4 py-2 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer">
-                {busy === 'save' && <Loader2 size={14} className="animate-spin" />} Check with Paystack and save
+                {busy === 'save' && <Loader2 size={14} className="animate-spin" />} <span className="whitespace-nowrap" title="Check the key with Paystack, then save">Verify & save</span>
               </button>
             </div>
             {confirmRemove && (

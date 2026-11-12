@@ -228,7 +228,6 @@ export default function InventoryView() {
     if (!editValues.sku.trim()) errs.sku = 'SKU is required.';
     if (editValues.price <= 0) errs.price = 'Selling price must be > 0.';
     if (editValues.cost < 0) errs.cost = 'Cost must be >= 0.';
-    if (editValues.stock < 0) errs.stock = 'Stock must be >= 0.';
     if (editValues.minStock < 1) errs.minStock = 'Min stock must be >= 1.';
     if (
       editValues.perishable &&
@@ -262,7 +261,9 @@ export default function InventoryView() {
         price: editValues.price,
         cost: editValues.cost,
         unit: editValues.unit,
-        stock: editValues.stock,
+        // Stock is never saved from this form: a change here wasn't logged, and saving the
+        // number from when the form opened would undo sales made since. Use Adjust stock.
+        stock: undefined as unknown as number,
         minStock: editValues.minStock,
         image: editProductImage,
         description: editValues.description || undefined,
@@ -768,7 +769,7 @@ export default function InventoryView() {
                       <span>Adjusting...</span>
                     </>
                   ) : (
-                    'Log Stock Adjustment'
+                    <span className="flex items-center gap-1.5 whitespace-nowrap"><SlidersHorizontal size={13} /> Save change</span>
                   )}
                 </button>
               </div>
@@ -1019,12 +1020,12 @@ export default function InventoryView() {
                   {isSubmitting ? (
                     <>
                       <RefreshCw size={13} className="animate-spin" />
-                      <span>Adding to Catalog...</span>
+                      <span className="whitespace-nowrap">Adding…</span>
                     </>
                   ) : (
                     <>
                       <Plus size={13} />
-                      <span>Add Product to Catalog</span>
+                      <span className="whitespace-nowrap">Add product</span>
                     </>
                   )}
                 </button>
@@ -1273,20 +1274,30 @@ export default function InventoryView() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
-                      Current Stock Level *
-                    </label>
-                    <input
-                      type="number"
-                      value={editValues.stock === 0 ? '' : editValues.stock}
-                      onChange={(e) =>
-                        setEditValues({
-                          ...editValues,
-                          stock: Number(e.target.value),
-                        })
-                      }
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
-                    />
+                    <span className="text-[10px] font-bold text-app-text-muted uppercase">
+                      Current stock
+                    </span>
+                    <div className="flex items-center gap-1.5 bg-app-bg border border-app-border rounded-xl pl-3 pr-1 py-1 text-xs text-app-text min-w-0">
+                      <span className="flex-1 min-w-0 truncate tabular-nums py-1">
+                        {(products.find((x) => x.id === editingProduct.id)?.stock ?? editingProduct.stock)} {titleCase(editingProduct.unit)}
+                      </span>
+                      {canAdjustStock && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingProduct(false);
+                            setSelectedProduct(editingProduct);
+                            setIsAdjusting(true);
+                          }}
+                          title="Adjust stock (logged in Stock history)"
+                          aria-label="Adjust stock"
+                          className="shrink-0 p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                        >
+                          <SlidersHorizontal size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-app-text-muted">Changed only through Adjust stock, so every change is logged.</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
