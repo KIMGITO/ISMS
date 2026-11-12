@@ -6,9 +6,10 @@ import { Archive, RefreshCw, Trash2 } from 'lucide-react';
 import { useBusinessStore } from '../stores/businessStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useInventoryStore } from '../stores/inventoryStore';
+import { useTransactionStore } from '../stores/transactionStore';
 import { appDialog } from './AppDialog';
 import { toUserMessage } from '../utils/userError';
-import { deleteLogsBefore, fetchLogSizes, LOG_LABELS, LogName } from '../services/logCleanup';
+import { deleteLogsBefore, fetchLogSizes, LOG_LABELS, LogName, MIN_AGE_DAYS } from '../services/logCleanup';
 
 const AGES: { id: string; label: string; days: number | null }[] = [
   { id: '30', label: 'Older than 30 days', days: 30 },
@@ -19,6 +20,14 @@ const AGES: { id: string; label: string; days: number | null }[] = [
 ];
 
 const LOGS = Object.keys(LOG_LABELS) as LogName[];
+
+/** Age choices for one log: none younger than the log allows (sales 3 months, stock 3 days). */
+const agesFor = (log: LogName) => {
+  const min = MIN_AGE_DAYS[log] || 0;
+  return AGES.filter((a) => a.days === null || a.days >= min).map((a) =>
+    a.days === null && min ? { ...a, label: `Everything older than ${min >= 90 ? `${Math.round(min / 30)} months` : `${min} days`}` } : a,
+  );
+};
 
 export default function LogCleanupPanel() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
@@ -48,10 +57,10 @@ export default function LogCleanupPanel() {
 
   const clear = async (log: LogName) => {
     if (!businessId || busy) return;
-    const choice = AGES.find((a) => a.id === age[log])!;
+    const choice = agesFor(log).find((a) => a.id === age[log]) || agesFor(log)[0];
     const before = choice.days === null ? null : new Date(Date.now() - choice.days * 864e5);
     const ok = await appDialog.confirm({
-      title: `Delete ${choice.days === null ? 'all' : choice.label.toLowerCase()} from ${LOG_LABELS[log].title.toLowerCase()}?`,
+      title: `Delete ${choice.days === null && !MIN_AGE_DAYS[log] ? 'all' : choice.label.toLowerCase()} from ${LOG_LABELS[log].title.toLowerCase()}?`,
       message: `${LOG_LABELS[log].detail} This can't be undone.`,
       confirmLabel: 'Delete',
       destructive: true,
@@ -60,10 +69,12 @@ export default function LogCleanupPanel() {
     setBusy(log);
     try {
       const n = await deleteLogsBefore(businessId, log, before);
-      if (log === 'stock') {
-        const cutoff = before ? before.getTime() : Infinity;
-        useInventoryStore.setState((st) => ({ adjustments: st.adjustments.filter((a) => new Date(a.timestamp).getTime() >= cutoff) }));
-      }
+      // The server never deletes rows younger than the log's minimum age.
+      const minCut = MIN_AGE_DAYS[log] ? Date.now() - MIN_AGE_DAYS[log]! * 864e5 : Infinity;
+      const cutoff = Math.min(before ? before.getTime() : Infinity, minCut);
+      const keep = (iso: string) => !(new Date(iso).getTime() < cutoff);
+      if (log === 'stock') useInventoryStore.setState((st) => ({ adjustments: st.adjustments.filter((a) => keep(a.timestamp)) }));
+      if (log === 'sales') useTransactionStore.setState((st) => ({ transactions: st.transactions.filter((t) => keep(t.timestamp)) }));
       showToast('Deleted', `${n.toLocaleString()} ${n === 1 ? 'entry' : 'entries'} deleted from ${LOG_LABELS[log].title.toLowerCase()}.`, undefined, 'success');
       void load();
     } catch (err) {
@@ -114,7 +125,7 @@ export default function LogCleanupPanel() {
                   aria-label={`Which ${LOG_LABELS[log].title.toLowerCase()} entries to delete`}
                   className="flex-1 min-w-0 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
                 >
-                  {AGES.map((a) => (
+                  {agesFor(log).map((a) => (
                     <option key={a.id} value={a.id}>{a.label}</option>
                   ))}
                 </select>

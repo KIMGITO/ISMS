@@ -1,6 +1,7 @@
 // Stock History: every change to stock (restocks, wastage, counts, production), moved out
 // of Inventory. Tap a change to see it as a receipt. Hiding logs only affects this device;
-// owners and admins can also delete logs for everyone (stock levels don't change).
+// owners and admins can also delete logs older than 3 days for everyone (stock levels don't
+// change). On a phone: swipe a row left to Delete.
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -13,7 +14,8 @@ import { searchMatch } from '../utils/stringUtils';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useBusinessStore } from '../stores/businessStore';
 import { appDialog } from '../components/AppDialog';
-import { deleteLogRows, useIsAdmin } from '../services/logCleanup';
+import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from '../services/logCleanup';
+import { SwipeRow } from '../components/shared/SwipeRow';
 import { toUserMessage } from '../utils/userError';
 import type { AdjustmentType, InventoryAdjustment } from '../types';
 
@@ -152,12 +154,21 @@ export default function StockHistoryView() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const [deleting, setDeleting] = useState(false);
   /** Deletes logs for everyone. Stock levels stay as they are. */
-  const deleteLogs = async (ids: string[]) => {
-    if (!businessId || ids.length === 0 || deleting) return false;
+  const canDelete = (adj: InventoryAdjustment) => isAdmin && oldEnoughToDelete('stock', adj.timestamp);
+  const deleteLogs = async (picked: string[]) => {
+    if (!businessId || picked.length === 0 || deleting) return false;
+    // Logs from the last 3 days stay (the database refuses them too).
+    const byId = new Map(all.map((a) => [a.id, a]));
+    const ids = picked.filter((id) => { const a = byId.get(id); return !!a && canDelete(a); });
+    if (ids.length === 0) {
+      showToast('Too new to delete', 'Stock logs can be deleted once they are older than 3 days.', undefined, 'error');
+      return false;
+    }
+    const tooNew = picked.length - ids.length;
     const many = ids.length === 1 ? 'this stock log' : `${ids.length} stock logs`;
     const ok = await appDialog.confirm({
       title: `Delete ${many}?`,
-      message: 'They are removed for everyone and can\'t be brought back. Stock levels stay as they are.',
+      message: `They are removed for everyone and can't be brought back. Stock levels stay as they are.${tooNew ? ` ${tooNew} from the last 3 days ${tooNew === 1 ? 'stays' : 'stay'}.` : ''}`,
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -293,10 +304,19 @@ export default function StockHistoryView() {
                   const up = adj.quantityAdjusted > 0;
                   const isChecked = selected.includes(adj.id);
                   return (
-                    <button
+                    <SwipeRow
                       key={adj.id}
                       onClick={() => (selecting ? toggle(adj.id) : setOpen(adj))}
-                      className="w-full text-left flex items-center gap-3 px-3 py-3"
+                      disabled={selecting}
+                      title={`${adj.productName} · ${up ? '+' : ''}${fmtQty(adj.quantityAdjusted)}${unit ? ` ${unit}` : ''}`}
+                      subtitle={`${TYPE_LABEL[adj.type] || adj.type} · ${fullDate(adj.timestamp)}`}
+                      actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(adj), onClick: () => void deleteLogs([adj.id]) }]}
+                      more={[
+                        { label: 'Open receipt', icon: <Eye size={16} />, onClick: () => setOpen(adj) },
+                        { label: 'Hide on this device', icon: <EyeOff size={16} />, onClick: () => setHidden((h) => [...new Set([...h, adj.id])]) },
+                        { label: 'Delete for everyone', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(adj), onClick: () => void deleteLogs([adj.id]) },
+                      ]}
+                      contentClassName="w-full text-left flex items-center gap-3 px-3 py-3 cursor-pointer"
                     >
                       {selecting ? (
                         isChecked ? <CheckSquare size={18} className="text-amber-500 shrink-0" /> : <Square size={18} className="text-app-text-muted shrink-0" />
@@ -324,7 +344,7 @@ export default function StockHistoryView() {
                           {fmtQty(adj.previousStock)} → {fmtQty(adj.newStock)}
                         </span>
                       </span>
-                    </button>
+                    </SwipeRow>
                   );
                 })}
               </div>
@@ -362,7 +382,7 @@ export default function StockHistoryView() {
                     showToast('Hidden', 'Log hidden on this device.', undefined, 'success');
                   }}
                   onCopied={() => showToast('Copied', 'Stock receipt copied.', undefined, 'success')}
-                  onDelete={isAdmin ? async () => { if (await deleteLogs([open.id])) setOpen(null); } : undefined}
+                  onDelete={canDelete(open) ? async () => { if (await deleteLogs([open.id])) setOpen(null); } : undefined}
                 />
               </motion.div>
             </>
@@ -452,7 +472,8 @@ function AdjustmentReceipt({
           <EyeOff size={16} />
         </button>
         {onDelete && (
-          <button onClick={onDelete} title="Delete for everyone" aria-label="Delete for everyone" className="flex items-center justify-center px-4 py-3 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
+          // Phones delete by swiping the row left; the button is for mouse users.
+          <button onClick={onDelete} title="Delete for everyone" aria-label="Delete for everyone" className="pointer-coarse:hidden flex items-center justify-center px-4 py-3 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
             <Trash2 size={16} />
           </button>
         )}

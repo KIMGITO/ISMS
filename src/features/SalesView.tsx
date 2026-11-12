@@ -4,13 +4,18 @@
 import React, { useState, useMemo } from "react";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency } from "../utils/helpers";
 import { formatReceiptNumber } from "../utils/idUtils";
 import { titleCase } from "../utils/stringUtils";
 import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
 import { SwipeRow } from "../components/shared/SwipeRow";
+import { appDialog } from "../components/AppDialog";
+import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from "../services/logCleanup";
+import { useBusinessStore } from "../stores/businessStore";
+import { useTransactionStore } from "../stores/transactionStore";
+import { toUserMessage } from "../utils/userError";
 
 interface GroupedTransactions {
   today: Transaction[];
@@ -38,8 +43,35 @@ function getPaymentMethodLabel(method: string | undefined): string {
 }
 
 export default function SalesView() {
-  const { transactions, currentEmployee } = useAppStore();
+  const { transactions, currentEmployee, showToast } = useAppStore();
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  // Owners and admins can delete sales older than 90 days (swipe left on a phone, right-click
+  // or hold elsewhere). The database enforces the same age.
+  const isAdmin = useIsAdmin();
+  const businessId = useBusinessStore((s) => s.activeBusinessId);
+  const canDelete = (tx: Transaction) => isAdmin && tx.status === "Synced" && oldEnoughToDelete("sales", tx.timestamp);
+  const deleteSale = async (tx: Transaction) => {
+    if (!businessId) return;
+    const ok = await appDialog.confirm({
+      title: `Delete sale ${formatReceiptNumber(tx.id)}?`,
+      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. It is removed for everyone and can't be brought back. Stock is not put back, payments and debts stay, and sales reports for that day drop it.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const n = await deleteLogRows(businessId, "sales", [tx.id]);
+      if (n === 0) {
+        showToast("Not deleted", "Only sales older than 3 months can be deleted.", undefined, "error");
+        return;
+      }
+      useTransactionStore.setState((st) => ({ transactions: st.transactions.filter((t) => t.id !== tx.id) }));
+      showToast("Deleted", "Sale deleted.", undefined, "success");
+    } catch (err) {
+      showToast("Not deleted", toUserMessage(err, "Could not delete. Check your connection."), undefined, "error");
+    }
+  };
 
   // ── FIX: Track only ONE active open section string to auto-collapse others ──
   const [activeOpenSection, setActiveOpenSection] = useState<string>("today");
@@ -147,7 +179,11 @@ export default function SalesView() {
             </p>
           </div>
         }
-        more={[{ label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) }]}
+        actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) }]}
+        more={[
+          { label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) },
+          { label: 'Delete sale', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
+        ]}
         className="rounded-2xl border border-app-border shadow-2xs hover:border-amber-500 transition animate-fadeIn"
         contentClassName="p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none"
       >
