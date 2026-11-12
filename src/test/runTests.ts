@@ -4,7 +4,7 @@ import { formatClock, minutesFromNow, toClock, toDateKey } from "../utils/timeFo
 import { readFileSync, readdirSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
-import { formatReceiptNumber, formatCustomerNumber, getShortId } from "../utils/idUtils";
+import { formatReceiptNumber, formatCustomerNumber, getShortId, newUuid, toUuid } from "../utils/idUtils";
 import { EscPosGenerator, toPrinterText } from "../services/printer/EscPosGenerator";
 import { CODE128_PATTERNS, code128Codes } from "../services/receipt/code128";
 import { buildReceiptLines, buildReceiptText, pair, wrap, columnsFor } from "../services/receipt/layout";
@@ -89,6 +89,17 @@ runTest("formatReceiptNumber Formatter", () => {
   if (num !== "TXN-4F8C9B24") {
     throw new Error(`Expected TXN-4F8C9B24, got ${num}`);
   }
+});
+
+runTest("Receipt numbers differ between sales, old tx- IDs included", () => {
+  const a = toUuid("tx-1762905600000"), b = toUuid("tx-1762905600001"), c = toUuid("tx-1762909999999");
+  const nums = new Set([a, b, c].map(formatReceiptNumber));
+  if (nums.size !== 3) throw new Error(`receipt numbers repeat: ${[...nums].join(", ")}`);
+  if (formatReceiptNumber(a) !== "TXN-" + (1762905600000).toString(16).slice(-8).toUpperCase()) throw new Error(formatReceiptNumber(a));
+  if (!/^[0-9A-F]{8}$/.test(getShortId(a))) throw new Error("the code must stay 8 hex characters so search still finds it");
+  if (newUuid() === newUuid() || !/^[0-9a-f-]{36}$/.test(newUuid())) throw new Error("new sale IDs must be random UUIDs");
+  const sql = readFileSync("supabase/migrations/20261112003_distinct_receipt_numbers.sql", "utf8");
+  if (!sql.includes("'^74782d3[0-9](3[0-9]){12}$'")) throw new Error("the database must spot old IDs the same way");
 });
 
 runTest("formatCustomerNumber Formatter", () => {

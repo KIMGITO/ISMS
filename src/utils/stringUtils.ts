@@ -1,3 +1,4 @@
+import { formatReceiptNumber, getShortId } from "./idUtils";
 // src/utils/stringUtils.ts
 
 /**
@@ -171,7 +172,7 @@ const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
 export function readableIds(text: string | null | undefined): string {
   if (!text) return "";
   return text
-    .replace(/^Sold via order #?([0-9a-f]{8})[0-9a-f-]{28}$/i, (_m, id: string) => `Sold · receipt TXN-${id.toUpperCase()}`)
-    .replace(/order #?([0-9a-f]{8})[0-9a-f-]{28}/gi, (_m, id: string) => `receipt TXN-${id.toUpperCase()}`)
-    .replace(UUID_RE, (id) => id.slice(0, 8).toUpperCase());
+    .replace(/^Sold via order #?([0-9a-f]{8}[0-9a-f-]{28})$/i, (_m, id: string) => `Sold · receipt ${formatReceiptNumber(id)}`)
+    .replace(/order #?([0-9a-f]{8}[0-9a-f-]{28})/gi, (_m, id: string) => `receipt ${formatReceiptNumber(id)}`)
+    .replace(UUID_RE, (id) => getShortId(id));
 }

@@ -9,7 +9,31 @@ export function getShortId(id: string | null | undefined): string {
   if (!id) return "";
   // Strip non-alphanumeric characters, and grab the first 8 characters
   const clean = id.replace(/[^a-zA-Z0-9]/g, "");
-  return clean.slice(0, 8).toUpperCase();
+  return (legacyShortId(clean) || clean.slice(0, 8)).toUpperCase();
+}
+
+/**
+ * Sales used to get the ID "tx-<milliseconds>", stored by toUuid() as the hex of those
+ * characters, so every one started 74782d31 ("tx-1") and all their receipts showed the same
+ * number. For those, the code is the last 8 hex digits of the time instead: different for
+ * every sale (unique over ~49 days). fn_receipt_number() in the database does the same.
+ */
+function legacyShortId(clean: string): string | null {
+  if (!/^74782d3[0-9]{1}(3[0-9]){12}$/i.test(clean)) return null;
+  let ms = "";
+  for (let i = 6; i < 32; i += 2) ms += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
+  return BigInt(ms).toString(16).padStart(8, "0").slice(-8);
+}
+
+/** A new random ID for a sale (or anything else made on this device). */
+export function newUuid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 export function formatReceiptNumber(txId: string | null | undefined): string {

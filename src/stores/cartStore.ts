@@ -1,4 +1,5 @@
 import { toUserMessage } from "../utils/userError";
+import { newUuid } from "../utils/idUtils";
 import { create } from "zustand";
 import { CartItem, Customer, Product, Transaction, PaymentMethod } from "../types";
 import { useAuthStore } from "./authStore";
@@ -180,7 +181,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       const referenceId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
       const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: newUuid(),
         items: [...cart],
         total,
         discount: totalDiscount,
