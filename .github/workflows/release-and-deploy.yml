@@ -128,7 +128,7 @@ jobs:
         with:
           name: release-notes
           path: release-notes.md
-          retention-days: 7
+          retention-days: 1
 
   # ──────────────────────────────────────────
   # 2a. Test, then build Windows (.exe and signed .msi)
@@ -222,7 +222,7 @@ jobs:
           name: build-windows
           path: out/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
   # ──────────────────────────────────────────
   # 2b. Build Linux (signed AppImage, and .deb)
@@ -297,7 +297,7 @@ jobs:
           name: build-linux
           path: out/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
   # ──────────────────────────────────────────
   # 2c. Build Android (signed APK)
@@ -423,7 +423,7 @@ jobs:
           name: build-android
           path: out/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
   # ──────────────────────────────────────────
   # 2d. Build the customer website (website/, kaykays.com)
@@ -466,7 +466,7 @@ jobs:
           name: website-dist
           path: website/dist
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
   # ──────────────────────────────────────────
   # 3. Tag and publish (only reached when every build succeeded)

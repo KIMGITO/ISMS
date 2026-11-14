@@ -312,10 +312,10 @@ export default function ReceiptSettingsPanel() {
         </div>
 
         {tab !== 'kra' && tab !== 'printers' && (
-          <div className="lg:w-[20rem]">
+          <div className="min-w-0 lg:w-[28rem] xl:w-[34rem]">
             <p className={label}>{previewLines ? 'Preview with your latest sale' : 'Preview'}</p>
             {previewLines ? (
-              <div className="bg-app-bg rounded-xl p-3 max-h-[32rem] overflow-y-auto">
+              <div className="bg-app-bg rounded-xl p-3 sm:p-4">
                 <ReceiptPaper lines={previewLines} columns={columnsFor(settings)} paperWidth={settings.paperWidth} />
               </div>
             ) : (
@@ -664,7 +664,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div className="space-y-4 min-w-0">
         <div className="grid sm:grid-cols-2 gap-3">
           <Field title="Title"><input className={input} value={texts.title} onChange={(e) => set({ title: e.target.value })} /></Field>
@@ -737,7 +737,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
 
       <div className="min-w-0">
         <p className={label}>Preview <span className="ml-1 px-1.5 py-0.5 rounded bg-app-bg text-[10px]">Example line</span></p>
-        <div className="bg-app-bg rounded-xl p-3 max-h-[36rem] overflow-y-auto">
+        <div className="bg-app-bg rounded-xl p-3 sm:p-4">
           <InvoicePaper doc={sample} onStampMove={(stampOffset) => set({ stampOffset })} />
         </div>
       </div>

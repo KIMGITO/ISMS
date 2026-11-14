@@ -111,6 +111,8 @@ jobs:
 
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v6
+        # Only a download for testing; a full storage quota must not fail the checks.
+        continue-on-error: true
         with:
           name: Desktop-Artifacts-${{ matrix.os-name }}
           path: |
@@ -118,7 +120,7 @@ jobs:
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
 
   # ──────────────────────────────────────────
   # JOB 3: ANDROID (APK) BUILD
@@ -208,11 +210,13 @@ jobs:
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v6
+        # Only a download for testing; a full storage quota must not fail the checks.
+        continue-on-error: true
         with:
           name: Android-Artifacts
           path: out/*.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
 
   # ──────────────────────────────────────────
   # Tell the developer in Slack when a check or build breaks
