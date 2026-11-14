@@ -31,9 +31,11 @@ interface TableProps {
   /** Only these places (the help window passes the current screen and "everywhere"). */
   scopes?: ShortcutScope[];
   autoFocus?: boolean;
+  /** Extra classes for the list's scroll box, e.g. a max height so a wide page doesn't grow. */
+  listClassName?: string;
 }
 
-export function ShortcutTable({ scopes, autoFocus }: TableProps) {
+export function ShortcutTable({ scopes, autoFocus, listClassName = '' }: TableProps) {
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const [query, setQuery] = useState('');
   const [where, setWhere] = useState<ShortcutScope | 'all'>('all');
@@ -81,9 +83,9 @@ export function ShortcutTable({ scopes, autoFocus }: TableProps) {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg">
+      <div className={`overflow-x-auto rounded-lg ${listClassName}`}>
         <table className="w-full text-sm">
-          <thead>
+          <thead className={listClassName ? 'sticky top-0 bg-app-card' : undefined}>
             <tr className="text-left text-xs text-app-text-muted">
               <th scope="col" className="py-1.5 pr-3 font-medium">Keys</th>
               <th scope="col" className="py-1.5 pr-3 font-medium">Action</th>

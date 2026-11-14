@@ -210,7 +210,7 @@ export default function CustomersView() {
           setCustomerDebtPayments(payments || []);
         })
         .catch(err => {
-          showToast("Error", toUserMessage(err, "Failed to load history."), undefined, "error");
+          showToast("Something went wrong", toUserMessage(err, "Could not load history."), undefined, "error");
         })
         .finally(() => {
           setLoadingLedger(false);
@@ -309,7 +309,7 @@ export default function CustomersView() {
         setTimeout(() => setSuccessBanner(false), 2000);
         showToast("Customer Added", `"${vals.name}" successfully created.`, undefined, "success");
       } catch (err: any) {
-        showToast("Database Error", toUserMessage(err, "Failed to add customer."), undefined, "error");
+        showToast("Database Error", toUserMessage(err, "Could not add the customer."), undefined, "error");
       }
     },
   });
@@ -591,7 +591,7 @@ export default function CustomersView() {
       if (selectedCustomerId === cust.id) setSelectedCustomerId(null);
       showToast('Customer Deleted', `"${cust.name}" successfully deleted from database.`, undefined, 'success');
     } catch (err: any) {
-      showToast('Database Error', toUserMessage(err, "Failed to delete customer."), undefined, 'error');
+      showToast('Database Error', toUserMessage(err, "Could not delete the customer."), undefined, 'error');
     } finally {
       setIsDeletingCustomer(false);
     }
@@ -716,7 +716,7 @@ export default function CustomersView() {
         setAiMessages([...newMessages, { role: "assistant" as const, content: data.reply }]);
         playSfx("receive");
       } else {
-        setAiMessages([...newMessages, { role: "assistant" as const, content: "Error: " + (data?.error || "Failed to contact CRM intelligence.") }]);
+        setAiMessages([...newMessages, { role: "assistant" as const, content: "Error: " + (data?.error || "Could not reach the assistant.") }]);
         playSfx("receive");
       }
     } catch (err: any) {
@@ -734,7 +734,7 @@ export default function CustomersView() {
         <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 max-w-sm flex flex-col items-center gap-2.5 shadow">
           <ShieldAlert size={36} />
           <div>
-            <h4 className="font-extrabold text-sm uppercase tracking-wider">Access Restrained</h4>
+            <h4 className="font-extrabold text-sm uppercase tracking-wider">No access</h4>
             <p className="text-[11px] text-app-text-muted mt-1 leading-relaxed">
               Your operator account role (<strong>{currentEmployee?.role || "Guest"}</strong>) does not hold the necessary clearances to access the customer loyalty database.
             </p>
@@ -1240,7 +1240,7 @@ export default function CustomersView() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <h4 className="text-sm font-semibold">Add to their debt</h4>
-                            <p className="text-xs text-app-text-muted mt-0.5">For money owed outside a sale, such as an old balance. Credit sales are added by themselves.</p>
+                            <p className="text-xs text-app-text-muted mt-0.5">For money owed outside a sale, such as an old balance. Credit sales are added automatically.</p>
                           </div>
                           <button
                             type="button"
@@ -1424,7 +1424,7 @@ export default function CustomersView() {
                           } catch (err: any) {
                             showToast(
                               'Database Error',
-                              toUserMessage(err, "Failed to update customer."),
+                              toUserMessage(err, "Could not save the customer."),
                               undefined,
                               'error',
                             );

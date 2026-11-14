@@ -193,7 +193,7 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold">Loyalty points</h2>
-          <p className="text-xs text-app-text-muted">A reward inside the app, worth money but never recorded as cash or M-Pesa.</p>
+          <p className="text-xs text-app-text-muted">A reward inside the app, worth money.</p>
         </div>
         <button onClick={load} aria-label="Refresh" className="p-2 rounded-xl hover:bg-app-card text-app-text-muted cursor-pointer">
           <RefreshCw size={16} className={state === 'loading' ? 'animate-spin' : ''} />

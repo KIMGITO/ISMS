@@ -246,7 +246,8 @@ ISMS/
 | `npm run website:dev` | Website at `http://localhost:5180` |
 | `npm run website:build` | Website build and prerender into `website/dist` |
 | `npm run website:lint` | TypeScript check of the website |
-| `npm run website:deploy` | Publish the website to its own Vercel project (`kaykays-website`) |
+| `npm run website:deploy` | Publish the website to Cloudflare, blue-green (Worker `kaykays-website`) |
+| `npm run app:deploy` | Publish the staff web app to Cloudflare, blue-green (Worker `kaykays-app`) |
 | `npm run sounds:sync` | Copy notification sounds into the Android project |
 
 <div class="page-break"></div>

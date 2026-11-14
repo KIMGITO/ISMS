@@ -883,14 +883,11 @@ export default function SettingsView({
                 />
                 <div className="text-[10.5px]">
                   <span className="font-extrabold text-amber-500 block">
-                    Staff Clearance Restriction
+                    Some settings are locked
                   </span>
                   <p className="text-app-text-muted mt-0.5 leading-relaxed font-medium">
-                    You are currently viewing settings as a{' '}
-                    <strong>{currentRole}</strong>. Some administrative options
-                    (such as custom offline buffers and global tax metrics) are
-                    restricted. Switch roles or log in as an Owner to unlock
-                    total master controls.
+                    You are signed in as <strong>{currentRole}</strong>. Only an owner can change
+                    every setting.
                   </p>
                 </div>
               </div>
@@ -2697,7 +2694,7 @@ export default function SettingsView({
       {saveSuccess && (
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2.5 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-[10px] font-black uppercase tracking-wider animate-bounce">
           <CheckCircle2 size={13} />
-          <span>Application configurations successfully synced!</span>
+          <span>Settings saved</span>
         </div>
       )}
     </div>

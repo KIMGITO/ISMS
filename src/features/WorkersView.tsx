@@ -410,37 +410,7 @@ export default function WorkersView() {
                       </div>
                     </div>
 
-                    {/* Preset Avatars Selector */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider flex items-center gap-1">
-                        <span>Or Select Preset Face</span>
-                      </label>
-                      <div className="grid grid-cols-6 gap-2 bg-app-bg p-2 rounded-xl border border-app-border">
-                        {PRESET_AVATARS.map((avatar) => {
-                          const isSelected = selectedAvatar === avatar.url;
-                          return (
-                            <button
-                              key={avatar.id}
-                              type="button"
-                              onClick={() => setSelectedAvatar(avatar.url)}
-                              className={`relative w-8 h-8 rounded-lg overflow-hidden border transition active:scale-90 cursor-pointer ${
-                                isSelected
-                                  ? 'border-amber-500 ring-2 ring-amber-500/20 scale-105 shadow-sm'
-                                  : 'border-app-border opacity-70 hover:opacity-100'
-                              }`}
-                              title={`Assign preset for ${avatar.name}`}
-                            >
-                              <img
-                                src={avatar.url}
-                                alt={avatar.name}
-                                className="w-full h-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                   
                   </>
                 )}
 

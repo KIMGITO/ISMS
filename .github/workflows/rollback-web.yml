@@ -1,0 +1,76 @@
+name: Roll back web
+
+# Puts the staff web app or the customer website back on an earlier version, at once.
+# Run it from Actions → Roll back web → Run workflow. Leave "version" empty to go back to
+# the previous deployment, or paste a version id from Cloudflare (Workers → the Worker →
+# Deployments) or from a deploy run's summary.
+#
+# The installed Windows, Linux and Android apps can't be rolled back this way: Android and
+# the desktop updater refuse an older version. Fix forward with a new fix: release instead
+# (see docs/DEPLOYMENT_AND_MONITORING.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to roll back
+        type: choice
+        options: [app, website]
+      version:
+        description: Version id to return to (empty = the previous deployment)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Roll back ${{ inputs.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      WRANGLER: npx --yes wrangler@4.156.0
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CONFIG: ${{ inputs.target == 'app' && 'wrangler.jsonc' || 'website/wrangler.jsonc' }}
+      LIVE_URL: ${{ inputs.target == 'app' && vars.APP_URL || vars.WEBSITE_URL }}
+      SMOKE_PATHS: ${{ inputs.target == 'website' && '--path /terms' || '' }}
+      LABEL: ${{ inputs.target == 'app' && 'Staff web app' || 'Customer website' }}
+      VERSION_ID: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Roll back
+        run: |
+          set -euo pipefail
+          if [ -n "$VERSION_ID" ] && ! [[ "$VERSION_ID" =~ ^[0-9a-f-]{36}$ ]]; then
+            echo "::error::That doesn't look like a Worker version id."
+            exit 1
+          fi
+          $WRANGLER rollback $VERSION_ID -c "$CONFIG" -y --message "Rolled back from GitHub Actions by $GITHUB_ACTOR"
+
+      - name: Check the live site
+        if: env.LIVE_URL != ''
+        run: |
+          sleep 10
+          node scripts/smoke-test-web.mjs --url "$LIVE_URL" $SMOKE_PATHS
+
+      - name: Tell Slack
+        if: always()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ job.status == 'success' && 'warning' || 'failure' }}
+          title: "${{ env.LABEL }} ${{ job.status == 'success' && 'rolled back' || 'rollback FAILED' }}"
+          details: >-
+            ${{ job.status == 'success'
+              && format('Now serving {0}. The next release goes live as normal and replaces it.', inputs.version || 'the previous deployment')
+              || 'Roll back in the Cloudflare dashboard: Workers & Pages → the Worker → Deployments → pick the last good version → Rollback.' }}

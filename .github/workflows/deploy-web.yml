@@ -1,0 +1,134 @@
+name: Deploy web (blue-green)
+
+# Puts the staff web app (Worker "kaykays-app") and the customer website (Worker
+# "kaykays-website") live on Cloudflare without downtime. The steps are in
+# scripts/deploy-web.sh, the same script used for a deploy by hand:
+#
+#   build → upload the new version without traffic (green) → check it on its preview URL
+#   → send 100% of traffic to it in one step → check the live address → if that fails,
+#   send traffic straight back to the previous version (blue).
+#
+# Called by release-and-deploy.yml after each release; can also be run by hand.
+# "Roll back web" (rollback-web.yml) returns to an earlier version any time.
+# Setup: docs/HOSTING_CLOUDFLARE.md.
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: app, website or both
+        type: string
+        default: both
+      version:
+        description: Version the build shows in About (empty = worked out from git tags)
+        type: string
+        default: ""
+      caller:
+        description: Who called; "release" leaves the success message to the release run
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [both, app, website]
+        default: both
+
+permissions:
+  contents: read
+
+env:
+  ONNXRUNTIME_NODE_INSTALL: skip
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  # Build-time settings, the same as the installed apps get.
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+  VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
+  VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
+  VITE_AUTH_PROVIDERS: ${{ vars.VITE_AUTH_PROVIDERS }}
+  VITE_SITE_URL: ${{ secrets.VITE_SITE_URL }}
+  VITE_WEBSITE_SLUG: ${{ secrets.VITE_WEBSITE_SLUG || 'kaykays' }}
+  APP_URL: ${{ vars.APP_URL }}
+  # Only if the preview URLs are behind Cloudflare Access.
+  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+  WEBSITE_URL: ${{ vars.WEBSITE_URL }}
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(inputs.target == 'app' && '["app"]' || inputs.target == 'website' && '["website"]' || '["app","website"]') }}
+    # One deploy per site at a time; a newer one waits instead of racing the switch.
+    concurrency:
+      group: deploy-web-${{ matrix.target }}
+      cancel-in-progress: false
+    env:
+      LABEL: ${{ matrix.target == 'app' && 'Staff web app' || 'Customer website' }}
+      APP_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tags, so a manual run still shows the right version
+
+      - name: Check settings
+        run: |
+          missing=""
+          [ -z "$CLOUDFLARE_API_TOKEN" ] && missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -z "$CLOUDFLARE_ACCOUNT_ID" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -z "$VITE_SUPABASE_URL" ] && missing="$missing VITE_SUPABASE_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these repository secrets:$missing (see docs/HOSTING_CLOUDFLARE.md)"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Blue-green deploy
+        id: deploy
+        run: bash scripts/deploy-web.sh ${{ matrix.target }}
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### $LABEL"
+            echo ""
+            echo "- Blue (was live): \`${{ steps.deploy.outputs.blue || 'none / unknown' }}\`"
+            echo "- Green (new): \`${{ steps.deploy.outputs.green || 'not uploaded' }}\` ${{ steps.deploy.outputs.preview }}"
+            echo "- Switched: ${{ steps.deploy.outputs.switched || 'no' }}"
+            echo "- Rolled back: ${{ steps.deploy.outputs.rolled_back || 'no' }}"
+            echo "- Live: ${{ steps.deploy.outputs.live_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tell Slack (failed)
+        if: failure()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+          title: "${{ env.LABEL }} deploy failed"
+          details: >-
+            ${{ steps.deploy.outputs.rolled_back == 'yes' && 'The new version broke the live site and was *rolled back*. Users are on the previous version.'
+              || steps.deploy.outputs.rolled_back == 'failed' && '*Rollback also failed.* Run "Roll back web" now, or roll back in the Cloudflare dashboard (Workers → the Worker → Deployments).'
+              || 'The new version never went live. Users are still on the previous version.' }}
+
+      - name: Tell Slack (live)
+        if: success() && inputs.caller != 'release'
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: success
+          title: "${{ env.LABEL }} is live"
+          details: ${{ steps.deploy.outputs.live_url }}

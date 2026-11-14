@@ -24,7 +24,8 @@
     "website:build": "vite build --config website/vite.config.ts && tsx website/scripts/prerender.ts",
     "website:preview": "vite preview --config website/vite.config.ts",
     "website:lint": "tsc --noEmit -p website/tsconfig.json",
-    "website:deploy": "bash scripts/deploy-website.sh"
+    "website:deploy": "bash scripts/deploy-web.sh website",
+    "app:deploy": "bash scripts/deploy-web.sh app"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

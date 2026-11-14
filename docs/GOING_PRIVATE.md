@@ -64,8 +64,8 @@ The release workflow notices on its own and stops publishing to `ISMS`.
 
 Check afterwards:
 - The next release still goes green and appears in `kaykays-releases`.
-- Vercel (staff app and website) still deploys. Vercel's GitHub app keeps its access to
-  private repos on a personal account.
+- The staff web app and website still deploy. They are on Cloudflare, deployed from
+  GitHub Actions (docs/HOSTING_CLOUDFLARE.md), so a private repo makes no difference.
 
 ## 6. GitHub Actions minutes (decide before step 5)
 

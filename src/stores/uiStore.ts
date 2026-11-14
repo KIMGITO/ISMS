@@ -10,7 +10,8 @@ export interface ChatMessage {
 export type SearchTarget =
   | { kind: "sale"; id: string }
   | { kind: "invoice"; customerId: string; invoiceId: string }
-  | { kind: "stock"; query: string };
+  | { kind: "stock"; query: string }
+  | { kind: "feedback"; tab: "reviews" | "messages" | "reminders" };
 
 interface UiState {
   searchTarget: SearchTarget | null;

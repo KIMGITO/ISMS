@@ -249,7 +249,7 @@ export default function PettyCashView() {
             </span>
             <div>
               <h2 className="text-sm font-semibold text-app-text">Money taken from the till</h2>
-              <p className="text-xs text-app-text-muted">It comes off the cash you count at the end of the shift.</p>
+              <p className="text-xs text-app-text-muted">It's deducted from the cash you count at the end of the shift.</p>
             </div>
           </div>
 

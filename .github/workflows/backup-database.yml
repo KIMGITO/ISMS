@@ -1,0 +1,119 @@
+name: Back up database
+
+# Every night at 03:30 Nairobi time: a full dump of the Supabase database (roles, schema,
+# data), checked, encrypted and kept as a run artifact. Sunday's copy is kept longer.
+# A failed or suspicious backup is posted to Slack. The plan as a whole, and how to restore,
+# is in docs/BACKUP_AND_RECOVERY.md.
+#
+# Secrets:
+#   SUPABASE_DB_URL     Session pooler connection string (Supabase → Connect → Session pooler).
+#                       Not the direct one: GitHub runners have no IPv6.
+#   BACKUP_PASSPHRASE   Long random passphrase. Keep a copy offline: without it no backup can be opened.
+
+on:
+  schedule:
+    - cron: "30 0 * * *" # 00:30 UTC = 03:30 Nairobi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-database
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump, check and encrypt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check settings
+        run: |
+          missing=""
+          [ -z "$SUPABASE_DB_URL" ] && missing="$missing SUPABASE_DB_URL"
+          [ -z "$BACKUP_PASSPHRASE" ] && missing="$missing BACKUP_PASSPHRASE"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these repository secrets:$missing (see docs/BACKUP_AND_RECOVERY.md)"
+            exit 1
+          fi
+          if [ ${#BACKUP_PASSPHRASE} -lt 20 ]; then
+            echo "::error::BACKUP_PASSPHRASE is shorter than 20 characters."
+            exit 1
+          fi
+
+      # The CLI runs pg_dump in a container that matches the database's Postgres version.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Dump
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
+          git rev-parse HEAD > backup/code-commit.txt
+          ls supabase/migrations | tail -1 > backup/latest-migration-in-repo.txt
+          date -u +%Y-%m-%dT%H:%M:%SZ > backup/taken-at.txt
+          ls -l backup
+
+      # A dump that "succeeds" but is empty or missing core tables is worse than a failure.
+      - name: Check the dump
+        run: |
+          set -euo pipefail
+          for table in businesses transactions transaction_items products customers employees; do
+            grep -q "COPY \"public\".\"$table\"\|COPY public.$table " backup/data.sql \
+              || { echo "::error::The data dump has no rows section for public.$table."; exit 1; }
+          done
+          grep -q "CREATE TABLE" backup/schema.sql || { echo "::error::The schema dump has no tables."; exit 1; }
+          size=$(stat -c %s backup/data.sql)
+          echo "Data dump: $size bytes"
+          [ "$size" -gt 10000 ] || { echo "::error::The data dump is only $size bytes."; exit 1; }
+          echo "DATA_BYTES=$size" >> "$GITHUB_ENV"
+
+      - name: Encrypt
+        run: |
+          set -euo pipefail
+          name="kaykays-db-$(date -u +%Y%m%d-%H%M)"
+          tar -czf - -C backup . \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 --pinentry-mode loopback \
+                  --passphrase-fd 3 -o "$name.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE"
+          sha256sum "$name.tar.gz.gpg" > "$name.sha256"
+          # Prove it opens with the passphrase before calling it a backup.
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d "$name.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE" | tar -tzf - >/dev/null
+          rm -rf backup
+          echo "NAME=$name" >> "$GITHUB_ENV"
+          # Weekly copies (Sunday) are kept 90 days, daily ones 14.
+          if [ "$(date -u +%u)" = 7 ]; then echo "KEEP_DAYS=90" >> "$GITHUB_ENV"; else echo "KEEP_DAYS=14" >> "$GITHUB_ENV"; fi
+          ls -l "$name".*
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.NAME }}.tar.gz.gpg
+            ${{ env.NAME }}.sha256
+          if-no-files-found: error
+          retention-days: ${{ env.KEEP_DAYS }}
+          compression-level: 0 # already compressed and encrypted
+
+      - name: Summary
+        run: |
+          echo "### Database backup $NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "Data dump $(numfmt --to=iec "$DATA_BYTES"), kept $KEEP_DAYS days." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tell Slack
+        if: failure()
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+          title: Database backup failed
+          details: "Last night's database backup did not complete, so the newest good copy is older than 24 hours. Open the run, fix it, then run *Back up database* by hand."

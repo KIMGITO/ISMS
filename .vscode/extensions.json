@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "denoland.vscode-deno",
-    "Webnative.webnative"
+    "Webnative.webnative",
+    "anthropic.claude-code"
   ]
 }

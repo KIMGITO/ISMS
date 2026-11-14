@@ -92,9 +92,10 @@ function pageHtml(template: string, meta: PageMeta, businessName: string, conten
 
 async function main() {
   const template = readFileSync(join(dist, 'index.html'), 'utf8');
-  // Any path without its own file falls back to the app. Hosts differ in how they do that.
+  // Any path without its own file falls back to the app. On Cloudflare that is
+  // not_found_handling in website/wrangler.jsonc; 404.html is for hosts that look for one.
+  // No _redirects file: a "/* /index.html 200" rule there would hide the prerendered pages.
   copyFileSync(join(dist, 'index.html'), join(dist, '404.html'));
-  writeFileSync(join(dist, '_redirects'), '/* /index.html 200\n');
 
   const site = await fetchStorefront().catch((err) => {
     console.warn(`[prerender] Skipped pages: ${err.message}`);

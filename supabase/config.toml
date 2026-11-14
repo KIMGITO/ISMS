@@ -412,6 +412,10 @@ verify_jwt = false
 [functions.card-webhook]
 verify_jwt = false
 
+# The uptime monitor calls GET without a key; each POST action checks its own caller.
+[functions.ops-alert]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

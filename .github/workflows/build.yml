@@ -213,3 +213,20 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 30
+
+  # ──────────────────────────────────────────
+  # Tell the developer in Slack when a check or build breaks
+  # ──────────────────────────────────────────
+  notify:
+    name: Tell Slack
+    needs: [verify, build-desktop, build-android]
+    if: failure()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+          title: "Build failed on ${{ github.event_name == 'pull_request' && format('pull request #{0}', github.event.number) || github.ref_name }}"
+          details: "verify: ${{ needs.verify.result }} · desktop: ${{ needs.build-desktop.result }} · android: ${{ needs.build-android.result }}"

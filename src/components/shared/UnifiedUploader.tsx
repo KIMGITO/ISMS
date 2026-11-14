@@ -611,7 +611,7 @@ export default function UnifiedUploader({
     } catch (err: any) {
       console.error("Upload failed:", err);
       setUploadStatus("failed");
-      setErrorMessage(toUserMessage(err, "Failed to complete upload."));
+      setErrorMessage(toUserMessage(err, "Upload did not finish."));
       onUploadError?.(toUserMessage(err, "Upload failed"));
     }
   };

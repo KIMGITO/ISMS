@@ -214,7 +214,7 @@ export default function InventoryView() {
       } catch (err: any) {
         showToast(
           'Database Error',
-          toUserMessage(err, "Failed to add product."),
+          toUserMessage(err, "Could not add the product."),
           undefined,
           'error',
         );
@@ -282,7 +282,7 @@ export default function InventoryView() {
     } catch (err: any) {
       showToast(
         'Update Error',
-        toUserMessage(err, "Failed to save catalog edit."),
+        toUserMessage(err, "Could not save the product."),
         undefined,
         'error',
       );
@@ -339,7 +339,7 @@ export default function InventoryView() {
     } catch (err: any) {
       showToast(
         'Database Error',
-        toUserMessage(err, "Failed to adjust stock."),
+        toUserMessage(err, "Could not change the stock."),
         undefined,
         'error',
       );
@@ -597,7 +597,7 @@ export default function InventoryView() {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-app-text">Stock history</span>
               <span className="block text-xs text-app-text-muted truncate">
-                {safeAdjustments.length} {safeAdjustments.length === 1 ? 'change' : 'changes'}: restocks, damage, counts and production
+              See {safeAdjustments.length} {safeAdjustments.length === 1 ? 'change' : 'changes'} to stock.
               </span>
             </span>
             <ChevronRight size={18} className="text-app-text-muted shrink-0" />
@@ -1446,7 +1446,7 @@ export default function InventoryView() {
         {successMsg && (
           <div className="absolute bottom-(--mobile-nav-space) md:bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold">
             <CheckCircle2 size={14} />
-            <span>Success: Catalog configuration synced!</span>
+            <span>Products saved</span>
           </div>
         )}
       </AnimatePresence>

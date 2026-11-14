@@ -114,10 +114,7 @@ export function PointsSettings({ businessId, onSaved }: { businessId: string; on
       </div>
       {enabled && (
         <>
-          <p className="text-xs text-app-text-muted">
-            Customers earn 2 points for every Ksh 1 they pay for. Credit sales earn when paid: 1 point for every Ksh 1 paid towards the debt.
-            Points are worth less in higher tiers, so small customers feel the reward and big spenders cost less. Points are not cash: they come off a purchase or pay off debt.
-          </p>
+          
           <div className="grid gap-3 sm:grid-cols-3">
             {row('bronze', 'Bronze')}
             {row('silver', 'Silver')}

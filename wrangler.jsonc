@@ -1,0 +1,24 @@
+// Cloudflare Worker that serves the staff web app (the same build the desktop apps use).
+// Static files only, no server code. Deployed blue-green by scripts/deploy-web.sh app,
+// which CI runs after each release (.github/workflows/deploy-web.yml).
+// Security headers: public/_headers. Hosting guide: docs/HOSTING_CLOUDFLARE.md.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kaykays-app",
+  "compatibility_date": "2026-10-29",
+  "assets": {
+    // Built by: VITE_ORT_WASM_FROM_CDN=1 npm run build (scripts/deploy-web.sh does this)
+    "directory": "./dist",
+    // Any path that isn't a file gets index.html, so links into the app work.
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  },
+  // kaykays-app.<your-subdomain>.workers.dev
+  "workers_dev": true,
+  // Each uploaded version gets its own URL, so it can be checked before it takes traffic.
+  "preview_urls": true,
+  "observability": { "enabled": true }
+
+  // Your own address, once the domain is on Cloudflare (docs/HOSTING_CLOUDFLARE.md, step 5):
+  // "routes": [{ "pattern": "app.kaykays.com", "custom_domain": true }]
+}

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useOverlay } from "../hooks/useOverlay";
 import { Search, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -31,7 +32,11 @@ export default function SearchableDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [openUp, setOpenUp] = useState(false);
+  // Where the open list sits on the window. It is drawn on the top layer of the page,
+  // so no card, sheet or scroll area can clip it or cover it.
+  const [panelPos, setPanelPos] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const showSearch = items.length > 6;
@@ -50,9 +55,22 @@ export default function SearchableDropdown({
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+    const gap = 6;
+    const margin = 8;
     const below = viewportHeight - rect.bottom;
     const above = rect.top;
-    setOpenUp(below < 280 && above > below);
+    const up = below < 280 && above > below;
+    setOpenUp(up);
+    const width = Math.min(rect.width, viewportWidth - margin * 2);
+    const left = Math.max(margin, Math.min(rect.left, viewportWidth - width - margin));
+    const room = (up ? above : below) - gap - margin;
+    setPanelPos({
+      left,
+      width,
+      maxHeight: Math.max(120, Math.min(240, room)),
+      ...(up ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -70,13 +88,20 @@ export default function SearchableDropdown({
     };
     const viewport = window.visualViewport;
     viewport?.addEventListener("resize", keepInView);
+    // Follow the box when anything around it scrolls or the window changes size.
+    window.addEventListener("scroll", placePanel, true);
+    window.addEventListener("resize", placePanel);
     const settleTimer = setTimeout(keepInView, 350);
     // Show the chosen item rather than the top of a long list.
-    listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    const selectedFrame = requestAnimationFrame(() =>
+      listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" }));
     return () => {
+      cancelAnimationFrame(selectedFrame);
       clearTimeout(focusTimer);
       clearTimeout(settleTimer);
       viewport?.removeEventListener("resize", keepInView);
+      window.removeEventListener("scroll", placePanel, true);
+      window.removeEventListener("resize", placePanel);
     };
   }, [isOpen, placePanel]);
 
@@ -89,9 +114,9 @@ export default function SearchableDropdown({
 
   useEffect(() => {
     function handleClickOutside(event: PointerEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      if (dropdownRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setIsOpen(false);
     }
     document.addEventListener("pointerdown", handleClickOutside);
     return () => document.removeEventListener("pointerdown", handleClickOutside);
@@ -128,15 +153,26 @@ export default function SearchableDropdown({
       </button>
 
       {/* Dropdown Panel */}
+      {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && panelPos && (
           <motion.div
+            ref={panelRef}
+            style={{
+              position: "fixed",
+              left: panelPos.left,
+              width: panelPos.width,
+              top: panelPos.top,
+              bottom: panelPos.bottom,
+              maxHeight: panelPos.maxHeight,
+              zIndex: 100000,
+            }}
             initial={{ opacity: 0, y: openUp ? 4 : -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: openUp ? 4 : -4 }}
             transition={{ duration: 0.15 }}
-            className={`absolute z-[100] w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden flex max-h-60 ${
-              openUp ? "bottom-full mb-1.5 flex-col-reverse" : "top-full mt-1.5 flex-col"
+            className={`bg-app-card text-app-text border border-app-border rounded-xl shadow-2xl overflow-hidden flex ${
+              openUp ? "flex-col-reverse" : "flex-col"
             }`}
           >
             {/* Short lists don't need searching. */}
@@ -167,7 +203,7 @@ export default function SearchableDropdown({
             )}
 
             {/* Scrollable List */}
-            <div ref={listRef} role="listbox" className="flex-1 overflow-y-auto max-h-48 py-1 overscroll-contain">
+            <div ref={listRef} role="listbox" className="flex-1 min-h-0 overflow-y-auto py-1 overscroll-contain">
               {filteredItems.length === 0 ? (
                 <div className="p-3 text-[11px] text-app-text-muted text-center font-medium">
                   No matches found
@@ -206,7 +242,9 @@ export default function SearchableDropdown({
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </div>
   );
 }

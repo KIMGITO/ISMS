@@ -1,0 +1,26 @@
+// Cloudflare Worker that serves the customer website (the shop). Static files only, with
+// a prerendered page per product, guide and policy. Deployed blue-green by
+// scripts/deploy-web.sh website, which CI runs after each release.
+// Security headers: website/public/_headers. Hosting guide: docs/HOSTING_CLOUDFLARE.md.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "kaykays-website",
+  "compatibility_date": "2026-10-29",
+  "assets": {
+    // Built by: npm run website:build
+    "directory": "./dist",
+    // /terms serves terms/index.html; anything else that isn't a file gets index.html.
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  },
+  // kaykays-website.<your-subdomain>.workers.dev
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": { "enabled": true }
+
+  // Your own address, once the domain is on Cloudflare (docs/HOSTING_CLOUDFLARE.md, step 5):
+  // "routes": [
+  //   { "pattern": "kaykays.com", "custom_domain": true },
+  //   { "pattern": "www.kaykays.com", "custom_domain": true }
+  // ]
+}

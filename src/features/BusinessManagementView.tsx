@@ -212,7 +212,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
     if (!activeBusinessId) return;
     const amountNum = Number(expAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      showToast("Error", "Amount must be a positive number.", undefined, "error");
+      showToast("Something went wrong", "Enter an amount above zero.", undefined, "error");
       return;
     }
     const cashierName = expStaffName.trim() || currentEmployee?.name || "System";
@@ -234,7 +234,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setExpDescription("");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", toUserMessage(err, "Failed to record expense."), undefined, "error");
+      showToast("Something went wrong", toUserMessage(err, "Could not save the expense."), undefined, "error");
     } finally {
       setExpenseSubmitting(false);
     }
@@ -327,7 +327,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       resetPaymentForm();
     } catch (err: any) {
       console.error(err);
-      showToast("Payment not recorded", toUserMessage(err, "Failed to record payment."), undefined, "error");
+      showToast("Payment not recorded", toUserMessage(err, "Could not save the payment."), undefined, "error");
     } finally {
       setPaymentSubmitting(false);
     }
@@ -456,7 +456,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       showToast("Workspace Synced", "Business configuration has been updated.", undefined, "success");
     } catch (err: any) {
       console.error("Failed to update business configuration:", err);
-      showToast("Update Failed", toUserMessage(err, "Failed to update business details."), undefined, "error");
+      showToast("Update Failed", toUserMessage(err, "Could not save business details."), undefined, "error");
     } finally {
       setLoading(false);
     }
@@ -479,7 +479,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       showToast("Deleted", "Expense record deleted successfully.", undefined, "success");
     } catch (err: any) {
       console.error(err);
-      showToast("Error", toUserMessage(err, "Failed to delete expense."), undefined, "error");
+      showToast("Something went wrong", toUserMessage(err, "Could not delete the expense."), undefined, "error");
     }
   };
 
@@ -500,7 +500,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setVoidReason("");
     } catch (err: any) {
       console.error(err);
-      showToast("Could Not Void", toUserMessage(err, "Failed to void payment."), undefined, "error");
+      showToast("Could Not Void", toUserMessage(err, "Could not cancel the payment."), undefined, "error");
     } finally {
       setIsVoiding(false);
     }
@@ -523,7 +523,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setNewCategoryName("");
       setIsAddingCategory(false);
     } catch (err: any) {
-      showToast("Could Not Add", toUserMessage(err, "Failed to add category."), undefined, "error");
+      showToast("Could Not Add", toUserMessage(err, "Could not add the category."), undefined, "error");
     }
   };
 
@@ -1801,13 +1801,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
                               Payment Method *
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => setPayMethodDisplay(payMethodDisplay === 'modern' ? 'classic' : 'modern')}
-                              className="text-[8px] font-bold text-app-text-muted hover:text-amber-500 uppercase tracking-wider transition cursor-pointer"
-                            >
-                              {payMethodDisplay === 'modern' ? 'Classic view' : 'Modern view'}
-                            </button>
+                           
                           </div>
                           {payMethodDisplay === 'modern' ? (
                             <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Payment method">

@@ -1,7 +1,7 @@
 // scripts/app-version.mjs
 // Works out the version a build shows in About. vite.config.ts uses it.
 // The release workflow writes the version into package.json before it builds, but
-// Vercel (the web app) builds straight from main, where package.json says 0.0.0.
+// a web deploy run by hand builds straight from main, where package.json says 0.0.0.
 // So the version is looked up, first match wins:
 //   1. APP_VERSION env var (set it to force a version)
 //   2. package.json, when CI has stamped it (anything but 0.0.0)
@@ -25,12 +25,10 @@ function git(...args) {
 }
 
 function repoSlug() {
-  const { VERCEL_GIT_REPO_OWNER: owner, VERCEL_GIT_REPO_SLUG: slug, GITHUB_REPOSITORY } = process.env;
-  if (owner && slug) return `${owner}/${slug}`;
-  return GITHUB_REPOSITORY || DEFAULT_REPO;
+  return process.env.GITHUB_REPOSITORY || DEFAULT_REPO;
 }
 
-// Vercel clones only the last few commits and no tags. Fetch the tags and the commit
+// Shallow clones have only the last few commits and no tags. Fetch the tags and the commit
 // history (commits only, no file contents) so the version can be worked out.
 function ensureHistory() {
   let shallow = false;

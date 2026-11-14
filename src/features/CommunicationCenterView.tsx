@@ -1,175 +1,196 @@
-import { Customer } from "../types";
-import { customerName } from '../utils/stringUtils';
-import React, { useState, useMemo, useEffect } from "react";
-import { useAppStore } from "../stores/appStore";
-import { useBusinessStore } from "../stores/businessStore";
-import { useNotificationStore } from "../stores/notificationStore";
+// Message customers: pick who gets it, write it (or have the assistant draft it), and send.
+// Also exports ShiftRemindersPanel, the signed-in person's own shift reminders.
+// Both sit inside the Feedback screen, which owns the page scroll and padding.
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Customer } from '../types';
+import { useAppStore } from '../stores/appStore';
+import { useNotificationStore } from '../stores/notificationStore';
 import {
-  MessageSquare,
   Search,
-  Filter,
-  CheckSquare,
-  Square,
   Send,
   Wand2,
-  Phone,
   ShieldAlert,
-  Calendar,
   BellRing,
   Clock,
-  ChevronRight
-} from "lucide-react";
-import { titleCase, getFirstName, searchMatch } from "../utils/stringUtils";
-import { normalizePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
-import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
-import { SupabaseService } from "../services/supabaseService";
-import { hasRolePermission } from "../utils/permissions";
-import SearchableDropdown from "../components/SearchableDropdown";
+  ChevronRight,
+  ChevronDown,
+  RefreshCw,
+  X,
+  MessageCircle,
+} from 'lucide-react';
+import { customerName, getFirstName, searchMatch } from '../utils/stringUtils';
+import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
+import { SupabaseService } from '../services/supabaseService';
+import { hasRolePermission } from '../utils/permissions';
+import SearchableDropdown from '../components/SearchableDropdown';
+import { Checkbox } from '../components/shared/Checkbox';
+
+type SendMode = 'auto' | 'whatsapp' | 'sms' | 'email' | 'manual';
+type Purpose = 'service' | 'promotion';
+
+const PLACEHOLDERS = [
+  { token: '{first_name}', label: 'First name' },
+  { token: '{business_name}', label: 'Business name' },
+];
+
+const TIER_CHIP: Record<string, string> = {
+  Gold: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  Silver: 'bg-slate-500/15 text-slate-500 dark:text-slate-300',
+  Bronze: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+};
+
+/** One SMS holds 160 plain characters; longer ones go as 153-character parts. */
+const smsParts = (length: number) => (length <= 160 ? 1 : Math.ceil(length / 153));
+
+const card = 'bg-app-card border border-app-border rounded-2xl shadow-xs';
+const fieldLabel = 'block text-xs font-medium text-app-text-muted mb-1';
 
 export default function CommunicationCenterView() {
-  const { customers, currentEmployee, showToast, activeBusinessId, businesses, setActiveTab } = useAppStore();
-  const currentBusiness = businesses.find(b => b.id === activeBusinessId);
+  const { customers, currentEmployee, showToast, activeBusinessId, businesses } = useAppStore();
+  const currentBusiness = businesses.find((b) => b.id === activeBusinessId);
+  const aiName = import.meta.env?.VITE_AI_NAME || 'Kim';
 
-  const [activeChannel, setActiveChannel] = useState<"customers" | "reminders">("customers");
+  const canView = currentEmployee ? hasRolePermission(currentEmployee.role, 'communication.view') : false;
+  const canSend = currentEmployee ? hasRolePermission(currentEmployee.role, 'communication.send') : false;
+  const canUseAi = currentEmployee ? hasRolePermission(currentEmployee.role, 'ai.use') : false;
 
-  // Staff Reminder feed (in-app) across all shifts/sessions for the current user.
-  const scheduleReminders = useNotificationStore((s) => s.scheduleReminders);
-  const unreadReminderCount = useNotificationStore((s) => s.unreadReminderCount);
-  const markReminderAsRead = useNotificationStore((s) => s.markReminderAsRead);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTier, setFilterTier] = useState('All');
+  const [filterDebt, setFilterDebt] = useState('All');
+  const [filterActive, setFilterActive] = useState('All');
 
-  // Rehydrate reminders when this view mounts (ensures fresh data + live updates)
-  useEffect(() => {
-    useNotificationStore.getState().initScheduleReminders();
-  }, []);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterTier, setFilterTier] = useState<string>("All");
-  const [filterDebt, setFilterDebt] = useState<string>("All");
-  const [filterActive, setFilterActive] = useState<string>("All");
-
-  const [sendMode, setSendMode] = useState<"auto" | "whatsapp" | "sms" | "email" | "manual">("auto");
+  const [sendMode, setSendMode] = useState<SendMode>('auto');
+  const [messagePurpose, setMessagePurpose] = useState<Purpose>('service');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [messageTemplate, setMessageTemplate] = useState('Hello {first_name}, from {business_name}. ');
   const [manualQueue, setManualQueue] = useState<Customer[]>([]);
-  const [messagePurpose, setMessagePurpose] = useState<"service" | "promotion">("service");
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
-  const [messageTemplate, setMessageTemplate] = useState("Hello {first_name}, from {business_name}. ");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const isSending = progress !== null;
 
+  const [showAi, setShowAi] = useState(false);
   const [isAiDrafting, setIsAiDrafting] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiChatHistory, setAiChatHistory] = useState<{role: 'user'|'assistant'|'system', content: string}[]>([]);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiChatHistory, setAiChatHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
-  const canViewCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "communication.view") : false;
+  // The customer's own choice decides, whichever way the message would be sent.
+  const allowsMessage = (customer: Customer) =>
+    messagePurpose === 'promotion' ? !!customer.notifyPromotions : customer.notifyService !== false;
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
-      // Text Search
-      if (searchQuery && !searchMatch(c.name, searchQuery) && !searchMatch(c.phone, searchQuery)) {
-        return false;
-      }
-      // Tier Filter
-      if (filterTier !== "All" && c.tier !== filterTier) return false;
-      // Debt Filter
-      if (filterDebt === "Has Debt" && (!c.debtBalance || c.debtBalance <= 0)) return false;
-      if (filterDebt === "No Debt" && (c.debtBalance && c.debtBalance > 0)) return false;
-      // Active Status Filter
-      if (filterActive === "Active" && c.purchasesCount === 0) return false;
-      if (filterActive === "Inactive" && c.purchasesCount > 0) return false;
+  const filteredCustomers = useMemo(
+    () =>
+      customers.filter((c) => {
+        if (searchQuery && !searchMatch(c.name, searchQuery) && !searchMatch(c.phone, searchQuery)) return false;
+        if (filterTier !== 'All' && c.tier !== filterTier) return false;
+        const owes = (c.debtBalance || 0) > 0;
+        if (filterDebt === 'Has Debt' && !owes) return false;
+        if (filterDebt === 'No Debt' && owes) return false;
+        if (filterActive === 'Active' && !c.purchasesCount) return false;
+        if (filterActive === 'Inactive' && c.purchasesCount > 0) return false;
+        return true;
+      }),
+    [customers, searchQuery, filterTier, filterDebt, filterActive],
+  );
 
-      return true;
+  const selectedCustomers = useMemo(() => customers.filter((c) => selectedIds.has(c.id)), [customers, selectedIds]);
+  const reachable = selectedCustomers.filter(allowsMessage);
+  const visibleSelected = filteredCustomers.filter((c) => selectedIds.has(c.id)).length;
+  const allVisibleSelected = filteredCustomers.length > 0 && visibleSelected === filteredCustomers.length;
+  const filtersActive = !!searchQuery || filterTier !== 'All' || filterDebt !== 'All' || filterActive !== 'All';
+
+  // Ticking the header box adds (or removes) everyone the filters show, keeping other picks.
+  const toggleAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filteredCustomers.forEach((c) => (allVisibleSelected ? next.delete(c.id) : next.add(c.id)));
+      return next;
     });
-  }, [customers, searchQuery, filterTier, filterDebt, filterActive]);
-
-  const handleSelectAllVisible = () => {
-    const newSelected = new Set<string>();
-    filteredCustomers.forEach(c => newSelected.add(c.id));
-    setSelectedCustomerIds(newSelected);
   };
 
-  const handleDeselectAll = () => {
-    setSelectedCustomerIds(new Set());
-  };
+  const toggleCustomer = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
-  const toggleCustomerSelection = (id: string) => {
-    const newSelected = new Set(selectedCustomerIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
+  const generateMessage = (customer: Pick<Customer, 'name'>) =>
+    messageTemplate
+      .replace(/{first_name}/g, getFirstName(customer.name) || 'Customer')
+      .replace(/{business_name}/g, currentBusiness?.name || 'our shop');
+
+  const insertPlaceholder = (token: string) => {
+    const el = messageRef.current;
+    if (!el) {
+      setMessageTemplate((t) => t + token);
+      return;
     }
-    setSelectedCustomerIds(newSelected);
+    const start = el.selectionStart ?? messageTemplate.length;
+    const end = el.selectionEnd ?? messageTemplate.length;
+    setMessageTemplate(messageTemplate.slice(0, start) + token + messageTemplate.slice(end));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + token.length, start + token.length);
+    });
   };
 
   const handleDraftWithAi = async () => {
-    if (!aiPrompt.trim()) {
-      showToast("Validation", "Please describe the message you want AI to draft.", undefined, "error");
-      return;
-    }
-
+    const prompt = aiPrompt.trim();
+    if (!prompt || isAiDrafting) return;
     setIsAiDrafting(true);
+    const history = [...aiChatHistory, { role: 'user' as const, content: prompt }];
+    setAiChatHistory(history);
+    setAiPrompt('');
     try {
-      const userMessage = { role: 'user' as const, content: aiPrompt };
-      const newHistory = [...aiChatHistory, userMessage];
-      setAiChatHistory(newHistory);
-      setAiPrompt("");
-
-      const messages = [
-        { role: 'system', content: `You are an SMS/WhatsApp drafting assistant. Keep it under 160 characters. Use placeholders {first_name} and {business_name}. Do not include quotes. Your work is drafting messages only, not doing actions. If the user prompt is unclear or lacks details, ask follow-up questions instead of drafting. If you are providing the final draft, you MUST prefix the message exactly with [DRAFT] so the system can parse it.` },
-        ...newHistory
-      ];
-
       const data = await SupabaseService.callEdgeFunction('chat', {
-          messages,
-          activeRole: currentEmployee?.role,
-          permissions: currentEmployee ? [currentEmployee.role] : [],
-          employeeName: currentEmployee?.name,
-          businessId: activeBusinessId || currentBusiness?.id,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an SMS/WhatsApp drafting assistant. Keep it under 160 characters. Use placeholders {first_name} and {business_name}. Do not include quotes. Your work is drafting messages only, not doing actions. If the user prompt is unclear or lacks details, ask follow-up questions instead of drafting. If you are providing the final draft, you MUST prefix the message exactly with [DRAFT] so the system can parse it.',
+          },
+          ...history,
+        ],
+        activeRole: currentEmployee?.role,
+        permissions: currentEmployee ? [currentEmployee.role] : [],
+        employeeName: currentEmployee?.name,
+        businessId: activeBusinessId || currentBusiness?.id,
       });
-
-      if (data && data.success) {
-        const reply = data.reply.trim();
+      if (data?.success) {
+        const reply = String(data.reply || '').trim();
         if (reply.startsWith('[DRAFT]')) {
           setMessageTemplate(reply.replace('[DRAFT]', '').trim());
-          setAiChatHistory([...newHistory, { role: 'assistant', content: "I've drafted the message for you in the composer below. Feel free to tweak it before sending!" }]);
-          showToast("AI Draft", "Message drafted successfully.", undefined, "success");
+          setAiChatHistory([...history, { role: 'assistant', content: 'Done. The draft is in the message box; change anything you like.' }]);
         } else {
-          setAiChatHistory([...newHistory, { role: 'assistant', content: reply }]);
+          setAiChatHistory([...history, { role: 'assistant', content: reply }]);
         }
       } else {
-        showToast("Error", data?.error || "Failed to draft message.", undefined, "error");
+        showToast(aiName, data?.error || 'Could not draft the message.', undefined, 'error');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast("Error", "Could not connect to AI service.", undefined, "error");
+      showToast(aiName, `${aiName} could not be reached. Try again in a moment.`, undefined, 'error');
     } finally {
       setIsAiDrafting(false);
     }
   };
 
-  const generateMessage = (customer: typeof customers[0]) => {
-    const firstName = getFirstName(customer.name) || "Valued Customer";
-    const businessName = currentBusiness?.name || "Our Business";
-    return messageTemplate
-      .replace(/{first_name}/g, firstName)
-      .replace(/{business_name}/g, businessName);
-  };
-
-  // The customer's own choice decides, whichever way the message would be sent.
-  const allowsMessage = (customer: Customer) =>
-    messagePurpose === "promotion" ? !!customer.notifyPromotions : customer.notifyService !== false;
-
-  const sendThrough = async (channel: "whatsapp" | "sms" | "email", customer: Customer, body: string): Promise<boolean> => {
-    if (channel === "email") {
-      if (!customer.email || customer.email === "no-email@kaykays.com") return false;
-      const result = await SupabaseService.callEdgeFunction("send-email", {
+  const sendThrough = async (channel: 'whatsapp' | 'sms' | 'email', customer: Customer, body: string): Promise<boolean> => {
+    if (channel === 'email') {
+      if (!customer.email || customer.email === 'no-email@kaykays.com') return false;
+      const result = await SupabaseService.callEdgeFunction('send-email', {
         to: customer.email,
-        type: "customer_message",
+        type: 'customer_message',
         variables: { body },
         businessId: activeBusinessId,
         purpose: messagePurpose,
       });
       return result?.success !== false;
     }
-    const result = await SupabaseService.callEdgeFunction(channel === "whatsapp" ? "whatsapp-config" : "sms-config", {
-      action: "send",
+    if (!customer.phone) return false;
+    const result = await SupabaseService.callEdgeFunction(channel === 'whatsapp' ? 'whatsapp-config' : 'sms-config', {
+      action: 'send',
       businessId: activeBusinessId,
       to: customer.phone,
       body,
@@ -178,65 +199,70 @@ export default function CommunicationCenterView() {
     return !!result?.success;
   };
 
-  const selectedOptedIn = customers.filter((c) => selectedCustomerIds.has(c.id) && allowsMessage(c)).length;
-
-  const handleSendBulk = async () => {
-    if (selectedCustomerIds.size === 0) {
-      showToast("Validation", "Select at least one customer.", undefined, "error");
+  const handleSend = async () => {
+    if (isSending || !canSend) return;
+    if (selectedCustomers.length === 0) {
+      showToast('Message customers', 'Pick at least one customer.', undefined, 'error');
       return;
     }
     if (!messageTemplate.trim()) {
-      showToast("Validation", "Message cannot be empty.", undefined, "error");
+      showToast('Message customers', 'Write a message first.', undefined, 'error');
       return;
     }
-
-    const chosen = customers.filter(c => selectedCustomerIds.has(c.id));
-    const selectedCustomers = chosen.filter(allowsMessage);
-    const skipped = chosen.length - selectedCustomers.length;
+    const recipients = reachable;
+    const skipped = selectedCustomers.length - recipients.length;
     if (skipped > 0) {
       showToast(
-        "Some Customers Skipped",
-        `${skipped} ${skipped === 1 ? "customer has" : "customers have"} not agreed to this kind of message.`,
+        'Some customers left out',
+        `${skipped} ${skipped === 1 ? 'customer has' : 'customers have'} not agreed to this kind of message.`,
         undefined,
-        "info",
+        'info',
       );
     }
-    if (selectedCustomers.length === 0) return;
+    if (recipients.length === 0) return;
 
-    if (sendMode === "manual") {
-      setManualQueue(selectedCustomers);
-      handleDeselectAll();
+    if (sendMode === 'manual') {
+      setManualQueue(recipients);
+      setSelectedIds(new Set());
       return;
     }
 
     // Automatic tries WhatsApp then SMS. Whoever can't be reached goes to the by-hand list.
-    const channels: ("whatsapp" | "sms" | "email")[] = sendMode === "auto" ? ["whatsapp", "sms"] : [sendMode];
+    const channels: ('whatsapp' | 'sms' | 'email')[] = sendMode === 'auto' ? ['whatsapp', 'sms'] : [sendMode];
     const unsent: Customer[] = [];
     let sent = 0;
-    showToast("Sending Messages", `Sending to ${selectedCustomers.length} customers...`, undefined, "info");
-
-    for (const customer of selectedCustomers) {
-      let delivered = false;
-      for (const channel of channels) {
-        try {
-          delivered = await sendThrough(channel, customer, generateMessage(customer));
-        } catch (err) {
-          console.error(`Sending by ${channel} failed:`, err);
+    setProgress({ done: 0, total: recipients.length });
+    try {
+      for (const customer of recipients) {
+        let delivered = false;
+        for (const channel of channels) {
+          try {
+            delivered = await sendThrough(channel, customer, generateMessage(customer));
+          } catch (err) {
+            console.error(`Sending by ${channel} failed:`, err);
+          }
+          if (delivered) break;
         }
-        if (delivered) break;
+        if (delivered) sent++;
+        else unsent.push(customer);
+        setProgress({ done: sent + unsent.length, total: recipients.length });
       }
-      if (delivered) sent++;
-      else unsent.push(customer);
+    } finally {
+      setProgress(null);
     }
 
     setManualQueue(unsent);
+    setSelectedIds(new Set());
     if (unsent.length === 0) {
-      showToast("Messages Sent", `Sent ${sent} messages.`, undefined, "success");
+      showToast('Messages sent', `Sent to ${sent} ${sent === 1 ? 'customer' : 'customers'}.`, undefined, 'success');
     } else {
-      showToast("Some Need Sending by Hand", `Sent ${sent}. ${unsent.length} are listed below to send yourself.`, undefined, "info");
+      showToast(
+        'Some need sending by hand',
+        `Sent ${sent}. ${unsent.length} could not be reached and are listed to send yourself.`,
+        undefined,
+        'info',
+      );
     }
-
-    handleDeselectAll();
   };
 
   const handleManualSend = async (customer: Customer) => {
@@ -244,432 +270,430 @@ export default function CommunicationCenterView() {
     setManualQueue((queue) => queue.filter((c) => c.id !== customer.id));
   };
 
-  if (!canViewCustomers) {
+  if (!canView) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-app-bg text-center font-sans">
-        <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 max-w-sm flex flex-col items-center gap-2.5 shadow">
-          <ShieldAlert size={36} />
-          <div>
-            <h4 className="font-extrabold text-sm uppercase tracking-wider">Access Restrained</h4>
-            <p className="text-xs text-app-text-muted mt-1 leading-relaxed">
-              Your role does not have permission to access the Communication Center.
-            </p>
-          </div>
-        </div>
+      <div className={`${card} p-8 flex flex-col items-center gap-2 text-center`}>
+        <ShieldAlert size={28} className="text-red-500" />
+        <p className="text-sm font-semibold">No access</p>
+        <p className="text-xs text-app-text-muted max-w-xs">Your role can't message customers. Ask an admin to allow it.</p>
       </div>
     );
   }
 
-  const isAllVisibleSelected = filteredCustomers.length > 0 && filteredCustomers.every(c => selectedCustomerIds.has(c.id));
+  const previewCustomer = selectedCustomers[0] || { name: 'James Mwangi' };
+  const preview = generateMessage(previewCustomer);
+  const parts = smsParts(preview.length);
+  const count = reachable.length;
+  const sendLabel = isSending
+    ? `Sending ${progress!.done} of ${progress!.total}…`
+    : sendMode === 'manual'
+    ? `List ${count} ${count === 1 ? 'customer' : 'customers'} to send by hand`
+    : `Send to ${count} ${count === 1 ? 'customer' : 'customers'}`;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text font-sans p-3 sm:p-4 md:p-6 pb-nav overflow-y-auto animate-fade-in">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] items-start">
+      {/* 1. Who gets it */}
+      <section className={`${card} p-3 sm:p-4 flex flex-col min-w-0`}>
+        <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span className="grid place-items-center size-5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-bold">1</span>
+          Who gets it
+        </h2>
 
-      {/* Header */}
-     
-
-      {/* Channel Tabs */}
-      <div className="flex items-stretch sm:items-center gap-2 mb-5 shrink-0">
-        <button
-          onClick={() => setActiveChannel("customers")}
-          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-            activeChannel === "customers"
-              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-              : "bg-app-card border border-app-border text-app-text-muted hover:border-app-border/80"
-          }`}
-        >
-          <MessageSquare size={13} className="shrink-0" />
-          <span className="truncate">Customers</span>
-        </button>
-        <button
-          onClick={() => setActiveChannel("reminders")}
-          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-            activeChannel === "reminders"
-              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-              : "bg-app-card border border-app-border text-app-text-muted hover:border-app-border/80"
-          }`}
-        >
-          <BellRing size={13} className="shrink-0" />
-          <span className="truncate">Reminders</span>
-          {unreadReminderCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[9px] font-bold shrink-0">
-              {unreadReminderCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {activeChannel === "reminders" ? (
-        /* STAFF REMINDERS FEED — in-app schedule reminders for the current user */
-        <div className="flex-1 flex flex-col bg-app-card border border-app-border rounded-3xl p-3 sm:p-4 md:p-5 shadow-xs min-h-0 overflow-hidden">
-          <div className="flex items-center justify-between mb-4 shrink-0 gap-2">
-            <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide flex items-center gap-2">
-              <Calendar size={14} className="text-amber-500 shrink-0" />
-              My Shift Reminders
-            </h2>
-            <span className="text-[10px] text-app-text-muted font-bold bg-app-bg px-2 py-1 rounded-lg border border-app-border/40 shrink-0">
-              {scheduleReminders.length} total
-            </span>
+        <div className="space-y-2 mb-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+            <input
+              type="search"
+              placeholder="Search by name or phone"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 bg-app-bg border border-app-border rounded-xl pl-9 pr-3 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
           </div>
-
-          <div className="flex-1 overflow-y-auto border border-app-border rounded-xl">
-            {scheduleReminders.length === 0 ? (
-              <div className="p-8 sm:p-10 text-center text-xs text-app-text-muted font-bold flex flex-col items-center gap-2">
-                <BellRing size={24} className="opacity-30" />
-                No schedule reminders yet. When a shift is assigned to you,
-                a reminder will appear here automatically.
-              </div>
-            ) : (
-              <div className="divide-y divide-app-border">
-                {scheduleReminders.map((rem) => {
-                  let payload: any = {};
-                  try {
-                    payload = typeof rem.payload === "string" ? JSON.parse(rem.payload) : rem.payload;
-                  } catch(e) {}
-                  const isUnread = !rem.read_at;
-                  const shiftDate = payload?.shift_date || "";
-                  const startTime = payload?.start_time || "";
-
-                  return (
-                    <div
-                      key={rem.id}
-                      onClick={() => {
-                        if (isUnread) markReminderAsRead(rem.id);
-                        setActiveTab("dashboard");
-                      }}
-                      className={`p-3 sm:p-4 cursor-pointer transition-colors flex items-center gap-3 hover:bg-app-bg/50 ${
-                        isUnread ? "bg-amber-500/5" : "opacity-70"
-                      }`}
-                    >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isUnread ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-app-bg text-app-text-muted border border-app-border"
-                      }`}>
-                        <Clock size={15} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className={`text-[13px] font-extrabold truncate ${isUnread ? "text-app-text" : "text-app-text-muted"}`}>
-                            {rem.title}
-                          </h4>
-                          {isUnread && (
-                            <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full text-[8px] font-bold uppercase tracking-wider shrink-0">
-                              Unread
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-app-text-muted font-medium mt-0.5 leading-relaxed">
-                          {rem.message}
-                        </p>
-                        {(shiftDate || startTime) && (
-                          <p className="text-[10px] font-mono text-amber-500/80 mt-1 font-bold">
-                            📅 {shiftDate || "—"} {startTime ? `at ${startTime}` : ""}
-                          </p>
-                        )}
-                      </div>
-                      <ChevronRight size={15} className="text-app-text-muted shrink-0" />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
-
-        {/* Left Side: Audience Selection */}
-        <div className="flex-1 lg:flex-[1.4] flex flex-col bg-app-card border border-app-border rounded-3xl p-3 sm:p-4 md:p-5 shadow-xs overflow-hidden min-h-[420px]">
-          <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide mb-3 sm:mb-4 flex items-center gap-2">
-            <span className="w-5 h-5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
-            Select Audience
-          </h2>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2 mb-3 shrink-0">
-            <div className="relative sm:col-span-2 lg:col-span-1">
-              <Search size={13} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-app-text-muted" />
-              <input
-                type="text"
-                placeholder="Search name/phone..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-[38px] bg-app-bg text-xs pl-8 pr-3 py-1.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none transition font-bold"
-              />
-            </div>
-            <div className='flex w-full  gap-2 sm:gap-3 lg:gap-2.5 '>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <SearchableDropdown
               items={[
-                { id: "All", label: "All Tiers" },
-                { id: "Bronze", label: "Bronze" },
-                { id: "Silver", label: "Silver" },
-                { id: "Gold", label: "Gold" },
+                { id: 'All', label: 'Any tier' },
+                { id: 'Bronze', label: 'Bronze' },
+                { id: 'Silver', label: 'Silver' },
+                { id: 'Gold', label: 'Gold' },
               ]}
               selectedValue={filterTier}
               onChange={setFilterTier}
-              placeholder="Tier Filter"
+              placeholder="Tier"
             />
             <SearchableDropdown
               items={[
-                { id: "All", label: "Any Debt" },
-                { id: "Has Debt", label: "Has Debt" },
-                { id: "No Debt", label: "No Debt" },
+                { id: 'All', label: 'Owing or not' },
+                { id: 'Has Debt', label: 'Owes money' },
+                { id: 'No Debt', label: 'Owes nothing' },
               ]}
               selectedValue={filterDebt}
               onChange={setFilterDebt}
-              placeholder="Debt Filter"
+              placeholder="Debt"
             />
             <SearchableDropdown
               items={[
-                { id: "All", label: "All Activity" },
-                { id: "Active", label: "Active (Has Purchases)" },
-                { id: "Inactive", label: "Inactive (No Purchases)" },
+                { id: 'All', label: 'Bought or not' },
+                { id: 'Active', label: 'Has bought before' },
+                { id: 'Inactive', label: 'Never bought' },
               ]}
               selectedValue={filterActive}
               onChange={setFilterActive}
-              placeholder="Activity Filter"
+              placeholder="Activity"
             />
-            </div>
-          </div>
-
-          {/* Selection Controls */}
-          <div className="flex items-center gap-3 mb-2 pb-2 border-b border-app-border shrink-0">
-            <button
-              onClick={isAllVisibleSelected ? handleDeselectAll : handleSelectAllVisible}
-              className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-500 hover:text-amber-600 transition py-1"
-            >
-              {isAllVisibleSelected ? <CheckSquare size={15} /> : <Square size={15} />}
-              {isAllVisibleSelected ? "Deselect All" : "Select Visible"}
-            </button>
-            <span className="text-[10px] sm:text-[11px] text-app-text-muted font-bold ml-auto bg-app-bg px-2 py-1 rounded-lg border border-app-border/40 shrink-0">
-              {selectedCustomerIds.size} Selected
-            </span>
-          </div>
-
-          {/* List: cards on mobile, table from sm up */}
-          <div className="flex-1 overflow-y-auto border border-app-border rounded-xl">
-            {filteredCustomers.length === 0 ? (
-              <div className="p-8 text-center text-xs text-app-text-muted font-bold">
-                No customers match these filters.
-              </div>
-            ) : (
-              <>
-                {/* Mobile card list */}
-                <div className="sm:hidden divide-y divide-app-border">
-                  {filteredCustomers.map(c => {
-                    const isSelected = selectedCustomerIds.has(c.id);
-                    return (
-                      <div
-                        key={c.id}
-                        onClick={() => toggleCustomerSelection(c.id)}
-                        className={`p-3 flex items-center gap-3 cursor-pointer transition-colors active:bg-app-bg/70 ${isSelected ? 'bg-amber-500/10' : ''}`}
-                      >
-                        {isSelected ? (
-                          <CheckSquare size={18} className="text-amber-500 shrink-0" />
-                        ) : (
-                          <Square size={18} className="text-app-text-muted shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[13px] font-extrabold truncate">{customerName(c.name)}</span>
-                            <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${
-                              c.tier === "Gold" ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" :
-                              c.tier === "Silver" ? "bg-slate-500/15 text-slate-400 border border-slate-500/20" :
-                              "bg-orange-500/15 text-orange-600 border border-orange-500/20"
-                            }`}>
-                              {c.tier}
-                            </span>
-                          </div>
-                          <span className="flex items-center gap-1.5 text-[11px] font-mono text-app-text-muted mt-0.5">
-                            <Phone size={10} />
-                            {c.phone}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Table from sm up, horizontally scrollable if needed */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[520px]">
-                    <thead className="bg-app-bg sticky top-0 z-10 text-[9px] font-bold uppercase text-app-text-muted tracking-widest shadow-sm">
-                      <tr>
-                        <th className="p-2 border-b border-app-border w-10 text-center"></th>
-                        <th className="p-2 border-b border-app-border">First Name</th>
-                        <th className="p-2 border-b border-app-border">Full Name</th>
-                        <th className="p-2 border-b border-app-border">Phone Number</th>
-                        <th className="p-2 border-b border-app-border text-right">Tier</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-[11px] font-bold divide-y divide-app-border">
-                      {filteredCustomers.map(c => {
-                        const isSelected = selectedCustomerIds.has(c.id);
-                        return (
-                          <tr
-                            key={c.id}
-                            onClick={() => toggleCustomerSelection(c.id)}
-                            className={`cursor-pointer transition-colors ${isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg/50'}`}
-                          >
-                            <td className="p-2 text-center">
-                              {isSelected ? (
-                                <CheckSquare size={14} className="text-amber-500 inline-block" />
-                              ) : (
-                                <Square size={14} className="text-app-text-muted inline-block" />
-                              )}
-                            </td>
-                            <td className="p-2 text-amber-500 font-extrabold">{getFirstName(c.name)}</td>
-                            <td className="p-2">{customerName(c.name)}</td>
-                            <td className="p-2 font-mono">
-                              <span className="flex items-center gap-1.5 opacity-80">
-                                <Phone size={10} />
-                                {c.phone}
-                              </span>
-                            </td>
-                            <td className="p-2 text-right">
-                              <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase inline-block ${
-                                c.tier === "Gold" ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" :
-                                c.tier === "Silver" ? "bg-slate-500/15 text-slate-400 border border-slate-500/20" :
-                                "bg-orange-500/15 text-orange-600 border border-orange-500/20"
-                              }`}>
-                                {c.tier}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
           </div>
         </div>
 
-        {/* Right Side: Message Composer */}
-        <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col gap-4 shrink-0">
-          <div className="bg-app-card border border-app-border rounded-3xl p-3 sm:p-4 md:p-5 shadow-xs flex-1 flex flex-col">
-            <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide mb-1 flex items-center gap-2">
-              <span className="w-5 h-5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
-              Compose Message
-            </h2>
-            <p className="text-[10px] sm:text-[11px] text-app-text-muted font-bold mb-4 ml-7">Placeholders: {'{first_name}'}, {'{business_name}'}</p>
-
-            {/* AI Assistant Box */}
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-3 mb-4 flex flex-col">
-              <div className="flex items-center gap-1.5 mb-2 text-[10px] font-bold text-amber-500 uppercase tracking-wider">
-                <Wand2 size={12} />
-                Message Drafting Assistant
-              </div>
-
-              {/* Chat History */}
-              {aiChatHistory.length > 0 && (
-                <div className="mb-3 space-y-2 max-h-[150px] overflow-y-auto p-2 bg-app-bg border border-app-border/50 rounded-xl">
-                  {aiChatHistory.map((msg, idx) => (
-                    <div key={idx} className={`text-[11px] p-2 rounded-lg ${msg.role === 'user' ? 'bg-amber-500/10 text-amber-600 ml-4' : 'bg-slate-100 dark:bg-slate-800 text-app-text-muted mr-4'}`}>
-                      <span className="font-bold opacity-50 block mb-0.5">{msg.role === 'user' ? 'You' : 'Assistant'}</span>
-                      {msg.content}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <textarea
-                  placeholder="Describe the message..."
-                  value={aiPrompt}
-                  onChange={e => setAiPrompt(e.target.value)}
-                  className="flex-1 min-w-0 bg-app-bg text-xs px-3 py-2.5 rounded border border-app-border focus:border-amber-500 focus:outline-none transition font-bold"
-                  onKeyDown={e => { if(e.key === 'Enter') handleDraftWithAi(); }}
-                />
-                <button
-                  onClick={handleDraftWithAi}
-                  disabled={isAiDrafting || !aiPrompt.trim()}
-                  className="px-3 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 font-bold rounded-xl text-[10px] uppercase tracking-wider disabled:opacity-50 transition shrink-0"
-                >
-                  {isAiDrafting ? "..." : "Send"}
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              value={messageTemplate}
-              onChange={(e) => setMessageTemplate(e.target.value)}
-              className="w-full flex-1 min-h-[140px] bg-app-bg border border-app-border rounded-2xl p-4 text-sm text-app-text focus:outline-none focus:border-amber-500 transition font-medium resize-none mb-4 shadow-inner"
-              placeholder="Type your message here..."
-            />
-
-            {/* Preview Box */}
-            <div className="bg-app-bg border border-app-border/60 rounded-2xl p-3 mb-4 text-xs text-app-text-muted relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50 rounded-l-2xl"></div>
-              <div className="font-bold uppercase tracking-wider mb-1 text-[9px] pl-2 text-amber-500/70">Live Preview:</div>
-              <div className="italic leading-relaxed pl-2 whitespace-pre-wrap">
-                {generateMessage({ name: "James Mwangi", phone: "+254700000000" } as any)}
-              </div>
-            </div>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-app-text mb-3">
-              Message type
-              <SearchableDropdown
-                items={[
-                  { id: 'service', label: 'Order update or reminder' },
-                  { id: 'promotion', label: 'Offer or promotion' },
-                ]}
-                selectedValue={messagePurpose}
-                onChange={(value) => setMessagePurpose(value as typeof messagePurpose)}
-                placeholder="Message type"
-              />
-              <span className="font-normal text-app-text-muted">
-                {messagePurpose === "promotion"
-                  ? `${selectedOptedIn} of ${selectedCustomerIds.size} selected agreed to offers.`
-                  : `${selectedOptedIn} of ${selectedCustomerIds.size} selected accept updates and reminders.`}
+        <div className="flex items-center gap-2 border-b border-app-border pb-2 mb-1">
+          <Checkbox
+            checked={allVisibleSelected}
+            indeterminate={visibleSelected > 0 && !allVisibleSelected}
+            onChange={toggleAllVisible}
+            disabled={filteredCustomers.length === 0}
+            label={
+              <span className="text-xs font-medium">
+                {filtersActive ? `All ${filteredCustomers.length} shown` : `Everyone (${filteredCustomers.length})`}
               </span>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-app-text">
-              Send by
-              <SearchableDropdown
-                items={[
-                  { id: 'auto', label: 'Automatic: WhatsApp API, then SMS' },
-                  { id: 'whatsapp', label: 'WhatsApp API' },
-                  { id: 'sms', label: 'SMS' },
-                  { id: 'email', label: 'Email' },
-                  { id: 'manual', label: 'By hand: open each WhatsApp chat' },
-                ]}
-                selectedValue={sendMode}
-                onChange={(value) => setSendMode(value as typeof sendMode)}
-                placeholder="How to send"
-              />
-            </label>
-
+            }
+          />
+          <span className="ml-auto text-xs text-app-text-muted tabular-nums">{selectedIds.size} picked</span>
+          {selectedIds.size > 0 && (
             <button
-              onClick={handleSendBulk}
-              disabled={selectedCustomerIds.size === 0 || !messageTemplate.trim()}
-              className="w-full py-4 sm:py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-bold rounded-2xl text-xs uppercase tracking-widest transition shadow flex items-center justify-center gap-2 sticky bottom-0"
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
             >
-              <Send size={16} />
-              Dispatch to {selectedCustomerIds.size} Customer {selectedCustomerIds.size === 1 ? "" : "s"}
+              Clear
             </button>
+          )}
+        </div>
 
-            {manualQueue.length > 0 && (
-              <div className="flex flex-col gap-2 border-t border-app-border pt-3">
-                <p className="text-xs font-semibold text-app-text">Send these yourself ({manualQueue.length} left)</p>
-                {manualQueue.map((customer) => (
+        <div className="max-h-[55vh] lg:max-h-[calc(100dvh-22rem)] min-h-48 overflow-y-auto -mx-1 px-1">
+          {filteredCustomers.length === 0 ? (
+            <p className="p-8 text-center text-sm text-app-text-muted">
+              {customers.length === 0 ? 'No customers yet.' : 'No customers match these filters.'}
+            </p>
+          ) : (
+            <ul className="divide-y divide-app-border">
+              {filteredCustomers.map((c) => {
+                const picked = selectedIds.has(c.id);
+                const agreed = allowsMessage(c);
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={picked}
+                      onClick={() => toggleCustomer(c.id)}
+                      className={`w-full flex items-center gap-3 px-2 py-2.5 text-left rounded-lg transition ${
+                        picked ? 'bg-amber-500/10' : 'hover:bg-app-bg'
+                      }`}
+                    >
+                      <span
+                        className={`size-5 shrink-0 rounded-md border-2 grid place-items-center text-[11px] font-bold ${
+                          picked ? 'bg-amber-500 border-amber-500 text-slate-950' : 'border-app-border bg-app-bg text-transparent'
+                        }`}
+                        aria-hidden
+                      >
+                        ✓
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium truncate">{customerName(c.name)}</span>
+                        <span className="block text-xs text-app-text-muted tabular-nums truncate">
+                          {c.phone || 'No phone number'}
+                        </span>
+                      </span>
+                      {!agreed && (
+                        <span
+                          className="shrink-0 rounded-md bg-app-bg border border-app-border px-1.5 py-0.5 text-[11px] text-app-text-muted"
+                          title="This customer has not agreed to this kind of message"
+                        >
+                          {messagePurpose === 'promotion' ? 'No offers' : 'No messages'}
+                        </span>
+                      )}
+                      {c.tier && (
+                        <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${TIER_CHIP[c.tier] || TIER_CHIP.Bronze}`}>
+                          {c.tier}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {/* 2. The message */}
+      <section className={`${card} p-3 sm:p-4 space-y-4 min-w-0 lg:sticky lg:top-3`}>
+        <h2 className="text-sm font-semibold flex items-center gap-2">
+          <span className="grid place-items-center size-5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-bold">2</span>
+          The message
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+          <div>
+            <span className={fieldLabel}>What kind of message</span>
+            <SearchableDropdown
+              items={[
+                { id: 'service', label: 'Order update or reminder' },
+                { id: 'promotion', label: 'Offer or promotion' },
+              ]}
+              selectedValue={messagePurpose}
+              onChange={(value) => setMessagePurpose(value as Purpose)}
+              placeholder="Message type"
+            />
+          </div>
+          <div>
+            <span className={fieldLabel}>Send by</span>
+            <SearchableDropdown
+              items={[
+                { id: 'auto', label: 'Automatic', sublabel: 'WhatsApp, then SMS if that fails' },
+                { id: 'whatsapp', label: 'WhatsApp' },
+                { id: 'sms', label: 'SMS' },
+                { id: 'email', label: 'Email' },
+                { id: 'manual', label: 'By hand', sublabel: 'Open each WhatsApp chat yourself' },
+              ]}
+              selectedValue={sendMode}
+              onChange={(value) => setSendMode(value as SendMode)}
+              placeholder="How to send"
+            />
+          </div>
+        </div>
+
+        {/* Drafting help */}
+        {canUseAi && (
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5">
+            <button
+              type="button"
+              onClick={() => setShowAi((v) => !v)}
+              aria-expanded={showAi}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-violet-600 dark:text-violet-400"
+            >
+              <Wand2 size={14} />
+              Ask {aiName} to write it
+              <ChevronDown size={14} className={`ml-auto transition ${showAi ? 'rotate-180' : ''}`} />
+            </button>
+            {showAi && (
+              <div className="px-3 pb-3 space-y-2">
+                {aiChatHistory.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto space-y-1.5">
+                    {aiChatHistory.map((msg, idx) => (
+                      <p
+                        key={idx}
+                        className={`text-xs leading-relaxed rounded-lg px-2.5 py-1.5 ${
+                          msg.role === 'user' ? 'bg-app-card ml-6 text-app-text' : 'bg-violet-500/10 mr-6 text-app-text'
+                        }`}
+                      >
+                        {msg.content}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Tell customers we have fresh milk at 10% off this weekend"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleDraftWithAi();
+                      }
+                    }}
+                    className="flex-1 min-w-0 resize-none bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
                   <button
-                    key={customer.id}
                     type="button"
-                    onClick={() => handleManualSend(customer)}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-left text-xs text-app-text"
+                    onClick={handleDraftWithAi}
+                    disabled={isAiDrafting || !aiPrompt.trim()}
+                    aria-label="Ask"
+                    className="h-9 shrink-0 inline-flex items-center rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-500 disabled:opacity-40 transition"
                   >
-                    <span className="min-w-0 truncate">{customer.name}</span>
-                    <span className="shrink-0 font-semibold text-amber-500">Open WhatsApp</span>
+                    {isAiDrafting ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                   </button>
-                ))}
+                </div>
               </div>
             )}
           </div>
+        )}
+
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className={fieldLabel + ' mb-0'}>Message</span>
+            <div className="flex gap-1">
+              {PLACEHOLDERS.map((p) => (
+                <button
+                  key={p.token}
+                  type="button"
+                  onClick={() => insertPlaceholder(p.token)}
+                  className="rounded-md border border-app-border bg-app-bg px-1.5 py-0.5 text-[11px] text-app-text-muted hover:text-app-text hover:border-amber-500/40"
+                  title={`Insert ${p.token}`}
+                >
+                  + {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea
+            ref={messageRef}
+            rows={5}
+            value={messageTemplate}
+            onChange={(e) => setMessageTemplate(e.target.value)}
+            placeholder="Type your message"
+            className="w-full resize-y bg-app-bg border border-app-border rounded-xl p-3 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+          />
+          <p className="mt-1 text-[11px] text-app-text-muted tabular-nums">
+            {preview.length} characters
+            {(sendMode === 'auto' || sendMode === 'sms') && ` · ${parts} SMS ${parts === 1 ? 'part' : 'parts'} each`}
+          </p>
         </div>
-      </div>
-      )}
+
+        <div className="rounded-xl bg-app-bg border border-app-border p-3">
+          <p className="text-[11px] font-medium text-app-text-muted mb-1">
+            How {getFirstName(previewCustomer.name) || 'a customer'} will see it
+          </p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+            {preview.trim() || <span className="text-app-text-muted">Nothing written yet.</span>}
+          </p>
+        </div>
+
+        {selectedIds.size > 0 && count < selectedIds.size && (
+          <p className="text-xs text-app-text-muted">
+            {selectedIds.size - count} of {selectedIds.size} picked{' '}
+            {messagePurpose === 'promotion' ? "haven't agreed to offers" : 'turned off messages'} and will be left out.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={!canSend || isSending || count === 0 || !messageTemplate.trim()}
+          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        >
+          {isSending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+          {sendLabel}
+        </button>
+        {!canSend && <p className="text-xs text-app-text-muted text-center">Your role can see this page but not send messages.</p>}
+
+        {manualQueue.length > 0 && (
+          <div className="space-y-2 border-t border-app-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium">Send these yourself ({manualQueue.length} left)</p>
+              <button
+                type="button"
+                onClick={() => setManualQueue([])}
+                className="inline-flex items-center gap-1 text-xs text-app-text-muted hover:text-app-text"
+              >
+                <X size={12} /> Clear
+              </button>
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-1.5">
+              {manualQueue.map((customer) => (
+                <button
+                  key={customer.id}
+                  type="button"
+                  onClick={() => handleManualSend(customer)}
+                  disabled={!customer.phone}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-left text-sm disabled:opacity-50"
+                >
+                  <span className="min-w-0 truncate">{customerName(customer.name)}</span>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <MessageCircle size={13} /> {customer.phone ? 'Open WhatsApp' : 'No phone'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+/** The signed-in person's shift reminders, newest first. */
+export function ShiftRemindersPanel() {
+  const { setActiveTab } = useAppStore();
+  const scheduleReminders = useNotificationStore((s) => s.scheduleReminders);
+  const markReminderAsRead = useNotificationStore((s) => s.markReminderAsRead);
+
+  // Fresh data and live updates whenever the panel opens.
+  useEffect(() => {
+    useNotificationStore.getState().initScheduleReminders();
+  }, []);
+
+  const formatShift = (date?: string, time?: string) => {
+    if (!date && !time) return '';
+    const d = date ? new Date(`${date}T00:00:00`) : null;
+    const day =
+      d && !isNaN(d.getTime())
+        ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+        : date || '';
+    return [day, time ? `at ${time.slice(0, 5)}` : ''].filter(Boolean).join(' ');
+  };
+
+  return (
+    <section className={`${card} overflow-hidden`}>
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-app-border">
+        <h2 className="text-sm font-semibold flex items-center gap-2">
+          <BellRing size={15} className="text-amber-500" /> My shift reminders
+        </h2>
+        <span className="text-xs text-app-text-muted tabular-nums">{scheduleReminders.length}</span>
+      </div>
+      {scheduleReminders.length === 0 ? (
+        <div className="p-10 text-center flex flex-col items-center gap-2">
+          <BellRing size={22} className="text-app-text-muted/50" />
+          <p className="text-sm font-medium">No reminders yet</p>
+          <p className="text-xs text-app-text-muted max-w-xs">When you're given a shift, a reminder shows up here.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-app-border">
+          {scheduleReminders.map((rem) => {
+            let payload: any = {};
+            try {
+              payload = typeof rem.payload === 'string' ? JSON.parse(rem.payload) : rem.payload || {};
+            } catch {
+              payload = {};
+            }
+            const isUnread = !rem.read_at;
+            const when = formatShift(payload?.shift_date, payload?.start_time);
+            return (
+              <li key={rem.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isUnread) markReminderAsRead(rem.id);
+                    setActiveTab('dashboard');
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition hover:bg-app-bg ${
+                    isUnread ? 'bg-amber-500/5' : ''
+                  }`}
+                >
+                  <span
+                    className={`size-9 shrink-0 rounded-xl grid place-items-center ${
+                      isUnread ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-app-bg text-app-text-muted'
+                    }`}
+                  >
+                    <Clock size={15} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className={`text-sm truncate ${isUnread ? 'font-semibold' : 'text-app-text-muted'}`}>{rem.title}</span>
+                      {isUnread && <span className="size-2 shrink-0 rounded-full bg-red-500" aria-label="Unread" />}
+                    </span>
+                    {rem.message && <span className="block text-xs text-app-text-muted mt-0.5">{rem.message}</span>}
+                    {when && <span className="block text-xs text-amber-600 dark:text-amber-400 mt-0.5">{when}</span>}
+                  </span>
+                  <ChevronRight size={15} className="shrink-0 text-app-text-muted" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

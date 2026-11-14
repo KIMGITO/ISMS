@@ -87,4 +87,4 @@ Promo codes are made under **Online Store > Promotions**. The cart checks a code
 
 ## Releases
 
-Every app release (`.github/workflows/release-and-deploy.yml`) also type-checks and builds the website (`build-website`); a broken website stops the release, and the build is kept as the `website-dist` artifact. Pull requests build it too. Going live is still `npm run website:deploy` (or Vercel's own Git deploys) until a deploy job with a `VERCEL_TOKEN` secret is added.
+Every app release (`.github/workflows/release-and-deploy.yml`) also type-checks and builds the website (`build-website`); a broken website stops the release, and the build is kept as the `website-dist` artifact. Pull requests build it too. It then goes live on Cloudflare (Worker `kaykays-website`) blue-green, from the `deploy-web` job; `npm run website:deploy` does the same from this machine. See `docs/HOSTING_CLOUDFLARE.md`.

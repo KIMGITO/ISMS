@@ -257,7 +257,7 @@ export default function RiderDeliveriesView() {
             )}
             {!isRider && (
               <p className="text-xs text-app-text-muted">
-                Deliveries waiting for a rider. Riders accept them from here. To give one to a rider yourself, use Online Store orders.
+                Deliveries waiting for a rider. Riders accept them from here. The rider will be notified.
               </p>
             )}
             {renderList(requests, 'No delivery requests right now. New ones show up here and you get a notification.', (d) => (

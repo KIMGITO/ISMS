@@ -158,9 +158,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
 
         {status && !status.configured && (
           <p className="text-sm text-app-text-muted mb-3">
-            The Daraja keys haven't been added on the server yet.
-            {canConfigure && status.missing.length > 0 && <> Missing: <span className="font-mono text-xs">{status.missing.join(', ')}</span>.</>}
-            {' '}See docs/INTEGRATIONS.md.
+            Set up M-Pesa for this business.
           </p>
         )}
 
@@ -214,12 +212,10 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
             <Send size={16} className="text-emerald-600" /> Ask a customer to pay
           </h3>
           <p className="text-xs text-app-text-muted mb-4">
-            Sends an M-Pesa prompt to their phone. When they enter their PIN, the payment is recorded by itself:
-            a customer's debt goes down first, then their wallet goes up. Don't use this for a sale you'll also ring up at POS.
-          </p>
+            Sends an M-Pesa prompt to their phone.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 sm:col-span-2">
-              <span className={label}>Who is paying</span>
+              <span className={label}>Who is paying?</span>
               <SearchableDropdown
                 items={[{ id: WALK_IN, label: 'Walk-in customer', sublabel: 'No account' }, ...customerItems]}
                 selectedValue={payer}

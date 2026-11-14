@@ -136,7 +136,7 @@ export default function SalesView() {
         <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 max-w-sm flex flex-col items-center gap-2.5 shadow">
           <ShieldAlert size={36} />
           <div>
-            <h4 className="font-extrabold text-sm uppercase tracking-wider">Access Restrained</h4>
+            <h4 className="font-extrabold text-sm uppercase tracking-wider">No access</h4>
             <p className="text-[11px] text-app-text-muted mt-1 leading-relaxed">
               Your operator account role (<strong>{currentEmployee?.role || "Guest"}</strong>) does not hold the clearances to review transaction records.
             </p>
@@ -261,12 +261,11 @@ export default function SalesView() {
             Business Sales Logs
           </h2>
           <p className="text-[10px] text-app-text-muted font-medium">
-            Accordion Day Stream: Opening a day row automatically collapses all
-            others.
+            Dairy Sales POS Logs
           </p>
         </div>
         <span className="px-2.5 py-1 bg-app-bg text-app-text border border-app-border rounded-full font-mono font-bold text-[10px] shadow-sm">
-          Total: {totalTxCount}
+           {totalTxCount}
         </span>
       </div>
 

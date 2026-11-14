@@ -148,6 +148,7 @@ import { Checkbox } from './components/shared/Checkbox';
 import { SwipeRow } from './components/shared/SwipeRow';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { ShortcutHelp } from './components/ShortcutTable';
+import { TermsDialog } from './components/legal/TermsDialog';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
@@ -830,6 +831,7 @@ export default function App() {
   const [newEmailInput, setNewEmailInput] = useState('');
 
   const [forgotEmail, setForgotEmail] = useState('');
+  const [authTermsOpen, setAuthTermsOpen] = useState(false);
   const [resetOtpCode, setResetOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -2078,6 +2080,18 @@ export default function App() {
                             : 'Secure Login Session'}
                         </button>
 
+                        <p className="text-center text-[10px] text-slate-500 leading-normal">
+                          By signing in you agree to the{' '}
+                          <button
+                            type="button"
+                            onClick={() => setAuthTermsOpen(true)}
+                            className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                          >
+                            Terms of Use
+                          </button>
+                          .
+                        </p>
+
                         <div className="text-center mt-3 pt-1 border-t border-slate-900/60">
                           <button
                             type="button"
@@ -2234,6 +2248,18 @@ export default function App() {
                             ? 'Creating Profile...'
                             : 'Register Owner Account'}
                         </button>
+
+                        <p className="text-center text-[10px] text-slate-500 leading-normal">
+                          By creating an account you agree to the{' '}
+                          <button
+                            type="button"
+                            onClick={() => setAuthTermsOpen(true)}
+                            className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                          >
+                            Terms of Use
+                          </button>
+                          .
+                        </p>
                       </form>
                     )}
 
@@ -2906,6 +2932,17 @@ export default function App() {
                                 {authLoading ? 'Joining...' : 'Accept & Join'}
                               </button>
                             </div>
+                            <p className="text-center text-[10px] text-slate-500 leading-normal">
+                              By joining you agree to the{' '}
+                              <button
+                                type="button"
+                                onClick={() => setAuthTermsOpen(true)}
+                                className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                              >
+                                Terms of Use
+                              </button>
+                              .
+                            </p>
                           </form>
                         )}
                       </div>
@@ -3371,6 +3408,7 @@ export default function App() {
                   </>
                 )}
               </div>
+              <TermsDialog open={authTermsOpen} onClose={() => setAuthTermsOpen(false)} />
             </motion.div>
           ) : (
             /* COMPACT LOGGED-IN MAIN WORKSPACE VIEW */

@@ -50,7 +50,13 @@ function loadSegmenter() {
       // The runtime ships with the app, so it loads from 'self' and works offline. The library's
       // default would fetch it from a CDN and load the loader from a blob: URL, which the CSP blocks.
       (env as { useWasmCache?: boolean }).useWasmCache = false;
-      onnx.wasm.wasmPaths = { mjs: ortLoaderUrl, wasm: ortWasmUrl } as typeof onnx.wasm.wasmPaths;
+      // Except on the hosted web app (Cloudflare, VITE_ORT_WASM_FROM_CDN=1): the runtime is 26 MB and
+      // Cloudflare refuses files over 25 MiB, so there only the .wasm comes from jsDelivr, at the
+      // exact version bundled here. The small loader stays local, so the CSP needs no change.
+      const wasm = import.meta.env.VITE_ORT_WASM_FROM_CDN === '1'
+        ? `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort-wasm-simd-threaded.asyncify.wasm`
+        : ortWasmUrl;
+      onnx.wasm.wasmPaths = { mjs: ortLoaderUrl, wasm } as typeof onnx.wasm.wasmPaths;
       // Threads need cross-origin isolation, which the app doesn't have.
       onnx.wasm.numThreads = 1;
     }

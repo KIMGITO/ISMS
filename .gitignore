@@ -20,6 +20,9 @@ data/
 # Firebase config is supplied to CI through the GOOGLE_SERVICES_JSON secret
 android/app/google-services.json
 
-# Vercel project link for the customer website (made by npm run website:deploy)
-website/.vercel
+# Wrangler (Cloudflare) local state
+.wrangler
+website/.wrangler
+# Old Vercel project links (no longer used; safe to delete)
 .vercel
+website/.vercel

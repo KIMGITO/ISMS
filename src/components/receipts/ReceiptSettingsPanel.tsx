@@ -139,7 +139,7 @@ export default function ReceiptSettingsPanel() {
         <ReceiptText size={18} className="text-amber-500" />
         <h3 className="text-sm font-semibold text-app-text">Receipts & printing</h3>
         <span className="ml-auto text-xs text-app-text-muted" aria-live="polite">
-          {saving ? 'Saving…' : dirty ? 'Unsaved changes' : savedOnce ? 'Saved' : 'Changes save by themselves'}
+          {saving ? 'Saving…' : dirty ? 'Unsaved changes' : savedOnce ? 'Saved' : 'Changes save automatically'}
         </span>
       </div>
 
@@ -160,7 +160,7 @@ export default function ReceiptSettingsPanel() {
                     ]}
                   />
                 </Field>
-                <Field title="Characters per line" hint="Change only if lines wrap or stop short on your printer's test page.">
+                <Field title="Characters per line" hint="Change only if lines wrap or stop short on your printer.">
                   <Pick
                     value={String(settings.charsPerLine)}
                     onChange={(v) => update({ charsPerLine: Number(v) })}
@@ -274,7 +274,7 @@ export default function ReceiptSettingsPanel() {
                 label="Receipt barcode"
                 description="A Code 128 barcode of the receipt ID, for looking the sale up later."
               />
-              <Field title="Extra QR code" hint="The KRA verification QR is added by itself to sales KRA has signed.">
+              <Field title="Extra QR code" hint="The KRA QR code is added automatically to sales KRA has signed.">
                 <Pick
                   value={settings.extraQr}
                   onChange={(v) => update({ extraQr: v as ExtraQrOption })}
@@ -668,7 +668,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
       <div className="space-y-4 min-w-0">
         <div className="grid sm:grid-cols-2 gap-3">
           <Field title="Title"><input className={input} value={texts.title} onChange={(e) => set({ title: e.target.value })} /></Field>
-          <Field title="Number prefix" hint={`Next invoice: ${nextLabel}. Numbers count up for the whole business.`}>
+          <Field title="Number prefix" >
             <input className={`${input} uppercase`} maxLength={8} value={texts.prefix} onChange={(e) => set({ prefix: e.target.value.toUpperCase() })} />
           </Field>
           <Field title="Note under the title"><input className={input} value={texts.note} onChange={(e) => set({ note: e.target.value })} /></Field>
@@ -682,11 +682,10 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
           </Field>
           <Field title="Thank-you line"><input className={input} value={texts.thankYou} onChange={(e) => set({ thankYou: e.target.value })} /></Field>
         </div>
-        <p className="text-xs text-app-text-muted">The footer shows the phone, email, address and website from Business settings{footer ? `: ${footer}` : '. None are set yet.'}</p>
 
         <Switch checked={texts.showPaymentDetails} onChange={(v) => set({ showPaymentDetails: v })} label="Show how to pay" description="Payment methods and details, such as your M-Pesa till or bank account." />
         {texts.showPaymentDetails && (
-          <Field title="How to pay"><textarea rows={3} className={input} value={texts.paymentInstructions} onChange={(e) => set({ paymentInstructions: e.target.value })} placeholder={'M-Pesa Till 123456\nBank: …'} /></Field>
+          <Field title="How to pay"><textarea rows={1} className={input} value={texts.paymentInstructions} onChange={(e) => set({ paymentInstructions: e.target.value })} placeholder={'M-Pesa Till 123456\nBank: …'} /></Field>
         )}
 
         <Switch checked={texts.showStamp} onChange={(v) => set({ showStamp: v })} label="Business stamp" description="A stamp with your business name and the invoice date." />
@@ -758,7 +757,7 @@ export function InvoiceSettingsPanel() {
       <div className="flex items-center gap-2">
         <FileText size={18} className="text-amber-500" />
         <h3 className="text-sm font-semibold text-app-text">Invoices</h3>
-        <span className="ml-auto text-xs text-app-text-muted">Changes save by themselves</span>
+        <span className="ml-auto text-xs text-app-text-muted">Changes save automatically</span>
       </div>
       <InvoicesTab businessId={activeBusinessId} receipt={receipt} />
     </div>

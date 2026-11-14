@@ -11,16 +11,6 @@ import { normalizePhone, validatePhone } from "../utils/phoneUtils";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { formatName } from "../utils/stringUtils";
 
-const PRESET_AVATARS = [
-  "https://plus.unsplash.com/premium_vector-1721077382049-f4deff3c4cf7?w=352&dpr=1&h=367&auto=format&fit=crop&q=60&ixlib=rb-4.1.0", // Avatar 1
-  "https://images.unsplash.com/photo-1515041219749-89347f83291a?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 2
-  "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 3
-  "https://plus.unsplash.com/premium_photo-1681426472026-60d4bf7b69a1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 4
-  "https://images.unsplash.com/photo-1637858868799-7f26a0640eb6?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 5
-  "https://images.unsplash.com/photo-1620428268482-cf1851a36764?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8Y2FydG9vbnxlbnwwfHwwfHx8MA%3D%3D", // Avatar 6
-  "https://images.unsplash.com/photo-1628260412297-a3377e45006f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGNhcnRvb258ZW58MHx8MHx8fDA%3D", // Avatar 7
-  "https://plus.unsplash.com/premium_photo-1681426478241-11b262dd1d21?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTd8fGNhcnRvb258ZW58MHx8MHx8fDA%3D"  // Avatar 8
-];
 
 interface ProfileViewProps {
   onRestartTour?: () => void;
@@ -41,7 +31,6 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const [showPresetAvatars, setShowPresetAvatars] = useState(false);
   const [showSecurityClearance, setShowSecurityClearance] = useState(false);
 
   // Sync state values when currentEmployee changes
@@ -122,7 +111,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           My Profile
         </h2>
         <p className="text-[11px] text-app-text-muted mt-0.5">
-          Manage your personal details, secure login PIN, and audit your digital security privileges.
+          Manage your personal details and login session.
         </p>
       </div>
 
@@ -172,47 +161,6 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             <h3 className="text-sm font-black text-app-text uppercase">{name || "Staff Operator"}</h3>
           </div>
 
-          {/* Preset Avatar Choices - Collapsible */}
-          <div className="w-full border-t border-app-border/45 pt-4 text-left space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowPresetAvatars(!showPresetAvatars)}
-              className="w-full flex items-center justify-between text-app-text hover:text-amber-500 transition cursor-pointer"
-            >
-              <label className="text-[9.5px] text-app-text-muted font-bold uppercase tracking-wider block cursor-pointer">Choose Available Avatar</label>
-              <span className="text-[10px] text-amber-500 font-bold hover:underline">
-                {showPresetAvatars ? "Hide Avatars" : "Show Avatars"}
-              </span>
-            </button>
-            {showPresetAvatars && (
-              <div className="grid grid-cols-4 gap-2 animate-fade-in pt-1">
-                {PRESET_AVATARS.map((avUrl, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setAvatar(avUrl)}
-                    className={`relative rounded-xl overflow-hidden aspect-square border-2 transition ${
-                      avatar === avUrl ? "border-amber-500 ring-2 ring-amber-500/20" : "border-transparent opacity-85 hover:opacity-100"
-                    }`}
-                  >
-                    <img src={avUrl} alt={`Preset ${idx}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Custom Avatar Upload Input */}
-          <div className="w-full text-left space-y-2">
-            <UnifiedUploader
-              onUploadSuccess={(url) => setAvatar(url)}
-              allowedTypes={["image"]}
-              cropAspect={1}
-              buttonText="Upload Custom Photo"
-              bucketName="employee-avatars"
-              className="w-full py-2 bg-app-bg text-app-text border border-app-border rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-app-card transition cursor-pointer"
-            />
-          </div>
 
           {/* Logout Action */}
           <div className="w-full border-t border-app-border/45 pt-4 text-left flex flex-col gap-2">
@@ -254,7 +202,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
               <label className="text-[10px] text-app-text-muted font-bold uppercase block flex items-center justify-between">
                 <span>Email Address</span>
                 <span className="text-[8px] text-amber-500 font-bold tracking-tight lowercase flex items-center gap-0.5">
-                  <Lock size={8} /> locked profile email
+                  <Lock size={8} /> Locked
                 </span>
               </label>
               <div className="relative">
@@ -334,10 +282,10 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           className="w-full flex items-center justify-between text-left group cursor-pointer focus:outline-none"
         >
           <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-app-border/45 flex-1 mr-4">
-            <ShieldCheck size={14} className="text-amber-500" /> My Digital Security Clearances
+            <ShieldCheck size={14} className="text-amber-500" /> Digital security
           </h3>
           <span className="text-[11px] font-bold text-amber-500 group-hover:underline self-center">
-            {showSecurityClearance ? "Collapse Clearances" : "Show All Clearances"}
+            {showSecurityClearance ? "Hide" : "See all"}
           </span>
         </button>
 

@@ -828,8 +828,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       if (score > 0) {
         matched.push({
           id: `perm-${p.code}`,
-          title: `Permission Key: ${p.code}`,
-          subtitle: `Category: ${p.category} · Clearance: ${p.description}`,
+          title: `Permission: ${p.code}`,
+          subtitle: `${p.category} · ${p.description}`,
           category: "Permissions",
           businessName: activeBizName,
           relevance: score,
@@ -1096,14 +1096,14 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     if ("communication center".includes(lower) || "bulk message".includes(lower) || "outreach".includes(lower) || "messaging".includes(lower)) {
       matched.push({
         id: "act-communication",
-        title: "Customer Communication Center",
+        title: "Message customers",
         subtitle: "Send bulk SMS, WhatsApp, and Emails to filtered customer segments",
         category: "Communication Center",
         businessName: activeBizName,
         relevance: 60,
         action: () => {
+          setSearchTarget({ kind: "feedback", tab: "messages" });
           onNavigateTab("feedback");
-          // NOTE: It navigates to the 'feedback' tab, which now houses the Communication Center sub-tab.
           setIsOpen(false);
           setQuery("");
         }

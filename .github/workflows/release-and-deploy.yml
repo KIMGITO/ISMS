@@ -9,6 +9,11 @@ name: Release and Deploy
 # releases/latest/download link lags behind new releases and sometimes answers 504.
 # The last step downloads it the way apps do and fails the run if apps couldn't update.
 #
+# Then the web app and website go live on Cloudflare, blue-green (deploy-web.yml): the new
+# version is checked on its own URL before it takes traffic, and rolled back if the live check fails.
+# Every failure, and each release, is posted to Slack (SLACK_WEBHOOK_URL).
+# Setup: docs/HOSTING_CLOUDFLARE.md and docs/DEPLOYMENT_AND_MONITORING.md.
+#
 # Commit rules (see scripts/release-version.mjs; emoji and scope are optional):
 #   MAJOR  🚀 feat!: / 🐛 fix!: (any type followed by "!"), or "BREAKING CHANGE" in the body
 #   MINOR  🚀 feat:
@@ -619,11 +624,59 @@ jobs:
             --warn "https://cdn.jsdelivr.net/gh/$PUBLIC_REPO@update-manifest/latest.json" \
             --warn "https://github.com/$PUBLIC_REPO/releases/latest/download/latest.json"
 
-      # ── PLACEHOLDER: deploy ─────────────────────────────────────────────────
-      # Add deployment here (web hosting, Supabase functions, a store upload...).
-      # It only runs after the release exists. Example:
-      # - name: Deploy edge functions
-      #   env:
-      #     SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      #   run: npx supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-      # ────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────
+  # 4. Put the web app and website live, blue-green (deploy-web.yml)
+  # ──────────────────────────────────────────
+  # Only after the release exists, so the web and the installed apps are the same version.
+  # A failed check leaves users on the previous version; see deploy-web.yml.
+  deploy-web:
+    name: Deploy web
+    needs: [version, release]
+    if: needs.version.outputs.bump != 'none'
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      target: both
+      version: ${{ needs.version.outputs.version }}
+      caller: release
+    secrets: inherit
+
+  # ──────────────────────────────────────────
+  # 5. Tell the developer in Slack
+  # ──────────────────────────────────────────
+  # Any failure, and each successful release. Pushes that release nothing stay quiet.
+  notify:
+    name: Tell Slack
+    needs: [version, build-windows, build-linux, build-android, build-website, release, deploy-web]
+    if: always() && (needs.version.outputs.bump != 'none' || contains(needs.*.result, 'failure'))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Work out what happened
+        id: result
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          failed=$(echo "$NEEDS" | jq -r 'to_entries | map(select(.value.result == "failure" or .value.result == "cancelled")) | map(.key) | join(", ")')
+          release=$(echo "$NEEDS" | jq -r '.release.result')
+          web=$(echo "$NEEDS" | jq -r '."deploy-web".result')
+          if [ -n "$failed" ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            if [ "$release" = "success" ]; then
+              echo "title=$TAG released to the apps, but: $failed failed" >> "$GITHUB_OUTPUT"
+              echo "details=Installed apps are updating to $TAG. Check the web deploy: users stay on the previous web version unless it switched." >> "$GITHUB_OUTPUT"
+            else
+              echo "title=${TAG:-Release} failed: $failed" >> "$GITHUB_OUTPUT"
+              echo "details=Nothing was released. Users and installed apps are unaffected." >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "title=$TAG is live" >> "$GITHUB_OUTPUT"
+            echo "details=Apps are updating; web app and website switched (web: $web)." >> "$GITHUB_OUTPUT"
+          fi
+      - uses: ./.github/actions/slack-notify
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: ${{ steps.result.outputs.status }}
+          title: ${{ steps.result.outputs.title }}
+          details: ${{ steps.result.outputs.details }}
