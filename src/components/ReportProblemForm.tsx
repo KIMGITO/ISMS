@@ -1,6 +1,6 @@
 // src/components/ReportProblemForm.tsx
 // About this app → Report a problem. Owners and admins only; the report goes to the
-// developer's Slack through the ops-alert function.
+// developer's Telegram through the ops-alert function.
 
 import { useState } from 'react';
 import { Send, CheckCircle2, AlertTriangle } from 'lucide-react';

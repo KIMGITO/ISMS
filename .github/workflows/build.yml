@@ -221,18 +221,19 @@ jobs:
           retention-days: 3
 
   # ──────────────────────────────────────────
-  # Tell the developer in Slack when a check or build breaks
+  # Tell the developer in Telegram when a check or build breaks
   # ──────────────────────────────────────────
   notify:
-    name: Tell Slack
+    name: Tell Telegram
     needs: [verify, build-desktop, build-android]
     if: failure()
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/slack-notify
+      - uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: failure
           title: "Build failed on ${{ github.event_name == 'pull_request' && format('pull request #{0}', github.event.number) || github.ref_name }}"
           details: "verify: ${{ needs.verify.result }} · desktop: ${{ needs.build-desktop.result }} · android: ${{ needs.build-android.result }}"

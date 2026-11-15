@@ -1,0 +1,73 @@
+name: Notify Telegram
+description: >
+  Sends a message to the developer's Telegram chat through a bot (the TELEGRAM_BOT_TOKEN
+  and TELEGRAM_CHAT_ID repository secrets). Never fails the job: missing secrets or a
+  Telegram outage only leave a warning.
+
+inputs:
+  token:
+    description: The bot token (pass secrets.TELEGRAM_BOT_TOKEN)
+    required: false
+    default: ""
+  chat_id:
+    description: The chat to send to (pass secrets.TELEGRAM_CHAT_ID)
+    required: false
+    default: ""
+  status:
+    description: success, failure, warning or info. Picks the icon.
+    required: true
+  title:
+    description: First line, in bold
+    required: true
+  details:
+    description: Further lines. Plain text; *words* between stars are shown in bold.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+        CHAT_ID: ${{ inputs.chat_id }}
+        STATUS: ${{ inputs.status }}
+        TITLE: ${{ inputs.title }}
+        DETAILS: ${{ inputs.details }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        COMMIT: ${{ github.sha }}
+        ACTOR: ${{ github.actor }}
+        WORKFLOW: ${{ github.workflow }}
+      run: |
+        if [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ]; then
+          echo "::warning::TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set, so Telegram was not told: $TITLE"
+          exit 0
+        fi
+        case "$STATUS" in
+          success) icon="✅" ;;
+          failure) icon="🔴" ;;
+          warning) icon="⚠️" ;;
+          *)       icon="ℹ️" ;;
+        esac
+        subject=$(git log -1 --format=%s "$COMMIT" 2>/dev/null || true)
+        payload=$(jq -n \
+          --arg chat "$CHAT_ID" \
+          --arg icon "$icon" \
+          --arg title "$TITLE" \
+          --arg details "$DETAILS" \
+          --arg context "$WORKFLOW · ${COMMIT:0:7}${subject:+ $subject} · by $ACTOR" \
+          --arg url "$RUN_URL" \
+          'def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+           def bold: gsub("\\*(?<b>[^*\n]+)\\*"; "<b>\(.b)</b>");
+           {
+             chat_id: $chat,
+             parse_mode: "HTML",
+             disable_web_page_preview: true,
+             text: ("\($icon) <b>\($title | esc)</b>"
+                    + (if $details == "" then "" else "\n\n" + ($details | esc | bold) end)
+                    + "\n\n<i>\($context | .[0:300] | esc)</i>"),
+             reply_markup: {inline_keyboard: [[{text: "Open the run", url: $url}]]}
+           }')
+        curl -fsS --retry 3 --max-time 15 -H 'Content-Type: application/json' -d "$payload" \
+          "https://api.telegram.org/bot${TOKEN}/sendMessage" >/dev/null \
+          || echo "::warning::Couldn't send to Telegram: $TITLE"

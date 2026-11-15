@@ -11,7 +11,7 @@ name: Release and Deploy
 #
 # Then the web app and website go live on Cloudflare, blue-green (deploy-web.yml): the new
 # version is checked on its own URL before it takes traffic, and rolled back if the live check fails.
-# Every failure, and each release, is posted to Slack (SLACK_WEBHOOK_URL).
+# Every failure, and each release, is posted to Telegram (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID).
 # Setup: docs/HOSTING_CLOUDFLARE.md and docs/DEPLOYMENT_AND_MONITORING.md.
 #
 # Commit rules (see scripts/release-version.mjs; emoji and scope are optional):
@@ -645,11 +645,11 @@ jobs:
     secrets: inherit
 
   # ──────────────────────────────────────────
-  # 5. Tell the developer in Slack
+  # 5. Tell the developer in Telegram
   # ──────────────────────────────────────────
   # Any failure, and each successful release. Pushes that release nothing stay quiet.
   notify:
-    name: Tell Slack
+    name: Tell Telegram
     needs: [version, build-windows, build-linux, build-android, build-website, release, deploy-web]
     if: always() && (needs.version.outputs.bump != 'none' || contains(needs.*.result, 'failure'))
     runs-on: ubuntu-24.04
@@ -678,9 +678,10 @@ jobs:
             echo "title=$TAG is live" >> "$GITHUB_OUTPUT"
             echo "details=Apps are updating; web app and website switched (web: $web)." >> "$GITHUB_OUTPUT"
           fi
-      - uses: ./.github/actions/slack-notify
+      - uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: ${{ steps.result.outputs.status }}
           title: ${{ steps.result.outputs.title }}
           details: ${{ steps.result.outputs.details }}

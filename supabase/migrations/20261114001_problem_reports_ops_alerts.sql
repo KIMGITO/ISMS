@@ -1,11 +1,11 @@
 -- Problem reports and crash alerts for the developer.
 --
 -- Owners and admins report a problem from About this app → Report a problem. The ops-alert
--- function saves it here and posts it to the developer's Slack channel, so a report is
--- never lost when Slack is down.
+-- function saves it here and posts it to the developer's Telegram chat, so a report is
+-- never lost when Telegram is down.
 --
 -- New crashes (and a crash reaching 10, 100 or 1000 occurrences) are also sent to ops-alert,
--- which posts them to Slack. That uses the same Vault secrets as the scheduled backups,
+-- which sends them to Telegram. That uses the same Vault secrets as the scheduled backups,
 -- project_url and service_role_key (see 20261105012); without them nothing is sent and
 -- crash reports are still saved as before.
 -- Needs 20261105003 (crash_reports) and the ops-alert function deployed first.
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.problem_reports (
     app_version  TEXT,
     app_commit   TEXT,
     status       TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved')),
-    slack_sent   BOOLEAN NOT NULL DEFAULT FALSE,
+    alert_sent   BOOLEAN NOT NULL DEFAULT FALSE,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     resolved_at  TIMESTAMPTZ
 );

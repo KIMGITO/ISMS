@@ -2,7 +2,7 @@ name: Back up database
 
 # Every night at 03:30 Nairobi time: a full dump of the Supabase database (roles, schema,
 # data), checked, encrypted and kept as a run artifact. Sunday's copy is kept longer.
-# A failed or suspicious backup is posted to Slack. The plan as a whole, and how to restore,
+# A failed or suspicious backup is posted to Telegram. The plan as a whole, and how to restore,
 # is in docs/BACKUP_AND_RECOVERY.md.
 #
 # Secrets:
@@ -109,11 +109,12 @@ jobs:
           echo "### Database backup $NAME" >> "$GITHUB_STEP_SUMMARY"
           echo "Data dump $(numfmt --to=iec "$DATA_BYTES"), kept $KEEP_DAYS days." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Tell Slack
+      - name: Tell Telegram
         if: failure()
-        uses: ./.github/actions/slack-notify
+        uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: failure
           title: Database backup failed
           details: "Last night's database backup did not complete, so the newest good copy is older than 24 hours. Open the run, fix it, then run *Back up database* by hand."

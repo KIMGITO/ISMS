@@ -63,11 +63,12 @@ jobs:
           sleep 10
           node scripts/smoke-test-web.mjs --url "$LIVE_URL" $SMOKE_PATHS
 
-      - name: Tell Slack
+      - name: Tell Telegram
         if: always()
-        uses: ./.github/actions/slack-notify
+        uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: ${{ job.status == 'success' && 'warning' || 'failure' }}
           title: "${{ env.LABEL }} ${{ job.status == 'success' && 'rolled back' || 'rollback FAILED' }}"
           details: >-

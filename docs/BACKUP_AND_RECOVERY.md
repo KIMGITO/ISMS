@@ -28,7 +28,7 @@ What KayKay's backs up, where, how often, how long it is kept, and how to restor
 | Layer | What | How often | Kept | Where | Who |
 |---|---|---|---|---|---|
 | **L1** Supabase project backups | Whole database | Daily (Pro plan); continuous with the PITR add-on | 7 days on Pro (Free plan: none you can restore) | Supabase | Automatic |
-| **L2** Nightly encrypted dump | Roles, schema and data (`backup-database.yml`) | 03:30 Nairobi every night, and by hand before risky migrations | Daily 14 days; Sunday's 90 days | GitHub Actions artifacts of this repo, AES-256 encrypted | Automatic; Slack on failure |
+| **L2** Nightly encrypted dump | Roles, schema and data (`backup-database.yml`) | 03:30 Nairobi every night, and by hand before risky migrations | Daily 14 days; Sunday's 90 days | GitHub Actions artifacts of this repo, AES-256 encrypted | Automatic; Telegram on failure |
 | **L3** Per-business Google Sheets | One business's sales, stock, customers, debts, wallet | The owner's schedule (Settings → Backup) | In the owner's sheet | The business's Google Drive | Each owner |
 | **L4** Offline copy | Latest Sunday L2 backup, the signing keys, the passphrase, a code bundle | First Monday of each month | 12 months | Encrypted USB drive kept off-site, plus a password manager for the passphrase and secrets | Developer |
 
@@ -136,7 +136,7 @@ A backup that has never been restored is a hope, not a backup.
 
 | Task | Who |
 |---|---|
-| Watch Slack for backup failures; rerun or fix the same day | Developer |
+| Watch Telegram for backup failures; rerun or fix the same day | Developer |
 | Monthly L4 copy and restore drill | Developer |
 | Keep Supabase on a plan with backups | Developer |
 | Set up and check their own Google Sheets backup | Each business owner |

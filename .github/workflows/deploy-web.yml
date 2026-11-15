@@ -112,11 +112,12 @@ jobs:
             echo "- Live: ${{ steps.deploy.outputs.live_url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Tell Slack (failed)
+      - name: Tell Telegram (failed)
         if: failure()
-        uses: ./.github/actions/slack-notify
+        uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: failure
           title: "${{ env.LABEL }} deploy failed"
           details: >-
@@ -124,11 +125,12 @@ jobs:
               || steps.deploy.outputs.rolled_back == 'failed' && '*Rollback also failed.* Run "Roll back web" now, or roll back in the Cloudflare dashboard (Workers → the Worker → Deployments).'
               || 'The new version never went live. Users are still on the previous version.' }}
 
-      - name: Tell Slack (live)
+      - name: Tell Telegram (live)
         if: success() && inputs.caller != 'release'
-        uses: ./.github/actions/slack-notify
+        uses: ./.github/actions/telegram-notify
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: success
           title: "${{ env.LABEL }} is live"
           details: ${{ steps.deploy.outputs.live_url }}

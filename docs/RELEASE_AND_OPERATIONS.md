@@ -2,7 +2,7 @@
 
 For whoever builds, signs and deploys KayKay's.
 
-See also [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) (blue-green web deploys, Slack alerts, problem reports, incidents) and [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) (backup plan and restores).
+See also [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) (blue-green web deploys, Telegram alerts, problem reports, incidents) and [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) (backup plan and restores).
 
 ## Android signing
 
@@ -34,7 +34,8 @@ The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
 | `TAURI_SIGNING_PRIVATE_KEY` | Contents of `~/.tauri/kaykays-updater.key` (signs desktop updates) |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Contents of `~/.tauri/kaykays-updater.password` |
 | `VITE_UNSPLASH_ACCESS_KEY`, `VITE_AI_NAME` | Optional |
-| `SLACK_WEBHOOK_URL` | Slack incoming webhook for alerts (DEPLOYMENT_AND_MONITORING.md) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for alerts (DEPLOYMENT_AND_MONITORING.md) |
+| `TELEGRAM_CHAT_ID` | Telegram chat the alerts go to |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Blue-green web deploys to Cloudflare (HOSTING_CLOUDFLARE.md) |
 | `VITE_SITE_URL`, `VITE_WEBSITE_SLUG` | Website build: its public address and storefront slug (HOSTING_CLOUDFLARE.md) |
 | `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | Nightly database backup (BACKUP_AND_RECOVERY.md) |
@@ -57,7 +58,7 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < ~/.tauri/kaykays-updater.pass
    `feat!:`/`fix!:` or `BREAKING CHANGE` is major, `feat:` minor, `fix:`/`perf:`/`refactor:` patch. Anything else releases nothing.
 2. It runs the type check and tests on Windows, then builds Windows (`.exe` and signed `.msi`), Linux (signed AppImage and `.deb`) and Android (signed APK).
 3. Only if all of that passed, it pushes the tag and publishes the GitHub Release with `latest.json`, also pushes `latest.json` to the `update-manifest` branch, and then downloads it and every installer the way apps do (`scripts/verify-update-manifest.mjs`). If that check fails, the run fails. A re-run after a half-finished release continues where it stopped.
-4. It deploys the staff web app and the website to Cloudflare, blue-green (`deploy-web.yml`), and posts the result to Slack.
+4. It deploys the staff web app and the website to Cloudflare, blue-green (`deploy-web.yml`), and sends the result to Telegram.
 
 `.github/workflows/build.yml` checks pull requests (all platforms, without update signing) and builds the APK on each push to `main`. It never publishes.
 

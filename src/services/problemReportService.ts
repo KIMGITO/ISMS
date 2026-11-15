@@ -1,6 +1,6 @@
 // src/services/problemReportService.ts
 // Owners and admins report a problem to the developer. The ops-alert function saves the
-// report and posts it to the developer's Slack channel. Personal details are scrubbed here
+// report and sends it to the developer's Telegram. Personal details are scrubbed here
 // first, the same way crash reports are.
 import { Capacitor } from '@capacitor/core';
 import { getSupabase } from './supabaseClient';

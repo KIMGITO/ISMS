@@ -1,5 +1,5 @@
 // supabase/functions/ops-alert/index.ts
-// Tells the developer when something goes wrong, in Slack (SLACK_WEBHOOK_URL).
+// Tells the developer when something goes wrong, in Telegram (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID).
 //
 //   GET                      Health check for an uptime monitor: is the database answering?
 //   POST {action:"report"}   An owner or admin reports a problem (About this app → Report a problem).
@@ -18,12 +18,12 @@ import {
   verifyUserMembership,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { postToSlack, slackEscape } from "../shared/slack.ts";
+import { sendAlert, htmlEscape } from "../shared/telegram.ts";
 
 const SEVERITY: Record<string, { label: string; icon: string }> = {
-  blocking: { label: "Can't work", icon: ":rotating_light:" },
-  broken: { label: "Something is wrong", icon: ":warning:" },
-  minor: { label: "Small issue or idea", icon: ":information_source:" },
+  blocking: { label: "Can't work", icon: "🚨" },
+  broken: { label: "Something is wrong", icon: "⚠️" },
+  minor: { label: "Small issue or idea", icon: "ℹ️" },
 };
 
 function adminClient() {
@@ -110,17 +110,17 @@ async function report(req: Request, body: any): Promise<Response> {
   }
 
   const level = SEVERITY[severity];
-  const sent = await postToSlack({
-    text: `${level.icon} *Problem report ${saved.reference}* · ${level.label}\n>${slackEscape(summary)}`,
+  const sent = await sendAlert({
+    text: `${level.icon} <b>Problem report ${saved.reference}</b> · ${level.label}\n<i>${htmlEscape(summary)}</i>`,
     fields: [
-      ["Business", slackEscape(await businessName(admin, businessId))],
-      ["Reported by", slackEscape(`${employee?.name ?? "Unknown"} (${role})`)],
-      ["App", slackEscape(`${text(body.appVersion, 32) || "?"} on ${text(body.platform, 32) || "?"}`)],
-      ["Screen", slackEscape(text(body.screen, 64) || "—")],
+      ["Business", await businessName(admin, businessId)],
+      ["Reported by", `${employee?.name ?? "Unknown"} (${role})`],
+      ["App", `${text(body.appVersion, 32) || "?"} on ${text(body.platform, 32) || "?"}`],
+      ["Screen", text(body.screen, 64) || "—"],
     ],
     code: details || undefined,
   });
-  if (sent) await admin.from("problem_reports").update({ slack_sent: true }).eq("id", saved.id);
+  if (sent) await admin.from("problem_reports").update({ alert_sent: true }).eq("id", saved.id);
 
   // Saved either way; the developer also sees unsent reports in the table.
   return jsonResponse({ success: true, reference: saved.reference, notified: sent });
@@ -130,7 +130,7 @@ async function crash(body: any): Promise<Response> {
   const crashId = text(body.crashId, 64);
   if (!crashId) return errorResponse("crashId is required.", 400);
 
-  // Crashes before sign-in can be sent by anyone, so cap how many reach Slack.
+  // Crashes before sign-in can be sent by anyone, so cap how many reach Telegram.
   const limited = await enforceRateLimit("ops-crash-alerts", 30, 3600);
   if (limited) return jsonResponse({ success: true, skipped: "rate_limited" });
 
@@ -143,14 +143,14 @@ async function crash(body: any): Promise<Response> {
   if (error || !c) return errorResponse("Crash not found.", 404);
 
   const isNew = c.occurrences <= 1;
-  const sent = await postToSlack({
+  const sent = await sendAlert({
     text: isNew
-      ? `:boom: *New crash* in ${slackEscape(c.app_version || "?")}\n>${slackEscape(c.message)}`
-      : `:chart_with_upwards_trend: *Crash seen ${c.occurrences} times*\n>${slackEscape(c.message)}`,
+      ? `💥 <b>New crash</b> in ${htmlEscape(c.app_version || "?")}\n<i>${htmlEscape(c.message)}</i>`
+      : `📈 <b>Crash seen ${c.occurrences} times</b>\n<i>${htmlEscape(c.message)}</i>`,
     fields: [
-      ["Business", slackEscape(await businessName(admin, c.business_id))],
-      ["Platform", slackEscape(c.platform || "?")],
-      ["Screen", slackEscape(c.screen || "—")],
+      ["Business", await businessName(admin, c.business_id)],
+      ["Platform", c.platform || "?"],
+      ["Screen", c.screen || "—"],
       ["First seen", new Date(c.first_seen_at).toISOString().replace("T", " ").slice(0, 16) + " UTC"],
     ],
     code: (c.stack || "").split("\n").slice(0, 12).join("\n") || undefined,
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
         return await crash(body);
       case "test": {
         if (!isServiceRole(req)) return errorResponse("Not allowed.", 403);
-        const sent = await postToSlack({ text: ":white_check_mark: KayKay's alerts are connected to this channel." });
+        const sent = await sendAlert({ text: "✅ KayKay's alerts are connected to this chat." });
         return jsonResponse({ success: sent }, sent ? 200 : 502);
       }
       default:

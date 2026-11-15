@@ -116,9 +116,9 @@ Without this, Google sign-in and password-reset links land on the wrong site or 
 | 1. Build and check | `npm run build` with `VITE_ORT_WASM_FROM_CDN=1`, or `npm run website:build`; then `prepare-cloudflare.mjs` | Nothing changed |
 | 2. Note blue | `wrangler deployments status`: the version taking 100% of traffic | — |
 | 3. Upload green | `wrangler versions upload`: new version, **no traffic**, own preview URL `https://<id>-kaykays-app.<sub>.workers.dev` | Nothing changed |
-| 4. Check green | `smoke-test-web.mjs` on the preview URL (website also `/terms`, `/privacy`) | Nothing changed. Slack: "never went live" |
+| 4. Check green | `smoke-test-web.mjs` on the preview URL (website also `/terms`, `/privacy`) | Nothing changed. Telegram: "never went live" |
 | 5. Switch | `wrangler versions deploy <green>@100%`: all traffic moves at once | Blue keeps serving |
-| 6. Check live | The same check on `APP_URL` / `WEBSITE_URL` (or the workers.dev address) | `wrangler versions deploy <blue>@100%` at once. Slack: "rolled back" |
+| 6. Check live | The same check on `APP_URL` / `WEBSITE_URL` (or the workers.dev address) | `wrangler versions deploy <blue>@100%` at once. Telegram: "rolled back" |
 
 Exit codes: 0 live, 1 nothing changed, 2 rolled back, 3 rollback failed. CI shows blue, green, the preview URL and the result in the run summary.
 
