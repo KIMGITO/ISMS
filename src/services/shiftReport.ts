@@ -17,6 +17,7 @@ export interface ShiftReport {
   salesTotal: number;
   cash: number;
   mpesa: number;
+  airtel: number;
   card: number;
   bank: number;
   credit: number;
@@ -67,6 +68,7 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     salesTotal: 0,
     cash: 0,
     mpesa: 0,
+    airtel: 0,
     credit: 0,
     card: 0,
     bank: 0,
@@ -90,6 +92,7 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     if (tx.isDelivery) report.deliveries += 1;
     if (tx.paymentMethod === 'Cash') report.cash += amount;
     else if (tx.paymentMethod === 'M-Pesa') report.mpesa += amount;
+    else if (tx.paymentMethod === 'Airtel Money') report.airtel += amount;
     else if (tx.paymentMethod === 'Card') report.card += amount;
     else if (tx.paymentMethod === 'Bank') report.bank += amount;
     else if (tx.paymentMethod === 'Credit' || tx.paymentMethod === 'Credit_Debt') {
@@ -145,7 +148,7 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     report.expenses.push({ category: e.category, amount: e.amount, method, note: e.description || '' });
   }
 
-  for (const key of ['salesTotal', 'cash', 'mpesa', 'credit', 'other', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses'] as const) {
+  for (const key of ['salesTotal', 'cash', 'mpesa', 'airtel', 'credit', 'other', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses'] as const) {
     report[key] = round(report[key]);
   }
   report.expectedCash = round(report.cash + report.cashDebtRepaid - report.cashExpenses);
@@ -170,6 +173,7 @@ export function shiftReportText(r: ShiftReport, extra: { countedCash?: number | 
   lines.push(`- Total: ${ksh(r.salesTotal)} from ${r.salesCount} ${r.salesCount === 1 ? 'sale' : 'sales'}`);
   lines.push(`- Cash: ${ksh(r.cash)}`);
   lines.push(`- M-Pesa: ${ksh(r.mpesa)}`);
+  if (r.airtel) lines.push(`- Airtel Money: ${ksh(r.airtel)}`);
   if (r.credit) lines.push(`- On credit: ${ksh(r.credit)}`);
   if (r.card) lines.push(`- Card: ${ksh(r.card)}`);
   if (r.bank) lines.push(`- Bank: ${ksh(r.bank)}`);

@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Gift, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Gift, Lock, MapPin, Minus, Plus, ShoppingBag, Store, Tag, Trash2, Truck, X } from 'lucide-react';
 import { checkPromoCode, CartLine, fetchRewards, friendlyError, placeOrder, Product, PromoCheck, Rewards } from '../api';
 import { navigate } from '../router';
 import { productPaths } from '../seo';
-import { useAuth, useCart, usePromo, useStorefront } from '../store';
+import { useAuth, useCart, usePanels, usePromo, useStorefront } from '../store';
+import { hasStorePicker } from '../stores';
 import { cardClass, ErrorText, fieldClass, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, promotionLabel, TrustStrip } from '../ui';
 import { AuthForms, FinishAccountForm } from './AuthForms';
 
@@ -114,7 +115,8 @@ function PromoField({ subtotal }: { subtotal: number }) {
 
 function DeliveryEstimate() {
   const { settings, deliveryZones, business, branches } = useStorefront();
-  const pickupAt = branches.find((b) => b.address)?.address ?? business.address;
+  // Each branch is its own shop, so pickup is at this shop's own address first.
+  const pickupAt = business.address ?? branches.find((b) => b.address)?.address;
   return (
     <div className="space-y-2 text-sm text-muted">
       {settings.deliveryEnabled && (
@@ -349,6 +351,13 @@ export function CheckoutPage() {
 
           <section className={`${cardClass} space-y-4 p-5`}>
             <h2 className="text-lg font-medium">2. Delivery or pickup</h2>
+            {hasStorePicker(site) && (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-shell px-3 py-2.5 text-sm">
+                <Store size={16} className="shrink-0 text-ember" aria-hidden />
+                <span className="min-w-0 flex-1">Prepared by <strong className="font-semibold">{business.name}</strong>{business.address ? `, ${business.address}` : ''}</span>
+                <button type="button" onClick={() => usePanels.getState().open('store')} className="font-medium text-ember underline">Change store</button>
+              </p>
+            )}
             <fieldset>
               <legend className="sr-only">How would you like to receive it?</legend>
               <div className="grid gap-2 sm:grid-cols-2">

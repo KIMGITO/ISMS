@@ -8,6 +8,8 @@ export interface TabOption<T extends string> {
   badge?: number;
   /** Shows a small dot, for something new inside the tab. */
   dot?: boolean;
+  /** `data-shortcut` name, so global search and page keys can open this tab. */
+  shortcut?: string;
 }
 
 interface TabsProps<T extends string> {
@@ -33,6 +35,7 @@ export function Tabs<T extends string>({
             type="button"
             role="tab"
             aria-selected={isActive}
+            data-shortcut={tab.shortcut}
             onClick={() => onChange(tab.id)}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded text-[11px] font-black uppercase tracking-widest transition-all ${
               isActive

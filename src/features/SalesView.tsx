@@ -30,6 +30,8 @@ function getPaymentMethodLabel(method: string | undefined): string {
       return 'Cash';
     case 'M-Pesa':
       return 'M-Pesa';
+    case 'Airtel Money':
+      return 'Airtel Money';
     case 'Card':
       return 'Card';
     case 'Bank':

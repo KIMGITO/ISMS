@@ -11,6 +11,7 @@ import {
 import type { Customer, MpesaPrompt, TillPayment } from '../types';
 import { MpesaRepository, type MpesaStatus, type TillPaymentAction } from '../services/repositories';
 import { useAppStore } from '../stores/appStore';
+import { useUiStore } from '../stores/uiStore';
 import { hasRolePermission } from '../utils/permissions';
 import { formatCurrency } from '../utils/helpers';
 import { toUserMessage } from '../utils/userError';
@@ -212,7 +213,8 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
             <Send size={16} className="text-emerald-600" /> Ask a customer to pay
           </h3>
           <p className="text-xs text-app-text-muted mb-4">
-            Sends an M-Pesa prompt to their phone.</p>
+            Sends an M-Pesa prompt to their phone. For a faster screen that follows each prompt live (and Airtel Money), use{' '}
+            <button type="button" onClick={() => useUiStore.getState().setActiveTab('prompt')} className="font-semibold text-emerald-600 hover:underline cursor-pointer">Payment Prompts</button> (G then G).</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 sm:col-span-2">
               <span className={label}>Who is paying?</span>

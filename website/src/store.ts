@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Session } from '@supabase/supabase-js';
-import { Account, CartLine, createAccount, fetchAccount, Storefront, supabase } from './api';
+import { Account, CartLine, createAccount, fetchAccount, friendlyError, Storefront, supabase } from './api';
 
 const safeStorage = createJSONStorage(() => ({
   getItem: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
@@ -53,6 +53,8 @@ interface AuthState {
   account: Account | null;
   recovering: boolean;
   refreshAccount: () => Promise<void>;
+  /** Why the account couldn't be loaded or created, in words a customer understands. */
+  accountError: string;
   setRecovering: (recovering: boolean) => void;
 }
 
@@ -61,23 +63,29 @@ export const useAuth = create<AuthState>((set, get) => ({
   session: null,
   account: null,
   recovering: false,
+  accountError: '',
   setRecovering: (recovering) => set({ recovering }),
   refreshAccount: async () => {
     const { session } = get();
     if (!session) {
-      set({ account: null });
+      set({ account: null, accountError: '' });
       return;
     }
-    let account = await fetchAccount();
-    if (!account) {
-      // Name and phone are kept in the sign-up metadata until the email is confirmed.
-      const meta = session.user.user_metadata;
-      if (meta?.name && meta?.customer_phone) {
-        await createAccount(meta.name, meta.customer_phone);
-        account = await fetchAccount();
+    try {
+      let account = await fetchAccount();
+      if (!account) {
+        // Name and phone are kept in the sign-up metadata until the email is confirmed.
+        const meta = session.user.user_metadata;
+        if (meta?.account_type === 'customer' && meta?.name && meta?.customer_phone) {
+          await createAccount(meta.name, meta.customer_phone);
+          account = await fetchAccount();
+        }
       }
+      set({ account, accountError: '' });
+    } catch (err) {
+      set({ account: null, accountError: friendlyError(err, 'We couldn\'t open your account. Please refresh the page and try again.') });
+      throw err;
     }
-    set({ account });
   },
 }));
 
@@ -134,8 +142,9 @@ export const useRecent = create<RecentState>()(
   ),
 );
 
-/** The slide-in cart and the mobile menu. Only one is open at a time. */
-export const usePanels = create<{ panel: 'cart' | 'menu' | null; open: (panel: 'cart' | 'menu') => void; close: () => void }>((set) => ({
+/** The slide-in cart, the menu, the categories list and the store picker. Only one is open at a time. */
+export type Panel = 'cart' | 'menu' | 'categories' | 'store';
+export const usePanels = create<{ panel: Panel | null; open: (panel: Panel) => void; close: () => void }>((set) => ({
   panel: null,
   open: (panel) => set({ panel }),
   close: () => set({ panel: null }),

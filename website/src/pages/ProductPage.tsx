@@ -1,12 +1,14 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Check, ChevronDown, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { Check, ChevronDown, Clock, MapPin, Minus, Plus, Share2, ShoppingBag, Store } from 'lucide-react';
 import { pointsOn } from '../points';
 import { productPaths } from '../seo';
 import { navigate } from '../router';
-import { useRecent, useStorefront } from '../store';
+import { usePanels, useRecent, useStorefront } from '../store';
+import { hasStorePicker } from '../stores';
 import { formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, TrustStrip } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
-import ProductCard, { SaveButton, useAddToCart } from './ProductCard';
+import { OfferRibbon, PriceLine, SaveButton, useAddToCart } from './ProductCard';
+import ProductCarousel from './ProductCarousel';
 import { ProductReviews, RatingLine } from './Reviews';
 
 function Accordion({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
@@ -73,6 +75,32 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
+/** Which branch sells it, like a marketplace's seller box, with a way to switch. */
+function SoldBy() {
+  const site = useStorefront();
+  const open = usePanels((s) => s.open);
+  const { business, settings } = site;
+  const address = business.address ?? site.branches.find((b) => b.address)?.address ?? null;
+  return (
+    <div className="mt-6 rounded-xl border border-line p-4">
+      <p className="text-sm font-medium text-muted">Sold by</p>
+      <div className="mt-2 flex items-start gap-3">
+        <img src={business.logoUrl || '/logo.png'} alt="" className="size-11 shrink-0 rounded-full border border-line object-cover" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{business.name}</p>
+          {address && <p className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><MapPin size={14} className="mt-0.5 shrink-0" aria-hidden /> {address}</p>}
+          {settings.openingHours && <p className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Clock size={14} className="mt-0.5 shrink-0" aria-hidden /> {settings.openingHours}</p>}
+        </div>
+        {hasStorePicker(site) && (
+          <button onClick={() => open('store')} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-ember hover:underline">
+            <Store size={14} aria-hidden /> Change store
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductPage({ path }: { path: string }) {
   const site = useStorefront();
   const { products, business, settings, deliveryZones } = site;
@@ -106,8 +134,9 @@ export default function ProductPage({ path }: { path: string }) {
     );
   }
 
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id && p.inStock).slice(0, 4);
-  const recent = recentIds.filter((id) => id !== product.id).map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 4);
+  const related = products.filter((p) => p.category === product.category && p.id !== product.id && p.inStock).slice(0, 12);
+  const others = products.filter((p) => p.category !== product.category && p.inStock).slice(0, 12);
+  const recent = recentIds.filter((id) => id !== product.id).map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 12);
   const lineTotal = product.price * quantity;
   const handleAdd = () => {
     addToCart(product, quantity);
@@ -140,11 +169,12 @@ export default function ProductPage({ path }: { path: string }) {
         <div className="mt-4 grid gap-8 md:grid-cols-2 lg:gap-14">
           <div className="relative md:sticky md:top-36 md:self-start">
             <div className="aspect-square overflow-hidden rounded-xl border border-line bg-shell p-3 sm:p-5">
-              <div className="size-full overflow-hidden rounded-lg">
-                <ProductImage product={product} width={1000} />
+              <div className="size-full overflow-hidden rounded-lg bg-white">
+                <ProductImage product={product} width={1000} fit="contain" />
               </div>
             </div>
-            {!product.inStock && <span className="absolute left-4 top-4 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-cream">Sold out</span>}
+            <OfferRibbon product={product} className="top-5 text-sm" />
+            {!product.inStock && <span className="absolute right-4 top-4 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-cream">Sold out</span>}
           </div>
 
           <div>
@@ -157,10 +187,10 @@ export default function ProductPage({ path }: { path: string }) {
             </div>
             <h1 className="display-lg mt-1">{product.name}</h1>
             <RatingLine reviews={(site.reviews ?? []).filter((r) => r.productId === product.id)} href="#reviews" className="mt-2" />
-            <p className="mt-3 text-3xl font-semibold text-leaf">
-              {formatPrice(business.currency, product.price)}
-              <span className="text-sm font-normal text-muted"> per {perUnit(product.unit)}</span>
-            </p>
+            <div className="mt-3">
+              <PriceLine product={product} currency={business.currency} large />
+              <p className="text-sm text-muted">per {perUnit(product.unit)}</p>
+            </div>
             <p className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${product.inStock ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
               <span className={`size-2 rounded-full ${product.inStock ? 'bg-emerald-600' : 'bg-red-600'}`} />
               {product.inStock ? 'In stock, ready to order' : 'Out of stock right now'}
@@ -204,6 +234,8 @@ export default function ProductPage({ path }: { path: string }) {
               ))}
             </dl>
 
+            <SoldBy />
+
             <div className="mt-6 border-t border-line">
               <Accordion title="Delivery & pickup" open>
                 <p>{deliveryText}</p>
@@ -230,23 +262,11 @@ export default function ProductPage({ path }: { path: string }) {
 
         <ProductReviews productId={product.id} productName={product.name} />
 
-        {related.length > 0 && (
-          <section className="mt-14" aria-labelledby="related-heading">
-            <h2 id="related-heading" className="display-md">More {product.category}</h2>
-            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
-              {related.map((p) => <ProductCard key={p.id} product={p} />)}
-            </ul>
-          </section>
-        )}
-        {recent.length > 0 && (
-          <section className="mt-14" aria-labelledby="recent-heading">
-            <h2 id="recent-heading" className="display-md">Recently viewed</h2>
-            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
-              {recent.map((p) => <ProductCard key={p.id} product={p} />)}
-            </ul>
-          </section>
-        )}
       </div>
+
+      <ProductCarousel id="related" title={`More ${product.category}`} products={related} viewAll={`/shop?category=${encodeURIComponent(product.category)}`} />
+      <ProductCarousel id="top-selling" title="Top selling products" products={others} viewAll="/shop" />
+      <ProductCarousel id="recent" title="Recently viewed" products={recent} />
 
       {product.inStock && <div className="h-16 md:hidden" aria-hidden />}
       {product.inStock && (

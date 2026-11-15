@@ -33,7 +33,8 @@ import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
 import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
 import { Transaction, DebtPayment, CustomerLedgerEntry, CUSTOMER_TYPE_LABELS, PAYMENT_TERMS_LABELS, DELIVERY_FREQUENCY_LABELS, type MoneyMethod } from "../types";
-import { MONEY_METHODS } from "../utils/paymentMethods";
+import { usePaymentMethods } from "../hooks/usePaymentMethods";
+import { openPaymentPrompt, usePromptProviders } from "./PaymentPromptView";
 import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
@@ -139,6 +140,12 @@ export default function CustomersView() {
   const [invoicesError, setInvoicesError] = useState('');
   const [invoiceView, setInvoiceView] = useState<'active' | 'archived'>('active');
   const [payMethod, setPayMethod] = useState<MoneyMethod>('Cash');
+  // Only the methods this business has switched on.
+  const payMethods = usePaymentMethods();
+  const promptProviders = usePromptProviders();
+  useEffect(() => {
+    if (!payMethods.includes(payMethod)) setPayMethod(payMethods[0]);
+  }, [payMethods, payMethod]);
   const [adjustNote, setAdjustNote] = useState('');
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
@@ -1160,8 +1167,8 @@ export default function CustomersView() {
                             <span className={`text-sm font-semibold tabular-nums ${debt > 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text-muted'}`}>Owes {formatCurrency(debt)}</span>
                           </div>
                           <p className="text-xs text-app-text-muted mt-0.5">Money paid towards what they owe.</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3" role="radiogroup" aria-label="Paid by">
-                            {MONEY_METHODS.map((m) => (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" role="radiogroup" aria-label="Paid by">
+                            {payMethods.map((m) => (
                               <button
                                 key={m}
                                 type="button"
@@ -1174,6 +1181,15 @@ export default function CustomersView() {
                               </button>
                             ))}
                           </div>
+                          {promptProviders.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openPaymentPrompt({ customerId: selectedCustomer.id, phone: selectedCustomer.phone, amount: amount > 0 ? amount : debt, provider: payMethod === 'Airtel Money' ? 'airtel' : payMethod === 'M-Pesa' ? 'mpesa' : undefined })}
+                              className="mt-2 mr-3 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                            >
+                              Send a payment prompt to their phone →
+                            </button>
+                          )}
                           {debt > 0 && amount !== debt && (
                             <button type="button" onClick={() => setAdjustAmt(debt)} className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
                               Pay all {formatCurrency(debt)}

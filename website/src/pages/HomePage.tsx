@@ -1,13 +1,13 @@
 import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, MessageCircle, Phone, ShoppingCart, Tag, Truck } from 'lucide-react';
 import { Product } from '../api';
-import { pointsOn } from '../points';
-import { PHOTOS, photoUrl, productPhoto } from '../images';
+import { AdCard, AD_TONES, visibleAdCards } from '../adCards';
+import { photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
 import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle, safeHref, visibleHeroSlides } from '../heroSlides';
 import { formatDate, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
 import { Testimonials } from './Reviews';
-import ProductCard from './ProductCard';
+import ProductCarousel from './ProductCarousel';
 import { ArticleCard } from './ArticlesPage';
 
 const SLIDE_MS = 7000;
@@ -144,7 +144,7 @@ function Promotions() {
   const { promotions = [], business } = useStorefront();
   if (promotions.length === 0) return null;
   return (
-    <section className="site-gutter pt-8" aria-label="Offers">
+    <section className="site-gutter pt-6 sm:pt-8" aria-label="Promo codes">
       <ul className="grid gap-3 md:grid-cols-2">
         {promotions.slice(0, 4).map((promo) => (
           <li key={promo.code} className="flex items-center gap-3 rounded-lg border border-dashed border-ember/50 bg-amber-50 p-3.5 sm:gap-4 sm:p-4">
@@ -163,111 +163,137 @@ function Promotions() {
   );
 }
 
-// Three across even on phones, like a shop shelf; six on wide screens.
-const productGrid = 'grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
-
-function ProductSection({ id, title, subtitle, products, link }: { id: string; title: string; subtitle: string; products: Product[]; link?: boolean }) {
-  return (
-    <section id={id} className="site-gutter scroll-mt-32 pt-12 sm:pt-16" aria-labelledby={`${id}-heading`}>
-      <Reveal><SectionHeader center id={`${id}-heading`} title={title} subtitle={subtitle} /></Reveal>
-      <RevealList className={`mt-6 sm:mt-8 ${productGrid}`}>
-        {products.map((product) => <ProductCard key={product.id} product={product} />)}
-      </RevealList>
-      {link && (
-        <div className="mt-6 text-center">
-          <a href="/shop" className="btn btn-secondary">View all products <ArrowRight size={15} aria-hidden /></a>
-        </div>
-      )}
-    </section>
-  );
+/** Each category's picture: its first product with a photo, or a matching stock photo. */
+function categoryImage(category: string, products: Product[]): { src: string; contain: boolean } {
+  const withImage = products.find((p) => p.category === category && p.image);
+  if (withImage?.image) return { src: withImage.image, contain: true };
+  return { src: photoUrl(productPhoto(category), 240, 240), contain: false };
 }
 
-/** The wide two-part banner between product rows: brand colour on the left, photo cut on a slant. */
-function PromoBanner() {
-  const halves = [
-    { kicker: '100%', title: 'Natural', body: 'Pure farm milk', photo: PHOTOS.pour, bg: 'bg-[#f3b04a]', href: '/shop' },
-    { kicker: 'Fresh', title: 'Every day', body: 'Yoghurt, butter and more', photo: PHOTOS.yoghurt, bg: 'bg-[#f6cf7d]', href: '/shop' },
-  ];
-  return (
-    <section className="site-gutter pt-12 sm:pt-16" aria-label="Featured">
-      <Reveal className="grid grid-cols-2 overflow-hidden rounded-xl">
-        {halves.map((half) => (
-          <a key={half.title} href={half.href} className={`group relative flex h-24 items-center overflow-hidden sm:h-44 ${half.bg}`}>
-            <img
-              src={photoUrl(half.photo, 700, 400)}
-              alt=""
-              loading="lazy"
-              className="absolute inset-y-0 right-0 h-full w-1/2 object-cover sm:w-[58%] transition duration-700 [clip-path:polygon(22%_0,100%_0,100%_100%,0_100%)] group-hover:scale-105"
-            />
-            <span className="relative z-10 pl-3 sm:pl-10">
-              <span className="block text-[0.625rem] font-medium text-brand-deep sm:text-sm">{half.kicker}</span>
-              <span className="block text-base font-semibold leading-tight text-ember sm:text-4xl">{half.title}</span>
-              <span className="mt-0.5 hidden text-sm text-ink/70 sm:block">{half.body}</span>
-            </span>
-            <span className="absolute bottom-2 right-2 z-10 rounded-full bg-white/95 px-2 py-0.5 text-[0.625rem] font-medium text-ink shadow-soft sm:bottom-5 sm:right-6 sm:px-3 sm:py-1 sm:text-sm">
-              Shop now
-            </span>
-          </a>
-        ))}
-      </Reveal>
-    </section>
-  );
-}
-
-/** Three photo-backed cards: the biggest categories, topped up with regular orders and rewards. */
-function CategoryBanners() {
-  const { products, loyalty } = useStorefront();
+/** "Shop by category": round pictures in a row, the biggest categories first. Swipes on phones. */
+function CategoryCircles() {
+  const { products } = useStorefront();
   const counts = new Map<string, number>();
   for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
-  const fromCategories = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([category, count]) => ({
-      kicker: `${count} ${count === 1 ? 'product' : 'products'}`,
-      title: category,
-      href: `/shop?category=${encodeURIComponent(category)}`,
-      photo: productPhoto(category),
-      cta: 'Order now',
-    }));
-  const extras = [
-    { kicker: 'Every week', title: 'Regular orders', href: '/account/schedules', photo: PHOTOS.pour, cta: 'Set up' },
-    ...(pointsOn({ loyalty })
-      ? [{ kicker: `${loyalty?.pointsPerShilling ?? 2} points per shilling`, title: 'Rewards', href: '/account/rewards', photo: PHOTOS.butter, cta: 'My points' }]
-      : []),
-    { kicker: 'Milk care', title: 'Guides', href: '/articles', photo: PHOTOS.bottleTray, cta: 'Read' },
-  ];
-  const cards = [...fromCategories, ...extras].slice(0, 3);
-  const looks = [
-    { bg: 'bg-[#f6d27a]', fade: 'from-[#f6d27a]', text: 'text-ink', button: 'btn-dark' },
-    { bg: 'bg-hero', fade: 'from-hero', text: 'text-cream', button: 'btn-primary' },
-    { bg: 'bg-[#f2b27c]', fade: 'from-[#f2b27c]', text: 'text-ink', button: 'btn-dark' },
-  ];
-
+  const categories = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).map(([c]) => c).slice(0, 8);
+  if (categories.length < 2) return null;
   return (
-    <section className="site-gutter pt-12 sm:pt-16" aria-label="Browse">
-      <RevealList className="grid gap-3 sm:gap-5 md:grid-cols-3">
-        {cards.map((card, index) => {
-          const look = looks[index];
+    <section className="site-gutter pt-8 sm:pt-10" aria-labelledby="categories-heading">
+      <h2 id="categories-heading" className="display-md text-center font-semibold">Top Picks by Category</h2>
+      <ul className="no-scrollbar -mx-4 mt-5 flex snap-x gap-4 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:justify-center sm:gap-6 sm:scroll-px-0 sm:px-0 lg:gap-8">
+        {categories.map((category) => {
+          const image = categoryImage(category, products);
           return (
-            <li key={card.title}>
-              <a href={card.href} className={`group relative flex h-28 overflow-hidden rounded-xl sm:h-52 ${look.bg} ${look.text}`}>
-                <img
-                  src={photoUrl(card.photo, 600, 420)}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-y-0 right-0 h-full w-2/3 object-cover transition duration-700 group-hover:scale-105"
-                />
-                <span className={`absolute inset-y-0 left-0 w-2/3 bg-gradient-to-r ${look.fade} from-45% to-transparent`} aria-hidden />
-                <span className="relative z-10 flex flex-col p-3.5 sm:p-5">
-                  <span className="text-xs font-medium text-ember">{card.kicker}</span>
-                  <span className="mt-0.5 text-lg font-medium capitalize leading-tight sm:text-xl">{card.title}</span>
-                  <span className={`btn btn-sm mt-auto w-fit ${look.button}`}>{card.cta}</span>
+            <li key={category} className="shrink-0 snap-start">
+              <a href={`/shop?category=${encodeURIComponent(category)}`} className="flex w-[4.625rem] flex-col items-center gap-2 text-center lg:w-[7.5rem]">
+                <span className="category-circle">
+                  <img src={image.src} alt="" loading="lazy" className={`size-full ${image.contain ? 'object-contain p-2 lg:p-3' : 'object-cover'}`} />
                 </span>
+                <span className="line-clamp-2 text-xs font-medium capitalize leading-snug sm:text-sm">{category}</span>
               </a>
             </li>
           );
         })}
-      </RevealList>
+      </ul>
+      <p className="mt-3 text-center">
+        <a href="/shop" className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-ember hover:underline">
+          View all categories <ArrowRight size={14} aria-hidden />
+        </a>
+      </p>
+    </section>
+  );
+}
+
+/** One advert: brand colour panel, short text and a pill on the left, a picture on the right. */
+function AdPoster({ card }: { card: AdCard }) {
+  const tone = AD_TONES[card.tone ?? 'cream'];
+  return (
+    <a
+      href={safeHref(card.href)}
+      className="group relative flex aspect-[4/3] overflow-hidden rounded-xl sm:aspect-[4/3]"
+      style={{ background: tone.bg, color: tone.text }}
+    >
+      {card.image && (
+        <img
+          src={card.image}
+          alt=""
+          loading="lazy"
+          className="absolute bottom-0 right-0 h-[78%] w-[52%] object-contain object-bottom drop-shadow-[0_12px_14px_rgba(35,22,14,0.25)] transition duration-700 group-hover:scale-105"
+        />
+      )}
+      <span className="relative z-10 flex w-[62%] flex-col p-4 sm:p-5 lg:p-6">
+        {card.kicker && <span className="text-[0.6875rem] font-semibold uppercase tracking-wide sm:text-xs" style={{ color: tone.kicker }}>{card.kicker}</span>}
+        <span className="mt-1 text-lg font-semibold leading-tight sm:text-xl lg:text-2xl">{card.title}</span>
+        {card.body && <span className="mt-1.5 line-clamp-3 text-xs opacity-80 sm:text-sm">{card.body}</span>}
+        {card.ctaLabel && (
+          <span className="mt-auto inline-flex w-fit items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold sm:text-sm" style={{ background: tone.button, color: tone.buttonText }}>
+            {card.ctaLabel} <ArrowRight size={13} aria-hidden />
+          </span>
+        )}
+      </span>
+    </a>
+  );
+}
+
+/** The thin full-width offer bar between sections. */
+function AdStrip({ card }: { card: AdCard }) {
+  const tone = AD_TONES[card.tone ?? 'ember'];
+  return (
+    <a
+      href={safeHref(card.href)}
+      className="flex min-h-14 items-center gap-3 overflow-hidden rounded-xl px-4 py-2.5 sm:min-h-16 sm:px-6"
+      style={{ background: tone.bg, color: tone.text }}
+    >
+      <Tag size={18} className="shrink-0" aria-hidden style={{ color: tone.kicker }} />
+      <span className="min-w-0 flex-1 leading-tight">
+        {card.kicker && <span className="mr-2 text-[0.6875rem] font-semibold uppercase tracking-wide max-sm:block sm:text-xs" style={{ color: tone.kicker }}>{card.kicker}</span>}
+        <span className="text-sm font-semibold sm:text-base">{card.title}</span>
+        {card.body && <span className="ml-2 hidden text-sm opacity-80 md:inline">{card.body}</span>}
+      </span>
+      {card.ctaLabel && (
+        <span className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold sm:text-sm" style={{ background: tone.button, color: tone.buttonText }}>
+          {card.ctaLabel}
+        </span>
+      )}
+    </a>
+  );
+}
+
+function AdPosters({ cards }: { cards: AdCard[] }) {
+  if (cards.length === 0) return null;
+  return (
+    <section className="site-gutter pt-8 sm:pt-10" aria-label="Offers and news">
+      <ul className="poster-row -mx-4 scroll-px-4 px-4 sm:mx-0 sm:scroll-px-0 sm:px-0">
+        {cards.map((card, index) => <li key={card.id || index}><AdPoster card={card} /></li>)}
+      </ul>
+    </section>
+  );
+}
+
+/** Ways to order without the website, like a shop's "get the app" band. */
+function OrderAnyWayBand() {
+  const { business, settings } = useStorefront();
+  const phone = business.contactPhone;
+  const whatsapp = settings.whatsapp || phone;
+  const whatsappHref = whatsapp ? `https://wa.me/${whatsapp.replace(/\D/g, '').replace(/^0/, '254')}` : null;
+  return (
+    <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="order-heading">
+      <div className="soft-panel flex flex-col items-center gap-5 rounded-2xl px-5 py-8 text-center sm:px-10 sm:py-12 lg:flex-row lg:justify-between lg:text-left">
+        <div className="max-w-xl">
+          <h2 id="order-heading" className="display-lg font-semibold">Order the way that suits you</h2>
+          <p className="mt-2 text-sm text-muted sm:text-base">
+            Shop here and pay with M-Pesa, or send us a message and we will put your order together.
+            {settings.deliveryEnabled ? ' Delivered to your door or ready for pickup.' : ' Ready for pickup at our shop.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2.5">
+          {whatsappHref && (
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-primary"><MessageCircle size={16} aria-hidden /> WhatsApp us</a>
+          )}
+          {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="btn btn-dark"><Phone size={16} aria-hidden /> Call {phone}</a>}
+          <a href="/track" className="btn btn-secondary"><Truck size={16} aria-hidden /> Track an order</a>
+        </div>
+      </div>
     </section>
   );
 }
@@ -276,37 +302,49 @@ export default function HomePage() {
   const site = useStorefront();
   const { products, articles, reviews = [] } = site;
   const recentIds = useRecent((s) => s.ids);
+  const cards = visibleAdCards(site.adCards);
+  const posters = cards.filter((c) => c.kind === 'poster').slice(0, 6);
+  const strips = cards.filter((c) => c.kind === 'strip');
 
-  const popular = [...products].sort((a, b) => Number(b.inStock) - Number(a.inStock)).slice(0, 12);
+  const inStockFirst = (list: Product[]) => [...list].sort((a, b) => Number(b.inStock) - Number(a.inStock));
+  const offers = inStockFirst(products.filter((p) => p.wasPrice && p.wasPrice > p.price)).slice(0, 12);
+  const popular = inStockFirst(products).slice(0, 12);
   const reviewCount = (id: string) => reviews.filter((r) => r.productId === id).length;
   const bestSellers = products.length > 6
-    ? products.filter((p) => p.inStock).sort((a, b) => reviewCount(b.id) - reviewCount(a.id)).slice(0, 6)
+    ? products.filter((p) => p.inStock).sort((a, b) => reviewCount(b.id) - reviewCount(a.id)).slice(0, 12)
     : [];
-  const recent = recentIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 6);
+  const recent = recentIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 12);
+
+  // One row per bigger category, like the aisles of a shop.
+  const counts = new Map<string, number>();
+  for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+  const aisles = counts.size > 1
+    ? Array.from(counts.entries()).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c)
+    : [];
 
   return (
     <>
       <Hero />
+      <CategoryCircles />
+      <AdPosters cards={posters} />
+      {strips[0] && <div className="site-gutter pt-6 sm:pt-8"><AdStrip card={strips[0]} /></div>}
       <Promotions />
-      {popular.length > 0 && (
-        <ProductSection
-          id="popular"
-          title="Popular Products"
-          subtitle="Fresh from our dairy and ready to order today."
-          products={popular}
-          link={products.length > popular.length}
+      <ProductCarousel id="offers" title="Exclusive Offers" products={offers} viewAll="/shop?offers=1" />
+      <ProductCarousel id="popular" title="Popular Products" products={popular} viewAll={products.length > popular.length ? '/shop' : undefined} />
+      <ProductCarousel id="best" title="Best Sellers" products={bestSellers} />
+      {strips[1] && <div className="site-gutter pt-10 sm:pt-12"><AdStrip card={strips[1]} /></div>}
+      {aisles.map((category) => (
+        <ProductCarousel
+          key={category}
+          id={`aisle-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          title={category.replace(/^./, (c) => c.toUpperCase())}
+          products={inStockFirst(products.filter((p) => p.category === category)).slice(0, 12)}
+          viewAll={`/shop?category=${encodeURIComponent(category)}`}
         />
-      )}
-      <PromoBanner />
-      {bestSellers.length > 0 && (
-        <ProductSection id="best" title="Best Sellers" subtitle="The products our customers order most." products={bestSellers} />
-      )}
-      <CategoryBanners />
+      ))}
       <div className="site-gutter pt-12 sm:pt-16"><TrustStrip site={site} /></div>
       <Testimonials />
-      {recent.length > 0 && (
-        <ProductSection id="recent" title="Recently Viewed" subtitle="Pick up where you left off." products={recent} />
-      )}
+      <ProductCarousel id="recent" title="Recently Viewed" products={recent} />
       {articles.length > 0 && (
         <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="guides-heading">
           <Reveal><SectionHeader center id="guides-heading" title="Milk Guides" subtitle="How to store, handle and enjoy your milk." /></Reveal>
@@ -315,6 +353,7 @@ export default function HomePage() {
           </RevealList>
         </section>
       )}
+      <OrderAnyWayBand />
     </>
   );
 }

@@ -197,12 +197,13 @@ export function txCost(t: Transaction): number {
   return t.items.reduce((sum, line) => sum + (line.product?.cost || 0) * (line.quantity || 0), 0);
 }
 
-export type MethodKey = "M-Pesa" | "Cash" | "Card" | "Bank" | "Credit";
-export const METHODS: MethodKey[] = ["M-Pesa", "Cash", "Card", "Bank", "Credit"];
+export type MethodKey = "M-Pesa" | "Airtel Money" | "Cash" | "Card" | "Bank" | "Credit";
+export const METHODS: MethodKey[] = ["M-Pesa", "Airtel Money", "Cash", "Card", "Bank", "Credit"];
 
 export function methodOf(raw: string | undefined): MethodKey {
   const m = (raw || "").toLowerCase();
   if (m.includes("credit") || m.includes("debt")) return "Credit";
+  if (m.includes("airtel")) return "Airtel Money";
   if (m.includes("pesa") || m.includes("wallet") || m.includes("mobile")) return "M-Pesa";
   if (m.includes("card")) return "Card";
   if (m.includes("bank") || m.includes("transfer")) return "Bank";
@@ -257,7 +258,7 @@ function emptySnapshot(): Snapshot {
     pointsDiscounts: 0,
     profit: 0,
     creditSales: 0,
-    received: { "M-Pesa": 0, Cash: 0, Card: 0, Bank: 0, Credit: 0 },
+    received: { "M-Pesa": 0, "Airtel Money": 0, Cash: 0, Card: 0, Bank: 0, Credit: 0 },
     products: new Map(),
     expenseCategories: new Map(),
     hours: Array(24).fill(0),
@@ -442,7 +443,7 @@ function mergeSnapshots(a: Snapshot, b: Snapshot): Snapshot {
 }
 
 export function moneyReceived(s: Snapshot) {
-  return s.received["M-Pesa"] + s.received.Cash + s.received.Card + s.received.Bank;
+  return s.received["M-Pesa"] + s.received["Airtel Money"] + s.received.Cash + s.received.Card + s.received.Bank;
 }
 
 /** A lightweight sale row, enough for branch comparisons. */

@@ -1,12 +1,16 @@
 import React, { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CreditCard, RotateCcw, Smartphone } from 'lucide-react';
-import { acceptsCards, cancelOrder, checkCardPayment, checkPayment, fetchOrder, fetchOrders, friendlyError, Order, startCardPayment, startPayment } from '../api';
+import { acceptsAirtel, acceptsCards, cancelOrder, checkCardPayment, checkPayment, fetchOrder, fetchOrders, friendlyError, Order, startCardPayment, startPayment } from '../api';
 import { navigate } from '../router';
+import { networkOf } from '../../../supabase/functions/airtel-payments/phone';
 import { CheckoutSteps } from './CartPage';
 import { useAuth, useCart, useStorefront } from '../store';
 import { cardClass, ErrorText, fieldClass, formatDateTime, formatPrice, formatQuantity, Loading, primaryButton, secondaryButton, StatusBadge } from '../ui';
 
 const PAYABLE = ['pending_payment', 'payment_failed'];
+
+type Method = 'mpesa' | 'airtel' | 'card';
+const METHOD_NAMES: Record<Method, string> = { mpesa: 'M-Pesa', airtel: 'Airtel Money', card: 'card' };
 const PAYMENT_WAIT_MS = 120_000;
 
 /** Paystack sends the customer back with ?reference=… (and trxref). */
@@ -19,8 +23,9 @@ function cardReturnReference(): string | null {
 function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promise<void> }) {
   const account = useAuth((s) => s.account)!;
   const { currency } = useStorefront().business;
-  const [method, setMethod] = useState<'mpesa' | 'card'>('mpesa');
+  const [method, setMethod] = useState<Method>('mpesa');
   const [cardsOn, setCardsOn] = useState(false);
+  const [airtelOn, setAirtelOn] = useState(false);
   const [phone, setPhone] = useState(account.phone);
   const [waiting, setWaiting] = useState(false);
   const [confirmingCard, setConfirmingCard] = useState<string | null>(() => cardReturnReference());
@@ -31,7 +36,12 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
 
   useEffect(() => {
     acceptsCards().then(setCardsOn);
-  }, []);
+    acceptsAirtel().then((on) => {
+      setAirtelOn(on);
+      // An Airtel line on the account starts on Airtel Money.
+      if (on && networkOf(account.phone) === 'airtel') setMethod('airtel');
+    });
+  }, [account.phone]);
 
   useEffect(() => {
     if (!waiting) return;
@@ -45,7 +55,9 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
         const { status } = await checkPayment(order.id);
         if (status !== 'pending_payment') {
           setWaiting(false);
-          if (status === 'payment_failed') setError("The payment wasn't completed. You can try again.");
+          if (status === 'payment_failed') {
+            setError(`The ${METHOD_NAMES[method]} payment wasn't completed (cancelled, wrong PIN, not enough money or no answer). You can try again.`);
+          }
           if (status === 'paid' || status === 'preparing') {
             navigate(`/order-confirmed/${order.id}`);
             return;
@@ -57,7 +69,7 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
       }
     }, 4000);
     return () => clearInterval(timer);
-  }, [waiting, order.id, onChange]);
+  }, [waiting, order.id, onChange, method]);
 
   // Back from Paystack: ask until the payment is confirmed (the webhook usually beats us).
   useEffect(() => {
@@ -108,11 +120,11 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
         window.location.assign(authorizationUrl);
         return;
       }
-      await startPayment(order.id, phone);
+      await startPayment(order.id, phone, method);
       startedAt.current = Date.now();
       setWaiting(true);
     } catch (err) {
-      setError(friendlyError(err, "We couldn't start the payment. Please try again."));
+      setError(friendlyError(err, `We couldn't start the ${METHOD_NAMES[method]} payment. Please try again.`));
     } finally {
       setBusy(false);
     }
@@ -145,17 +157,28 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
       <div role="status" className="rounded-xl bg-amber-50 p-6 text-center">
         <Smartphone size={36} className="mx-auto animate-pulse text-brand-deep" aria-hidden />
         <p className="mt-3 text-xl font-semibold">Check your phone</p>
-        <p className="mt-1 text-muted">Enter your M-Pesa PIN to pay {formatPrice(currency, order.total)}. This page will update by itself.</p>
+        <p className="mt-1 text-muted">
+          Enter your {method === 'airtel' ? 'Airtel Money' : 'M-Pesa'} PIN on {phone} to pay {formatPrice(currency, order.total)}. This page will update by itself.
+        </p>
       </div>
     );
   }
 
-  const choice = (value: 'mpesa' | 'card', label: string, icon: React.ReactNode) => (
+  const choice = (value: Method, label: string, icon: React.ReactNode) => (
     <label className={`flex min-h-12 flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2.5 font-medium ${method === value ? 'border-brand-deep bg-white ring-2 ring-brand-deep/30' : 'border-line bg-white/60'}`}>
       <input type="radio" name="pay-method" value={value} checked={method === value} onChange={() => setMethod(value)} className="sr-only" />
       {icon}{label}
     </label>
   );
+
+  // Numbers can be ported, so this is advice only, never a block.
+  const network = networkOf(phone);
+  const networkHint =
+    method === 'mpesa' && network === 'airtel'
+      ? `This looks like an Airtel number.${airtelOn ? ' Choose Airtel Money above to pay from it.' : ' M-Pesa prompts only reach Safaricom lines.'}`
+      : method === 'airtel' && network === 'safaricom'
+        ? 'This looks like a Safaricom number. Choose M-Pesa above to pay from it.'
+        : '';
 
   return (
     <form onSubmit={handlePay} className="space-y-4 rounded-xl bg-amber-50 p-5">
@@ -165,19 +188,21 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
           We haven't received confirmation yet. If you already paid, please wait a few minutes and refresh this page before paying again.
         </p>
       )}
-      {cardsOn && (
+      {(cardsOn || airtelOn) && (
         <fieldset>
           <legend className="mb-2 font-medium">How would you like to pay?</legend>
           <div className="flex flex-col gap-2 sm:flex-row">
             {choice('mpesa', 'M-Pesa', <Smartphone size={18} aria-hidden />)}
-            {choice('card', 'Card (Visa, Mastercard)', <CreditCard size={18} aria-hidden />)}
+            {airtelOn && choice('airtel', 'Airtel Money', <Smartphone size={18} aria-hidden />)}
+            {cardsOn && choice('card', 'Card (Visa, Mastercard)', <CreditCard size={18} aria-hidden />)}
           </div>
         </fieldset>
       )}
-      {method === 'mpesa' ? (
+      {method !== 'card' ? (
         <label className="block font-medium">
-          M-Pesa phone number
-          <input required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          {method === 'airtel' ? 'Airtel Money' : 'M-Pesa'} phone number
+          <input required type="tel" autoComplete="tel" placeholder={method === 'airtel' ? '0733 123 456' : '0712 345 678'} value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          {networkHint && <span className="mt-1.5 block text-sm font-normal text-amber-900">{networkHint}</span>}
         </label>
       ) : (
         <p className="rounded-lg bg-white px-3.5 py-2.5 text-sm">
@@ -187,12 +212,12 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
       <ErrorText>{error}</ErrorText>
       <div className="flex flex-col gap-2 sm:flex-row">
         <button type="submit" disabled={busy} className={`${primaryButton} sm:flex-1`}>
-          {busy ? 'Please wait…' : `Pay ${formatPrice(currency, order.total)} ${method === 'card' ? 'by card' : 'with M-Pesa'}`}
+          {busy ? 'Please wait…' : `Pay ${formatPrice(currency, order.total)} ${method === 'card' ? 'by card' : `with ${METHOD_NAMES[method]}`}`}
         </button>
         <button type="button" disabled={busy} onClick={handleCancel} className={secondaryButton}>Cancel order</button>
       </div>
       <p className="text-sm text-muted">
-        {method === 'mpesa' ? 'A Safaricom prompt will appear on this phone. ' : ''}<a href="/payments" className="underline hover:text-ink">How payment works</a>
+        {method === 'mpesa' ? 'A Safaricom prompt will appear on this phone. ' : method === 'airtel' ? 'An Airtel Money prompt will appear on this phone. ' : ''}<a href="/payments" className="underline hover:text-ink">How payment works</a>
       </p>
     </form>
   );

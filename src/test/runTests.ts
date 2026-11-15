@@ -20,7 +20,9 @@ import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
 import { cardDetails, fromSubunits, keyEnvironment, newReference, signatureMatches, toSubunits, transactionOutcome } from "../../supabase/functions/card-payments/paystack";
-import { MONEY_METHODS, isMoneyMethod, methodLabel, normalizeReference } from "../utils/paymentMethods";
+import { MONEY_METHODS, enabledMethods, isMoneyMethod, methodLabel, normalizeReference } from "../utils/paymentMethods";
+import { networkOf, toAirtelMsisdn } from "../../supabase/functions/airtel-payments/phone";
+import { newReference as airtelReference, outcomeOf as airtelOutcome } from "../../supabase/functions/airtel-payments/airtel";
 import { createHmac } from "node:crypto";
 import { pointsEarned, POINTS_PER_KSH, DEBT_PAYMENT_POINTS_PER_KSH } from "../services/loyalty/tillPoints";
 import { cannotAttachReason } from "../services/saleCustomer";
@@ -664,13 +666,15 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
+  // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
+  const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);
   for (const sc of SHORTCUTS.filter((x) => x.target)) {
-    if (!code.includes(`data-shortcut="${sc.target}"`)) throw new Error(`no button tagged ${sc.target} for ${sc.id}`);
+    if (!tagged(sc.target!)) throw new Error(`no button tagged ${sc.target} for ${sc.id}`);
   }
   for (const f of FEATURES.filter((x) => x.target)) {
-    if (!code.includes(`data-shortcut="${f.target}"`)) throw new Error(`no button tagged ${f.target} for search result ${f.id}`);
+    if (!tagged(f.target!)) throw new Error(`no button tagged ${f.target} for search result ${f.id}`);
   }
   // Points settings: only roles allowed to change them find them.
   const findsPointSettings = (role: string) => featuresFor(role).some((f) => f.id === "points-settings");
@@ -1104,20 +1108,62 @@ await (async () => {
   }
 })();
 
-runTest("Money comes in four ways only, the same in the app and the database", () => {
-  if (JSON.stringify(MONEY_METHODS) !== JSON.stringify(["Cash", "M-Pesa", "Card", "Bank"])) throw new Error("the four methods changed");
+runTest("Money comes in five ways only, the same in the app and the database", () => {
+  if (JSON.stringify(MONEY_METHODS) !== JSON.stringify(["Cash", "M-Pesa", "Airtel Money", "Card", "Bank"])) throw new Error("the five methods changed");
   for (const old of ["Mobile_Wallet", "Other", "Credit_Debt", ""]) if (isMoneyMethod(old)) throw new Error(`${old} is not a way money comes in`);
   if (methodLabel("Credit_Debt") !== "Credit") throw new Error("credit label");
   if (normalizeReference("M-Pesa", " sxk2 m9q1tz ") !== "SXK2M9Q1TZ") throw new Error("M-Pesa codes are capitals without spaces");
+  if (normalizeReference("Airtel Money", " mp241114.1530.a1 ") !== "MP241114.1530.A1") throw new Error("Airtel IDs are capitals without spaces");
   if (normalizeReference("Bank", "  FT 1234  ") !== "FT 1234") throw new Error("bank references stay as typed");
 
-  // Every table that stores a method allows exactly these four (transactions also allow credit).
-  const migration = readFileSync("supabase/migrations/20261110009_four_payment_methods_cards.sql", "utf8");
-  for (const constraint of ["payments_method_check", "money_assets_method_check", "expenses_payment_method_check", "debt_payments_payment_method_check"]) {
-    const line = migration.split("\n").find((l) => l.includes(`ADD CONSTRAINT ${constraint}`));
-    if (!line || !line.includes("'Cash', 'M-Pesa', 'Card', 'Bank'")) throw new Error(`${constraint} must allow the four methods`);
+  // Every table that stores a method allows exactly these five (transactions also allow credit).
+  const migration = readFileSync("supabase/migrations/20261114003_airtel_money_payment_switches.sql", "utf8");
+  for (const constraint of ["payments_method_check", "money_assets_method_check", "expenses_payment_method_check", "debt_payments_payment_method_check", "transactions_payment_method_check"]) {
+    const at = migration.indexOf(`ADD CONSTRAINT ${constraint}`);
+    const text = at < 0 ? "" : migration.slice(at, migration.indexOf(";", at));
+    if (!text.includes("'Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'")) throw new Error(`${constraint} must allow the five methods`);
   }
-  console.log("   (debt_payments accepts Card and Bank: a Bank payment against a small debt no longer fails)");
+  // A sale with Airtel Money must land on its own balance, not the old "Other" fallback.
+  if (!migration.includes("WHEN NEW.payment_method = 'Airtel Money' THEN 'Airtel Money'")) throw new Error("sale trigger doesn't know Airtel Money");
+  if (!readFileSync("supabase/migrations/20261114002_airtel_money_enum.sql", "utf8").includes("ADD VALUE IF NOT EXISTS 'Airtel Money'")) throw new Error("enum value missing");
+});
+
+runTest("Payment methods switch on and off, and the till never ends up with none", () => {
+  const same = (a: unknown, b: unknown, what: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${what}: ${JSON.stringify(a)}`); };
+  same(enabledMethods(undefined), ["Cash", "M-Pesa", "Card", "Bank"], "nothing chosen gives the defaults");
+  same(enabledMethods([]), ["Cash", "M-Pesa", "Card", "Bank"], "an empty list gives the defaults");
+  same(enabledMethods(["Bank", "Airtel Money", "Bank", "Other"]), ["Airtel Money", "Bank"], "kept in the app's order, unknown dropped");
+  same(enabledMethods(["Mobile_Wallet"]), ["Cash", "M-Pesa", "Card", "Bank"], "only unknown methods gives the defaults");
+  const sql = readFileSync("supabase/migrations/20261114003_airtel_money_payment_switches.sql", "utf8");
+  if (!sql.includes("assert_permission(p_business_id, 'payments.configure')")) throw new Error("switching methods needs payments.configure");
+  if (!sql.includes("'Card' = ANY(b.default_payment_methods)")) throw new Error("the website must stop offering cards when Card is off");
+  for (const fn of ["mpesa-payments", "airtel-payments", "card-payments", "customer-checkout"]) {
+    if (!readFileSync(`supabase/functions/${fn}/index.ts`, "utf8").includes("fn_method_enabled")) throw new Error(`${fn} doesn't check the switch`);
+  }
+  if (!SYSTEM_ROLES.Cashier.permissions.includes("payments.airtel")) throw new Error("cashiers send Airtel prompts like M-Pesa ones");
+  for (const role of ["Manager", "Cashier", "Rider"]) {
+    if (SYSTEM_ROLES[role].permissions.includes("payments.configure")) throw new Error(`${role} shouldn't switch methods by default`);
+  }
+  if (!hasRolePermission("Owner", "payments.configure") || !hasRolePermission("Admin", "payments.configure")) throw new Error("owners and admins switch methods");
+});
+
+runTest("Airtel numbers, networks and answers are read correctly", () => {
+  if (toAirtelMsisdn("0733 123 456") !== "733123456") throw new Error("local number");
+  if (toAirtelMsisdn("+254 100 123456") !== "100123456") throw new Error("01 numbers");
+  if (toAirtelMsisdn("254733123456") !== "733123456") throw new Error("with country code");
+  if (toAirtelMsisdn("0633123456") !== null || toAirtelMsisdn("07331234") !== null) throw new Error("bad numbers refused");
+  if (networkOf("0733123456") !== "airtel" || networkOf("0756123456") !== "airtel" || networkOf("0100123456") !== "airtel") throw new Error("Airtel prefixes");
+  if (networkOf("0712345678") !== "safaricom" || networkOf("0110123456") !== "safaricom" || networkOf("0758123456") !== "safaricom") throw new Error("Safaricom prefixes");
+  if (networkOf("0771123456") !== "telkom") throw new Error("Telkom prefix");
+  if (networkOf("hello") !== null) throw new Error("not a number");
+  if (airtelOutcome("TS") !== "success" || airtelOutcome("ts") !== "success") throw new Error("TS is paid");
+  if (airtelOutcome("TF") !== "failed") throw new Error("TF is failed");
+  if (airtelOutcome("TA") !== "pending" || airtelOutcome("TIP") !== "pending" || airtelOutcome(undefined) !== "pending") throw new Error("ambiguous and in-progress wait");
+  const a = airtelReference(), b = airtelReference();
+  if (a === b || !/^KK[0-9A-Z]{12,24}$/.test(a) || a.length > 24) throw new Error(`reference looks wrong: ${a}`);
+  // A callback only records money after asking Airtel: it settles through refreshPrompt.
+  const callback = readFileSync("supabase/functions/airtel-callback/index.ts", "utf8");
+  if (!callback.includes("refreshPrompt(admin, row)") || /p_success:\s*true/.test(callback)) throw new Error("callback must not trust the body for a success");
 });
 
 runTest("Card amounts and Paystack answers are read correctly", () => {

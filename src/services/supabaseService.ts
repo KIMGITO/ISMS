@@ -3,6 +3,7 @@ import { AppError } from "../utils/userError";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName, readableIds } from "../utils/stringUtils";
+import { enabledMethods } from "../utils/paymentMethods";
 import { Product, Transaction, Customer, Employee, Shift, DbSchedule, CustomerLedgerEntry, DebtPayment } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 
@@ -835,7 +836,7 @@ export class SupabaseService {
       primaryColor: b.primary_color || "",
       secondaryColor: b.secondary_color || "",
       timezone: b.timezone || "Africa/Nairobi",
-      defaultPaymentMethods: Array.isArray(b.default_payment_methods) ? b.default_payment_methods : ["Cash", "M-Pesa"],
+      defaultPaymentMethods: enabledMethods(Array.isArray(b.default_payment_methods) ? b.default_payment_methods : null),
       isTaxEnabled: b.is_tax_enabled !== false,
       taxPercentage: typeof b.tax_percentage === 'number' ? b.tax_percentage : 16.0
     }));

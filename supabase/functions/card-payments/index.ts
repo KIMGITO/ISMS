@@ -308,6 +308,8 @@ Deno.serve(async (req) => {
       if (denied) return denied;
       const limited = await enforceRateLimit(`card-charge:user:${userId}`, 120, 3600);
       if (limited) return limited;
+      const { data: cardOn } = await admin.rpc("fn_method_enabled", { p_business_id: businessId, p_method: "Card" });
+      if (cardOn !== true) return errorResponse("Card payments are switched off for this business.", 409, "METHOD_OFF");
 
       const channel = body.channel === "terminal" ? "terminal" : "online";
       const amount = Math.round(Number(body.amount) * 100) / 100;

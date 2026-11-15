@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { createAccount, friendlyError, isProviderEnabled, supabase } from '../api';
+import { authErrorMessage, createAccount, friendlyError, isProviderEnabled, supabase } from '../api';
 import { PHOTOS, photoUrl } from '../images';
 import { useAuth, useStorefront } from '../store';
 import { ErrorText, fieldClass, primaryButton, secondaryButton } from '../ui';
@@ -91,7 +91,7 @@ export function AuthForms() {
       options: { redirectTo: `${window.location.origin}/account` },
     });
     if (authError) {
-      setError(`We couldn't open ${label} sign-in. Please try another way.`);
+      setError(`We couldn't open ${label} sign-in (${authErrorMessage(authError, 'signin')}). Please use your email instead.`);
       setBusy(false);
     }
   };
@@ -112,11 +112,11 @@ export function AuthForms() {
           phone: toE164(phone),
           options: { data: { account_type: 'customer' } },
         });
-        if (authError) setError("We couldn't send the code. Please try again shortly.");
+        if (authError) setError(authErrorMessage(authError, 'phone'));
         else setCodeSent(true);
       } else {
         const { error: authError } = await supabase.auth.verifyOtp({ phone: toE164(phone), token: code, type: 'sms' });
-        if (authError) setError('That code is not right, or it has expired.');
+        if (authError) setError(authErrorMessage(authError, 'code'));
       }
     } finally {
       setBusy(false);
@@ -130,8 +130,16 @@ export function AuthForms() {
     try {
       if (mode === 'signin') {
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-        if (authError) setError('That email or password is not right.');
+        if (authError) setError(authErrorMessage(authError, 'signin'));
       } else if (mode === 'signup') {
+        if (!name.trim()) {
+          setError('Please enter your own name, as you would like us to address you.');
+          return;
+        }
+        if (password.length < 8) {
+          setError('Your password needs at least 8 characters.');
+          return;
+        }
         if (!isKenyanMobile(phone)) {
           setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
           return;
@@ -147,15 +155,20 @@ export function AuthForms() {
           },
         });
         if (authError) {
-          setError(authError.message.toLowerCase().includes('password')
-            ? 'Please choose a stronger password of at least 8 characters.'
-            : "We couldn't create your account. If you already have one, please sign in.");
+          setError(authErrorMessage(authError, 'signup'));
+        } else if (data.user && (data.user.identities ?? []).length === 0) {
+          // Supabase answers a sign-up for an existing email with an empty user instead of an error.
+          setError('An account with this email already exists. Please sign in instead, or use "Forgot your password?".');
         } else if (!data.session) {
           setDone('Please check your email and tap the link to confirm your account.');
         }
         // With a session, the auth listener creates the account from the sign-up details.
       } else {
-        await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/account` });
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/account` });
+        if (resetError) {
+          setError(authErrorMessage(resetError, 'reset'));
+          return;
+        }
         setDone('If that email has an account, a link to reset your password is on its way.');
       }
     } catch (err) {
@@ -230,7 +243,7 @@ export function AuthForms() {
             <>
               <label className="block font-medium">
                 Your name
-                <input required maxLength={100} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+                <input required maxLength={100} autoComplete="name" placeholder="e.g. Jane Wanjiru" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
               </label>
               <label className="block font-medium">
                 M-Pesa phone number
@@ -282,18 +295,35 @@ export function AuthForms() {
 /** Asks for the details a confirmed login is missing, which Google doesn't provide. */
 export function FinishAccountForm() {
   const session = useAuth((s) => s.session);
-  const [name, setName] = useState(session?.user.user_metadata?.name ?? session?.user.user_metadata?.full_name ?? '');
-  const [phone, setPhone] = useState('');
+  const accountError = useAuth((s) => s.accountError);
+  const meta = session?.user.user_metadata ?? {};
+  const provider = session?.user.app_metadata?.provider;
+  // Only a customer sign-up or Google gives us the person's own name. A staff login made in the
+  // ISMS app carries the name typed there, often the business name, so it isn't offered here.
+  const isCustomerSignup = meta.account_type === 'customer' || (provider && provider !== 'email' && provider !== 'phone');
+  const [name, setName] = useState<string>(isCustomerSignup ? (meta.name ?? meta.full_name ?? '') : '');
+  const [phone, setPhone] = useState<string>(isCustomerSignup ? (meta.customer_phone ?? '') : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError('');
+    if (!name.trim()) {
+      setError('Please enter your own name.');
+      return;
+    }
+    if (!isKenyanMobile(phone)) {
+      setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
+      return;
+    }
+    setBusy(true);
     try {
       await createAccount(name, phone);
       await useAuth.getState().refreshAccount();
+      if (!useAuth.getState().account) {
+        setError(useAuth.getState().accountError || 'Your account was created, but we couldn\'t open it. Please refresh the page.');
+      }
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -302,18 +332,24 @@ export function FinishAccountForm() {
   };
 
   return (
-    <AuthLayout title="One Last Step" subtitle="Add the M-Pesa number you'll pay with.">
+    <AuthLayout title="One Last Step" subtitle="Add your name and the M-Pesa number you'll pay with.">
+      {!isCustomerSignup && (
+        <p className="mt-6 rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+          You signed in with {session?.user.email ?? 'an account'}, which is also used for the staff app. You can still shop with it: enter your own name below.
+        </p>
+      )}
+      {accountError && !error && <div className="mt-6"><ErrorText>{accountError}</ErrorText></div>}
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <label className="block font-medium">
           Your name
-          <input required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+          <input required maxLength={100} autoComplete="name" placeholder="e.g. Jane Wanjiru" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
         </label>
         <label className="block font-medium">
           M-Pesa phone number
-          <input required type="tel" placeholder="0712 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          <input required type="tel" autoComplete="tel" placeholder="0712 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
         </label>
         <ErrorText>{error}</ErrorText>
-        <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>Continue</button>
+        <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>{busy ? 'Please wait…' : 'Continue'}</button>
       </form>
     </AuthLayout>
   );
@@ -331,7 +367,7 @@ export function NewPasswordForm() {
     const { error: authError } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (authError) {
-      setError('Please choose a different password of at least 8 characters.');
+      setError(authErrorMessage(authError, 'password'));
       return;
     }
     useAuth.getState().setRecovering(false);

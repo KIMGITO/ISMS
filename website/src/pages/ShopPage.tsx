@@ -5,12 +5,14 @@ import { useStorefront } from '../store';
 import { PageHeader, pageClass } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import ProductCard from './ProductCard';
+import { percentOff } from '../adCards';
 
 const SORTS = [
   { id: 'featured', label: 'Featured' },
   { id: 'price-asc', label: 'Price: low to high' },
   { id: 'price-desc', label: 'Price: high to low' },
   { id: 'name', label: 'Name: A to Z' },
+  { id: 'saving', label: 'Biggest saving' },
 ] as const;
 
 type SortId = (typeof SORTS)[number]['id'];
@@ -21,6 +23,7 @@ function useShopFilters(route: Route) {
   const category = route.query.get('category') ?? 'All';
   const sort = (SORTS.some((s) => s.id === route.query.get('sort')) ? route.query.get('sort') : 'featured') as SortId;
   const inStock = route.query.get('stock') === '1';
+  const offersOnly = route.query.get('offers') === '1';
 
   const update = (changes: Record<string, string | null>) => {
     const params = new URLSearchParams(window.location.search);
@@ -31,12 +34,13 @@ function useShopFilters(route: Route) {
     const query = params.toString();
     navigate(`${window.location.pathname}${query ? `?${query}` : ''}`, { replace: true });
   };
-  return { q, category, sort, inStock, update };
+  return { q, category, sort, inStock, offersOnly, update };
 }
 
 export default function ShopPage({ route }: { route: Route }) {
   const { products } = useStorefront();
-  const { q, category, sort, inStock, update } = useShopFilters(route);
+  const { q, category, sort, inStock, offersOnly, update } = useShopFilters(route);
+  const hasOffers = products.some((p) => percentOff(p.price, p.wasPrice) > 0);
 
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
@@ -50,22 +54,24 @@ export default function ShopPage({ route }: { route: Route }) {
       (p) =>
         (category === 'All' || p.category === category) &&
         (!inStock || p.inStock) &&
+        (!offersOnly || percentOff(p.price, p.wasPrice) > 0) &&
         (!term || `${p.name} ${p.category} ${p.description ?? ''}`.toLowerCase().includes(term)),
     );
     const sorted = [...list];
     if (sort === 'price-asc') sorted.sort((a, b) => a.price - b.price);
     else if (sort === 'price-desc') sorted.sort((a, b) => b.price - a.price);
     else if (sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === 'saving') sorted.sort((a, b) => percentOff(b.price, b.wasPrice) - percentOff(a.price, a.wasPrice));
     // Featured keeps the shop's order but shows what can be bought first.
     else sorted.sort((a, b) => Number(b.inStock) - Number(a.inStock));
     return sorted;
-  }, [products, q, category, sort, inStock]);
+  }, [products, q, category, sort, inStock, offersOnly]);
 
   const searching = route.parts[0] === 'search';
   const title = searching
     ? (q ? `Search Results for “${q}”` : 'Search Our Shop')
-    : category !== 'All' ? category : q ? `Results for “${q}”` : 'Shop All Products';
-  const filtersOn = category !== 'All' || inStock || Boolean(q);
+    : category !== 'All' ? category : q ? `Results for “${q}”` : offersOnly ? 'Offers' : 'Shop All Products';
+  const filtersOn = category !== 'All' || inStock || offersOnly || Boolean(q);
 
   return (
     <>
@@ -108,6 +114,12 @@ export default function ShopPage({ route }: { route: Route }) {
                 <input type="checkbox" checked={inStock} onChange={(e) => update({ stock: e.target.checked ? '1' : null })} className="size-5 accent-[var(--color-ink)]" />
                 In stock only
               </label>
+              {hasOffers && (
+                <label className="flex min-h-10 cursor-pointer items-center gap-3 px-1 font-medium">
+                  <input type="checkbox" checked={offersOnly} onChange={(e) => update({ offers: e.target.checked ? '1' : null })} className="size-5 accent-[var(--color-ink)]" />
+                  Offers only
+                </label>
+              )}
             </div>
           </div>
         </aside>
@@ -142,6 +154,12 @@ export default function ShopPage({ route }: { route: Route }) {
               <input type="checkbox" checked={inStock} onChange={(e) => update({ stock: e.target.checked ? '1' : null })} className="size-5 accent-[var(--color-ink)]" />
               In stock
             </label>
+            {hasOffers && (
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium lg:hidden">
+                <input type="checkbox" checked={offersOnly} onChange={(e) => update({ offers: e.target.checked ? '1' : null })} className="size-5 accent-[var(--color-ink)]" />
+                Offers
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm font-medium">
               <span className="hidden sm:inline">Sort by</span>
               <select value={sort} onChange={(e) => update({ sort: e.target.value })} className="h-10 rounded-md border border-line bg-white px-3 text-sm">
@@ -155,12 +173,13 @@ export default function ShopPage({ route }: { route: Route }) {
               {q && <FilterTag label={`“${q}”`} onRemove={() => update({ q: null })} />}
               {category !== 'All' && <FilterTag label={category} onRemove={() => update({ category: null })} />}
               {inStock && <FilterTag label="In stock" onRemove={() => update({ stock: null })} />}
+              {offersOnly && <FilterTag label="Offers" onRemove={() => update({ offers: null })} />}
               <button onClick={() => navigate(window.location.pathname, { replace: true })} className="px-2 text-sm font-medium underline">Clear all</button>
             </div>
           )}
 
           {visible.length > 0 ? (
-            <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            <ul className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
               {visible.map((product) => <ProductCard key={product.id} product={product} />)}
             </ul>
           ) : (

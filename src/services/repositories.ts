@@ -4,7 +4,7 @@
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName } from "../utils/stringUtils";
-import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt } from "../types";
+import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt, PaymentPrompt, PromptProvider } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
 import { normalizeForStorage, readableIds } from "../utils/stringUtils";
@@ -1361,6 +1361,194 @@ export class MpesaRepository {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }
+}
+
+// ─────────────────────────────────────────────
+// AIRTEL MONEY REPOSITORY
+// The client secret stays on the server; everything Airtel-facing goes through the
+// airtel-payments edge function. Prompts are read directly, under RLS.
+// ─────────────────────────────────────────────
+export interface AirtelStatus {
+  configured: boolean;
+  /** Airtel Money is switched on in this business's payment methods. */
+  enabled: boolean;
+  environment: "staging" | "production";
+  country: string;
+  currency: string;
+  merchantCode: string | null;
+  status: "connected" | "error" | null;
+  lastError: string | null;
+  /** Only for people who may change the setup. */
+  clientIdHint: string | null;
+  callbackUrl: string | null;
+}
+
+export class AirtelRepository {
+  private static call(action: string, extra: Record<string, unknown> = {}) {
+    return SupabaseService.callEdgeFunction("airtel-payments", {
+      action,
+      businessId: getActiveBusinessId(),
+      ...extra,
+    });
+  }
+
+  public static status(): Promise<AirtelStatus> {
+    return this.call("status");
+  }
+
+  public static async saveSettings(settings: {
+    clientId?: string;
+    clientSecret?: string;
+    environment: "staging" | "production";
+    merchantCode?: string;
+  }): Promise<{ callbackUrl: string }> {
+    return this.call("save_settings", settings);
+  }
+
+  public static async remove(): Promise<void> {
+    await this.call("remove");
+  }
+
+  /** Sends an Airtel Money prompt. Returns the prompt's row id. */
+  public static async requestPayment(params: {
+    phone: string;
+    amount: number;
+    customerId?: string;
+    description?: string;
+  }): Promise<string> {
+    const data = await this.call("request", params);
+    return data.id;
+  }
+
+  public static async checkPrompt(id: string): Promise<{ status: PaymentPrompt["status"] }> {
+    return this.call("check", { id });
+  }
+}
+
+// Plain words for the M-Pesa result codes staff actually see.
+const MPESA_RESULTS: Record<string, string> = {
+  "1": "Not enough money in their M-Pesa",
+  "1032": "The customer cancelled the prompt",
+  "1037": "Their phone couldn't be reached or the prompt timed out",
+  "1019": "The prompt expired before they paid",
+  "2001": "Wrong M-Pesa PIN",
+  "1001": "Another M-Pesa payment was in progress on that phone",
+  "1025": "M-Pesa couldn't send the prompt",
+  "9999": "M-Pesa couldn't send the prompt",
+};
+
+function mpesaPrompt(r: any): PaymentPrompt {
+  const callback = r.raw_callback?.Body?.stkCallback;
+  const code = callback?.ResultCode ?? r.raw_callback?.resultCode;
+  const codeText = code === undefined || code === null ? undefined : String(code);
+  return {
+    provider: "mpesa",
+    id: r.id,
+    reference: r.checkout_request_id,
+    phone: r.phone,
+    amount: Number(r.amount),
+    status: r.status,
+    receiptNumber: r.receipt_number || undefined,
+    resultCode: codeText,
+    resultMessage: r.status === "Failed"
+      ? (codeText && MPESA_RESULTS[codeText]) || callback?.ResultDesc || undefined
+      : undefined,
+    customerId: r.customer_id || undefined,
+    description: r.description || undefined,
+    requestedBy: r.requested_by || undefined,
+    paymentId: r.payment_id || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at || undefined,
+  };
+}
+
+function airtelPrompt(r: any): PaymentPrompt {
+  return {
+    provider: "airtel",
+    id: r.id,
+    reference: r.reference,
+    phone: r.phone,
+    amount: Number(r.amount),
+    status: r.status,
+    receiptNumber: r.status === "Completed" ? r.airtel_money_id || undefined : undefined,
+    resultCode: r.result_code || undefined,
+    resultMessage: r.result_message || undefined,
+    customerId: r.customer_id || undefined,
+    description: r.description || undefined,
+    requestedBy: r.requested_by || undefined,
+    paymentId: r.payment_id || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at || undefined,
+  };
+}
+
+// ─────────────────────────────────────────────
+// PAYMENT PROMPTS (M-Pesa and Airtel Money together)
+// The prompt screen lists and follows both kinds the same way.
+// ─────────────────────────────────────────────
+export class PromptRepository {
+  public static async getRecent(options: { mpesa: boolean; airtel: boolean }): Promise<PaymentPrompt[]> {
+    const businessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const [mpesa, airtel] = await Promise.all([
+      options.mpesa
+        ? supabase.from("mpesa_transactions").select("*").eq("business_id", businessId).is("online_order_id", null)
+            .order("created_at", { ascending: false }).limit(60)
+        : Promise.resolve({ data: [], error: null }),
+      options.airtel
+        ? supabase.from("airtel_transactions").select("*").eq("business_id", businessId)
+            .order("created_at", { ascending: false }).limit(60)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (mpesa.error || airtel.error) { triggerNetworkFailureEvent(); throw mpesa.error || airtel.error; }
+    return [...(mpesa.data || []).map(mpesaPrompt), ...(airtel.data || []).map(airtelPrompt)]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  /** Calls back with fresh prompts whenever either table changes. */
+  public static subscribe(options: { mpesa: boolean; airtel: boolean }, callback: (prompts: PaymentPrompt[]) => void): () => void {
+    let alive = true;
+    const load = () => this.getRecent(options).then((p) => { if (alive) callback(p); }).catch(console.error);
+    load();
+
+    if (typeof global !== "undefined" && (global as any).IS_TEST) {
+      return () => { alive = false; };
+    }
+
+    const activeBusinessId = getActiveBusinessId();
+    const supabase = getSupabase();
+    const channelId = Math.random().toString(36).substring(2, 10);
+    const filter = `business_id=eq.${activeBusinessId}`;
+    let channel = supabase.channel(`realtime-prompts-${activeBusinessId}-${channelId}`);
+    if (options.mpesa) channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "mpesa_transactions", filter }, load);
+    if (options.airtel) channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "airtel_transactions", filter }, load);
+    channel.subscribe();
+    // Realtime can drop on a weak connection; a slow poll keeps a waiting screen honest.
+    const timer = setInterval(load, 15000);
+
+    return () => { alive = false; clearInterval(timer); supabase.removeChannel(channel); };
+  }
+
+  /** Sends a prompt with either network. Returns the new prompt's row id. */
+  public static async send(
+    provider: PromptProvider,
+    params: { phone: string; amount: number; customerId?: string; description?: string },
+  ): Promise<string> {
+    if (provider === "airtel") return AirtelRepository.requestPayment(params);
+    const data = await SupabaseService.callEdgeFunction("mpesa-payments", {
+      action: "request",
+      businessId: getActiveBusinessId(),
+      ...params,
+    });
+    return data.id;
+  }
+
+  /** Asks the network now instead of waiting for its callback. */
+  public static async check(prompt: PaymentPrompt): Promise<{ status: PaymentPrompt["status"]; paid?: boolean }> {
+    return prompt.provider === "airtel"
+      ? AirtelRepository.checkPrompt(prompt.id)
+      : MpesaRepository.checkPrompt(prompt.reference);
   }
 }
 

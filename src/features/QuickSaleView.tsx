@@ -6,7 +6,8 @@ import { motion } from 'motion/react';
 import { Banknote, CheckCircle2, CloudOff, CreditCard, Minus, Plus, ReceiptText, Search, Smartphone, X } from 'lucide-react';
 import { nativeUiService } from '../core/native/NativeUiService';
 import { useAppStore } from '../stores/appStore';
-import { PaymentMethod, Product, Transaction } from '../types';
+import { MoneyMethod, PaymentMethod, Product, Transaction } from '../types';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
 import { ReceiptService } from '../services/receipt/ReceiptService';
@@ -18,6 +19,7 @@ const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; ic
   { method: 'Cash', label: 'Cash', key: 'F1', icon: Banknote, style: 'bg-emerald-600 hover:bg-emerald-700' },
   { method: 'M-Pesa', label: 'M-Pesa', key: 'F2', icon: Smartphone, style: 'bg-green-700 hover:bg-green-800' },
   { method: 'Card', label: 'Card', key: 'F3', icon: CreditCard, style: 'bg-blue-600 hover:bg-blue-700' },
+  { method: 'Airtel Money', label: 'Airtel', key: 'F4', icon: Smartphone, style: 'bg-red-600 hover:bg-red-700' },
 ];
 
 // Sale quantities are stored with up to 3 decimals (e.g. 0.25 kg).
@@ -90,6 +92,9 @@ export default function QuickSaleView() {
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
   const [receiptAutoPrint, setReceiptAutoPrint] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Only the methods this business has switched on.
+  const enabled = usePaymentMethods();
+  const payOptions = PAY_OPTIONS.filter((o) => enabled.includes(o.method as MoneyMethod));
 
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
   const taxRate = activeBusiness?.isTaxEnabled
@@ -194,7 +199,7 @@ export default function QuickSaleView() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const payOption = PAY_OPTIONS.find((option) => option.key === e.key);
+    const payOption = payOptions.find((option) => option.key === e.key);
     if (payOption) {
       e.preventDefault();
       pay(payOption.method);
@@ -395,8 +400,11 @@ export default function QuickSaleView() {
               <span className="text-sm text-app-text-muted">Total{taxRate > 0 ? ' incl. tax' : ''}</span>
               <span className="text-2xl font-black text-app-text">{formatCurrency(total)}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {PAY_OPTIONS.map(({ method, label, key, icon: Icon, style }) => (
+            <div className={`grid gap-2 ${payOptions.length >= 4 ? 'grid-cols-2' : payOptions.length === 3 ? 'grid-cols-3' : payOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {payOptions.length === 0 && (
+                <p className="text-xs text-app-text-muted py-2 text-center">Cash, M-Pesa, Airtel Money and Card are all switched off. Use POS for bank or credit sales.</p>
+              )}
+              {payOptions.map(({ method, label, key, icon: Icon, style }) => (
                 <button
                   key={method}
                   type="button"

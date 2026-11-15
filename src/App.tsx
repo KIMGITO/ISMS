@@ -31,6 +31,7 @@ import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
 import PettyCashView from './features/PettyCashView';
+import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import FinanceView from './features/FinanceView';
 import { useNotificationStore } from './stores/notificationStore';
 import { useTransactionStore } from './stores/transactionStore';
@@ -134,6 +135,7 @@ import {
   History,
   ArrowRightLeft,
   PieChart,
+  Send,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
@@ -152,6 +154,7 @@ import { TermsDialog } from './components/legal/TermsDialog';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
+const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
@@ -183,6 +186,7 @@ const MOBILE_TABS = [
   { id: 'profile', label: 'Profile', icon: User, permission: 'dashboard.view' },
   { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
   { id: 'money', label: 'Payments', icon: Wallet, permission: MONEY_PERMISSIONS },
+  { id: 'prompt', label: 'Prompts', icon: Send, permission: PROMPT_PERMISSIONS },
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
   { id: 'finance', label: 'Finances', icon: PieChart, permission: 'finance.view' },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
@@ -337,6 +341,15 @@ const tourSteps: TourStep[] = [
     content: 'Record payments and expenses. M-Pesa sends payment prompts and lists money paid to the till for you to assign. A mistaken payment is voided, which puts every balance back.',
     placement: 'right',
     tab: 'money',
+  },
+  {
+    targetSelector: '#sidebar-tab-prompt',
+    title: 'Payment Prompts',
+    content: 'Send an M-Pesa or Airtel Money prompt to a customer\'s phone and watch it until it is paid. The phone button at the top opens it from anywhere, or press G then G.',
+    placement: 'right',
+    tab: 'prompt',
+    permissions: ['payments.mpesa', 'payments.airtel'],
+    desktopOnly: true,
   },
   {
     targetSelector: '#sidebar-tab-petty-cash',
@@ -681,6 +694,8 @@ export default function App() {
   }, []);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  // Networks this person can send payment prompts with; shows the quick prompt button.
+  const promptProviders = usePromptProviders();
   const [isSystemServicesExpanded, setIsSystemServicesExpanded] =
     useState(false);
 
@@ -1769,11 +1784,8 @@ export default function App() {
             <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh">
               <div className="text-center space-y-4">
                 <div className="flex justify-center mt-4">
-                  <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <img src="/milk-loader.svg" width={96} height={96} alt="Loading" />
                 </div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Loading...
-                </p>
               </div>
             </div>
           ) : initializationError ? (
@@ -3743,6 +3755,13 @@ export default function App() {
                       permission: MONEY_PERMISSIONS,
                     },
                     {
+                      id: 'prompt',
+                      label: 'Payment Prompts',
+                      icon: Send,
+                      desc: 'M-Pesa and Airtel Money prompts',
+                      permission: PROMPT_PERMISSIONS,
+                    },
+                    {
                       id: 'petty-cash',
                       label: 'Petty Cash',
                       icon: Coins,
@@ -4055,6 +4074,24 @@ export default function App() {
                           <Search size={16} />
                         </button>
 
+                        {/* Payment prompts, one tap from any screen */}
+                        {promptProviders.length > 0 && (
+                          <button
+                            id="header-payment-prompt"
+                            onClick={() => setActiveTab('prompt')}
+                            className={`p-2 rounded-xl border transition cursor-pointer flex items-center gap-1.5 ${
+                              activeTab === 'prompt'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600'
+                                : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
+                            }`}
+                            title="Send a payment prompt (G then G)"
+                            aria-label="Send a payment prompt"
+                          >
+                            <Send size={16} />
+                            <span className="hidden lg:inline text-xs font-bold">Prompt</span>
+                          </button>
+                        )}
+
                         {/* Notification Bell Icon (Always visible) */}
                         <button
                           id="header-notification-bell"
@@ -4325,6 +4362,17 @@ export default function App() {
                       >
                         <SecurityGuard permission={MONEY_PERMISSIONS as any}>
                           <BusinessManagementView section="money" />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'prompt' && (
+                      <motion.div
+                        key="prompt-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={PROMPT_PERMISSIONS as any}>
+                          <PaymentPromptView />
                         </SecurityGuard>
                       </motion.div>
                     )}
@@ -5127,7 +5175,7 @@ export default function App() {
                           Default Payment Methods
                         </label>
                         <div className="grid grid-cols-2 gap-2">
-                          {['Cash', 'M-Pesa', 'Card', 'Bank'].map((method) => {
+                          {['Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'].map((method) => {
                             const isChecked =
                               newBizPaymentMethods.includes(method);
                             return (

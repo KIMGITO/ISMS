@@ -116,6 +116,7 @@ async function main() {
       [['articles'], `<h1>Milk guides</h1>${articleLinks}`],
       [['contact'], `<h1>Contact ${escapeHtml(business.name)}</h1><p>${escapeHtml(business.address ?? '')}</p><p>${escapeHtml(business.contactPhone ?? '')}</p>`],
       [['feedback'], `<h1>Share your feedback</h1>`],
+      [['ideas'], `<h1>Vote & suggest products</h1>`],
       [['reviews'], `<h1>Customer reviews</h1>${list((site.reviews ?? []).slice(0, 30).map((r) => `<li>${'★'.repeat(r.rating)} ${escapeHtml(r.name)}: ${escapeHtml(r.body)}</li>`))}`],
       [['sitemap'], `<h1>Site map</h1>${productLinks}${list(INFO_PAGES.map((p) => `<li><a href="${p.path}">${escapeHtml(p.label)}</a></li>`))}${articleLinks}`],
       ...INFO_PAGES.map((page): [string[], string] => [

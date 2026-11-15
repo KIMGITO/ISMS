@@ -25,7 +25,7 @@ export interface CartItem {
 
 
 /** The four ways money comes in. Nothing else is accepted anywhere. */
-export type MoneyMethod = 'Cash' | 'M-Pesa' | 'Card' | 'Bank';
+export type MoneyMethod = 'Cash' | 'M-Pesa' | 'Airtel Money' | 'Card' | 'Bank';
 /** How a sale is paid: one of the four, or on credit (owed by the customer). */
 export type PaymentMethod = MoneyMethod | 'Credit_Debt' | 'Credit';
 
@@ -571,6 +571,29 @@ export interface TillPayment {
 }
 
 /** A payment prompt (STK push) sent from the app. */
+export type PromptProvider = 'mpesa' | 'airtel';
+
+/** A payment prompt sent to a customer's phone, M-Pesa or Airtel Money. */
+export interface PaymentPrompt {
+  provider: PromptProvider;
+  id: string;
+  /** M-Pesa: CheckoutRequestID. Airtel: our transaction id. */
+  reference: string;
+  phone: string;
+  amount: number;
+  status: 'Pending' | 'Completed' | 'Failed';
+  receiptNumber?: string;
+  /** What the network said, in its words, when it said anything. */
+  resultMessage?: string;
+  resultCode?: string;
+  customerId?: string;
+  description?: string;
+  requestedBy?: string;
+  paymentId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface MpesaPrompt {
   id: string;
   checkoutRequestId: string;

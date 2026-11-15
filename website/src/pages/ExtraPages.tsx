@@ -173,6 +173,7 @@ export function SitemapPage() {
           ...INFO_PAGES.filter((p) => p.group !== 'legal').map((p) => ({ href: p.path, label: p.label })),
           { href: '/contact', label: 'Contact us' },
           { href: '/reviews', label: 'Customer reviews' },
+          { href: '/ideas', label: 'Vote & suggest products' },
           { href: '/feedback', label: 'Give feedback' },
         ])}
         {group('Policies', 'policies', INFO_PAGES.filter((p) => p.group === 'legal').map((p) => ({ href: p.path, label: p.label })))}
@@ -198,7 +199,7 @@ export function NotFoundPage() {
         </div>
       </div>
       {picks.length > 0 && (
-        <ul className="mt-10 grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
+        <ul className="mt-10 product-row cols-4">
           {picks.map((p) => <ProductCard key={p.id} product={p} />)}
         </ul>
       )}
@@ -253,6 +254,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
           Order <strong className="text-ink">#{order.order_number}</strong>
           {order.mpesa_receipt && <> · M-Pesa receipt <strong className="text-ink">{order.mpesa_receipt}</strong></>}
           {order.payment_method === 'Card' && order.payment_reference && <> · Paid by card, reference <strong className="text-ink">{order.payment_reference}</strong></>}
+          {order.payment_method === 'Airtel Money' && order.payment_reference && <> · Airtel Money reference <strong className="text-ink">{order.payment_reference}</strong></>}
         </p>
         {!paid && <a href={`/account/orders/${order.id}`} className={`${primaryButton} mt-5`}>Pay now</a>}
       </div>

@@ -1,7 +1,27 @@
 import type { HeroSlide } from './heroSlides';
+import type { AdCard } from './adCards';
 import { createClient } from '@supabase/supabase-js';
 
+/** The website's own shop. Other branches with the same owner can be picked in the store picker. */
 export const WEBSITE_SLUG = import.meta.env.VITE_WEBSITE_SLUG || 'kaykays';
+
+const STORE_KEY = 'kaykays-store';
+
+/** The shop being browsed: the branch the customer picked on this device, or the website's own. */
+export function storeSlug(): string {
+  try {
+    const saved = localStorage.getItem(STORE_KEY);
+    if (saved && /^[a-z0-9-]{1,60}$/.test(saved)) return saved;
+  } catch { /* storage blocked: the website's own shop */ }
+  return WEBSITE_SLUG;
+}
+
+export function rememberStore(slug: string) {
+  try {
+    if (slug === WEBSITE_SLUG) localStorage.removeItem(STORE_KEY);
+    else localStorage.setItem(STORE_KEY, slug);
+  } catch { /* it just won't be remembered */ }
+}
 
 const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -19,6 +39,18 @@ export interface Product {
   description: string | null;
   image: string | null;
   inStock: boolean;
+  /** The "was" price, only when higher than the price (20261114006). */
+  wasPrice?: number | null;
+}
+
+/** A branch customers can switch to (20261114006). */
+export interface Store {
+  slug: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+  openingHours: string | null;
 }
 
 export interface Article {
@@ -35,6 +67,8 @@ export interface Article {
 export interface Storefront {
   business: {
     name: string;
+    /** The website name of this shop (20261114006). */
+    slug?: string;
     description: string | null;
     address: string | null;
     contactEmail: string | null;
@@ -71,6 +105,10 @@ export interface Storefront {
   reviews?: Review[];
   /** Promo codes staff chose to advertise on the website (20261110008). */
   promotions?: Promotion[];
+  /** Advert cards from Online Store > Adverts (20261114006). Empty or missing: built-in cards. */
+  adCards?: AdCard[];
+  /** Branches with the website switched on, this one included (20261114006). */
+  stores?: Store[];
   deliveryZones: DeliveryZone[];
   branches: { name: string; address: string | null }[];
   products: Product[];
@@ -146,7 +184,7 @@ export interface Order {
   promo_value?: number;
   mpesa_receipt: string | null;
   /** Added in 20261110009; older databases leave these out. */
-  payment_method?: 'M-Pesa' | 'Card' | null;
+  payment_method?: 'M-Pesa' | 'Card' | 'Airtel Money' | null;
   payment_reference?: string | null;
   created_at: string;
   online_order_items: OrderItem[];
@@ -200,11 +238,93 @@ export interface AssistantReply {
  * Server functions RAISE plain sentences meant for customers (code P0001).
  * Anything else, like a network or permissions error, stays generic.
  */
-export function friendlyError(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
-  const e = err as { code?: string; message?: string; customerMessage?: string };
+/**
+ * Turns any error into one plain sentence a customer can act on. Database checks (P0001) already
+ * speak to the customer; everything else is matched by code or message, and the fallback still
+ * says what to try next instead of a bare "something went wrong".
+ */
+export function friendlyError(err: unknown, fallback = 'That didn\'t work. Please try again, or contact us if it keeps happening.'): string {
+  const e = err as { code?: string; message?: string; status?: number; customerMessage?: string; name?: string };
   if (e?.customerMessage) return e.customerMessage;
   if (e?.code === 'P0001' && e.message) return e.message;
+  const message = (e?.message ?? '').toLowerCase();
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'You seem to be offline. Please check your internet connection and try again.';
+  }
+  if (e?.name === 'TypeError' && message.includes('fetch')) {
+    return 'We couldn\'t reach our server. Please check your internet connection and try again.';
+  }
+  if (e?.code === '57014' || e?.status === 504 || message.includes('timed out') || message.includes('timeout')) {
+    return 'Our server took too long to answer. Please wait a moment and try again.';
+  }
+  if (e?.code === '42501' || e?.status === 401 || message.includes('jwt')) {
+    return 'Your sign-in has expired. Please sign out, sign in again and retry.';
+  }
+  if (e?.code === 'PGRST202' || e?.code === '42883') {
+    return 'This part of the website is being updated. Please try again later.';
+  }
+  if (e?.status === 429 || message.includes('rate limit') || message.includes('too many')) {
+    return 'Too many tries in a short time. Please wait a few minutes and try again.';
+  }
   return fallback;
+}
+
+/** Clear messages for sign-in and sign-up problems, keyed by Supabase Auth error codes. */
+export function authErrorMessage(err: unknown, action: 'signin' | 'signup' | 'reset' | 'password' | 'phone' | 'code'): string {
+  const e = err as { code?: string; message?: string; status?: number };
+  const code = e?.code ?? '';
+  const message = (e?.message ?? '').toLowerCase();
+  const has = (...words: string[]) => words.some((w) => code.includes(w) || message.includes(w));
+  if (has('user_already_exists', 'email_exists', 'already registered', 'already been registered')) {
+    return 'An account with this email already exists. Please sign in instead, or use "Forgot your password?".';
+  }
+  if (has('email_not_confirmed', 'not confirmed')) {
+    return 'Please confirm your email first. Open the link we emailed you (check the spam folder too), then sign in.';
+  }
+  if (has('invalid_credentials', 'invalid login')) {
+    return 'That email or password is not right. Check for typing mistakes, or use "Forgot your password?".';
+  }
+  if (has('email_address_invalid', 'invalid format', 'unable to validate email', 'email address') && !has('rate')) {
+    return 'That email address doesn\'t look right. Please check it, for example jane@gmail.com.';
+  }
+  if (has('weak_password', 'password should', 'password is')) {
+    return 'That password is too weak. Use at least 8 characters with letters and numbers.';
+  }
+  if (has('same_password')) return 'Your new password must be different from your old one.';
+  if (has('over_email_send_rate_limit', 'email rate limit')) {
+    return 'We\'ve sent too many emails in the last hour. Please wait a little while and try again.';
+  }
+  if (has('over_sms_send_rate_limit', 'sms rate limit')) {
+    return 'We\'ve sent too many codes to this number. Please wait a few minutes and try again.';
+  }
+  if (has('signup_disabled', 'signups not allowed')) {
+    return 'New accounts are switched off at the moment. Please call or message us to order.';
+  }
+  if (has('otp_expired', 'token has expired', 'invalid otp')) {
+    return action === 'code' ? 'That code is not right, or it has expired. Request a new one.' : 'That link has expired. Please ask for a new one.';
+  }
+  if (has('email_provider_disabled')) return 'Email sign-in is switched off at the moment. Please contact us.';
+  if (has('phone_provider_disabled', 'sms_send_failed')) return 'We couldn\'t send a text message right now. Please use your email instead.';
+  if (has('error sending', 'smtp')) {
+    return 'We couldn\'t send the confirmation email. Please check the address, or try again in a few minutes.';
+  }
+  const general = friendlyError(err, '');
+  if (general) return general;
+  const fallback: Record<typeof action, string> = {
+    signin: 'We couldn\'t sign you in. Please try again.',
+    signup: 'We couldn\'t create your account. Please try again.',
+    reset: 'We couldn\'t send the reset link. Please try again.',
+    password: 'We couldn\'t save your new password. Please try again.',
+    phone: 'We couldn\'t send the code. Please try again shortly.',
+    code: 'That code didn\'t work. Please try again.',
+  };
+  return e?.message ? `${fallback[action]} (${e.message})` : fallback[action];
+}
+
+/** The signed-in person's id. "My" queries filter by it: staff logins can read every customer's rows. */
+async function myUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user.id ?? null;
 }
 
 async function rpc<T = void>(name: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -240,12 +360,31 @@ export async function isProviderEnabled(provider: 'google' | 'apple'): Promise<b
   }
 }
 
+/** Whether Airtel Money is switched on for the shop (the payment screen also checks it is set up). */
+export const takesAirtel = (site: Pick<Storefront, 'business'>) => (site.business.paymentMethods ?? []).includes('Airtel Money');
+
 /** Returns null when the slug isn't published. */
-export const fetchStorefront = () => rpc<Storefront | null>('get_public_storefront', { p_slug: WEBSITE_SLUG });
+export const fetchStorefront = (slug = storeSlug()) => rpc<Storefront | null>('get_public_storefront', { p_slug: slug });
+
+/**
+ * Moves the signed-in customer's account to this branch, so orders, points and messages go there.
+ * Does nothing for a visitor, or on a database without branches on the website yet.
+ */
+export async function switchMyStore(slug: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  try {
+    await rpc<string | null>('switch_my_store', { p_slug: slug });
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === 'PGRST202' || code === '42883') return;
+    throw err;
+  }
+}
 
 export const submitFeedback = (input: FeedbackInput) =>
   rpc('submit_website_feedback', {
-    p_slug: WEBSITE_SLUG,
+    p_slug: storeSlug(),
     p_name: input.name,
     p_contact: input.contact,
     p_rating: input.rating,
@@ -255,7 +394,7 @@ export const submitFeedback = (input: FeedbackInput) =>
   });
 
 export const askAssistant = (message: string, pendingProductId: string | null) =>
-  callFunction<AssistantReply>('customer-assistant', { slug: WEBSITE_SLUG, message, pendingProductId });
+  callFunction<AssistantReply>('customer-assistant', { slug: storeSlug(), message, pendingProductId });
 
 export interface DeliveryZone {
   id: string;
@@ -278,32 +417,42 @@ export const fetchRewards = () => rpc<Rewards | null>('get_my_rewards', {});
 export const redeemPoints = (points: number) => rpc('redeem_my_points', { p_points: points });
 
 export async function fetchAccount(): Promise<Account | null> {
+  const uid = await myUserId();
+  if (!uid) return null;
   const { data, error } = await supabase
     .from('customer_accounts')
     .select('id, name, phone, email, delivery_address, delivery_notes')
+    .eq('id', uid)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
 export const createAccount = (name: string, phone: string) =>
-  rpc<string>('create_customer_account', { p_slug: WEBSITE_SLUG, p_name: name, p_phone: phone });
+  rpc<string>('create_customer_account', { p_slug: storeSlug(), p_name: name, p_phone: phone });
 
 export const updateAccount = (name: string, phone: string, address: string, notes: string) =>
   rpc('update_my_account', { p_name: name, p_phone: phone, p_address: address, p_notes: notes });
 
 /** The promo code is only sent when there is one, so ordering still works on a database without promo codes. */
-export const placeOrder = (items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number, promoCode: string | null = null) =>
-  rpc<string>('place_online_order', {
+export async function placeOrder(items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number, promoCode: string | null = null) {
+  // The order goes to the account's branch, so it must be the branch being shopped (another tab
+  // or device may have switched it).
+  await switchMyStore(storeSlug());
+  return rpc<string>('place_online_order', {
     p_items: items, p_fulfilment: fulfilment, p_address: address, p_notes: notes, p_zone_id: zoneId, p_points: points,
     ...(promoCode ? { p_promo_code: promoCode } : {}),
   });
+}
 
 export const checkPromoCode = (code: string, subtotal: number) =>
-  rpc<PromoCheck>('check_promo_code', { p_slug: WEBSITE_SLUG, p_code: code, p_subtotal: subtotal });
+  rpc<PromoCheck>('check_promo_code', { p_slug: storeSlug(), p_code: code, p_subtotal: subtotal });
 
-export const submitReview = (productId: string | null, rating: number, title: string, body: string) =>
-  rpc<string>('submit_my_review', { p_product_id: productId, p_rating: rating, p_title: title, p_body: body });
+// Reviews and regular orders name this branch's products, so the account moves to it first.
+export async function submitReview(productId: string | null, rating: number, title: string, body: string) {
+  await switchMyStore(storeSlug());
+  return rpc<string>('submit_my_review', { p_product_id: productId, p_rating: rating, p_title: title, p_body: body });
+}
 
 export interface MyReview {
   id: string;
@@ -343,18 +492,25 @@ async function selectOrders<T>(run: (columns: string) => PromiseLike<{ data: T; 
 }
 
 export async function fetchOrders(): Promise<Order[]> {
+  const uid = await myUserId();
+  if (!uid) return [];
   const data = await selectOrders((columns) =>
-    supabase.from('online_orders').select(columns).order('created_at', { ascending: false }).limit(50));
+    supabase.from('online_orders').select(columns).eq('account_id', uid).order('created_at', { ascending: false }).limit(50));
   return (data ?? []) as unknown as Order[];
 }
 
 export async function fetchOrder(id: string): Promise<Order | null> {
-  const data = await selectOrders((columns) => supabase.from('online_orders').select(columns).eq('id', id).maybeSingle());
+  const uid = await myUserId();
+  if (!uid) return null;
+  const data = await selectOrders((columns) => supabase.from('online_orders').select(columns).eq('id', id).eq('account_id', uid).maybeSingle());
   return data as unknown as Order | null;
 }
 
-export const startPayment = (orderId: string, phone: string) =>
-  callFunction<{ success: boolean }>('customer-checkout', { action: 'pay', orderId, phone });
+export type PhoneMethod = 'mpesa' | 'airtel';
+
+/** Sends a payment prompt to the phone: M-Pesa (STK push) or Airtel Money. */
+export const startPayment = (orderId: string, phone: string, method: PhoneMethod = 'mpesa') =>
+  callFunction<{ success: boolean }>('customer-checkout', { action: 'pay', orderId, phone, method });
 
 export const checkPayment = (orderId: string) =>
   callFunction<{ status: OrderStatus }>('customer-checkout', { action: 'check', orderId });
@@ -369,23 +525,35 @@ export const checkCardPayment = (orderId: string, reference?: string) =>
 /** Whether the shop takes cards online. False on a database without card payments yet. */
 export async function acceptsCards(): Promise<boolean> {
   try {
-    return (await rpc<boolean>('website_accepts_cards', { p_slug: WEBSITE_SLUG })) === true;
+    return (await rpc<boolean>('website_accepts_cards', { p_slug: storeSlug() })) === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the shop takes Airtel Money online. False on a database without Airtel yet. */
+export async function acceptsAirtel(): Promise<boolean> {
+  try {
+    return (await rpc<boolean>('website_accepts_airtel', { p_slug: storeSlug() })) === true;
   } catch {
     return false;
   }
 }
 
 export async function fetchSchedules(): Promise<Schedule[]> {
+  const uid = await myUserId();
+  if (!uid) return [];
   const { data, error } = await supabase
     .from('customer_order_schedules')
     .select('id, items, days_of_week, fulfilment, delivery_address, notes, active, next_run_date')
+    .eq('account_id', uid)
     .order('created_at');
   if (error) throw error;
   return (data ?? []) as Schedule[];
 }
 
-export const saveSchedule = (schedule: Omit<Schedule, 'id' | 'next_run_date'> & { id: string | null }) =>
-  rpc<string>('save_order_schedule', {
+export const saveSchedule = async (schedule: Omit<Schedule, 'id' | 'next_run_date'> & { id: string | null }) =>
+  switchMyStore(storeSlug()).then(() => rpc<string>('save_order_schedule', {
     p_id: schedule.id,
     p_items: schedule.items,
     p_days: schedule.days_of_week,
@@ -393,14 +561,17 @@ export const saveSchedule = (schedule: Omit<Schedule, 'id' | 'next_run_date'> & 
     p_address: schedule.delivery_address,
     p_notes: schedule.notes,
     p_active: schedule.active,
-  });
+  }));
 
 export const deleteSchedule = (id: string) => rpc('delete_order_schedule', { p_id: id });
 
 export async function fetchMessages(): Promise<Message[]> {
+  const uid = await myUserId();
+  if (!uid) return [];
   const { data, error } = await supabase
     .from('customer_messages')
     .select('id, sender, staff_name, body, order_id, read_at, created_at')
+    .eq('account_id', uid)
     .order('created_at')
     .limit(200);
   if (error) throw error;
@@ -409,3 +580,35 @@ export async function fetchMessages(): Promise<Message[]> {
 
 export const sendMessage = (body: string) => rpc('send_customer_message', { p_body: body });
 export const markMessagesRead = () => rpc('mark_my_messages_read');
+
+export interface ProductIdea {
+  id: string;
+  kind: 'upcoming' | 'suggestion';
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  staffNote: string | null;
+  status: 'pending' | 'open' | 'planned' | 'available';
+  productId: string | null;
+  suggestedBy: string | null;
+  votes: number;
+  voted: boolean;
+  mine: boolean;
+  createdAt: string;
+}
+
+/** Ideas for /ideas. Null when the database doesn't have product ideas yet. */
+export async function fetchProductIdeas(): Promise<ProductIdea[] | null> {
+  try {
+    return (await rpc<ProductIdea[]>('get_product_ideas', { p_slug: storeSlug() })) ?? [];
+  } catch (err) {
+    if ((err as { code?: string }).code === 'PGRST202') return null;
+    throw err;
+  }
+}
+
+export const suggestProductIdea = (title: string, description: string) =>
+  rpc<string>('suggest_product_idea', { p_title: title, p_description: description });
+
+export const voteProductIdea = (ideaId: string, vote: boolean) =>
+  rpc<{ votes: number; voted: boolean }>('vote_product_idea', { p_idea_id: ideaId, p_vote: vote });

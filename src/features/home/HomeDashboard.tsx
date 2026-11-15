@@ -30,7 +30,7 @@ import AiAdvisory from "./AiAdvisory";
 
 const RANGE_KEYS: RangeKey[] = ["today", "yesterday", "last7", "last30", "month", "quarter", "year", "custom"];
 const GRAIN_WORD = { hour: "Hourly", day: "Daily", week: "Weekly", month: "Monthly" } as const;
-const METHOD_LABEL: Record<MethodKey, string> = { "M-Pesa": "M-Pesa", Cash: "Cash", Card: "Card", Bank: "Bank", Credit: "On credit" };
+const METHOD_LABEL: Record<MethodKey, string> = { "M-Pesa": "M-Pesa", "Airtel Money": "Airtel Money", Cash: "Cash", Card: "Card", Bank: "Bank", Credit: "On credit" };
 
 const shortDate = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const periodText = (r: { start: Date; end: Date }) =>

@@ -412,6 +412,11 @@ verify_jwt = false
 [functions.card-webhook]
 verify_jwt = false
 
+# Airtel calls this without a Supabase token; the per-business token in the URL is checked,
+# and a payment is only recorded after asking Airtel itself.
+[functions.airtel-callback]
+verify_jwt = false
+
 # The uptime monitor calls GET without a key; each POST action checks its own caller.
 [functions.ops-alert]
 verify_jwt = false

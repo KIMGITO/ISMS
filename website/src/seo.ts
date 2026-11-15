@@ -270,6 +270,13 @@ export function metaForRoute(parts: string[], site: Storefront, siteUrl: string)
       return privateMeta(site, 'Order confirmed', path);
     case 'reviews':
       return reviewsMeta(site, siteUrl);
+    case 'ideas':
+      return {
+        title: `Vote & suggest products | ${site.business.name}`,
+        description: clip(`Vote for the products ${site.business.name} makes next, or suggest your own.`),
+        path: '/ideas',
+        jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Vote & suggest', '/ideas']])],
+      };
     case 'track':
       return privateMeta(site, 'Track your order', path);
     case 'sitemap':

@@ -6,10 +6,13 @@ import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
   Edit, Wallet, TrendingUp, Smartphone, Banknote, Landmark, User as UserIcon, Store, Search,
-  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban
+  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban, ToggleRight
 } from "lucide-react";
 import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
 import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
+import AirtelPaymentsPanel from "../components/payments/AirtelPaymentsPanel";
+import PaymentMethodsPanel from "../components/payments/PaymentMethodsPanel";
+import { usePaymentMethods } from "../hooks/usePaymentMethods";
 import CardChargeSheet, { type CardChargeResult, describeCard } from "../components/payments/CardChargeSheet";
 import { MONEY_METHODS, methodLabel, normalizeReference, referenceHint } from "../utils/paymentMethods";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
@@ -38,11 +41,12 @@ const COLOR_PRESETS = [
   { name: "Monochrome Sleek", primary: "#94a3b8", secondary: "#0f172a", label: "Silver & Charcoal" }
 ];
 
-type MoneyTab = "payments" | "expenses" | "mpesa" | "cards";
+type MoneyTab = "payments" | "expenses" | "mpesa" | "airtel" | "cards" | "methods";
 
 const METHOD_ICONS: Record<MoneyMethod, React.ReactNode> = {
   Cash: <Banknote size={14} className="text-amber-500" />,
   "M-Pesa": <Smartphone size={14} className="text-emerald-500" />,
+  "Airtel Money": <Smartphone size={14} className="text-red-500" />,
   Card: <CreditCard size={14} className="text-blue-500" />,
   Bank: <Landmark size={14} className="text-violet-500" />,
 };
@@ -116,9 +120,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const moneyTabs = ([
     { id: "payments", label: "Payments", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.view") || hasRolePermission(role, "payments.cash") || hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") },
     { id: "mpesa", label: "M-Pesa", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") || hasRolePermission(role, "settings.integrations") },
+    { id: "airtel", label: "Airtel Money", shortcut: "money-airtel", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.airtel") || hasRolePermission(role, "settings.integrations") },
     { id: "cards", label: "Cards", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.card") || hasRolePermission(role, "payments.view") || hasRolePermission(role, "settings.integrations") },
     { id: "expenses", label: "Expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
-  ] as { id: MoneyTab; label: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
+    { id: "methods", label: "Methods", shortcut: "money-methods", icon: <ToggleRight size={14} />, allowed: hasRolePermission(role, "payments.configure") },
+  ] as { id: MoneyTab; label: string; shortcut?: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
   const [activeSubTab, setActiveSubTab] = useState<"details" | MoneyTab>(
     section === "money" ? moneyTabs[0]?.id ?? "payments" : "details",
   );
@@ -147,6 +153,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [payRef, setPayRef] = useState("");
   const [payAmount, setExpPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState<MoneyMethod>("M-Pesa");
+  // Only the methods this business has switched on can be chosen for a new payment.
+  const payMethods = usePaymentMethods();
+  useEffect(() => {
+    if (!payMethods.includes(payMethod)) setPayMethod(payMethods.includes("M-Pesa") ? "M-Pesa" : payMethods[0]);
+  }, [payMethods, payMethod]);
   const [chargingCard, setChargingCard] = useState(false);
   const [paySenderName, setPaySenderName] = useState("");
   const [paySenderPhone, setPaySenderPhone] = useState("");
@@ -949,7 +960,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
             <div className="space-y-5">
               {isMoney && moneyTabs.length > 1 && (
                 <Tabs<typeof activeSubTab>
-                  tabs={moneyTabs.map(({ id, label, icon }) => ({ id, label, icon }))}
+                  tabs={moneyTabs.map(({ id, label, icon, shortcut }) => ({ id, label, icon, shortcut }))}
                   activeTab={activeSubTab}
                   onChange={setActiveSubTab}
                 />
@@ -1565,6 +1576,10 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {isMoney && activeSubTab === 'cards' && <CardPaymentsPanel />}
 
+              {isMoney && activeSubTab === 'airtel' && <AirtelPaymentsPanel />}
+
+              {isMoney && activeSubTab === 'methods' && <PaymentMethodsPanel />}
+
               <CardChargeSheet
                 open={chargingCard}
                 amount={Number(payAmount) || 0}
@@ -1805,7 +1820,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </div>
                           {payMethodDisplay === 'modern' ? (
                             <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Payment method">
-                              {MONEY_METHODS.map((m) => (
+                              {payMethods.map((m) => (
                                 <button
                                   type="button"
                                   key={m}
@@ -1827,7 +1842,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             </div>
                           ) : (
                             <SearchableDropdown
-                              items={MONEY_METHODS.map((m) => ({ id: m, label: m === 'Bank' ? 'Bank transfer' : methodLabel(m) }))}
+                              items={payMethods.map((m) => ({ id: m, label: m === 'Bank' ? 'Bank transfer' : methodLabel(m) }))}
                               selectedValue={payMethod}
                               onChange={(val) => setPayMethod(val as MoneyMethod)}
                               placeholder="Select method..."

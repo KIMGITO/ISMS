@@ -70,7 +70,7 @@ function normalise(r: any): Report {
 }
 
 const METHOD_LABELS: Record<string, string> = {
-  Cash: 'Cash', 'M-Pesa': 'M-Pesa', Card: 'Card', Bank: 'Bank',
+  Cash: 'Cash', 'M-Pesa': 'M-Pesa', 'Airtel Money': 'Airtel Money', Card: 'Card', Bank: 'Bank',
 };
 const POINT_KIND: Record<string, string> = {
   till: 'Taken off sales at the till',

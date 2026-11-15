@@ -19,6 +19,7 @@ export interface ReceiptExtras {
 const PAYMENT_LABELS: Record<string, string> = {
   Cash: "Cash",
   "M-Pesa": "M-Pesa",
+  "Airtel Money": "Airtel Money",
   Card: "Card",
   Bank: "Bank transfer",
   Credit_Debt: "Credit",

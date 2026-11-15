@@ -148,6 +148,8 @@ export type PermissionCode =
   | 'payments.mpesa'
   | 'payments.cash'
   | 'payments.card'
+  | 'payments.airtel'
+  | 'payments.configure'
   | 'payments.manage'
   // Reports & AI
   | 'reports.view'
@@ -331,6 +333,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'payments.mpesa', category: 'Expenses & Payments', description: 'Trigger M-Pesa push API' },
   { code: 'payments.cash', category: 'Expenses & Payments', description: 'Accept physical cash ledger' },
   { code: 'payments.card', category: 'Expenses & Payments', description: 'Charge cards online or on a card reader' },
+  { code: 'payments.airtel', category: 'Expenses & Payments', description: 'Send Airtel Money payment prompts' },
+  { code: 'payments.configure', category: 'Expenses & Payments', description: 'Switch payment methods (Cash, M-Pesa, Airtel Money, Card, Bank) on and off' },
   { code: 'payments.manage', category: 'Expenses & Payments', description: 'Audit payment configurations' },
 
   // Staff & Roles
@@ -426,7 +430,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.cancel_sale', 'pos.discount', 'pos.walkin_customer',
       'customers.view', 'customers.create', 'customers.debts', 'customers.loyalty', 'customers.schedules',
       'orders.view', 'orders.create', 'orders.update', 'orders.assign_rider',
-      'payments.cash', 'payments.mpesa', 'payments.card', 'payments.verify', 'pettycash.record',
+      'payments.cash', 'payments.mpesa', 'payments.airtel', 'payments.card', 'payments.verify', 'pettycash.record',
       'notifications.view', 'ai.use'
     ]
   },

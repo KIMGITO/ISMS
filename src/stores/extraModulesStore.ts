@@ -95,7 +95,7 @@ export interface Payment {
   businessId: string;
   referenceCode: string;
   amount: number;
-  method: "M-Pesa" | "Cash" | "Card" | "Bank";
+  method: "M-Pesa" | "Airtel Money" | "Cash" | "Card" | "Bank";
   senderName: string;
   senderPhone?: string;
   status: "Success" | "Pending" | "Failed";

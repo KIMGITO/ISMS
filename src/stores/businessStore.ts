@@ -4,6 +4,7 @@ import { useNotificationStore } from "./notificationStore";
 import { Business } from "../types";
 import { getSupabase } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
+import { enabledMethods } from "../utils/paymentMethods";
 
 interface BusinessState {
   businesses: Business[];
@@ -46,6 +47,8 @@ interface BusinessState {
   fetchIntegrationConfig: (section: string) => Promise<any>;
   fetchAllIntegrationConfigs: () => Promise<Record<string, any>>;
   updateIntegrationConfig: (section: string, payload: any) => Promise<void>;
+  /** Switches payment methods on and off for the active business (payments.configure). */
+  setPaymentMethods: (methods: string[]) => Promise<void>;
 }
 
 const localBusinessesKey = "kkm_businesses_v1";
@@ -147,6 +150,22 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       saveConfigs(activeBusinessId, integrationConfigs);
     },
 
+    setPaymentMethods: async (methods: string[]) => {
+      const { activeBusinessId } = get();
+      if (!activeBusinessId) throw new Error("No active business");
+      const { data, error } = await getSupabase().rpc("set_payment_methods", {
+        p_business_id: activeBusinessId,
+        p_methods: methods,
+      });
+      if (error) throw error;
+      const saved: string[] = Array.isArray(data) ? data : methods;
+      const businesses = get().businesses.map((b) =>
+        b.id === activeBusinessId ? { ...b, defaultPaymentMethods: saved } : b
+      );
+      localStorage.setItem(localBusinessesKey, JSON.stringify(businesses));
+      set({ businesses });
+    },
+
     addBusiness: async (
       name, description, address, logoUrl, businessType, country, currency,
       coverImageUrl, contactEmail, contactPhone, timezone, defaultPaymentMethods
@@ -184,7 +203,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
             contact_email: contactEmail || null,
             contact_phone: contactPhone || null,
             timezone: timezone || "Africa/Nairobi",
-            default_payment_methods: defaultPaymentMethods || ["Cash", "M-Pesa"]
+            default_payment_methods: enabledMethods(defaultPaymentMethods)
           })
           .eq("id", newBizId);
 
@@ -209,7 +228,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
           contactEmail: contactEmail || "",
           contactPhone: contactPhone || "",
           timezone: timezone || "Africa/Nairobi",
-          defaultPaymentMethods: defaultPaymentMethods || ["Cash", "M-Pesa"]
+          defaultPaymentMethods: enabledMethods(defaultPaymentMethods)
         };
 
         const updated = [...current, newBiz];

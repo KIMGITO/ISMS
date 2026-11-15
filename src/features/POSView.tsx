@@ -5,7 +5,8 @@ import { SheetLayer } from '../components/shared/SheetLayer';
 import { SwipeRow } from '../components/shared/SwipeRow';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Product, ProductCategory, PaymentMethod, Transaction } from '../types';
+import { Product, ProductCategory, PaymentMethod, Transaction, MoneyMethod } from '../types';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import {
   ShoppingCart,
   Search,
@@ -101,6 +102,23 @@ export default function POSView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
+  // Only the methods this business has switched on; Credit is a sale on debt, always offered.
+  const enabledMethods = usePaymentMethods();
+  const payChoices = (
+    [
+      { value: 'Cash', label: 'Cash', shortcut: 'pos-cash' },
+      { value: 'M-Pesa', label: 'M-Pesa', shortcut: 'pos-mpesa' },
+      { value: 'Airtel Money', label: 'Airtel', shortcut: 'pos-airtel' },
+      { value: 'Card', label: 'Card', shortcut: 'pos-card' },
+      { value: 'Bank', label: 'Bank', shortcut: 'pos-bank' },
+      { value: 'Credit_Debt', label: 'Credit', shortcut: 'pos-credit' },
+    ] as const
+  ).filter((m) => m.value === 'Credit_Debt' || enabledMethods.includes(m.value));
+  useEffect(() => {
+    if (paymentMethod !== 'Credit_Debt' && !enabledMethods.includes(paymentMethod as MoneyMethod)) {
+      setPaymentMethod(enabledMethods[0] ?? 'Credit_Debt');
+    }
+  }, [enabledMethods, paymentMethod]);
   // Card: the sheet takes the card first, then the sale is saved. A card already paid is kept
   // here, so if saving the sale fails, trying again doesn't charge the card twice.
   const [cardSheetOpen, setCardSheetOpen] = useState(false);
@@ -399,8 +417,8 @@ export default function POSView() {
         return;
       }
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt', '4': 'Card', '5': 'Bank' };
-        if (methods[k]) return done(), setPaymentMethod(methods[k]);
+        const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt', '4': 'Card', '5': 'Bank', '6': 'Airtel Money' };
+        if (methods[k] && (methods[k] === 'Credit_Debt' || enabledMethods.includes(methods[k] as MoneyMethod))) return done(), setPaymentMethod(methods[k]);
         const code = e.code;
         if (code === 'KeyD') return done(), setIsDelivery((v) => !v);
         if (code === 'KeyC') {
@@ -653,22 +671,19 @@ export default function POSView() {
                   )}
                 </div>
 
-                {/* Payment on its own row (five choices), then the note */}
+                {/* Payment on its own row (the methods switched on, plus Credit), then the note */}
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
                       Payment
                     </label>
-                    <div className="h-10 grid grid-cols-5 gap-1 bg-app-bg p-1 rounded-xl border border-app-border" role="radiogroup" aria-label="Payment">
-                      {(
-                        [
-                          { value: 'Cash', label: 'Cash', shortcut: 'pos-cash' },
-                          { value: 'M-Pesa', label: 'M-Pesa', shortcut: 'pos-mpesa' },
-                          { value: 'Card', label: 'Card', shortcut: 'pos-card' },
-                          { value: 'Bank', label: 'Bank', shortcut: 'pos-bank' },
-                          { value: 'Credit_Debt', label: 'Credit', shortcut: 'pos-credit' },
-                        ] as const
-                      ).map((method) => (
+                    <div
+                      className="h-10 grid gap-1 bg-app-bg p-1 rounded-xl border border-app-border"
+                      style={{ gridTemplateColumns: `repeat(${payChoices.length}, minmax(0, 1fr))` }}
+                      role="radiogroup"
+                      aria-label="Payment"
+                    >
+                      {payChoices.map((method) => (
                         <button
                           key={method.value}
                           type="button"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { fetchStorefront } from './api';
+import { fetchStorefront, storeSlug, switchMyStore } from './api';
+import { applyBrandColor, hasStorePicker, loadStartingStore } from './stores';
 import { Route, startLinkInterceptor, useRoute } from './router';
 import { startAuthListener, useAuth, useSite } from './store';
 import { Loading, Notice, primaryButton } from './ui';
@@ -21,16 +22,9 @@ import InfoPage from './pages/InfoPage';
 import { NotFoundPage, OrderConfirmedPage, SavedPage, SitemapPage, TrackPage } from './pages/ExtraPages';
 import { CheckoutPage } from './pages/CartPage';
 import { ReviewsPage } from './pages/Reviews';
+import IdeasPage from './pages/IdeasPage';
 import { infoPage } from './infoPages';
 
-/** Applies the business's brand colour, keeping button text readable on it. */
-function applyBrandColor(color: string | null) {
-  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return;
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  document.documentElement.style.setProperty('--brand-primary', color);
-  document.documentElement.style.setProperty('--brand-on-primary', luminance > 0.55 ? '#1c1408' : '#ffffff');
-}
 
 startAuthListener();
 startLinkInterceptor();
@@ -51,6 +45,8 @@ function Page({ route }: { route: Route }) {
       return id ? <OrderConfirmedPage orderId={id} /> : <NotFoundPage />;
     case 'reviews':
       return <ReviewsPage />;
+    case 'ideas':
+      return <IdeasPage />;
     case 'products':
       return <ProductPage path={`/products/${id}`} />;
     case 'cart':
@@ -91,7 +87,7 @@ export default function App() {
       let data: Awaited<ReturnType<typeof fetchStorefront>> = null;
       for (let attempt = 1; ; attempt++) {
         try {
-          data = await fetchStorefront();
+          data = await loadStartingStore(fetchStorefront, storeSlug());
           break;
         } catch (err) {
           if (attempt >= 3) throw err;
@@ -114,6 +110,13 @@ export default function App() {
   useEffect(() => {
     load();
   }, []);
+
+  // A signed-in customer's account follows the branch being shopped, so orders and points go there.
+  const accountId = useAuth((s) => s.account?.id);
+  const multiStore = hasStorePicker(site);
+  useEffect(() => {
+    if (accountId && multiStore) switchMyStore(storeSlug()).catch((err) => console.error('Could not move account to this store:', err));
+  }, [accountId, multiStore]);
 
   if (status === 'loading') return <Loading />;
   if (status === 'unpublished') {

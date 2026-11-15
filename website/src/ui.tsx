@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { ArrowRight, BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'lucide-react';
-import { Order, OrderStatus, Product, Storefront } from './api';
+import { Order, OrderStatus, Product, Storefront, takesAirtel } from './api';
 import { photoUrl, productPhoto } from './images';
 
 export const primaryButton = 'btn btn-primary';
@@ -170,8 +170,7 @@ export function Loading() {
   return (
     <div role="status" className="grid min-h-[40vh] place-items-center text-muted">
       <div className="flex flex-col items-center gap-3">
-        <Milk size={36} className="animate-pulse text-brand" aria-hidden />
-        <p>Loading…</p>
+        <img src="/milk-loader.svg" width={88} height={88} alt="Loading" />
       </div>
     </div>
   );
@@ -240,7 +239,7 @@ export function PageHeader({ eyebrow, title, body, children }: { eyebrow?: strin
 export function TrustStrip({ site, compact = false }: { site: Storefront; compact?: boolean }) {
   const { settings, business } = site;
   const items = [
-    { icon: CreditCard, title: 'Pay with M-Pesa', body: 'Secure prompt on your phone', href: '/payments' },
+    { icon: CreditCard, title: takesAirtel(site) ? 'M-Pesa or Airtel Money' : 'Pay with M-Pesa', body: 'Secure prompt on your phone', href: '/payments' },
     {
       icon: Truck,
       title: settings.deliveryEnabled ? 'Delivery or pickup' : 'Pickup in store',

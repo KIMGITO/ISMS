@@ -110,6 +110,9 @@ Deno.serve(async (req) => {
         (await enforceRateLimit(`mpesa-prompt:biz:${businessId}`, 600, 86400));
       if (limited) return limited;
 
+      const { data: mpesaOn } = await admin.rpc("fn_method_enabled", { p_business_id: businessId, p_method: "M-Pesa" });
+      if (mpesaOn !== true) return errorResponse("M-Pesa is switched off for this business.", 409, "METHOD_OFF");
+
       const msisdn = toMsisdn(body.phone);
       if (!msisdn) return errorResponse("Enter a Safaricom number like 0712 345 678.", 400);
       const amount = Number(body.amount);

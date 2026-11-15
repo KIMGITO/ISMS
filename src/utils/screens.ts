@@ -7,7 +7,7 @@ import { hasRolePermission } from "./permissions";
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
-  | "business-management" | "money" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers";
+  | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -34,7 +34,8 @@ export const SCREENS: AppScreen[] = [
   { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Send stock to another branch and receive what branches send you", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way"], permissions: ["inventory.transfer_stock", "inventory.receive_stock"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
   { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
-  { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till and prompts", keywords: ["payments", "expenses", "mpesa", "m-pesa", "till", "void", "money", "cash", "stk"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.verify", "expenses.view", "expenses.create"] },
+  { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till, Airtel Money, cards and which payment methods are on", keywords: ["payments", "expenses", "mpesa", "m-pesa", "airtel", "till", "void", "money", "cash", "payment methods", "switch off"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.airtel", "payments.verify", "payments.configure", "expenses.view", "expenses.create"] },
+  { id: "prompt", group: "Money", title: "Payment Prompts", description: "Send an M-Pesa or Airtel Money prompt to a phone and watch it get paid", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finances", description: "Profit or loss, income, spending, debts, wallets and what points cost", keywords: ["finance", "profit", "loss", "income", "spending", "report", "accounts", "debts", "p&l", "books"], permissions: ["finance.view"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },

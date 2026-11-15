@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Check, Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, Minus, Plus, Star } from 'lucide-react';
 import { Product } from '../api';
+import { percentOff } from '../adCards';
 import { productPaths } from '../seo';
 import { useCart, useSaved, useStorefront, useToast } from '../store';
 import { formatPrice, perUnit, ProductImage } from '../ui';
@@ -31,36 +31,100 @@ export function useAddToCart() {
   };
 }
 
+/** The offer ribbon on the card's top-left corner: "20% Off". */
+export function OfferRibbon({ product, className = '' }: { product: Pick<Product, 'price' | 'wasPrice'>; className?: string }) {
+  const off = percentOff(product.price, product.wasPrice);
+  if (!off) return null;
+  return (
+    <span className={`absolute left-0 z-10 flex flex-col rounded-r-full bg-ember py-1 pl-2 pr-3 text-[0.6875rem] font-semibold leading-tight text-white sm:text-xs ${className}`}>
+      {off}%<span className="font-normal">Off</span>
+    </span>
+  );
+}
+
+/** Price with the old price struck through and the saving, as on the card and product page. */
+export function PriceLine({ product, currency, large = false }: { product: Pick<Product, 'price' | 'wasPrice'>; currency: string; large?: boolean }) {
+  const off = percentOff(product.price, product.wasPrice);
+  return (
+    <p className={`flex flex-wrap items-baseline gap-x-2 leading-tight ${large ? 'gap-y-1' : ''}`}>
+      <span className={`font-semibold text-leaf ${large ? 'text-3xl' : 'text-sm sm:text-base'}`}>{formatPrice(currency, product.price)}</span>
+      {off > 0 && (
+        <>
+          <span className={`text-muted line-through ${large ? 'text-lg' : 'text-[0.6875rem] sm:text-xs'}`}>
+            <span className="sr-only">was </span>{formatPrice(currency, product.wasPrice!)}
+          </span>
+          <span className={`font-semibold text-ember ${large ? 'text-sm' : 'text-[0.6875rem] sm:text-xs'}`}>{off}% Off</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
+ * "Add" until the product is in the cart, then a − amount + stepper on the card itself, so a
+ * customer can fill the cart from any list without opening the product.
+ */
+export function CartStepper({ product, size = 'sm' }: { product: Product; size?: 'sm' | 'lg' }) {
+  const line = useCart((s) => s.lines.find((l) => l.productId === product.id));
+  const setQuantity = useCart((s) => s.setQuantity);
+  const remove = useCart((s) => s.remove);
+  const addToCart = useAddToCart();
+  const height = size === 'lg' ? 'h-12' : 'h-8 sm:h-9';
+
+  if (!line) {
+    return (
+      <button
+        type="button"
+        aria-label={`Add ${product.name} to cart`}
+        onClick={() => addToCart(product)}
+        className={`${height} w-full rounded-full border border-ember bg-white text-xs font-semibold uppercase tracking-wide text-ember transition hover:bg-ember hover:text-white sm:text-[0.8125rem]`}
+      >
+        Add
+      </button>
+    );
+  }
+  const less = () => (line.quantity <= 1 ? remove(product.id) : setQuantity(product.id, line.quantity - 1));
+  return (
+    <div className={`${height} flex w-full items-center justify-between rounded-full bg-ember text-white`} role="group" aria-label={`${product.name} in cart`}>
+      <button type="button" onClick={less} aria-label={line.quantity <= 1 ? `Remove ${product.name}` : `Less ${product.name}`} className="grid h-full w-9 place-items-center rounded-l-full hover:bg-brand-deep sm:w-10">
+        <Minus size={15} aria-hidden />
+      </button>
+      <span className="min-w-6 text-center text-sm font-semibold" aria-live="polite">{line.quantity}</span>
+      <button type="button" onClick={() => setQuantity(product.id, Math.min(1000, line.quantity + 1))} aria-label={`More ${product.name}`} className="grid h-full w-9 place-items-center rounded-r-full hover:bg-brand-deep sm:w-10">
+        <Plus size={15} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 export default function ProductCard({ product, as = 'li' }: { product: Product; as?: 'li' | 'div' }) {
   const { business, products, reviews = [] } = useStorefront();
   const href = productPaths(products).get(product.id);
   const ratings = reviews.filter((r) => r.productId === product.id);
   const average = ratings.length ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length : 0;
-  const addToCart = useAddToCart();
-  const [justAdded, setJustAdded] = useState(false);
   const Tag = as;
 
-  // A small bordered card: photo on a soft tile, category and rating, name, price in green and an "Add" pill.
+  // A bordered shop card: offer ribbon, product on white, price (with the old one struck through),
+  // name, then a full-width "Add" pill that turns into a stepper.
   return (
-    <Tag className="group flex min-w-0 flex-col rounded-lg border border-line bg-white p-1.5 transition hover:border-ember/40 hover:shadow-soft sm:p-2.5">
-      <div className="relative">
-        <a href={href} className="block aspect-square overflow-hidden rounded-md bg-shell" tabIndex={-1} aria-hidden>
-          <span className="block size-full transition duration-500 group-hover:scale-[1.04]">
-            <ProductImage product={product} width={500} />
-          </span>
-        </a>
+    <Tag className="group relative flex min-w-0 flex-col rounded-lg border border-line bg-white p-2 transition hover:border-ember/40 hover:shadow-soft sm:p-3">
+      <OfferRibbon product={product} className="top-3 sm:top-4" />
+      <SaveButton productId={product.id} name={product.name} className="absolute right-2 top-2 z-10 size-8 border border-line shadow-none sm:right-3 sm:top-3" />
+      <a href={href} className="relative block aspect-square overflow-hidden rounded-md bg-white" tabIndex={-1} aria-hidden>
+        <span className="block size-full p-2 transition duration-500 group-hover:scale-[1.04] sm:p-3">
+          <ProductImage product={product} width={460} fit="contain" />
+        </span>
         {!product.inStock && (
-          <span className="absolute left-2 top-2 rounded-full bg-ink/90 px-2.5 py-0.5 text-[0.6875rem] font-medium text-cream">Sold out</span>
+          <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-ink/90 px-2.5 py-0.5 text-[0.6875rem] font-medium text-cream">Sold out</span>
         )}
-        <SaveButton
-          productId={product.id}
-          name={product.name}
-          className="absolute -bottom-3.5 left-1/2 size-7 -translate-x-1/2 border border-line shadow-none hover:scale-110 sm:-bottom-4 sm:size-8"
-        />
-      </div>
-      <div className="flex flex-1 flex-col px-0.5 pb-0.5 pt-4 sm:px-1.5 sm:pt-5">
-        <div className="flex items-center justify-between gap-1 text-[0.625rem] text-muted sm:gap-2 sm:text-[0.6875rem]">
-          <span className="truncate">{product.category}</span>
+      </a>
+      <div className="flex flex-1 flex-col pt-2">
+        <PriceLine product={product} currency={business.currency} />
+        <h3 className="mt-1 line-clamp-2 min-h-[2.6em] text-xs font-medium leading-snug first-letter:uppercase sm:text-sm">
+          <a href={href} className="hover:text-ember">{product.name}</a>
+        </h3>
+        <div className="mt-0.5 flex items-center justify-between gap-1 text-[0.6875rem] text-muted">
+          <span className="truncate">per {perUnit(product.unit)}</span>
           {ratings.length > 0 && (
             <span className="flex shrink-0 items-center gap-0.5">
               <Star size={11} className="text-star" fill="currentColor" strokeWidth={0} aria-hidden />
@@ -69,29 +133,11 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
             </span>
           )}
         </div>
-        <h3 className="mt-0.5 line-clamp-2 min-h-[2.75em] text-xs font-medium leading-snug sm:mt-1 sm:text-sm">
-          <a href={href} className="hover:text-ember">{product.name}</a>
-        </h3>
-        <div className="mt-auto flex flex-col gap-1.5 pt-2 sm:flex-row sm:items-end sm:justify-between sm:pt-2.5">
-          <p className="min-w-0 leading-tight">
-            <span className="hidden text-[0.6875rem] text-muted sm:block">per {perUnit(product.unit)}</span>
-            <span className="block text-[0.8125rem] font-semibold text-leaf sm:text-base">{formatPrice(business.currency, product.price)}</span>
-          </p>
+        <div className="mt-auto pt-2.5">
           {product.inStock ? (
-            <button
-              aria-label={`Add ${product.name} to cart`}
-              onClick={() => {
-                addToCart(product);
-                setJustAdded(true);
-                setTimeout(() => setJustAdded(false), 1500);
-              }}
-              className={`btn btn-sm shrink-0 gap-1 px-3 max-sm:min-h-7 max-sm:w-full max-sm:text-[0.6875rem] ${justAdded ? 'border border-leaf bg-leaf text-white' : 'btn-primary'}`}
-            >
-              {justAdded ? <Check size={14} aria-hidden /> : <ShoppingCart size={14} aria-hidden />}
-              <span>{justAdded ? 'Added' : 'Add'}</span>
-            </button>
+            <CartStepper product={product} />
           ) : (
-            <a href={href} className="shrink-0 py-1 text-center text-xs text-muted underline">Details</a>
+            <a href={href} className="grid h-8 place-items-center rounded-full border border-line text-xs text-muted sm:h-9">Details</a>
           )}
         </div>
       </div>

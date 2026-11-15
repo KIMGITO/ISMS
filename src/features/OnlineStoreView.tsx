@@ -32,17 +32,21 @@ import { Switch } from '../components/shared/Switch';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import PageEditor from '../components/website/PageEditor';
 import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
+import AdCardsEditor from '../components/website/AdCardsEditor';
+import ProductIdeasTab from '../components/website/ProductIdeasTab';
 
-type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'promotions' | 'guides' | 'pages' | 'banner' | 'settings';
+type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'ideas' | 'promotions' | 'guides' | 'pages' | 'banner' | 'adverts' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'orders', label: 'Orders' },
   { id: 'messages', label: 'Messages' },
   { id: 'feedback', label: 'Feedback' },
   { id: 'reviews', label: 'Reviews' },
+  { id: 'ideas', label: 'Product ideas' },
   { id: 'promotions', label: 'Promotions' },
   { id: 'guides', label: 'Guides' },
   { id: 'banner', label: 'Home banner' },
+  { id: 'adverts', label: 'Adverts' },
   { id: 'pages', label: 'Pages' },
   { id: 'settings', label: 'Website' },
 ];
@@ -95,7 +99,7 @@ interface StaffOrder {
   notes: string | null;
   total: number;
   mpesa_receipt: string | null;
-  payment_method?: 'M-Pesa' | 'Card' | null;
+  payment_method?: 'M-Pesa' | 'Card' | 'Airtel Money' | null;
   payment_reference?: string | null;
   needs_attention: boolean;
   attention_reason: string | null;
@@ -264,6 +268,7 @@ function OrdersTab({ businessId }: { businessId: string }) {
                 Ksh {Number(order.total).toLocaleString()}
                 {order.mpesa_receipt && <span className="font-normal text-app-text-muted"> · M-Pesa {order.mpesa_receipt}</span>}
                 {order.payment_method === 'Card' && order.payment_reference && <span className="font-normal text-app-text-muted"> · Card {order.payment_reference}</span>}
+                {order.payment_method === 'Airtel Money' && order.payment_reference && <span className="font-normal text-app-text-muted"> · Airtel Money {order.payment_reference}</span>}
               </p>
               {order.needs_attention && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600">
@@ -657,6 +662,14 @@ function GuidesTab({ businessId }: { businessId: string }) {
   );
 }
 
+interface WebsiteProductRow {
+  id: string;
+  name: string;
+  price: number;
+  show_on_website: boolean;
+  website_was_price?: number | null;
+}
+
 function SettingsTab({ businessId }: { businessId: string }) {
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const reportError = useReportError();
@@ -666,19 +679,28 @@ function SettingsTab({ businessId }: { businessId: string }) {
   const [deliveryFee, setDeliveryFee] = useState('0');
   const [minOrder, setMinOrder] = useState('0');
   const [assistantEnabled, setAssistantEnabled] = useState(true);
-  const [products, setProducts] = useState<{ id: string; name: string; price: number; show_on_website: boolean }[]>([]);
+  const [products, setProducts] = useState<WebsiteProductRow[]>([]);
+  // False on a database without offer prices yet (20261114006): the "Was" boxes stay hidden.
+  const [hasWasPrice, setHasWasPrice] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = getSupabase();
-    const [business, settings, productRows] = await Promise.all([
+    const productQuery = (columns: string) =>
+      supabase.from('products').select(columns).eq('business_id', businessId).is('deleted_at', null).order('name');
+    const [business, settings, firstTry] = await Promise.all([
       supabase.from('businesses').select('website_slug').eq('id', businessId).single(),
       supabase.from('website_settings').select('*').eq('business_id', businessId).maybeSingle(),
-      supabase.from('products').select('id, name, price, show_on_website').eq('business_id', businessId).is('deleted_at', null).order('name'),
+      productQuery('id, name, price, show_on_website, website_was_price'),
     ]);
     if (business.error) throw business.error;
     if (settings.error) throw settings.error;
+    let productRows = firstTry;
+    if (productRows.error && productRows.error.code === '42703') {
+      setHasWasPrice(false);
+      productRows = await productQuery('id, name, price, show_on_website');
+    }
     if (productRows.error) throw productRows.error;
     setSlug(business.data.website_slug ?? '');
     if (settings.data) {
@@ -687,7 +709,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
       setMinOrder(String(settings.data.min_order));
       setAssistantEnabled(settings.data.assistant_enabled);
     }
-    setProducts(productRows.data as typeof products);
+    setProducts((productRows.data ?? []) as unknown as WebsiteProductRow[]);
     setLoaded(true);
   }, [businessId]);
 
@@ -732,6 +754,23 @@ function SettingsTab({ businessId }: { businessId: string }) {
     }
   };
 
+  /** Saves the "was" price when the box loses focus. Empty, or not above the price, clears it. */
+  const saveWasPrice = async (product: WebsiteProductRow, text: string) => {
+    const value = Number(text);
+    const next = text.trim() && Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : null;
+    if (next !== null && next <= Number(product.price)) {
+      showToast('Online Store', `The "was" price for ${product.name} must be higher than its price (${product.price}). It was cleared.`, undefined, 'error');
+    }
+    const saved = next !== null && next > Number(product.price) ? next : null;
+    if (saved === (product.website_was_price ?? null)) return;
+    setProducts((rows) => rows.map((p) => (p.id === product.id ? { ...p, website_was_price: saved } : p)));
+    const { error } = await getSupabase().from('products').update({ website_was_price: saved }).eq('id', product.id);
+    if (error) {
+      reportError(error, 'Could not save the offer price.');
+      load().catch(() => undefined);
+    }
+  };
+
   if (!loaded) return <p className="text-sm text-app-text-muted">Loading settings…</p>;
 
   return (
@@ -770,20 +809,48 @@ function SettingsTab({ businessId }: { businessId: string }) {
 
       <section className={cardClass}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><ExternalLink size={16} /> Products on the website</h3>
-        <p className="mt-1 text-sm text-app-text-muted">Products priced at 0 are never shown.</p>
+        <p className="mt-1 text-sm text-app-text-muted">
+          Products priced at 0 are never shown.
+          {hasWasPrice && ' For an offer, type the old price under "Was". The website shows it crossed out with a "% Off" ribbon, and lists the product under Offers.'}
+        </p>
         <ul className="mt-3 divide-y divide-app-border">
-          {products.map((product) => (
-            <li key={product.id}>
-              <label className="flex min-h-11 items-center justify-between gap-3 text-sm text-app-text">
-                <span className="min-w-0 truncate">{product.name}</span>
+          {products.map((product) => {
+            const off = product.website_was_price && product.website_was_price > product.price
+              ? Math.floor(((product.website_was_price - product.price) / product.website_was_price) * 100)
+              : 0;
+            return (
+              <li key={product.id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 text-sm text-app-text">
+                <span className="min-w-0 flex-1 truncate">
+                  {product.name}
+                  <span className="ml-1.5 text-xs text-app-text-muted">Ksh {Number(product.price).toLocaleString()}</span>
+                  {off > 0 && <span className="ml-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600">{off}% off</span>}
+                </span>
+                {hasWasPrice && (
+                  <label className="flex items-center gap-1.5 text-xs text-app-text-muted">
+                    Was
+                    <input
+                      key={`${product.id}-${product.website_was_price ?? ''}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      defaultValue={product.website_was_price ?? ''}
+                      onBlur={(e) => saveWasPrice(product, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      aria-label={`Old price for ${product.name}`}
+                      placeholder="-"
+                      className="w-20 rounded-lg border border-app-border bg-app-bg px-2 py-1 text-sm text-app-text outline-none focus:border-brand-500"
+                    />
+                  </label>
+                )}
                 <Switch
                   ariaLabel={`Show ${product.name} on the website`}
                   checked={product.show_on_website}
                   onChange={(on) => toggleProduct(product.id, on)}
                 />
-              </label>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
@@ -1232,7 +1299,7 @@ export default function OnlineStoreView() {
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const canManageWebsite = role ? hasRolePermission(role, 'business.update') : false;
   const [tab, setTab] = useState<TabId>('orders');
-  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'guides', 'pages', 'banner', 'reviews', 'promotions'].includes(t.id));
+  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'guides', 'pages', 'banner', 'reviews', 'ideas', 'promotions'].includes(t.id));
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 pb-nav">
@@ -1240,7 +1307,7 @@ export default function OnlineStoreView() {
         <Package className="text-brand-500" />
         <div>
           <h1 className="font-display text-xl font-bold text-app-text">Online Store</h1>
-          <p className="text-sm text-app-text-muted">Website orders, customer messages, feedback and guides</p>
+          <p className="text-sm text-app-text-muted">Website orders, customer messages, feedback, product ideas and guides</p>
         </div>
       </header>
       <div className="mt-4 overflow-x-auto">
@@ -1257,7 +1324,9 @@ export default function OnlineStoreView() {
             {tab === 'guides' && canManageWebsite && <GuidesTab businessId={businessId} />}
             {tab === 'pages' && canManageWebsite && <PagesTab businessId={businessId} />}
             {tab === 'banner' && canManageWebsite && <HeroSlidesEditor businessId={businessId} />}
+            {tab === 'adverts' && canManageWebsite && <AdCardsEditor businessId={businessId} />}
             {tab === 'reviews' && canManageWebsite && <ReviewsTab businessId={businessId} />}
+            {tab === 'ideas' && canManageWebsite && <ProductIdeasTab businessId={businessId} />}
             {tab === 'promotions' && canManageWebsite && <PromotionsTab businessId={businessId} />}
             {tab === 'settings' && canManageWebsite && <SettingsTab businessId={businessId} />}
           </>
