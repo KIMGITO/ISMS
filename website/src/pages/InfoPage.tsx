@@ -82,9 +82,11 @@ function Faq({ text }: { text: string }) {
 function PolicyBody({ text, children }: { text: string; children?: ReactNode }) {
   const sections = splitSections(text);
   const headings = sections.filter((s) => s.heading);
+  // Only a page with a contents list gets the two-column layout; otherwise the text took the narrow column.
+  const withContents = headings.length > 3;
   return (
-    <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12">
-      {headings.length > 3 && (
+    <div className={withContents ? 'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12' : ''}>
+      {withContents && (
         <nav aria-label="On this page" className="mb-8 lg:mb-0">
           <div className="rounded-xl border border-line bg-white p-4 lg:sticky lg:top-36">
             <h2 className="eyebrow">On this page</h2>

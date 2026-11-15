@@ -3,8 +3,36 @@ import { FormEvent, useState } from 'react';
 import { friendlyError, sendMessage, submitFeedback } from '../api';
 import { useAuth, useStorefront } from '../store';
 import { ErrorText } from '../ui';
-import { PHOTOS } from '../images';
-import { PageHero, pageClass } from '../ui';
+import { BANNER_IMAGES, PageHeader, pageClass } from '../ui';
+import Breadcrumbs from './Breadcrumbs';
+
+function ContactTile({ icon: Icon, title, body, href, external = false }: {
+  icon: typeof Phone;
+  title: string;
+  body: string;
+  href?: string;
+  external?: boolean;
+}) {
+  const inner = (
+    <>
+      <Icon size={26} strokeWidth={1.5} className="shrink-0 text-ember" aria-hidden />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="mt-0.5 block break-words text-sm text-muted">{body}</span>
+      </span>
+    </>
+  );
+  const box = 'flex h-full items-center gap-3 rounded-lg border border-line bg-white p-4 sm:px-5';
+  return (
+    <li>
+      {href ? (
+        <a href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className={`${box} transition hover:border-ember/50`}>{inner}</a>
+      ) : (
+        <div className={box}>{inner}</div>
+      )}
+    </li>
+  );
+}
 
 const mapUrl = (address: string) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
@@ -87,70 +115,35 @@ export default function ContactPage() {
 
   return (
     <>
-      <PageHero eyebrow="Contact" title="Find Us" body="Visit us, call, or send a message." photo={PHOTOS.pasture} />
+      <PageHeader eyebrow="Contact" title="Find Us" body="Visit us, call, or send a message." images={BANNER_IMAGES.bottle}>
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Contact' }]} />
+      </PageHeader>
       <div className={pageClass}>
-      <div className="mt-8 grid gap-10 md:grid-cols-2">
-        {locations.length > 0 && (
-          <ul className="space-y-6">
-            {locations.map((location) => (
-              <li key={location.name} className="flex gap-3">
-                <MapPin className="mt-1 shrink-0 text-brand-deep" aria-hidden />
-                <div className="min-w-0">
-                  <h2 className="text-xl font-semibold">{location.name}</h2>
-                  <p className="mt-1 text-muted">{location.address}</p>
-                  <a
-                    href={mapUrl(location.address!)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-block py-2 font-medium text-brand-deep underline"
-                  >
-                    Open in Google Maps
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
+      {/* Every way to reach us as a tile, in the same bordered boxes as the home page's trust strip. */}
+      <ul className="grid gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        {locations.map((location) => (
+          <li key={location.name} className="soft-panel rounded-xl p-4 sm:col-span-2 sm:p-5 lg:col-span-1 lg:row-span-2">
+            <span className="grid size-11 place-items-center rounded-full bg-white text-ember shadow-soft"><MapPin size={20} aria-hidden /></span>
+            <h2 className="mt-3 text-lg font-semibold">{location.name}</h2>
+            <p className="mt-1 text-muted">{location.address}</p>
+            <a href={mapUrl(location.address!)} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-4">
+              Open in Google Maps
+            </a>
+          </li>
+        ))}
+        {settings.openingHours && <ContactTile icon={Clock} title="Opening hours" body={settings.openingHours} />}
+        {contactPhone && <ContactTile icon={Phone} title="Call us" body={contactPhone} href={`tel:${contactPhone.replace(/\s/g, '')}`} />}
+        {whatsapp && (
+          <ContactTile icon={MessageCircle} title="WhatsApp" body="Message us any time" href={`https://wa.me/${whatsapp.replace(/\D/g, '').replace(/^0/, '254')}`} external />
         )}
-        <div className="space-y-3">
-          {settings.openingHours && (
-            <p className="flex min-h-11 items-center gap-3 font-medium">
-              <Clock className="shrink-0 text-brand-deep" aria-hidden /> {settings.openingHours}
-            </p>
-          )}
-          {contactPhone && (
-            <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="flex min-h-11 items-center gap-3 font-medium">
-              <Phone className="shrink-0 text-brand-deep" aria-hidden /> {contactPhone}
-            </a>
-          )}
-          {whatsapp && (
-            <>
-              <a
-                href={`https://wa.me/${whatsapp.replace(/\D/g, '').replace(/^0/, '254')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-11 items-center gap-3 font-medium"
-              >
-                <MessageCircle className="shrink-0 text-brand-deep" aria-hidden /> Message us on WhatsApp
-              </a>
-            </>
-          )}
-          {contactEmail && (
-            <a href={`mailto:${contactEmail}`} className="flex min-h-11 items-center gap-3 break-all font-medium">
-              <Mail className="shrink-0 text-brand-deep" aria-hidden /> {contactEmail}
-            </a>
-          )}
-          <a href="/account/messages" className="flex min-h-11 items-center gap-3 font-medium">
-            <MessageCircle className="shrink-0 text-brand-deep" aria-hidden /> Send us a message from your account
-          </a>
-          <a href="/help" className="flex min-h-11 items-center gap-3 font-medium">
-            <HelpCircle className="shrink-0 text-brand-deep" aria-hidden /> Find answers in our help centre
-          </a>
-          {settings.assistantEnabled && (
-            <p className="pt-2 text-sm text-muted">For a quick answer about stock or prices, use the <strong>Ask us</strong> assistant at the bottom of any page.</p>
-          )}
-        </div>
-      </div>
-      <div className="mt-12 max-w-3xl"><ContactForm /></div>
+        {contactEmail && <ContactTile icon={Mail} title="Email" body={contactEmail} href={`mailto:${contactEmail}`} />}
+        <ContactTile icon={MessageCircle} title="Your account" body="Send us a message and read our reply" href="/account/messages" />
+        <ContactTile icon={HelpCircle} title="Help centre" body="Answers to common questions" href="/help" />
+      </ul>
+      {settings.assistantEnabled && (
+        <p className="mt-4 text-sm text-muted">For a quick answer about stock or prices, use the <strong>Ask us</strong> assistant at the bottom of any page.</p>
+      )}
+      <div className="mt-10 max-w-3xl sm:mt-12"><ContactForm /></div>
       </div>
     </>
   );

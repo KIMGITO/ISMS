@@ -100,8 +100,13 @@ interface UnifiedUploaderProps {
   onUploadError?: (error: string) => void;
   allowedTypes?: MediaType[];
   maxSizeMb?: number;
-  /** Width / height of the crop, e.g. 1 for square avatars. "original" keeps the photo's own shape. */
+  /** Suggested crop shape (width / height), e.g. 1 for square. "original" keeps the photo's own shape. */
   cropAspect?: number | "original";
+  /**
+   * Cropping is optional unless this is set: by default the whole picture is kept and staff can
+   * switch "Crop picture" on. Profile pictures set it, because they are always shown as a square.
+   */
+  cropRequired?: boolean;
   /** Width in pixels of the saved image (never enlarged past the photo's own size). Defaults to 400. */
   outputWidth?: number;
   /** Controlled mode: the parent opens and closes the uploader, and no trigger button is drawn. */
@@ -125,6 +130,7 @@ export default function UnifiedUploader({
   allowedTypes = ["image", "pdf", "excel", "word", "csv"],
   maxSizeMb = 5,
   cropAspect = 1,
+  cropRequired = false,
   buttonText = "Upload File",
   className = "",
   triggerElement,
@@ -169,6 +175,9 @@ export default function UnifiedUploader({
   const [cropPanX, setCropPanX] = useState(0);
   const [cropPanY, setCropPanY] = useState(0);
   const [compressToggle, setCompressToggle] = useState(true);
+  // Off: the whole picture is kept. On: the frame below is cut out, in the shape chosen.
+  const [cropOn, setCropOn] = useState(cropRequired);
+  const [chosenAspect, setChosenAspect] = useState<number | "original">(cropAspect);
 
   // Background removal: runs on this device; the original is kept so it can be undone.
   const [bgOriginalSrc, setBgOriginalSrc] = useState<string | null>(null);
@@ -203,10 +212,23 @@ export default function UnifiedUploader({
   let cropBoxWidth = 180;
   let cropBoxHeight = 180;
   // "original" follows the picture itself, so the whole photo fits the frame at the start.
-  const aspect =
-    cropAspect === "original"
-      ? (imgNaturalSize.w && imgNaturalSize.h ? imgNaturalSize.w / imgNaturalSize.h : 1)
-      : cropAspect;
+  // With cropping off the frame is always the whole picture.
+  const naturalAspect = imgNaturalSize.w && imgNaturalSize.h ? imgNaturalSize.w / imgNaturalSize.h : 1;
+  const shape = cropOn ? (cropRequired ? cropAspect : chosenAspect) : "original";
+  const aspect = shape === "original" ? naturalAspect : shape;
+  /** Shapes staff can pick when cropping is optional; the suggested one first. */
+  const shapeChoices: { value: number | "original"; label: string }[] = [
+    { value: "original", label: "Photo's own" },
+    { value: 1, label: "Square" },
+    { value: 4 / 3, label: "4:3" },
+    { value: 16 / 9, label: "Wide 16:9" },
+    { value: 3 / 4, label: "Tall 3:4" },
+  ];
+  if (typeof cropAspect === "number" && !shapeChoices.some((c) => typeof c.value === "number" && Math.abs(c.value - cropAspect) < 0.01)) {
+    shapeChoices.splice(1, 0, { value: cropAspect, label: "Suggested" });
+  }
+  const sameShape = (a: number | "original", b: number | "original") =>
+    a === b || (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 0.01);
 
   if (aspect > 1) {
     cropBoxWidth = 210;
@@ -234,12 +256,25 @@ export default function UnifiedUploader({
       img.src = editImageSrc;
       img.onload = () => {
         setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-        setCropZoom(1);
-        setCropPanX(0);
-        setCropPanY(0);
+        resetFrame();
       };
     }
   }, [editImageSrc]);
+
+  /** Back to the whole picture in the frame (zoom 1, centred). */
+  const resetFrame = () => {
+    setCropZoom(1);
+    setCropPanX(0);
+    setCropPanY(0);
+  };
+
+  /** Each new picture starts uncropped unless cropping is a must. */
+  const startEditing = (src: string) => {
+    setCropOn(cropRequired);
+    setChosenAspect(cropAspect);
+    setEditImageSrc(src);
+    setIsEditing(true);
+  };
 
   // Clamping helper to prevent revealing blank crop areas
   const getClampedPan = (px: number, py: number, zoom: number) => {
@@ -269,6 +304,7 @@ export default function UnifiedUploader({
 
   // Pointer drag events for mouse & single-touch positioning
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (!cropOn) return;
     if (e.pointerType === "touch" && touchStartRef.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStartRef.current = {
@@ -298,6 +334,7 @@ export default function UnifiedUploader({
 
   // Wheel zoom (Desktop)
   const handleWheel = (e: React.WheelEvent) => {
+    if (!cropOn) return;
     e.preventDefault();
     const zoomDelta = -e.deltaY * 0.003;
     const nextZoom = Math.min(5, Math.max(1, cropZoom + zoomDelta));
@@ -311,7 +348,7 @@ export default function UnifiedUploader({
 
   // Pinch-to-zoom touch events (Mobile)
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
+    if (cropOn && e.touches.length === 2) {
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -452,10 +489,7 @@ export default function UnifiedUploader({
     if (type === "image") {
       const reader = new FileReader();
       reader.onload = (e) => {
-        if (e.target?.result) {
-          setEditImageSrc(e.target.result as string);
-          setIsEditing(true);
-        }
+        if (e.target?.result) startEditing(e.target.result as string);
       };
       reader.readAsDataURL(file);
     } else {
@@ -560,9 +594,8 @@ export default function UnifiedUploader({
       setSelectedFile(file);
       originalNameRef.current = name;
       if (type === "image") {
-        setEditImageSrc(URL.createObjectURL(blob));
         setUploadStatus("idle");
-        setIsEditing(true);
+        startEditing(URL.createObjectURL(blob));
       } else {
         triggerUpload(file, type);
       }
@@ -683,7 +716,7 @@ export default function UnifiedUploader({
       const cutout = await removeBackground(
         source,
         (p) => { if (!controller.signal.aborted) setBgProgress(p); },
-        { aspect: cropAspect === "original" ? undefined : cropAspect, signal: controller.signal },
+        { aspect: shape === "original" ? undefined : shape, signal: controller.signal },
       );
       if (controller.signal.aborted) return;
       setBgOriginalSrc(source);
@@ -918,8 +951,12 @@ export default function UnifiedUploader({
                 /* GESTURE CROP SCREEN */
                 <div className="flex flex-col gap-4">
                   <div>
-                    <h4 className="text-[10px] font-black text-app-text uppercase tracking-wider text-center">Position and Zoom Image</h4>
-                    <p className="text-[8.5px] text-app-text-muted text-center mt-0.5">Drag to move · Pinch or scroll wheel to zoom</p>
+                    <h4 className="text-[10px] font-black text-app-text uppercase tracking-wider text-center">
+                      {cropOn ? "Position and zoom" : "Check your picture"}
+                    </h4>
+                    <p className="text-[8.5px] text-app-text-muted text-center mt-0.5">
+                      {cropOn ? "Drag to move · Pinch or scroll wheel to zoom" : "The whole picture is kept. Switch on cropping below to cut part of it."}
+                    </p>
                   </div>
                   
                   {/* Interactive Viewport Box */}
@@ -939,7 +976,7 @@ export default function UnifiedUploader({
                       // A checkerboard shows where the picture is now see-through.
                       ...(bgOriginalSrc ? { background: "repeating-conic-gradient(#d4d4d8 0 25%, #ffffff 0 50%) 0 0 / 16px 16px" } : {}),
                     }}
-                    className="relative mx-auto rounded-3xl overflow-hidden bg-app-text/5 border-2 border-app-border flex items-center justify-center cursor-move touch-none select-none"
+                    className={`relative mx-auto rounded-3xl overflow-hidden bg-app-text/5 border-2 border-app-border flex items-center justify-center touch-none select-none ${cropOn ? "cursor-move" : ""}`}
                   >
                     {bgProgress && (
                       <div className="absolute inset-0 z-10 flex items-end bg-app-bg/60 p-3" aria-live="polite">
@@ -974,8 +1011,8 @@ export default function UnifiedUploader({
                       className="pointer-events-none"
                     />
 
-                    {/* Dashed Bounding Selector */}
-                    <div 
+                    {/* Dashed Bounding Selector: only when cutting part of the picture */}
+                    {cropOn && <div 
                       style={{
                         position: "absolute",
                         left: `${cropBoxX}px`,
@@ -985,14 +1022,57 @@ export default function UnifiedUploader({
                         boxShadow: "0 0 0 2px var(--color-brand-500)"
                       }}
                       className="border-2 border-dashed border-app-bg/60 pointer-events-none rounded-2xl shadow-lg"
-                    />
+                    />}
                   </div>
 
-                  {/* Manual Backup Controls */}
-                  <div className="flex items-center justify-between text-[8px] text-app-text-muted px-6">
-                    <span className="flex items-center gap-1"><ZoomIn size={10} /> Zoom: {cropZoom.toFixed(1)}x</span>
-                    <span className="flex items-center gap-1"><Move size={10} /> Pan Active</span>
-                  </div>
+                  {cropOn && (
+                    <div className="flex items-center justify-between text-[8px] text-app-text-muted px-6">
+                      <span className="flex items-center gap-1"><ZoomIn size={10} /> Zoom: {cropZoom.toFixed(1)}x</span>
+                      <span className="flex items-center gap-1"><Move size={10} /> Drag to move</span>
+                    </div>
+                  )}
+
+                  {/* Cropping: a must only for profile pictures, otherwise staff choose */}
+                  {cropRequired ? (
+                    <p className="text-[8.5px] text-app-text-muted text-center px-2">
+                      Profile pictures are always shown as a {cropAspect === 1 ? "square" : "fixed shape"}, so this one is cropped.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2 py-2 border-t border-app-border/40 px-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <span className="font-extrabold text-app-text text-[10px] block">Crop picture</span>
+                          <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">
+                            {cropOn ? "Only the part inside the frame is saved." : "Off: the whole picture is saved as it is."}
+                          </span>
+                        </div>
+                        <Switch
+                          checked={cropOn}
+                          onChange={(on) => { setCropOn(on); resetFrame(); }}
+                          ariaLabel="Crop picture"
+                        />
+                      </div>
+                      {cropOn && (
+                        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Crop shape">
+                          {shapeChoices.map((choice) => {
+                            const picked = sameShape(chosenAspect, choice.value);
+                            return (
+                              <button
+                                key={choice.label}
+                                type="button"
+                                role="radio"
+                                aria-checked={picked}
+                                onClick={() => { setChosenAspect(choice.value); resetFrame(); }}
+                                className={`px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider transition cursor-pointer ${picked ? "bg-brand-500 text-app-bg border-brand-500" : "bg-app-bg border-app-border hover:bg-app-card"}`}
+                              >
+                                {choice.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Background removal: free, on this device */}
                   {allowBackgroundRemoval && (
@@ -1074,7 +1154,7 @@ export default function UnifiedUploader({
                       disabled={Boolean(bgProgress)}
                       className="flex-1 py-2 disabled:opacity-50 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
                     >
-                      Crop & Save
+                      {cropOn ? "Crop & Save" : "Save"}
                     </button>
                   </div>
                 </div>

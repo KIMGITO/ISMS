@@ -5,7 +5,7 @@
 // database checks every field again (fn_valid_hero_slides, migrations 20261111002 + 20261112004).
 // Pictures can be dragged and zoomed anywhere in the display; their boxes are saved as positions.
 import { FormEvent, KeyboardEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, Minus, Move, Plus, RotateCcw, Save, Trash2, X, ZoomIn } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, ImagePlus, Minus, Monitor, Move, Plus, RotateCcw, Save, ShoppingCart, Smartphone, Tablet, Trash2, X, ZoomIn } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
 import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -14,17 +14,23 @@ import {
   DEFAULT_HERO_SLIDES,
   HERO_DRAW_ORDER,
   HERO_LIMITS,
+  HERO_PHONE_LAYOUTS,
+  HERO_SIDES,
   HERO_STOCK_IMAGES,
   HeroBox,
+  HeroPhoneLayout,
+  HeroSide,
   HeroSlide,
   clampHeroBox,
   defaultHeroBoxes,
   heroBoxStyle,
   heroBoxes,
+  heroLayout,
   isSafeHeroImage,
   isValidHeroBox,
   safeHref,
 } from '../../../website/src/heroSlides';
+import { AD_TONES, AD_TONE_ORDER, AdTone } from '../../../website/src/adCards';
 
 const inputClass =
   'w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none focus:border-brand-500';
@@ -73,9 +79,18 @@ function cleanSlide(slide: HeroSlide): HeroSlide {
   if (slide.positions && slide.positions.length === out.images.length && slide.positions.every(isValidHeroBox)) {
     out.positions = slide.positions.map(clampHeroBox);
   }
+  // Defaults are left out, so a slide without choices stays as small as before.
+  const layout = heroLayout(slide);
+  if (layout.phone !== 'beside') out.phone = layout.phone;
+  if (layout.side !== 'right') out.side = layout.side;
+  if (layout.tone) out.tone = slide.tone;
   if (slide.hidden) out.hidden = true;
   return out;
 }
+
+/** The layout fields, which a database without migration 20261115002 refuses. */
+const hasLayoutChoices = (slide: HeroSlide) => Boolean(slide.phone || slide.side || slide.tone);
+const withoutLayoutChoices = ({ phone: _p, side: _s, tone: _t, ...rest }: HeroSlide): HeroSlide => rest;
 
 /** Grows or shrinks a box around its centre, keeping its shape. */
 function zoomBox(box: HeroBox, factor: number): HeroBox {
@@ -221,7 +236,7 @@ function ArrangeDisplay({ slide, onPositions }: { slide: HeroSlide; onPositions:
         onPointerUp={onUp}
         onPointerCancel={onUp}
         aria-label="Picture layout. Drag a picture to move it, scroll or pinch to resize it, or use the arrow keys and + / -."
-        className="relative mx-auto aspect-square w-full max-w-[16rem] touch-none select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className="relative mx-auto aspect-square w-full max-w-[18rem] touch-none select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
         style={{ backgroundImage: 'linear-gradient(rgba(35,22,14,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(35,22,14,0.06) 1px, transparent 1px)', backgroundSize: '25% 25%', outline: '1px dashed #ead9c1' }}
       >
         {slide.images.length === 0 && (
@@ -263,23 +278,235 @@ function ArrangeDisplay({ slide, onPositions }: { slide: HeroSlide; onPositions:
   );
 }
 
-/** A small copy of the website banner, laid out with the same rules, so staff see what customers get. */
-function SlidePreview({ slide, onPositions }: { slide: HeroSlide; onPositions: (boxes: HeroBox[]) => void }) {
+type Device = 'phone' | 'tablet' | 'computer';
+
+/** Screen widths the preview draws at, then shrinks to fit: a common phone, a tablet, a laptop. */
+const DEVICES: { value: Device; label: string; width: number; icon: typeof Smartphone }[] = [
+  { value: 'phone', label: 'Phone', width: 390, icon: Smartphone },
+  { value: 'tablet', label: 'Tablet', width: 820, icon: Tablet },
+  { value: 'computer', label: 'Computer', width: 1280, icon: Monitor },
+];
+
+const SAND_PANEL = {
+  backgroundColor: '#f6eee2',
+  backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(154 67 19 / 0.09) 1.2px, transparent 0), radial-gradient(90% 90% at 80% 40%, #fbf4ea 0%, transparent 60%)',
+  backgroundSize: '22px 22px, 100% 100%',
+};
+
+/**
+ * The website banner drawn at a real screen width with the website's own sizes (HomePage.tsx and
+ * theme.css), then scaled down to fit, so staff see what a phone, tablet or computer shows.
+ */
+function DevicePreview({ slide, device }: { slide: HeroSlide; device: Device }) {
+  const width = DEVICES.find((d) => d.value === device)!.width;
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const measure = () => {
+      const scale = Math.min(1, outer.clientWidth / width);
+      setFit({ scale, height: inner.offsetHeight * scale });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(outer);
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [width]);
+
+  const { phone, side, tone } = heroLayout(slide);
+  const isPhone = device === 'phone';
+  const md = width >= 768;
+  const lg = width >= 1024;
+  const beside = phone === 'beside';
+  const stacked = isPhone && !beside;
+  const showPictures = !(isPhone && phone === 'none');
+  const columns = isPhone
+    ? (beside ? '1.2fr 1fr' : '1fr')
+    : side === 'left' ? (md ? '1fr 1.15fr' : '1fr 1.2fr') : (md ? '1.15fr 1fr' : '1.2fr 1fr');
+  const picturesFirst = isPhone ? phone === 'above' : side === 'left';
+  const pictureMax = isPhone ? (beside ? (width >= 400 ? 176 : 160) : (width >= 400 ? 224 : 192)) : lg ? 384 : 304;
+  const titleSize = isPhone ? 21 : Math.min(52, Math.max(26, 17.6 + 0.026 * width));
+  const gutter = isPhone ? 16 : 24;
+  const muted = tone ? tone.text : '#7a6858';
+  const boxes = heroBoxes(slide.images.length, slide.positions);
+
+  const text = (
+    <div style={{ textAlign: stacked ? 'center' : 'left', minWidth: 0 }}>
+      <p style={{ fontSize: titleSize, lineHeight: isPhone ? 1.25 : 1.15, fontWeight: 500, letterSpacing: '-0.015em', maxWidth: '18ch', margin: stacked ? '0 auto' : 0, textWrap: 'balance' } as React.CSSProperties}>
+        {slide.title || 'Your headline'}
+      </p>
+      {slide.body?.trim() && (
+        <p style={{ marginTop: isPhone ? 6 : 12, fontSize: isPhone ? 12 : 15, color: muted, opacity: tone ? 0.8 : 1 }}>{slide.body}</p>
+      )}
+      {slide.ctaLabel?.trim() && (
+        <span
+          style={{
+            marginTop: isPhone ? 14 : 28, display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 999, fontWeight: 500,
+            minHeight: isPhone ? 36 : 46, padding: isPhone ? '0 14px' : '0 24px', fontSize: isPhone ? 12 : 14,
+            background: tone ? tone.button : '#c2571a', color: tone ? tone.buttonText : '#ffffff',
+          }}
+        >
+          {slide.ctaLabel} <ShoppingCart size={16} />
+        </span>
+      )}
+    </div>
+  );
+
+  const pictures = showPictures && (
+    <div style={{ position: 'relative', width: '100%', maxWidth: pictureMax, aspectRatio: '1 / 1', margin: '0 auto', order: picturesFirst ? -1 : 0 }}>
+      <span style={{ position: 'absolute', left: '8%', right: '8%', bottom: '3%', height: '10%', borderRadius: '50%', background: 'rgb(43 20 9 / 0.15)', filter: 'blur(8px)' }} />
+      {slide.images.length === 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', border: '2px dashed #ead9c1', borderRadius: 12, color: '#7a6858', fontSize: 14 }}>Pictures</div>
+      )}
+      {HERO_DRAW_ORDER.filter((i) => i < slide.images.length).map((i) => (
+        <img
+          key={`${i}-${slide.images[i]}`}
+          src={slide.images[i]}
+          alt=""
+          style={{ ...heroBoxStyle(boxes[i]), objectFit: 'contain', objectPosition: 'bottom', filter: 'drop-shadow(0 14px 16px rgba(35,22,14,0.22))' }}
+        />
+      ))}
+    </div>
+  );
+
+  const arrow = { position: 'absolute' as const, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 999, background: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 4px 14px rgba(35,22,14,0.12)', color: '#23160e' };
+  const notch = isPhone ? 72 : 88;
+
   return (
-    <div
-      className="grid grid-cols-[1fr_1.2fr] items-center gap-3 overflow-hidden rounded-xl p-4"
-      style={{ background: '#f6eee2', color: '#23160e', fontFamily: 'Poppins, ui-sans-serif, system-ui, sans-serif', opacity: slide.hidden ? 0.5 : 1 }}
-    >
-      <div className="min-w-0">
-        <p className="text-base font-medium leading-tight sm:text-lg">{slide.title || 'Your headline'}</p>
-        {slide.body?.trim() && <p className="mt-1 text-xs" style={{ color: '#7a6858' }}>{slide.body}</p>}
-        {slide.ctaLabel?.trim() && (
-          <span className="mt-3 inline-block rounded-full px-3 py-1.5 text-xs font-medium text-white" style={{ background: '#c2571a' }}>
-            {slide.ctaLabel}
-          </span>
-        )}
+    <div ref={outerRef} className="w-full overflow-hidden rounded-xl" style={{ height: fit.height || undefined, background: '#fffdf9' }}>
+      <div
+        ref={innerRef}
+        style={{ width, transform: `scale(${fit.scale})`, transformOrigin: 'top left', padding: `${isPhone ? 12 : 24}px ${gutter}px 0`, color: '#23160e', fontFamily: 'Poppins, ui-sans-serif, system-ui, sans-serif', opacity: slide.hidden ? 0.5 : 1 }}
+      >
+        <div style={{ position: 'relative', paddingBottom: isPhone ? 28 : 36 }}>
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, ...SAND_PANEL }}>
+            <div
+              style={{
+                display: 'grid', gridTemplateColumns: columns, alignItems: 'center', gap: isPhone ? 12 : 24,
+                padding: isPhone ? '24px 16px 44px' : lg ? '56px 80px 80px' : '48px 64px 64px',
+                ...(tone ? { background: tone.bg, color: tone.text } : {}),
+              }}
+            >
+              {text}
+              {pictures}
+            </div>
+            {!isPhone && (
+              <>
+                <span style={{ ...arrow, left: lg ? 20 : 12 }}><ChevronLeft size={18} /></span>
+                <span style={{ ...arrow, right: lg ? 20 : 12 }}><ChevronRight size={18} /></span>
+              </>
+            )}
+          </div>
+          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: notch, height: notch, borderRadius: 999, background: '#fffdf9', display: 'grid', placeItems: 'center' }}>
+            <span style={{ width: isPhone ? 44 : 56, height: isPhone ? 44 : 56, borderRadius: 999, background: '#c2571a', color: '#fff', display: 'grid', placeItems: 'center' }}>
+              <ArrowDown size={20} />
+            </span>
+          </div>
+        </div>
       </div>
-      <ArrangeDisplay slide={slide} onPositions={onPositions} />
+    </div>
+  );
+}
+
+/** A tiny drawing of a layout: grey bars for the words, a yellow square for the pictures. */
+function LayoutGlyph({ arrangement, wide = false }: { arrangement: HeroPhoneLayout | HeroSide; wide?: boolean }) {
+  const column = arrangement === 'above' || arrangement === 'below';
+  const bar = (width: string, color?: string) => (
+    <span className="block rounded-full" style={{ width, height: color ? 3 : 2, background: color ?? 'currentColor', opacity: color ? 1 : 0.55 }} />
+  );
+  const words = (
+    <span className="flex flex-col gap-[2px]" style={{ flex: column ? 'none' : 1, width: column ? '100%' : undefined, alignItems: column ? 'center' : 'flex-start' }}>
+      {bar('100%')}{bar('70%')}{bar('50%', '#c2571a')}
+    </span>
+  );
+  const size = wide ? 14 : column ? 11 : 8;
+  const picture = <span className="block shrink-0 rounded-[2px]" style={{ width: size, height: size, background: '#f3b04a' }} />;
+  const first = arrangement === 'above' || arrangement === 'left';
+  return (
+    <span
+      aria-hidden
+      className="flex shrink-0 items-center justify-center gap-[3px] rounded-md border border-app-border bg-app-bg text-app-text-muted"
+      // Phones are drawn upright, wider screens on their side.
+      style={{ width: wide ? 54 : 28, height: wide ? 34 : 42, padding: wide ? 6 : 4, flexDirection: column ? 'column' : 'row' }}
+    >
+      {arrangement === 'none' ? words : first ? <>{picture}{words}</> : <>{words}{picture}</>}
+    </span>
+  );
+}
+
+const choiceClass = (picked: boolean) =>
+  `flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${picked ? 'border-brand-500 bg-brand-500/10 font-semibold text-app-text' : 'border-app-border text-app-text hover:bg-app-bg'}`;
+
+/** How the slide arranges itself on each kind of screen, and its colour. */
+function LayoutChoices({ slide, set, onDevice }: { slide: HeroSlide; set: (patch: Partial<HeroSlide>) => void; onDevice: (d: Device) => void }) {
+  const { phone, side } = heroLayout(slide);
+  const phoneHint = HERO_PHONE_LAYOUTS.find((l) => l.value === phone)?.hint;
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-medium text-app-text">On phones</p>
+        <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Pictures on phones">
+          {HERO_PHONE_LAYOUTS.map((choice) => (
+            <button
+              key={choice.value}
+              type="button"
+              role="radio"
+              aria-checked={phone === choice.value}
+              onClick={() => { set({ phone: choice.value }); onDevice('phone'); }}
+              className={choiceClass(phone === choice.value)}
+            >
+              <LayoutGlyph arrangement={choice.value} />
+              <span>{choice.label}</span>
+            </button>
+          ))}
+        </div>
+        {phoneHint && <p className="mt-1 text-xs text-app-text-muted">{phoneHint}</p>}
+      </div>
+      <div>
+        <p className="text-sm font-medium text-app-text">On tablets and computers</p>
+        <div className="mt-1.5 grid grid-cols-2 gap-2 sm:max-w-md" role="radiogroup" aria-label="Pictures on wider screens">
+          {HERO_SIDES.map((choice) => (
+            <button
+              key={choice.value}
+              type="button"
+              role="radio"
+              aria-checked={side === choice.value}
+              onClick={() => { set({ side: choice.value }); onDevice('computer'); }}
+              className={choiceClass(side === choice.value)}
+            >
+              <LayoutGlyph arrangement={choice.value} wide />
+              <span>{choice.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-app-text">Background</p>
+        <div className="mt-1.5 flex flex-wrap gap-2" role="radiogroup" aria-label="Banner background">
+          {([undefined, ...AD_TONE_ORDER] as (AdTone | undefined)[]).map((tone) => {
+            const picked = (slide.tone && slide.tone in AD_TONES ? slide.tone : undefined) === tone;
+            const label = tone ? AD_TONES[tone].label : 'Sand pattern';
+            return (
+              <button
+                key={tone ?? 'sand'}
+                type="button"
+                role="radio"
+                aria-checked={picked}
+                onClick={() => set({ tone })}
+                className={`inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-medium transition ${picked ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-app-border hover:bg-app-bg'}`}
+              >
+                <span className="size-6 rounded-full border border-black/10" style={tone ? { background: AD_TONES[tone].bg } : SAND_PANEL} />
+                <span className="text-app-text">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -293,6 +520,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
   onRemove: () => void;
 }) {
   const [stockOpen, setStockOpen] = useState(false);
+  const [device, setDevice] = useState<Device>('phone');
   const knownLink = LINK_CHOICES.some((c) => c.href === slide.ctaHref);
   const [customLink, setCustomLink] = useState(!knownLink && Boolean(slide.ctaHref));
   const set = (patch: Partial<HeroSlide>) => onChange({ ...slide, ...patch });
@@ -324,14 +552,33 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
         </div>
       </div>
 
-      <SlidePreview slide={slide} onPositions={(positions) => set({ positions })} />
-      {slide.positions && (
-        <div className="-mt-2 flex justify-end">
-          <button type="button" className={secondaryClass} onClick={() => set({ positions: undefined })}>
-            <RotateCcw size={15} /> Automatic layout
-          </button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium text-app-text">How customers see it</p>
+          <div className="inline-flex rounded-lg border border-app-border p-0.5" role="tablist" aria-label="Preview screen">
+            {DEVICES.map((d) => {
+              const Icon = d.icon;
+              return (
+                <button
+                  key={d.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={device === d.value}
+                  onClick={() => setDevice(d.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${device === d.value ? 'bg-brand-500 text-slate-950' : 'text-app-text-muted hover:text-app-text'}`}
+                >
+                  <Icon size={14} /> {d.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
+        <div className={device === 'phone' ? 'mx-auto max-w-[390px]' : ''}>
+          <DevicePreview slide={slide} device={device} />
+        </div>
+      </div>
+
+      <LayoutChoices slide={slide} set={set} onDevice={setDevice} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-app-text sm:col-span-2">
@@ -380,8 +627,20 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
 
       <div>
         <p className="text-sm font-medium text-app-text">Pictures <span className="font-normal text-app-text-muted">({slide.images.length} of {HERO_LIMITS.images})</span></p>
-        <p className="text-xs text-app-text-muted">Photos with the background removed look best. When uploading, tap "Remove" on the crop screen. Drag and zoom the pictures in the banner above to place them.</p>
-        <ul className="mt-2 grid grid-cols-3 gap-2">
+        <p className="text-xs text-app-text-muted">Photos with the background removed look best: tap "Remove" after choosing one. Drag a picture in the square to move it; scroll, pinch or use + / - to resize it. The same arrangement is used on every screen, only smaller on phones.</p>
+        <div className="mt-2 grid items-start gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
+        <div className="space-y-2 rounded-xl p-3" style={SAND_PANEL}>
+          <ArrangeDisplay slide={slide} onPositions={(positions) => set({ positions })} />
+          {slide.positions && (
+            <div className="flex justify-center">
+              <button type="button" className={`${secondaryClass} bg-white`} onClick={() => set({ positions: undefined })} style={{ color: '#23160e', borderColor: '#ead9c1' }}>
+                <RotateCcw size={15} /> Automatic layout
+              </button>
+            </div>
+          )}
+        </div>
+        <div>
+        <ul className="grid grid-cols-3 gap-2">
           {slide.images.map((src, i) => (
             <li key={`${i}-${src}`} className="relative rounded-lg border border-app-border p-1.5" style={{ background: 'repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 0 0 / 12px 12px' }}>
               <img src={src} alt="" className="aspect-square w-full object-contain" />
@@ -402,7 +661,9 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
             <UnifiedUploader
               allowedTypes={['image']}
               bucketName="business-logos"
-              cropAspect={1}
+              cropAspect="original"
+              outputWidth={900}
+              title="Banner picture"
               buttonText="Upload picture"
               onUploadSuccess={(url) => addImage(url)}
             />
@@ -427,6 +688,8 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
             ))}
           </ul>
         )}
+        </div>
+        </div>
       </div>
     </section>
   );
@@ -462,7 +725,8 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
 
   useEffect(() => { tryLoad(); }, [tryLoad]);
 
-  const write = async (next: HeroSlide[], message: string) => {
+  /** `reportFailure` is false when a retry follows, so the first refusal shows no error. */
+  const write = async (next: HeroSlide[], message: string, reportFailure = true) => {
     setSaving(true);
     setProblem('');
     try {
@@ -471,7 +735,7 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       showToast('Online Store', message, undefined, 'success');
       return true;
     } catch (err) {
-      showToast('Online Store', toUserMessage(err, 'Could not save the home banner. Check each slide has a headline and a picture.'), undefined, 'error');
+      if (reportFailure) showToast('Online Store', toUserMessage(err, 'Could not save the home banner. Check each slide has a headline and a picture.'), undefined, 'error');
       return false;
     } finally {
       setSaving(false);
@@ -490,7 +754,16 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       return;
     }
     const cleaned = slides.map(cleanSlide);
-    if (await write(cleaned, cleaned.length ? 'Home banner saved. Customers see it straight away.' : 'Home banner reset to the built-in slides.')) {
+    const savedMessage = cleaned.length ? 'Home banner saved. Customers see it straight away.' : 'Home banner reset to the built-in slides.';
+    let ok = await write(cleaned, savedMessage, !cleaned.some(hasLayoutChoices));
+    if (!ok && cleaned.some(hasLayoutChoices)) {
+      // An older database refuses the layout and colour fields; keep the rest rather than lose it all.
+      ok = await write(
+        cleaned.map(withoutLayoutChoices),
+        'Home banner saved, but without the phone layout, side and colour choices. Ask your administrator to apply database update 20261115002.',
+      );
+    }
+    if (ok) {
       setSlides(cleaned.length ? cleaned : DEFAULT_HERO_SLIDES.map((s) => ({ ...s, images: [...s.images] })));
       setUsingBuiltIn(cleaned.length === 0);
     }

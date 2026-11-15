@@ -2,6 +2,7 @@
 // stored in website_settings.hero_slides and checked by fn_valid_hero_slides in the database.
 // When none are saved, the website shows DEFAULT_HERO_SLIDES. Plain data and functions only,
 // because the staff app imports this file too.
+import { AD_TONES, AdTone } from './adCards';
 
 export interface HeroSlide {
   id: string;
@@ -13,7 +14,37 @@ export interface HeroSlide {
   images: string[];
   /** Where each picture sits, set by dragging and zooming in the app. Missing: the automatic layout. */
   positions?: HeroBox[];
+  /** Phones: where the pictures go. Missing: beside the text. */
+  phone?: HeroPhoneLayout;
+  /** Tablets and computers: which side the pictures are on. Missing: right. */
+  side?: HeroSide;
+  /** Background colour. Missing: the soft sand panel with its dotted pattern. */
+  tone?: AdTone;
   hidden?: boolean;
+}
+
+export type HeroPhoneLayout = 'beside' | 'above' | 'below' | 'none';
+export type HeroSide = 'right' | 'left';
+
+/** Phone arrangements staff choose from, in the app's words. */
+export const HERO_PHONE_LAYOUTS: { value: HeroPhoneLayout; label: string; hint: string }[] = [
+  { value: 'beside', label: 'Beside the text', hint: 'Small pictures next to the words. Keeps the banner short.' },
+  { value: 'above', label: 'On top', hint: 'Bigger pictures above the words, centred.' },
+  { value: 'below', label: 'Under the text', hint: 'Words first, then bigger pictures, centred.' },
+  { value: 'none', label: 'Hide on phones', hint: 'Only the words and button on phones.' },
+];
+
+export const HERO_SIDES: { value: HeroSide; label: string }[] = [
+  { value: 'right', label: 'Pictures on the right' },
+  { value: 'left', label: 'Pictures on the left' },
+];
+
+/** The slide's choices with defaults filled in; unknown values (from an older or newer app) fall back. */
+export function heroLayout(slide: Pick<HeroSlide, 'phone' | 'side' | 'tone'>) {
+  const phone: HeroPhoneLayout = HERO_PHONE_LAYOUTS.some((l) => l.value === slide.phone) ? slide.phone! : 'beside';
+  const side: HeroSide = slide.side === 'left' ? 'left' : 'right';
+  const tone = slide.tone && slide.tone in AD_TONES ? AD_TONES[slide.tone] : null;
+  return { phone, side, tone };
 }
 
 /** A picture's box in the square display, in percent of its size: left, top, width, height. */

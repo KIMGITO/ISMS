@@ -9,6 +9,7 @@ import { useHashScroll } from './router';
 import { usePageMeta } from './usePageMeta';
 import Layout from './Layout';
 import Assistant from './Assistant';
+import PageEnd from './pages/PageEnd';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
 import ProductPage from './pages/ProductPage';
@@ -28,6 +29,9 @@ import { infoPage } from './infoPages';
 
 startAuthListener();
 startLinkInterceptor();
+
+/** Pages with their own product sections or a task to finish, so they don't get the shared ending. */
+const NO_PAGE_END = new Set(['', 'shop', 'search', 'products', 'cart', 'checkout', 'order-confirmed', 'account']);
 
 function Page({ route }: { route: Route }) {
   const [section, id] = route.parts;
@@ -77,6 +81,7 @@ export default function App() {
   const setSite = useSite((s) => s.setSite);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unpublished' | 'error'>('loading');
   const route = useRoute();
+  const recovering = useAuth((s) => s.recovering);
   usePageMeta(route.parts, site);
   useHashScroll(route, status === 'ready');
 
@@ -138,6 +143,7 @@ export default function App() {
         {/* Account tabs keep their shell, so only other page changes fade in. */}
         <div key={route.parts[0] === 'account' ? 'account' : route.parts.join('/')} className="page-enter">
           <Page route={route} />
+          {!recovering && !NO_PAGE_END.has(route.parts[0] ?? '') && <PageEnd />}
         </div>
       </Layout>
       {site.settings.assistantEnabled && <Assistant />}

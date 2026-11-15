@@ -1,11 +1,12 @@
 import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, MessageCircle, Phone, ShoppingCart, Tag, Truck } from 'lucide-react';
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../api';
 import { AdCard, AD_TONES, visibleAdCards } from '../adCards';
 import { photoUrl, productPhoto } from '../images';
 import { useRecent, useStorefront } from '../store';
-import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle, safeHref, visibleHeroSlides } from '../heroSlides';
-import { formatDate, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
+import { HeroSlide, heroLayout, safeHref, visibleHeroSlides } from '../heroSlides';
+import { formatDate, ProductDisplay, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
+import { OrderAnyWayBand } from './PageEnd';
 import { Testimonials } from './Reviews';
 import ProductCarousel from './ProductCarousel';
 import { ArticleCard } from './ArticlesPage';
@@ -16,28 +17,28 @@ const prefersReducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * Product pictures placed like a shop-window display: the main product with up to two smaller
- * ones beside and in front. Best with cut-outs (background removed in the app's uploader).
+ * Class names for one slide's arrangement, written out in full so Tailwind finds them.
+ * Phones (under 640px) follow `phone`; wider screens put the pictures on `side`.
  */
-function ProductDisplay({ images, positions, title, eager }: { images: string[]; positions?: HeroBox[]; title: string; eager: boolean }) {
-  const boxes = heroBoxes(images.length, positions);
-  return (
-    <div className="relative mx-auto aspect-square w-full max-w-[10rem] min-[400px]:max-w-[11rem] sm:max-w-[19rem] lg:max-w-[24rem]">
-      {/* A soft floor shadow so the products stand on the panel rather than float. */}
-      <span className="absolute inset-x-[8%] bottom-[3%] h-[10%] rounded-[50%] bg-hero/15 blur-md" aria-hidden />
-      {HERO_DRAW_ORDER.filter((index) => index < images.length).map((index) => (
-        <img
-          key={`${index}-${images[index]}`}
-          src={images[index]}
-          alt={index === 0 ? title : ''}
-          loading={eager ? 'eager' : 'lazy'}
-          fetchPriority={eager && index === 0 ? 'high' : 'auto'}
-          style={heroBoxStyle(boxes[index])}
-          className="object-contain object-bottom drop-shadow-[0_14px_16px_rgba(35,22,14,0.22)]"
-        />
-      ))}
-    </div>
-  );
+function slideClasses(slide: HeroSlide) {
+  const { phone, side } = heroLayout(slide);
+  const beside = phone === 'beside';
+  const grid = [
+    'grid w-full shrink-0 items-center gap-3 px-4 pb-11 pt-6 sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 lg:px-20 lg:pb-20 lg:pt-14',
+    beside ? 'grid-cols-[1.2fr_1fr]' : 'grid-cols-1',
+    side === 'left' ? 'sm:grid-cols-[1fr_1.2fr] md:grid-cols-[1fr_1.15fr]' : 'sm:grid-cols-[1.2fr_1fr] md:grid-cols-[1.15fr_1fr]',
+  ].join(' ');
+  // Stacked on a phone: the words are centred under or over the pictures.
+  const text = beside || phone === 'none' ? '' : 'max-sm:text-center';
+  const title = beside || phone === 'none' ? '' : 'max-sm:mx-auto';
+  const picture = [
+    phone === 'none' ? 'max-sm:hidden' : '',
+    phone === 'above' ? 'max-sm:-order-1' : '',
+    side === 'left' ? 'sm:-order-1' : '',
+    beside ? 'max-w-[10rem] min-[400px]:max-w-[11rem]' : 'max-w-[12rem] min-[400px]:max-w-[14rem]',
+    'sm:max-w-[19rem] lg:max-w-[24rem]',
+  ].join(' ');
+  return { grid, text, title, picture };
 }
 
 /**
@@ -91,6 +92,8 @@ function Hero() {
           {slides.map((slide, index) => {
             const isActive = index === active;
             const Heading = index === 0 ? 'h1' : 'h2';
+            const layout = slideClasses(slide);
+            const { tone } = heroLayout(slide);
             return (
               <div
                 key={slide.id || index}
@@ -99,18 +102,26 @@ function Hero() {
                 aria-label={`${index + 1} of ${count}`}
                 aria-hidden={!isActive}
                 {...({ inert: !isActive } as object)}
-                className="grid w-full shrink-0 grid-cols-[1.2fr_1fr] items-center gap-3 px-4 pb-11 pt-6 sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 md:grid-cols-[1.15fr_1fr] lg:px-20 lg:pb-20 lg:pt-14"
+                className={layout.grid}
+                // A chosen colour covers the sand panel for this slide only.
+                style={tone ? { background: tone.bg, color: tone.text } : undefined}
               >
-                <div>
-                  <Heading className="display-xl max-w-[18ch] max-sm:text-[1.3125rem] max-sm:leading-tight">{slide.title}</Heading>
-                  {slide.body?.trim() && <p className="mt-1.5 text-xs text-muted sm:mt-3 sm:text-[0.9375rem]">{slide.body}</p>}
+                <div className={layout.text}>
+                  <Heading className={`display-xl max-w-[18ch] max-sm:text-[1.3125rem] max-sm:leading-tight ${layout.title}`}>{slide.title}</Heading>
+                  {slide.body?.trim() && (
+                    <p className={`mt-1.5 text-xs sm:mt-3 sm:text-[0.9375rem] ${tone ? 'opacity-80' : 'text-muted'}`}>{slide.body}</p>
+                  )}
                   {slide.ctaLabel?.trim() && (
-                    <a href={safeHref(slide.ctaHref)} className="btn btn-primary mt-3.5 max-sm:min-h-9 max-sm:px-3.5 max-sm:text-xs sm:mt-7">
+                    <a
+                      href={safeHref(slide.ctaHref)}
+                      className="btn btn-primary mt-3.5 max-sm:min-h-9 max-sm:px-3.5 max-sm:text-xs sm:mt-7"
+                      style={tone ? { background: tone.button, borderColor: tone.button, color: tone.buttonText } : undefined}
+                    >
                       {slide.ctaLabel} <ShoppingCart size={16} aria-hidden />
                     </a>
                   )}
                 </div>
-                <ProductDisplay images={slide.images} positions={slide.positions} title={slide.title} eager={index === 0} />
+                <ProductDisplay images={slide.images} positions={slide.positions} title={slide.title} eager={index === 0} className={layout.picture} />
               </div>
             );
           })}
@@ -266,34 +277,6 @@ function AdPosters({ cards }: { cards: AdCard[] }) {
       <ul className="poster-row -mx-4 scroll-px-4 px-4 sm:mx-0 sm:scroll-px-0 sm:px-0">
         {cards.map((card, index) => <li key={card.id || index}><AdPoster card={card} /></li>)}
       </ul>
-    </section>
-  );
-}
-
-/** Ways to order without the website, like a shop's "get the app" band. */
-function OrderAnyWayBand() {
-  const { business, settings } = useStorefront();
-  const phone = business.contactPhone;
-  const whatsapp = settings.whatsapp || phone;
-  const whatsappHref = whatsapp ? `https://wa.me/${whatsapp.replace(/\D/g, '').replace(/^0/, '254')}` : null;
-  return (
-    <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="order-heading">
-      <div className="soft-panel flex flex-col items-center gap-5 rounded-2xl px-5 py-8 text-center sm:px-10 sm:py-12 lg:flex-row lg:justify-between lg:text-left">
-        <div className="max-w-xl">
-          <h2 id="order-heading" className="display-lg font-semibold">Order the way that suits you</h2>
-          <p className="mt-2 text-sm text-muted sm:text-base">
-            Shop here and pay with M-Pesa, or send us a message and we will put your order together.
-            {settings.deliveryEnabled ? ' Delivered to your door or ready for pickup.' : ' Ready for pickup at our shop.'}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-2.5">
-          {whatsappHref && (
-            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-primary"><MessageCircle size={16} aria-hidden /> WhatsApp us</a>
-          )}
-          {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="btn btn-dark"><Phone size={16} aria-hidden /> Call {phone}</a>}
-          <a href="/track" className="btn btn-secondary"><Truck size={16} aria-hidden /> Track an order</a>
-        </div>
-      </div>
     </section>
   );
 }

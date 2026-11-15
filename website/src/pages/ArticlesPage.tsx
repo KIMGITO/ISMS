@@ -1,8 +1,8 @@
 import { RichText } from '../RichText';
 import { Article } from '../api';
-import { articlePhoto, PHOTOS, photoUrl } from '../images';
+import { articlePhoto, photoUrl } from '../images';
 import { useStorefront } from '../store';
-import { DisplayText, formatDate, Notice, PageHero, pageClass, RevealList } from '../ui';
+import { BANNER_IMAGES, DisplayText, formatDate, Notice, PageHeader, pageClass, RevealList } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 export function ArticleCard({ article }: { article: Article }) {
@@ -58,14 +58,14 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
 
   return (
     <>
-      <PageHero
+      <PageHeader
         eyebrow="Milk care"
         title="Milk Guides"
         body="How to store, handle and enjoy your milk."
-        photo={PHOTOS.bottleTray}
+        images={BANNER_IMAGES.splash}
       >
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides' }]} />
-      </PageHero>
+      </PageHeader>
       <div className={pageClass}>
       {articles.length > 0 ? (
         <RevealList className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

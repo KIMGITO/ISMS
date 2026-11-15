@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { ArrowRight, BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'lucide-react';
 import { Order, OrderStatus, Product, Storefront, takesAirtel } from './api';
 import { photoUrl, productPhoto } from './images';
+import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle } from './heroSlides';
 
 export const primaryButton = 'btn btn-primary';
 export const secondaryButton = 'btn btn-secondary';
@@ -114,36 +115,6 @@ export function RevealList({ children, className = '' }: { children: ReactNode; 
   return <ul ref={ref} className={`reveal-list ${className}`}>{children}</ul>;
 }
 
-/**
- * The banner at the top of inner pages: the same soft sand panel as the home hero,
- * with the photo in a circle on wider screens. Phones get the title and breadcrumbs only.
- */
-export function PageHero({ eyebrow, title, body, photo, children }: {
-  eyebrow?: string;
-  title: string;
-  body?: string;
-  photo: Parameters<typeof photoUrl>[0];
-  children?: ReactNode;
-}) {
-  return (
-    <section className="site-gutter pt-4 sm:pt-6">
-      <div className="soft-panel relative isolate grid items-center gap-6 overflow-hidden rounded-2xl px-5 py-7 sm:grid-cols-[1fr_auto] sm:px-12 sm:py-10">
-        <div className="min-w-0">
-          {children}
-          {eyebrow && <p className="eyebrow rise-in mt-3 max-sm:hidden">{eyebrow}</p>}
-          <h1 className="display-lg rise-in mt-1.5 max-w-xl">{title}</h1>
-          {body && <p className="rise-in-late mt-2 max-w-md text-muted max-sm:hidden">{body}</p>}
-        </div>
-        <img
-          src={photoUrl(photo, 480, 480)}
-          alt=""
-          className="rise-in-late hidden size-40 rounded-full object-cover ring-8 ring-white sm:block lg:size-48"
-        />
-      </div>
-    </section>
-  );
-}
-
 export function ErrorText({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
@@ -221,15 +192,74 @@ export function tintFor(text: string) {
   return TINTS[hash % TINTS.length];
 }
 
-/** A plain banner for inner pages that don't need a photo. Same panel as PageHero. */
-export function PageHeader({ eyebrow, title, body, children }: { eyebrow?: string; title: string; body?: string; children?: ReactNode }) {
+/**
+ * Product pictures placed like a shop-window display: the main product with up to two smaller
+ * ones beside and in front. Best with cut-outs (background removed in the app's uploader).
+ * The home hero and every inner page banner use it, so the whole site shows the same products.
+ */
+export function ProductDisplay({ images, positions, title, eager = false, className = '' }: {
+  images: readonly string[];
+  positions?: HeroBox[];
+  title: string;
+  eager?: boolean;
+  className?: string;
+}) {
+  const boxes = heroBoxes(images.length, positions);
   return (
-    <section className="site-gutter pt-4 sm:pt-6">
-      <div className="soft-panel rounded-2xl px-5 py-6 sm:px-12 sm:py-10">
-        {children}
-        {eyebrow && <p className="eyebrow mt-3 max-sm:hidden">{eyebrow}</p>}
-        <h1 className="display-lg mt-1.5 max-w-3xl">{title}</h1>
-        {body && <p className="mt-2 max-w-2xl text-muted max-sm:hidden">{body}</p>}
+    <div className={`relative mx-auto aspect-square w-full ${className}`}>
+      {/* A soft floor shadow so the products stand on the panel rather than float. */}
+      <span className="absolute inset-x-[8%] bottom-[3%] h-[10%] rounded-[50%] bg-hero/15 blur-md" aria-hidden />
+      {HERO_DRAW_ORDER.filter((index) => index < images.length).map((index) => (
+        <img
+          key={`${index}-${images[index]}`}
+          src={images[index]}
+          alt={index === 0 ? title : ''}
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager && index === 0 ? 'high' : 'auto'}
+          style={heroBoxStyle(boxes[index])}
+          className="object-contain object-bottom drop-shadow-[0_14px_16px_rgba(35,22,14,0.22)]"
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Cut-out sets for inner page banners, from the same pictures as the home hero. */
+export const BANNER_IMAGES = {
+  milk: ['/hero/milk-pour.webp', '/hero/milk-bottle.webp', '/hero/butter.webp'],
+  dairy: ['/hero/butter.webp', '/hero/milk-glass.webp', '/hero/cheese.webp'],
+  bottle: ['/hero/milk-bottle-cookies.webp', '/hero/milk-bottle.webp'],
+  splash: ['/hero/milk-splash.webp', '/hero/milk-glass.webp', '/hero/butter.webp'],
+  glass: ['/hero/milk-glass.webp', '/hero/milk-bottle.webp', '/hero/cheese.webp'],
+} as const satisfies Record<string, readonly string[]>;
+
+const BANNER_SETS = Object.values(BANNER_IMAGES);
+
+/**
+ * The banner at the top of every inner page: the home hero's sand panel, a bold headline,
+ * and a small product display on the right, so each page reads as part of the same shop.
+ * Pages pick a picture set with `images`; otherwise one is chosen from the title.
+ */
+export function PageHeader({ eyebrow, title, body, images, children }: {
+  eyebrow?: string;
+  title: string;
+  body?: string;
+  images?: readonly string[];
+  children?: ReactNode;
+}) {
+  let hash = 0;
+  for (const char of title) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const pictures = images ?? BANNER_SETS[hash % BANNER_SETS.length];
+  return (
+    <section className="site-gutter pt-3 sm:pt-6">
+      <div className="soft-panel relative isolate grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl px-4 py-6 sm:gap-6 sm:px-12 sm:py-8 lg:px-16">
+        <div className="min-w-0">
+          {children}
+          {eyebrow && <p className="eyebrow rise-in mt-3 max-sm:hidden">{eyebrow}</p>}
+          <h1 className="display-xl rise-in mt-1.5 max-w-[22ch] font-semibold max-sm:text-[1.375rem] max-sm:leading-tight">{title}</h1>
+          {body && <p className="rise-in-late mt-2 max-w-xl text-muted max-sm:hidden sm:text-[0.9375rem]">{body}</p>}
+        </div>
+        <ProductDisplay images={pictures} title="" eager className="rise-in-late w-[5.5rem] min-[400px]:w-[6.5rem] sm:w-[11rem] lg:w-[14rem]" />
       </div>
     </section>
   );

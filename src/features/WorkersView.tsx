@@ -403,6 +403,7 @@ export default function WorkersView() {
                           onUploadSuccess={(url) => setSelectedAvatar(url)}
                           allowedTypes={['image']}
                           cropAspect={1}
+                          cropRequired
                           buttonText="Upload Picture"
                           bucketName="employee-avatars"
                           className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600  font-black text-[9px] rounded-lg transition uppercase tracking-wider text-center w-full select-none cursor-pointer"

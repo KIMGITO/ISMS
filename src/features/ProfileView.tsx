@@ -138,6 +138,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             onUploadSuccess={(url) => setAvatar(url)}
             allowedTypes={["image"]}
             cropAspect={1}
+            cropRequired
             bucketName="employee-avatars"
             triggerElement={
               <div className="relative group cursor-pointer">
