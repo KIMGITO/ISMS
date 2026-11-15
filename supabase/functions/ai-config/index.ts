@@ -12,7 +12,18 @@ import {
   verifyUserMembership,
 } from "../shared/cors.ts";
 
-import { runAI, getHuggingFaceTokens, ownerAIHint } from "../shared/ai-runner.ts";
+import {
+  testProvider,
+  ownerAIHint,
+  pingHuggingFaceKeys,
+  listProviderModels,
+  normalizeProvider,
+  cleanKey,
+  isMaskedKey,
+  providerKey,
+  DEFAULT_MODELS,
+  AI_PROVIDERS,
+} from "../shared/ai-runner.ts";
 
 /** Masks an API key: first 4 chars + •••••••• + last 4 chars */
 function maskKey(key: string): string {
@@ -110,26 +121,43 @@ Deno.serve(async (req) => {
       }
       if (!config) return errorResponse("config payload is required.", 400);
 
+      const rawProvider = String(config.provider || "huggingface").toLowerCase();
+      if (!(AI_PROVIDERS as readonly string[]).includes(rawProvider)) {
+        return errorResponse(`Unknown AI provider "${rawProvider}". Choose one from the list.`, 400);
+      }
+      const provider = normalizeProvider(rawProvider);
+
       // Fetch existing key so we don't overwrite with a masked placeholder
       const { data: existing } = await supabase
         .from("ai_settings")
-        .select("api_key")
+        .select("api_key, provider")
         .eq("business_id", businessId)
         .maybeSingle();
 
-      let keyToSave = config.api_key || "";
-      if (keyToSave.includes("••••")) {
-        // User submitted the masked display value — keep the real stored key
-        keyToSave = existing?.api_key || "";
+      let keyToSave: string;
+      if (isMaskedKey(config.api_key)) {
+        // The masked display value came back: keep the stored key, but only for the
+        // provider it belongs to.
+        keyToSave = normalizeProvider(existing?.provider) === provider ? (existing?.api_key || "") : "";
+      } else {
+        keyToSave = cleanKey(config.api_key);
+        if (String(config.api_key || "").trim() && !keyToSave) {
+          return errorResponse("That key has spaces or characters a key can't have. Paste it again.", 400);
+        }
+      }
+      if (provider !== "huggingface" && !providerKey(provider, keyToSave)) {
+        return errorResponse(`Enter the ${provider} API key before saving.`, 400);
       }
 
-      const provider = (config.provider || "huggingface").toLowerCase();
+      const model = String(config.model || "").trim() || DEFAULT_MODELS[provider];
+      if (/\s/.test(model)) return errorResponse("The model name can't contain spaces.", 400);
+
       const now = new Date().toISOString();
       const upsertPayload = {
         business_id: businessId,
         provider,
         api_key: keyToSave,
-        model: config.model || (provider === "huggingface" ? "Qwen/Qwen2.5-72B-Instruct" : "gemini-2.5-flash"),
+        model,
         temperature: Number(config.temperature ?? 0.7),
         max_tokens: Number(config.max_tokens ?? 2048),
         top_p: Number(config.top_p ?? 0.95),
@@ -163,27 +191,75 @@ Deno.serve(async (req) => {
       });
 
     // ── TEST ─────────────────────────────────────────────────────────────
-    } else if (action === "test") {
-      const testConfig = config || defaultConfig(businessId);
-      const testResult = await runAI(testConfig, {
-        systemInstruction: "You are testing AI connectivity.",
+    } else if (action === "test" || action === "ping") {
+      if (activeRole !== "Owner" && activeRole !== "Admin") {
+        return errorResponse("Only Owners and Admins can test the AI connection.", 403);
+      }
+      const testConfig = { ...defaultConfig(businessId), ...(config || {}) };
+      const provider = normalizeProvider(testConfig.provider);
+      const model = String(testConfig.model || "").trim() || DEFAULT_MODELS[provider];
+
+      // The screen only holds the masked key; use the stored one it stands for.
+      const { data: stored } = await supabase
+        .from("ai_settings")
+        .select("api_key, provider")
+        .eq("business_id", businessId)
+        .maybeSingle();
+      const storedKey = normalizeProvider(stored?.provider) === provider ? (stored?.api_key || "") : "";
+      const apiKey = isMaskedKey(testConfig.api_key) || !String(testConfig.api_key || "").trim()
+        ? cleanKey(storedKey)
+        : cleanKey(testConfig.api_key);
+      if (String(testConfig.api_key || "").trim() && !isMaskedKey(testConfig.api_key) && !apiKey) {
+        return errorResponse("That key has spaces or characters a key can't have. Paste it again.", 400);
+      }
+
+      if (provider === "huggingface") {
+        const keys = await pingHuggingFaceKeys(apiKey, model);
+        if (keys.length === 0) return errorResponse(ownerAIHint("no_key"), 400);
+        const working = keys.filter((k) => k.ok);
+        const lines = keys.map((k) => `${k.ok ? "OK " : "BAD"} ${k.label}: ${k.detail}${k.model ? ` [${k.model}${k.ms != null ? `, ${k.ms} ms` : ""}]` : ""}`);
+        const message = working.length > 0
+          ? `Hugging Face answered: ${working.length} of ${keys.length} keys in the rotation work.\n${lines.join("\n")}`
+          : `No Hugging Face key answered.\n${lines.join("\n")}`;
+        return jsonResponse({ success: working.length > 0, message, error: working.length ? undefined : message, keys });
+      }
+
+      const started = Date.now();
+      const testResult = await testProvider({ ...testConfig, provider, model, api_key: apiKey } as any, {
+        systemInstruction: "You are testing AI connectivity. Reply with the word pong.",
         messages: [{ role: "user", content: "Ping" }],
       });
-
       if (testResult.success) {
-        const hfTokens = getHuggingFaceTokens();
-        const infoMsg = testConfig.provider === "huggingface"
-          ? `Hugging Face Connection Verified! (${hfTokens.length} server rotation tokens active)`
-          : `${testConfig.provider.toUpperCase()} AI Connection Verified!`;
-
         return jsonResponse({
           success: true,
-          message: infoMsg,
-          responseSample: testResult.text.slice(0, 100),
+          message: `${provider} answered on ${model} in ${Date.now() - started} ms: "${testResult.text.trim().slice(0, 60)}"`,
         });
-      } else {
-        // This is the Owner's settings screen, so the per-key detail helps them fix it.
-        return errorResponse(`${ownerAIHint(testResult.code)}${testResult.error ? ` (${testResult.error})` : ""}`, 400);
+      }
+      // This is the Owner's settings screen, so the provider's own reason helps them fix it.
+      return errorResponse(`${provider} did not answer on ${model}: ${testResult.error || ownerAIHint(testResult.code)}`, 400);
+
+    // ── MODELS ───────────────────────────────────────────────────────────
+    } else if (action === "models") {
+      const provider = normalizeProvider(config?.provider);
+      let key = "";
+      if (provider !== "huggingface" && provider !== "openrouter") {
+        if (activeRole !== "Owner" && activeRole !== "Admin") {
+          return errorResponse("Only Owners and Admins can load the model list.", 403);
+        }
+        if (isMaskedKey(config?.api_key) || !String(config?.api_key || "").trim()) {
+          const { data: stored } = await supabase
+            .from("ai_settings").select("api_key, provider").eq("business_id", businessId).maybeSingle();
+          key = providerKey(provider, normalizeProvider(stored?.provider) === provider ? stored?.api_key : "");
+        } else {
+          key = cleanKey(config?.api_key);
+        }
+        if (!key) return errorResponse(`Enter the ${provider} key to load its models.`, 400);
+      }
+      try {
+        const models = await listProviderModels(provider, key);
+        return jsonResponse({ success: true, provider, models });
+      } catch (err: any) {
+        return errorResponse(`Could not load ${provider} models: ${err?.message || "no reply"}`, 400);
       }
 
     } else {

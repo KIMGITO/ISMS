@@ -64,6 +64,7 @@ import { PermissionType } from '../services/devicePermissionService';
 import { configManager } from '../services/configManager';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
+import { AI_PROVIDERS, getAIProvider, isMaskedKey, aiConfigProblem, aiKeyWarning } from '../utils/aiProviders';
 import {
   normalizePhone,
   validatePhone,
@@ -159,6 +160,13 @@ export default function SettingsView({
     api_key: '',
   });
   const [testingAi, setTestingAi] = useState(false);
+  // The provider and masked key as last loaded/saved, so switching provider and back
+  // restores the stored key instead of wiping it.
+  const [savedAiKey, setSavedAiKey] = useState<{ provider: string; masked: string }>({ provider: 'huggingface', masked: '' });
+  const [aiLiveModels, setAiLiveModels] = useState<string[]>([]);
+  const [loadingAiModels, setLoadingAiModels] = useState(false);
+  const [aiModelsError, setAiModelsError] = useState<string | null>(null);
+  const [aiCustomModel, setAiCustomModel] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{
     success: boolean;
@@ -623,6 +631,7 @@ export default function SettingsView({
         });
         if (data?.success && data.config) {
           setAiConfig(data.config);
+          setSavedAiKey({ provider: getAIProvider(data.config.provider).id, masked: data.config.api_key || '' });
         }
       } catch (err) {
         console.error('Failed to load AI configuration:', err);
@@ -641,6 +650,8 @@ export default function SettingsView({
           'Access Denied: Only Owners can view or modify API credentials.',
         );
       }
+      const problem = aiConfigProblem(aiConfig);
+      if (problem) throw new Error(problem);
       const data = await SupabaseService.callEdgeFunction('ai-config', {
         action: 'save',
         businessId: activeBusinessId,
@@ -652,6 +663,7 @@ export default function SettingsView({
 
       if (data?.success) {
         setAiConfig(data.config);
+        setSavedAiKey({ provider: getAIProvider(data.config.provider).id, masked: data.config.api_key || '' });
         showToast(
           'AI Config Saved',
           'AI configuration saved securely.',
@@ -673,7 +685,40 @@ export default function SettingsView({
     }
   };
 
+  const aiProviderInfo = getAIProvider(aiConfig.provider);
+  const aiModelOptions = (() => {
+    const curated = aiProviderInfo.models;
+    const extra = aiLiveModels
+      .filter((id) => !curated.some((m) => m.id === id))
+      .map((id) => ({ id, label: id }));
+    return [...curated, ...extra];
+  })();
+
+  const handleLoadAiModels = async () => {
+    setLoadingAiModels(true);
+    setAiModelsError(null);
+    try {
+      const data = await SupabaseService.callEdgeFunction('ai-config', {
+        action: 'models',
+        businessId: activeBusinessId,
+        config: { provider: aiProviderInfo.id, api_key: aiConfig.api_key },
+      });
+      if (!data?.success) throw new Error(data?.error || 'Could not load the model list.');
+      setAiLiveModels(Array.isArray(data.models) ? data.models : []);
+    } catch (err: any) {
+      setAiLiveModels([]);
+      setAiModelsError(toUserMessage(err, 'Could not load the model list.'));
+    } finally {
+      setLoadingAiModels(false);
+    }
+  };
+
   const handleTestAiConnection = async () => {
+    const problem = aiConfigProblem(aiConfig);
+    if (problem) {
+      setAiTestResult({ success: false, message: problem });
+      return;
+    }
     setTestingAi(true);
     setAiTestResult(null);
     try {
@@ -1099,302 +1144,88 @@ export default function SettingsView({
                       </p>
 
                       <SearchableDropdown
-                        items={[
-                          {
-                            id: 'huggingface',
-                            label:
-                              'Hugging Face ( Recommended)',
-                          },
-                          { id: 'gemini', label: 'Google Gemini Platform' },
-                          { id: 'openai', label: 'OpenAI GPT Engines' },
-                          { id: 'anthropic', label: 'Anthropic Claude' },
-                          { id: 'deepseek', label: 'DeepSeek AI' },
-                          { id: 'groq', label: 'Groq Cloud Llama' },
-                          { id: 'openrouter', label: 'OpenRouter Unified API' },
-                        ]}
-                        selectedValue={aiConfig.provider || 'huggingface'}
+                        items={AI_PROVIDERS.map((p) => ({ id: p.id, label: p.label }))}
+                        selectedValue={getAIProvider(aiConfig.provider).id}
                         onChange={(val) => {
-                          const prov = val;
-                          let defaultModel = 'Qwen/Qwen2.5-72B-Instruct';
-
-                          if (prov === 'huggingface')
-                            defaultModel = 'Qwen/Qwen2.5-72B-Instruct';
-                          else if (prov === 'gemini')
-                            defaultModel = 'gemini-2.5-flash';
-                          else if (prov === 'openai')
-                            defaultModel = 'gpt-4o-mini';
-                          else if (prov === 'anthropic')
-                            defaultModel = 'claude-3-5-haiku-latest';
-                          else if (prov === 'deepseek')
-                            defaultModel = 'deepseek-chat';
-                          else if (prov === 'groq')
-                            defaultModel = 'llama-3.3-70b-versatile';
-                          else if (prov === 'openrouter')
-                            defaultModel = 'meta-llama/llama-3.3-70b-instruct';
-
-                          setAiConfig({
-                            ...aiConfig,
-                            provider: prov,
-                            model: defaultModel,
-                          });
+                          const prov = getAIProvider(val);
+                          // A stored key belongs to the provider it was saved for; going
+                          // back to that provider brings its masked key back.
+                          const key = prov.id === savedAiKey.provider ? savedAiKey.masked : '';
+                          setAiConfig({ ...aiConfig, provider: prov.id, model: prov.defaultModel, api_key: key });
+                          setAiLiveModels([]);
+                          setAiModelsError(null);
+                          setAiTestResult(null);
                         }}
-                        placeholder="Select AI provider vendor..."
+                        placeholder="Select AI provider..."
                         searchPlaceholder="Search providers..."
                       />
                     </div>
 
-                    {/* API Key Input (Optional for Hugging Face, required for other providers) */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                          API Access Token / Key{' '}
-                          {aiConfig.provider === 'huggingface'
-                            ? '(Optional Override)'
-                            : '*'}
-                        </label>
-                        </div>
-                      <PasswordInput variant="app" label="" required={false} autoComplete="off" value={aiConfig.api_key} onChange={(api_key) => setAiConfig({ ...aiConfig, api_key })} placeholder={aiConfig.provider === 'huggingface' ? '' : 'Enter provider secret key...'} />
-                    </div>
-
-                    {/* Model input and quick selector badges */}
+                    {/* API key: optional for Hugging Face (server rotation), required for the rest */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                        Model Identifier
+                        API Key {aiProviderInfo.needsKey ? '*' : '(optional override)'}
                       </label>
-                      <input
-                        type="text"
-                        value={aiConfig.model}
-                        onChange={(e) =>
-                          setAiConfig({ ...aiConfig, model: e.target.value })
-                        }
-                        placeholder="e.g. Qwen/Qwen2.5-72B-Instruct"
-                        className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                      />
+                      <PasswordInput variant="app" label="" required={aiProviderInfo.needsKey} autoComplete="off" value={aiConfig.api_key} onChange={(api_key) => setAiConfig({ ...aiConfig, api_key: api_key.trim() })} placeholder={aiProviderInfo.needsKey ? `Paste your ${aiProviderInfo.label} key` : 'Leave empty to use the server keys'} />
+                      <span className="text-[8.5px] text-app-text-muted leading-tight">
+                        {aiProviderInfo.keyHelp}
+                        {isMaskedKey(aiConfig.api_key) ? ' A key is saved; type a new one only to replace it.' : ''}
+                      </span>
+                      {aiKeyWarning(aiConfig) && (
+                        <span className="text-[8.5px] text-amber-500 font-bold leading-tight">{aiKeyWarning(aiConfig)}</span>
+                      )}
+                    </div>
 
-                      {/* Model suggestion tags */}
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {(!aiConfig.provider ||
-                          aiConfig.provider === 'huggingface') && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'Qwen/Qwen2.5-72B-Instruct',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              Qwen2.5-72B
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'meta-llama/Llama-3.3-70B-Instruct',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              Llama-3.3-70B
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'deepseek-ai/DeepSeek-V3',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              DeepSeek-V3
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'gemini' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'gemini-3.5-flash',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gemini-3.5-flash
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'gemini-3.1-flash-lite',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gemini-3.1-flash-lite
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'gemini-2.5-flash',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gemini-2.5-flash
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'openai' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'gpt-4o-mini',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gpt-4o-mini
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({ ...aiConfig, model: 'gpt-4o' })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gpt-4o
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({ ...aiConfig, model: 'o1-mini' })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              o1-mini
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'anthropic' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'claude-3-5-haiku-latest',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              claude-3-5-haiku
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'claude-3-5-sonnet-latest',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              claude-3-5-sonnet
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'deepseek' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'deepseek-chat',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              deepseek-chat
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'deepseek-reasoner',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              deepseek-reasoner
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'groq' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'llama-3.3-70b-versatile',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              llama-3.3-70b
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({
-                                  ...aiConfig,
-                                  model: 'gemma2-9b-it',
-                                })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              gemma2-9b-it
-                            </button>
-                          </>
-                        )}
-                        {aiConfig.provider === 'ollama' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({ ...aiConfig, model: 'llama3' })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              llama3
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAiConfig({ ...aiConfig, model: 'mistral' })
-                              }
-                              className="px-2 py-0.5 bg-app-bg border border-app-border rounded-md text-[8px] font-bold text-app-text-muted hover:border-amber-500/40"
-                            >
-                              mistral
-                            </button>
-                          </>
-                        )}
+                    {/* Model: chosen from the provider's own list so an invalid name can't be sent */}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                          Model
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleLoadAiModels}
+                          disabled={loadingAiModels || (aiProviderInfo.needsKey && !aiConfig.api_key)}
+                          className="text-[9px] font-bold text-amber-500 hover:underline disabled:opacity-40 disabled:no-underline flex items-center gap-1"
+                        >
+                          <RefreshCw size={10} className={loadingAiModels ? 'animate-spin' : ''} />
+                          {aiLiveModels.length ? `Live list (${aiLiveModels.length})` : 'Load live list'}
+                        </button>
                       </div>
+                      <select
+                        value={aiModelOptions.some((m) => m.id === aiConfig.model) ? aiConfig.model : '__custom__'}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setAiCustomModel(true);
+                          } else {
+                            setAiCustomModel(false);
+                            setAiConfig({ ...aiConfig, model: e.target.value });
+                          }
+                        }}
+                        className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
+                      >
+                        {aiModelOptions.map((m) => (
+                          <option key={m.id} value={m.id}>{m.label}</option>
+                        ))}
+                        <option value="__custom__">Other (type the model name)...</option>
+                      </select>
+                      {(aiCustomModel || !aiModelOptions.some((m) => m.id === aiConfig.model)) && (
+                        <input
+                          type="text"
+                          value={aiConfig.model}
+                          onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value.trim() })}
+                          placeholder={aiProviderInfo.defaultModel}
+                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
+                        />
+                      )}
+                      {aiLiveModels.length > 0 && aiConfig.model && !aiLiveModels.includes(aiConfig.model) && (
+                        <span className="text-[8.5px] text-amber-500 font-bold leading-tight">
+                          {aiProviderInfo.label.replace(/ \(.*\)$/, '')} does not list "{aiConfig.model}" right now. Pick another model or run Test first.
+                        </span>
+                      )}
+                      {aiModelsError && (
+                        <span className="text-[8.5px] text-red-500 font-bold leading-tight">{aiModelsError}</span>
+                      )}
                     </div>
 
                     {/* Advanced hyper-parameters row */}
