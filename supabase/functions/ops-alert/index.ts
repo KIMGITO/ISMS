@@ -34,10 +34,43 @@ function adminClient() {
   );
 }
 
-function isServiceRole(req: Request): boolean {
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  return !!key && token === key;
+// Keys already checked in this instance, so a burst of crashes asks Auth only once.
+const confirmedServiceKeys = new Set<string>();
+
+/** The key the caller sent, from Authorization: Bearer or the apikey header. */
+function callerKey(req: Request): string {
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  return bearer || (req.headers.get("apikey") || "").trim();
+}
+
+/**
+ * True when the caller holds a service key for this project. A project can have more than
+ * one (the legacy service_role JWT and the newer sb_secret_ keys), and the copy saved in
+ * Vault need not be the one this function was given, so a key that isn't an exact match is
+ * checked with Auth: only a service key may list users.
+ */
+async function isServiceRole(req: Request): Promise<boolean> {
+  const token = callerKey(req);
+  if (token.length < 20) return false;
+  if (token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || confirmedServiceKeys.has(token)) return true;
+
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url) return false;
+  try {
+    const headers: Record<string, string> = { apikey: token };
+    if (token.startsWith("eyJ")) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    await res.body?.cancel();
+    if (!res.ok) return false;
+    confirmedServiceKeys.add(token);
+    return true;
+  } catch (err) {
+    console.error("[ops-alert] Couldn't check the caller's key:", err);
+    return false;
+  }
 }
 
 function text(value: unknown, max: number): string {
@@ -177,10 +210,10 @@ Deno.serve(async (req) => {
       case "report":
         return await report(req, body);
       case "crash":
-        if (!isServiceRole(req)) return errorResponse("Not allowed.", 403);
+        if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
         return await crash(body);
       case "test": {
-        if (!isServiceRole(req)) return errorResponse("Not allowed.", 403);
+        if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
         const sent = await sendAlert({ text: "✅ KayKay's alerts are connected to this chat." });
         return jsonResponse({ success: sent }, sent ? 200 : 502);
       }
