@@ -22,7 +22,8 @@
 -- triggers, so stock, money balances, debts and points agree. Rows those
 -- functions stamp with now() are moved back to when they happened.
 --
--- It commits once per simulated day so it stays fast.
+-- It runs as one transaction (the Supabase CLI sends the file as one batch), so a failure
+-- leaves nothing behind.
 -- =============================================================================
 
 SET client_min_messages = error;   -- triggers warn that push secrets are unset; that is expected locally
@@ -96,7 +97,7 @@ BEGIN
     SET LOCAL session_replication_role = origin;
 END $f$;
 
--- Sale-linked rows created in this transaction -> the sale's time. Run before each commit.
+-- Sale-linked rows created on this day -> the sale's time. Run at the end of each day.
 CREATE FUNCTION pg_temp.stamp_sales(p_day DATE) RETURNS VOID LANGUAGE plpgsql AS $f$
 DECLARE
     t0 TIMESTAMPTZ := now();
@@ -227,6 +228,9 @@ $f$;
 CREATE TEMP TABLE seed_catalog (sku TEXT PRIMARY KEY, name TEXT, category TEXT, price NUMERIC, cost NUMERIC,
     unit TEXT, perishable BOOLEAN, expiry INT, kind TEXT, weight NUMERIC, qlo INT, qhi INT, target NUMERIC,
     supplier TEXT, descr TEXT);
+-- Inside DO so the Supabase CLI, which prepares the whole file before running it, doesn't
+-- look for seed_catalog before the line above has created it.
+DO $catalog$ BEGIN
 INSERT INTO seed_catalog VALUES
   ('KK-FM-1000',   'Fresh Milk 1L',            'Fresh Milk',    65,  42,  'Litres',  TRUE,  3,    'fresh', 30, 1, 4, 40, 'Kiambu Dairy Farmers Co-op', 'Pasteurised whole milk, packed the morning it is collected.'),
   ('KK-FM-500',    'Fresh Milk 500ml',         'Fresh Milk',    35,  23,  'Packets', TRUE,  3,    'fresh', 18, 1, 4, 30, 'Kiambu Dairy Farmers Co-op', 'Pasteurised whole milk, half litre.'),
@@ -243,6 +247,7 @@ INSERT INTO seed_catalog VALUES
   ('KK-BRD-BRN',   'Brown Bread 400g',         'Bakery & Eggs', 70,  56,  'Loaves',  TRUE,  4,    'fresh',  4, 1, 2, 8,  'Nairobi Bakers Ltd',         NULL),
   ('KK-EGG-TRAY',  'Eggs (Tray of 30)',        'Bakery & Eggs', 450, 365, 'Trays',   TRUE,  21,   'stock',  2.5, 1, 1, 8, 'Ruiru Poultry Farm',        'Free-range kienyeji-cross eggs.'),
   ('KK-HNY-500',   'Pure Honey 500g',          'Pantry',        550, 390, 'Jars',    FALSE, NULL, 'stock',  0.8, 1, 1, 6, 'Sweet Valley Honey',        'Raw honey from Baringo.');
+END $catalog$;
 
 -- branch number -> business id, staff
 CREATE TEMP TABLE seed_branch (n INT PRIMARY KEY, id UUID, name TEXT, scale NUMERIC, cashier UUID, cashier_name TEXT);
@@ -519,7 +524,6 @@ BEGIN
         -- whatever notifications the day's triggers raised (low stock, etc.) get an evening time
         PERFORM pg_temp.stamp(LEAST(pg_temp.at(d, 21, 15), v_now - interval '1 minute'));
         PERFORM pg_temp.stamp_sales(d);
-        COMMIT;
     END LOOP;
 END $history$;
 
