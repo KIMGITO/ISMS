@@ -2,27 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { usePendingActionStore } from '../stores/pendingActionStore';
 import { useCustomerStore } from '../stores/customerStore';
-import {
-  Send,
-  RefreshCw,
-  Bot,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  Brain,
-  ActivitySquareIcon,
-} from 'lucide-react';
+import { Send, ChevronDown, ChevronUp, Sparkles, Brain } from 'lucide-react';
 import { getDynamicRoles, ALL_PERMISSIONS } from '../utils/permissions';
 import { useAuthStore } from '../stores/authStore';
 import { SupabaseService } from '../services/supabaseService';
-import { ProductRepository, CustomerRepository, ExpenseRepository } from '../services/repositories';
-import { useExtraModulesStore } from '../stores/extraModulesStore';
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: string;
-}
+import type { ChatMessage } from '../stores/uiStore';
+import { parseAssistantReply } from '../utils/assistantReply';
+import ActionCard from '../components/assistant/ActionCard';
+import QuestionCard from '../components/assistant/QuestionCard';
 
 export default function WorkspaceAssistantView() {
   const {
@@ -181,8 +168,18 @@ export default function WorkspaceAssistantView() {
 
   const groupedMessageSections = groupMessages();
 
-  const handleSendMessage = async (text: string) => {
+  /** answering: the message and question index this text answers, so its choices lock. */
+  const handleSendMessage = async (text: string, answering?: { msg: number; q: number }) => {
     if (!text.trim() || aiIsLoading) return;
+    if (answering) {
+      setAiChatHistory((prev) =>
+        prev.map((m, i) =>
+          i === answering.msg && m.questions
+            ? { ...m, questions: m.questions.map((q, j) => (j === answering.q ? { ...q, answer: text } : q)) }
+            : m,
+        ),
+      );
+    }
 
     // 1. Prepare the user message
     const userMessage: ChatMessage = {
@@ -217,9 +214,18 @@ export default function WorkspaceAssistantView() {
       const rolePermissions = isOwner ? ALL_PERMISSIONS : (getDynamicRoles()[currentRole]?.permissions || []);
 
       // 3. Use the latestHistory variable we just created
-      const apiMessages = [
-        ...latestHistory.map((m) => ({ role: m.role, content: m.content })),
-      ];
+      // The model only sees text, so tell it what its cards were and what became of them.
+      const allActions = usePendingActionStore.getState().pendingActions;
+      const statusWord = { pending_review: 'waiting for the person to confirm', verified: 'waiting for the person to confirm', executed: 'done', rejected: 'discarded by the person' } as const;
+      const apiMessages = latestHistory.map((m) => {
+        const notes: string[] = [];
+        for (const id of m.actionIds || []) {
+          const a = allActions.find((x) => x.id === id);
+          if (a) notes.push(`(Prepared task "${a.title}": ${statusWord[a.status]})`);
+        }
+        for (const q of m.questions || []) notes.push(`(Asked: ${q.question} Choices: ${q.options.join(' / ')})`);
+        return { role: m.role, content: [m.content, ...notes].filter(Boolean).join('\n') };
+      });
 
       const response = await SupabaseService.callEdgeFunction('chat', {
         messages: apiMessages,
@@ -264,73 +270,21 @@ export default function WorkspaceAssistantView() {
           replyText += `\n\nFor the owner: ${response.ownerHint}`;
         }
 
-        // Handle AI Pending Action Drafts & Action Triggers
-        // Supports both [PENDING_ACTION: {...}] and plain PENDING_ACTION: {...}
-        // Uses brace-counting to correctly extract nested JSON objects.
-        const extractPendingActions = (text: string) => {
-          const tagRegex = /\[?(PENDING_?ACTION|ACTION_TRIGGER):\s*\{/gi;
-          const results: { fullMatch: string; jsonStr: string }[] = [];
-          let tagMatch: RegExpExecArray | null;
-          while ((tagMatch = tagRegex.exec(text)) !== null) {
-            // Start of the JSON object is the position of '{'
-            const jsonStart = tagMatch.index + tagMatch[0].length - 1;
-            let depth = 0;
-            let inString = false;
-            let escape = false;
-            let i = jsonStart;
-            for (; i < text.length; i++) {
-              const ch = text[i];
-              if (escape) { escape = false; continue; }
-              if (ch === '\\' && inString) { escape = true; continue; }
-              if (ch === '"') { inString = !inString; continue; }
-              if (inString) continue;
-              if (ch === '{') depth++;
-              else if (ch === '}') {
-                depth--;
-                if (depth === 0) break;
-              }
-            }
-            if (depth === 0) {
-              const jsonStr = text.slice(jsonStart, i + 1);
-              // Include optional closing ] if present
-              const afterJson = text.slice(i + 1);
-              const closingBracket = afterJson.match(/^\s*\]/);
-              const fullMatch = text.slice(tagMatch.index, i + 1 + (closingBracket ? closingBracket[0].length : 0));
-              results.push({ fullMatch, jsonStr });
-            }
-          }
-          return results;
-        };
-
-        const actionMatches = extractPendingActions(replyText);
-        let queued = 0;
-        for (const { jsonStr } of actionMatches) {
-          try {
-            const draftData = JSON.parse(jsonStr);
-            const type = draftData.type || draftData.action;
-            if (!type) continue;
-            // Nothing runs yet: the person confirms in Pending Actions, where the app
-            // checks their own permission for this type (not what the AI wrote).
-            usePendingActionStore.getState().addPendingAction({
-              type,
-              title: draftData.title || 'Assistant task',
-              summary: draftData.summary || '',
-              requiredPermission: '',
-              params: draftData.params || {},
-              createdBy: `${aiName} (assistant)`,
-            });
-            queued++;
-          } catch (e) {
-            console.error('Failed to parse pending action trigger:', e, jsonStr);
-          }
-        }
-        if (queued > 0) usePendingActionStore.getState().setDrawerOpen(true);
-
-        // Clean all matched action blocks from the visible chat bubble reply
-        for (const { fullMatch } of actionMatches) {
-          replyText = replyText.replace(fullMatch, '');
-        }
-        replyText = replyText.trim();
+        // Tasks and questions come as tagged JSON lines; they show as cards under the
+        // reply. Nothing runs until the person taps Confirm on the card, where the app
+        // checks their own permission for the task (not what the AI wrote).
+        const parsed = parseAssistantReply(replyText);
+        const actionIds = parsed.drafts.map((d) =>
+          usePendingActionStore.getState().addPendingAction({
+            type: d.type as any,
+            title: d.title,
+            summary: d.summary,
+            requiredPermission: '',
+            params: d.params,
+            createdBy: `${aiName} (assistant)`,
+          }).id,
+        );
+        replyText = parsed.text || (actionIds.length ? 'Here it is. Check the details and tap Confirm.' : parsed.questions.length ? '' : replyText);
 
         // 4. Update history with assistant reply
         setAiChatHistory((prev) => [
@@ -339,6 +293,8 @@ export default function WorkspaceAssistantView() {
             role: 'assistant',
             content: replyText,
             timestamp: new Date().toISOString(),
+            ...(actionIds.length ? { actionIds } : {}),
+            ...(parsed.questions.length ? { questions: parsed.questions } : {}),
           },
         ]);
       } else {
@@ -374,136 +330,175 @@ export default function WorkspaceAssistantView() {
     }
   };
 
-  const { pendingActions, setDrawerOpen } = usePendingActionStore();
-  const activePendingCount = pendingActions.filter(
-    (a) => a.status === 'pending_review' || a.status === 'verified'
-  ).length;
+  const pendingActions = usePendingActionStore((st) => st.pendingActions);
+  const actionById = new Map(pendingActions.map((a) => [a.id, a]));
+  // Drafts made before tasks moved into the chat, still waiting: shown at the end.
+  const linkedIds = new Set(aiChatHistory.flatMap((m) => m.actionIds || []));
+  const olderDrafts = pendingActions.filter(
+    (a) => !linkedIds.has(a.id) && (a.status === 'pending_review' || a.status === 'verified'),
+  );
+  const lastAssistantIdx = aiChatHistory.map((m) => m.role).lastIndexOf('assistant');
+  const showStarters = !isSuggestionsCollapsed;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]">
       {/* Header */}
-      <div className="bg-app-card border-b border-app-border p-3.5 flex items-center justify-between gap-2 shrink-0 shadow-xs z-10">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl ">
-            <Brain size={18} />
+      <div className="bg-app-card border-b border-app-border px-4 py-3 flex items-center gap-2.5 shrink-0 shadow-xs z-10">
+        <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+          <Brain size={18} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-extrabold font-display text-app-text">{aiName}</h2>
+          <span className="text-[10px] text-app-text-muted font-medium">
+            Ask anything, or ask {aiName} to do a task. You confirm every change.
+          </span>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 flex flex-col gap-4">
+        <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
+          {groupedMessageSections.map((section) => (
+            <div key={section.id} className="flex flex-col gap-3">
+              <div className="flex items-center gap-2.5 my-1">
+                <div className="h-px flex-1 bg-app-border" />
+                <span className="text-[9px] font-black uppercase text-app-text-muted tracking-widest">{section.label}</span>
+                <div className="h-px flex-1 bg-app-border" />
+              </div>
+
+              {section.messages.map((msg) => {
+                const index = aiChatHistory.indexOf(msg);
+                const isUser = msg.role === 'user';
+                const actions = (msg.actionIds || []).map((id) => actionById.get(id)).filter(Boolean) as NonNullable<ReturnType<typeof actionById.get>>[];
+                return (
+                  <div
+                    key={`${msg.timestamp}-${index}`}
+                    className={`flex flex-col gap-2 animate-fade-in ${isUser ? 'items-end ml-auto max-w-[85%]' : 'items-start w-full max-w-[92%] md:max-w-[85%]'}`}
+                  >
+                    {msg.content && (
+                      <div
+                        className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed shadow-xs ${
+                          isUser
+                            ? 'bg-amber-500 text-slate-950 font-semibold rounded-tr-sm'
+                            : 'bg-app-card text-app-text rounded-tl-sm border border-app-border/70'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      </div>
+                    )}
+
+                    {actions.map((a) => (
+                      <ActionCard key={a.id} action={a} />
+                    ))}
+
+                    {(msg.questions || []).map((q, qi) => (
+                      <QuestionCard
+                        key={qi}
+                        question={q}
+                        enabled={index === lastAssistantIdx && !aiIsLoading}
+                        onAnswer={(answer) => handleSendMessage(answer, { msg: index, q: qi })}
+                      />
+                    ))}
+
+                    <span className="text-[9px] text-app-text-muted px-1">
+                      {isUser ? currentEmployee?.name || 'You' : aiName}
+                      {msg.timestamp ? ` · ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          {olderDrafts.length > 0 && (
+            <div className="flex flex-col gap-2 w-full max-w-[92%] md:max-w-[85%]">
+              <span className="text-[10px] font-bold text-app-text-muted px-1">Still waiting from before</span>
+              {olderDrafts.map((a) => (
+                <ActionCard key={a.id} action={a} />
+              ))}
+            </div>
+          )}
+
+          {aiIsLoading && (
+            <div className="flex items-center gap-1.5 bg-app-card px-4 rounded-2xl rounded-tl-sm self-start border border-app-border/70 shadow-xs h-11" aria-label={`${aiName} is typing`}>
+              {[0, 150, 300].map((d) => (
+                <span key={d} className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+              ))}
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="bg-app-card border-t border-app-border shrink-0 z-20">
+        <div className="w-full max-w-3xl mx-auto px-3 pt-2 pb-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSuggestionsCollapsed}
+              aria-expanded={showStarters}
+              className="flex items-center gap-1 text-[10px] font-bold text-app-text-muted hover:text-app-text cursor-pointer"
+            >
+              <Sparkles size={11} className="text-amber-500" /> Ideas
+              {showStarters ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+            </button>
           </div>
-          <div>
-            <h2 className="text-sm font-extrabold font-display text-app-text flex items-center gap-1">
-              <span>{aiName} </span>
-            </h2>
-            <span className="text-[10px] text-app-text-muted font-medium">
-              Enterprise AI Copilot
-            </span>
+          {showStarters && (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+              {suggestedPrompts.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={aiIsLoading}
+                  onClick={() => handleSendMessage(p)}
+                  className="shrink-0 min-h-8 px-3 rounded-full border border-app-border bg-app-bg text-[11px] text-app-text hover:border-amber-500 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+            <textarea
+              rows={1}
+              placeholder={`Message ${aiName}… e.g. "Jane paid 500 by M-Pesa"`}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(input);
+                  (e.target as HTMLTextAreaElement).style.height = 'auto';
+                }
+              }}
+              disabled={aiIsLoading}
+              className="flex-1 resize-none bg-app-bg text-[13px] px-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-app-text transition disabled:opacity-50 max-h-32"
+            />
+            {aiIsLoading ? (
+              <button
+                onClick={handleCancelPrompt}
+                className="h-10 px-3 bg-red-500/15 hover:bg-red-500/25 text-red-500 rounded-xl transition cursor-pointer font-bold text-xs"
+                title="Stop"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSendMessage(input)}
+                disabled={!input.trim()}
+                aria-label="Send"
+                className="w-10 h-10 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-slate-950 rounded-xl transition cursor-pointer flex items-center justify-center"
+              >
+                <Send size={15} />
+              </button>
+            )}
           </div>
         </div>
-
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-black transition cursor-pointer"
-        >
-          <ActivitySquareIcon size={13} />
-          <span>Pending Actions ({activePendingCount})</span>
-        </button>
-      </div>
-
-      {/* Messages viewport */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
-        {groupedMessageSections.map((section) => (
-          <div key={section.id} className="space-y-3">
-            {/* Group Label Separator */}
-            <div className="flex items-center gap-2.5 my-2.5">
-              <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-              <span className="text-[9px] font-black uppercase text-amber-500 bg-amber-500/5 px-2.5 py-1 rounded-full border border-amber-500/10 tracking-widest">
-                {section.label}
-              </span>
-              <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-            </div>
-
-            {section.messages.map((msg, idx) => {
-              const isUser = msg.role === 'user';
-              return (
-                <div
-                  key={idx}
-                  className={`flex flex-col max-w-[85%] animate-fade-in ${
-                    isUser
-                      ? 'self-end items-end ml-auto'
-                      : 'self-start items-start'
-                  }`}
-                >
-                  <div
-                    className={`p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                      isUser
-                        ? 'bg-amber-500 text-slate-950 font-bold rounded-tr-xs'
-                        : 'bg-app-card text-app-text rounded-tl-xs border border-app-border/70'
-                    }`}
-                  >
-                    {/* Clean plain-text rendering (no markdown rendering as specified by user) */}
-                    <p className="whitespace-pre-wrap font-sans">
-                      {msg.content}
-                    </p>
-                  </div>
-                  <span className="text-[8px] text-app-text-muted font-mono mt-1 px-1">
-                    {isUser
-                      ? currentEmployee
-                        ? currentEmployee.name
-                        : 'Staff Operator'
-                      : `${aiName} (AI)`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        {aiIsLoading && (
-          <div className="flex items-center gap-1.5 bg-app-card p-4 rounded-2xl rounded-tl-xs self-start border border-app-border/70 shadow-xs h-[44px]">
-            <span 
-              className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" 
-              style={{ animationDelay: '0ms' }}
-            />
-            <span 
-              className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" 
-              style={{ animationDelay: '150ms' }}
-            />
-            <span 
-              className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" 
-              style={{ animationDelay: '300ms' }}
-            />
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      
-
-      {/* Chat input box */}
-      <div className="bg-app-card p-3 border-t border-app-border flex items-center gap-2 shrink-0 z-20 shadow-lg">
-        <input
-          type="text"
-          placeholder={`Ask ${aiName} about milk levels, workflows, promotions...`}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(input)}
-          disabled={aiIsLoading}
-          className="flex-1 bg-app-bg text-xs px-4 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:bg-app-card text-app-text transition disabled:opacity-50"
-        />
-        {aiIsLoading ? (
-          <button
-            onClick={handleCancelPrompt}
-            className="p-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded-xl transition cursor-pointer flex items-center justify-center font-bold text-xs"
-            title="Cancel Prompt"
-          >
-            Cancel
-          </button>
-        ) : (
-          <button
-            onClick={() => handleSendMessage(input)}
-            className="p-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition cursor-pointer flex items-center justify-center"
-            title="Send Query"
-          >
-            <Send size={14} />
-          </button>
-        )}
       </div>
     </div>
   );

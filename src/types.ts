@@ -550,6 +550,8 @@ export interface PendingAction {
   createdAt: string;
   createdBy: string;
   validation: PendingActionValidation;
+  /** What happened, shown on the chat card once it has run. */
+  resultMessage?: string;
 }
 
 

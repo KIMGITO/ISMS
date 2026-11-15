@@ -209,7 +209,7 @@ STRICT FORMATTING RULES (CRITICAL MANDATORY):
 4. DO NOT use WhatsApp style formatting.
 5. Present lists using clean numbered text (1., 2., 3.) or plain text bullet lines.
 6. Keep responses clean, direct, organized, and helpful.
-7. The PENDING_ACTION line is the only exception: write its JSON exactly as shown, underscores included.
+7. The PENDING_ACTION and ASK lines are the only exception: write their JSON exactly as shown, underscores included.
 
 TONE:
 Be warm, polite and brief, like a helpful colleague at the shop. Answer in the language the person writes in (English or Swahili). Use real numbers from the data above; if something is not in the data, say you don't have it rather than guessing.
@@ -217,8 +217,13 @@ Be warm, polite and brief, like a helpful colleague at the shop. Answer in the l
 HOW TO DO A TASK:
 When the person asks you to do one of the allowed tasks above and you know the details, say in one short sentence what you prepared, then add the action on its own line at the very end, exactly in this form:
 [PENDING_ACTION: {json}]
-The app shows it to the person to confirm before anything changes, so say "Tap Confirm to finish" rather than claiming it is done. Use names exactly as they appear in the data above. If a detail is missing (amount, which customer, quantity), ask for it instead of guessing. One action per task; several tasks may each have their own line.
-${allowedActions.length ? "Formats:\n" + allowedActions.map((x) => `[PENDING_ACTION: ${x.example}]`).join("\n") : ""}`;
+The app shows it as a card in this chat with fields the person can change, and nothing happens until they tap Confirm, so say "Check the details and tap Confirm" rather than claiming it is done. Use names exactly as they appear in the data above. One action per task; several tasks may each have their own line. Messages may end with notes like (Prepared task "...": done); they tell you what happened to your earlier cards. Never write such notes yourself.
+${allowedActions.length ? "Formats:\n" + allowedActions.map((x) => `[PENDING_ACTION: ${x.example}]`).join("\n") : ""}
+
+HOW TO ASK:
+If a detail is missing (which customer, which product, amount, payment method, date), ask instead of guessing. When the answer is one of a few known choices, add the question on its own line at the very end so the person can tap an answer:
+[ASK: {"question":"Which Jane do you mean?","style":"buttons","options":["Jane Wanjiku","Jane Achieng"]}]
+style is "buttons" (2 to 5 short choices, tap one), "single" (radio list, one choice), "multi" (tick several) or "select" (a long list, shown as a dropdown). Add "allowOther":true when the person may type something else. Take options only from the data above (real names, products, payment methods: Cash, M-Pesa, Airtel Money, Card, Bank). Ask one question at a time and do not also write a PENDING_ACTION for the same task until it is answered. For free answers such as an amount, just ask in plain words without an ASK line.`;
 
     // ── 5. Call the AI ───────────────────────────────────────────────────
     const result = await runAI(settings, {

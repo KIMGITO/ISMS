@@ -1,9 +1,24 @@
 import { create } from "zustand";
 
+/** A question the assistant asks with answers to tap instead of typing. */
+export interface ChatQuestion {
+  question: string;
+  /** buttons: tap one; single: radio list; multi: tick several; select: dropdown. */
+  style: "buttons" | "single" | "multi" | "select";
+  options: string[];
+  /** Also offer a box to type a different answer. */
+  allowOther?: boolean;
+  /** Set once answered, so the choices lock. */
+  answer?: string;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
+  /** Tasks prepared in this reply, shown as cards under it (ids in pendingActionStore). */
+  actionIds?: string[];
+  questions?: ChatQuestion[];
 }
 
 /** Something search found, for the screen it opens on to show straight away. */

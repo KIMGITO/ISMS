@@ -1,5 +1,6 @@
 // src/stores/pendingActionStore.ts
-// Intelligent Pending Actions (Drafts) & Human-in-the-Loop Verification Store
+// Tasks the assistant prepares. Each one shows as a card inside the AI chat, where the
+// person checks the details, changes them if needed and taps Confirm. Nothing runs before.
 
 import { toUserMessage } from '../utils/userError';
 import { create } from 'zustand';
@@ -15,6 +16,7 @@ import { SupabaseService } from '../services/supabaseService';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import { useCartStore } from './cartStore';
 import { useUiStore } from './uiStore';
+import { isMoneyMethod } from '../utils/paymentMethods';
 
 interface PendingActionInput {
   type: PendingActionType;
@@ -27,10 +29,10 @@ interface PendingActionInput {
 
 interface PendingActionState {
   pendingActions: PendingAction[];
-  isDrawerOpen: boolean;
 
-  setDrawerOpen: (open: boolean) => void;
   addPendingAction: (input: PendingActionInput) => PendingAction;
+  /** Changes a draft's details from its chat card; the checks run again straight away. */
+  updatePendingParams: (id: string, updatedParams: Record<string, any>) => void;
   verifyPendingAction: (id: string, updatedParams: Record<string, any>) => void;
   executePendingAction: (id: string) => Promise<{ success: boolean; error?: string }>;
   rejectPendingAction: (id: string) => void;
@@ -199,9 +201,6 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
 
   return {
     pendingActions: initialActions,
-    isDrawerOpen: false,
-
-    setDrawerOpen: (open) => set({ isDrawerOpen: open }),
 
     addPendingAction: (input) => {
       const activeBizId = useBusinessStore.getState().activeBusinessId || 'biz-1';
@@ -230,14 +229,19 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
         return { pendingActions: updated };
       });
 
-      useNotificationStore.getState().showToast(
-        'Pending Action Queued',
-        `AI prepared "${input.title}". Review and confirm in Pending Actions panel.`,
-        undefined,
-        'info'
-      );
-
       return newAction;
+    },
+
+    updatePendingParams: (id, updatedParams) => {
+      set((state) => {
+        const updated = state.pendingActions.map((act) =>
+          act.id === id && (act.status === 'pending_review' || act.status === 'verified')
+            ? { ...act, params: updatedParams, validation: evaluateValidation(act.type, act.requiredPermission, updatedParams) }
+            : act
+        );
+        saveActions(updated);
+        return { pendingActions: updated };
+      });
     },
 
     verifyPendingAction: (id, updatedParams) => {
@@ -322,7 +326,8 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
           case 'settle_debt': {
             const cust = findCustomer(params.customerId, params.customerName || params.name)!;
             const amount = amountOf(params.amount);
-            const method = norm(params.method || params.paymentMethod).includes('pesa') ? 'M-Pesa' : 'Cash';
+            const rawMethod = params.method || params.paymentMethod;
+            const method = isMoneyMethod(rawMethod) ? rawMethod : norm(rawMethod).includes('airtel') ? 'Airtel Money' : norm(rawMethod).includes('pesa') ? 'M-Pesa' : 'Cash';
             await useCustomerStore.getState().payCustomerDebt(cust.id, amount, method, staffName, params.note || 'Recorded through the assistant');
             await useCustomerStore.getState().refreshCustomer(cust.id).catch(() => {});
             doneMessage = `KSh ${amount.toLocaleString()} ${method} payment recorded for ${cust.name}.`;
@@ -487,7 +492,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
         // Mark as executed
         set((state) => {
           const updated = state.pendingActions.map((a) =>
-            a.id === id ? { ...a, status: 'executed' as const } : a
+            a.id === id ? { ...a, status: 'executed' as const, resultMessage: doneMessage } : a
           );
           saveActions(updated);
           return { pendingActions: updated };
@@ -509,12 +514,6 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
         saveActions(updated);
         return { pendingActions: updated };
       });
-      useNotificationStore.getState().showToast(
-        'Action Rejected',
-        'Draft action was discarded.',
-        undefined,
-        'info'
-      );
     },
 
     clearCompletedActions: () => {

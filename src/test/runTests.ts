@@ -330,6 +330,30 @@ runTest("AI Copilot Pending Action Store & Permission Validation", async () => {
   }
 });
 
+runTest("AI chat: edited draft re-checks, replies split into text, tasks and questions", async () => {
+  const { usePendingActionStore } = await import("../stores/pendingActionStore");
+  const { parseAssistantReply } = await import("../utils/assistantReply");
+
+  useAuthStore.setState({ dbPermissions: [], currentEmployee: { id: "e1", name: "Owner Ann", role: "Owner", phone: "1" } as any });
+  const store = usePendingActionStore.getState();
+  const draft = store.addPendingAction({ type: "create_customer", title: "New customer", summary: "", requiredPermission: "", params: { name: "" } });
+  if (draft.validation.isValid) throw new Error("A customer with no name should not be ready to confirm");
+  store.updatePendingParams(draft.id, { name: "Jane Doe" });
+  const edited = usePendingActionStore.getState().pendingActions.find((a) => a.id === draft.id)!;
+  if (!edited.validation.isValid || edited.params.name !== "Jane Doe") throw new Error("Editing the name on the card should make it ready");
+
+  const reply = 'Prepared it. Check the details and tap Confirm.\n[PENDING_ACTION: {"type":"settle_debt","title":"Debt payment","summary":"Jane pays 500","params":{"customerName":"Jane","amount":500,"meta":{"a":"}"}}}]\n[ASK: {"question":"How did she pay?","style":"buttons","options":["Cash","M-Pesa","Cash"]}]';
+  const parsed = parseAssistantReply(reply);
+  if (parsed.text !== "Prepared it. Check the details and tap Confirm.") throw new Error(`Text left over: ${JSON.stringify(parsed.text)}`);
+  if (parsed.drafts.length !== 1 || parsed.drafts[0].params.amount !== 500) throw new Error("Task not read from the reply");
+  const q = parsed.questions[0];
+  if (!q || q.style !== "buttons" || q.options.join() !== "Cash,M-Pesa") throw new Error(`Question not read: ${JSON.stringify(q)}`);
+
+  const many = parseAssistantReply('[ASK: {"question":"Which product?","options":["a","b","c","d","e","f","g"]}]');
+  if (many.questions[0]?.style !== "select") throw new Error("Seven choices should show as a dropdown");
+  if (parseAssistantReply('[ASK: {"question":"Broken", "options": [}]').questions.length !== 0) throw new Error("Broken JSON should be skipped");
+});
+
 runTest("Hugging Face Default Provider & Token Rotation Logic", () => {
   // Test default provider selection
   const defaultProvider = "huggingface";

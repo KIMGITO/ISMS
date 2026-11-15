@@ -56,10 +56,8 @@ import { useInventoryStore } from './stores/inventoryStore';
 import { useCustomerStore } from './stores/customerStore';
 import { useBusinessStore } from './stores/businessStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
-import PendingActionsDrawer from './components/PendingActionsDrawer';
 import { AppDialogHost } from './components/AppDialog';
 import { FieldValidationHost } from './components/FieldValidation';
-import { usePendingActionStore } from './stores/pendingActionStore';
 import { useOverlayStore } from './stores/overlayStore';
 import { useOverlay } from './hooks/useOverlay';
 import {
@@ -126,7 +124,6 @@ import {
   RefreshCw,
   Brain,
   FlaskConical,
-  ActivitySquareIcon,
   Edit3,
   Truck,
   LayoutGrid,
@@ -543,10 +540,6 @@ export default function App() {
     updateEmailDuringVerification,
   } = useAppStore();
 
-  const { pendingActions, setDrawerOpen } = usePendingActionStore();
-  const unexecutedPendingCount = pendingActions.filter(
-    (a) => a.status === 'pending_review' || a.status === 'verified',
-  ).length;
 
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -3923,24 +3916,6 @@ export default function App() {
                     {!isSidebarCollapsed && <span>Interactive Tour</span>}
                   </button>
 
-                  {/* AI drafts waiting for a person to check them (moved here from the top bar) */}
-                  <button
-                    id="sidebar-pending-actions-btn"
-                    onClick={() => setDrawerOpen(true)}
-                    className={`w-full flex items-center justify-center gap-2.5 p-2 border rounded-xl transition text-[11px] font-bold cursor-pointer ${
-                      unexecutedPendingCount > 0
-                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
-                        : 'bg-app-bg hover:bg-app-card border-app-border text-app-text'
-                    }`}
-                    title="AI drafts waiting for you to check"
-                  >
-                    <ActivitySquareIcon size={13} />
-                    {!isSidebarCollapsed && <span>AI drafts{unexecutedPendingCount > 0 ? ` (${unexecutedPendingCount})` : ''}</span>}
-                    {isSidebarCollapsed && unexecutedPendingCount > 0 && (
-                      <span className="text-[10px] font-black">{unexecutedPendingCount}</span>
-                    )}
-                  </button>
-
                   {/* Dark Mode Theme toggle */}
                   <button
                     onClick={() =>
@@ -4549,9 +4524,6 @@ export default function App() {
                                   <Icon size={isCenterSell ? 20 : 18} />
                                 )}
 
-                                {isMore && unexecutedPendingCount > 0 && (
-                                  <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900 dark:ring-slate-100" aria-label="AI drafts waiting" />
-                                )}
                                 {id === 'pos' && cartItemsCount > 0 && (
                                   <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
                                     {cartItemsCount}
@@ -4626,7 +4598,7 @@ export default function App() {
                                 >
                                   <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-app-border" aria-hidden="true" />
                                   <div className="flex items-center gap-2">
-                                    {/* Profile, theme and AI drafts live here on phones, not in the top bar */}
+                                    {/* Profile and theme live here on phones, not in the top bar */}
                                     <button
                                       type="button"
                                       onClick={() => open('profile')}
@@ -4647,26 +4619,6 @@ export default function App() {
                                           {activeBusiness?.name ? ` · ${activeBusiness.name}` : ''}
                                         </span>
                                       </span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setIsMoreOpen(false);
-                                        setDrawerOpen(true);
-                                      }}
-                                      onPointerDown={(e) => e.stopPropagation()}
-                                      aria-label={`AI drafts${unexecutedPendingCount > 0 ? `, ${unexecutedPendingCount} waiting` : ''}`}
-                                      title="AI drafts"
-                                      className={`relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer ${
-                                        unexecutedPendingCount > 0 ? 'bg-amber-500/10 text-amber-600' : 'text-app-text-muted hover:bg-app-bg'
-                                      }`}
-                                    >
-                                      <ActivitySquareIcon size={19} />
-                                      {unexecutedPendingCount > 0 && (
-                                        <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center">
-                                          {unexecutedPendingCount}
-                                        </span>
-                                      )}
                                     </button>
                                     <button
                                       type="button"
@@ -5418,8 +5370,6 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Global Pending Actions (Drafts) Verification Drawer */}
-        <PendingActionsDrawer />
         {/* In-app dialogs and field messages instead of the browser's own boxes and bubbles */}
         <AppDialogHost />
         <FieldValidationHost />
