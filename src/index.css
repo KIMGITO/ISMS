@@ -272,6 +272,17 @@ input[type="number"] {
   --mobile-nav-space: calc(var(--inset-bottom) + 1rem);
 }
 
+/* Keyboard open (phones): the nav is hidden behind it, so the clock bar steps aside
+   and screens that keep the nav's room at the bottom (.nav-room) give it back. */
+@media (width < 48rem) {
+  :root[data-keyboard-open] #clock-bar {
+    display: none;
+  }
+  :root[data-keyboard-open] .nav-room {
+    padding-bottom: 0.25rem !important;
+  }
+}
+
 /* Phones: screens run almost edge to edge (2px). Unlayered, so it beats p-4 etc.
    .app-screens > * > * is each screen's root; .pb-nav marks screens' scroll areas. */
 @media (width < 48rem) {

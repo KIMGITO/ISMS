@@ -341,7 +341,7 @@ export default function WorkspaceAssistantView() {
   const showStarters = !isSuggestionsCollapsed;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]">
+    <div className="nav-room flex-1 flex flex-col h-full bg-app-bg text-app-text relative overflow-hidden font-sans max-md:pb-[calc(var(--mobile-nav-height)+var(--mobile-nav-gap)*2+var(--inset-bottom))]">
       {/* Header */}
       <div className="bg-app-card border-b border-app-border px-4 py-3 flex items-center gap-2.5 shrink-0 shadow-xs z-10">
         <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">

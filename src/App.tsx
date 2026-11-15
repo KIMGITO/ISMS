@@ -1450,6 +1450,12 @@ export default function App() {
     document.documentElement.toggleAttribute('data-nav-hidden', !showNav);
   }, [showNav]);
 
+  // Keyboard open: the clock bar steps aside and screens give back the nav's room
+  // (see data-keyboard-open in index.css), so the typing area sits on the keyboard.
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-keyboard-open', isKeyboardVisible);
+  }, [isKeyboardVisible]);
+
   // Show bottom nav instantly when switching views
   useEffect(() => {
     setShowNav(true);
