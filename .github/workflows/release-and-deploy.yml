@@ -155,7 +155,9 @@ jobs:
           cache: npm
 
       # ── Remove these two steps if you don't build with Rust/Tauri ──
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned: Rust 1.100 changed cargo's build folder layout and ort-sys 2.0.0-rc.10
+      # then fails to copy its Windows DLLs. Unpin when ort is upgraded.
+      - uses: dtolnay/rust-toolchain@1.99.1
       - uses: actions/cache@v5
         with:
           path: |
@@ -250,7 +252,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned: Rust 1.100 changed cargo's build folder layout and ort-sys 2.0.0-rc.10
+      # then fails to copy its Windows DLLs. Unpin when ort is upgraded.
+      - uses: dtolnay/rust-toolchain@1.99.1
       - uses: actions/cache@v5
         with:
           path: |
