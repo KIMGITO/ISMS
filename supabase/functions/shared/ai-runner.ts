@@ -123,13 +123,58 @@ export function normalizeProvider(p?: string | null): AIProvider {
 /** The model each provider uses when none is chosen. Hugging Face stays the default provider. */
 export const DEFAULT_MODELS: Record<AIProvider, string> = {
   huggingface: "Qwen/Qwen2.5-72B-Instruct",
-  gemini: "gemini-2.5-flash",
-  openai: "gpt-4o-mini",
+  gemini: "gemini-3.8-flash",
+  openai: "gpt-6-luna",
   anthropic: "claude-haiku-5-5",
-  deepseek: "deepseek-chat",
-  groq: "llama-3.3-70b-versatile",
+  deepseek: "deepseek-flash",
+  groq: "openai/gpt-oss-120b",
   openrouter: "meta-llama/llama-3.3-70b-instruct",
 };
+
+/**
+ * Models the providers have shut down or are about to (checked against each one's
+ * deprecations page on 2026-11-15), mapped to the replacement they recommend. A
+ * business whose saved setting names one keeps working instead of failing.
+ */
+export const RETIRED_MODELS: Record<string, string> = {
+  // Groq
+  "gemma2-9b-it": "openai/gpt-oss-20b",
+  "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+  "qwen/qwen3-32b": "qwen/qwen3.8-27b",
+  "qwen/qwen3.6-27b": "qwen/qwen3.8-27b",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "openai/gpt-oss-120b",
+  "meta-llama/llama-4-maverick-17b-128e-instruct": "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct": "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct-0905": "openai/gpt-oss-120b",
+  "llama3-70b-8192": "openai/gpt-oss-120b",
+  "llama3-8b-8192": "openai/gpt-oss-20b",
+  // DeepSeek (old names discontinued 2026-07-24)
+  "deepseek-chat": "deepseek-flash",
+  "deepseek-reasoner": "deepseek-v4-pro",
+  // Gemini (2.5 Flash/Pro are routed elsewhere from 2026-12-01)
+  "gemini-2.5-flash": "gemini-3.8-flash",
+  "gemini-2.5-pro": "gemini-3.8-flash",
+  "gemini-2.0-flash": "gemini-3.8-flash",
+  "gemini-1.5-flash": "gemini-3.8-flash",
+  // OpenAI (shut down or shutting down by 2027-01-14)
+  "gpt-4o-mini": "gpt-6-luna",
+  "gpt-4o": "gpt-6.1-terra",
+  "gpt-4.1-mini": "gpt-6-luna",
+  "gpt-4.1": "gpt-6.1-terra",
+  "gpt-5-nano": "gpt-6-luna",
+  "gpt-5-mini": "gpt-6.1-terra",
+  "gpt-5": "gpt-6.1-sol",
+  // OpenRouter free models that were withdrawn
+  "meta-llama/llama-3.3-70b-instruct:free": "meta-llama/llama-3.3-70b-instruct",
+};
+
+/** The model to actually call: the saved one, or its replacement if it was retired. */
+export function currentModel(provider: AIProvider, model?: string | null): string {
+  const m = String(model ?? "").trim();
+  if (!m) return DEFAULT_MODELS[provider];
+  return RETIRED_MODELS[m] || m;
+}
 
 /**
  * A key fit to go in an HTTP header, or "" if it isn't one. The settings screen shows
@@ -169,7 +214,7 @@ export async function runAI(settings: any, options: AIRunnerOptions): Promise<AI
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   if (geminiKey && provider !== "gemini") {
     console.log("[ai-runner] Attempting Gemini fallback...");
-    const geminiRes = await runGemini(geminiKey, { ...safeSettings, model: "gemini-2.5-flash" }, options);
+    const geminiRes = await runGemini(geminiKey, { ...safeSettings, model: DEFAULT_MODELS.gemini }, options);
     if (geminiRes.success) return geminiRes;
     console.warn(`[ai-runner] Gemini fallback failed: ${geminiRes.error}`);
   }
@@ -228,6 +273,7 @@ async function executeProvider(provider: string, apiKey: string, settings: AISet
   if (provider !== "huggingface" && !apiKey) {
     return { success: false, text: "", code: "no_key", error: `No ${provider} key is set.` };
   }
+  settings = { ...settings, model: currentModel(normalizeProvider(provider), settings.model) };
   try {
     switch (provider) {
       case "huggingface":
@@ -494,7 +540,10 @@ export async function listProviderModels(provider: AIProvider, apiKey: string): 
     return body;
   };
   const bearer = { Authorization: `Bearer ${apiKey}` };
-  const ids = (body: any) => (Array.isArray(body?.data) ? body.data.map((m: any) => String(m.id)) : []) as string[];
+  // Skip models the provider marks as switched off (Groq keeps retired ones in its
+  // list with active: false, e.g. gemma2-9b-it).
+  const ids = (body: any) =>
+    (Array.isArray(body?.data) ? body.data.filter((m: any) => m?.active !== false).map((m: any) => String(m.id)) : []) as string[];
   const notChat = /embed|whisper|tts|audio|realtime|transcribe|image|dall-e|moderation|search|guard|vision-exp|davinci|babbage/i;
 
   let list: string[] = [];
@@ -528,13 +577,39 @@ export async function listProviderModels(provider: AIProvider, apiKey: string): 
   return Array.from(new Set(list.filter((id) => id && !notChat.test(id)))).sort();
 }
 
+// OpenRouter's free models change every few weeks, so read the live list (public, no
+// key) and keep it for an hour. Preferred general chat models first, then any other
+// free one; the fixed list is only used when the live list can't be read.
+const OPENROUTER_FREE_PREFERRED = [
+  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3.5-super-vl:free",
+];
+let openRouterFreeCache: { at: number; ids: string[] } | null = null;
+
+export async function openRouterFreeModels(): Promise<string[]> {
+  if (openRouterFreeCache && Date.now() - openRouterFreeCache.at < 3600_000) return openRouterFreeCache.ids;
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/models", { signal: AbortSignal.timeout(10000) });
+    const body = await res.json();
+    const free: string[] = (body?.data || [])
+      .map((m: any) => String(m?.id || ""))
+      .filter((id: string) => id.endsWith(":free") && !/code|transcribe|tts|embed/i.test(id));
+    if (free.length) {
+      const ids = [
+        ...OPENROUTER_FREE_PREFERRED.filter((id) => free.includes(id)),
+        ...free.filter((id) => !OPENROUTER_FREE_PREFERRED.includes(id)),
+      ].slice(0, 4);
+      openRouterFreeCache = { at: Date.now(), ids };
+      return ids;
+    }
+  } catch (_) { /* fall through to the fixed list */ }
+  return OPENROUTER_FREE_PREFERRED;
+}
+
 async function runOpenRouterFree(settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
-  const freeModels = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "deepseek/deepseek-chat-v3-0324:free",
-    "google/gemma-3-27b-it:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-  ];
+  const freeModels = await openRouterFreeModels();
 
   const orApiKey = Deno.env.get("OPENROUTER_API_KEY") || "";
 
@@ -608,7 +683,7 @@ async function runGemini(apiKey: string, settings: AISettings, options: AIRunner
     payload.systemInstruction = { parts: [{ text: options.systemInstruction }] };
   }
 
-  const baseModel = settings.model?.includes("gemini") ? settings.model : "gemini-2.5-flash";
+  const baseModel = settings.model?.includes("gemini") ? settings.model : DEFAULT_MODELS.gemini;
   
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${baseModel}:generateContent?key=${apiKey}`;
@@ -621,7 +696,8 @@ async function runGemini(apiKey: string, settings: AISettings, options: AIRunner
     const result = await resp.json();
     if (!resp.ok) return { success: false, text: "", error: result.error?.message || `HTTP ${resp.status}` };
 
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts: any[] = result.candidates?.[0]?.content?.parts || [];
+    const text = parts.filter((p) => !p?.thought && typeof p?.text === "string").map((p) => p.text).join("");
     if (text) return { success: true, text };
 
     return { success: false, text: "", error: "Gemini returned empty response" };
@@ -636,12 +712,17 @@ async function runOpenAICompat(baseUrl: string, apiKey: string, settings: AISett
     ...options.messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  const payload: Record<string, unknown> = {
-    model: settings.model || "gpt-4o-mini",
-    messages,
-    temperature: settings.temperature ?? 0.5,
-    max_tokens: settings.max_tokens ?? 2048,
-  };
+  const model = settings.model || DEFAULT_MODELS.openai;
+  // OpenAI's GPT-5/6 and o-series models refuse `max_tokens` and any temperature but
+  // the default; they take `max_completion_tokens` instead.
+  const reasoningModel = baseUrl.includes("api.openai.com") && /^(gpt-[5-9]|o\d)/.test(model);
+  const payload: Record<string, unknown> = { model, messages };
+  if (reasoningModel) {
+    payload.max_completion_tokens = Math.max(settings.max_tokens ?? 2048, 4096);
+  } else {
+    payload.temperature = settings.temperature ?? 0.5;
+    payload.max_tokens = settings.max_tokens ?? 2048;
+  }
 
   if (options.responseMimeType === "application/json") {
     payload.response_format = { type: "json_object" };
@@ -675,9 +756,13 @@ async function runAnthropic(apiKey: string, settings: AISettings, options: AIRun
     model: settings.model || DEFAULT_MODELS.anthropic,
     system: options.systemInstruction,
     messages,
-    max_tokens: settings.max_tokens ?? 2048,
-    temperature: settings.temperature ?? 0.5,
+    max_tokens: Math.max(settings.max_tokens ?? 2048, 4096),
   };
+  // Claude 4.7 and later (all 5.x) return a 400 for temperature; older ones accept it.
+  const m = String(payload.model);
+  if (!/claude-(opus|sonnet|haiku|fable|mythos)-(5|4-[78])/.test(m)) {
+    payload.temperature = settings.temperature ?? 0.5;
+  }
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -693,7 +778,11 @@ async function runAnthropic(apiKey: string, settings: AISettings, options: AIRun
     const data = await res.json();
     if (!res.ok) return { success: false, text: "", error: data.error?.message || `HTTP ${res.status}` };
 
-    return { success: true, text: data.content?.[0]?.text || "" };
+    // Thinking is on by default on current models, so the reply can start with a
+    // thinking block; take the text blocks.
+    const text = (data.content || []).filter((b: any) => b?.type === "text").map((b: any) => b.text).join("");
+    if (!text) return { success: false, text: "", error: data.stop_reason === "refusal" ? "Claude declined this request." : "Claude returned an empty reply." };
+    return { success: true, text };
   } catch (err: any) {
     return { success: false, text: "", error: err.message || "Network error calling Anthropic" };
   }

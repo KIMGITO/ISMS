@@ -44,12 +44,13 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     label: 'Google Gemini',
     needsKey: true,
     keyPrefix: 'AIza',
-    keyHelp: 'Required. Create one at aistudio.google.com.',
-    defaultModel: 'gemini-2.5-flash',
+    keyHelp: 'Required. Create one free at aistudio.google.com (no card needed).',
+    defaultModel: 'gemini-3.8-flash',
     models: [
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-      { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite' },
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (free tier)' },
+      { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash (free tier)' },
+      { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite (free tier, fastest)' },
+      { id: 'gemini-4-hydrogen', label: 'Gemini 4 Hydrogen (free tier)' },
     ],
   },
   {
@@ -58,10 +59,11 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     needsKey: true,
     keyPrefix: 'sk-',
     keyHelp: 'Required. Create one at platform.openai.com.',
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: 'gpt-6-luna',
     models: [
-      { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
-      { id: 'gpt-4o', label: 'GPT-4o' },
+      { id: 'gpt-6-luna', label: 'GPT-6 Luna (cheapest)' },
+      { id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' },
+      { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
     ],
   },
   {
@@ -83,10 +85,10 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     needsKey: true,
     keyPrefix: 'sk-',
     keyHelp: 'Required. Create one at platform.deepseek.com.',
-    defaultModel: 'deepseek-chat',
+    defaultModel: 'deepseek-flash',
     models: [
-      { id: 'deepseek-chat', label: 'deepseek-chat' },
-      { id: 'deepseek-reasoner', label: 'deepseek-reasoner' },
+      { id: 'deepseek-flash', label: 'DeepSeek Flash' },
+      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
     ],
   },
   {
@@ -94,12 +96,12 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     label: 'Groq',
     needsKey: true,
     keyPrefix: 'gsk_',
-    keyHelp: 'Required. Create one at console.groq.com.',
-    defaultModel: 'llama-3.3-70b-versatile',
+    keyHelp: 'Required. Create one free at console.groq.com (no card needed).',
+    defaultModel: 'openai/gpt-oss-120b',
     models: [
-      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
-      { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (fast)' },
-      { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
+      { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (free tier)' },
+      { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (free tier, fastest)' },
+      { id: 'qwen/qwen3.8-27b', label: 'Qwen 3.8 27B (free tier)' },
     ],
   },
   {
@@ -111,8 +113,9 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     defaultModel: 'meta-llama/llama-3.3-70b-instruct',
     models: [
       { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
-      { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (free)' },
       { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
+      { id: 'google/gemma-4-31b-it:free', label: 'Gemma 4 31B (free)' },
+      { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (free)' },
     ],
   },
 ];

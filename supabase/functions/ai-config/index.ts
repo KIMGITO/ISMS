@@ -20,6 +20,7 @@ import {
   normalizeProvider,
   cleanKey,
   isMaskedKey,
+  currentModel,
   providerKey,
   DEFAULT_MODELS,
   AI_PROVIDERS,
@@ -229,14 +230,16 @@ Deno.serve(async (req) => {
         systemInstruction: "You are testing AI connectivity. Reply with the word pong.",
         messages: [{ role: "user", content: "Ping" }],
       });
+      const used = currentModel(provider, model);
+      const swapped = used !== model ? ` (${model} was retired by ${provider}, so ${used} was used; choose it and save)` : "";
       if (testResult.success) {
         return jsonResponse({
           success: true,
-          message: `${provider} answered on ${model} in ${Date.now() - started} ms: "${testResult.text.trim().slice(0, 60)}"`,
+          message: `${provider} answered on ${used} in ${Date.now() - started} ms: "${testResult.text.trim().slice(0, 60)}"${swapped}`,
         });
       }
       // This is the Owner's settings screen, so the provider's own reason helps them fix it.
-      return errorResponse(`${provider} did not answer on ${model}: ${testResult.error || ownerAIHint(testResult.code)}`, 400);
+      return errorResponse(`${provider} did not answer on ${used}${swapped}: ${testResult.error || ownerAIHint(testResult.code)}`, 400);
 
     // ── MODELS ───────────────────────────────────────────────────────────
     } else if (action === "models") {
