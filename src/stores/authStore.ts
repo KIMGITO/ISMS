@@ -61,7 +61,7 @@ interface AuthState {
   loginOnline: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; error?: string; emailConfirmRequired?: boolean }>;
   inviteUser: (name: string, email: string, phone: string, role: EmployeeRole, optionalMessage?: string) => Promise<{ success: boolean; error?: string; invitation?: Invitation }>;
   verifyInvitation: (token: string) => Promise<{ success: boolean; error?: string; invitation?: Invitation }>;
-  acceptInvitation: (token: string, password?: string, name?: string, phone?: string) => Promise<{ success: boolean; error?: string; requiresLogin?: boolean }>;
+  acceptInvitation: (token: string, password?: string, name?: string, phone?: string) => Promise<{ success: boolean; error?: string; requiresLogin?: boolean; joined?: boolean }>;
   switchBusiness: (businessId: string) => void;
   revokeInvitation: (id: string) => void;
   initializeAuthStateListener: () => (() => void);
@@ -1008,7 +1008,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          return { success: false, error: "Invalid, expired, or already used invitation code." };
+          return { success: false, error: "Invalid, expired, or already used invitation code. After 10 wrong codes, wait 15 minutes." };
         }
 
         const invite = data[0];
@@ -1047,37 +1047,70 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         const invite = verifyRes.invitation;
 
+        const inviteName = name?.trim() || invite.name;
+        const invitePhone = formatToE164(phone?.trim() || invite.phone || "");
+
         // 2. Register account in Supabase Auth (without emailRedirectTo to avoid magic links)
+        let authUserId: string | undefined;
         const { data, error } = await supabase.auth.signUp({
           email: invite.email,
           password: password,
-          options: {
-            data: {
-              name: name?.trim() || invite.name,
-              phone: formatToE164(phone?.trim() || invite.phone || "")
-            }
-          }
+          options: { data: { name: inviteName, phone: invitePhone } }
         });
 
-        if (error) throw error;
+        if (error) {
+          const msg = toUserMessage(error, "");
+          if (!/already (been )?registered/i.test(msg)) throw error;
+          // They already have an account: the password they typed must be its password.
+          const { data: signIn, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: invite.email,
+            password: password || ""
+          });
+          if (signInErr || !signIn.user) {
+            return {
+              success: false,
+              requiresLogin: true,
+              error: "An account with this email already exists. Type that account's password here, or use Forgot password first."
+            };
+          }
+          authUserId = signIn.user.id;
+        } else {
+          authUserId = data?.user?.id;
+        }
 
-        // 3. Link user business membership atomically using SECURITY DEFINER RPC
-        const { error: linkErr } = await supabase.rpc("accept_invitation_with_token", {
+        // 3. Accept the code. The server only adds them to the business once their
+        //    email is verified; until then the invitation is held for this account.
+        const { data: accepted, error: linkErr } = await supabase.rpc("accept_invitation_with_token", {
           p_token: token.trim(),
-          p_auth_user_id: data?.user?.id,
-          p_name: name?.trim() || invite.name,
-          p_phone: formatToE164(phone?.trim() || invite.phone || "")
+          p_auth_user_id: authUserId,
+          p_name: inviteName,
+          p_phone: invitePhone
         });
 
         if (linkErr) throw linkErr;
+        if (accepted === false) {
+          return { success: false, error: "Invalid, expired, or already used invitation code." };
+        }
+
+        // Already verified (existing account): they joined just now.
+        const { data: profile } = await supabase
+          .from("users")
+          .select("is_verified")
+          .eq("auth_user_id", authUserId)
+          .maybeSingle();
+        if (profile?.is_verified) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) await get().hydrateAuthSessionData(user, true);
+          return { success: true, joined: true };
+        }
 
         // 4. Send verification code
-        const otpRes = await AuthOtpService.sendSignupCode(invite.email.trim(), name?.trim() || invite.name);
+        const otpRes = await AuthOtpService.sendSignupCode(invite.email.trim(), inviteName);
         if (!otpRes.success) return otpRes;
 
         useNotificationStore.getState().showToast(
           "Verification Code Sent",
-          `A 6-digit verification code has been sent to ${invite.email}.`,
+          `Enter the 6-digit code sent to ${invite.email} to join the team.`,
           undefined,
           "success"
         );

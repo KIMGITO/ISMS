@@ -2812,18 +2812,18 @@ export default function App() {
                                 setInviteTokenInput('');
                                 setInvitePassword('');
                                 setInviteConfirmPassword('');
-                                setAuthViewTab('verify');
-                                setAuthSuccess(
-                                  `Invitation accepted! A 6-digit OTP verification code has been sent to ${inviteEmail}.`,
-                                );
+                                if (!res.joined) {
+                                  setAuthViewTab('verify');
+                                  setAuthSuccess(
+                                    `Code accepted. Enter the 6-digit code sent to ${inviteEmail} to join the team.`,
+                                  );
+                                }
                               } else {
                                 if (res.requiresLogin) {
-                                  // Direct them to login tab
+                                  // Existing account: they retype its password on this form.
                                   setAuthError(res.error);
-                                  setTimeout(() => {
-                                    setAuthViewTab('login');
-                                    setLoginEmail(validatedInvite.email);
-                                  }, 2500);
+                                  setInvitePassword('');
+                                  setInviteConfirmPassword('');
                                 } else {
                                   setAuthError(
                                     res.error || 'Failed to accept invitation.',

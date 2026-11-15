@@ -152,6 +152,12 @@ Deno.serve(async (req) => {
       }
 
       await checkCode("password_reset", true);
+
+      // Inbox proven: mark verified, sign out old sessions, drop claims made with the old password.
+      const { error: afterErr } = await supabase.rpc("otp_after_password_reset", {
+        p_auth_user_id: account.auth_user_id,
+      });
+      if (afterErr) console.error("[auth-otp] post-reset cleanup failed:", afterErr);
       return jsonResponse({ success: true });
     }
 
