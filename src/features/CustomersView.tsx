@@ -901,6 +901,7 @@ export default function CustomersView() {
                 return (
                   <SwipeRow
                     key={c.id}
+                    searchId={`cust-${c.id}`}
                     title={customerName(c.name)}
                     subtitle={`${c.phone}${debt > 0 ? ` · owes ${formatCurrency(debt)}` : ''}`}
                     actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDeleteCustomers, disabled: isDeletingCustomer, onClick: () => removeCustomer(c) }]}

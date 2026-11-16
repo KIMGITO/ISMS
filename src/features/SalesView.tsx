@@ -170,6 +170,7 @@ export default function SalesView() {
     return (
       <SwipeRow
         key={tx.id}
+        searchId={`sale-${tx.id}`}
         onClick={() => handleSelectTx(tx)}
         // Hold a sale to see everything in it without opening the receipt.
         title={`${formatReceiptNumber(tx.id)} · ${formatCurrency(tx.finalTotal)}`}

@@ -53,6 +53,9 @@ export const GO_TO_KEYS: Record<ScreenId, string> = {
   notifications: "n",
   profile: "u",
   about: "v",
+  suppliers: "z",
+  assets: "1",
+  audit: "2",
 };
 
 const everywhere: Shortcut[] = [
@@ -136,6 +139,8 @@ const pages: Shortcut[] = [
   { id: "shift-form-save", keys: "Ctrl+Enter", action: "Save the reminder (in the form)", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "shift-form-cancel", keys: "Esc", action: "Close the reminder form", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
+  { id: "suppliers-new", keys: "N", key: "n", target: "new", action: "Add a supplier / new purchase (on that tab)", scope: "suppliers", permissions: ["suppliers.create", "purchases.create"] },
+  { id: "assets-new", keys: "N", key: "n", target: "new", action: "Add an asset / upload files (on that tab)", scope: "assets", permissions: ["assets.manage", "files.manage"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
 ];
@@ -197,6 +202,9 @@ export const FEATURES: AppFeature[] = [
   { id: "branch-transfers", title: "Move stock between branches", description: "Main sends stock; the branch confirms what arrived. Not a sale, so profit is unchanged", screen: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.receive_stock"], keywords: ["transfer", "branch", "supply", "send", "receive", "dispatch"] },
   { id: "delivery-requests", title: "Delivery requests", description: "Open deliveries riders can accept or give back", screen: "deliveries", permissions: ["deliveries.view"], keywords: ["accept delivery", "give back", "rider", "request", "open delivery"] },
   { id: "delivery-areas", title: "Delivery areas and prices", description: "Areas you deliver to and what each costs", screen: "deliveries", permissions: ["deliveries.delivery_zones", "deliveries.delivery_price"], keywords: ["zone", "area", "delivery fee", "delivery price", "distance"] },
+  { id: "purchase-receive", title: "Receive a purchase into stock", description: "Open a purchase and tap Receive into stock: linked items are added to stock, and costs can be updated", screen: "suppliers", permissions: ["purchases.update", "purchases.approve"], keywords: ["receive", "goods received", "grn", "restock", "delivery from supplier", "purchase order"], target: "purchases-tab" },
+  { id: "purchases", title: "Purchases", description: "Orders to suppliers: drafts, ordered, received and cancelled", screen: "suppliers", permissions: ["purchases.view"], keywords: ["purchase", "order", "lpo", "buy"], target: "purchases-tab" },
+  { id: "business-files", title: "Business files", description: "Upload and open licences, contracts and invoices (Assets & Files → Files)", screen: "assets", permissions: ["files.view", "files.manage"], keywords: ["file", "document", "upload", "pdf", "licence", "permit", "contract"], target: "files-tab" },
   { id: "website-banner", title: "Website home banner", description: "The sliding pictures at the top of your website (Online Store → Home banner)", screen: "online-store", permissions: ["business.update"], keywords: ["hero", "banner", "slider", "carousel", "website picture"] },
   { id: "website-pages", title: "Website pages", description: "Edit About, Delivery, Returns and other website pages with photos (Online Store → Pages)", screen: "online-store", permissions: ["business.update"], keywords: ["page editor", "about page", "website text", "terms", "returns"] },
   { id: "promo-codes", title: "Promo codes", description: "Discount codes customers type at checkout on the website (Online Store → Promotions)", screen: "online-store", permissions: ["business.update"], keywords: ["promo", "coupon", "discount code", "voucher", "offer"] },

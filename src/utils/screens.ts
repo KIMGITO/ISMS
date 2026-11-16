@@ -7,7 +7,8 @@ import { hasRolePermission } from "./permissions";
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
-  | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers";
+  | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers"
+  | "suppliers" | "assets" | "audit";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -32,6 +33,7 @@ export const SCREENS: AppScreen[] = [
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every restock, wastage, count and production change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
   { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Send stock to another branch and receive what branches send you", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way"], permissions: ["inventory.transfer_stock", "inventory.receive_stock"] },
+  { id: "suppliers", group: "Stock", title: "Suppliers & Purchases", description: "Who you buy from, what you ordered, and receiving it into stock", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo"], permissions: ["suppliers.view", "purchases.view"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
   { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till, Airtel Money, cards and which payment methods are on", keywords: ["payments", "expenses", "mpesa", "m-pesa", "airtel", "till", "void", "money", "cash", "payment methods", "switch off"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.airtel", "payments.verify", "payments.configure", "expenses.view", "expenses.create"] },
@@ -45,6 +47,8 @@ export const SCREENS: AppScreen[] = [
   { id: "permissions", group: "Team", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
   { id: "ai", group: "Business", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
   { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
+  { id: "assets", group: "Business", title: "Assets & Files", description: "What the business owns, and its documents", keywords: ["assets", "equipment", "fridge", "cooler", "motorbike", "files", "documents", "upload", "licence", "contract", "pdf"], permissions: ["assets.view", "assets.manage", "files.view", "files.manage"] },
+  { id: "audit", group: "Team", title: "Audit Log", description: "Who changed what: products, suppliers, purchases, assets, files, PINs and roles", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
   { id: "business-management", group: "Business", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
   { id: "settings", group: "You & the app", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
   { id: "notifications", group: "You & the app", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },

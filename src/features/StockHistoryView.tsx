@@ -321,6 +321,7 @@ export default function StockHistoryView() {
                   return (
                     <SwipeRow
                       key={adj.id}
+                      searchId={`adj-${adj.id}`}
                       onClick={() => (selecting ? toggle(adj.id) : setOpen(adj))}
                       disabled={selecting}
                       title={`${adj.productName} · ${up ? '+' : ''}${fmtQty(adj.quantityAdjusted)}${unit ? ` ${unit}` : ''}`}

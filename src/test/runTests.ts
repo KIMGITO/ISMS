@@ -50,6 +50,7 @@ import { parseDocument, serializeDocument, plainText as pagePlainText, parseInli
 import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 import { buildShiftReport, shiftReportText } from "../services/shiftReport";
+import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -666,6 +667,23 @@ runTest("App versions compare numerically", () => {
   }
 });
 
+runTest("Purchases, assets and the audit log read correctly", () => {
+  const lines = [
+    { productId: "p1", name: "Milk", quantity: 12.5, unit: "L", price: 48.4 },
+    { productId: null, name: "Tape", quantity: 2, unit: "pcs", price: 0.15 },
+  ];
+  if (lineTotal(lines) !== 605.3) throw new Error(`purchase total should be 605.30, got ${lineTotal(lines)}`);
+  if (purchaseRef({ id: "8da29bc6-960f-4686-b5a4-6d61932df8a4" }) !== "PO-8DA29BC6") throw new Error("purchase number should match the database's");
+  if (purchaseRef({ id: "x", reference: "INV-77" }) !== "INV-77") throw new Error("a typed number wins");
+  const asset = (code: string) => ({ id: code, name: "", code, serialNumber: "", value: 0, status: "Active" as const, location: "", purchasedOn: "", notes: "" });
+  if (nextAssetCode([]) !== "AST-001") throw new Error("first asset code");
+  if (nextAssetCode([asset("AST-009"), asset("FRIDGE"), asset("ast-002")]) !== "AST-010") throw new Error("next asset code follows the highest");
+  const changes = describeChanges({ price: { from: 50, to: 60 }, deleted_at: { from: null, to: "2026-11-16" }, received_at: { from: null, to: "x" } });
+  if (changes.join("|") !== "Price: 50 → 60|Removed") throw new Error(`audit changes read wrong: ${changes.join("|")}`);
+  const entry = { id: "1", action: "STATUS", table: "purchases", recordId: "", label: "", by: "", at: "", changes: {}, details: { status: "Received" } };
+  if (describeAction(entry) !== "Purchase marked received") throw new Error("audit action read wrong");
+});
+
 runTest("Keyboard shortcuts and search features follow the roles", () => {
   for (const role of Object.keys(SYSTEM_ROLES)) {
     const list = shortcutsFor(role);
@@ -690,7 +708,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
   // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
   const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);

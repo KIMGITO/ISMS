@@ -519,6 +519,7 @@ export default function WorkersView() {
                   return (
                     <SwipeRow
                       key={emp.id}
+                      searchId={`worker-${emp.id}`}
                       title={titleCase(emp.name)}
                       subtitle={`${emp.role}${emp.phone ? ` · ${emp.phone}` : ''}`}
                       surfaceClassName="bg-app-bg"
@@ -636,6 +637,7 @@ export default function WorkersView() {
                   return (
                     <SwipeRow
                       key={inv.id}
+                      searchId={`invitation-${inv.id}`}
                       title={`${titleCase(inv.name)}'s invitation`}
                       subtitle={`${inv.role} · ${displayStatus}`}
                       surfaceClassName="bg-app-bg"

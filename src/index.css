@@ -370,3 +370,31 @@ input[type="number"] {
   }
 }
 
+
+/* Global search: the row a result opened on glows amber for a few seconds, centred on screen.
+   Drawn on an overlay so row surfaces (SwipeRow's card) and clipped lists can't hide it. */
+@keyframes search-spotlight {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.search-spotlight:not(tr) { position: relative; }
+.search-spotlight:not(tr)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgb(245 158 11 / 0.95);
+  background-color: rgb(245 158 11 / 0.14);
+  animation: search-spotlight 3.2s ease-out forwards;
+}
+tr.search-spotlight > td {
+  background-image: linear-gradient(rgb(245 158 11 / 0.16), rgb(245 158 11 / 0.16));
+  box-shadow: inset 0 2px 0 rgb(245 158 11 / 0.9), inset 0 -2px 0 rgb(245 158 11 / 0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-spotlight:not(tr)::after { animation: none; }
+}

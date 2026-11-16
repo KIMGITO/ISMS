@@ -33,6 +33,9 @@ import RiderDeliveriesView from './features/RiderDeliveriesView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import FinanceView from './features/FinanceView';
+import SuppliersView from './features/SuppliersView';
+import AssetsFilesView from './features/AssetsFilesView';
+import AuditLogView from './features/AuditLogView';
 import { useNotificationStore } from './stores/notificationStore';
 import { useTransactionStore } from './stores/transactionStore';
 import SearchableDropdown from './components/SearchableDropdown';
@@ -126,7 +129,9 @@ import {
   FlaskConical,
   Edit3,
   Truck,
-  LayoutGrid,
+  Menu,
+  HardDrive,
+  Activity,
   Info,
   Wallet,
   History,
@@ -151,6 +156,8 @@ import { TermsDialog } from './components/legal/TermsDialog';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
+const SUPPLIER_PERMISSIONS = SCREEN_BY_ID.get('suppliers')!.permissions;
+const ASSET_PERMISSIONS = SCREEN_BY_ID.get('assets')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 
@@ -187,6 +194,9 @@ const MOBILE_TABS = [
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
   { id: 'finance', label: 'Finances', icon: PieChart, permission: 'finance.view' },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
+  { id: 'suppliers', label: 'Suppliers', icon: Truck, permission: SUPPLIER_PERMISSIONS },
+  { id: 'assets', label: 'Assets', icon: HardDrive, permission: ASSET_PERMISSIONS },
+  { id: 'audit', label: 'Audit Log', icon: Activity, permission: 'audit.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
   { id: 'about', label: 'About', icon: Info, permission: 'about' },
 ] as const;
@@ -354,6 +364,27 @@ const tourSteps: TourStep[] = [
     content: 'Record money taken from the till to spend, and what it was spent on.',
     placement: 'right',
     tab: 'petty-cash',
+  },
+  {
+    targetSelector: '#sidebar-tab-suppliers',
+    title: 'Suppliers & Purchases',
+    content: 'Keep your suppliers, record what you order from them, and tap Receive into stock when it arrives: linked items are added to stock with the purchase number.',
+    placement: 'right',
+    tab: 'suppliers',
+  },
+  {
+    targetSelector: '#sidebar-tab-assets',
+    title: 'Assets & Files',
+    content: 'What the business owns, with codes, values and where it is, and the documents you keep, like licences and contracts.',
+    placement: 'right',
+    tab: 'assets',
+  },
+  {
+    targetSelector: '#sidebar-tab-audit',
+    title: 'Audit Log',
+    content: 'Who changed what: product prices, suppliers, purchases, assets, files, and staff PINs and roles.',
+    placement: 'right',
+    tab: 'audit',
   },
   {
     targetSelector: '#sidebar-tab-finance',
@@ -3782,6 +3813,27 @@ export default function App() {
                       permission: 'bom.view' as const,
                     },
                     {
+                      id: 'suppliers',
+                      label: 'Suppliers & Purchases',
+                      icon: Truck,
+                      desc: 'Suppliers, orders, receiving',
+                      permission: SUPPLIER_PERMISSIONS,
+                    },
+                    {
+                      id: 'assets',
+                      label: 'Assets & Files',
+                      icon: HardDrive,
+                      desc: 'Equipment and documents',
+                      permission: ASSET_PERMISSIONS,
+                    },
+                    {
+                      id: 'audit',
+                      label: 'Audit Log',
+                      icon: Activity,
+                      desc: 'Who changed what',
+                      permission: 'audit.view' as const,
+                    },
+                    {
                       id: 'settings',
                       label: 'Settings',
                       icon: Settings,
@@ -4390,6 +4442,27 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
+                    {activeTab === 'suppliers' && (
+                      <motion.div key="suppliers-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission={SUPPLIER_PERMISSIONS as any}>
+                          <SuppliersView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'assets' && (
+                      <motion.div key="assets-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission={ASSET_PERMISSIONS as any}>
+                          <AssetsFilesView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'audit' && (
+                      <motion.div key="audit-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission="audit.view">
+                          <AuditLogView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === 'notifications' && (
                       <motion.div
                         key="notifications-view"
@@ -4482,7 +4555,7 @@ export default function App() {
                         {primary.map((id) => {
                           const isMore = id === MORE_TAB_ID;
                           const tab = isMore
-                            ? { id, label: 'More', icon: LayoutGrid }
+                            ? { id, label: 'More', icon: Menu }
                             : byId.get(id)!;
                           const Icon = tab.icon;
                           const isActive = isMore ? isMoreOpen || isOverflowActive : activeTab === id;

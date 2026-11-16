@@ -542,6 +542,7 @@ export default function ProductionBOMView() {
                   {filteredBoms.map(bom => (
                     <SwipeRow
                       key={bom.id}
+                      searchId={`recipe-${bom.id}`}
                       title={bom.name}
                       subtitle={`${bom.productName || 'No product linked'} · ${bom.ingredients?.length || 0} ingredients`}
                       actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete, onClick: () => handleDeleteBom(bom.id) }]}
@@ -596,6 +597,7 @@ export default function ProductionBOMView() {
                   {filteredBatches.map(batch => (
                     <SwipeRow
                       key={batch.id}
+                      searchId={`batch-${batch.id}`}
                       title={batch.recipeName}
                       subtitle={`${batch.quantityProduced} ${batch.unit} · ${batch.status.replace('_', ' ')}`}
                       actions={

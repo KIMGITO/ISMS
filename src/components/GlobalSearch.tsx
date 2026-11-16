@@ -22,6 +22,8 @@ import { receiptCode, matchesReceipt, mentionsReceipt } from "../utils/reference
 import { formatReceiptNo } from "../services/receipt/ReceiptGenerator";
 import { ReceiptService } from "../services/receipt/ReceiptService";
 import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
+import { spotlight } from "../utils/searchSpotlight";
+import { listPurchases, listAssets, listFiles, listAudit, purchaseRef, describeAction, type PurchaseOrder, type Asset, type StoredFile, type AuditEntry } from "../services/operations";
 
 interface SearchResult {
   id: string;
@@ -32,7 +34,16 @@ interface SearchResult {
   status?: string;
   relevance: number; // Relevance score for sorting
   action: () => void;
+  /** What to highlight once the screen opens; defaults to a row tagged with `id`, else the title text. */
+  spot?: { id?: string; text?: string; press?: string } | false;
 }
+
+// Results that open a whole screen or panel rather than one row on it.
+const NO_SPOTLIGHT = new Set([
+  "Screens", "Features", "Keyboard Shortcuts", "Quick Actions", "Reports", "Settings",
+  "Home Dashboard", "Communication Center", "Invoices", "Stock History", "AI Conversations", "Permissions",
+  "Audit Logs",
+]);
 
 interface GlobalSearchProps {
   onNavigateTab: (tab: ScreenId) => void;
@@ -59,6 +70,10 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [storageFiles, setStorageFiles] = useState<StoredFile[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -82,7 +97,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         const { data: sups } = await client
           .from("suppliers")
           .select("*")
-          .eq("business_id", activeBusinessId);
+          .eq("business_id", activeBusinessId)
+          .is("deleted_at", null);
         
         if (active && sups) {
           setSuppliers(sups);
@@ -97,6 +113,23 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           
         if (active && exps) {
           setExpenses(exps);
+        }
+
+        // Purchases, assets, files and the audit log, each only for a role that may see it.
+        const role = currentEmployee?.role || "Guest";
+        const may = (...codes: string[]) => codes.some((c) => hasRolePermission(role, c as any));
+        const quiet = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
+        const [pur, ast, fil, aud] = await Promise.all([
+          may("purchases.view") ? quiet(listPurchases(activeBusinessId, 200)) : Promise.resolve([]),
+          may("assets.view", "assets.manage") ? quiet(listAssets(activeBusinessId)) : Promise.resolve([]),
+          may("files.view", "files.manage") ? quiet(listFiles(activeBusinessId)) : Promise.resolve([]),
+          may("audit.view") ? quiet(listAudit(activeBusinessId, { limit: 200 })) : Promise.resolve([]),
+        ]);
+        if (active) {
+          setPurchases(pur as PurchaseOrder[]);
+          setAssets(ast as Asset[]);
+          setStorageFiles(fil as StoredFile[]);
+          setAuditLogs(aud as AuditEntry[]);
         }
       } catch (e) {
         console.error("Error loading suppliers/expenses for global search:", e);
@@ -172,9 +205,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       case "Settings":
         return hasRolePermission(currentEmployee.role, "settings.view");
       case "Storage Files":
-        return hasRolePermission(currentEmployee.role, "files.view");
+        return hasRolePermission(currentEmployee.role, "files.view") || hasRolePermission(currentEmployee.role, "files.manage");
       case "Business Assets":
-        return hasRolePermission(currentEmployee.role, "assets.view");
+        return hasRolePermission(currentEmployee.role, "assets.view") || hasRolePermission(currentEmployee.role, "assets.manage");
       case "Features": // already limited to what this role can open and do
       case "Keyboard Shortcuts": // same
       case "Screens": // already limited to screens this role can open
@@ -365,7 +398,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           businessName: b.name,
           relevance: score + 10,
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab(currentEmployee && canOpenScreen(currentEmployee.role, "business-management") ? "business-management" : "settings");
             setIsOpen(false);
             setQuery("");
           }
@@ -408,6 +441,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           category: "Product Categories",
           businessName: activeBizName,
           relevance: score,
+          spot: { text: cat },
           action: () => {
             onNavigateTab("inventory");
             setIsOpen(false);
@@ -432,6 +466,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           businessName: activeBizName,
           status: isLow ? "Low Stock" : "Healthy",
           relevance: score + (isLow ? 10 : 0),
+          spot: { text: p.name },
           action: () => {
             onNavigateTab("inventory");
             setIsOpen(false);
@@ -457,8 +492,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           category: "Inventory Transactions",
           businessName: activeBizName,
           relevance: score,
+          spot: { text: adj.productName },
           action: () => {
-            onNavigateTab("inventory");
+            onNavigateTab(currentEmployee && canOpenScreen(currentEmployee.role, "stock-history") ? "stock-history" : "inventory");
             setIsOpen(false);
             setQuery("");
           }
@@ -516,19 +552,20 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     // 7. Search Suppliers
     suppliers.forEach(s => {
       const matchName = getRelevance(s.name, lower);
-      const matchCompany = getRelevance(s.company, lower);
+      const matchCompany = getRelevance(s.company || "", lower);
       const matchPhone = getRelevance(s.phone, lower);
       const score = Math.max(matchName, matchCompany, matchPhone);
       if (score > 0) {
         matched.push({
           id: `sup-${s.id}`,
           title: s.name,
-          subtitle: `Company: ${s.company} · Supplies: ${s.productSupplied} · Contact: ${s.phone}`,
+          subtitle: `${s.company ? `${s.company} · ` : ""}Supplies: ${s.product_supplied || "—"} · ${s.phone}`,
           category: "Suppliers",
           businessName: activeBizName,
           relevance: score,
+          spot: { text: s.name, press: "suppliers-tab" },
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab("suppliers");
             setIsOpen(false);
             setQuery("");
           }
@@ -576,6 +613,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
             category: "Sale Items",
             businessName: activeBizName,
             relevance: score,
+            spot: { id: `sale-${t.id}`, text: formatReceiptNumber(t.id) },
             action: () => {
               onNavigateTab("sales");
               setIsOpen(false);
@@ -586,21 +624,22 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       });
     });
 
-    // 10. Search Purchases (Bulk milk orders)
-    const purchases = extra.purchases || [];
+    // 10. Search Purchases, by supplier, number or note
     purchases.forEach(p => {
-      const score = getRelevance(p.supplierName, lower);
+      const ref = purchaseRef(p);
+      const score = Math.max(getRelevance(p.supplierName, lower), getRelevance(ref, lower), p.notes ? getRelevance(p.notes, lower) : 0);
       if (score > 0) {
         matched.push({
           id: `pur-${p.id}`,
-          title: `Purchase from ${p.supplierName} · ${new Date(p.date).toLocaleDateString()}`,
-          subtitle: `Supplier: ${p.supplierName} · Cost: KSh ${p.totalAmount.toFixed(2)} · Status: ${p.status} · Date: ${new Date(p.date).toLocaleDateString()}`,
+          title: `Purchase ${ref} · ${p.supplierName}`,
+          subtitle: `${new Date(p.date).toLocaleDateString()} · KSh ${p.total.toFixed(2)} · ${p.status === "Pending" ? "Draft" : p.status} · ${p.lines.length} items`,
           category: "Purchases",
           businessName: activeBizName,
           status: p.status,
           relevance: score + 10,
+          spot: { text: p.supplierName, press: "purchases-tab" },
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab("suppliers");
             setIsOpen(false);
             setQuery("");
           }
@@ -608,20 +647,21 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 11. Search Purchase Items
+    // 11. Search Purchase Items: lands on the purchase they belong to
     purchases.forEach(p => {
-      p.items.forEach((item, idx) => {
+      p.lines.forEach((item, idx) => {
         const score = getRelevance(item.name, lower);
         if (score > 0) {
           matched.push({
             id: `pur-item-${p.id}-${idx}`,
-            title: `Item: ${item.name} (purchase from ${p.supplierName})`,
-            subtitle: `Quantity Ordered: ${item.quantity} ${item.unit} · Unit Price: KSh ${item.price} · Subtotal: KSh ${(item.quantity * item.price).toFixed(2)}`,
+            title: `Item: ${item.name} (purchase ${purchaseRef(p)} from ${p.supplierName})`,
+            subtitle: `Ordered: ${item.quantity} ${item.unit} · KSh ${item.price} each · KSh ${(item.quantity * item.price).toFixed(2)}`,
             category: "Purchase Items",
             businessName: activeBizName,
             relevance: score,
+            spot: { id: `pur-${p.id}`, text: p.supplierName, press: "purchases-tab" },
             action: () => {
-              onNavigateTab("settings");
+              onNavigateTab("suppliers");
               setIsOpen(false);
               setQuery("");
             }
@@ -640,6 +680,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `batch-${b.id}`,
           title: `Production batch: ${b.recipeName}${b.referenceNumber ? ` · Ref ${b.referenceNumber}` : ""}`,
+          spot: { text: b.recipeName },
           subtitle: `Formula: ${b.recipeName} · Yield: ${b.quantityProduced} ${b.unit} · Operator: ${b.staffName} · Status: ${b.status}`,
           category: "Production Batches",
           businessName: activeBizName,
@@ -668,8 +709,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           category: "Recipes / BOM",
           businessName: activeBizName,
           relevance: score,
+          spot: { text: r.name },
           action: () => {
-            onNavigateTab("inventory");
+            onNavigateTab("production");
             setIsOpen(false);
             setQuery("");
           }
@@ -690,8 +732,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           category: "Expenses",
           businessName: activeBizName,
           relevance: score,
+          spot: { text: e.description, press: "money-expenses" },
           action: () => {
-            onNavigateTab("inventory");
+            onNavigateTab("money");
             setIsOpen(false);
             setQuery("");
           }
@@ -714,6 +757,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           businessName: activeBizName,
           status: pay.status,
           relevance: score + 15,
+          spot: { text: pay.referenceCode, press: "money-payments" },
           action: () => {
             onNavigateTab("money");
             setIsOpen(false);
@@ -781,6 +825,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `invitation-${inv.id}`,
           title: `Invitation for ${inv.name}`,
+          spot: { text: `${inv.name}'s invitation` },
           subtitle: `Role: ${inv.role} · Sent to: ${inv.email} · Status: ${inv.status} · Expires: ${new Date(inv.expiresAt).toLocaleDateString()}`,
           category: "Invitations",
           businessName: activeBizName,
@@ -853,6 +898,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `notif-${n.id}`,
           title: `Alert: ${n.title || "System"}`,
+          spot: { text: n.title || n.message },
           subtitle: `"${n.message.slice(0, 75)}..." · Time: ${new Date(n.created_at).toLocaleTimeString()}`,
           category: "Notifications",
           businessName: activeBizName,
@@ -905,6 +951,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `insight-${ins.id}`,
           title: `AI Recommendation: ${ins.title}`,
+          spot: { text: ins.title },
           subtitle: ins.content,
           category: "AI Insights",
           businessName: activeBizName,
@@ -919,22 +966,19 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     });
 
     // 24. Search Audit Logs
-    const auditLogs = extra.auditLogs || [];
     auditLogs.forEach(log => {
-      const matchAction = getRelevance(log.action, lower);
-      const matchDetails = getRelevance(log.details, lower);
-      const matchStaff = getRelevance(log.staffName, lower);
-      const score = Math.max(matchAction, matchDetails, matchStaff);
+      const action = describeAction(log);
+      const score = Math.max(getRelevance(action, lower), getRelevance(log.label, lower), getRelevance(log.by, lower));
       if (score > 0) {
         matched.push({
           id: `audit-${log.id}`,
-          title: `Audit: [${log.action}]`,
-          subtitle: `${log.details} · By: ${log.staffName} · Date: ${new Date(log.date).toLocaleString()}`,
+          title: `${action}${log.label ? `: ${log.label}` : ""}`,
+          subtitle: `${log.by ? `By ${log.by} · ` : ""}${new Date(log.at).toLocaleString()}`,
           category: "Audit Logs",
           businessName: activeBizName,
           relevance: score,
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab("audit");
             setIsOpen(false);
             setQuery("");
           }
@@ -971,21 +1015,19 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     });
 
     // 26. Search Storage Files
-    const storageFiles = extra.storageFiles || [];
     storageFiles.forEach(file => {
-      const matchName = getRelevance(file.name, lower);
-      const matchBy = getRelevance(file.uploadedBy, lower);
-      const score = Math.max(matchName, matchBy);
+      const score = Math.max(getRelevance(file.name, lower), getRelevance(file.uploadedBy, lower));
       if (score > 0) {
         matched.push({
           id: `file-${file.id}`,
           title: file.name,
-          subtitle: `Size: ${file.size} · Type: ${file.type} · Uploaded by: ${file.uploadedBy} · Date: ${new Date(file.date).toLocaleDateString()}`,
+          subtitle: `${file.size} · Uploaded by ${file.uploadedBy} · ${new Date(file.date).toLocaleDateString()}`,
           category: "Storage Files",
           businessName: activeBizName,
           relevance: score,
+          spot: { press: "files-tab" },
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab("assets");
             setIsOpen(false);
             setQuery("");
           }
@@ -994,22 +1036,20 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     });
 
     // 27. Search Business Assets
-    const assets = extra.assets || [];
     assets.forEach(asset => {
-      const matchName = getRelevance(asset.name, lower);
-      const matchCode = getRelevance(asset.code, lower);
-      const score = Math.max(matchName, matchCode);
+      const score = Math.max(getRelevance(asset.name, lower), getRelevance(asset.code, lower), asset.serialNumber ? getRelevance(asset.serialNumber, lower) : 0, asset.location ? getRelevance(asset.location, lower) : 0);
       if (score > 0) {
         matched.push({
           id: `asset-${asset.id}`,
           title: asset.name,
-          subtitle: `Asset Code: ${asset.code} · Serial: ${asset.serialNumber} · Value: KSh ${asset.value.toLocaleString()} · Status: ${asset.status}`,
+          subtitle: `${asset.code}${asset.serialNumber ? ` · Serial ${asset.serialNumber}` : ""} · KSh ${asset.value.toLocaleString()} · ${asset.status}${asset.location ? ` · ${asset.location}` : ""}`,
           category: "Business Assets",
           businessName: activeBizName,
           status: asset.status,
           relevance: score + 5,
+          spot: { press: "assets-tab" },
           action: () => {
-            onNavigateTab("settings");
+            onNavigateTab("assets");
             setIsOpen(false);
             setQuery("");
           }
@@ -1028,6 +1068,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `shift-${s.id}`,
           title: `${empName}'s Shift Log`,
+          spot: { text: empName },
           subtitle: `Status: ${s.status} · Started: ${new Date(s.startTime).toLocaleTimeString()} · Sales Total: KSh ${(s.salesTotal || 0).toFixed(2)}`,
           category: "Shifts",
           businessName: activeBizName,
@@ -1116,6 +1157,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         if ("wallet".includes(lower) || getRelevance(c.name, lower) > 0) {
           matched.push({
             id: `wallet-${c.id}`,
+            spot: { id: `cust-${c.id}`, text: c.name },
             title: `${c.name}'s Wallet`,
             subtitle: `Current Balance: KSh ${c.walletBalance}`,
             category: "Wallets",
@@ -1129,6 +1171,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         if ("debt".includes(lower) || "credit".includes(lower) || getRelevance(c.name, lower) > 0) {
           matched.push({
             id: `debt-${c.id}`,
+            spot: { id: `cust-${c.id}`, text: c.name },
             title: `${c.name}'s Debt`,
             subtitle: `Outstanding Debt: KSh ${c.debtBalance}`,
             category: "Debts",
@@ -1184,6 +1227,12 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     setActiveIndex(-1);
   };
 
+  // Records fetched when the box opens can arrive after the first letters: search again.
+  useEffect(() => {
+    if (query.trim()) handleSearch(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers, expenses, purchases, assets, storageFiles, auditLogs]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || results.length === 0) return;
     
@@ -1196,9 +1245,16 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (activeIndex >= 0 && activeIndex < results.length) {
-        results[activeIndex].action();
+        openResult(results[activeIndex]);
       }
     }
+  };
+
+  // Open the screen, then centre and highlight the exact row the result was about.
+  const openResult = (res: SearchResult) => {
+    res.action();
+    if (res.spot === false || (!res.spot && NO_SPOTLIGHT.has(res.category))) return;
+    spotlight(res.spot?.id ?? res.id, res.spot?.text ?? res.title, res.spot?.press);
   };
 
   // Helper to highlight matched query string in results
@@ -1219,7 +1275,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   };
 
   return (
-    <div ref={searchRef} className="relative flex-1 max-w-xl select-none font-sans">
+    <div ref={searchRef} data-global-search className="relative flex-1 max-w-xl select-none font-sans">
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-app-text-muted" />
         <input
@@ -1307,7 +1363,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                         return (
                           <div
                             key={res.id}
-                            onClick={res.action}
+                            onClick={() => openResult(res)}
                             className={`p-2 rounded-xl cursor-pointer flex items-start gap-2.5 transition ${
                               isActive ? 'bg-amber-500/10 border border-amber-500/30' : 'hover:bg-app-bg border border-transparent'
                             }`}

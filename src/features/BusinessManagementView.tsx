@@ -118,11 +118,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
   // Tab State
   const role = currentEmployee?.role || "Guest";
   const moneyTabs = ([
-    { id: "payments", label: "Payments", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.view") || hasRolePermission(role, "payments.cash") || hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") },
+    { id: "payments", label: "Payments", shortcut: "money-payments", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.view") || hasRolePermission(role, "payments.cash") || hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") },
     { id: "mpesa", label: "M-Pesa", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify") || hasRolePermission(role, "settings.integrations") },
     { id: "airtel", label: "Airtel Money", shortcut: "money-airtel", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.airtel") || hasRolePermission(role, "settings.integrations") },
     { id: "cards", label: "Cards", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.card") || hasRolePermission(role, "payments.view") || hasRolePermission(role, "settings.integrations") },
-    { id: "expenses", label: "Expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
+    { id: "expenses", label: "Expenses", shortcut: "money-expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
     { id: "methods", label: "Methods", shortcut: "money-methods", icon: <ToggleRight size={14} />, allowed: hasRolePermission(role, "payments.configure") },
   ] as { id: MoneyTab; label: string; shortcut?: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
   const [activeSubTab, setActiveSubTab] = useState<"details" | MoneyTab>(
@@ -627,6 +627,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
           return (
             <button
               key={biz.id}
+              data-search-id={`biz-${biz.id}`}
               type="button"
               onClick={() => {
                 setIsCreating(false);
@@ -720,6 +721,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 return (
                   <div
                     key={biz.id}
+                    data-search-id={`biz-${biz.id}`}
                     onClick={() => {
                       setIsCreating(false);
                       setActiveBusinessId(biz.id);
@@ -1474,6 +1476,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           {localExpenses.map((exp) => (
                             <SwipeRow
                               key={exp.id}
+                              searchId={`exp-${exp.id}`}
                               as="li"
                               title={`${exp.category} · KSh ${Number(exp.amount).toLocaleString()}`}
                               subtitle={exp.description || undefined}
@@ -1510,6 +1513,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             {localExpenses.map((exp) => (
                               <tr
                                 key={exp.id}
+                                data-search-id={`exp-${exp.id}`}
                                 className="hover:bg-app-bg/30 transition"
                               >
                                 <td className="py-2.5 font-mono text-[10.5px]">
@@ -2078,7 +2082,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                 .filter((p) => payFilter === 'all' || (p.paymentType || 'walk-in') === payFilter)
                                 .map((pay) => (
                                   <React.Fragment key={pay.id}>
-                                  <tr className={`hover:bg-app-bg/30 transition ${pay.status === 'Voided' ? 'opacity-60' : ''}`}>
+                                  <tr data-search-id={`pay-${pay.id}`} className={`hover:bg-app-bg/30 transition ${pay.status === 'Voided' ? 'opacity-60' : ''}`}>
                                     <td className="py-2.5 font-mono text-[10px] whitespace-nowrap">
                                       <div>{new Date(pay.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                                       <div className="text-[8px] text-app-text-muted">

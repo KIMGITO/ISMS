@@ -85,6 +85,8 @@ interface Props {
   /** Turns the gestures off (e.g. while selecting, or no permission). */
   disabled?: boolean;
   onClick?: (e: React.MouseEvent) => void;
+  /** Matches a global search result id, so opening that result centres and highlights this row. */
+  searchId?: string;
 }
 
 export function SwipeRow({
@@ -100,6 +102,7 @@ export function SwipeRow({
   surfaceClassName = 'bg-app-card',
   disabled,
   onClick,
+  searchId,
 }: Props) {
   const tray = visible(actions);
   const sheetItems = more ? visible(more) : tray;
@@ -205,6 +208,7 @@ export function SwipeRow({
   return (
     <Tag
       ref={rootRef}
+      data-search-id={searchId}
       className={`relative overflow-hidden ${className}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

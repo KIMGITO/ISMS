@@ -876,6 +876,7 @@ function NotificationRow({
   return (
     // Long-press is watched here: the draggable row below takes its own pointer events.
     <li
+      data-search-id={`notif-${notif.id}`}
       className="relative overflow-hidden group"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

@@ -478,6 +478,7 @@ export default function InventoryView() {
             return (
               <SwipeRow
                 key={p.id}
+                searchId={`inv-${p.id}`}
                 title={titleCase(p.name)}
                 subtitle={`${p.stock} ${titleCase(p.unit)} in stock · ${p.sku}`}
                 actions={[

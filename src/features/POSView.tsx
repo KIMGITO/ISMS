@@ -1139,6 +1139,7 @@ export default function POSView() {
             <motion.div
               key={product.id}
               id={`pos-product-${index}`}
+              data-search-id={`prod-${product.id}`}
               whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
               onClick={() => !isOutOfStock && addToCart(product)}
               className={`bg-app-card rounded-2xl border ${
