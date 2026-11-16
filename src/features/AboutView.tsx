@@ -11,6 +11,7 @@ import { ShortcutTable } from '../components/ShortcutTable';
 import { useAuthStore } from '../stores/authStore';
 import { ReportProblemForm } from '../components/ReportProblemForm';
 import { TermsDialog, TERMS_VERSION_LINE } from '../components/legal/TermsDialog';
+import { Tabs } from '../components/TabOptions';
 
 const PLATFORM_LABEL = {
   windows: 'Windows',
@@ -50,13 +51,22 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export default function AboutView() {
   const { status, currentVersion, platform, availableVersion, progress, error, errorCode, lastCheckedAt } = useUpdateStore();
   const { businesses, activeBusinessId } = useBusinessStore();
-  const [shortcutsOpen, setShortcutsOpen] = useState(
-    () => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches,
-  );
+  // Phones rarely have a keyboard, so the list starts closed there.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const business = businesses.find((b) => b.id === activeBusinessId);
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const canReport = !!business && (role === 'Owner' || role === 'Admin');
   const [termsOpen, setTermsOpen] = useState(false);
+  // Big screens show one part at a time in tabs, centred, instead of three squeezed columns.
+  const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const on = () => setIsWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const [part, setPart] = useState<'app' | 'shortcuts' | 'report'>(() =>
+    typeof window !== 'undefined' && window.location.hash === '#keyboard-shortcuts' ? 'shortcuts' : 'app');
   const canUpdate = updateService.canUpdate();
   const isBusy = status === 'checking' || status === 'downloading' || status === 'installing';
   const PlatformIcon = platform === 'android' ? Smartphone : platform === 'web' ? Globe : Monitor;
@@ -164,8 +174,6 @@ export default function AboutView() {
     </Group>
   ) : null;
 
-  // Phones rarely have a keyboard, so the list starts closed there.
-  // On wide screens the list scrolls inside its card so the page itself stays short.
   const shortcutsGroup = (
     <details
       id="keyboard-shortcuts"
@@ -179,7 +187,7 @@ export default function AboutView() {
       </summary>
       {shortcutsOpen && (
         <div className="bg-app-card rounded-lg p-3">
-          <ShortcutTable listClassName="lg:max-h-[calc(100dvh-20rem)] lg:overflow-y-auto" />
+          <ShortcutTable />
         </div>
       )}
     </details>
@@ -188,7 +196,7 @@ export default function AboutView() {
   return (
     <div className="h-full overflow-y-auto px-4 lg:px-6 pt-6 pb-nav bg-app-bg text-app-text">
       <div className="w-full flex flex-col gap-6">
-        <header className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-2 sm:gap-4">
+        <header className="flex flex-col sm:flex-row items-center sm:justify-center text-center sm:text-left gap-2 sm:gap-4">
           <img src="/logo.png" alt="" className="w-20 h-20 sm:w-14 sm:h-14 rounded-2xl object-cover bg-app-card shadow-sm" />
           <div>
             <h1 className="text-xl font-bold font-display">KayKay's</h1>
@@ -196,17 +204,43 @@ export default function AboutView() {
           </div>
         </header>
 
-        {/* One column on phones; side by side on wider screens so less scrolling is needed. */}
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
-          <div className="flex flex-col gap-6 min-w-0">
+        {isWide ? (
+          <div className="w-full max-w-3xl mx-auto flex flex-col gap-6">
+            <Tabs
+              tabs={[
+                { id: 'app' as const, label: 'This app', shortcut: 'about-app' },
+                { id: 'shortcuts' as const, label: 'Keyboard shortcuts', shortcut: 'about-shortcuts' },
+                ...(reportGroup ? [{ id: 'report' as const, label: 'Report a problem', shortcut: 'about-report' }] : []),
+              ]}
+              activeTab={part}
+              onChange={(t) => setPart(t as typeof part)}
+              className="justify-center"
+            />
+            {part === 'app' && (
+              <div className="flex flex-col gap-6">
+                {appGroup}
+                {updatesGroup}
+                {helpGroup}
+                {legalGroup}
+              </div>
+            )}
+            {part === 'shortcuts' && (
+              <div id="keyboard-shortcuts" className="bg-app-card rounded-lg p-3">
+                <ShortcutTable autoFocus listClassName="max-h-[calc(100dvh-22rem)] overflow-y-auto" />
+              </div>
+            )}
+            {part === 'report' && reportGroup}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
             {appGroup}
             {updatesGroup}
             {helpGroup}
             {legalGroup}
+            {shortcutsGroup}
+            {reportGroup}
           </div>
-          <div className="min-w-0 md:row-span-2 xl:row-span-1">{shortcutsGroup}</div>
-          {reportGroup && <div className="min-w-0">{reportGroup}</div>}
-        </div>
+        )}
         <TermsDialog open={termsOpen} onClose={() => setTermsOpen(false)} />
 
         <p className="text-center text-xs text-app-text-muted">

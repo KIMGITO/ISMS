@@ -414,7 +414,9 @@ export interface Rewards {
 }
 
 export const fetchRewards = () => rpc<Rewards | null>('get_my_rewards', {});
-export const redeemPoints = (points: number) => rpc('redeem_my_points', { p_points: points });
+/** Points pay off what the customer owes (never cash or wallet money). */
+export const redeemPoints = (points: number) =>
+  rpc<{ value: number; pointsUsed: number; points: number }>('redeem_my_points', { p_points: points });
 
 export async function fetchAccount(): Promise<Account | null> {
   const uid = await myUserId();

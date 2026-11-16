@@ -33,10 +33,8 @@ import RiderDeliveriesView from './features/RiderDeliveriesView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import AccountingView from './features/AccountingView';
-import SalesDocsView from './features/SalesDocsView';
 import BuyingView from './features/BuyingView';
 import SupplierPortalView from './features/SupplierPortalView';
-import AssetsFilesView from './features/AssetsFilesView';
 import AuditLogView from './features/AuditLogView';
 import { useNotificationStore } from './stores/notificationStore';
 import { useTransactionStore } from './stores/transactionStore';
@@ -132,7 +130,6 @@ import {
   Edit3,
   Truck,
   Menu,
-  HardDrive,
   Activity,
   Info,
   Wallet,
@@ -140,12 +137,12 @@ import {
   ArrowRightLeft,
   PieChart,
   BookOpen,
-  FileSignature,
   ClipboardList,
   Send,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
-import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS } from './utils/screens';
+import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, type ScreenId } from './utils/screens';
+import { GO_TO_KEYS, goToLabel } from './utils/shortcuts';
 import RingingAlerts from './components/RingingAlerts';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -161,10 +158,8 @@ import { TermsDialog } from './components/legal/TermsDialog';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
-const INVOICING_PERMISSIONS = SCREEN_BY_ID.get('invoicing')!.permissions;
 const BUYING_PERMISSIONS = SCREEN_BY_ID.get('buying')!.permissions;
 const FINANCE_PERMISSIONS = SCREEN_BY_ID.get('finance')!.permissions;
-const ASSET_PERMISSIONS = SCREEN_BY_ID.get('assets')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 
@@ -187,7 +182,6 @@ const MOBILE_TABS = [
   { id: 'stock-history', label: 'Stock History', icon: History, permission: 'inventory.stock_history' },
   { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
-  { id: 'invoicing', label: 'Quotes & Invoices', icon: FileSignature, permission: INVOICING_PERMISSIONS },
   { id: 'buying', label: 'Buying', icon: ClipboardList, permission: BUYING_PERMISSIONS },
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
@@ -203,7 +197,6 @@ const MOBILE_TABS = [
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
   { id: 'finance', label: 'Finance', icon: PieChart, permission: FINANCE_PERMISSIONS },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
-  { id: 'assets', label: 'Assets', icon: HardDrive, permission: ASSET_PERMISSIONS },
   { id: 'audit', label: 'Audit Log', icon: Activity, permission: 'audit.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
   { id: 'about', label: 'About', icon: Info, permission: 'about' },
@@ -343,13 +336,6 @@ const tourSteps: TourStep[] = [
     tab: 'sales',
   },
   {
-    targetSelector: '#sidebar-tab-invoicing',
-    title: 'Quotes & Invoices',
-    content: 'For businesses and big customers: send a quote, turn it into an order when they accept, deliver it in parts, invoice it with payment terms, record payments and give credit notes. See who owes and how late.',
-    placement: 'right',
-    tab: 'invoicing',
-  },
-  {
     targetSelector: '#sidebar-tab-customers',
     title: 'Loyalty',
     content: 'Customers, their points, debts, wallets and invoices. Each customer has an account number for M-Pesa. Swipe an invoice to delete it; hold it to archive.',
@@ -374,7 +360,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-prompt',
     title: 'Payment Prompts',
-    content: 'Send an M-Pesa or Airtel Money prompt to a customer\'s phone and watch it until it is paid. The phone button at the top opens it from anywhere, or press G then G.',
+    content: 'Send an M-Pesa or Airtel Money prompt to a customer\'s phone and watch it until it is paid. The phone button at the top opens it from anywhere, or press G then M.',
     placement: 'right',
     tab: 'prompt',
     permissions: ['payments.mpesa', 'payments.airtel'],
@@ -386,13 +372,6 @@ const tourSteps: TourStep[] = [
     content: 'Record money taken from the till to spend, and what it was spent on.',
     placement: 'right',
     tab: 'petty-cash',
-  },
-  {
-    targetSelector: '#sidebar-tab-assets',
-    title: 'Assets & Files',
-    content: 'What the business owns, with codes, values and where it is, and the documents you keep, like licences and contracts.',
-    placement: 'right',
-    tab: 'assets',
   },
   {
     targetSelector: '#sidebar-tab-audit',
@@ -507,7 +486,7 @@ const tourSteps: TourStep[] = [
   },
   {
     title: 'Keyboard shortcuts',
-    content: 'Press Ctrl+K to search, ? to see the shortcuts for the screen you are on, and G then a letter to jump to a screen (G then H for Home). The full list for your role is in About this app.',
+    content: 'Press Ctrl+K to search, ? to see the shortcuts for the screen you are on, and G then a letter to jump to a screen (G then P for POS, G then I for Inventory); each tab in the side bar shows its letter. F5 reloads. The full list for your role is in About this app.',
     placement: 'bottom',
     desktopOnly: true,
   },
@@ -603,6 +582,8 @@ export default function App() {
       else setShowMobileSearch(true);
     },
     toggleHelp: () => setShowShortcutHelp((v) => !v),
+    reload: () => void reloadNow(),
+    goBack: () => useUiStore.getState().goBack(),
   });
 
   const [businessType, setBusinessType] = useState('');
@@ -1254,6 +1235,24 @@ export default function App() {
       syncWithServer().catch((err) => console.error('Refresh: sales sync failed', err)),
     ]);
     setRefreshKey((k) => k + 1);
+  };
+
+  // The reload button and F5 / Ctrl+R on big screens: the same as pulling down on a phone.
+  const [isReloading, setIsReloading] = useState(false);
+  const isReloadingRef = useRef(false);
+  const reloadNow = async () => {
+    if (isReloadingRef.current) return;
+    isReloadingRef.current = true;
+    setIsReloading(true);
+    try {
+      await refreshApp();
+      if (navigator.onLine) showToast('Up to date', 'Latest sales, stock and payments loaded.', undefined, 'success');
+    } catch {
+      showToast('Not reloaded', 'Could not fetch the latest data. Try again.', undefined, 'error');
+    } finally {
+      isReloadingRef.current = false;
+      setIsReloading(false);
+    }
   };
 
   // Auto-scroll the active mobile tab to center when the active tab changes
@@ -3743,13 +3742,6 @@ export default function App() {
                       permission: 'orders.view' as const,
                     },
                     {
-                      id: 'invoicing',
-                      label: 'Quotes & Invoices',
-                      icon: FileSignature,
-                      desc: 'Quotes, orders, invoices, credit notes',
-                      permission: INVOICING_PERMISSIONS,
-                    },
-                    {
                       id: 'customers',
                       label: 'Loyalty Club',
                       icon: Heart,
@@ -3848,13 +3840,6 @@ export default function App() {
                       permission: 'bom.view' as const,
                     },
                     {
-                      id: 'assets',
-                      label: 'Assets & Files',
-                      icon: HardDrive,
-                      desc: 'Equipment and documents',
-                      permission: ASSET_PERMISSIONS,
-                    },
-                    {
                       id: 'audit',
                       label: 'Audit Log',
                       icon: Activity,
@@ -3908,7 +3893,7 @@ export default function App() {
                               ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold'
                               : 'hover:bg-app-bg text-app-text-muted'
                           }`}
-                          title={isSidebarCollapsed ? tab.label : undefined}
+                          title={isSidebarCollapsed ? `${tab.label}${goToLabel(tab.id as ScreenId) ? ` (${goToLabel(tab.id as ScreenId)})` : ''}` : undefined}
                         >
                           {tab.id === 'profile' ? (
                             <img
@@ -3932,14 +3917,28 @@ export default function App() {
                           )}
 
                           {!isSidebarCollapsed ? (
-                            <div className="min-w-0 flex-1">
-                              <span className="text-xs block font-bold text-app-text">
-                                {tab.label}
-                              </span>
-                              <span className="text-[9px] text-app-text-muted block font-medium mt-0.5 truncate">
-                                {tab.desc}
-                              </span>
-                            </div>
+                            <>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-xs block font-bold text-app-text">
+                                  {tab.label}
+                                </span>
+                                <span className="text-[9px] text-app-text-muted block font-medium mt-0.5 truncate">
+                                  {tab.desc}
+                                </span>
+                              </div>
+                              {/* Its keyboard shortcut, greyed on the right: G then this letter */}
+                              {GO_TO_KEYS[tab.id as ScreenId] &&
+                                !(tab.id === 'pos' && cartItemsCount > 0) &&
+                                !(tab.id === 'notifications' && unreadNotificationsCount > 0) && (
+                                <kbd
+                                  className="shrink-0 font-mono text-[9px] font-semibold text-app-text-muted/70 tracking-wider"
+                                  title={`Press ${goToLabel(tab.id as ScreenId)}`}
+                                  aria-label={`Shortcut ${goToLabel(tab.id as ScreenId)}`}
+                                >
+                                  G {GO_TO_KEYS[tab.id as ScreenId]!.toUpperCase()}
+                                </kbd>
+                              )}
+                            </>
                           ) : (
                             /* Compact Hover Tooltip */
                             <div className="absolute left-16 bg-slate-950 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap shadow-xl border border-slate-800 z-50">
@@ -4135,6 +4134,18 @@ export default function App() {
                           <Search size={16} />
                         </button>
 
+                        {/* Reload on big screens; phones pull down instead */}
+                        <button
+                          id="header-reload"
+                          onClick={() => void reloadNow()}
+                          disabled={isReloading}
+                          className="hidden md:flex p-2 bg-app-bg border border-app-border text-app-text hover:bg-app-card rounded-xl transition cursor-pointer disabled:opacity-60"
+                          title="Reload the latest data (F5 or Ctrl+R)"
+                          aria-label="Reload"
+                        >
+                          <RefreshCw size={16} className={isReloading ? 'animate-spin' : ''} />
+                        </button>
+
                         {/* Payment prompts, one tap from any screen */}
                         {promptProviders.length > 0 && (
                           <button
@@ -4145,7 +4156,7 @@ export default function App() {
                                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600'
                                 : 'bg-app-bg border-app-border text-app-text hover:text-app-text'
                             }`}
-                            title="Send a payment prompt (G then G)"
+                            title="Send a payment prompt (G then M)"
                             aria-label="Send a payment prompt"
                           >
                             <Send size={16} />
@@ -4459,13 +4470,6 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === 'invoicing' && (
-                      <motion.div key="invoicing-view" {...SCREEN_MOTION} className="absolute inset-0">
-                        <SecurityGuard permission={INVOICING_PERMISSIONS as any}>
-                          <SalesDocsView />
-                        </SecurityGuard>
-                      </motion.div>
-                    )}
                     {activeTab === 'buying' && (
                       <motion.div key="buying-view" {...SCREEN_MOTION} className="absolute inset-0">
                         <SecurityGuard permission={BUYING_PERMISSIONS as any}>
@@ -4481,13 +4485,6 @@ export default function App() {
                       >
                         <SecurityGuard permission="bom.view">
                           <ProductionBOMView />
-                        </SecurityGuard>
-                      </motion.div>
-                    )}
-                    {activeTab === 'assets' && (
-                      <motion.div key="assets-view" {...SCREEN_MOTION} className="absolute inset-0">
-                        <SecurityGuard permission={ASSET_PERMISSIONS as any}>
-                          <AssetsFilesView />
                         </SecurityGuard>
                       </motion.div>
                     )}

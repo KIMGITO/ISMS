@@ -26,53 +26,63 @@ export interface Shortcut {
   keywords?: string[];
 }
 
-/** The second key after G that opens each screen. */
-export const GO_TO_KEYS: Record<ScreenId, string> = {
+/**
+ * The second key after G that opens each screen, Gmail/GitHub style: the first letter of the
+ * screen's name wherever it is free, otherwise a letter in the name that sticks (historY,
+ * clocK, reViews, biZ). The sidebar shows each one on the right of its tab.
+ * Merged screens (accounting, suppliers) have none: their new screen's key opens them.
+ */
+export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   home: "h",
-  dashboard: "j",
-  sell: "s",
+  sell: "q", // Quick sale
   pos: "p",
-  inventory: "i",
-  "stock-history": "k",
-  "stock-transfers": "q",
-  sales: "l",
-  customers: "c",
-  money: "m",
-  prompt: "g",
-  "petty-cash": "x",
-  finance: "y",
-  feedback: "f",
+  sales: "s",
+  customers: "l", // Loyalty
   "online-store": "o",
   deliveries: "d",
+  inventory: "i",
+  "stock-history": "y", // histor-Y
+  "stock-transfers": "t",
+  buying: "b",
+  production: "j", // Jobs (production batches)
+  money: "e", // payments & Expenses
+  prompt: "m", // M-Pesa prompt
+  "petty-cash": "c", // petty Cash
+  finance: "f",
+  dashboard: "k", // clocK in (Shift)
   workers: "w",
-  permissions: "r",
-  ai: "a",
-  production: "b",
-  "business-management": "e",
-  settings: "t",
+  permissions: "r", // Roles
+  audit: "x",
+  ai: "a", // Assistant
+  feedback: "v", // reViews
+  "business-management": "z", // biZ
+  settings: ",", // like Ctrl+, in most apps
   notifications: "n",
-  profile: "u",
-  about: "v",
-  suppliers: "z",
-  assets: "1",
-  audit: "2",
-  accounting: "3",
-  invoicing: "4",
-  buying: "5",
+  profile: "u", // yoU
+  about: "?",
+};
+
+/** How a G key is written: "G then P". */
+export const goToLabel = (id: ScreenId): string | undefined => {
+  const key = GO_TO_KEYS[id];
+  return key ? `G then ${key.toUpperCase()}` : undefined;
 };
 
 const everywhere: Shortcut[] = [
   { id: "search", keys: "Ctrl+K", action: "Search the app", scope: "everywhere", permissions: [], keywords: ["find", "global search"] },
-  { id: "help", keys: "?", action: "Show the shortcuts for this screen", scope: "everywhere", permissions: [], keywords: ["help", "keys"] },
-  { id: "page-search", keys: "/", action: "Jump to this screen's search box", scope: "everywhere", permissions: [], keywords: ["find", "filter"] },
+  { id: "help", keys: "? F1", action: "Show the shortcuts for this screen", scope: "everywhere", permissions: [], keywords: ["help", "keys"] },
+  { id: "page-search", keys: "/ Ctrl+F", action: "Jump to this screen's search box", scope: "everywhere", permissions: [], keywords: ["find", "filter"] },
+  { id: "reload", keys: "F5 Ctrl+R", action: "Reload: fetch the latest data (Ctrl+Shift+R restarts the app)", scope: "everywhere", permissions: [], keywords: ["refresh", "reload", "sync", "update"] },
+  { id: "back", keys: "Alt+←", action: "Back to the previous screen", scope: "everywhere", permissions: [], keywords: ["back", "previous"] },
+  { id: "settings-key", keys: "Ctrl+,", action: "Open Settings", scope: "everywhere", permissions: ["settings.view"], keywords: ["preferences", "options"] },
   { id: "tab-prev", keys: "[", action: "Previous tab on this screen", scope: "everywhere", permissions: [] },
   { id: "tab-next", keys: "]", action: "Next tab on this screen", scope: "everywhere", permissions: [] },
   { id: "close", keys: "Esc", action: "Close a window or clear a search", scope: "everywhere", permissions: [] },
 ];
 
-const goTo: Shortcut[] = SCREENS.map((screen) => ({
+const goTo: Shortcut[] = SCREENS.filter((screen) => GO_TO_KEYS[screen.id]).map((screen) => ({
   id: `go-${screen.id}`,
-  keys: `G then ${GO_TO_KEYS[screen.id].toUpperCase()}`,
+  keys: goToLabel(screen.id)!,
   action: `Open ${screen.title}`,
   scope: "everywhere" as const,
   // Only screens this role can open are listed, and only those keys work.
@@ -81,20 +91,20 @@ const goTo: Shortcut[] = SCREENS.map((screen) => ({
 }));
 
 const pages: Shortcut[] = [
-  // Quick Sale
-  { id: "sell-cash", keys: "F1", action: "Paid by cash", scope: "sell", permissions: ["pos.create_sale"] },
-  { id: "sell-mpesa", keys: "F2", action: "Paid by M-Pesa", scope: "sell", permissions: ["pos.create_sale"] },
-  { id: "sell-card", keys: "F3", action: "Paid by card", scope: "sell", permissions: ["pos.create_sale"] },
-  { id: "sell-airtel", keys: "F4", action: "Paid by Airtel Money", scope: "sell", permissions: ["pos.create_sale"] },
-  { id: "sell-customer", keys: "F7", action: "Add a customer to the last sale (they get the points)", scope: "sell", permissions: ["pos.create_sale"], keywords: ["attach", "loyalty", "points", "walk-in"] },
-  { id: "sell-receipt", keys: "F8", action: "Receipt for the last sale", scope: "sell", permissions: ["pos.create_sale"] },
+  // Quick Sale and POS share keys: the same Alt+number pays the same way on both.
+  { id: "sell-cash", keys: "Alt+1", action: "Paid by cash", scope: "sell", permissions: ["pos.create_sale"] },
+  { id: "sell-mpesa", keys: "Alt+2", action: "Paid by M-Pesa", scope: "sell", permissions: ["pos.create_sale"] },
+  { id: "sell-card", keys: "Alt+4", action: "Paid by card", scope: "sell", permissions: ["pos.create_sale"] },
+  { id: "sell-airtel", keys: "Alt+6", action: "Paid by Airtel Money", scope: "sell", permissions: ["pos.create_sale"] },
+  { id: "sell-customer", keys: "Alt+C", action: "Add a customer to the last sale (they get the points)", scope: "sell", permissions: ["pos.create_sale"], keywords: ["attach", "loyalty", "points", "walk-in"] },
+  { id: "sell-receipt", keys: "Alt+R", action: "Receipt for the last sale", scope: "sell", permissions: ["pos.create_sale"] },
   { id: "sell-scan", keys: "Enter", action: "Add the scanned or highlighted product", scope: "sell", permissions: ["pos.create_sale"], keywords: ["barcode"] },
   { id: "sell-move", keys: "↑ ↓", action: "Move through the products", scope: "sell", permissions: ["pos.create_sale"] },
   { id: "sell-qty", keys: "+ −", action: "One more / one less of the last item", scope: "sell", permissions: ["pos.create_sale"] },
   { id: "sell-clear", keys: "Esc", action: "Clear the search, then the sale", scope: "sell", permissions: ["pos.create_sale"] },
 
   // POS
-  { id: "pos-search", keys: "F2 /", action: "Search products", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-search", keys: "/ F2", action: "Search products", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-pick", keys: "↑ ↓ Enter", action: "Pick a product from the search", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-category", keys: "Alt+← Alt+→", action: "Previous / next category", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-qty", keys: "+ −", action: "One more / one less of the last item", scope: "pos", permissions: ["pos.create_sale"] },
@@ -110,8 +120,9 @@ const pages: Shortcut[] = [
   { id: "pos-customer", keys: "Alt+C", action: "Choose a customer", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-delivery", keys: "Alt+D", action: "Delivery on / off", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-note", keys: "Alt+N", action: "Add a note", scope: "pos", permissions: ["pos.create_sale"] },
-  { id: "pos-complete", keys: "F9 Ctrl+Enter", action: "Complete the sale", scope: "pos", permissions: ["pos.create_sale"] },
-  { id: "pos-receipt", keys: "R", action: "Receipt (after a sale)", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-quote", keys: "Alt+Q", action: "Save the cart as a quote", scope: "pos", permissions: ["quotes.manage"], keywords: ["quotation", "proforma", "estimate"] },
+  { id: "pos-complete", keys: "Ctrl+Enter F9", action: "Complete the sale", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-receipt", keys: "Alt+R R", action: "Receipt (after a sale)", scope: "pos", permissions: ["pos.create_sale"] },
 
   // Receipts (open from Quick Sale, POS or the Sales Log)
   { id: "receipt-print", keys: "P Ctrl+P", action: "Print the receipt", scope: "sales", permissions: ["orders.view", "pos.create_sale"] },
@@ -143,11 +154,10 @@ const pages: Shortcut[] = [
   { id: "shift-form-cancel", keys: "Esc", action: "Close the reminder form", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
   { id: "transfer-request", keys: "A", key: "a", target: "transfer-request", action: "Ask another branch for stock", scope: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.request_transfer"] },
-  { id: "buying-new", keys: "N", key: "n", target: "new", action: "Add a supplier / new purchase / draft purchases from the ticked suggestions / enter a bill / return goods (on that tab)", scope: "buying", permissions: ["suppliers.create", "purchases.create", "supplier_bills.manage", "purchases.update"] },
+  { id: "buying-new", keys: "N", key: "n", target: "new", action: "Invite a supplier / new purchase / draft purchases from the ticked suggestions / enter a bill / return goods (on that tab)", scope: "buying", permissions: ["suppliers.create", "purchases.create", "supplier_bills.manage", "purchases.update"] },
   { id: "accounting-new", keys: "N", key: "n", target: "new", action: "New journal entry / account (on that tab)", scope: "finance", permissions: ["accounting.manage"] },
-  { id: "invoicing-new", keys: "N", key: "n", target: "new", action: "New quote / new order (on that tab)", scope: "invoicing", permissions: ["quotes.manage", "sales_orders.manage"] },
-  { id: "assets-new", keys: "N", key: "n", target: "new", action: "Add an asset / upload files (on that tab)", scope: "assets", permissions: ["assets.manage", "files.manage"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
+  { id: "expense-new", keys: "N", key: "n", target: "new", action: "Record an expense (on the Expenses tab)", scope: "money", permissions: ["expenses.create"], keywords: ["expense", "spend", "cost"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
 ];
 
@@ -191,14 +201,15 @@ export const FEATURES: AppFeature[] = [
   { id: "credit-sales", title: "Credit sales and debts", description: "Sell on credit; it is added to what the customer owes", screen: "pos", permissions: ["customers.debts"], keywords: ["credit", "debt", "owe", "loan", "deni"] },
   { id: "points-report", title: "Points report", description: "Points earned and spent by every customer", screen: "customers", permissions: ["customers.loyalty", "loyalty.view", "reports.sales"], keywords: ["loyalty", "points", "rewards", "earned", "redeemed"], target: "points" },
   { id: "points-settings", title: "Points settings", description: "Switch loyalty points on or off, set what a point is worth in each tier and the fewest points that can be used", screen: "customers", permissions: ["loyalty.configure"], keywords: ["manage points", "points on", "points off", "switch off points", "turn off points", "pause points", "point value", "tier value", "bronze", "silver", "gold", "minimum points", "loyalty settings"], target: "points" },
-  { id: "points-rule", title: "How points work", description: "2 points per KSh 1 paid, 1 per KSh 1 of debt repaid; a point is worth less in higher tiers (Bronze 50, Silver 100, Gold 200 points = KSh 1). Points are never cash", screen: "customers", permissions: ["customers.view"], keywords: ["loyalty", "points", "rule", "rate", "tier", "silver", "gold"] },
+  { id: "points-rule", title: "How points work", description: "2 points per KSh 1 paid, 1 per KSh 1 of debt repaid; Silver from 20,000 points, Gold from 60,000, tiers never drop; a point is worth less in higher tiers (Bronze 50, Silver 100, Gold 200 points = KSh 1). Points are never cash", screen: "customers", permissions: ["customers.view"], keywords: ["loyalty", "points", "rule", "rate", "tier", "silver", "gold"] },
+  { id: "message-many", title: "Message many customers", description: "Customers → Message: pick by group (owes money, tier, not bought for 30 days...) and send one message with variables like {first_name} and {debt}, or Write with AI", screen: "customers", permissions: ["communication.send"], keywords: ["bulk", "sms", "whatsapp", "debt reminder", "variables", "broadcast", "group", "ai"] },
   { id: "points-cost", title: "What points cost", description: "Debt paid off with points and points discounts, in Where money went", screen: "finance", permissions: ["finance.view"], keywords: ["points cost", "loyalty cost", "where money went", "discount"] },
   { id: "invoice-archive", title: "Archive or delete invoices", description: "Swipe an invoice to delete it, or hold it to archive", screen: "customers", permissions: ["customers.debts"], keywords: ["archive", "hide invoice", "delete invoice", "swipe", "hold"] },
   { id: "feedback-archive", title: "Archive feedback", description: "Hold a review or complaint to archive it; swipe to delete", screen: "feedback", permissions: ["complaints.view"], keywords: ["archive", "hide", "complaint", "review", "swipe", "hold"] },
   { id: "petty-cash", title: "Petty cash", description: "Record money taken from the till to spend, and see today's spending", screen: "petty-cash", permissions: ["pettycash.record"], keywords: ["petty cash", "spending", "float", "cashbook"] },
   { id: "payment-methods", title: "Payment methods", description: "Cash, M-Pesa, Airtel Money, Card (Paystack) or Bank, at the till and for debts", screen: "pos", permissions: ["pos.create_sale"], keywords: ["card", "paystack", "visa", "mastercard", "bank", "bank transfer", "payment method", "airtel"] },
   { id: "payment-switch", title: "Switch payment methods on or off", description: "Choose which of Cash, M-Pesa, Airtel Money, Card and Bank this business takes (Payments → Methods)", screen: "money", permissions: ["payments.configure"], keywords: ["turn off card", "turn off bank", "disable payment", "enable payment", "payment methods", "switch off", "switch on", "methods"], target: "money-methods" },
-  { id: "payment-prompts", title: "Payment prompts", description: "Send an M-Pesa or Airtel Money prompt and follow it until paid (G then G)", screen: "prompt", permissions: ["payments.mpesa", "payments.airtel"], keywords: ["stk", "prompt", "push", "request payment", "ask to pay", "airtel", "mpesa"] },
+  { id: "payment-prompts", title: "Payment prompts", description: "Send an M-Pesa or Airtel Money prompt and follow it until paid (G then M)", screen: "prompt", permissions: ["payments.mpesa", "payments.airtel"], keywords: ["stk", "prompt", "push", "request payment", "ask to pay", "airtel", "mpesa"] },
   { id: "airtel-setup", title: "Airtel Money setup", description: "Connect your Airtel Africa developer app so staff can send Airtel Money prompts (Payments → Airtel Money)", screen: "money", permissions: ["settings.integrations", "payments.airtel"], keywords: ["airtel", "airtel money", "airtel africa", "developer", "client id", "callback"], target: "money-airtel" },
   { id: "duplicates", title: "Merge duplicate customers", description: "Find customers entered twice and join them", screen: "customers", permissions: ["customers.manage"], keywords: ["duplicate", "merge", "same customer", "link"] },
   { id: "mpesa-till", title: "M-Pesa till payments", description: "Payments to the till waiting to be matched, and payment prompts", screen: "money", permissions: ["payments.mpesa", "payments.verify"], keywords: ["mpesa", "m-pesa", "till", "stk", "prompt", "daraja", "unclaimed"] },
@@ -212,16 +223,13 @@ export const FEATURES: AppFeature[] = [
   { id: "purchase-approval", title: "Approve purchases", description: "Purchases and transfers above someone's limit wait here; set each role's limit in Buying → Settings", screen: "buying", permissions: ["purchases.approve"], keywords: ["approve", "approval", "limit", "authorise", "authorize", "reject"], target: "buying-approvals" },
   { id: "supplier-bills", title: "Supplier bills", description: "Enter a supplier's invoice for goods received; a price difference is checked first, then pay it (Buying → Bills)", screen: "buying", permissions: ["supplier_bills.manage", "purchases.view"], keywords: ["supplier invoice", "bill", "three-way match", "vat on purchases", "input vat", "due", "pay supplier"], target: "buying-bills" },
   { id: "supplier-returns", title: "Return goods to a supplier", description: "Send back damaged or wrong goods: stock goes down and you owe the supplier less (Buying → Bills → Returns)", screen: "buying", permissions: ["purchases.update", "purchases.manage", "purchases.approve"], keywords: ["return", "send back", "damaged", "wrong goods", "supplier credit", "debit note"], target: "buying-returns" },
-  { id: "supplier-app-access", title: "Give a supplier app access", description: "Invite someone at a supplier to sign in and see only their own orders, price requests, deliveries and payments (Buying → Suppliers → ⋯ → App access)", screen: "buying", permissions: ["suppliers.portal"], keywords: ["supplier login", "supplier portal", "supplier account", "invite supplier", "vendor portal", "supplier app"], target: "suppliers-tab" },
+  { id: "supplier-app-access", title: "Add or invite a supplier", description: "In Workers, choose the Supplier role: add the company you buy from and, with an email, invite them to see only their own orders, price requests, deliveries and payments", screen: "workers", permissions: ["suppliers.portal", "suppliers.create"], keywords: ["add supplier", "new supplier", "supplier login", "supplier portal", "supplier account", "invite supplier", "vendor portal", "supplier app"] },
   { id: "supplier-role", title: "What suppliers can see", description: "Choose what people at your suppliers see when they sign in: orders, price requests, deliveries, statement, their details, your stock (Roles → Supplier)", screen: "permissions", permissions: ["staff.roles"], keywords: ["supplier role", "supplier permissions", "supplier portal", "vendor access"] },
   { id: "rfq", title: "Ask suppliers for prices", description: "Send a draft purchase to several suppliers, enter their prices, pick the best (Buying → Orders → Purchases → open a draft)", screen: "buying", permissions: ["purchases.request_quote"], keywords: ["rfq", "request for quote", "quotation", "compare prices", "cheapest supplier"], target: "purchases-tab" },
   { id: "delivery-requests", title: "Delivery requests", description: "Open deliveries riders can accept or give back", screen: "deliveries", permissions: ["deliveries.view"], keywords: ["accept delivery", "give back", "rider", "request", "open delivery"] },
   { id: "delivery-areas", title: "Delivery areas and prices", description: "Areas you deliver to and what each costs", screen: "deliveries", permissions: ["deliveries.delivery_zones", "deliveries.delivery_price"], keywords: ["zone", "area", "delivery fee", "delivery price", "distance"] },
-  { id: "quotes", title: "Quotes", description: "Prices for a customer before they buy; accept one to make an order (Quotes & Invoices → Quotes)", screen: "invoicing", permissions: ["quotes.view", "quotes.manage"], keywords: ["quote", "quotation", "proforma", "estimate"], target: "quotes-tab" },
-  { id: "sales-orders", title: "Sales orders and deliveries", description: "Deliver an order in parts; stock goes out on each delivery (Quotes & Invoices → Orders)", screen: "invoicing", permissions: ["sales_orders.view", "sales_orders.manage"], keywords: ["sales order", "lpo", "delivery note", "deliver", "dispatch", "wholesale"], target: "orders-tab" },
-  { id: "sales-invoices", title: "Invoices for orders", description: "Invoices with due dates; record M-Pesa, bank or cash payments on them (Quotes & Invoices → Invoices)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["invoice", "bill", "due", "overdue", "pay invoice", "payment terms"], target: "invoices-tab" },
-  { id: "credit-notes", title: "Credit notes and refunds", description: "Lines back from an invoice or a till sale; money back, less owed, wallet or debt (Quotes & Invoices → Credit notes)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["credit note", "refund", "return", "money back", "returned goods"], target: "credit-notes-tab" },
-  { id: "invoice-ageing", title: "Who owes on invoices", description: "What each customer owes by how late it is: not due, 1–30, 31–60, 61–90, over 90 days (Quotes & Invoices → Who owes)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["ageing", "aging", "debtors", "late", "overdue", "receivables", "statement"], target: "invoice-ageing" },
+  { id: "quotes", title: "Quotes", description: "Fill the POS cart and tap Quote (Alt+Q) to send prices; Sales Log → Quotes → Sell in POS when they buy", screen: "sales", permissions: ["quotes.view", "quotes.manage"], keywords: ["quote", "quotation", "proforma", "estimate", "price list"], target: "quotes-tab" },
+  { id: "credit-notes", title: "Refunds and credit notes", description: "Open a sale in the Sales Log and tap Refund: money back, into the wallet or off the debt; the sale stays", screen: "sales", permissions: ["refunds.create", "pos.cancel_sale"], keywords: ["credit note", "refund", "return", "money back", "returned goods"] },
   { id: "pay-supplier", title: "Pay a supplier", description: "What we owe each supplier, and record paying them (Finance → Suppliers)", screen: "finance", permissions: ["accounting.view"], keywords: ["pay supplier", "payables", "creditors", "owe supplier", "supplier balance", "bill"], target: "acc-payables" },
   { id: "balance-sheet", title: "Balance sheet", description: "What the business owns and owes (Finance → Balance sheet)", screen: "finance", permissions: ["accounting.view"], keywords: ["balance sheet", "assets", "liabilities", "net worth", "equity"], target: "acc-balance" },
   { id: "profit-loss", title: "Profit & loss statement", description: "Income, cost of sales and expenses by account (Finance → Profit & loss)", screen: "finance", permissions: ["accounting.view"], keywords: ["p&l", "income statement", "profit and loss"], target: "acc-pnl" },
@@ -229,7 +237,6 @@ export const FEATURES: AppFeature[] = [
   { id: "count-money", title: "Count money & match stock", description: "Set cash, M-Pesa or bank to what is really there; match stock value (Finance → Count money & stock)", screen: "finance", permissions: ["accounting.view"], keywords: ["reconcile", "bank reconciliation", "cash count", "cash short", "stock value"], target: "acc-checks" },
   { id: "purchase-receive", title: "Receive a purchase into stock", description: "Open a purchase and tap Receive: count what came, good and damaged; the rest stays open until it arrives", screen: "buying", permissions: ["purchases.update", "purchases.approve"], keywords: ["receive", "goods received", "grn", "restock", "delivery from supplier", "purchase order"], target: "purchases-tab" },
   { id: "purchases", title: "Purchases", description: "Orders to suppliers: drafts, ordered, received and cancelled", screen: "buying", permissions: ["purchases.view"], keywords: ["purchase", "order", "lpo", "buy"], target: "purchases-tab" },
-  { id: "business-files", title: "Business files", description: "Upload and open licences, contracts and invoices (Assets & Files → Files)", screen: "assets", permissions: ["files.view", "files.manage"], keywords: ["file", "document", "upload", "pdf", "licence", "permit", "contract"], target: "files-tab" },
   { id: "website-banner", title: "Website home banner", description: "The sliding pictures at the top of your website (Online Store → Home banner)", screen: "online-store", permissions: ["business.update"], keywords: ["hero", "banner", "slider", "carousel", "website picture"] },
   { id: "website-pages", title: "Website pages", description: "Edit About, Delivery, Returns and other website pages with photos (Online Store → Pages)", screen: "online-store", permissions: ["business.update"], keywords: ["page editor", "about page", "website text", "terms", "returns"] },
   { id: "promo-codes", title: "Promo codes", description: "Discount codes customers type at checkout on the website (Online Store → Promotions)", screen: "online-store", permissions: ["business.update"], keywords: ["promo", "coupon", "discount code", "voucher", "offer"] },
@@ -238,7 +245,7 @@ export const FEATURES: AppFeature[] = [
   { id: "delete-notifications", title: "Delete notifications", description: "Swipe a notification to delete it, or hold it for more", screen: "notifications", permissions: [], keywords: ["clear notifications", "remove alert", "swipe", "delete"] },
   { id: "home-dashboard", title: "Home figures", description: "Sales, stock and customer figures at a glance", screen: "home", permissions: ["home.view"], keywords: ["dashboard", "figures", "charts", "today"] },
   { id: "app-update", title: "App updates", description: "Check for and install a new version", screen: "about", permissions: [], keywords: ["update", "version", "upgrade", "install"] },
-  { id: "keyboard-shortcuts", title: "Keyboard shortcuts", description: "Every shortcut your role can use", screen: "about", permissions: [], keywords: ["keyboard", "shortcut", "keys", "hotkey"] },
+  { id: "keyboard-shortcuts", title: "Keyboard shortcuts", description: "Every shortcut your role can use", screen: "about", permissions: [], keywords: ["keyboard", "shortcut", "keys", "hotkey"], target: "about-shortcuts" },
 ];
 
 /** The features this role can see: they can open the screen and do the thing. */

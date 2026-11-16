@@ -26,7 +26,9 @@ import {
 } from "./charts";
 import { usePlayback, PlayButton, PlaybackBar, type Playback } from "./playback";
 import ChartViewer, { type ChartDef } from "./ChartViewer";
-import AiAdvisory from "./AiAdvisory";
+import AiAdvisory, { type Advice } from "./AiAdvisory";
+
+const nairobiDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
 
 const RANGE_KEYS: RangeKey[] = ["today", "yesterday", "last7", "last30", "month", "quarter", "year", "custom"];
 const GRAIN_WORD = { hour: "Hourly", day: "Daily", week: "Weekly", month: "Monthly" } as const;
@@ -401,13 +403,25 @@ export default function HomeDashboard() {
     sentimentNegative: 0,
     openComplaintsCount: 0,
   };
-  const aiFallback = () => ({
-    executiveSummary: `${RANGE_LABELS[rangeKey]}: sales of ${formatKsh(total.sales)} from ${total.orders} order${total.orders === 1 ? "" : "s"} (${formatGrowth(growth(total.sales, previous.sales))} ${vsText}). Estimated profit ${formatKsh(total.profit)}. ${stock.outOfStock.length} product${stock.outOfStock.length === 1 ? " is" : "s are"} out of stock and ${stock.lowStock.length} running low.`,
-    suggestedActions: [
-      ...(stock.outOfStock.length ? ["Restock products that have run out"] : []),
-      ...(stock.lowStock.length ? ["Order the products running low"] : []),
-      ...(owing.length ? ["Follow up customers who owe money"] : []),
-      "Check that today's expenses are recorded",
+  // Used when the assistant can't be reached: the same layout, from this device's figures.
+  const aiFallback = (): Advice => ({
+    headline: `${RANGE_LABELS[rangeKey]}: sales of ${formatKsh(total.sales)} from ${total.orders} order${total.orders === 1 ? "" : "s"}, estimated profit ${formatKsh(total.profit)}.`,
+    health: total.profit < 0 || stock.outOfStock.length > 0 ? "act" : stock.lowStock.length > 0 || owing.length > 0 ? "watch" : "good",
+    healthReason: total.profit < 0 ? "Spending was more than sales." : stock.outOfStock.length ? "Some products have run out." : "",
+    whatHappened: [`Sales were ${formatGrowth(growth(total.sales, previous.sales))} ${vsText}.`],
+    cash: owing.length ? `Customers owe ${formatKsh(owingTotal)} in total.` : "",
+    actions: [
+      ...(stock.outOfStock.length ? [{ title: "Restock what has run out", why: stock.outOfStock.slice(0, 3).map((p) => p.name).join(", "), screen: "inventory", amount: 0 }] : []),
+      ...(stock.lowStock.length ? [{ title: "Order what is running low", why: `${stock.lowStock.length} product${stock.lowStock.length === 1 ? "" : "s"} below their minimum`, screen: "buying", amount: 0 }] : []),
+      ...(owing.length ? [{ title: "Collect money owed", why: `${owing[0].name} owes ${formatKsh(owing[0].debtBalance || 0)}`, screen: "customers", amount: owingTotal }] : []),
+      { title: "Record today's expenses", why: "Profit is only right when every cost is in.", screen: "money", amount: 0 },
+    ],
+    watchOuts: [],
+    scorecard: [
+      { label: "Sales", value: formatKsh(total.sales) },
+      { label: "Estimated profit", value: formatKsh(total.profit), tone: total.profit >= 0 ? "good" : "bad" },
+      { label: "Orders", value: String(total.orders) },
+      { label: "Customers owe", value: formatKsh(owingTotal) },
     ],
   });
 
@@ -560,7 +574,7 @@ export default function HomeDashboard() {
           </Card>
         </Rail>
         <div className="rounded-2xl border border-app-border bg-app-card p-4 sm:p-5">
-          <AiAdvisory businessId={activeBusinessId} metrics={aiMetrics} fallback={aiFallback} />
+          <AiAdvisory businessId={activeBusinessId} metrics={aiMetrics} period={{ start: nairobiDay(range.start), end: nairobiDay(range.end) }} fallback={aiFallback} />
         </div>
       </section>
 

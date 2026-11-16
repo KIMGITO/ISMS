@@ -8,7 +8,7 @@ export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
   | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers"
-  | "suppliers" | "assets" | "audit" | "accounting" | "invoicing" | "buying";
+  | "suppliers" | "audit" | "accounting" | "buying";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -40,7 +40,6 @@ export const SCREENS: AppScreen[] = [
   { id: "prompt", group: "Money", title: "Payment Prompts", description: "Send an M-Pesa or Airtel Money prompt to a phone and watch it get paid", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finance & Accounting", description: "Profit or loss, income and spending, the books, balance sheet, journal, VAT, who owes and money counts", keywords: ["finance", "profit", "loss", "income", "spending", "report", "debts", "p&l", "accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock", "wallets", "points cost"], permissions: ["finance.view", "accounting.view"] },
-  { id: "invoicing", group: "Selling", title: "Quotes & Invoices", description: "Quotes, sales orders, deliveries, invoices, payments on them, credit notes and who owes", keywords: ["quote", "quotation", "proforma", "estimate", "sales order", "order", "lpo", "delivery note", "invoice", "bill", "credit note", "refund", "return", "ageing", "aging", "overdue", "terms", "b2b", "wholesale"], permissions: ["quotes.view", "quotes.manage", "sales_orders.view", "sales_orders.manage", "invoices.view", "invoices.manage"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
   { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
@@ -48,8 +47,7 @@ export const SCREENS: AppScreen[] = [
   { id: "permissions", group: "Team", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
   { id: "ai", group: "Business", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
   { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
-  { id: "assets", group: "Business", title: "Assets & Files", description: "What the business owns, and its documents", keywords: ["assets", "equipment", "fridge", "cooler", "motorbike", "files", "documents", "upload", "licence", "contract", "pdf"], permissions: ["assets.view", "assets.manage", "files.view", "files.manage"] },
-  { id: "audit", group: "Team", title: "Audit Log", description: "Who changed what: products, suppliers, purchases, assets, files, PINs and roles", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
+  { id: "audit", group: "Team", title: "Audit Log", description: "Who changed what: products, suppliers, purchases, PINs and roles", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
   { id: "business-management", group: "Business", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
   { id: "settings", group: "You & the app", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
   { id: "notifications", group: "You & the app", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },
@@ -66,6 +64,10 @@ export const SCREEN_BY_ID = new Map(SCREENS.map((s) => [s.id, s]));
 export const SCREEN_ALIASES: Record<string, { screen: ScreenId; section: string }> = {
   accounting: { screen: "finance", section: "books" },
   suppliers: { screen: "buying", section: "suppliers" },
+  // Quotes moved into POS (make) and the Sales Log (list); invoices live in Loyalty.
+  invoicing: { screen: "sales", section: "quotes" },
+  // Assets & Files was removed; files are added where they are used.
+  assets: { screen: "home", section: "" },
 };
 
 /** The screen an id really opens (itself, or the screen it was merged into). */

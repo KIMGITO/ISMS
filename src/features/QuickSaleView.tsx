@@ -16,10 +16,11 @@ import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
 
 const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; icon: typeof Banknote; style: string }> = [
-  { method: 'Cash', label: 'Cash', key: 'F1', icon: Banknote, style: 'bg-emerald-600 hover:bg-emerald-700' },
-  { method: 'M-Pesa', label: 'M-Pesa', key: 'F2', icon: Smartphone, style: 'bg-green-700 hover:bg-green-800' },
-  { method: 'Card', label: 'Card', key: 'F3', icon: CreditCard, style: 'bg-blue-600 hover:bg-blue-700' },
-  { method: 'Airtel Money', label: 'Airtel', key: 'F4', icon: Smartphone, style: 'bg-red-600 hover:bg-red-700' },
+  // Same numbers as POS: Alt+1 Cash, Alt+2 M-Pesa, Alt+4 Card, Alt+6 Airtel Money.
+  { method: 'Cash', label: 'Cash', key: 'Alt+1', icon: Banknote, style: 'bg-emerald-600 hover:bg-emerald-700' },
+  { method: 'M-Pesa', label: 'M-Pesa', key: 'Alt+2', icon: Smartphone, style: 'bg-green-700 hover:bg-green-800' },
+  { method: 'Card', label: 'Card', key: 'Alt+4', icon: CreditCard, style: 'bg-blue-600 hover:bg-blue-700' },
+  { method: 'Airtel Money', label: 'Airtel', key: 'Alt+6', icon: Smartphone, style: 'bg-red-600 hover:bg-red-700' },
 ];
 
 // Sale quantities are stored with up to 3 decimals (e.g. 0.25 kg).
@@ -199,14 +200,16 @@ export default function QuickSaleView() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const payOption = payOptions.find((option) => option.key === e.key);
+    // e.code, so Alt+number works whatever the keyboard layout types for it.
+    const altKey = e.altKey && !e.ctrlKey && !e.metaKey ? (e.code.startsWith('Digit') ? `Alt+${e.code.slice(5)}` : e.code === 'KeyC' ? 'Alt+C' : e.code === 'KeyR' ? 'Alt+R' : '') : '';
+    const payOption = altKey ? payOptions.find((option) => option.key === altKey) : undefined;
     if (payOption) {
       e.preventDefault();
       pay(payOption.method);
-    } else if (e.key === 'F7') {
+    } else if (altKey === 'Alt+C') {
       e.preventDefault();
       (document.querySelector('[aria-label="Current sale"] [data-shortcut="add-customer"]') as HTMLElement | null)?.click();
-    } else if (e.key === 'F8') {
+    } else if (altKey === 'Alt+R') {
       e.preventDefault();
       if (lastSale?.tx) {
         setReceiptAutoPrint(false);
@@ -330,7 +333,7 @@ export default function QuickSaleView() {
                 className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 cursor-pointer"
               >
                 <ReceiptText size={14} aria-hidden="true" /> Receipt
-                <kbd className="hidden md:inline px-1 rounded border border-white/40 text-[10px] font-mono">F8</kbd>
+                <kbd className="hidden md:inline px-1 rounded border border-white/40 text-[10px] font-mono">Alt+R</kbd>
               </button>
             )}
           </motion.div>

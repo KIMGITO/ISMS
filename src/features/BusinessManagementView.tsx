@@ -12,6 +12,7 @@ import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
 import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
 import AirtelPaymentsPanel from "../components/payments/AirtelPaymentsPanel";
 import PaymentMethodsPanel from "../components/payments/PaymentMethodsPanel";
+import ExpensesPanel from "../components/payments/ExpensesPanel";
 import { usePaymentMethods } from "../hooks/usePaymentMethods";
 import CardChargeSheet, { type CardChargeResult, describeCard } from "../components/payments/CardChargeSheet";
 import { MONEY_METHODS, methodLabel, normalizeReference, referenceHint } from "../utils/paymentMethods";
@@ -24,13 +25,12 @@ import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
 import { canOpenScreen } from "../utils/screens";
 import { useUiStore } from "../stores/uiStore";
-import type { ExpenseCategory, MoneyMethod } from "../types";
+import type { MoneyMethod } from "../types";
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
 import { useKraStatus } from '../services/kra/kraService';
 
 // Shown only until the business's own list has loaded.
-const DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Wages", "Transport", "Utilities", "Maintenance", "Marketing", "Supplies", "Other"];
 
 const COLOR_PRESETS = [
   { name: "KayKay's Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
@@ -130,18 +130,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
   );
   const isMoney = section === "money";
 
-  // Expenses States
-  const [expAmount, setExpAmount] = useState("");
-  const [expCategory, setExpCategory] = useState("Rent");
-  const [expDescription, setExpDescription] = useState("");
-  const [expDate, setExpDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [expStaffName, setExpStaffName] = useState("");
-  const [expenseSubmitting, setExpenseSubmitting] = useState(false);
-  const [localExpenses, setLocalExpenses] = useState<any[]>([]);
-  const [expPaymentMethod, setExpPaymentMethod] = useState<MoneyMethod>("Cash");
-  const [localCategories, setLocalCategories] = useState<ExpenseCategory[]>([]);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
 
   // Voiding a payment
   const [voidingId, setVoidingId] = useState<string | null>(null);
@@ -175,26 +163,15 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [payMethodDisplay, setPayMethodDisplay] = useState<"modern" | "classic">("modern");
   const [payFilter, setPayFilter] = useState<"all" | "customer" | "walk-in">("all");
 
-  // Sync current employee for default staff name in expense
-  useEffect(() => {
-    if (currentEmployee) {
-      setExpStaffName(currentEmployee.name || "");
-    }
-  }, [currentEmployee]);
 
   // Subscribe to real-time repositories
   useEffect(() => {
     if (!activeBusinessId) return;
-    let unsubExp: (() => void) | undefined;
     let unsubPay: (() => void) | undefined;
     let unsubAssets: (() => void) | undefined;
     let unsubCust: (() => void) | undefined;
-    let unsubCat: (() => void) | undefined;
 
     import("../services/repositories").then((mod) => {
-      unsubExp = mod.ExpenseRepository.subscribe((exps) => {
-        setLocalExpenses(exps);
-      });
       unsubPay = mod.PaymentRepository.subscribe((pays) => {
         setLocalPayments(pays);
       });
@@ -204,52 +181,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
       unsubCust = mod.CustomerRepository.subscribe((custs) => {
         setLocalCustomers(custs);
       });
-      unsubCat = mod.ExpenseCategoryRepository.subscribe((cats) => {
-        setLocalCategories(cats);
-      });
     }).catch(err => console.error("Failed to load repositories in BusinessManagementView", err));
 
     return () => {
-      if (unsubExp) unsubExp();
       if (unsubPay) unsubPay();
       if (unsubAssets) unsubAssets();
       if (unsubCust) unsubCust();
-      if (unsubCat) unsubCat();
     };
   }, [activeBusinessId]);
-
-  const handleAddExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeBusinessId) return;
-    const amountNum = Number(expAmount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      showToast("Something went wrong", "Enter an amount above zero.", undefined, "error");
-      return;
-    }
-    const cashierName = expStaffName.trim() || currentEmployee?.name || "System";
-    setExpenseSubmitting(true);
-    try {
-      const { ExpenseRepository } = await import("../services/repositories");
-      await ExpenseRepository.add({
-        amount: amountNum,
-        category: expCategory,
-        categoryId: localCategories.find((c) => c.name === expCategory)?.id,
-        description: expDescription.trim(),
-        date: new Date(expDate).toISOString(),
-        staffName: cashierName,
-        businessId: activeBusinessId,
-        paymentMethod: expPaymentMethod as any
-      });
-      showToast("Success", "Operational expense recorded successfully.", undefined, "success");
-      setExpAmount("");
-      setExpDescription("");
-    } catch (err: any) {
-      console.error(err);
-      showToast("Something went wrong", toUserMessage(err, "Could not save the expense."), undefined, "error");
-    } finally {
-      setExpenseSubmitting(false);
-    }
-  };
 
   const resetPaymentForm = () => {
     setPayRef("");
@@ -481,21 +420,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
   const isOwner = currentEmployee?.role === 'Owner';
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!isOwner) return;
-    if (!(await appDialog.confirm({ title: "Delete this expense?", message: "This can't be undone.", confirmLabel: "Delete", destructive: true }))) return;
-    try {
-      const { ExpenseRepository } = await import("../services/repositories");
-      await ExpenseRepository.delete(id);
-      showToast("Deleted", "Expense record deleted successfully.", undefined, "success");
-    } catch (err: any) {
-      console.error(err);
-      showToast("Something went wrong", toUserMessage(err, "Could not delete the expense."), undefined, "error");
-    }
-  };
-
   const canVoidPayments = hasRolePermission(currentEmployee?.role || 'Guest', 'payments.manage');
-  const canAddCategories = hasRolePermission(currentEmployee?.role || 'Guest', 'expenses.create');
 
   const handleVoidPayment = async (id: string) => {
     if (!voidReason.trim()) {
@@ -517,31 +442,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
     }
   };
 
-  const handleAddCategory = async () => {
-    const name = newCategoryName.trim();
-    if (!name || !activeBusinessId) return;
-    if (localCategories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-      setExpCategory(localCategories.find((c) => c.name.toLowerCase() === name.toLowerCase())!.name);
-      setNewCategoryName("");
-      setIsAddingCategory(false);
-      return;
-    }
-    try {
-      const { ExpenseCategoryRepository } = await import("../services/repositories");
-      const created = await ExpenseCategoryRepository.add({ name, status: "Enabled", isCustom: true, businessId: activeBusinessId });
-      setLocalCategories((cats) => [...cats, created]);
-      setExpCategory(created.name);
-      setNewCategoryName("");
-      setIsAddingCategory(false);
-    } catch (err: any) {
-      showToast("Could Not Add", toUserMessage(err, "Could not add the category."), undefined, "error");
-    }
-  };
-
-  const categoryItems = (localCategories.length > 0
-    ? localCategories.filter((c) => c.status === "Enabled").map((c) => c.name)
-    : DEFAULT_EXPENSE_CATEGORIES
-  ).map((name) => ({ id: name, label: name }));
 
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1311,268 +1211,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 </form>
               )}
 
-              {isMoney && activeSubTab === 'expenses' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
-                  {/* Expense Recorder Form */}
-                  <form
-                    onSubmit={handleAddExpense}
-                    className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
-                  >
-                    <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
-                      <Receipt size={14} className="text-amber-500" />
-                      <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                        Record Operational Expense
-                      </h3>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Amount (KSh) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        placeholder="e.g. 5000"
-                        value={expAmount}
-                        onChange={(e) => setExpAmount(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Expense Category *
-                      </label>
-                      <SearchableDropdown
-                        items={categoryItems}
-                        selectedValue={expCategory}
-                        onChange={(val) => setExpCategory(val)}
-                        placeholder="Select category..."
-                      />
-                      {canAddCategories && (isAddingCategory ? (
-                        <div className="flex gap-2 mt-1">
-                          <input
-                            type="text"
-                            autoFocus
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); }
-                              if (e.key === 'Escape') setIsAddingCategory(false);
-                            }}
-                            placeholder="New category name"
-                            className="flex-1 min-w-0 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddCategory}
-                            disabled={!newCategoryName.trim()}
-                            className="px-3 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsAddingCategory(false)}
-                            aria-label="Cancel"
-                            className="px-2 py-2 border border-app-border rounded-xl text-app-text-muted cursor-pointer"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingCategory(true)}
-                          className="self-start mt-1 text-[10px] font-bold text-amber-500 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus size={10} /> Add a category
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Date *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={expDate}
-                        onChange={(e) => setExpDate(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Staff / Recorder Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Staff Name..."
-                        value={expStaffName}
-                        onChange={(e) => setExpStaffName(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Description (Optional)
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                        Payment Method / Source *
-                      </label>
-                      <SearchableDropdown
-                        items={MONEY_METHODS.map((m) => ({ id: m, label: methodLabel(m) }))}
-                        selectedValue={expPaymentMethod}
-                        onChange={(val) => setExpPaymentMethod(val as MoneyMethod)}
-                        placeholder="Choose a payment method"
-                      />
-                    </div>
-
-                      </label>
-                      <textarea
-                        rows={3}
-                        placeholder="Describe the nature of this expense..."
-                        value={expDescription}
-                        onChange={(e) => setExpDescription(e.target.value)}
-                        className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-medium"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={expenseSubmitting}
-                      className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
-                    >
-                      <Save size={14} />
-                      <span>
-                        {expenseSubmitting ? 'Recording...' : 'Record Expense'}
-                      </span>
-                    </button>
-                  </form>
-
-                  {/* Expenses Directory / List */}
-                  <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col">
-                    <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
-                      <div className="flex items-center gap-2">
-                        <Receipt size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Recorded Operational Expenses
-                        </h3>
-                      </div>
-                      <span className="text-[9px] font-mono text-app-text-muted font-black">
-                        {localExpenses.length} Record(s)
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-x-auto min-h-[300px] max-h-[500px]">
-                      {localExpenses.length > 0 && (
-                        // Phones: cards you can swipe left to delete. Wider screens keep the table.
-                        <ul className="md:hidden divide-y divide-app-border/30">
-                          {localExpenses.map((exp) => (
-                            <SwipeRow
-                              key={exp.id}
-                              searchId={`exp-${exp.id}`}
-                              as="li"
-                              title={`${exp.category} · KSh ${Number(exp.amount).toLocaleString()}`}
-                              subtitle={exp.description || undefined}
-                              disabled={!isOwner}
-                              actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', onClick: () => handleDeleteExpense(exp.id) }]}
-                              contentClassName="flex items-start gap-3 py-2.5 px-1"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-app-text">{exp.category}</p>
-                                <p className="text-[10.5px] text-app-text-muted truncate">
-                                  {new Date(exp.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  {exp.staffName ? ` · ${exp.staffName}` : ''}
-                                  {exp.description ? ` · ${exp.description}` : ''}
-                                </p>
-                              </div>
-                              <span className="text-xs font-black font-mono text-red-500 shrink-0">KSh {Number(exp.amount).toLocaleString()}</span>
-                            </SwipeRow>
-                          ))}
-                        </ul>
-                      )}
-                      {localExpenses.length > 0 ? (
-                        <table className="hidden md:table w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-app-border/40 text-[9px] text-app-text-muted font-bold uppercase tracking-wider">
-                              <th className="py-2.5">Date</th>
-                              <th className="py-2.5">Category</th>
-                              <th className="py-2.5">Staff</th>
-                              <th className="py-2.5">Description</th>
-                              <th className="py-2.5 text-right">Amount</th>
-                              {isOwner && <th className="py-2.5 text-center">Actions</th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-app-border/20 text-xs">
-                            {localExpenses.map((exp) => (
-                              <tr
-                                key={exp.id}
-                                data-search-id={`exp-${exp.id}`}
-                                className="hover:bg-app-bg/30 transition"
-                              >
-                                <td className="py-2.5 font-mono text-[10.5px]">
-                                  {new Date(exp.date).toLocaleDateString(
-                                    undefined,
-                                    {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    },
-                                  )}
-                                </td>
-                                <td className="py-2.5 font-bold text-app-text">
-                                  {exp.category}
-                                </td>
-                                <td className="py-2.5 text-app-text-muted font-semibold">
-                                  {exp.staffName}
-                                </td>
-                                <td
-                                  className="py-2.5 text-app-text-muted max-w-[200px] truncate"
-                                  title={exp.description}
-                                >
-                                  {exp.description || '—'}
-                                </td>
-                                <td className="py-2.5 text-right font-black font-mono text-red-500">
-                                  KSh {Number(exp.amount).toLocaleString()}
-                                </td>
-                                {isOwner && (
-                                  <td className="py-2.5 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteExpense(exp.id)}
-                                      title="Delete expense"
-                                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </td>
-                                )}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
-                          <Receipt size={32} className="text-slate-700 mb-2" />
-                          <p className="text-[10.5px] font-bold">
-                            No Operational Expenses Logged
-                          </p>
-                          <p className="text-[9.5px] max-w-xs mt-0.5">
-                            Expenses recorded using the form on the left will
-                            sync here and update analytics in real-time.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {isMoney && activeSubTab === 'expenses' && <ExpensesPanel />}
 
               {isMoney && activeSubTab === 'mpesa' && (
                 <MpesaPaymentsPanel customers={localCustomers} />

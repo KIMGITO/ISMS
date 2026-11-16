@@ -46,7 +46,7 @@ export async function listSuppliers(businessId: string): Promise<Supplier[]> {
   return (data || []).map(toSupplier);
 }
 
-export async function saveSupplier(businessId: string, draft: SupplierDraft, id?: string, staffName = 'staff') {
+export async function saveSupplier(businessId: string, draft: SupplierDraft, id?: string, staffName = 'staff'): Promise<string> {
   const row = {
     name: draft.name.trim(),
     company: draft.company.trim() || null,
@@ -57,10 +57,14 @@ export async function saveSupplier(businessId: string, draft: SupplierDraft, id?
     last_modified_by: staffName,
   };
   const db = getSupabase().from('suppliers');
-  const { error } = id
-    ? await db.update(row).eq('id', id)
-    : await db.insert({ ...row, business_id: toUuid(businessId) });
+  if (id) {
+    const { error } = await db.update(row).eq('id', id);
+    if (error) throw error;
+    return id;
+  }
+  const { data, error } = await db.insert({ ...row, business_id: toUuid(businessId) }).select('id').single();
   if (error) throw error;
+  return String(data.id);
 }
 
 /** Soft delete: past purchases keep the supplier's name. */

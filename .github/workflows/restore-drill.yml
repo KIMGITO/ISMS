@@ -1,0 +1,79 @@
+name: Restore drill
+
+# Every Monday: download the newest database backup, open it with the passphrase, restore it
+# into a fresh local Supabase on the runner, and check every table has exactly the rows the
+# backup says it holds. Uses the same scripts/db-backup.sh restore the developer uses, so a
+# green drill means the developer's way back works too. A failed drill is posted to Telegram.
+
+on:
+  schedule:
+    - cron: "40 1 * * 1" # Monday 01:40 UTC = 04:40 Nairobi, after that night's daily copy
+  workflow_dispatch:
+    inputs:
+      backup:
+        description: Backup name (kaykays-db-YYYYMMDD-HHMM), or latest
+        default: latest
+
+permissions:
+  contents: read
+  actions: read # artifact fallback: download backups kept as run artifacts
+
+concurrency:
+  group: restore-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: Restore the newest backup and check it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'kaykays-backups' }}
+      GH_TOKEN: ${{ github.token }}
+      KAYKAYS_BACKUP_HOME: ${{ github.workspace }}/../drill
+      RESTORE_DB_ONLY: "1" # Studio is for people; the check needs only the database
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Restore and check
+        env:
+          WANT: ${{ inputs.backup || 'latest' }}
+        run: |
+          set -euo pipefail
+          scripts/db-backup.sh restore "$WANT"
+          # Fail the drill if the newest backup is stale: the hourly job may be quietly broken.
+          taken="$(cat "$KAYKAYS_BACKUP_HOME"/kaykays-db-*/taken-at.txt | sort | tail -1)"
+          age_h=$(( ( $(date -u +%s) - $(date -u -d "$taken" +%s) ) / 3600 ))
+          echo "AGE_H=$age_h" >> "$GITHUB_ENV"
+          if [ "$WANT" = latest ] && [ "$age_h" -gt 26 ]; then
+            echo "::error::The newest backup is $age_h hours old."
+            exit 1
+          fi
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### Restore drill passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Newest backup was $AGE_H h old; every table restored with the rows it should have." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up
+        if: always()
+        run: scripts/db-backup.sh stop || true
+
+      - name: Tell Telegram
+        if: failure()
+        uses: ./.github/actions/telegram-notify
+        with:
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          status: failure
+          title: Restore drill failed
+          details: "This week's test restore of the newest database backup failed, so the backups may not bring the data back. Open the run and fix it before anything else."

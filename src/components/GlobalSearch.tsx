@@ -12,7 +12,7 @@ import {
   Bell, Key, FileText, Clock, Home, Bot, Shield, Settings,
   Briefcase, Tag, Boxes, History, Truck, ShoppingCart, CreditCard,
   FilePlus, Package, Factory, Layers, BookOpen, TrendingDown,
-  DollarSign, Mail, Activity, HardDrive, File
+  DollarSign, Mail, Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getSupabase } from "../services/supabaseClient";
@@ -24,7 +24,7 @@ import { formatReceiptNo } from "../services/receipt/ReceiptGenerator";
 import { ReceiptService } from "../services/receipt/ReceiptService";
 import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
 import { spotlight } from "../utils/searchSpotlight";
-import { listPurchases, listAssets, listFiles, listAudit, purchaseRef, describeAction, type PurchaseOrder, type Asset, type StoredFile, type AuditEntry } from "../services/operations";
+import { listPurchases, listAudit, purchaseRef, describeAction, type PurchaseOrder, type AuditEntry } from "../services/operations";
 
 interface SearchResult {
   id: string;
@@ -72,8 +72,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [storageFiles, setStorageFiles] = useState<StoredFile[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
 
   useEffect(() => {
@@ -116,20 +114,16 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           setExpenses(exps);
         }
 
-        // Purchases, assets, files and the audit log, each only for a role that may see it.
+        // Purchases and the audit log, each only for a role that may see it.
         const role = currentEmployee?.role || "Guest";
         const may = (...codes: string[]) => codes.some((c) => hasRolePermission(role, c as any));
         const quiet = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
-        const [pur, ast, fil, aud] = await Promise.all([
+        const [pur, aud] = await Promise.all([
           may("purchases.view") ? quiet(listPurchases(activeBusinessId, 200)) : Promise.resolve([]),
-          may("assets.view", "assets.manage") ? quiet(listAssets(activeBusinessId)) : Promise.resolve([]),
-          may("files.view", "files.manage") ? quiet(listFiles(activeBusinessId)) : Promise.resolve([]),
           may("audit.view") ? quiet(listAudit(activeBusinessId, { limit: 200 })) : Promise.resolve([]),
         ]);
         if (active) {
           setPurchases(pur as PurchaseOrder[]);
-          setAssets(ast as Asset[]);
-          setStorageFiles(fil as StoredFile[]);
           setAuditLogs(aud as AuditEntry[]);
         }
       } catch (e) {
@@ -205,10 +199,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         return hasRolePermission(currentEmployee.role, "audit.view");
       case "Settings":
         return hasRolePermission(currentEmployee.role, "settings.view");
-      case "Storage Files":
-        return hasRolePermission(currentEmployee.role, "files.view") || hasRolePermission(currentEmployee.role, "files.manage");
-      case "Business Assets":
-        return hasRolePermission(currentEmployee.role, "assets.view") || hasRolePermission(currentEmployee.role, "assets.manage");
       case "Features": // already limited to what this role can open and do
       case "Keyboard Shortcuts": // same
       case "Screens": // already limited to screens this role can open
@@ -1014,49 +1004,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 26. Search Storage Files
-    storageFiles.forEach(file => {
-      const score = Math.max(getRelevance(file.name, lower), getRelevance(file.uploadedBy, lower));
-      if (score > 0) {
-        matched.push({
-          id: `file-${file.id}`,
-          title: file.name,
-          subtitle: `${file.size} · Uploaded by ${file.uploadedBy} · ${new Date(file.date).toLocaleDateString()}`,
-          category: "Storage Files",
-          businessName: activeBizName,
-          relevance: score,
-          spot: { press: "files-tab" },
-          action: () => {
-            onNavigateTab("assets");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
-    // 27. Search Business Assets
-    assets.forEach(asset => {
-      const score = Math.max(getRelevance(asset.name, lower), getRelevance(asset.code, lower), asset.serialNumber ? getRelevance(asset.serialNumber, lower) : 0, asset.location ? getRelevance(asset.location, lower) : 0);
-      if (score > 0) {
-        matched.push({
-          id: `asset-${asset.id}`,
-          title: asset.name,
-          subtitle: `${asset.code}${asset.serialNumber ? ` · Serial ${asset.serialNumber}` : ""} · KSh ${asset.value.toLocaleString()} · ${asset.status}${asset.location ? ` · ${asset.location}` : ""}`,
-          category: "Business Assets",
-          businessName: activeBizName,
-          status: asset.status,
-          relevance: score + 5,
-          spot: { press: "assets-tab" },
-          action: () => {
-            onNavigateTab("assets");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
     // 28. Shifts
     shifts.forEach(s => {
       const emp = employees.find(e => e.id === s.employeeId);
@@ -1231,7 +1178,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   useEffect(() => {
     if (query.trim()) handleSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suppliers, expenses, purchases, assets, storageFiles, auditLogs]);
+  }, [suppliers, expenses, purchases, auditLogs]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || results.length === 0) return;
@@ -1313,7 +1260,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           >
             {results.length === 0 ? (
               <div className="p-6 text-center text-xs text-app-text-muted">
-                No matching records, documents, batches, assets, audit logs, or settings found.
+                No matching records, documents, batches, audit logs, or settings found.
               </div>
             ) : (
               // Grouped Results
@@ -1356,9 +1303,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                           res.category === "Reports" ? FileText :
                           res.category === "AI Insights" ? Bot :
                           res.category === "Audit Logs" ? Activity :
-                          res.category === "Settings" ? Settings :
-                          res.category === "Storage Files" ? File :
-                          res.category === "Business Assets" ? HardDrive : Sliders;
+                          res.category === "Settings" ? Settings : Sliders;
 
                         return (
                           <div

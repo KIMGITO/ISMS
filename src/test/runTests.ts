@@ -29,6 +29,8 @@ import { cannotAttachReason } from "../services/saleCustomer";
 import { SHORTCUTS, FEATURES, GO_TO_KEYS, shortcutsFor, featuresFor } from "../utils/shortcuts";
 import { DEFAULT_POINT_SETTINGS, pointValueFor, pointsPerShilling } from "../services/loyalty/pointValue";
 import { customerName, readableIds } from "../utils/stringUtils";
+import { fillMessage, unknownVariables, emptyFor, validCustomKey, keyFromLabel, BUILT_IN_VARIABLES } from "../services/messaging/messageVariables";
+import { groupMatcher, describeGroups } from "../services/messaging/customerGroups";
 import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/invoice/invoiceDraft";
 import { contactsLine, defaultInvoiceTexts, receiptClosing } from "../services/invoice/invoiceSettings";
 import { closingOf } from "../services/invoice/invoicePdf";
@@ -788,8 +790,11 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView", "SalesDocsView", "BuyingView"]
-    .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AccountingView", "BuyingView", "SalesView", "POSView", "WorkersView", "AboutView"]
+    .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8"))
+    // Screens built from panels: their buttons live in these components.
+    .concat(["payments/ExpensesPanel", "sales/QuotesPanel"].map((f) => readFileSync(`src/components/${f}.tsx`, "utf8")))
+    .join("\n");
   // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
   const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);
   for (const sc of SHORTCUTS.filter((x) => x.target)) {
@@ -1099,7 +1104,70 @@ runTest("Points are worth less per point in higher tiers, as in the database", (
   if (pointValueFor(DEFAULT_POINT_SETTINGS, undefined) !== DEFAULT_POINT_SETTINGS.bronze) throw new Error("no tier counts as Bronze");
   const sql = SCHEMA_SQL;
   if (!/WHEN 'Gold' THEN 0\.005 WHEN 'Silver' THEN 0\.01 ELSE 0\.02/.test(sql)) throw new Error("database tier values differ from the app's");
-  if (/wallet_balance = v_wallet|'wallet_topup'/.test(sql.slice(sql.indexOf("FUNCTION public.fn_redeem_points")))) throw new Error("points must not become wallet money");
+  const redeemAt = sql.search(/FUNCTION "?public"?\."?fn_redeem_points"?/);
+  if (redeemAt < 0) throw new Error("fn_redeem_points not found in the schema");
+  const redeem = sql.slice(redeemAt, sql.indexOf("$$;", redeemAt));
+  if (/wallet_balance\s*=|'wallet_topup'/.test(redeem)) throw new Error("points must not become wallet money");
+});
+
+runTest("Points rules are the same in the database, the app and the website", () => {
+  const sql = SCHEMA_SQL;
+  const body = (name: string) => {
+    const at = sql.search(new RegExp(`FUNCTION "?public"?\\."?${name}"?\\(`));
+    if (at < 0) throw new Error(`${name} not found in the schema`);
+    return sql.slice(at, sql.indexOf("$$;", at));
+  };
+  // Earning: 2 per KSh paid (delivery excluded), 1 per KSh of debt repaid.
+  if (POINTS_PER_KSH !== 2 || DEBT_PAYMENT_POINTS_PER_KSH !== 1) throw new Error("app earning rates changed");
+  if (!/p_delivery_fee, 0\)\) \* 2\)/.test(body("fn_sale_points"))) throw new Error("database sale points are not 2 per KSh");
+  if (!/FLOOR\(NEW\.amount_paid\)/.test(body("fn_debt_payment_points"))) throw new Error("database debt points are not 1 per KSh");
+  if (!/'pointsPerShilling', 2\b/.test(sql)) throw new Error("the website is told a different earning rate");
+  // Tiers: Silver from 20,000 points, Gold from 60,000, never down.
+  const tier = body("calculate_customer_tier");
+  if (!/points >= 60000[\s\S]*'Gold'[\s\S]*points >= 20000[\s\S]*'Silver'/.test(tier)) throw new Error("tier levels changed");
+  if (!/GREATEST\(NEW\.tier/.test(body("fn_raise_customer_tier"))) throw new Error("tiers must only go up");
+  const site = readFileSync("website/src/infoPages.ts", "utf8");
+  if (!site.includes("20,000") || !site.includes("60,000")) throw new Error("the website's points page must give the tier levels");
+  if (!/debt/i.test(site.slice(site.indexOf("function pointsLines")))) throw new Error("the website's points page must say repaid debt earns points");
+  const rewards = readFileSync("website/src/pages/RewardsTab.tsx", "utf8");
+  if (/goes to your wallet|Each point is worth Ksh \{/.test(rewards)) throw new Error("the website's Rewards tab describes points wrongly");
+  // The minimum is checked wherever points are used.
+  for (const fn of ["fn_redeem_points", "spend_points_at_till"]) if (!body(fn).includes("min_redeem_points")) throw new Error(`${fn} skips the minimum`);
+});
+
+runTest("Messages fill each customer's own values and catch unknown variables", () => {
+  const ctx = { businessName: "Mama Mboga", businessPhone: "0700 111222", currency: "KSh", points: DEFAULT_POINT_SETTINGS, custom: [{ key: "offer_ends", label: "Offer ends", value: "Sunday" }] };
+  const jane = { id: "c1", name: "jane wanjiku", phone: "0712", email: "", loyaltyPoints: 1000, joinDate: "2026-01-01", tier: "Bronze" as const, purchasesCount: 3, debtBalance: 1250.5, walletBalance: 0, accountNumber: "C77" };
+  const out = fillMessage("Hi {first_name}, you owe {debt} at {store_name} ({business_name}). Points: {points} worth {points_value}. Ends {offer_ends}. {nope}", jane, ctx);
+  const want = "Hi Jane, you owe KSh 1,250.50 at Mama Mboga (Mama Mboga). Points: 1,000 worth KSh 20. Ends Sunday. {nope}";
+  if (out !== want) throw new Error(out);
+  if (fillMessage("{ First_Name }", jane, ctx) !== "Jane") throw new Error("variables ignore case and spaces");
+  if (unknownVariables("{first_name} {nope} {debt}", ctx).join() !== "nope") throw new Error("unknown variables not found");
+  const blanks = emptyFor("{debt}", [jane, { ...jane, id: "c2", debtBalance: 0 }], ctx);
+  if (blanks.length !== 1 || blanks[0].count !== 1) throw new Error("one customer owes nothing");
+  if (fillMessage("{points}", jane, { ...ctx, points: { ...DEFAULT_POINT_SETTINGS, enabled: false } }) !== "0") throw new Error("points off reads as 0");
+  if (validCustomKey("first_name") === null || validCustomKey("Bad Key") === null || validCustomKey("offer_ends") !== null) throw new Error("custom key rules");
+  if (keyFromLabel("Offer ends!") !== "offer_ends") throw new Error(keyFromLabel("Offer ends!"));
+  // Every built-in key fits the database check on message_variables keys, so the two can't collide silently.
+  for (const v of BUILT_IN_VARIABLES) if (!/^[a-z][a-z0-9_]{1,29}$/.test(v.key)) throw new Error(v.key);
+});
+
+runTest("Customer groups: any within a section, all across sections", () => {
+  const base = { id: "", name: "x", phone: "", email: "", loyaltyPoints: 0, joinDate: "2020-01-01", tier: "Bronze" as const, purchasesCount: 0 };
+  const people = [
+    { ...base, id: "gold-owes", tier: "Gold" as const, debtBalance: 500 },
+    { ...base, id: "silver-owes", tier: "Silver" as const, debtBalance: 9000 },
+    { ...base, id: "gold-clear", tier: "Gold" as const, debtBalance: 0 },
+    { ...base, id: "bronze-owes", debtBalance: 100 },
+  ];
+  const ids = (groups: string[]) => people.filter(groupMatcher(groups, { points: DEFAULT_POINT_SETTINGS })).map((c) => c.id).join();
+  if (ids([]) !== "gold-owes,silver-owes,gold-clear,bronze-owes") throw new Error("no groups is everyone");
+  if (ids(["owes"]) !== "gold-owes,silver-owes,bronze-owes") throw new Error(ids(["owes"]));
+  if (ids(["tier:Gold", "tier:Silver"]) !== "gold-owes,silver-owes,gold-clear") throw new Error("same section: either");
+  if (ids(["tier:Gold", "tier:Silver", "owes"]) !== "gold-owes,silver-owes") throw new Error("across sections: both");
+  if (ids(["owes_min:5000"]) !== "silver-owes") throw new Error(ids(["owes_min:5000"]));
+  if (ids(["no-such-group"]) !== ids([])) throw new Error("unknown groups are ignored");
+  if (describeGroups(["owes", "tier:Gold", "tier:Silver"]) !== "Owes money · Gold or Silver") throw new Error(describeGroups(["owes", "tier:Gold", "tier:Silver"]));
 });
 
 runTest("People never see a database ID in stock or history text", () => {

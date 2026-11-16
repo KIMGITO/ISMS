@@ -1,7 +1,9 @@
-// supabase/edge_functions/bi-analyze/index.ts
-// Business Intelligence Analysis — replaces POST /api/gemini/analyze from local server.ts
-// Uses real metrics passed from the frontend dashboard, calls the configured AI provider,
-// and returns a structured executive BI report.
+// supabase/functions/bi-analyze/index.ts
+// Business advice for the Home screen. The figures come from the books (profit & loss, cash,
+// who owes us, what we owe, VAT, stock) read here with the signed-in person's own access,
+// plus the Home screen's sales and stock figures. Every number is worked out in code and
+// sent back as a scorecard; the AI only explains them and says what to do, so it can't
+// invent figures. A role that can't see the books still gets advice from the sales figures.
 
 // deno-lint-ignore-file no-explicit-any
 import {
@@ -11,66 +13,38 @@ import {
   verifyUserMembership,
   requirePermission,
   enforceRateLimit,
+  createUserClient,
 } from "../shared/cors.ts";
 import { loadAISettings, runAI, friendlyAIMessage } from "../shared/ai-runner.ts";
+import { readBooks, n, ksh, day } from "../shared/books.ts";
 
-// JSON Schema for the structured BI report response
-const biReportSchema = {
+// What the AI writes. Short, plain and ordered by what matters most to a small business.
+const adviceSchema = {
   type: "object",
   properties: {
-    executiveSummary: {
-      type: "string",
-      description:
-        "Highly detailed professional corporate summary of the operational state, with direct answers to any user question.",
-    },
-    keyInsights: {
+    headline: { type: "string", description: "One sentence: the single most important thing about this period, with its number." },
+    health: { type: "string", enum: ["good", "watch", "act"], description: "good = on track; watch = something needs an eye; act = fix something this week." },
+    healthReason: { type: "string", description: "One short sentence saying why." },
+    answer: { type: "string", description: "A direct answer to the owner's question, or empty when there is none." },
+    whatHappened: { type: "array", items: { type: "string" }, description: "2-4 plain sentences explaining the figures: why profit moved, which costs grew, which products drove sales." },
+    cash: { type: "string", description: "2-3 sentences on cash: money in hand now, money customers owe us, bills due to suppliers soon, VAT to set aside." },
+    actions: {
       type: "array",
-      items: { type: "string" },
-      description: "3-5 high-impact factual insights derived from the metrics.",
+      description: "3-5 things to do this week, most valuable first.",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "The action in a few words, starting with a verb." },
+          why: { type: "string", description: "One sentence with the figure behind it." },
+          screen: { type: "string", enum: ["inventory", "buying", "customers", "finance", "money", "pos", "sales", "workers", "home"], description: "Where in the app to do it." },
+          amount: { type: "number", description: "KSh involved (to collect, save or earn); 0 if none." },
+        },
+        required: ["title", "why", "screen", "amount"],
+      },
     },
-    risks: {
-      type: "array",
-      items: { type: "string" },
-      description: "2-4 critical operational, financial, or supply chain risks.",
-    },
-    opportunities: {
-      type: "array",
-      items: { type: "string" },
-      description:
-        "2-4 concrete opportunities for expansion, revenue maximisation, or efficiency gains.",
-    },
-    recommendations: {
-      type: "array",
-      items: { type: "string" },
-      description:
-        "3-5 actionable recommendations (restocking, pricing shifts, rider reallocation, etc.).",
-    },
-    suggestedActions: {
-      type: "array",
-      items: { type: "string" },
-      description:
-        "3-5 short, immediately actionable tasks the user can execute right now.",
-    },
-    chartAnnotation: {
-      type: "string",
-      description: "Brief expert comment on the current sales trend for chart display.",
-    },
-    predictedSales: {
-      type: "array",
-      items: { type: "number" },
-      description: "5 numbers representing predicted future sales trend values.",
-    },
+    watchOuts: { type: "array", items: { type: "string" }, description: "1-3 risks to keep an eye on, each with its figure." },
   },
-  required: [
-    "executiveSummary",
-    "keyInsights",
-    "risks",
-    "opportunities",
-    "recommendations",
-    "suggestedActions",
-    "chartAnnotation",
-    "predictedSales",
-  ],
+  required: ["headline", "health", "healthReason", "answer", "whatHappened", "cash", "actions", "watchOuts"],
 };
 
 function safeParseJson(raw: string): any {
@@ -210,16 +184,32 @@ function safeParseJson(raw: string): any {
   if (salvaged) return salvaged;
 
   // Final fallback: return a minimal valid report so the frontend can still render
-  return {
-    executiveSummary: "AI analysis could not be parsed. Showing local fallback summary.",
-    keyInsights: [],
-    risks: [],
-    opportunities: [],
-    recommendations: [],
-    suggestedActions: [],
-    chartAnnotation: "",
-    predictedSales: [],
-  };
+  return null;
+}
+
+
+/** The figures shown on the card, worked out here so they are always right. */
+function scorecard(books: any, m: any) {
+  const rows: { label: string; value: string; note?: string; tone?: "good" | "bad" }[] = [];
+  const change = (c: number | null) => (c === null ? undefined : `${c >= 0 ? "+" : ""}${c}% vs before`);
+  if (books) {
+    const p = books.profit;
+    rows.push({ label: "Sales", value: ksh(p.sales), note: change(p.salesChange) });
+    rows.push({ label: "Net profit", value: ksh(p.netProfit), note: p.netMargin === null ? change(p.profitChange) : `${p.netMargin}% of sales`, tone: p.netProfit >= 0 ? "good" : "bad" });
+    rows.push({ label: "Gross margin", value: p.grossMargin === null ? "—" : `${p.grossMargin}%`, note: `${ksh(p.grossProfit)} after stock cost` });
+    rows.push({ label: "Expenses", value: ksh(p.expenses), note: change(p.expensesChange) });
+    rows.push({ label: "Cash & M-Pesa now", value: ksh(books.cash.total) });
+    rows.push({ label: "Customers owe us", value: ksh(books.owedToUs.total), note: books.owedToUs.customers ? `${books.owedToUs.customers} customer${books.owedToUs.customers === 1 ? "" : "s"}` : undefined });
+    rows.push({ label: "We owe suppliers", value: ksh(books.weOwe.suppliers), note: books.weOwe.dueThisWeek ? `${ksh(books.weOwe.dueThisWeek)} due this week` : undefined, tone: books.weOwe.overdue > 0 ? "bad" : undefined });
+    if (books.weOwe.vatToPay > 0) rows.push({ label: "VAT to set aside", value: ksh(books.weOwe.vatToPay) });
+  } else {
+    rows.push({ label: "Sales", value: ksh(n(m.totalSales)), note: m.revenueTrend == null ? undefined : `${m.revenueTrend >= 0 ? "+" : ""}${m.revenueTrend}% vs before` });
+    rows.push({ label: "Estimated profit", value: ksh(n(m.netProfit)), tone: n(m.netProfit) >= 0 ? "good" : "bad" });
+    rows.push({ label: "Orders", value: String(n(m.orderCount)), note: `average ${ksh(n(m.aov))}` });
+    rows.push({ label: "Spending", value: ksh(n(m.totalExpenses)) });
+  }
+  if (n(m.lowStockCount) > 0) rows.push({ label: "Low or out of stock", value: String(n(m.lowStockCount)), tone: "bad" });
+  return rows;
 }
 
 Deno.serve(async (req) => {
@@ -233,11 +223,10 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Invalid JSON payload", 400);
     }
-    const { metrics, customQuestion, businessId } = body;
+    const { metrics, customQuestion, businessId, period } = body;
 
     if (!businessId) return errorResponse("businessId is required.", 400);
 
-    // Verify tenant membership
     const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
@@ -252,75 +241,72 @@ Deno.serve(async (req) => {
 
     if (!metrics) return errorResponse("metrics payload is required.", 400);
 
-    // ── 1. Load AI settings ──────────────────────────────────────────────
     const settings = await loadAISettings(businessId);
-
     if (!settings) {
       return jsonResponse({
         success: false,
-        error:
-          "AI Analysis Platform is unconfigured. Please ask the Owner to add an API key under Settings > AI Configuration.",
+        error: "The assistant is not set up yet. Ask the owner to add it under Settings → AI.",
       }, 503);
     }
 
-    // ── 2. Build BI analysis prompt ──────────────────────────────────────
-    const m = metrics;
-    const promptText = `Perform a high-level, executive-grade corporate Business Intelligence (BI) analysis for "KayKay's" (a premium dairy brand in Kenya).
+    // ── The period and the one before it, as calendar days in Nairobi ──
+    const m = metrics || {};
+    const end = typeof period?.end === "string" ? period.end.slice(0, 10) : day(new Date());
+    const start = typeof period?.start === "string" ? period.start.slice(0, 10) : day(new Date(Date.now() - 6 * 86400000));
+    const lengthDays = Math.max(1, Math.round((Date.parse(`${end}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 86400000) + 1);
+    const prevEnd = day(new Date(Date.parse(`${start}T12:00:00Z`) - 86400000));
+    const prevStart = day(new Date(Date.parse(`${prevEnd}T12:00:00Z`) - (lengthDays - 1) * 86400000));
 
-Here is the real-time dashboard state for the selected period (${m.timeframe || "current period"}):
+    const db = createUserClient(req);
+    const [books, bizRow] = await Promise.all([
+      readBooks(db, businessId, start, end, prevStart, prevEnd),
+      db.from("businesses").select("name, business_type, is_tax_enabled").eq("id", businessId).maybeSingle().then((r: any) => r.data).catch(() => null),
+    ]);
+    const bizName = bizRow?.name || "this business";
+    const bizType = bizRow?.business_type || "retail shop";
 
-FINANCIAL METRICS:
-- Total Sales Revenue: KSh ${m.totalSales?.toLocaleString() || 0}
-- Total Orders Logged: ${m.orderCount || 0}
-- Average Ticket Size (AOV): KSh ${m.aov?.toLocaleString() || 0}
-- Revenue Trend vs prior period: ${m.revenueTrend >= 0 ? "+" : ""}${m.revenueTrend || 0}%
-- Total Operational Expenses: KSh ${m.totalExpenses?.toLocaleString() || 0} (COGS: KSh ${m.cogs?.toLocaleString() || 0}, Delivery: KSh ${m.deliveryFees?.toLocaleString() || 0}, Overhead/Labour: KSh ${m.overheadExpenses?.toLocaleString() || 0})
-- Estimated Net Profit: KSh ${m.netProfit?.toLocaleString() || 0}
-- Estimated Profit Margin: ${m.profitMargin || 0}%
+    const facts = {
+      period: { from: start, to: end, days: lengthDays, comparedWith: { from: prevStart, to: prevEnd } },
+      books: books || "not available to this role; use the sales figures",
+      sales: {
+        orders: n(m.orderCount),
+        averageSale: n(m.aov),
+        salesChangePercent: m.revenueTrend ?? null,
+        paidBy: { cash: n(m.cashReceived), mpesa: n(m.mpesaCollections), mpesaSharePercent: n(m.mpesaShare) },
+        topProducts: m.topProducts || [],
+        slowProducts: m.slowProducts || [],
+      },
+      stock: {
+        products: n(m.totalProducts),
+        valueAtCost: n(m.inventoryValuation),
+        lowOrOut: n(m.lowStockCount),
+        toReorder: (m.lowStockProducts || []).slice(0, 10),
+      },
+      branches: (m.branches || []).length > 1 ? m.branches : undefined,
+      customers: { total: n(m.totalCustomers), new: n(m.newCustomersCount), buyingShare: n(m.retentionRate) },
+    };
 
-CASH FLOW & PAYMENT CHANNELS:
-- Total Cash Received: KSh ${m.cashReceived?.toLocaleString() || 0}
-- Cash Balance Reserve: KSh ${m.cashBalance?.toLocaleString() || 0}
-- M-Pesa Digital Collections: KSh ${m.mpesaCollections?.toLocaleString() || 0} (${m.mpesaShare || 0}% of total)
-- M-Pesa STK Callbacks: ${m.mpesaSuccessCount || 0} successful, ${m.mpesaFailedCount || 0} failed
+    const promptText = `You advise the owner of ${bizName}, a ${bizType} in Kenya. Read these figures for ${start} to ${end} (compared with ${prevStart} to ${prevEnd}) and write practical advice.
 
-INVENTORY & SAFETY BUFFERS:
-- Total Products: ${m.totalProducts || 0}
-- Inventory Asset Valuation: KSh ${m.inventoryValuation?.toLocaleString() || 0}
-- Low-Stock Alerts (below safety buffers): ${m.lowStockCount || 0} products
-- Restock Recommendations: ${JSON.stringify(m.lowStockProducts || [])}
-- Top-Selling Products: ${JSON.stringify(m.topProducts || [])}
-- Slow-Moving Inventory: ${JSON.stringify(m.slowProducts || [])}
+FIGURES (JSON, amounts in KSh; "books" are the double-entry accounts and are the truth for profit, cash and debts):
+${JSON.stringify(facts)}
 
-MULTI-BRANCH PERFORMANCE:
-- Branch Performance Data: ${JSON.stringify(m.branches || [])}
-- Highest-Performing Branch: ${m.topBranch || "Westlands Branch"}
-- Lowest-Performing Branch: ${m.lowestBranch || "Kilimani Depot"}
+${customQuestion ? `THE OWNER ASKS: "${String(customQuestion).slice(0, 500)}". Answer it first in "answer".` : `No question: leave "answer" empty.`}
 
-STAFF & OPERATIONS:
-- Active Cashier Shifts: ${m.activeShiftsCount || 0}
-- Checkout Velocity: ${m.checkoutVelocity || 0} units/min
-- Staff Task Completion Rate: ${m.staffTasksCompletionRate || 0}%
+Rules:
+- Use only the numbers above. Never invent a figure, product, branch or person. Write amounts as "KSh 12,500".
+- Plain English a shopkeeper understands: say "profit", "money customers owe", "bills due", not accounting jargon.
+- Be specific: name the product, the customer, the supplier or the cost line, with its amount.
+- Actions must be things this owner can do this week, most money first: collect a named debt, pay a bill before it is late, reorder a named product, cut a cost that grew, set aside VAT, push a top seller, clear slow stock.
+- If sales or profit are zero or there is little data, say so honestly and suggest how to start recording.
+Return raw JSON matching the schema, no markdown.`;
 
-CUSTOMER RETENTION & SENTIMENT:
-- Total Customer Members: ${m.totalCustomers || 0}
-- New Customers This Period: ${m.newCustomersCount || 0} (${m.customerGrowthRate || 0}% growth)
-- Retention Index: ${m.retentionRate || 0}%
-- Customer Feedback: ${m.feedbackCount || 0} comments, avg ${m.averageRating || "0.0"}/5.0 stars
-- Sentiment: Positive ${m.sentimentPositive || 0}%, Neutral ${m.sentimentNeutral || 0}%, Negative ${m.sentimentNegative || 0}%
-- Unresolved Complaints: ${m.openComplaintsCount || 0}
-
-${customQuestion ? `SPECIFIC QUESTION FROM USER: "${customQuestion}"` : ""}
-
-Generate a comprehensive executive BI report as valid raw JSON matching the schema exactly. Focus on dairy supply chain, M-Pesa payment flows, Kenyan SME logistics, cold-chain shelf-life risks, and multi-branch resource allocation. If a user question is provided, construct the entire report around answering it. Output raw JSON only — no markdown fences.`;
-
-    // ── 3. Call AI ───────────────────────────────────────────────────────
     const result = await runAI(settings, {
       systemInstruction:
-        "You are the Principal Business Intelligence Consultant for KayKay's. You specialise in retail analytics, food and beverage supply chains, M-Pesa digital payment systems, and Kenyan SME operations. Return a comprehensive executive report as raw parseable JSON matching the schema exactly. No markdown code fences.",
+        "You are a careful small-business advisor in Kenya. You explain the owner's own figures plainly and suggest the few actions that matter most. You never make up numbers. Reply with raw JSON only.",
       messages: [{ role: "user", content: promptText }],
       responseMimeType: "application/json",
-      responseSchema: biReportSchema,
+      responseSchema: adviceSchema,
     });
 
     if (!result.success) {
@@ -328,17 +314,29 @@ Generate a comprehensive executive BI report as valid raw JSON matching the sche
       return jsonResponse({ success: false, code: result.code || "busy", error: friendlyAIMessage(result.code) }, 503);
     }
 
-    const analysis = safeParseJson(result.text);
-    
-    if (!analysis || Object.keys(analysis).length === 0) {
-      console.error("[bi-analyze] AI returned unparseable or empty JSON:", result.text);
-      return jsonResponse({ 
-        success: false, 
-        error: "The AI assistant provided a response that could not be parsed as a structured report. Please try again." 
-      }, 500);
+    const advice = safeParseJson(result.text);
+    if (!advice || typeof advice !== "object" || !advice.headline) {
+      console.error("[bi-analyze] AI returned unparseable JSON:", result.text?.slice(0, 500));
+      return jsonResponse({ success: false, error: "The advice could not be read. Try again." }, 500);
     }
+    const actions = Array.isArray(advice.actions) ? advice.actions.filter((a: any) => a && a.title).slice(0, 5) : [];
 
-    return jsonResponse({ success: true, analysis });
+    return jsonResponse({
+      success: true,
+      analysis: {
+        headline: String(advice.headline || ""),
+        health: ["good", "watch", "act"].includes(advice.health) ? advice.health : "watch",
+        healthReason: String(advice.healthReason || ""),
+        answer: String(advice.answer || ""),
+        whatHappened: Array.isArray(advice.whatHappened) ? advice.whatHappened.map(String).slice(0, 4) : [],
+        cash: String(advice.cash || ""),
+        actions: actions.map((a: any) => ({ title: String(a.title), why: String(a.why || ""), screen: String(a.screen || "home"), amount: n(a.amount) })),
+        watchOuts: Array.isArray(advice.watchOuts) ? advice.watchOuts.map(String).slice(0, 3) : [],
+        scorecard: scorecard(books, m),
+        fromBooks: !!books,
+        period: { start, end },
+      },
+    });
   } catch (err: any) {
     console.error("[bi-analyze] Critical error:", err);
     return errorResponse("Something went wrong. Please try again.", 500);

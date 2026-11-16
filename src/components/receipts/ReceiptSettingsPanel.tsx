@@ -24,6 +24,7 @@ import { contactsLine, getInvoiceTexts, saveInvoiceTexts, invoiceAccent, receipt
 import { InvoiceLookControls } from '../invoices/InvoiceLookControls';
 import { nextInvoiceNumber } from '../../services/invoice/invoiceData';
 import { addDays, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
+import type { Product, Transaction } from '../../types';
 
 type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'kra';
 
@@ -81,7 +82,7 @@ function Pick({ value, options, onChange }: { value: string; options: { id: stri
 }
 
 export default function ReceiptSettingsPanel() {
-  const { showToast, currentEmployee, transactions } = useAppStore();
+  const { showToast, currentEmployee } = useAppStore();
   const activeBusinessId = useBusinessStore((s) => s.activeBusinessId);
   const receiptConfig = useBusinessStore((s) => s.integrationConfigs['receipt']);
   const business = useBusinessStore((s) => s.businesses.find((b) => b.id === s.activeBusinessId));
@@ -123,14 +124,37 @@ export default function ReceiptSettingsPanel() {
     return () => clearTimeout(t);
   }, [settings, dirty]);
 
-  // Preview with the most recent real sale; there is no made-up sample.
-  const latestSale = useMemo(() => {
-    const list = Array.isArray(transactions) ? transactions : [];
-    return list.reduce<(typeof list)[number] | null>((a, b) => (!a || new Date(b.timestamp) > new Date(a.timestamp) ? b : a), null);
-  }, [transactions]);
+  // The preview is an example sale, so it shows from the start and never needs real data.
+  // It uses this business's tax rate so the totals look like a real receipt.
+  const sampleSale = useMemo<Transaction>(() => {
+    const product = (id: string, name: string, price: number, unit: string) => ({ id, name, price, unit, stock: 0, category: '', sku: id.toUpperCase() } as unknown as Product);
+    const items = [
+      { product: product('sample-1', 'Fresh milk 500ml', 60, 'packet'), quantity: 4, discountPercentage: 0 },
+      { product: product('sample-2', 'Bread 400g', 65, 'loaf'), quantity: 1, discountPercentage: 0 },
+      { product: product('sample-3', 'Sugar 1kg', 180, 'packet'), quantity: 1, discountPercentage: 10 },
+    ];
+    const total = items.reduce((sum, i) => sum + i.product.price * i.quantity * (1 - i.discountPercentage / 100), 0);
+    const rate = business?.isTaxEnabled ? Number(business.taxPercentage ?? 16) / 100 : 0;
+    const tax = Math.round(total * rate * 100) / 100;
+    return {
+      id: '00000000-0000-4000-8000-000000001234',
+      items,
+      total,
+      discount: 0,
+      tax,
+      finalTotal: total + tax,
+      paymentMethod: 'M-Pesa',
+      customerName: 'Example Customer',
+      staffId: currentEmployee?.id || 'staff',
+      staffName: currentEmployee?.name || 'Cashier',
+      status: 'Synced',
+      timestamp: new Date().toISOString(),
+      referenceId: 'SAMPLE1234',
+    };
+  }, [business?.isTaxEnabled, business?.taxPercentage, currentEmployee?.id, currentEmployee?.name]);
   const previewLines = useMemo(
-    () => (latestSale ? buildReceiptLines(buildReceiptContent(latestSale, settings), settings) : null),
-    [latestSale, settings],
+    () => buildReceiptLines(buildReceiptContent(sampleSale, settings), settings),
+    [sampleSale, settings],
   );
 
   return (
@@ -313,14 +337,10 @@ export default function ReceiptSettingsPanel() {
 
         {tab !== 'kra' && tab !== 'printers' && (
           <div className="min-w-0 lg:w-[28rem] xl:w-[34rem]">
-            <p className={label}>{previewLines ? 'Preview with your latest sale' : 'Preview'}</p>
-            {previewLines ? (
-              <div className="bg-app-bg rounded-xl p-3 sm:p-4">
-                <ReceiptPaper lines={previewLines} columns={columnsFor(settings)} paperWidth={settings.paperWidth} />
-              </div>
-            ) : (
-              <p className="text-xs text-app-text-muted">Make a sale to see a preview here.</p>
-            )}
+            <p className={label}>Preview <span className="ml-1 px-1.5 py-0.5 rounded bg-app-bg text-[10px]">Example sale</span></p>
+            <div className="bg-app-bg rounded-xl p-3 sm:p-4">
+              <ReceiptPaper lines={previewLines} columns={columnsFor(settings)} paperWidth={settings.paperWidth} />
+            </div>
           </div>
         )}
       </div>

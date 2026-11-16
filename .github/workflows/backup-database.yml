@@ -1,22 +1,39 @@
 name: Back up database
 
-# Every night at 03:30 Nairobi time: a full dump of the Supabase database (roles, schema,
-# data), checked, encrypted and kept as a run artifact. Sunday's copy is kept longer.
-# A failed or suspicious backup is posted to Telegram. The plan as a whole, and how to restore,
-# is in docs/BACKUP_AND_RECOVERY.md.
+# Every hour: a full dump of the Supabase database (roles, schema, data), checked, encrypted
+# and stored in Cloudflare R2 (private bucket, outside GitHub). At most about an hour of data
+# can be lost. Copies are kept in tiers:
+#   hourly/   every hour            kept 3 days
+#   daily/    the 03:xx Nairobi run kept 35 days
+#   weekly/   Sunday's daily        kept 6 months
+#   monthly/  the 1st's daily       kept 13 months
+# Without the R2 secrets the copy is kept as a run artifact instead (hourly 3 days, daily 14,
+# Sunday 90). The whole plan, and how to restore, is in docs/BACKUP_AND_RECOVERY.md; the
+# developer's tool is scripts/db-backup.sh.
 #
 # Secrets:
-#   SUPABASE_DB_URL     Session pooler connection string (Supabase → Connect → Session pooler).
-#                       Not the direct one: GitHub runners have no IPv6.
-#   BACKUP_PASSPHRASE   Long random passphrase. Keep a copy offline: without it no backup can be opened.
+#   SUPABASE_DB_URL       Session pooler connection string (Supabase → Connect → Session pooler).
+#                         Not the direct one: GitHub runners have no IPv6.
+#   BACKUP_PASSPHRASE     Long random passphrase. Keep a copy offline: without it no backup opens.
+#   R2_ACCESS_KEY_ID      Cloudflare R2 API token with Object Read & Write on the backup bucket.
+#   R2_SECRET_ACCESS_KEY
+#   CLOUDFLARE_ACCOUNT_ID (already set for web deploys)
+# Variable (optional): BACKUP_BUCKET, default kaykays-backups.
 
 on:
   schedule:
-    - cron: "30 0 * * *" # 00:30 UTC = 03:30 Nairobi
+    - cron: "17 * * * *" # every hour at :17 (busy :00 slots get delayed on GitHub)
   workflow_dispatch:
+    inputs:
+      tier:
+        description: "Also keep this copy as (e.g. before a risky migration: monthly keeps it 13 months)"
+        type: choice
+        options: [hourly, daily, weekly, monthly]
+        default: hourly
 
 permissions:
   contents: read
+  actions: read # to look at the previous run, so a long outage sends one alert, not one an hour
 
 concurrency:
   group: backup-database
@@ -24,12 +41,16 @@ concurrency:
 
 jobs:
   backup:
-    name: Dump, check and encrypt
+    name: Dump, check, encrypt, store
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'kaykays-backups' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -42,79 +63,90 @@ jobs:
             echo "::error::Set these repository secrets:$missing (see docs/BACKUP_AND_RECOVERY.md)"
             exit 1
           fi
-          if [ ${#BACKUP_PASSPHRASE} -lt 20 ]; then
-            echo "::error::BACKUP_PASSPHRASE is shorter than 20 characters."
-            exit 1
+          if [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "STORE=r2" >> "$GITHUB_ENV"
+          else
+            echo "::warning::R2 secrets not set: keeping this backup as a run artifact. This repository is public, so set up R2 (docs/BACKUP_AND_RECOVERY.md 4.1)."
+            echo "STORE=artifact" >> "$GITHUB_ENV"
           fi
+
+      - name: Pick tiers
+        env:
+          ASKED: ${{ inputs.tier }}
+        run: |
+          tiers="hourly"
+          # The run in the 00:xx UTC hour (03:xx Nairobi) is the day's copy.
+          if [ "$(date -u +%H)" = 00 ]; then
+            tiers="$tiers daily"
+            [ "$(date -u +%u)" = 7 ] && tiers="$tiers weekly"
+            [ "$(date -u +%d)" = 01 ] && tiers="$tiers monthly"
+          fi
+          case "$ASKED" in daily|weekly|monthly) [[ " $tiers " == *" $ASKED "* ]] || tiers="$tiers $ASKED" ;; esac
+          echo "TIERS=$tiers" >> "$GITHUB_ENV"
+          # Artifact fallback: one copy, kept as long as its longest tier allows.
+          keep=3
+          [[ " $tiers " == *" daily "* ]] && keep=14
+          [[ " $tiers " == *" weekly "* || " $tiers " == *" monthly "* ]] && keep=90
+          echo "KEEP_DAYS=$keep" >> "$GITHUB_ENV"
+          echo "Tiers: $tiers"
 
       # The CLI runs pg_dump in a container that matches the database's Postgres version.
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
 
-      - name: Dump
+      - name: Dump, check and encrypt
         run: |
           set -euo pipefail
-          mkdir -p backup
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
-          git rev-parse HEAD > backup/code-commit.txt
-          ls supabase/migrations | tail -1 > backup/latest-migration-in-repo.txt
-          date -u +%Y-%m-%dT%H:%M:%SZ > backup/taken-at.txt
-          ls -l backup
-
-      # A dump that "succeeds" but is empty or missing core tables is worse than a failure.
-      - name: Check the dump
-        run: |
-          set -euo pipefail
-          for table in businesses transactions transaction_items products customers employees; do
-            grep -q "COPY \"public\".\"$table\"\|COPY public.$table " backup/data.sql \
-              || { echo "::error::The data dump has no rows section for public.$table."; exit 1; }
-          done
-          grep -q "CREATE TABLE" backup/schema.sql || { echo "::error::The schema dump has no tables."; exit 1; }
-          size=$(stat -c %s backup/data.sql)
-          echo "Data dump: $size bytes"
-          [ "$size" -gt 10000 ] || { echo "::error::The data dump is only $size bytes."; exit 1; }
-          echo "DATA_BYTES=$size" >> "$GITHUB_ENV"
-
-      - name: Encrypt
-        run: |
-          set -euo pipefail
-          name="kaykays-db-$(date -u +%Y%m%d-%H%M)"
-          tar -czf - -C backup . \
-            | gpg --batch --yes --symmetric --cipher-algo AES256 --pinentry-mode loopback \
-                  --passphrase-fd 3 -o "$name.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE"
-          sha256sum "$name.tar.gz.gpg" > "$name.sha256"
-          # Prove it opens with the passphrase before calling it a backup.
-          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d "$name.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE" | tar -tzf - >/dev/null
-          rm -rf backup
+          name="$(scripts/db-backup.sh make out)"
           echo "NAME=$name" >> "$GITHUB_ENV"
-          # Weekly copies (Sunday) are kept 90 days, daily ones 14.
-          if [ "$(date -u +%u)" = 7 ]; then echo "KEEP_DAYS=90" >> "$GITHUB_ENV"; else echo "KEEP_DAYS=14" >> "$GITHUB_ENV"; fi
-          ls -l "$name".*
+          echo "SIZE=$(stat -c %s "out/$name.tar.gz.gpg")" >> "$GITHUB_ENV"
+          ls -l out
 
-      - uses: actions/upload-artifact@v6
+      - name: Store in R2
+        if: env.STORE == 'r2'
+        run: |
+          set -euo pipefail
+          scripts/db-backup.sh upload "out/$NAME.tar.gz.gpg" $TIERS
+          scripts/db-backup.sh prune
+
+      - name: Keep as artifact
+        if: env.STORE == 'artifact'
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.NAME }}
           path: |
-            ${{ env.NAME }}.tar.gz.gpg
-            ${{ env.NAME }}.sha256
+            out/${{ env.NAME }}.tar.gz.gpg
+            out/${{ env.NAME }}.sha256
           if-no-files-found: error
           retention-days: ${{ env.KEEP_DAYS }}
           compression-level: 0 # already compressed and encrypted
 
+      # This repository is public: the summary says only that it worked, never what is in it.
       - name: Summary
         run: |
           echo "### Database backup $NAME" >> "$GITHUB_STEP_SUMMARY"
-          echo "Data dump $(numfmt --to=iec "$DATA_BYTES"), kept $KEEP_DAYS days." >> "$GITHUB_STEP_SUMMARY"
+          echo "Encrypted $(numfmt --to=iec "$SIZE"), stored in $STORE as: $TIERS." >> "$GITHUB_STEP_SUMMARY"
+
+      # One alert when backups start failing, then one a day while they still fail.
+      - name: Should we alert?
+        id: alert
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous="$(gh run list --workflow backup-database.yml --repo "$GITHUB_REPOSITORY" --status completed \
+            --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo unknown)"
+          if [ "$previous" != failure ] || [ "$(date -u +%H)" = 00 ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Tell Telegram
-        if: failure()
+        if: failure() && steps.alert.outputs.send == 'true'
         uses: ./.github/actions/telegram-notify
         with:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           status: failure
           title: Database backup failed
-          details: "Last night's database backup did not complete, so the newest good copy is older than 24 hours. Open the run, fix it, then run *Back up database* by hand."
+          details: "The hourly database backup did not complete, so every hour from now adds to what could be lost. Open the run and fix it, then run *Back up database* by hand. You hear again once a day while it keeps failing."

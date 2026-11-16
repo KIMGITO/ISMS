@@ -42,33 +42,19 @@ interface UiState {
   setSelectedCustomerId: (id: string | null) => void;
   activeInvoiceData: any | null;
   setActiveInvoiceData: (data: any | null) => void;
-  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting" | "invoicing" | "buying";
-  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting" | "invoicing" | "buying") => void;
+  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying";
+  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying") => void;
   /**
    * The part of a merged screen to open, e.g. "books" on Finance or "suppliers" on Buying.
    * Set when an old screen id (accounting, suppliers) is opened; the screen reads it once.
    */
   screenSection: string | null;
   setScreenSection: (section: string | null) => void;
-  /**
-   * A quote another screen started (Loyalty: for this customer; POS: from the cart). Quotes &
-   * Invoices opens it in the new-quote form and clears it.
-   */
-  quoteDraft: QuoteHandoff | null;
-  startQuote: (draft: QuoteHandoff) => void;
-  clearQuoteDraft: () => void;
   /** Screens visited before the current one, oldest first. */
   tabHistory: UiState["activeTab"][];
   /** Returns to the previous screen. False when there is none. */
   goBack: () => boolean;
   resetTabHistory: () => void;
-}
-
-export interface QuoteHandoff {
-  customerId?: string | null;
-  customerName?: string;
-  customerPhone?: string;
-  lines?: { productId: string | null; name: string; unit: string; quantity: number; unitPrice: number; discountPct?: number }[];
 }
 
 const localChatHistoryKey = "kkm_ai_chat_history_v1";
@@ -117,12 +103,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   activeTab: "home",
   tabHistory: [],
   screenSection: null,
-  quoteDraft: null,
-  startQuote: (draft) => {
-    set({ quoteDraft: draft });
-    get().setActiveTab("invoicing");
-  },
-  clearQuoteDraft: () => set({ quoteDraft: null }),
   setScreenSection: (section) => set({ screenSection: section }),
   setActiveTab: (requested) => {
     const merged = SCREEN_ALIASES[requested as string];

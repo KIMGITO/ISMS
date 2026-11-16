@@ -1,5 +1,5 @@
 import { toUserMessage } from "../utils/userError";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../stores/appStore";
 import { UserPlus, Trash2, CheckCircle2, AlertCircle, Shield, Mail, Phone, User, Edit, X, Camera, Search, Send, Copy, Clock, RefreshCw, Ban } from "lucide-react";
 import { SwipeRow } from "../components/shared/SwipeRow";
@@ -10,6 +10,10 @@ import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { EmployeeRole } from "../types";
 import { hasRolePermission, getDynamicRoles } from "../utils/permissions";
 import { appDialog } from '../components/AppDialog';
+import { useUiStore } from "../stores/uiStore";
+import { SuppliersTeamCard } from "../components/buying/SuppliersTeamCard";
+import { listSuppliers, saveSupplier, type Supplier } from "../services/operations";
+import { inviteSupplierUser } from "../services/supplierPortal";
 
 const PRESET_AVATARS = [
   { id: "preset-1", name: "Sarah", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" },
@@ -57,15 +61,69 @@ export default function WorkersView() {
 
   const canInviteStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.invite") : false;
   const canUpdateStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.update") : false;
+  // Suppliers are added and invited here like everyone else, with the Supplier role.
+  const canAddSuppliers = currentEmployee ? hasRolePermission(currentEmployee.role, "suppliers.create") : false;
+  const canInviteSuppliers = currentEmployee ? hasRolePermission(currentEmployee.role, "suppliers.portal") : false;
+  const handlesSuppliers = canAddSuppliers || canInviteSuppliers;
   const canRemoveStaff = currentEmployee ? hasRolePermission(currentEmployee.role, "staff.remove") : false;
   const canDeleteInvite = currentEmployee ? hasRolePermission(currentEmployee.role, "invitations.delete") : false;
   // The roles this app has: built-in ones plus custom roles made on the Roles page.
   // Only Owners and Admins can make someone an Owner or Admin.
   const callerIsTop = ['Owner', 'Admin'].includes(currentEmployee?.role || '');
   const roleOptions = Object.values(getDynamicRoles())
-    // Suppliers are invited from Buying → Suppliers, tied to their supplier; never as staff.
-    .filter((r) => r.name !== 'Supplier' && (callerIsTop || !['Owner', 'Admin'].includes(r.name)))
-    .map((r) => ({ id: r.name, label: r.name }));
+    // Supplier: someone at a company you buy from. Not for changing a staff member's role.
+    .filter((r) => (r.name === 'Supplier' ? handlesSuppliers && !editingEmployeeId : canInviteStaff || !!editingEmployeeId))
+    .filter((r) => callerIsTop || !['Owner', 'Admin'].includes(r.name))
+    .map((r) => ({ id: r.name, label: r.name === 'Supplier' ? 'Supplier (a company you buy from)' : r.name }));
+  const isSupplier = role === ('Supplier' as EmployeeRole);
+
+  // ----- Supplier role: which supplier they work for
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierId, setSupplierId] = useState<string>('new');
+  const [supplierCompany, setSupplierCompany] = useState('');
+  const [supplierSupplies, setSupplierSupplies] = useState('');
+  const [suppliersRefresh, setSuppliersRefresh] = useState(0);
+  useEffect(() => {
+    if (!handlesSuppliers || !currentBusinessId) return;
+    listSuppliers(currentBusinessId).then(setSuppliers).catch(() => setSuppliers([]));
+  }, [handlesSuppliers, currentBusinessId, suppliersRefresh]);
+
+  /** Fills the form to invite someone at this supplier (from the Suppliers list or Buying). */
+  const startSupplierInvite = (s?: Supplier) => {
+    setEditingEmployeeId(null);
+    setRole('Supplier' as EmployeeRole);
+    setSupplierId(s?.id || 'new');
+    setName(s?.name || '');
+    setEmail(s?.email || '');
+    const matched = s?.phone ? SUPPORTED_COUNTRIES.find((c) => s.phone.startsWith(c.code)) : undefined;
+    setSelectedCountryCode(matched?.code || '+254');
+    setPhone(s?.phone ? (matched ? s.phone.slice(matched.code.length) : s.phone) : '');
+    setSuccessMsg('');
+    setErrorMsg('');
+    requestAnimationFrame(() => {
+      formBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      nameInputRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  // Someone who can add suppliers but not staff only has the Supplier role to choose.
+  useEffect(() => {
+    if (!canInviteStaff && handlesSuppliers && !editingEmployeeId) setRole('Supplier' as EmployeeRole);
+  }, [canInviteStaff, handlesSuppliers, editingEmployeeId]);
+
+  // Buying → Suppliers → "Invite a supplier" opens this screen with the form ready.
+  const screenSection = useUiStore((st) => st.screenSection);
+  useEffect(() => {
+    if (!screenSection?.startsWith('invite-supplier')) return;
+    useUiStore.getState().setScreenSection(null);
+    if (!handlesSuppliers) return;
+    const id = screenSection.split(':')[1];
+    const known = id ? suppliers.find((x) => x.id === id) : undefined;
+    if (id && !known && suppliers.length === 0 && currentBusinessId) {
+      // The list may not be loaded yet.
+      listSuppliers(currentBusinessId).then((list) => { setSuppliers(list); startSupplierInvite(list.find((x) => x.id === id)); }).catch(() => startSupplierInvite());
+    } else startSupplierInvite(known);
+  }, [screenSection]);
   const selectedRoleInfo = getDynamicRoles()[role];
 
   /** Shows the result next to the button and as a toast, so it's seen wherever you are. */
@@ -193,8 +251,13 @@ export default function WorkersView() {
     setSuccessMsg("");
     setErrorMsg("");
 
-    if (!name.trim() || !email.trim() || !phone.trim()) {
-      notify('error', "Fill in the name, email and phone number.");
+    if (!name.trim() || (!email.trim() && !isSupplier) || !phone.trim()) {
+      notify('error', isSupplier ? "Fill in the name and phone number." : "Fill in the name, email and phone number.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (isSupplier && supplierId === 'new' && !supplierSupplies.trim()) {
+      notify('error', "Say what they supply, e.g. Milk, Packaging.");
       setIsSubmitting(false);
       return;
     }
@@ -207,6 +270,32 @@ export default function WorkersView() {
     }
 
     try {
+      if (isSupplier) {
+        if (!handlesSuppliers) return;
+        // A new supplier is added to the list first; then whoever has an email is invited.
+        let id = supplierId;
+        if (id === 'new') {
+          id = await saveSupplier(currentBusinessId, {
+            name: name.trim(), company: supplierCompany.trim(), phone: fullPhone, email: email.trim(),
+            productSupplied: supplierSupplies.trim(), notes: '',
+          }, undefined, currentEmployee?.name || 'staff');
+        }
+        const company = supplierCompany.trim() || suppliers.find((x) => x.id === id)?.company || suppliers.find((x) => x.id === id)?.name || name.trim();
+        if (supplierId !== 'new' && !email.trim()) {
+          notify('error', "Add their email to invite them.");
+          return;
+        }
+        if (email.trim() && canInviteSuppliers) {
+          const code = await inviteSupplierUser(id, name.trim(), email.trim(), activeBusinessName);
+          notify('success', `Invitation sent to ${email.trim()} (code ${code}). They will see only ${company}'s orders and payments.`);
+        } else {
+          notify('success', `${company} added to your suppliers. Add an email later to let them sign in.`);
+        }
+        setName(""); setEmail(""); setPhone(""); setSelectedCountryCode("+254");
+        setSupplierId('new'); setSupplierCompany(''); setSupplierSupplies('');
+        setSuppliersRefresh((n) => n + 1);
+        return;
+      }
       if (editingEmployeeId) {
         // Modify active worker profile
         await updateProfile(editingEmployeeId, {
@@ -273,7 +362,7 @@ export default function WorkersView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Form Box (Invite or Edit depending on state) */}
         <div ref={formBoxRef} className={`lg:col-span-1 bg-app-card border rounded-2xl p-4 shadow-sm self-start scroll-mt-4 transition-colors ${editingEmployeeId ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-app-border'}`}>
-          {canInviteStaff || canUpdateStaff ? (
+          {canInviteStaff || canUpdateStaff || handlesSuppliers ? (
             <>
               <div className="flex items-center justify-between mb-3 border-b border-app-border/40 pb-2">
                 <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5 uppercase tracking-wider">
@@ -318,7 +407,7 @@ export default function WorkersView() {
                 {/* Email Address */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
-                    Email Address *
+                    {isSupplier ? 'Email (to sign in; leave empty to only add them)' : 'Email Address *'}
                   </label>
                   <div className="relative">
                     <input
@@ -386,6 +475,38 @@ export default function WorkersView() {
                   )}
                 </div>
 
+                {isSupplier && (
+                  <div className="space-y-3 p-3 rounded-xl bg-app-bg border border-app-border">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">Supplier *</label>
+                      <SearchableDropdown
+                        items={[{ id: 'new', label: '+ A new supplier' }, ...suppliers.map((x) => ({ id: x.id, label: x.company ? `${x.company} (${x.name})` : x.name }))]}
+                        selectedValue={supplierId}
+                        onChange={(val) => setSupplierId(val)}
+                        placeholder="Choose a supplier"
+                      />
+                    </div>
+                    {supplierId === 'new' && (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">Company (optional)</label>
+                          <input value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} placeholder="e.g. Brookside Dairy" maxLength={80}
+                            className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">What they supply *</label>
+                          <input value={supplierSupplies} onChange={(e) => setSupplierSupplies(e.target.value)} placeholder="e.g. Milk, Packaging, Sugar" maxLength={80}
+                            className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
+                        </div>
+                      </>
+                    )}
+                    <p className="text-[11px] text-app-text-muted leading-snug">
+                      With an email they get a code to sign in and see only their own orders, price requests, deliveries and payments.
+                      {!canInviteSuppliers && ' Only the owner or an admin can send the invitation; you can add the supplier.'}
+                    </p>
+                  </div>
+                )}
+
                 {editingEmployeeId && (
                   <>
                     {/* Custom Profile Image Upload */}
@@ -449,7 +570,9 @@ export default function WorkersView() {
                       )}
                       {editingEmployeeId
                         ? 'Save changes'
-                        : 'Send invitation'}
+                        : isSupplier && !email.trim()
+                          ? 'Add supplier'
+                          : 'Send invitation'}
                     </>
                   )}
                 </button>
@@ -723,6 +846,10 @@ export default function WorkersView() {
               )}
             </div>
           </div>
+
+          {handlesSuppliers && (
+            <SuppliersTeamCard canManage={canInviteSuppliers} onInvite={(sup) => startSupplierInvite(sup)} refreshKey={suppliersRefresh} />
+          )}
         </div>
       </div>
     </div>

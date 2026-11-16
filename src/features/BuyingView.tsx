@@ -108,7 +108,7 @@ export default function BuyingView() {
     // Suppliers & Purchases save on their own; refresh the counts on the buying tabs.
     if (t !== 'suppliers' && t !== 'purchases') void load();
   };
-  // Opened as "suppliers" (old screen id, G then Z, search): start on that tab.
+  // Opened as "suppliers" (old screen id, search): start on that tab.
   const section = useUiStore((st) => st.screenSection);
   useEffect(() => {
     if (section !== 'suppliers' && section !== 'purchases') return;

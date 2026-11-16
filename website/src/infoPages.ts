@@ -47,10 +47,15 @@ function pointsLines(site: Storefront): string[] {
   }
   const l = site.loyalty ?? { pointsPerShilling: 2, valueBronze: 0.02, valueSilver: 0.01, valueGold: 0.005, minRedeem: 100 };
   const per = (value: number) => (value > 0 ? Math.round(1 / value) : 0);
+  const cur = site.business.currency;
+  // The earning rates and tier levels are fixed in the database (fn_sale_points,
+  // fn_debt_payment_points, calculate_customer_tier); the tier values and minimum come from the shop's settings.
   return [
-    `You earn **${l.pointsPerShilling} points for every ${site.business.currency} 1** you pay for products. Delivery fees do not earn points.`,
-    `Points are worth more for newer customers: **Bronze ${per(l.valueBronze)} points**, **Silver ${per(l.valueSilver)} points** and **Gold ${per(l.valueGold)} points** each equal ${site.business.currency} 1 off.`,
-    `You can use points once you have at least **${l.minRedeem} points**. Points are a discount only. They can't be exchanged for cash or M-Pesa.`,
+    `You earn **${l.pointsPerShilling} points for every ${cur} 1** you pay for products. Delivery fees do not earn points.`,
+    `Bought on credit? Points come when you pay: **1 point for every ${cur} 1** of debt you pay off.`,
+    `Your tier goes up as your points grow: **Silver** from 20,000 points and **Gold** from 60,000. Your tier never goes down.`,
+    `What points take off: **Bronze ${per(l.valueBronze)} points**, **Silver ${per(l.valueSilver)} points** and **Gold ${per(l.valueGold)} points** each equal ${cur} 1 off.`,
+    `You can use points once you have at least **${l.minRedeem} points**, to take money off an order or to pay off what you owe us. Points are a discount only. They can't be exchanged for cash, M-Pesa or wallet money.`,
   ];
 }
 

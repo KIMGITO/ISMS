@@ -214,7 +214,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
           </h3>
           <p className="text-xs text-app-text-muted mb-4">
             Sends an M-Pesa prompt to their phone. For a faster screen that follows each prompt live (and Airtel Money), use{' '}
-            <button type="button" onClick={() => useUiStore.getState().setActiveTab('prompt')} className="font-semibold text-emerald-600 hover:underline cursor-pointer">Payment Prompts</button> (G then G).</p>
+            <button type="button" onClick={() => useUiStore.getState().setActiveTab('prompt')} className="font-semibold text-emerald-600 hover:underline cursor-pointer">Payment Prompts</button> (G then M).</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 sm:col-span-2">
               <span className={label}>Who is paying?</span>

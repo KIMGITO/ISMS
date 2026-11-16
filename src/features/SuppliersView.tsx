@@ -38,6 +38,8 @@ import {
 import { BillSheet, ReasonSheet, ReceiveSheet, ReturnSheet } from '../components/buying/BuyingSheets';
 import { SupplierAccessSheet } from '../components/buying/SupplierAccessSheet';
 import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
+import { useUiStore } from '../stores/uiStore';
+import { canOpenScreen } from '../utils/screens';
 
 type Tab = 'suppliers' | 'purchases';
 type StatusFilter = 'open' | 'received' | 'cancelled' | 'all';
@@ -56,7 +58,6 @@ const STATUS_WORD: Record<PurchaseStatus, string> = {
   'Part received': 'Part received', Received: 'Received', Cancelled: 'Cancelled',
 };
 
-const emptySupplier: SupplierDraft = { name: '', company: '', phone: '', email: '', productSupplied: '', notes: '' };
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 const blankLine = (): PurchaseLine => ({ productId: null, name: '', quantity: 1, unit: 'pcs', price: 0 });
@@ -77,6 +78,11 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
   const seesSuppliers = can('suppliers.view');
   const seesPurchases = can('purchases.view');
   const canAddSupplier = can('suppliers.create');
+  /** Opens Workers with the invite form set to Supplier (and this supplier, if given). */
+  const inviteSupplier = (s?: Supplier) => {
+    useUiStore.getState().setScreenSection(s ? `invite-supplier:${s.id}` : 'invite-supplier');
+    useUiStore.getState().setActiveTab('workers');
+  };
   const canEditSupplier = can('suppliers.update');
   const canDeleteSupplier = can('suppliers.delete');
   const canCreatePurchase = can('purchases.create');
@@ -433,9 +439,10 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
       <div className={embedded ? 'space-y-3 min-w-0' : 'max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3'}>
         <div className="flex items-center gap-2 flex-wrap">
           {!embedded && tabs.length > 1 && <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={(t) => { setTab(t); setQuery(''); }} className="w-full sm:w-auto sm:flex-1 min-w-0 !pb-2" />}
-          {tab === 'suppliers' && canAddSupplier && (
-            <button data-shortcut="new" onClick={() => { setFormError(null); setEditingSupplier({ draft: { ...emptySupplier } }); }} className={`${primaryBtn} ml-auto`}>
-              <Plus size={16} /> Add supplier
+          {tab === 'suppliers' && (canAddSupplier || can('suppliers.portal')) && canOpenScreen(role, 'workers') && (
+            // Suppliers are added and invited in Workers, with the same form as staff.
+            <button data-shortcut="new" onClick={() => inviteSupplier()} className={`${primaryBtn} ml-auto`}>
+              <Plus size={16} /> Invite a supplier
             </button>
           )}
           {tab === 'purchases' && canCreatePurchase && (
@@ -593,7 +600,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
       {/* Supplier form */}
       {editingSupplier && (
         <FormSheet
-          title={editingSupplier.id ? 'Edit supplier' : 'Add supplier'}
+          title="Edit supplier"
           onClose={() => setEditingSupplier(null)}
           footer={
             <>
@@ -928,7 +935,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
       )}
 
       {accessFor && (
-        <SupplierAccessSheet supplier={accessFor} businessName={businessName} canManage={can('suppliers.portal')} onClose={() => setAccessFor(null)} />
+        <SupplierAccessSheet supplier={accessFor} businessName={businessName} canManage={can('suppliers.portal')} onClose={() => setAccessFor(null)} onInvite={() => { const s = accessFor; setAccessFor(null); inviteSupplier(s); }} />
       )}
       {receiving && (
         <ReceiveSheet

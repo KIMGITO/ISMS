@@ -114,7 +114,12 @@ export function PointsSettings({ businessId, onSaved }: { businessId: string; on
       </div>
       {enabled && (
         <>
-          
+          {/* Fixed in the database (fn_sale_points, fn_debt_payment_points, calculate_customer_tier); the website says the same. */}
+          <ul className="rounded-xl bg-app-bg px-3 py-2 text-xs text-app-text-muted space-y-0.5 list-disc list-inside">
+            <li>Customers earn 2 points per KSh 1 they pay (not delivery), and 1 point per KSh 1 of debt they pay off. Credit sales earn when paid.</li>
+            <li>Silver from 20,000 points, Gold from 60,000. Tiers never go down.</li>
+            <li>Points come off a purchase or pay off debt. They never become cash, M-Pesa or wallet money.</li>
+          </ul>
           <div className="grid gap-3 sm:grid-cols-3">
             {row('bronze', 'Bronze')}
             {row('silver', 'Silver')}

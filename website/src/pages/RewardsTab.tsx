@@ -23,6 +23,10 @@ export default function RewardsTab() {
 
   if (!rewards) return error ? <ErrorText>{error}</ErrorText> : <Loading />;
 
+  // Points here only pay off what is owed; the database takes no more than the debt needs.
+  const perShilling = rewards.pointValue > 0 ? Math.round(1 / rewards.pointValue) : 0;
+  const debtNeeds = rewards.pointValue > 0 ? Math.ceil(rewards.debt / rewards.pointValue) : 0;
+  const canPayDebt = rewards.debt > 0 && rewards.points >= rewards.minRedeem;
   const requested = Number(points);
   const valid = Number.isInteger(requested) && requested >= rewards.minRedeem && requested <= rewards.points;
 
@@ -31,9 +35,13 @@ export default function RewardsTab() {
     setError('');
     setMessage('');
     try {
-      await redeemPoints(requested);
+      const res = await redeemPoints(requested);
       setPoints('');
-      setMessage(`${requested} points are now on your account.`);
+      setMessage(
+        res && typeof res.value === 'number'
+          ? `${res.pointsUsed.toLocaleString('en-KE')} points took Ksh ${res.value.toLocaleString('en-KE')} off what you owe.`
+          : 'Your points were used to pay off what you owe.',
+      );
       await load();
     } catch (err) {
       setError(friendlyError(err));
@@ -58,21 +66,30 @@ export default function RewardsTab() {
         </p>
       ) : (
       <div>
-        <h2 className="text-xl font-semibold">Redeem points</h2>
+        <h2 className="text-xl font-semibold">Using your points</h2>
         <p className="mt-1 text-muted">
-          Each point is worth Ksh {rewards.pointValue}. You can redeem from {rewards.minRedeem} points.
-          You can also use points in your cart to pay part of an order. Redeeming here clears anything you
-          owe first, then goes to your wallet for spending at our shop. Points can't be exchanged for cash.
+          {rewards.tier}: {perShilling.toLocaleString('en-KE')} points = Ksh 1 off. You can use points from{' '}
+          {rewards.minRedeem.toLocaleString('en-KE')} points, in your cart to take money off an order, or here to pay off
+          what you owe us. Points can't be exchanged for cash, M-Pesa or wallet money.
         </p>
-        <label className="mt-4 block font-medium">
-          Points to redeem
-          <input type="number" inputMode="numeric" min={rewards.minRedeem} max={rewards.points} value={points} onChange={(e) => setPoints(e.target.value)} className={fieldClass} />
-        </label>
-        <ErrorText>{error}</ErrorText>
+        {canPayDebt ? (
+          <>
+            <label className="mt-4 block font-medium">
+              Points to pay off what you owe
+              <span className="block text-sm font-normal text-muted">
+                Clearing all of it takes {debtNeeds.toLocaleString('en-KE')} points. We never use more than it needs.
+              </span>
+              <input type="number" inputMode="numeric" min={rewards.minRedeem} max={rewards.points} value={points} onChange={(e) => setPoints(e.target.value)} className={fieldClass} />
+            </label>
+            <ErrorText>{error}</ErrorText>
+            <button onClick={handleRedeem} disabled={busy || !valid} className={`${primaryButton} mt-4 w-full sm:w-auto`}>
+              {busy ? 'Please wait…' : 'Pay with points'}
+            </button>
+          </>
+        ) : (
+          <ErrorText>{error}</ErrorText>
+        )}
         {message && <p role="status" className="mt-2 font-medium text-emerald-700">{message}</p>}
-        <button onClick={handleRedeem} disabled={busy || !valid} className={`${primaryButton} mt-4 w-full sm:w-auto`}>
-          {busy ? 'Please wait…' : 'Redeem'}
-        </button>
       </div>
       )}
     </div>

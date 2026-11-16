@@ -62,7 +62,8 @@ Supabase has one live database, so changes there can't be switched like the web.
 | Release live | release-and-deploy.yml | Each successful release |
 | Release, build or test failed | release-and-deploy.yml, build.yml | Any failure, including pull requests |
 | Web deploy failed / rolled back | deploy-web.yml, rollback-web.yml | A failed check, or any rollback |
-| Database backup failed | backup-database.yml | A failed or suspicious nightly backup |
+| Database backup failed | backup-database.yml | A failed or suspicious hourly backup (once, then daily while it keeps failing) |
+| Restore drill failed | restore-drill.yml | Monday's test restore of the newest backup failed, or the newest backup is over 26 h old |
 | New crash | `ops-alert` function, from the `crash_reports` trigger | First time a crash is seen, then at 10, 100 and 1000 occurrences (at most 30 an hour) |
 | Problem report | `ops-alert` function | An owner or admin uses **Report a problem** |
 | Site or database down | Uptime monitor (setup below) | Within 5 minutes of going down, and when it is back |

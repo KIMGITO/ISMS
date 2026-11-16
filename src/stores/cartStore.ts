@@ -31,6 +31,10 @@ interface CartState {
   updateCartDiscount: (productId: string, discount: number) => void;
   clearCart: () => void;
   selectCustomer: (customer: Customer | null) => void;
+  /** The quote this cart was loaded from (Sales Log → Quotes → Sell in POS). Cleared with the cart. */
+  quote: { id: string; number: string } | null;
+  /** Puts a quote's items in the cart at the quoted prices, for that customer. */
+  loadQuote: (quote: { id: string; number: string }, items: CartItem[], customer: Customer | null) => void;
   checkout: (
     paymentMethod: PaymentMethod,
     note?: string,
@@ -46,6 +50,8 @@ interface CartState {
 export const useCartStore = create<CartState>((set, get) => ({
   cart: [],
   selectedCustomer: null,
+  quote: null,
+  loadQuote: (quote, items, customer) => set({ quote, cart: items, selectedCustomer: customer }),
 
   addToCart: (product) => {
     const currentCart = get().cart;
@@ -95,7 +101,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   clearCart: () => {
-    set({ cart: [], selectedCustomer: null });
+    set({ cart: [], selectedCustomer: null, quote: null });
   },
 
   selectCustomer: (customer) => {
@@ -205,7 +211,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       // Keeps the sale on this device until it reaches the server
       const saveOffline = () => {
         salesOutbox.add(newTransaction);
-        set({ cart: [], selectedCustomer: null });
+        set({ cart: [], selectedCustomer: null, quote: null });
         useNotificationStore.getState().showToast(
           "Sale saved offline",
           `KSh ${finalTotal.toLocaleString()} by ${paymentMethod.replace("_", " ")}. It syncs when you're back online.`,
@@ -332,7 +338,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         );
       }
 
-      set({ cart: [], selectedCustomer: null });
+      set({ cart: [], selectedCustomer: null, quote: null });
       if (activeBusinessId) void kraService.reportSaleIfConnected(activeBusinessId, savedTx.id);
       return { success: true, transaction: savedTx };
     } catch (err: any) {

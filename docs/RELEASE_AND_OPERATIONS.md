@@ -38,7 +38,7 @@ The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
 | `TELEGRAM_CHAT_ID` | Telegram chat the alerts go to |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Blue-green web deploys to Cloudflare (HOSTING_CLOUDFLARE.md) |
 | `VITE_SITE_URL`, `VITE_WEBSITE_SLUG` | Website build: its public address and storefront slug (HOSTING_CLOUDFLARE.md) |
-| `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | Nightly database backup (BACKUP_AND_RECOVERY.md) |
+| `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Hourly database backup to Cloudflare R2 and the Monday restore drill (BACKUP_AND_RECOVERY.md) |
 | `RELEASE_TOKEN` | Optional. Only if a ruleset stops the built-in token pushing tags: a fine-grained token for this repository with Contents read and write |
 
 To set the updater secrets from this machine:

@@ -19,6 +19,8 @@ import { useTransactionStore } from "../stores/transactionStore";
 import { toUserMessage } from "../utils/userError";
 import { RefundSheet } from "../components/sales/RefundSheet";
 import { loadSaleCreditNotes } from "../services/salesDocs";
+import { Tabs } from "../components/TabOptions";
+import QuotesPanel from "../components/sales/QuotesPanel";
 
 interface GroupedTransactions {
   today: Transaction[];
@@ -115,6 +117,15 @@ export default function SalesView() {
   const handleSelectTx = (tx: Transaction | null) => setSelectedTx(tx);
 
   const canViewSales = currentEmployee ? hasRolePermission(currentEmployee.role, "orders.view") : false;
+  const seesQuotes = hasRolePermission(role, "quotes.view" as any) || hasRolePermission(role, "quotes.manage" as any);
+  const [view, setView] = useState<"sales" | "quotes">("sales");
+  // Opened as the old Quotes & Invoices screen (a saved start screen, a link): show Quotes.
+  const screenSection = useUiStore((st) => st.screenSection);
+  useEffect(() => {
+    if (screenSection !== "quotes") return;
+    if (seesQuotes) setView("quotes");
+    useUiStore.getState().setScreenSection(null);
+  }, [screenSection, seesQuotes]);
 
   const groupedLogs = useMemo((): GroupedTransactions => {
     const safeTx = Array.isArray(transactions) ? transactions : [];
@@ -289,10 +300,10 @@ export default function SalesView() {
       <div className="bg-app-card border-b border-app-border p-3.5 flex items-center justify-between shrink-0 shadow-xs">
         <div>
           <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wide">
-            Business Sales Logs
+            Sales Log
           </h2>
           <p className="text-[10px] text-app-text-muted font-medium">
-            Dairy Sales POS Logs
+            {view === "quotes" ? "Quotes made from the POS cart" : "Every sale and its receipt"}
           </p>
         </div>
         <span className="px-2.5 py-1 bg-app-bg text-app-text border border-app-border rounded-full font-mono font-bold text-[10px] shadow-sm">
@@ -300,9 +311,25 @@ export default function SalesView() {
         </span>
       </div>
 
+      {seesQuotes && (
+        <div className="px-3.5 pt-3 shrink-0">
+          <Tabs
+            tabs={[
+              { id: "sales" as const, label: "Sales", icon: <ReceiptText size={14} />, shortcut: "sales-tab" },
+              { id: "quotes" as const, label: "Quotes", icon: <FileText size={14} />, shortcut: "quotes-tab" },
+            ]}
+            activeTab={view}
+            onChange={(t) => setView(t as "sales" | "quotes")}
+            className="pb-3"
+          />
+        </div>
+      )}
+
       {/* CHAT-STYLE SCROLL CONTAINER CONTAINER PANEL */}
       <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-4 pb-nav">
-        {totalTxCount === 0 ? (
+        {view === "quotes" ? (
+          <QuotesPanel />
+        ) : totalTxCount === 0 ? (
           <div className="p-12 bg-app-card rounded-2xl border border-dashed border-app-border text-center text-xs text-app-text-muted flex flex-col items-center gap-2 my-auto">
             <ReceiptText size={24} className="text-app-text-muted" />
             <span>

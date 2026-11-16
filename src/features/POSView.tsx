@@ -26,7 +26,6 @@ import {
   FileSignature,
 } from 'lucide-react';
 import { hasRolePermission } from '../utils/permissions';
-import { useUiStore } from '../stores/uiStore';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, sentenceCase, searchMatch } from '../utils/stringUtils';
@@ -39,43 +38,10 @@ import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import CardChargeSheet, { type CardChargeResult, describeCard } from '../components/payments/CardChargeSheet';
 import { CardRepository } from '../services/repositories';
+import { useCartStore } from '../stores/cartStore';
+import { markQuoteSold } from '../services/salesDocs';
+import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
 
-const POS_SHORTCUTS: { title: string; items: [string, string][] }[] = [
-  {
-    title: 'Find and add',
-    items: [
-      ['/ F2', 'Search products'],
-      ['↑ ↓', 'Move through results'],
-      ['Enter', 'Add the highlighted product'],
-      ['Alt+← Alt+→', 'Previous / next category'],
-      ['Esc', 'Clear search / close'],
-    ],
-  },
-  {
-    title: 'Cart',
-    items: [
-      ['+', 'One more of the last item'],
-      ['-', 'One less of the last item'],
-      ['Delete', 'Remove the last item'],
-      ['Ctrl+Delete', 'Clear the cart'],
-      ['F4', 'Open or close the cart (small screens)'],
-    ],
-  },
-  {
-    title: 'Checkout',
-    items: [
-      ['Alt+1', 'Pay by cash'],
-      ['Alt+2', 'Pay by M-Pesa'],
-      ['Alt+3', 'Sell on credit'],
-      ['Alt+C', 'Choose a customer'],
-      ['Alt+D', 'Delivery on / off'],
-      ['Alt+N', 'Add a note'],
-      ['F9 Ctrl+Enter', 'Complete the sale'],
-      ['R', 'Receipt (after a sale)'],
-      ['? F1', 'Show these shortcuts'],
-    ],
-  },
-];
 
 export default function POSView() {
   const {
@@ -104,6 +70,8 @@ export default function POSView() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const cartQuote = useCartStore((s) => s.quote);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   // Only the methods this business has switched on; Credit is a sale on debt, always offered.
   const enabledMethods = usePaymentMethods();
@@ -139,8 +107,9 @@ export default function POSView() {
     if (!checkoutSuccess) return;
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key.toLowerCase() === 'r' && lastTx) {
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey) return;
+      // R or Alt+R (Alt+R is the receipt key in Quick Sale too).
+      if (e.code === 'KeyR' && lastTx) {
         e.preventDefault();
         setCheckoutSuccess(false);
         setReceiptAutoPrint(false);
@@ -209,7 +178,6 @@ export default function POSView() {
   }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   const [highlight, setHighlight] = useState(-1);
-  const [showShortcuts, setShowShortcuts] = useState(false);
   useEffect(() => setHighlight(searchQuery.trim() ? 0 : -1), [searchQuery, activeCategory]);
   useEffect(() => {
     if (highlight >= 0) document.getElementById(`pos-product-${highlight}`)?.scrollIntoView({ block: 'nearest' });
@@ -313,6 +281,7 @@ export default function POSView() {
         cardNote,
         note,
       ].filter(Boolean).join('. ');
+      const soldQuote = useCartStore.getState().quote;
       const result = await checkout(
         paymentMethod,
         saleNote,
@@ -332,6 +301,11 @@ export default function POSView() {
         // The receipt shows the points used; linked to the sale so reprints show them too
         if (redemptionId && pointsSpent) {
           await recordTillPoints(result.transaction.id, redemptionId, pointsSpent).catch(() => {});
+        }
+        // A sale made from a quote marks the quote sold (accepted) and links it to the sale.
+        if (soldQuote && !result.offline) {
+          await markQuoteSold(soldQuote.id, result.transaction.id).catch((e) =>
+            console.error('Could not mark the quote sold:', e?.code));
         }
         setLastTxId(result.transaction.id);
         setLastTx(result.transaction);
@@ -407,13 +381,7 @@ export default function POSView() {
         if (!isWide) setIsCartOpen((v) => !v);
         return;
       }
-      if (k === 'F1' || (k === '?' && !typing)) {
-        done();
-        setShowShortcuts((v) => !v);
-        return;
-      }
       if (k === 'Escape') {
-        if (showShortcuts) return done(), setShowShortcuts(false);
         if (inSearch && searchQuery) return done(), setSearchQuery('');
         if (isCartOpen && !isWide) return done(), setIsCartOpen(false);
         if (typing) (el as HTMLElement).blur();
@@ -424,6 +392,11 @@ export default function POSView() {
         if (methods[k] && (methods[k] === 'Credit_Debt' || enabledMethods.includes(methods[k] as MoneyMethod))) return done(), setPaymentMethod(methods[k]);
         const code = e.code;
         if (code === 'KeyD') return done(), setIsDelivery((v) => !v);
+        if (code === 'KeyQ') {
+          done();
+          if (cart.length > 0 && hasRolePermission(currentEmployee?.role || 'Guest', 'quotes.manage' as any)) setQuoting(true);
+          return;
+        }
         if (code === 'KeyC') {
           done();
           if (!isWide) setIsCartOpen(true);
@@ -489,32 +462,22 @@ export default function POSView() {
                   <h2 className="text-sm font-semibold text-app-text">
                     Cart{cartCount > 0 ? ` · ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : ''}
                   </h2>
+                  {cartQuote && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">From quote {cartQuote.number}, at the quoted prices</p>
+                  )}
                  
                 </div>
                 <div className="flex items-center gap-1">
                 {hasRolePermission(currentEmployee?.role || 'Guest', 'quotes.manage' as any) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      // A customer who wants prices first: the cart becomes a quote in Quotes & Invoices.
-                      useUiStore.getState().startQuote({
-                        customerId: selectedCustomer?.id ?? null,
-                        customerName: selectedCustomer?.name ?? '',
-                        customerPhone: selectedCustomer?.phone ?? '',
-                        lines: cart.map((item) => ({
-                          productId: item.product.id,
-                          name: item.product.name,
-                          unit: item.product.unit || '',
-                          quantity: item.quantity,
-                          unitPrice: item.product.price,
-                          discountPct: item.discountPercentage || 0,
-                        })),
-                      });
-                    }}
+                    // A customer who wants prices first: save the cart as a quote and send it.
+                    onClick={() => setQuoting(true)}
                     disabled={cart.length === 0}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 disabled:opacity-30 text-app-text hover:bg-app-bg rounded-xl ring-1 ring-app-border text-[11px] font-medium transition cursor-pointer"
-                    title="Make a quote from this cart"
-                    aria-label="Make a quote from this cart"
+                    data-shortcut="pos-quote"
+                    title="Save this cart as a quote (Alt+Q)"
+                    aria-label="Save this cart as a quote"
                   >
                     <FileSignature size={14} /> Quote
                   </button>
@@ -1132,8 +1095,9 @@ export default function POSView() {
         </div>
         {isWide && (
           <button
-            onClick={() => setShowShortcuts(true)}
-            title="Keyboard shortcuts (?)"
+            // The same help as every screen, from the one list of shortcuts.
+            onClick={() => window.dispatchEvent(new Event('app:shortcut-help'))}
+            title="Keyboard shortcuts (? or F1)"
             className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-app-bg text-app-text-muted hover:text-app-text text-xs font-medium cursor-pointer"
           >
             <Keyboard size={15} /> Shortcuts
@@ -1325,53 +1289,6 @@ export default function POSView() {
       </AnimatePresence>
       </SheetLayer>
 
-      {/* Keyboard shortcuts */}
-      <SheetLayer>
-        <AnimatePresence>
-          {showShortcuts && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowShortcuts(false)}
-              className="absolute inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.96, y: 8 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.96, y: 8 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-label="Keyboard shortcuts"
-                className="bg-app-card rounded-2xl w-full max-w-md max-h-[85dvh] overflow-y-auto p-5 shadow-2xl"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-semibold text-app-text flex items-center gap-2"><Keyboard size={18} /> Keyboard shortcuts</h3>
-                  <button onClick={() => setShowShortcuts(false)} aria-label="Close" className="p-2 -m-1 rounded-lg text-app-text-muted hover:bg-app-bg"><X size={18} /></button>
-                </div>
-                {POS_SHORTCUTS.map((group) => (
-                  <div key={group.title} className="mb-3 last:mb-0">
-                    <h4 className="text-xs font-medium text-app-text-muted mb-1">{group.title}</h4>
-                    <div className="divide-y divide-app-border">
-                      {group.items.map(([keys, what]) => (
-                        <div key={what} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                          <span className="text-app-text">{what}</span>
-                          <span className="flex gap-1 shrink-0">
-                            {keys.split(' ').map((key) => (
-                              <kbd key={key} className="px-1.5 py-0.5 rounded-md bg-app-bg text-app-text text-[11px] font-mono">{key}</kbd>
-                            ))}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </SheetLayer>
 
       {/* Success Modal Drawer using theme classes */}
       <SheetLayer>
@@ -1448,6 +1365,7 @@ export default function POSView() {
         }}
         onClose={() => setCardSheetOpen(false)}
       />
+      {quoting && <QuoteFromCartSheet deliveryFee={isDelivery ? deliveryFee : 0} onClose={() => setQuoting(false)} />}
       <ReceiptSheet
         transaction={receiptTx}
         startPrinting={receiptAutoPrint}

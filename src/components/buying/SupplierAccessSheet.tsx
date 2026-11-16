@@ -1,41 +1,31 @@
 // src/components/buying/SupplierAccessSheet.tsx
-// Buying → Suppliers → App access: who at this supplier can sign in to the supplier portal,
-// invitations not used yet, and inviting someone. What suppliers see is set in Roles → Supplier.
+// Workers → Suppliers → a supplier: who there can sign in, invitations not used yet, and
+// taking access back. Inviting uses the same form as staff (onInvite fills it in).
+// What suppliers see is set in Roles → Supplier.
 import React, { useCallback, useEffect, useState } from 'react';
 import { Copy, MessageCircle, Send, Trash2, UserCheck } from 'lucide-react';
-import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../shared/FormSheet';
+import { FormSheet, primaryBtn, secondaryBtn } from '../shared/FormSheet';
 import { appDialog } from '../AppDialog';
 import { toUserMessage } from '../../utils/userError';
-import { inviteSupplierUser, loadSupplierAccess, removeSupplierAccess, type SupplierAccess } from '../../services/supplierPortal';
+import { loadSupplierAccess, removeSupplierAccess, type SupplierAccess } from '../../services/supplierPortal';
 import type { Supplier } from '../../services/operations';
 
 const day = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : '');
 
-export function SupplierAccessSheet({ supplier, businessName, canManage, onClose }: {
+export function SupplierAccessSheet({ supplier, businessName, canManage, onClose, onInvite, onChanged }: {
   supplier: Supplier; businessName: string; canManage: boolean; onClose: () => void;
+  /** Opens the Workers invite form for this supplier. */
+  onInvite: () => void;
+  onChanged?: () => void;
 }) {
   const [access, setAccess] = useState<SupplierAccess | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState(supplier.name || '');
-  const [email, setEmail] = useState(supplier.email || '');
-  const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setAccess(await loadSupplierAccess(supplier.id)); }
     catch (e) { setError(toUserMessage(e, 'Could not load app access.')); }
   }, [supplier.id]);
   useEffect(() => { void load(); }, [load]);
-
-  const invite = async () => {
-    setBusy(true); setError(null); setSent(null);
-    try {
-      const code = await inviteSupplierUser(supplier.id, name.trim(), email.trim(), businessName);
-      setSent(code);
-      await load();
-    } catch (e) { setError(toUserMessage(e, 'Could not invite. Try again.')); }
-    finally { setBusy(false); }
-  };
 
   const remove = async (ids: { accountId?: string; invitationId?: string }, who: string) => {
     const ok = await appDialog.confirm({
@@ -45,12 +35,12 @@ export function SupplierAccessSheet({ supplier, businessName, canManage, onClose
       destructive: true,
     });
     if (!ok) return;
-    try { await removeSupplierAccess(ids); await load(); }
+    try { await removeSupplierAccess(ids); await load(); onChanged?.(); }
     catch (e) { setError(toUserMessage(e, 'Could not remove. Try again.')); }
   };
 
   const shareText = (code: string) =>
-    `${businessName} invites you to see your orders and payments in the KayKay's app. Sign up with ${email || 'your email'}, choose "Join team" and enter the code ${code}.`;
+    `${businessName} invites you to see your orders and payments in the KayKay's app. Sign up with your email, choose "Join team" and enter the code ${code}.`;
 
   return (
     <FormSheet title={`App access · ${supplier.company || supplier.name}`} subtitle="People at this supplier sign in to see only their own orders, price requests, deliveries and statement. Choose what they see in Roles → Supplier." onClose={onClose}>
@@ -96,12 +86,8 @@ export function SupplierAccessSheet({ supplier, businessName, canManage, onClose
             </div>
           )}
           {canManage ? (
-            <div className="space-y-2 rounded-2xl bg-app-bg p-3">
-              <p className="text-sm font-medium">Invite someone at {supplier.company || supplier.name}</p>
-              <Field label="Their name"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={fieldClass} /></Field>
-              <Field label="Email they sign in with" hint="They get a code by email; they sign up, verify the email and join with the code."><input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} /></Field>
-              {sent && <p className="text-xs text-emerald-700 dark:text-emerald-300">Invitation sent. Code <b className="font-mono">{sent}</b> (valid 7 days).</p>}
-              <div className="flex justify-end"><button className={primaryBtn} disabled={busy || !email.trim()} onClick={() => void invite()}><Send size={15} /> {busy ? 'Inviting…' : 'Send invitation'}</button></div>
+            <div className="flex justify-end">
+              <button className={primaryBtn} onClick={onInvite}><Send size={15} /> Invite someone at {supplier.company || supplier.name}</button>
             </div>
           ) : <p className="text-xs text-app-text-muted">Only the owner or an admin can give suppliers app access.</p>}
         </>

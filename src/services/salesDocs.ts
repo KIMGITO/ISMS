@@ -654,3 +654,7 @@ export function toInvoiceDocument(args: {
     qr: args.qr,
   };
 }
+
+/** A quote sold at the till: marks it accepted and links it to the sale. */
+export const markQuoteSold = (id: string, transactionId: string) =>
+  rpc('mark_quote_sold', { p_id: toUuid(id), p_transaction_id: toUuid(transactionId) });

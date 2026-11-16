@@ -17,7 +17,7 @@ import { useAppStore } from "../stores/appStore";
 import { 
   UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
   X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
-  Brain, RefreshCw,
+  Brain, RefreshCw, Sparkles, MessageSquareText,
   Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText, Gift, PanelLeftClose, PanelLeftOpen, Archive, ArchiveRestore
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -39,8 +39,11 @@ import CustomerGroupFields, { CustomerGroupValues } from "../components/Customer
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
-import CustomerDocsCard from "../components/invoices/CustomerDocsCard";
 import { appDialog } from '../components/AppDialog';
+import { GroupPicker } from '../components/messaging/GroupPicker';
+import { BulkMessageComposer } from '../components/messaging/BulkMessageComposer';
+import { groupMatcher, describeGroups } from '../services/messaging/customerGroups';
+import { useMessageContext } from '../hooks/useMessageContext';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -114,8 +117,10 @@ export default function CustomersView() {
   // The phone's back button closes a customer's details before leaving the screen.
   useOverlay(!!selectedCustomerId, () => setSelectedCustomerId(null), 'screen');
   const pointsOn = usePointsEnabled(activeBusinessId); // off: points are hidden here
+  // Variables, groups and buying history for messages and group filters.
+  const { ctx: messageCtx, setCustom: setMessageVariables } = useMessageContext(activeBusinessId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [groupFilter, setGroupFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState<string[]>([]);
   const [newGroups, setNewGroups] = useState<CustomerGroupValues>({
     customerType: "individual",
     paymentTerms: "pay_now",
@@ -179,19 +184,12 @@ export default function CustomersView() {
 
   const [successMsg, setSuccessMsg] = useState("");
 
-  // CRM AI Assistant local states
-  const [isAIOpen, setIsAIOpen] = useState(false);
-  const [aiMessages, setAiMessages] = useState<
-    { role: 'user' | 'assistant'; content: string }[]
-  >([
-    {
-      role: 'assistant',
-      content:
-        'Jambo! I am Kim, your KayKay\'s CRM Assistant. Click any prompt below or type your message to help manage customer relationships!',
-    },
-  ]);
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
+  // Messaging many customers: pick by group or one by one, then write once with variables.
+  const [selecting, setSelecting] = useState(false);
+  const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
+  // Phones: the composer takes the screen once the picking is done.
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeWithAi, setComposeWithAi] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAddingDebt, setIsAddingDebt] = useState(false);
   const [isPayingDebt, setIsPayingDebt] = useState(false);
@@ -260,6 +258,32 @@ export default function CustomersView() {
     setShowPoints(false);
     setSelectedCustomerId(id);
   };
+
+  // Message many: the list turns into tick boxes and the right side becomes the composer.
+  const canMessage = currentEmployee ? hasRolePermission(currentEmployee.role, "communication.send") : false;
+  const startMessaging = (withAi = false) => {
+    setSelectedCustomerId(null);
+    setShowPoints(false);
+    setSelecting(true);
+    setComposeWithAi(withAi);
+    // With the assistant, phones go straight to writing; it can pick the groups itself.
+    setComposeOpen(withAi);
+  };
+  const stopMessaging = () => {
+    setSelecting(false);
+    setComposeOpen(false);
+    setComposeWithAi(false);
+    setPickedIds(new Set());
+  };
+  const togglePicked = (id: string) =>
+    setPickedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  useOverlay(composeOpen, () => setComposeOpen(false), 'screen');
+  useOverlay(selecting && !composeOpen, stopMessaging, 'screen');
   const [duplicateCount, setDuplicateCount] = useState(0);
 
   const refreshDuplicateCount = React.useCallback(() => {
@@ -635,14 +659,8 @@ export default function CustomersView() {
     }
   };
 
-  // groupFilter is "field:value", such as "paymentTerms:weekly".
-  const matchesGroup = (c: typeof customers[number]) => {
-    if (groupFilter === "all") return true;
-    const [field, value] = groupFilter.split(":");
-    if (field === "customerType") return (c.customerType ?? "individual") === value;
-    if (field === "paymentTerms") return (c.paymentTerms ?? "pay_now") === value;
-    return (c.deliveryFrequency ?? "none") === value;
-  };
+  // Groups such as "Owes money" and "Gold" (see customerGroups.ts).
+  const matchesGroup = React.useMemo(() => groupMatcher(groupFilter, messageCtx), [groupFilter, messageCtx]);
 
   const filteredCustomers = customers.filter(c => matchesGroup(c) && (
     searchMatch(c.name, searchQuery) || 
@@ -650,6 +668,22 @@ export default function CustomersView() {
     searchMatch(c.email, searchQuery) ||
     searchMatch(c.tier, searchQuery)
   ));
+  const pickedCustomers = customers.filter((c) => pickedIds.has(c.id));
+  const shownPicked = filteredCustomers.filter((c) => pickedIds.has(c.id)).length;
+  const allShownPicked = filteredCustomers.length > 0 && shownPicked === filteredCustomers.length;
+  const toggleAllShown = () =>
+    setPickedIds((prev) => {
+      const next = new Set(prev);
+      filteredCustomers.forEach((c) => (allShownPicked ? next.delete(c.id) : next.add(c.id)));
+      return next;
+    });
+  // The assistant chose who gets it: show those groups and pick everyone in them.
+  const pickGroups = (ids: string[]) => {
+    setGroupFilter(ids);
+    setSearchQuery("");
+    const match = groupMatcher(ids, messageCtx);
+    setPickedIds(new Set(customers.filter(match).map((c) => c.id)));
+  };
 
   // Generate automated debt breakdown text for WhatsApp
   const getDebtBreakdownMessage = (cust: typeof selectedCustomer) => {
@@ -693,47 +727,6 @@ export default function CustomersView() {
     }
     msg += `\nPlease settle this balance at your earliest convenience. Thank you!`;
     return msg;
-  };
-
-  const handleSendAiMessage = async (textToSend?: string) => {
-    const text = textToSend || aiInput;
-    if (!text.trim()) return;
-
-    playSfx("send");
-
-    const newMessages = [...aiMessages, { role: "user" as const, content: text }];
-    setAiMessages(newMessages);
-    setAiInput("");
-    setAiLoading(true);
-
-    try {
-      // ✅ FIX: SupabaseService.callEdgeFunction returns the data directly.
-      // Do NOT call .json() on it.
-      const data = await SupabaseService.callEdgeFunction('chat', {
-          messages: newMessages,
-          activeRole: currentEmployee?.role,
-          permissions: currentEmployee ? [currentEmployee.role] : [],
-          employeeName: currentEmployee?.name,
-          businessId: activeBusinessId,
-      });
-
-      console.log('CRM response data', data);
-
-      // ✅ FIX: Access the properties directly from 'data'
-      if (data && data.success) {
-        setAiMessages([...newMessages, { role: "assistant" as const, content: data.reply }]);
-        playSfx("receive");
-      } else {
-        setAiMessages([...newMessages, { role: "assistant" as const, content: "Error: " + (data?.error || "Could not reach the assistant.") }]);
-        playSfx("receive");
-      }
-    } catch (err: any) {
-      console.error("AI Error:", err);
-      setAiMessages([...newMessages, { role: "assistant" as const, content: "Offline / Timeout: Make sure your development server is active." }]);
-      playSfx("receive");
-    } finally {
-      setAiLoading(false);
-    }
   };
 
   if (!canViewCustomers) {
@@ -793,8 +786,8 @@ export default function CustomersView() {
       {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
         className={`w-full lg:w-80 xl:w-[21rem] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
-          selectedCustomerId || showPoints ? 'hidden lg:flex' : 'flex'
-        } ${listCollapsed ? 'lg:!hidden' : ''}`}
+          selectedCustomerId || showPoints || composeOpen ? 'hidden lg:flex' : 'flex'
+        } ${listCollapsed && !selecting ? 'lg:!hidden' : ''}`}
       >
         {/* Title and actions */}
         <div className="px-4 pt-4 pb-3 shrink-0 space-y-2.5">
@@ -842,7 +835,17 @@ export default function CustomersView() {
                 )}
               </button>
             )}
-            {canCreateCustomers && (
+            {canMessage && (
+              <button
+                onClick={() => (selecting ? stopMessaging() : startMessaging())}
+                aria-pressed={selecting}
+                title="Pick customers by group and send them one message with their own names and amounts"
+                className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${selecting ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
+              >
+                <MessageSquareText size={15} /> {selecting ? 'Done' : 'Message'}
+              </button>
+            )}
+            {canCreateCustomers && !selecting && (
               <button
                 onClick={() => {
                   resetForm();
@@ -870,18 +873,30 @@ export default function CustomersView() {
               className="w-full bg-app-bg text-sm pl-9 pr-3 py-2.5 rounded-xl focus:outline-none text-app-text"
             />
           </div>
-          <SearchableDropdown
-            items={[
-              { id: 'all', label: 'All customers' },
-              ...Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => ({ id: `customerType:${value}`, label, sublabel: 'Customer type' })),
-              ...Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => ({ id: `paymentTerms:${value}`, label, sublabel: 'Payment terms' })),
-              ...Object.entries(DELIVERY_FREQUENCY_LABELS).map(([value, label]) => ({ id: `deliveryFrequency:${value}`, label, sublabel: 'Delivery schedule' })),
-            ]}
-            selectedValue={groupFilter}
-            onChange={setGroupFilter}
-            placeholder="All customers"
-            searchPlaceholder="Search groups"
-          />
+          <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} defaultOpen={selecting} key={selecting ? 'pick' : 'filter'} />
+          {selecting && (
+            <div className="flex items-center gap-2 px-1">
+              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allShownPicked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = shownPicked > 0 && !allShownPicked;
+                  }}
+                  onChange={toggleAllShown}
+                  disabled={filteredCustomers.length === 0}
+                  className="size-4 accent-amber-500"
+                />
+                {groupFilter.length || searchQuery ? `All ${filteredCustomers.length} shown` : `Everyone (${filteredCustomers.length})`}
+              </label>
+              <span className="ml-auto text-xs text-app-text-muted tabular-nums">{pickedIds.size} picked</span>
+              {pickedIds.size > 0 && (
+                <button onClick={() => setPickedIds(new Set())} className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer">
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Customers */}
@@ -890,13 +905,14 @@ export default function CustomersView() {
             <div className="px-6 py-16 text-center">
               <p className="text-sm font-medium text-app-text">No customers found</p>
               <p className="text-xs text-app-text-muted mt-1">
-                {searchQuery || groupFilter !== 'all' ? 'Try another search or filter.' : 'Add your first customer with the Add button.'}
+                {searchQuery || groupFilter.length ? 'Try another search or group.' : 'Add your first customer with the Add button.'}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-app-border">
               {filteredCustomers.map((c) => {
-                const isSelected = selectedCustomerId === c.id;
+                const picked = selecting && pickedIds.has(c.id);
+                const isSelected = selecting ? picked : selectedCustomerId === c.id;
                 const debt = c.debtBalance || 0;
                 const offline = (c as any).sync_status && (c as any).sync_status !== 'synced';
                 return (
@@ -913,14 +929,25 @@ export default function CustomersView() {
                     ]}
                   >
                   <button
-                    onClick={() => openCustomer(c.id)}
+                    onClick={() => (selecting ? togglePicked(c.id) : openCustomer(c.id))}
+                    role={selecting ? 'checkbox' : undefined}
+                    aria-checked={selecting ? picked : undefined}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 cursor-pointer ${
                       isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg'
                     }`}
                   >
-                    <span className={`grid place-items-center size-10 rounded-full shrink-0 text-sm font-semibold ${tierTone(c.tier)}`}>
-                      {initials(c.name)}
-                    </span>
+                    {selecting ? (
+                      <span
+                        aria-hidden
+                        className={`grid place-items-center size-10 rounded-full shrink-0 ${picked ? 'bg-amber-500 text-slate-950' : 'ring-2 ring-inset ring-app-border text-transparent'}`}
+                      >
+                        <Check size={18} />
+                      </span>
+                    ) : (
+                      <span className={`grid place-items-center size-10 rounded-full shrink-0 text-sm font-semibold ${tierTone(c.tier)}`}>
+                        {initials(c.name)}
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <span className="text-sm font-medium text-app-text truncate">{customerName(c.name)}</span>
@@ -951,16 +978,27 @@ export default function CustomersView() {
             </div>
           )}
         </div>
+        {selecting && (
+          <div className="lg:hidden shrink-0 px-3 pt-2 pb-nav border-t border-app-border bg-app-card">
+            <button
+              onClick={() => setComposeOpen(true)}
+              className="w-full h-11 rounded-xl bg-amber-500 text-slate-950 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Send size={16} />
+              {pickedIds.size ? `Write message to ${pickedIds.size}` : 'Write message'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* CUSTOMER: one scroll on phones; side panel on large screens */}
       <div
         className={`relative flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
-          !selectedCustomerId && !showPoints ? 'hidden lg:flex' : 'flex'
+          !selectedCustomerId && !showPoints && !composeOpen ? 'hidden lg:flex' : 'flex'
         }`}
       >
         {/* Brings the folded customer list back (wide screens) */}
-        {listCollapsed && (
+        {listCollapsed && !selecting && (
           <button
             onClick={toggleList}
             aria-label="Show the customer list"
@@ -970,7 +1008,39 @@ export default function CustomersView() {
             <PanelLeftOpen size={16} /> Customers
           </button>
         )}
-        {showPoints && !selectedCustomer && activeBusinessId ? (
+        {selecting ? (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="px-3 pt-3 pb-nav lg:px-5 lg:pt-4 lg:pb-6 max-w-2xl mx-auto w-full space-y-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setComposeOpen(false)} aria-label="Back to picking customers" className="p-2 -ml-2 rounded-xl hover:bg-app-card cursor-pointer lg:hidden">
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-semibold">Message customers</h2>
+                  <p className="text-xs text-app-text-muted truncate">
+                    {pickedIds.size
+                      ? `${pickedIds.size} picked${groupFilter.length ? ` · ${describeGroups(groupFilter)}` : ''}`
+                      : 'Pick customers on the left, by group or one by one, or ask the assistant.'}
+                  </p>
+                </div>
+                <button onClick={stopMessaging} className="px-3 py-1.5 rounded-xl text-sm text-app-text-muted hover:text-app-text hover:bg-app-card cursor-pointer">
+                  Close
+                </button>
+              </div>
+              <div className="rounded-2xl bg-app-card p-3 sm:p-4">
+                <BulkMessageComposer
+                  recipients={pickedCustomers}
+                  ctx={messageCtx}
+                  onCustomChange={setMessageVariables}
+                  audience={describeGroups(groupFilter)}
+                  onPickGroups={pickGroups}
+                  onSent={() => setPickedIds(new Set())}
+                  startWithAi={composeWithAi}
+                />
+              </div>
+            </div>
+          </div>
+        ) : showPoints && !selectedCustomer && activeBusinessId ? (
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className={`px-3 pt-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
               {pointsOn ? (
@@ -1099,7 +1169,6 @@ export default function CustomersView() {
                 </button>
               </div>
 
-              <CustomerDocsCard customer={selectedCustomer} />
               </div>
               <div className="mt-2 lg:mt-0">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
@@ -2471,177 +2540,18 @@ export default function CustomersView() {
         )}
       </AnimatePresence>
 
-      {/* Floating AI CRM Assistant */}
-      <motion.div
-        drag
-        dragMomentum={false}
-        style={{ bottom: 'calc(var(--mobile-nav-space) - 0.5rem)' }}
-        className="fixed right-3 md:!bottom-6 md:right-6 z-50 flex flex-col items-end cursor-grab active:cursor-grabbing"
-      >
-        {/* Expanded AI Panel */}
-        <AnimatePresence>
-          {isAIOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              className="bg-app-card border border-app-border rounded-2xl shadow-2xl w-[280px] sm:w-[310px] h-[380px] flex flex-col overflow-hidden mb-2.5 mr-1 text-[11px] font-semibold"
-            >
-              {/* Panel Header */}
-              <div className="bg-gradient-to-r from-amber-500/10 to-transparent p-3 border-b border-app-border flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 bg-amber-500/15 text-amber-500 rounded-md">
-                    <Brain size={13} />
-                  </div>
-                  <div>
-                    <h3 className="text-[10px] font-extrabold text-app-text uppercase tracking-wider font-display">
-                      CRM Assistant
-                    </h3>
-                    <span className="text-[8px] text-amber-500 font-bold uppercase tracking-wider block">
-                      Assistant Kim
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsAIOpen(false)}
-                  className="p-1 hover:bg-app-bg border border-app-border rounded-md text-app-text-muted hover:text-app-text transition"
-                >
-                  <X size={10} />
-                </button>
-              </div>
-
-              {/* Message scroll viewport */}
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 bg-app-bg/15">
-                {aiMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex flex-col max-w-[85%] ${
-                      msg.role === 'user'
-                        ? 'self-end items-end'
-                        : 'self-start items-start'
-                    }`}
-                  >
-                    <span className="text-[7.5px] font-black uppercase text-app-text-muted mb-0.5 px-0.5">
-                      {msg.role === 'user' ? 'You' : 'Kim'}
-                    </span>
-                    <div
-                      className={`p-2.5 rounded-xl text-[10px] leading-relaxed font-medium whitespace-pre-wrap ${
-                        msg.role === 'user'
-                          ? 'bg-amber-500 text-slate-950 rounded-tr-none font-bold shadow-xs'
-                          : 'bg-app-card border border-app-border rounded-tl-none text-app-text shadow-2xs'
-                      }`}
-                    >
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-
-                {aiLoading && (
-                  <div className="self-start flex flex-col items-start max-w-[85%]">
-                    <span className="text-[7.5px] font-black uppercase text-app-text-muted mb-0.5 px-0.5">
-                      Kim
-                    </span>
-                    <div className="bg-app-card border border-app-border rounded-xl rounded-tl-none p-2 text-[10px] text-app-text-muted flex items-center gap-1.5">
-                      <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" />
-                      <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                      <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                      <span>Thinking...</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Suggestions shortcuts */}
-              <div className="p-2 border-t border-app-border bg-app-bg/25 flex flex-col gap-1 shrink-0">
-                <span className="text-[7.5px] font-black text-app-text-muted uppercase tracking-wider px-0.5">
-                  Quick Prompts
-                </span>
-                <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none select-none">
-                  {selectedCustomer && (
-                    <button
-                      onClick={() => {
-                        const prompt = `Draft a beautiful, highly personalized loyalty milestone message for ${selectedCustomer.name} (Phone: ${selectedCustomer.phone}, Member Tier: ${selectedCustomer.tier}, Loyalty Stars: ${selectedCustomer.loyaltyPoints}). Thank them and suggest they redeem some stars. Keep it SMS length.`;
-                        handleSendAiMessage(prompt);
-                      }}
-                      className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded-md text-[8.5px] font-black uppercase tracking-wide shrink-0 transition"
-                    >
-                      Milestone Message ⭐
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      const overdueList = customers
-                        .filter((c) => c.debtBalance && c.debtBalance > 0)
-                        .map(
-                          (c) =>
-                            `• ${c.name} (${formatCurrency(
-                              c.debtBalance || 0,
-                            )})`,
-                        )
-                        .join('\n');
-                      const prompt = overdueList
-                        ? `Here is the current active client debt roster:\n${overdueList}\n\nProvide an analysis of who we should prioritize contacting and write a polite, professional corporate template we can use for collective follow-ups.`
-                        : 'Roster status: Perfect. No client currently carries outstanding debt balance. Draft a generic premium VIP promotional newsletter instead!';
-                      handleSendAiMessage(prompt);
-                    }}
-                    className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-md text-[8.5px] font-black uppercase tracking-wide shrink-0 transition"
-                  >
-                    Analyze Debt 📋
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleSendAiMessage(
-                        'List 3 unique, high-yield ideas to increase customer retention and milk order subscriptions this week.',
-                      )
-                    }
-                    className="px-2 py-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border border-blue-500/20 rounded-md text-[8.5px] font-black uppercase tracking-wide shrink-0 transition"
-                  >
-                    Retention Tips 💡
-                  </button>
-                </div>
-              </div>
-
-              {/* Chat panel controls */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendAiMessage();
-                }}
-                className="p-2 border-t border-app-border bg-app-card flex gap-1.5 shrink-0 items-center"
-              >
-                <input
-                  type="text"
-                  placeholder="Ask Kim anything about CRM..."
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  className="flex-1 bg-app-bg border border-app-border rounded-xl px-2.5 py-1.5 text-[10px] text-app-text focus:outline-none focus:border-amber-500 font-medium"
-                />
-                <button
-                  type="submit"
-                  disabled={aiLoading || !aiInput.trim()}
-                  className="p-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 rounded-xl cursor-pointer transition shadow-xs shrink-0"
-                >
-                  <Send size={11} />
-                </button>
-              </form>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Floating Toggle Button (Scaled down to 40% of standard size) */}
+      {/* Floating: write a message to many customers with the assistant (it can pick who, too) */}
+      {canMessage && !selecting && !selectedCustomerId && !showPoints && (
         <button
-          onClick={() => setIsAIOpen(!isAIOpen)}
-          className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 select-none border border-amber-400/20 group relative shrink-0"
-          title="Drag me! Click to open CRM Assistant"
+          onClick={() => startMessaging(true)}
+          style={{ bottom: 'calc(var(--mobile-nav-space) + 0.25rem)' }}
+          className="fixed right-4 md:!bottom-6 md:right-6 z-40 h-12 pl-4 pr-5 rounded-full bg-violet-600 text-white shadow-lg flex items-center gap-2 text-sm font-semibold hover:bg-violet-500 active:scale-95 transition cursor-pointer"
+          title="Write one message to many customers with the assistant"
         >
-          <Brain
-            size={15}
-            className="group-hover:rotate-6 transition-transform"
-          />
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 border border-app-card rounded-full animate-ping" />
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 border border-app-card rounded-full" />
+          <Sparkles size={17} />
+          Write with AI
         </button>
-      </motion.div>
+      )}
       <ReceiptSheet transaction={receiptTx} onClose={() => setReceiptTx(null)} />
     </div>
   );

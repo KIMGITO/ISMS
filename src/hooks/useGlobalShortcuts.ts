@@ -1,7 +1,8 @@
 // src/hooks/useGlobalShortcuts.ts
-// Keys that work on every screen: search, help, "G then a letter" to change screen,
-// "/" for the screen's search box, [ ] for tabs, and the page actions listed in
-// utils/shortcuts.ts. Screens with their own keys (POS, Quick Sale, receipts) keep them.
+// Keys that work on every screen, the ones people already know from other apps:
+// Ctrl+K search, ? or F1 help, / or Ctrl+F the screen's search box, F5 or Ctrl+R reload,
+// Alt+← back, Ctrl+, settings, "G then a letter" to change screen, [ ] for tabs, and the
+// page actions listed in utils/shortcuts.ts. POS, Quick Sale and receipts add their own.
 
 import { useEffect, useRef } from "react";
 import { pressShortcut } from "../utils/pressShortcut";
@@ -14,9 +15,13 @@ interface Options {
   navigate: (tab: ScreenId) => void;
   openSearch: () => void;
   toggleHelp: () => void;
+  /** Fetch the latest data (the same as pulling down on a phone). */
+  reload: () => void;
+  /** The previous screen; false when there is none. */
+  goBack: () => boolean;
 }
 
-const SCREEN_FOR_KEY = new Map(Object.entries(GO_TO_KEYS).map(([screen, key]) => [key, screen as ScreenId]));
+const SCREEN_FOR_KEY = new Map(Object.entries(GO_TO_KEYS).map(([screen, key]) => [key as string, screen as ScreenId]));
 
 const isVisible = (el: Element) => (el as HTMLElement).getClientRects().length > 0;
 
@@ -51,21 +56,51 @@ function moveTab(step: 1 | -1): boolean {
   return true;
 }
 
-export function useGlobalShortcuts({ role, activeTab, navigate, openSearch, toggleHelp }: Options) {
-  const latest = useRef({ role, activeTab, navigate, openSearch, toggleHelp });
-  latest.current = { role, activeTab, navigate, openSearch, toggleHelp };
+export function useGlobalShortcuts({ role, activeTab, navigate, openSearch, toggleHelp, reload, goBack }: Options) {
+  const latest = useRef({ role, activeTab, navigate, openSearch, toggleHelp, reload, goBack });
+  latest.current = { role, activeTab, navigate, openSearch, toggleHelp, reload, goBack };
 
   useEffect(() => {
     let goPending = false;
     let goTimer: ReturnType<typeof setTimeout> | undefined;
 
     const onKey = (e: KeyboardEvent) => {
-      const { role, activeTab, navigate, openSearch, toggleHelp } = latest.current;
+      const { role, activeTab, navigate, openSearch, toggleHelp, reload, goBack } = latest.current;
       if (!role || e.defaultPrevented || e.isComposing) return;
+      const ctrl = (e.ctrlKey || e.metaKey) && !e.altKey;
+      const lower = e.key.toLowerCase();
 
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") {
+      if (ctrl && !e.shiftKey && lower === "k") {
         e.preventDefault();
         openSearch();
+        return;
+      }
+      // F5 / Ctrl+R fetch the latest data in place. Ctrl+Shift+R is left alone, so it still
+      // restarts the whole app the way it does in a browser.
+      if (e.key === "F5" || (ctrl && !e.shiftKey && lower === "r")) {
+        e.preventDefault();
+        reload();
+        return;
+      }
+      if (ctrl && e.key === ",") {
+        if (canOpenScreen(role, "settings")) {
+          e.preventDefault();
+          navigate("settings");
+        }
+        return;
+      }
+      if (e.key === "F1") {
+        e.preventDefault();
+        toggleHelp();
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === "ArrowLeft" && activeTab !== "pos") {
+        if (goBack()) e.preventDefault();
+        return;
+      }
+      // Ctrl+F goes to the screen's own search box when it has one; otherwise the browser's find.
+      if (ctrl && !e.shiftKey && lower === "f" && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
+        if (focusPageSearch()) e.preventDefault();
         return;
       }
 
@@ -91,7 +126,7 @@ export function useGlobalShortcuts({ role, activeTab, navigate, openSearch, togg
       // POS and Quick Sale have their own keys for these.
       const ownKeys = activeTab === "pos" || activeTab === "sell";
 
-      if (key === "?" && activeTab !== "pos") {
+      if (key === "?") {
         e.preventDefault();
         toggleHelp();
         return;
@@ -111,10 +146,14 @@ export function useGlobalShortcuts({ role, activeTab, navigate, openSearch, togg
       if (action && press(action.target!)) e.preventDefault();
     };
 
+    // The Shortcuts button in POS (and anything else) opens the same help.
+    const onHelp = () => latest.current.toggleHelp();
     window.addEventListener("keydown", onKey);
+    window.addEventListener("app:shortcut-help", onHelp);
     return () => {
       clearTimeout(goTimer);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("app:shortcut-help", onHelp);
     };
   }, []);
 }

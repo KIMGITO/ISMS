@@ -11,7 +11,9 @@ import {
   verifyUserMembership,
   requirePermission,
   enforceRateLimit,
+  createUserClient,
 } from "../shared/cors.ts";
+import { readBooks, booksText, day } from "../shared/books.ts";
 import { loadAISettings, runAI, friendlyAIMessage, ownerAIHint } from "../shared/ai-runner.ts";
 
 // What the assistant can prepare, the permission each needs (null: everyone), and an
@@ -79,6 +81,11 @@ Deno.serve(async (req) => {
       ...m,
       content: typeof m?.content === "string" ? m.content.slice(0, 4000) : m?.content,
     }));
+
+    // Writing one message for many customers: a short prompt of its own, no business data.
+    if (body.mode === "draft_message") {
+      return await draftCustomerMessage(businessId, body, boundedMessages);
+    }
 
     // ── 1. Create service-role Supabase client ──────────────────────────
     const supabase = createClient(
@@ -155,6 +162,17 @@ Deno.serve(async (req) => {
     const allowedActions = ACTIONS.filter((x) => mayDo(x.permission));
     const blockedActions = ACTIONS.filter((x) => !mayDo(x.permission));
 
+    // The books for this month so far, against last month, read with this person's own
+    // access: a role without accounting.view gets nothing here.
+    const now = new Date();
+    const monthStart = `${day(now).slice(0, 8)}01`;
+    const lastMonthEnd = day(new Date(Date.parse(`${monthStart}T12:00:00Z`) - 86400000));
+    const lastMonthStart = `${lastMonthEnd.slice(0, 8)}01`;
+    const books = await readBooks(createUserClient(req), businessId, monthStart, day(now), lastMonthStart, lastMonthEnd);
+    const booksSection = books
+      ? `THE BOOKS (double-entry accounts; the truth for profit, cash, debts and bills; "the period before" is last month):\n${booksText(books, monthStart, day(now))}`
+      : "THE BOOKS: not available to this person. If asked about profit, cash or bills, say their role can't see the accounts.";
+
     // ── 3. Guard: AI not configured ─────────────────────────────────────
     if (!settings) {
       return jsonResponse({
@@ -183,6 +201,8 @@ Low-Stock Alert Count: ${lowStockProducts.length} items below min threshold
 Today's Sales Revenue: ${currency} ${todayRevenue.toLocaleString()}
 Today's Completed Sales: ${todayCount}
 Scheduled Shifts Today: ${schedulesCount}
+
+${booksSection}
 
 PRODUCT CATALOG (${products.length} Items Total):
 ${products.length > 0 
@@ -253,3 +273,54 @@ style is "buttons" (2 to 5 short choices, tap one), "single" (radio list, one ch
     return jsonResponse({ success: false, code: "busy", reply: friendlyAIMessage("busy") });
   }
 });
+// ── Message drafting (Customers → Message, and Message customers) ─────────
+// The app sends the variables it can fill in and the customer groups it can pick, so the
+// model writes {first_name}-style placeholders the app replaces for each person, and can
+// suggest who should get the message. Nothing is sent from here.
+const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
+
+async function draftCustomerMessage(businessId: string, body: any, history: any[]) {
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const [settings, bizRes] = await Promise.all([
+    loadAISettings(businessId),
+    supabase.from("businesses").select("name, currency").eq("id", businessId).maybeSingle(),
+  ]);
+  const bizName = (bizRes as any)?.data?.name || "our shop";
+  const currency = (bizRes as any)?.data?.currency || "KSh";
+
+  const variables: { token: string; describe: string }[] = (Array.isArray(body.variables) ? body.variables : [])
+    .slice(0, 60)
+    .map((v: any) => ({ token: clip(v?.token, 40), describe: clip(v?.describe, 120) }))
+    .filter((v: any) => /^\{[a-z0-9_]+\}$/.test(v.token));
+  const groups: { id: string; label: string; section: string }[] = (Array.isArray(body.groups) ? body.groups : [])
+    .slice(0, 80)
+    .map((g: any) => ({ id: clip(g?.id, 60), label: clip(g?.label, 80), section: clip(g?.section, 40) }))
+    .filter((g: any) => g.id);
+  const audience = clip(body.audience, 300);
+  const channel = clip(body.channel, 20) || "auto";
+  const purpose = body.purpose === "promotion" ? "an offer or promotion" : "a service message (reminder, update, statement)";
+
+  const systemInstruction = `You write short messages from "${bizName}" (a shop in Kenya, money in ${currency}) to its customers, sent by WhatsApp or SMS (${channel}). This one is ${purpose}.
+
+The same text goes to many customers. The app replaces each variable below with that customer's own value, so write the variables exactly as shown, braces included, and never invent other ones:
+${variables.map((v) => `${v.token} = ${v.describe}`).join("\n") || "{first_name} = customer's first name"}
+
+Money variables already include the currency (for example "${currency} 1,250"), so never write ${currency} or KSh in front of them.
+
+${audience ? `Who gets it right now: ${audience}.` : "Nobody is picked yet."}
+${groups.length ? `Customer groups the app can pick (id = meaning):\n${groups.map((g) => `${g.id} = ${g.label}${g.section ? " (" + g.section + ")" : ""}`).join("\n")}` : ""}
+
+How to reply:
+1. If the request is too unclear to write anything, ask ONE short question and stop.
+2. Otherwise, if nobody is picked yet and the person describes who should get it, first write one line: [GROUPS: id, id] using only ids from the list above and as few as needed. Groups from different sections must all match; groups from the same section mean either one.
+3. Then write [DRAFT] on its own line, followed by the message only: no quotes, no notes, no markdown, no hashtags. Warm, polite and plain, in the language the person used (English or Swahili). Start with a greeting using {first_name} when it is available. Keep it under 300 characters unless asked for more. Sign off with the shop name variable when it is available.`;
+
+  const result = await runAI(settings, {
+    systemInstruction,
+    messages: history.filter((m: any) => m?.role === "user" || m?.role === "assistant"),
+  });
+  if (!result.success) {
+    return jsonResponse({ success: false, code: result.code || "busy", reply: friendlyAIMessage(result.code) });
+  }
+  return jsonResponse({ success: true, reply: (result.text || "").trim() });
+}

@@ -138,7 +138,7 @@ export default function AccountingView() {
   const seesBooks = hasRolePermission(role, 'accounting.view' as any);
 
   const [tab, setTab] = useState<Tab>(seesSummary ? 'summary' : 'overview');
-  // Opened as "accounting" (old screen id, G then 3, search): start on the books.
+  // Opened as "accounting" (old screen id, search): start on the books.
   const section = useUiStore((s) => s.screenSection);
   useEffect(() => {
     if (section !== 'books') return;
