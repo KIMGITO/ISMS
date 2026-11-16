@@ -61,7 +61,8 @@ export interface JournalEntry {
   lines: JournalLine[];
 }
 
-export type SourceType = 'sale' | 'expense' | 'cledger' | 'payment' | 'purchase' | 'supplier_payment' | 'stock_adj';
+export type SourceType = 'sale' | 'expense' | 'cledger' | 'payment' | 'purchase' | 'supplier_payment' | 'stock_adj'
+  | 'sales_delivery' | 'sales_invoice' | 'invoice_payment' | 'credit_note';
 
 export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   sale: 'Sale',
@@ -71,6 +72,10 @@ export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   purchase: 'Purchase',
   supplier_payment: 'Supplier payment',
   stock_adj: 'Stock',
+  sales_delivery: 'Order delivery',
+  sales_invoice: 'Invoice',
+  invoice_payment: 'Invoice payment',
+  credit_note: 'Credit note',
   manual: 'Typed entry',
 };
 
@@ -187,6 +192,8 @@ export interface Receivable {
   owes: number;
   holds: number;
   appDebt: number;
+  /** Part of appDebt that is open invoices (Quotes & Invoices), not till debt. */
+  invoices?: number;
   appWallet: number;
   lastDate: string | null;
   since: string | null;
@@ -194,7 +201,7 @@ export interface Receivable {
 
 export async function loadReceivables(businessId: string): Promise<Receivable[]> {
   const rows = await rpc<any[]>('acc_receivables', { p_business_id: toUuid(businessId) });
-  return (rows || []).map((r) => ({ ...r, owes: n(r.owes), holds: n(r.holds), appDebt: n(r.appDebt), appWallet: n(r.appWallet) }));
+  return (rows || []).map((r) => ({ ...r, owes: n(r.owes), holds: n(r.holds), appDebt: n(r.appDebt), invoices: n(r.invoices), appWallet: n(r.appWallet) }));
 }
 
 export interface SupplierBill {

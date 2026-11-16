@@ -41,8 +41,8 @@ interface UiState {
   setSelectedCustomerId: (id: string | null) => void;
   activeInvoiceData: any | null;
   setActiveInvoiceData: (data: any | null) => void;
-  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting";
-  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting") => void;
+  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting" | "invoicing";
+  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "petty-cash" | "finance" | "prompt" | "suppliers" | "assets" | "audit" | "accounting" | "invoicing") => void;
   /** Screens visited before the current one, oldest first. */
   tabHistory: UiState["activeTab"][];
   /** Returns to the previous screen. False when there is none. */

@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2 } from "lucide-react";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency } from "../utils/helpers";
 import { formatReceiptNumber } from "../utils/idUtils";
@@ -17,6 +17,8 @@ import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from "../services/logCle
 import { useBusinessStore } from "../stores/businessStore";
 import { useTransactionStore } from "../stores/transactionStore";
 import { toUserMessage } from "../utils/userError";
+import { RefundSheet } from "../components/sales/RefundSheet";
+import { loadSaleCreditNotes } from "../services/salesDocs";
 
 interface GroupedTransactions {
   today: Transaction[];
@@ -84,6 +86,23 @@ export default function SalesView() {
       showToast("Not deleted", toUserMessage(err, "Could not delete. Check your connection."), undefined, "error");
     }
   };
+
+  // Refunds: a credit note for some or all of a sale; the sale stays in the log.
+  // Managers refund any sale; staff who can cancel a sale refund today's only (the database checks too).
+  const role = currentEmployee?.role || "Guest";
+  const canRefund = (tx: Transaction) => {
+    if (tx.status !== "Synced") return false;
+    if (hasRolePermission(role, "refunds.create")) return true;
+    const kenyaDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
+    return hasRolePermission(role, "pos.cancel_sale") && kenyaDay(new Date(tx.timestamp)) === kenyaDay(new Date());
+  };
+  const [refunding, setRefunding] = useState<Transaction | null>(null);
+  const [refunds, setRefunds] = useState<Map<string, { number: string; total: number }[]>>(new Map());
+  const loadRefunds = React.useCallback(() => {
+    if (!businessId) return;
+    loadSaleCreditNotes(businessId).then(setRefunds).catch(() => undefined);
+  }, [businessId]);
+  useEffect(() => { loadRefunds(); }, [loadRefunds, transactions.length]);
 
   // ── FIX: Track only ONE active open section string to auto-collapse others ──
   const [activeOpenSection, setActiveOpenSection] = useState<string>("today");
@@ -192,9 +211,13 @@ export default function SalesView() {
             </p>
           </div>
         }
-        actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) }]}
+        actions={[
+          { label: 'Refund', icon: <Undo2 size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => setRefunding(tx) },
+          { label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
+        ]}
         more={[
           { label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) },
+          { label: 'Refund (credit note)', icon: <Undo2 size={16} />, hidden: !canRefund(tx), onClick: () => setRefunding(tx) },
           { label: 'Delete sale', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
         className="rounded-2xl border border-app-border shadow-2xs hover:border-amber-500 transition animate-fadeIn"
@@ -215,6 +238,11 @@ export default function SalesView() {
               <span className="w-1 h-1 rounded-full bg-current" />
               <span>{isSynced ? 'Synced' : 'Waiting to sync'}</span>
             </span>
+            {refunds.get(tx.id)?.length ? (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300" title={refunds.get(tx.id)!.map((r) => `${r.number} ${formatCurrency(r.total)}`).join(', ')}>
+                Refunded {formatCurrency(refunds.get(tx.id)!.reduce((s, r) => s + r.total, 0))} · {refunds.get(tx.id)![0].number}
+              </span>
+            ) : null}
           </div>
 
           <h3 className="text-xs font-black text-amber-500 mt-1.5">
@@ -394,6 +422,7 @@ export default function SalesView() {
       </div>
 
       <ReceiptSheet transaction={selectedTx} onClose={() => setSelectedTx(null)} />
+      {refunding && <RefundSheet transactionId={refunding.id} onClose={() => setRefunding(null)} onDone={() => loadRefunds()} />}
     </div>
   );
 }

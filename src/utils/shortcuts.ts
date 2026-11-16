@@ -57,6 +57,7 @@ export const GO_TO_KEYS: Record<ScreenId, string> = {
   assets: "1",
   audit: "2",
   accounting: "3",
+  invoicing: "4",
 };
 
 const everywhere: Shortcut[] = [
@@ -142,6 +143,7 @@ const pages: Shortcut[] = [
   { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
   { id: "suppliers-new", keys: "N", key: "n", target: "new", action: "Add a supplier / new purchase (on that tab)", scope: "suppliers", permissions: ["suppliers.create", "purchases.create"] },
   { id: "accounting-new", keys: "N", key: "n", target: "new", action: "New journal entry / account (on that tab)", scope: "accounting", permissions: ["accounting.manage"] },
+  { id: "invoicing-new", keys: "N", key: "n", target: "new", action: "New quote / new order (on that tab)", scope: "invoicing", permissions: ["quotes.manage", "sales_orders.manage"] },
   { id: "assets-new", keys: "N", key: "n", target: "new", action: "Add an asset / upload files (on that tab)", scope: "assets", permissions: ["assets.manage", "files.manage"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
@@ -204,6 +206,11 @@ export const FEATURES: AppFeature[] = [
   { id: "branch-transfers", title: "Move stock between branches", description: "Main sends stock; the branch confirms what arrived. Not a sale, so profit is unchanged", screen: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.receive_stock"], keywords: ["transfer", "branch", "supply", "send", "receive", "dispatch"] },
   { id: "delivery-requests", title: "Delivery requests", description: "Open deliveries riders can accept or give back", screen: "deliveries", permissions: ["deliveries.view"], keywords: ["accept delivery", "give back", "rider", "request", "open delivery"] },
   { id: "delivery-areas", title: "Delivery areas and prices", description: "Areas you deliver to and what each costs", screen: "deliveries", permissions: ["deliveries.delivery_zones", "deliveries.delivery_price"], keywords: ["zone", "area", "delivery fee", "delivery price", "distance"] },
+  { id: "quotes", title: "Quotes", description: "Prices for a customer before they buy; accept one to make an order (Quotes & Invoices → Quotes)", screen: "invoicing", permissions: ["quotes.view", "quotes.manage"], keywords: ["quote", "quotation", "proforma", "estimate"], target: "quotes-tab" },
+  { id: "sales-orders", title: "Sales orders and deliveries", description: "Deliver an order in parts; stock goes out on each delivery (Quotes & Invoices → Orders)", screen: "invoicing", permissions: ["sales_orders.view", "sales_orders.manage"], keywords: ["sales order", "lpo", "delivery note", "deliver", "dispatch", "wholesale"], target: "orders-tab" },
+  { id: "sales-invoices", title: "Invoices for orders", description: "Invoices with due dates; record M-Pesa, bank or cash payments on them (Quotes & Invoices → Invoices)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["invoice", "bill", "due", "overdue", "pay invoice", "payment terms"], target: "invoices-tab" },
+  { id: "credit-notes", title: "Credit notes and refunds", description: "Lines back from an invoice or a till sale; money back, less owed, wallet or debt (Quotes & Invoices → Credit notes)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["credit note", "refund", "return", "money back", "returned goods"], target: "credit-notes-tab" },
+  { id: "invoice-ageing", title: "Who owes on invoices", description: "What each customer owes by how late it is: not due, 1–30, 31–60, 61–90, over 90 days (Quotes & Invoices → Who owes)", screen: "invoicing", permissions: ["invoices.view", "invoices.manage"], keywords: ["ageing", "aging", "debtors", "late", "overdue", "receivables", "statement"], target: "invoice-ageing" },
   { id: "pay-supplier", title: "Pay a supplier", description: "What we owe each supplier, and record paying them (Accounting → Suppliers)", screen: "accounting", permissions: ["accounting.view"], keywords: ["pay supplier", "payables", "creditors", "owe supplier", "supplier balance", "bill"], target: "acc-payables" },
   { id: "balance-sheet", title: "Balance sheet", description: "What the business owns and owes (Accounting → Balance sheet)", screen: "accounting", permissions: ["accounting.view"], keywords: ["balance sheet", "assets", "liabilities", "net worth", "equity"], target: "acc-balance" },
   { id: "profit-loss", title: "Profit & loss statement", description: "Income, cost of sales and expenses by account (Accounting → Profit & loss)", screen: "accounting", permissions: ["accounting.view"], keywords: ["p&l", "income statement", "profit and loss"], target: "acc-pnl" },

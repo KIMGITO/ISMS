@@ -74,3 +74,16 @@ A quote or order posts nothing. New source types: `sales_delivery`, `sales_invoi
 - Should till credit sales also create an invoice automatically, or stay as they are?
 - Payment terms per customer (default 0 days) or per invoice only?
 - Do we need customer-facing approval of quotes on the website (a "view and accept" link)?
+
+## Decisions taken when building (2026-11-17)
+
+- Till credit sales stay as they are; no automatic invoice.
+- Payment terms come from the customer's existing setting (pay now / weekly / monthly = 0 / 7 / 30 days) and can be changed per invoice, with an option to save them on the customer.
+- Invoice debt is kept apart from till debt (`customers.debt_balance`). An invoice payment goes through `process_business_payment` with no customer, lands in "Payments not matched to a sale", and the invoice payment moves it to the invoice. A payment already in Payments (an M-Pesa till payment) can be used instead; typing an M-Pesa code that is already recorded reuses it.
+- Credit notes are final (no void). A till sale can be refunded as money back, into the wallet, or off the debt that sale left. Cashiers (`pos.cancel_sale`) can refund only today's sales.
+
+## Left for later
+
+- KRA eTIMS for invoices and credit notes: the `kra-etims` function and `kra_etims_receipts` are keyed by till sale.
+- A quote link customers can accept on the website.
+- Refunds of till sales don't yet lower the Home dashboard and Finances sales figures (the books are right).

@@ -34,6 +34,7 @@ import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import FinanceView from './features/FinanceView';
 import AccountingView from './features/AccountingView';
+import SalesDocsView from './features/SalesDocsView';
 import SuppliersView from './features/SuppliersView';
 import AssetsFilesView from './features/AssetsFilesView';
 import AuditLogView from './features/AuditLogView';
@@ -139,6 +140,7 @@ import {
   ArrowRightLeft,
   PieChart,
   BookOpen,
+  FileSignature,
   Send,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
@@ -159,6 +161,7 @@ import { TermsDialog } from './components/legal/TermsDialog';
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
 const SUPPLIER_PERMISSIONS = SCREEN_BY_ID.get('suppliers')!.permissions;
+const INVOICING_PERMISSIONS = SCREEN_BY_ID.get('invoicing')!.permissions;
 const ASSET_PERMISSIONS = SCREEN_BY_ID.get('assets')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
@@ -182,6 +185,7 @@ const MOBILE_TABS = [
   { id: 'stock-history', label: 'Stock History', icon: History, permission: 'inventory.stock_history' },
   { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
+  { id: 'invoicing', label: 'Quotes & Invoices', icon: FileSignature, permission: INVOICING_PERMISSIONS },
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
   { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
@@ -326,9 +330,16 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-sales',
     title: 'Sales Log',
-    content: 'Every sale and its receipt. Reprint or share a receipt from here.',
+    content: 'Every sale and its receipt. Reprint or share a receipt from here, or refund it: the sale stays and a credit note is made.',
     placement: 'right',
     tab: 'sales',
+  },
+  {
+    targetSelector: '#sidebar-tab-invoicing',
+    title: 'Quotes & Invoices',
+    content: 'For businesses and big customers: send a quote, turn it into an order when they accept, deliver it in parts, invoice it with payment terms, record payments and give credit notes. See who owes and how late.',
+    placement: 'right',
+    tab: 'invoicing',
   },
   {
     targetSelector: '#sidebar-tab-customers',
@@ -3725,6 +3736,13 @@ export default function App() {
                       permission: 'orders.view' as const,
                     },
                     {
+                      id: 'invoicing',
+                      label: 'Quotes & Invoices',
+                      icon: FileSignature,
+                      desc: 'Quotes, orders, invoices, credit notes',
+                      permission: INVOICING_PERMISSIONS,
+                    },
+                    {
                       id: 'customers',
                       label: 'Loyalty Club',
                       icon: Heart,
@@ -4445,6 +4463,13 @@ export default function App() {
                       >
                         <SecurityGuard permission="finance.view">
                           <FinanceView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'invoicing' && (
+                      <motion.div key="invoicing-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission={INVOICING_PERMISSIONS as any}>
+                          <SalesDocsView />
                         </SecurityGuard>
                       </motion.div>
                     )}

@@ -8,7 +8,7 @@ export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
   | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers"
-  | "suppliers" | "assets" | "audit" | "accounting";
+  | "suppliers" | "assets" | "audit" | "accounting" | "invoicing";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -41,6 +41,7 @@ export const SCREENS: AppScreen[] = [
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finances", description: "Profit or loss, income, spending, debts, wallets and what points cost", keywords: ["finance", "profit", "loss", "income", "spending", "report", "accounts", "debts", "p&l", "books"], permissions: ["finance.view"] },
   { id: "accounting", group: "Money", title: "Accounting", description: "The books: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe, money counts", keywords: ["accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "p&l", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock"], permissions: ["accounting.view"] },
+  { id: "invoicing", group: "Selling", title: "Quotes & Invoices", description: "Quotes, sales orders, deliveries, invoices, payments on them, credit notes and who owes", keywords: ["quote", "quotation", "proforma", "estimate", "sales order", "order", "lpo", "delivery note", "invoice", "bill", "credit note", "refund", "return", "ageing", "aging", "overdue", "terms", "b2b", "wholesale"], permissions: ["quotes.view", "quotes.manage", "sales_orders.view", "sales_orders.manage", "invoices.view", "invoices.manage"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
   { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },

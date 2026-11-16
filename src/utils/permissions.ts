@@ -143,6 +143,13 @@ export type PermissionCode =
   | 'pettycash.record'
   | 'finance.view'
   | 'accounting.view'
+  | 'quotes.view'
+  | 'quotes.manage'
+  | 'sales_orders.view'
+  | 'sales_orders.manage'
+  | 'invoices.view'
+  | 'invoices.manage'
+  | 'refunds.create'
   | 'accounting.manage'
   | 'payments.view'
   | 'payments.verify'
@@ -250,6 +257,13 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'pos.create_sale', category: 'POS & Checkout', description: 'Checkout sales carts' },
   { code: 'pos.cancel_sale', category: 'POS & Checkout', description: 'Void draft checkout carts' },
   { code: 'pos.refund', category: 'POS & Checkout', description: 'Process customer cashbacks' },
+  { code: 'refunds.create', category: 'POS & Checkout', description: 'Refund any till sale with a credit note (staff who can cancel a sale may refund only today\'s)' },
+  { code: 'quotes.view', category: 'Quotes & Invoices', description: 'See quotes' },
+  { code: 'quotes.manage', category: 'Quotes & Invoices', description: 'Make, send, accept and decline quotes' },
+  { code: 'sales_orders.view', category: 'Quotes & Invoices', description: 'See sales orders and deliveries' },
+  { code: 'sales_orders.manage', category: 'Quotes & Invoices', description: 'Make and cancel sales orders, deliver them (stock goes out)' },
+  { code: 'invoices.view', category: 'Quotes & Invoices', description: 'See invoices, credit notes and who owes on them' },
+  { code: 'invoices.manage', category: 'Quotes & Invoices', description: 'Invoice orders, record payments, make credit notes, void invoices' },
   { code: 'pos.discount', category: 'POS & Checkout', description: 'Apply cart waivers' },
   { code: 'pos.override_price', category: 'POS & Checkout', description: 'Override default price rules' },
   { code: 'pos.walkin_customer', category: 'POS & Checkout', description: 'Bypass loyalty on quick checkouts' },
@@ -417,6 +431,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'production.view', 'production.create', 'production.update', 'production.approve',
       'bom.view', 'bom.create', 'bom.update',
       'expenses.view', 'expenses.create', 'expenses.update', 'pettycash.record', 'finance.view', 'accounting.view',
+      'quotes.view', 'quotes.manage', 'sales_orders.view', 'sales_orders.manage', 'invoices.view', 'invoices.manage', 'refunds.create',
       'payments.view', 'payments.verify', 'payments.cash', 'payments.card',
       'reports.view', 'reports.sales', 'reports.inventory', 'reports.customers', 'reports.profit', 'reports.deliveries',
       'notifications.view', 'notifications.send', 'communication.view', 'communication.send',

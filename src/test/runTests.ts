@@ -52,6 +52,7 @@ import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, keny
 import { buildShiftReport, shiftReportText } from "../services/shiftReport";
 import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
 import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
+import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -713,6 +714,46 @@ runTest("Accounting statements add up", () => {
   if (checkDraft([{ accountId: "cash", debit: 100.1, credit: 0 }, { accountId: "sales", debit: 0, credit: 100.1 }, { accountId: "", debit: 0, credit: 0 }]).error !== null) throw new Error("balanced draft with an empty line is fine");
 });
 
+runTest("Quotes, invoices and credit notes add up like the database", () => {
+  // 10 at 150 with 10% off and 16% VAT; 3 at 99.99 with no VAT; delivery 200. The database gave 2,645.97 (QT-2026-0001 on the test copy).
+  const lines = [
+    { productId: "a", name: "Milk", unit: "L", quantity: 10, unitPrice: 150, discountPct: 10, vatRate: 16 },
+    { productId: "b", name: "Yoghurt", unit: "", quantity: 3, unitPrice: 99.99, discountPct: 0, vatRate: 0 },
+    { productId: null, name: "Setup service", unit: "", quantity: 1, unitPrice: 500, discountPct: 0, vatRate: 16 },
+  ];
+  const a = lineAmounts(lines[0]);
+  if (a.net !== 1350 || a.vat !== 216 || a.total !== 1566) throw new Error(`line amounts wrong: ${JSON.stringify(a)}`);
+  const t = draftTotals(lines, 200);
+  if (t.net !== 2149.97 || t.vat !== 296 || t.total !== 2645.97) throw new Error(`totals wrong: ${JSON.stringify(t)}`);
+  if (checkLines(lines) !== null) throw new Error("good lines refused");
+  if (checkLines([{ ...lines[0], vatRate: 14 }]) === null) throw new Error("VAT 14% must be refused (KRA takes 0, 8, 16)");
+  if (checkLines([{ ...lines[0], quantity: 0 }]) === null) throw new Error("zero quantity must be refused");
+  if (checkLines([]) === null) throw new Error("no items must be refused");
+
+  // Crediting 1 of 4 units of a line worth 540 + 86.40 VAT gives 156.60 (CN-2026-0002 on the test copy).
+  const inv: InvoiceLineRow[] = [{ id: "l1", position: 1, productId: "a", name: "Milk", unit: "L", quantity: 4, unitPrice: 150, discountPct: 10, vatRate: 16, net: 540, vat: 86.4, total: 626.4, orderLineId: "o1", credited: 0 }];
+  if (creditPreview(inv, { l1: 1 }) !== 156.6) throw new Error(`credit preview wrong: ${creditPreview(inv, { l1: 1 })}`);
+  if (creditPreview(inv, { l1: 9 }) !== 626.4) throw new Error("credit can't go past what is left");
+
+  // A till sale of 400 with 67 off and 16% VAT (386.28): one unit of the 10%-off item gives 93.96 back.
+  const sale = [{ id: "i1", productId: "a", name: "Milk", quantity: 3, left: 3, unitNet: 81, vatRate: 16 }, { id: "i2", productId: "b", name: "Bread", quantity: 2, left: 2, unitNet: 45, vatRate: 16 }];
+  if (refundPreview(sale, { i1: 1 }).total !== 93.96) throw new Error(`refund preview wrong: ${refundPreview(sale, { i1: 1 }).total}`);
+  if (refundPreview(sale, { i1: 3, i2: 2 }).total !== 386.28) throw new Error(`full refund should give the whole sale back: ${refundPreview(sale, { i1: 3, i2: 2 }).total}`);
+
+  const p = creditNotePayload({ transactionId: "t", quantities: { i1: 2, i2: 0 }, reason: " Returned ", settlement: "wallet", method: "Cash", returnStock: true });
+  if (p.lines.length !== 1 || (p.lines[0] as any).transactionItemId !== "i1" || p.method !== null || p.reason !== "Returned") throw new Error(`credit note payload wrong: ${JSON.stringify(p)}`);
+  if (termsSetting(7) !== "weekly" || termsSetting(14) !== null || termsDaysOf("monthly") !== 30 || termsDaysOf(undefined) !== 0) throw new Error("payment terms mapping wrong");
+
+  const doc = toInvoiceDocument({
+    kind: "quote", number: "QT-2026-0001", issueDate: "2026-11-17", validUntil: "2026-12-01",
+    lines: [{ id: "x", position: 1, ...lines[0], net: 1350, vat: 216, total: 1566 }], subtotal: 1350, vat: 216, deliveryFee: 200, paid: 0, balance: 1766,
+    from: { name: "Shop" }, to: { name: "Hotel" }, texts: defaultInvoiceTexts(), currency: "KSh", accent: "#000",
+  });
+  if (doc.texts.title !== "Quotation" || doc.dueAt !== "" || doc.lines.length !== 2 || doc.totals.subtotal !== 1550 || doc.texts.note !== "Valid until 01/12/2026") {
+    throw new Error(`quote PDF document wrong: ${JSON.stringify({ title: doc.texts.title, due: doc.dueAt, lines: doc.lines.length, sub: doc.totals.subtotal, note: doc.texts.note })}`);
+  }
+});
+
 runTest("Keyboard shortcuts and search features follow the roles", () => {
   for (const role of Object.keys(SYSTEM_ROLES)) {
     const list = shortcutsFor(role);
@@ -737,7 +778,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView", "SalesDocsView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
   // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
   const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);
