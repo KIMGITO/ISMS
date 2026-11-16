@@ -33,6 +33,7 @@ import RiderDeliveriesView from './features/RiderDeliveriesView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import FinanceView from './features/FinanceView';
+import AccountingView from './features/AccountingView';
 import SuppliersView from './features/SuppliersView';
 import AssetsFilesView from './features/AssetsFilesView';
 import AuditLogView from './features/AuditLogView';
@@ -137,6 +138,7 @@ import {
   History,
   ArrowRightLeft,
   PieChart,
+  BookOpen,
   Send,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
@@ -193,6 +195,7 @@ const MOBILE_TABS = [
   { id: 'prompt', label: 'Prompts', icon: Send, permission: PROMPT_PERMISSIONS },
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
   { id: 'finance', label: 'Finances', icon: PieChart, permission: 'finance.view' },
+  { id: 'accounting', label: 'Accounting', icon: BookOpen, permission: 'accounting.view' },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
   { id: 'suppliers', label: 'Suppliers', icon: Truck, permission: SUPPLIER_PERMISSIONS },
   { id: 'assets', label: 'Assets', icon: HardDrive, permission: ASSET_PERMISSIONS },
@@ -392,6 +395,13 @@ const tourSteps: TourStep[] = [
     content: 'Profit or loss, income, spending, debts, wallets, and what loyalty points cost you.',
     placement: 'right',
     tab: 'finance',
+  },
+  {
+    targetSelector: '#sidebar-tab-accounting',
+    title: 'Accounting',
+    content: 'The books keep themselves from every sale, expense, payment and purchase: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe. Owners can pay suppliers, count money and lock past months.',
+    placement: 'right',
+    tab: 'accounting',
   },
   {
     targetSelector: '#sidebar-tab-deliveries',
@@ -3806,6 +3816,13 @@ export default function App() {
                       permission: 'finance.view' as const,
                     },
                     {
+                      id: 'accounting',
+                      label: 'Accounting',
+                      icon: BookOpen,
+                      desc: 'Books, balance sheet, VAT, suppliers',
+                      permission: 'accounting.view' as const,
+                    },
+                    {
                       id: 'production',
                       label: 'Production & BOM',
                       icon: FlaskConical,
@@ -4428,6 +4445,13 @@ export default function App() {
                       >
                         <SecurityGuard permission="finance.view">
                           <FinanceView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'accounting' && (
+                      <motion.div key="accounting-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission="accounting.view">
+                          <AccountingView />
                         </SecurityGuard>
                       </motion.div>
                     )}

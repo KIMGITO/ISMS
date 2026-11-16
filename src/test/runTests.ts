@@ -51,6 +51,7 @@ import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 import { buildShiftReport, shiftReportText } from "../services/shiftReport";
 import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
+import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -684,6 +685,34 @@ runTest("Purchases, assets and the audit log read correctly", () => {
   if (describeAction(entry) !== "Purchase marked received") throw new Error("audit action read wrong");
 });
 
+runTest("Accounting statements add up", () => {
+  const acc = (id: string, code: string, type: AccountBalance["type"], key: string | null, opening: number, debit: number, credit: number): AccountBalance =>
+    ({ id, code, name: id, type, key, description: null, active: true, opening, debit, credit, closing: opening + debit - credit, lines: 1 });
+  // A sale of 1,000 (cost 600) paid by M-Pesa, rent of 300 from cash, owner put in 5,000 before the period.
+  const accounts = [
+    acc("cash", "1000", "asset", "cash", 5000, 0, 300),
+    acc("mpesa", "1010", "asset", "mpesa", 0, 1000, 0),
+    acc("stock", "1200", "asset", "inventory", 2000, 0, 600),
+    acc("capital", "3000", "equity", "capital", -7000, 0, 0),
+    acc("sales", "4000", "income", "sales", 0, 0, 1000),
+    acc("cogs", "5000", "expense", "cogs", 0, 600, 0),
+    acc("rent", "6100", "expense", "exp:rent", 0, 300, 0),
+  ];
+  const pnl = profitAndLoss(accounts);
+  if (pnl.totalIncome !== 1000 || pnl.grossProfit !== 400 || pnl.netProfit !== 100) throw new Error(`profit & loss wrong: ${JSON.stringify(pnl)}`);
+  const bs = balanceSheet(accounts);
+  if (bs.totalAssets !== 7100 || bs.profitToDate !== 100 || bs.totalEquity !== 7100 || bs.difference !== 0) throw new Error(`balance sheet wrong: ${JSON.stringify(bs)}`);
+  const tb = trialBalance(accounts);
+  if (!tb.balanced || tb.debit !== 8000) throw new Error(`trial balance wrong: ${tb.debit} / ${tb.credit}`);
+  const transfer = QUICK_ENTRIES.find((q) => q.id === "transfer")!;
+  const lines = quickLines(transfer, accounts, 250, { money: "mpesa", to: "cash" });
+  if (typeof lines === "string" || lines[0].accountId !== "cash" || lines[0].debit !== 250 || lines[1].accountId !== "mpesa" || lines[1].credit !== 250) throw new Error("M-Pesa to cash should debit cash and credit M-Pesa");
+  if (quickLines(transfer, accounts, 250, { money: "cash", to: "cash" }) !== "Choose two different accounts.") throw new Error("same account both sides must be refused");
+  if (quickLines(QUICK_ENTRIES.find((q) => q.id === "capital")!, accounts, 0, { money: "cash" }) !== "Enter an amount above zero.") throw new Error("zero amount must be refused");
+  if (checkDraft([{ accountId: "cash", debit: 100, credit: 0 }, { accountId: "sales", debit: 0, credit: 90 }]).error === null) throw new Error("unbalanced draft must be refused");
+  if (checkDraft([{ accountId: "cash", debit: 100.1, credit: 0 }, { accountId: "sales", debit: 0, credit: 100.1 }, { accountId: "", debit: 0, credit: 0 }]).error !== null) throw new Error("balanced draft with an empty line is fine");
+});
+
 runTest("Keyboard shortcuts and search features follow the roles", () => {
   for (const role of Object.keys(SYSTEM_ROLES)) {
     const list = shortcutsFor(role);
@@ -708,7 +737,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
   // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
   const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);

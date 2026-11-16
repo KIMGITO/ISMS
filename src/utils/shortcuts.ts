@@ -56,6 +56,7 @@ export const GO_TO_KEYS: Record<ScreenId, string> = {
   suppliers: "z",
   assets: "1",
   audit: "2",
+  accounting: "3",
 };
 
 const everywhere: Shortcut[] = [
@@ -140,6 +141,7 @@ const pages: Shortcut[] = [
   { id: "shift-form-cancel", keys: "Esc", action: "Close the reminder form", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
   { id: "suppliers-new", keys: "N", key: "n", target: "new", action: "Add a supplier / new purchase (on that tab)", scope: "suppliers", permissions: ["suppliers.create", "purchases.create"] },
+  { id: "accounting-new", keys: "N", key: "n", target: "new", action: "New journal entry / account (on that tab)", scope: "accounting", permissions: ["accounting.manage"] },
   { id: "assets-new", keys: "N", key: "n", target: "new", action: "Add an asset / upload files (on that tab)", scope: "assets", permissions: ["assets.manage", "files.manage"] },
   { id: "branch-new", keys: "N", key: "n", target: "new", action: "Add a branch", scope: "business-management", permissions: ["settings.view"] },
   { id: "notifications-read", keys: "M", key: "m", target: "mark-read", action: "Mark all as read", scope: "notifications", permissions: [] },
@@ -202,6 +204,11 @@ export const FEATURES: AppFeature[] = [
   { id: "branch-transfers", title: "Move stock between branches", description: "Main sends stock; the branch confirms what arrived. Not a sale, so profit is unchanged", screen: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.receive_stock"], keywords: ["transfer", "branch", "supply", "send", "receive", "dispatch"] },
   { id: "delivery-requests", title: "Delivery requests", description: "Open deliveries riders can accept or give back", screen: "deliveries", permissions: ["deliveries.view"], keywords: ["accept delivery", "give back", "rider", "request", "open delivery"] },
   { id: "delivery-areas", title: "Delivery areas and prices", description: "Areas you deliver to and what each costs", screen: "deliveries", permissions: ["deliveries.delivery_zones", "deliveries.delivery_price"], keywords: ["zone", "area", "delivery fee", "delivery price", "distance"] },
+  { id: "pay-supplier", title: "Pay a supplier", description: "What we owe each supplier, and record paying them (Accounting → Suppliers)", screen: "accounting", permissions: ["accounting.view"], keywords: ["pay supplier", "payables", "creditors", "owe supplier", "supplier balance", "bill"], target: "acc-payables" },
+  { id: "balance-sheet", title: "Balance sheet", description: "What the business owns and owes (Accounting → Balance sheet)", screen: "accounting", permissions: ["accounting.view"], keywords: ["balance sheet", "assets", "liabilities", "net worth", "equity"], target: "acc-balance" },
+  { id: "profit-loss", title: "Profit & loss statement", description: "Income, cost of sales and expenses by account (Accounting → Profit & loss)", screen: "accounting", permissions: ["accounting.view"], keywords: ["p&l", "income statement", "profit and loss"], target: "acc-pnl" },
+  { id: "journal", title: "Journal entries", description: "Every entry in the books, and typing your own (Accounting → Journal)", screen: "accounting", permissions: ["accounting.view"], keywords: ["journal", "ledger", "je", "entry", "owner capital", "drawings", "loan", "transfer to bank"], target: "acc-journal" },
+  { id: "count-money", title: "Count money & match stock", description: "Set cash, M-Pesa or bank to what is really there; match stock value (Accounting → Count money & stock)", screen: "accounting", permissions: ["accounting.view"], keywords: ["reconcile", "bank reconciliation", "cash count", "cash short", "stock value"], target: "acc-checks" },
   { id: "purchase-receive", title: "Receive a purchase into stock", description: "Open a purchase and tap Receive into stock: linked items are added to stock, and costs can be updated", screen: "suppliers", permissions: ["purchases.update", "purchases.approve"], keywords: ["receive", "goods received", "grn", "restock", "delivery from supplier", "purchase order"], target: "purchases-tab" },
   { id: "purchases", title: "Purchases", description: "Orders to suppliers: drafts, ordered, received and cancelled", screen: "suppliers", permissions: ["purchases.view"], keywords: ["purchase", "order", "lpo", "buy"], target: "purchases-tab" },
   { id: "business-files", title: "Business files", description: "Upload and open licences, contracts and invoices (Assets & Files → Files)", screen: "assets", permissions: ["files.view", "files.manage"], keywords: ["file", "document", "upload", "pdf", "licence", "permit", "contract"], target: "files-tab" },

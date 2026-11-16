@@ -142,6 +142,8 @@ export type PermissionCode =
   | 'expenses.manage'
   | 'pettycash.record'
   | 'finance.view'
+  | 'accounting.view'
+  | 'accounting.manage'
   | 'payments.view'
   | 'payments.verify'
   | 'payments.refund'
@@ -327,6 +329,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'expenses.manage', category: 'Expenses & Payments', description: 'Adjust category budget limits' },
   { code: 'pettycash.record', category: 'Expenses & Payments', description: 'Record money spent from the till (petty cash)' },
   { code: 'finance.view', category: 'Expenses & Payments', description: 'See the Finances page: profit, spending, debts, points' },
+  { code: 'accounting.view', category: 'Expenses & Payments', description: 'Read the books: profit & loss, balance sheet, journal, VAT, who owes what' },
+  { code: 'accounting.manage', category: 'Expenses & Payments', description: 'Change the books: typed entries, accounts, money counts, supplier payments, lock date' },
   { code: 'payments.view', category: 'Expenses & Payments', description: 'View cash/M-Pesa registers' },
   { code: 'payments.verify', category: 'Expenses & Payments', description: 'Verify payment claims' },
   { code: 'payments.refund', category: 'Expenses & Payments', description: 'Process payment chargebacks' },
@@ -412,7 +416,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'purchases.view', 'purchases.create', 'purchases.update', 'purchases.approve', 'purchases.export', 'purchases.print',
       'production.view', 'production.create', 'production.update', 'production.approve',
       'bom.view', 'bom.create', 'bom.update',
-      'expenses.view', 'expenses.create', 'expenses.update', 'pettycash.record', 'finance.view',
+      'expenses.view', 'expenses.create', 'expenses.update', 'pettycash.record', 'finance.view', 'accounting.view',
       'payments.view', 'payments.verify', 'payments.cash', 'payments.card',
       'reports.view', 'reports.sales', 'reports.inventory', 'reports.customers', 'reports.profit', 'reports.deliveries',
       'notifications.view', 'notifications.send', 'communication.view', 'communication.send',
