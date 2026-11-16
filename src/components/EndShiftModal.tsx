@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, LogOut, Loader2 } from 'lucide-react';
+import { X, Copy, Check, LogOut, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { useCustomerStore } from '../stores/customerStore';
@@ -13,7 +13,7 @@ import type { Expense } from '../types';
 import { useBusinessStore } from '../stores/businessStore';
 import { getSupabase } from '../services/supabaseClient';
 import { toUuid } from '../utils/idUtils';
-import { buildShiftReport, finishShift, ksh, shiftClock, shiftLength, shiftReportText } from '../services/shiftReport';
+import { buildShiftReport, finishShift, ksh, methodLabel, shiftAttention, shiftClock, shiftLength, shiftReportText } from '../services/shiftReport';
 
 interface EndShiftModalProps {
   isOpen: boolean;
@@ -102,6 +102,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
   const countedCash = counted.trim() === '' ? null : Number(counted);
   const countedValid = countedCash === null || (Number.isFinite(countedCash) && countedCash >= 0);
   const diff = report && countedCash !== null && countedValid ? Math.round(countedCash - report.expectedCash) : null;
+  const attention = report ? shiftAttention(report, countedValid ? countedCash : null) : [];
   const text = report ? shiftReportText(report, { countedCash: countedValid ? countedCash : null, notes }) : '';
 
   const copy = async () => {
@@ -175,38 +176,79 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
               <p className="text-sm text-app-text-muted py-6 text-center">You don't have an open shift.</p>
             ) : (
               <>
-                {/* Sales */}
+                {/* 1. Summary */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Tile label="Sales" value={ksh(report.salesTotal)} hint={`${report.salesCount} ${report.salesCount === 1 ? 'sale' : 'sales'}`} strong />
-                  <Tile label="Cash" value={ksh(report.cash)} />
-                  <Tile label="M-Pesa" value={ksh(report.mpesa)} />
-                  {report.airtel > 0 && <Tile label="Airtel Money" value={ksh(report.airtel)} />}
-                  <Tile label="On credit" value={ksh(report.credit)} />
-                  {report.card > 0 && <Tile label="Card" value={ksh(report.card)} />}
-                  {report.bank > 0 && <Tile label="Bank" value={ksh(report.bank)} />}
-                  {report.expensesTotal > 0 && <Tile label="Expenses" value={ksh(report.expensesTotal)} />}
+                  <Tile label="Sales" value={ksh(report.salesTotal)} hint={`${report.salesCount} ${report.salesCount === 1 ? 'sale' : 'sales'}${report.deliveries ? ` · ${report.deliveries} ${report.deliveries === 1 ? 'delivery' : 'deliveries'}` : ''}`} strong />
+                  <Tile label="Money taken in" value={ksh(report.moneyInTotal)} hint={report.debtRepaidTotal ? `incl. ${ksh(report.debtRepaidTotal)} debt repaid` : 'sales not on credit'} />
+                  <Tile label="Given on credit" value={ksh(report.credit)} hint={report.creditTaken.length ? `${report.creditTaken.length} ${report.creditTaken.length === 1 ? 'customer' : 'customers'}` : undefined} />
+                  <Tile label="Expenses" value={ksh(report.expensesTotal)} hint={report.expenses.length ? `${report.expenses.length} ${report.expenses.length === 1 ? 'entry' : 'entries'}` : undefined} />
                 </div>
 
-                {/* Cash drawer */}
-                <div className="rounded-xl bg-app-bg p-3.5 space-y-2.5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-medium text-app-text">Cash expected in drawer</span>
+                {/* Per product */}
+                {report.products.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-medium text-app-text-muted">Summary by product</h3>
+                    {report.products.map((p) => (
+                      <div key={p.name} className="rounded-xl bg-app-bg p-3 space-y-1">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-semibold text-app-text break-words">{p.name}</span>
+                          <span className="text-sm font-semibold text-app-text tabular-nums shrink-0">{ksh(p.earned)}</span>
+                        </div>
+                        <Line label={`${p.salesCount} ${p.salesCount === 1 ? 'sale' : 'sales'} · ${Math.round(p.sold * 100) / 100}${p.unit ? ` ${p.unit}` : ''}`} value={`Taken in ${ksh(p.moneyIn)}`} />
+                        <Line
+                          label={[p.cash ? `Cash ${ksh(p.cash)}` : '', p.till ? `Till ${ksh(p.till)}` : '', p.otherPaid ? `Other ${ksh(p.otherPaid)}` : '', p.credit ? `Credit ${ksh(p.credit)}` : ''].filter(Boolean).join(' · ') || '—'}
+                          value={p.left !== null ? `${Math.round(p.left * 100) / 100}${p.unit ? ` ${p.unit}` : ''} left` : ''}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Amount made today */}
+                <div className="rounded-xl bg-app-bg p-3.5 space-y-2">
+                  <h3 className="text-xs font-medium text-app-text-muted">Amount made today</h3>
+                  {report.moneyIn.map((m) => (
+                    <Line key={m.method} label={`${methodLabel(m.method)}${m.debt ? ` (incl. ${ksh(m.debt)} debt)` : ''}`} value={ksh(m.total)} />
+                  ))}
+                  <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-app-border">
+                    <span className="text-sm font-medium text-app-text">Total</span>
+                    <span className="text-sm font-semibold text-app-text tabular-nums">{ksh(report.moneyInTotal)}</span>
+                  </div>
+                </div>
+
+                {/* 2. Needs attention */}
+                {attention.length > 0 && (
+                  <div className="rounded-xl bg-amber-500/10 p-3.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+                      <AlertTriangle size={14} /> Needs attention
+                    </div>
+                    <ul className="space-y-1">
+                      {attention.map((a) => (
+                        <li key={a} className="text-xs text-app-text">• {a}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 3. Cash drawer */}
+                <div className="rounded-xl bg-app-bg p-3.5 space-y-2">
+                  <h3 className="text-xs font-medium text-app-text-muted">Cash drawer</h3>
+                  <Line label="Cash sales" value={ksh(report.cash)} />
+                  {report.cashDebtRepaid > 0 && <Line label="+ Debt repaid in cash" value={ksh(report.cashDebtRepaid)} />}
+                  {report.cashExpenses > 0 && <Line label="− Cash spent" value={ksh(report.cashExpenses)} />}
+                  <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-app-border">
+                    <span className="text-sm font-medium text-app-text">Cash to hand over</span>
                     <span className="text-sm font-semibold text-app-text tabular-nums">{ksh(report.expectedCash)}</span>
                   </div>
-                  {(report.cashDebtRepaid > 0 || report.cashExpenses > 0) && (
-                    <p className="text-[11px] text-app-text-muted">
-                      Cash sales {ksh(report.cash)} + debt repaid {ksh(report.cashDebtRepaid)} − cash expenses {ksh(report.cashExpenses)}
-                    </p>
-                  )}
                   <label className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-app-text-muted">Cash counted (optional)</span>
+                    <span className="text-xs text-app-text-muted">Cash counted</span>
                     <input
                       inputMode="decimal"
                       value={counted}
                       onChange={(e) => setCounted(e.target.value.replace(/[^\d.]/g, ''))}
-                      placeholder="0"
+                      placeholder="Count the drawer"
                       aria-invalid={!countedValid}
-                      className="w-32 text-right bg-app-card text-app-text text-sm px-3 py-2 rounded-lg focus:outline-none tabular-nums"
+                      className="w-36 text-right bg-app-card text-app-text text-sm px-3 py-2 rounded-lg focus:outline-none tabular-nums"
                     />
                   </label>
                   {diff !== null && (
@@ -216,32 +258,16 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
                   )}
                 </div>
 
-                {report.products.length > 0 && (
-                  <Section title="Products sold">
-                    {report.products.map((p) => (
-                      <Row key={p.name} left={p.name} sub={`${p.sold}${p.unit ? ` ${p.unit}` : ''} sold${p.left !== null ? ` · ${Math.round(p.left * 100) / 100} left` : ''}`} right={ksh(p.earned)} />
-                    ))}
-                  </Section>
-                )}
-
-                {report.production.length > 0 && (
-                  <Section title="Production">
-                    {report.production.map((b, i) => (
-                      <Row key={i} left={b.name} sub={b.used ? `Used ${b.used}` : undefined} right={`${b.produced}${b.unit ? ` ${b.unit}` : ''}`} />
-                    ))}
-                  </Section>
-                )}
-
                 {report.creditTaken.length > 0 && (
-                  <Section title="Credit given">
+                  <Section title="Credit given" count={report.creditTaken.length} total={ksh(report.credit)}>
                     {report.creditTaken.map((c) => (
-                      <Row key={c.name} left={c.name} sub={`${c.items} · owes ${ksh(c.owesNow)}`} right={ksh(c.amount)} />
+                      <Row key={c.name} left={c.name} sub={`${c.items} · now owes ${ksh(c.owesNow)}`} right={ksh(c.amount)} />
                     ))}
                   </Section>
                 )}
 
                 {report.debtRepaid.length > 0 && (
-                  <Section title="Debt repaid">
+                  <Section title="Debt repaid" count={report.debtRepaid.length} total={ksh(report.debtRepaidTotal)}>
                     {report.debtRepaid.map((d, i) => (
                       <Row key={i} left={d.name} sub={`${d.method} · still owes ${ksh(d.owesNow)}`} right={ksh(d.amount)} />
                     ))}
@@ -249,11 +275,39 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
                 )}
 
                 {report.expenses.length > 0 && (
-                  <Section title="Expenses">
+                  <Section title="Expenses" count={report.expenses.length} total={ksh(report.expensesTotal)}>
                     {report.expenses.map((e, i) => (
                       <Row key={i} left={e.category} sub={[e.method, e.note].filter(Boolean).join(' · ')} right={ksh(e.amount)} />
                     ))}
                   </Section>
+                )}
+
+                {report.production.length > 0 && (
+                  <Section title="Production" count={report.production.length}>
+                    {report.production.map((b, i) => (
+                      <Row key={i} left={b.name} sub={b.used ? `Used ${b.used}` : undefined} right={`${b.produced}${b.unit ? ` ${b.unit}` : ''}`} />
+                    ))}
+                  </Section>
+                )}
+
+                {/* Closing balances */}
+                <div className="rounded-xl bg-app-bg p-3.5 space-y-2">
+                  <h3 className="text-xs font-medium text-app-text-muted">Closing balances</h3>
+                  <Line label={`Cash in drawer${countedCash === null || !countedValid ? ' (expected)' : ''}`} value={ksh(countedCash !== null && countedValid ? countedCash : report.expectedCash)} />
+                  {report.moneyIn.filter((m) => m.method === 'M-Pesa').map((m) => <Line key="till" label="Till (M-Pesa) received" value={ksh(m.total)} />)}
+                  {report.products.filter((p) => p.left !== null).map((p) => (
+                    <Line key={p.name} label={p.name} value={`${Math.round((p.left as number) * 100) / 100}${p.unit ? ` ${p.unit}` : ''} left`} />
+                  ))}
+                </div>
+
+                {report.timeline.length > 0 ? (
+                  <Section title="Timeline" count={report.timeline.length}>
+                    {report.timeline.map((t, i) => (
+                      <Row key={i} left={t.text} sub={shiftClock(t.at)} right={t.amount !== undefined ? `${t.kind === 'expense' ? '−' : ''}${ksh(t.amount)}` : ''} />
+                    ))}
+                  </Section>
+                ) : (
+                  <p className="text-xs text-app-text-muted text-center py-2">No sales, payments or expenses were recorded this shift.</p>
                 )}
 
                 <label className="block space-y-1.5">
@@ -309,11 +363,36 @@ function Tile({ label, value, hint, strong }: { label: string; value: string; hi
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <h3 className="text-xs font-medium text-app-text-muted mb-1">{title}</h3>
-      <div className="divide-y divide-app-border">{children}</div>
+    <div className="flex items-baseline justify-between gap-3 text-xs text-app-text-muted">
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/** A titled list that folds away; the heading shows how many and the total so it reads even when closed. */
+function Section({ title, count, total, open: startOpen = false, children }: { title: string; count?: number; total?: string; open?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(startOpen);
+  return (
+    <div className="rounded-xl border border-app-border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left"
+      >
+        <span className="text-xs font-medium text-app-text">
+          {title}
+          {count !== undefined && <span className="text-app-text-muted"> · {count}</span>}
+        </span>
+        <span className="flex items-center gap-2 shrink-0">
+          {total && <span className="text-xs font-semibold text-app-text tabular-nums">{total}</span>}
+          <ChevronDown size={14} className={`text-app-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {open && <div className="px-3.5 pb-1 divide-y divide-app-border border-t border-app-border">{children}</div>}
     </div>
   );
 }
@@ -322,7 +401,7 @@ function Row({ left, sub, right }: { left: string; sub?: string; right: string }
   return (
     <div className="flex items-start justify-between gap-3 py-2">
       <div className="min-w-0">
-        <div className="text-sm text-app-text truncate">{left}</div>
+        <div className="text-sm text-app-text break-words">{left}</div>
         {sub && <div className="text-[11px] text-app-text-muted break-words">{sub}</div>}
       </div>
       <div className="text-sm font-medium text-app-text tabular-nums shrink-0">{right}</div>

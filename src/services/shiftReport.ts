@@ -27,11 +27,38 @@ export interface ShiftReport {
   expectedCash: number;
   cashDebtRepaid: number;
   cashExpenses: number;
-  products: { name: string; unit: string; sold: number; earned: number; left: number | null }[];
+  /** Per product: what it sold and how it was paid. Money is the product's share of each sale's total, so the products add up to the shift totals. */
+  products: ProductLine[];
   production: { name: string; produced: number; unit: string; used: string }[];
   creditTaken: { name: string; items: string; amount: number; owesNow: number }[];
   debtRepaid: { name: string; amount: number; method: string; owesNow: number }[];
   expenses: { category: string; amount: number; method: string; note: string }[];
+  /** Real money taken in (sales not on credit + debt repaid), per method, biggest first. */
+  moneyIn: { method: string; sales: number; debt: number; total: number }[];
+  moneyInTotal: number;
+  debtRepaidTotal: number;
+  /** Products sold this shift that are now at or below their minimum stock. */
+  lowStock: { name: string; left: number; unit: string; out: boolean }[];
+  /** Everything that happened, in order. */
+  timeline: { at: number; kind: 'sale' | 'debt' | 'expense' | 'production'; text: string; amount?: number }[];
+}
+
+export interface ProductLine {
+  name: string;
+  unit: string;
+  sold: number;
+  /** Sales value (its share of the sale totals) */
+  earned: number;
+  /** How many sales it was in */
+  salesCount: number;
+  cash: number;
+  till: number;
+  /** Paid by Airtel, card or bank */
+  otherPaid: number;
+  credit: number;
+  /** Cash + till + other: money actually taken in for it */
+  moneyIn: number;
+  left: number | null;
 }
 
 export interface ShiftReportInput {
@@ -82,9 +109,21 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     creditTaken: [],
     debtRepaid: [],
     expenses: [],
+    moneyIn: [],
+    moneyInTotal: 0,
+    debtRepaidTotal: 0,
+    lowStock: [],
+    timeline: [],
+  };
+  const methods = new Map<string, { method: string; sales: number; debt: number; total: number }>();
+  const addMoney = (method: string, kind: 'sales' | 'debt', amount: number) => {
+    const row = methods.get(method) || { method, sales: 0, debt: 0, total: 0 };
+    row[kind] += amount;
+    row.total += amount;
+    methods.set(method, row);
   };
 
-  const products = new Map<string, { name: string; unit: string; sold: number; earned: number; left: number | null }>();
+  const products = new Map<string, ProductLine>();
   const credit = new Map<string, { name: string; items: string[]; amount: number; owesNow: number }>();
   for (const tx of sales) {
     const amount = Number(tx.finalTotal) || 0;
@@ -104,18 +143,47 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
       tx.items.forEach((i) => row.items.push(`${i.quantity} × ${i.product.name}`));
       credit.set(key, row);
     }
+    const onCredit = tx.paymentMethod === 'Credit' || tx.paymentMethod === 'Credit_Debt';
+    if (!onCredit && amount) addMoney(tx.paymentMethod || 'Other', 'sales', amount);
+    const count = tx.items.reduce((n, i) => n + (Number(i.quantity) || 0), 0);
+    report.timeline.push({
+      at: time(tx.timestamp),
+      kind: 'sale',
+      text: `Sale${onCredit ? ` on credit to ${tx.customerName || 'customer'}` : ` · ${tx.paymentMethod}`} · ${round(count)} ${count === 1 ? 'item' : 'items'}${tx.isDelivery ? ' · delivery' : ''}`,
+      amount,
+    });
 
+    // Each product gets its share of the sale's final total (so discounts, fees and tax are spread fairly).
+    const lineValue = (i: (typeof tx.items)[number]) => (Number(i.product.price) || 0) * (Number(i.quantity) || 0) * (1 - (i.discountPercentage || 0) / 100);
+    const linesTotal = tx.items.reduce((n, i) => n + lineValue(i), 0);
     for (const item of tx.items) {
       const id = item.product.id || item.product.name;
       const product = input.products.find((p) => p.id === item.product.id);
-      const row = products.get(id) || { name: item.product.name, unit: product?.unit || item.product.unit || '', sold: 0, earned: 0, left: product ? product.stock : null };
+      const row = products.get(id) || { name: item.product.name, unit: product?.unit || item.product.unit || '', sold: 0, earned: 0, salesCount: 0, cash: 0, till: 0, otherPaid: 0, credit: 0, moneyIn: 0, left: product ? product.stock : null };
+      const share = linesTotal > 0 ? (amount * lineValue(item)) / linesTotal : amount / tx.items.length;
       row.sold += item.quantity;
-      row.earned += item.product.price * item.quantity * (1 - (item.discountPercentage || 0) / 100);
+      row.earned += share;
+      row.salesCount += 1;
+      if (onCredit) row.credit += share;
+      else {
+        row.moneyIn += share;
+        if (tx.paymentMethod === 'Cash') row.cash += share;
+        else if (tx.paymentMethod === 'M-Pesa') row.till += share;
+        else row.otherPaid += share;
+      }
       products.set(id, row);
     }
   }
+  for (const [id, row] of products) {
+    const product = input.products.find((p) => p.id === id);
+    if (!product) continue;
+    const left = Number(product.stock) || 0;
+    const min = Number(product.minStock) || 0;
+    if (left <= 0 || (min > 0 && left <= min)) report.lowStock.push({ name: row.name, left: round(left), unit: row.unit, out: left <= 0 });
+  }
+  report.lowStock.sort((a, b) => Number(b.out) - Number(a.out) || a.left - b.left);
   report.products = [...products.values()]
-    .map((p) => ({ ...p, sold: round(p.sold), earned: round(p.earned) }))
+    .map((p) => ({ ...p, sold: round(p.sold), earned: round(p.earned), cash: round(p.cash), till: round(p.till), otherPaid: round(p.otherPaid), credit: round(p.credit), moneyIn: round(p.moneyIn) }))
     .sort((a, b) => b.earned - a.earned);
   report.creditTaken = [...credit.values()].map((c) => ({ ...c, items: c.items.join(', '), amount: round(c.amount) }));
 
@@ -126,14 +194,19 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
       .map((ing) => `${round(ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced)}${ing.unit} ${ing.productName}`)
       .join(', ');
     report.production.push({ name: batch.recipeName, produced: batch.quantityProduced, unit: batch.unit || '', used });
+    report.timeline.push({ at: time(batch.date), kind: 'production', text: `Made ${batch.quantityProduced}${batch.unit ? ` ${batch.unit}` : ''} ${batch.recipeName}` });
   }
 
   for (const dp of input.debtPayments) {
     if (dp.recordedBy !== employee.name || !during(time(dp.created_at))) continue;
     const amount = Number(dp.amountPaid) || 0;
     if (dp.paymentMethod === 'Cash') report.cashDebtRepaid += amount;
+    report.debtRepaidTotal += amount;
+    if (amount) addMoney(dp.paymentMethod || 'Other', 'debt', amount);
+    const name = input.customers.find((c) => c.id === dp.customerId)?.name || 'Unknown customer';
+    report.timeline.push({ at: time(dp.created_at), kind: 'debt', text: `${name} paid debt · ${dp.paymentMethod}`, amount });
     report.debtRepaid.push({
-      name: input.customers.find((c) => c.id === dp.customerId)?.name || 'Unknown customer',
+      name,
       amount,
       method: dp.paymentMethod,
       owesNow: Number(dp.remainingDebt) || 0,
@@ -146,9 +219,19 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     report.expensesTotal += e.amount;
     if (method === 'Cash') report.cashExpenses += e.amount;
     report.expenses.push({ category: e.category, amount: e.amount, method, note: e.description || '' });
+    report.timeline.push({ at: time(e.created_at || e.date), kind: 'expense', text: `Expense: ${e.category}${e.description ? ` (${e.description})` : ''} · ${method}`, amount: e.amount });
   }
 
-  for (const key of ['salesTotal', 'cash', 'mpesa', 'airtel', 'credit', 'other', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses'] as const) {
+  // Cash and M-Pesa always show, even at zero, so the owner sees they were checked.
+  for (const m of ['Cash', 'M-Pesa']) if (!methods.has(m)) methods.set(m, { method: m, sales: 0, debt: 0, total: 0 });
+  report.moneyIn = [...methods.values()]
+    .map((m) => ({ ...m, sales: round(m.sales), debt: round(m.debt), total: round(m.total) }))
+    // Cash first, then the till, then anything else by size, as the owner reads them.
+    .sort((a, b) => { const rank = (m: string) => (m === 'Cash' ? 0 : m === 'M-Pesa' ? 1 : 2); return rank(a.method) - rank(b.method) || b.total - a.total; });
+  report.moneyInTotal = round(report.moneyIn.reduce((n, m) => n + m.total, 0));
+  report.timeline.sort((a, b) => a.at - b.at);
+
+  for (const key of ['salesTotal', 'cash', 'mpesa', 'airtel', 'card', 'bank', 'credit', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses', 'debtRepaidTotal'] as const) {
     report[key] = round(report[key]);
   }
   report.expectedCash = round(report.cash + report.cashDebtRepaid - report.cashExpenses);
@@ -162,64 +245,88 @@ export function shiftLength(r: Pick<ShiftReport, 'start' | 'end'>): string {
   return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
 }
 
-/** Plain text for the owners' notification and WhatsApp (*bold* and "- " lists). */
+/** Things the owner should look at first: cash difference and stock running out. */
+export function shiftAttention(r: ShiftReport, countedCash?: number | null): string[] {
+  const out: string[] = [];
+  if (typeof countedCash === 'number') {
+    const diff = round(countedCash - r.expectedCash);
+    if (diff < 0) out.push(`Cash short by ${ksh(-diff)}`);
+    else if (diff > 0) out.push(`Cash over by ${ksh(diff)}`);
+  } else if (r.expectedCash > 0) {
+    out.push('Cash in the drawer was not counted');
+  }
+  r.lowStock.forEach((p) => out.push(p.out ? `${p.name} is out of stock` : `${p.name} is running low (${p.left}${p.unit ? ` ${p.unit}` : ''} left)`));
+  return out;
+}
+
+/** What the owner calls each payment method. */
+export const methodLabel = (m: string) => (m === 'M-Pesa' ? 'Till (M-Pesa)' : m);
+
+const qty = (n: number, unit: string) => `${round(n)}${unit ? ` ${unit}` : ''}`;
+
+/**
+ * Plain text for the owners' notification and WhatsApp (*bold* and "- " lists).
+ * Order: summary per product, amount made today, needs attention, closing balances, then details.
+ */
 export function shiftReportText(r: ShiftReport, extra: { countedCash?: number | null; notes?: string } = {}): string {
   const date = new Date(r.end).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ });
+  const counted = typeof extra.countedCash === 'number' ? extra.countedCash : null;
+  const diff = counted === null ? null : round(counted - r.expectedCash);
+  const diffText = diff === null ? '' : diff === 0 ? ' (matches)' : diff < 0 ? ` (short by ${ksh(-diff)})` : ` (over by ${ksh(diff)})`;
   const lines: string[] = [];
+  const section = (title: string) => { lines.push(''); lines.push(`*${title}*`); };
+
   lines.push(`*Shift report: ${r.employeeName}*`);
   lines.push(`${date}, ${shiftClock(r.start)} – ${shiftClock(r.end)} (${shiftLength(r)})`);
-  lines.push('');
-  lines.push('*Sales*');
-  lines.push(`- Total: ${ksh(r.salesTotal)} from ${r.salesCount} ${r.salesCount === 1 ? 'sale' : 'sales'}`);
-  lines.push(`- Cash: ${ksh(r.cash)}`);
-  lines.push(`- M-Pesa: ${ksh(r.mpesa)}`);
-  if (r.airtel) lines.push(`- Airtel Money: ${ksh(r.airtel)}`);
-  if (r.credit) lines.push(`- On credit: ${ksh(r.credit)}`);
-  if (r.card) lines.push(`- Card: ${ksh(r.card)}`);
-  if (r.bank) lines.push(`- Bank: ${ksh(r.bank)}`);
-  if (r.deliveries) lines.push(`- Deliveries: ${r.deliveries}`);
-  lines.push('');
-  lines.push('*Cash drawer*');
-  lines.push(`- Expected: ${ksh(r.expectedCash)}`);
-  if (r.cashDebtRepaid || r.cashExpenses) {
-    lines.push(`  cash sales ${ksh(r.cash)} + debt repaid ${ksh(r.cashDebtRepaid)} − expenses ${ksh(r.cashExpenses)}`);
+
+  section('Summary');
+  if (!r.products.length) lines.push('No sales this shift.');
+  r.products.forEach((p, i) => {
+    if (i) lines.push('');
+    lines.push(p.name);
+    lines.push(`- Sales: ${ksh(p.earned)} from ${p.salesCount} ${p.salesCount === 1 ? 'sale' : 'sales'} (${qty(p.sold, p.unit)})`);
+    const paid = [p.cash ? `cash ${ksh(p.cash)}` : '', p.till ? `till ${ksh(p.till)}` : '', p.otherPaid ? `other ${ksh(p.otherPaid)}` : ''].filter(Boolean).join(', ');
+    lines.push(`- Money taken in: ${ksh(p.moneyIn)}${paid ? ` (${paid})` : ''}`);
+    if (p.credit) lines.push(`- On credit: ${ksh(p.credit)}`);
+  });
+
+  section('Amount made today');
+  r.moneyIn.forEach((m) => lines.push(`- ${methodLabel(m.method)}: ${ksh(m.total)}${m.debt ? ` (incl. ${ksh(m.debt)} debt repaid)` : ''}`));
+  lines.push(`- Total: ${ksh(r.moneyInTotal)}${r.credit ? `, plus ${ksh(r.credit)} on credit` : ''}`);
+  if (r.cashExpenses) lines.push(`- Cash spent: ${ksh(r.cashExpenses)}`);
+  lines.push(`- Cash to hand over: ${ksh(r.expectedCash)}${counted !== null ? `, counted ${ksh(counted)}${diffText}` : ''}`);
+
+  const attention = shiftAttention(r, counted);
+  if (attention.length) {
+    section('Needs attention');
+    attention.forEach((a) => lines.push(`- ${a}`));
   }
-  if (typeof extra.countedCash === 'number') {
-    const diff = round(extra.countedCash - r.expectedCash);
-    lines.push(`- Counted: ${ksh(extra.countedCash)}${diff === 0 ? ' (matches)' : diff < 0 ? ` (short by ${ksh(-diff)})` : ` (over by ${ksh(diff)})`}`);
-  }
-  if (r.products.length) {
-    lines.push('');
-    lines.push('*Products sold*');
-    r.products.forEach((p) => {
-      const unit = p.unit ? ` ${p.unit}` : '';
-      lines.push(`- ${p.name}: ${p.sold}${unit} | ${ksh(p.earned)}${p.left !== null ? ` | ${round(p.left)}${unit} left` : ''}`);
-    });
-  }
-  if (r.production.length) {
-    lines.push('');
-    lines.push('*Production*');
-    r.production.forEach((b) => lines.push(`- ${b.name}: ${b.produced}${b.unit ? ` ${b.unit}` : ''}${b.used ? ` | used ${b.used}` : ''}`));
+
+  section('Closing balances');
+  lines.push(`- Cash in drawer: ${ksh(counted ?? r.expectedCash)}${counted === null ? ' (expected, not counted)' : ''}`);
+  const till = r.moneyIn.find((m) => m.method === 'M-Pesa');
+  if (till) lines.push(`- Till (M-Pesa) received: ${ksh(till.total)}`);
+  r.products.forEach((p) => { if (p.left !== null) lines.push(`- ${p.name}: ${qty(p.left, p.unit)} left`); });
+
+  if (extra.notes?.trim()) {
+    section(`Notes from ${r.employeeName}`);
+    lines.push(extra.notes.trim());
   }
   if (r.creditTaken.length) {
-    lines.push('');
-    lines.push('*Credit given*');
-    r.creditTaken.forEach((c) => lines.push(`- ${c.name}: ${ksh(c.amount)} (${c.items}) | owes ${ksh(c.owesNow)}`));
+    section(`Credit given (${ksh(r.credit)})`);
+    r.creditTaken.forEach((c) => lines.push(`- ${c.name}: ${ksh(c.amount)} (${c.items}) | now owes ${ksh(c.owesNow)}`));
   }
   if (r.debtRepaid.length) {
-    lines.push('');
-    lines.push('*Debt repaid*');
-    r.debtRepaid.forEach((d) => lines.push(`- ${d.name}: ${ksh(d.amount)} by ${d.method} | still owes ${ksh(d.owesNow)}`));
+    section(`Debt repaid (${ksh(r.debtRepaidTotal)})`);
+    r.debtRepaid.forEach((d) => lines.push(`- ${d.name}: ${ksh(d.amount)} by ${methodLabel(d.method)} | still owes ${ksh(d.owesNow)}`));
   }
   if (r.expenses.length) {
-    lines.push('');
-    lines.push(`*Expenses (${ksh(r.expensesTotal)})*`);
-    r.expenses.forEach((e) => lines.push(`- ${e.category}: ${ksh(e.amount)} (${e.method})${e.note ? `, ${e.note}` : ''}`));
+    section(`Expenses (${ksh(r.expensesTotal)})`);
+    r.expenses.forEach((e) => lines.push(`- ${e.category}: ${ksh(e.amount)} (${methodLabel(e.method)})${e.note ? `, ${e.note}` : ''}`));
   }
-  if (extra.notes?.trim()) {
-    lines.push('');
-    lines.push('*Notes*');
-    lines.push(extra.notes.trim());
+  if (r.production.length) {
+    section('Production');
+    r.production.forEach((b) => lines.push(`- ${b.name}: ${b.produced}${b.unit ? ` ${b.unit}` : ''}${b.used ? ` | used ${b.used}` : ''}`));
   }
   return lines.join('\n');
 }

@@ -51,7 +51,7 @@ import { SupabaseService } from "../services/supabaseService";
 import { parseDocument, serializeDocument, plainText as pagePlainText, parseInline } from "../../website/src/richFormat";
 import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
-import { buildShiftReport, shiftReportText } from "../services/shiftReport";
+import { buildShiftReport, shiftAttention, shiftReportText } from "../services/shiftReport";
 import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
 import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
 import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
@@ -973,11 +973,18 @@ runTest("End-of-shift report figures and text", () => {
   });
   eq([r.salesCount, r.salesTotal, r.cash, r.mpesa, r.credit, r.card, r.bank], [5, 460, 120, 180, 60, 60, 40], "only this person's sales in this shift, every payment type counted");
   eq(r.expectedCash, 120 + 50 - 30, "cash expected = cash sales + cash debt repaid - cash expenses");
-  eq(r.products.map((p) => [p.sold, p.earned, p.left]), [[8, 480, 40]], "products sold");
+  eq(r.products.map((p) => [p.sold, p.earned, p.salesCount, p.cash, p.till, p.credit, p.left]), [[8, 460, 5, 120, 180, 60, 40]], "products sold, split by how they were paid, adding up to the sales total");
   const text = shiftReportText(r, { countedCash: 130, notes: "All good" });
   if (!text.includes("short by KSh 10")) throw new Error("counted cash difference missing:\n" + text);
   if (text.includes("```")) throw new Error("report should be plain text");
   if (!text.includes("8:00 – 17:00")) throw new Error("times should be Kenya time:\n" + text);
+  eq(r.moneyIn.map((m) => [m.method, m.total]), [["Cash", 170], ["M-Pesa", 180], ["Card", 60], ["Bank", 40]], "money in per method, credit left out, debt repaid added");
+  eq(r.moneyInTotal, 450, "money taken in = sales not on credit + debt repaid");
+  eq(r.timeline.map((x) => x.kind), ["sale", "sale", "sale", "sale", "sale", "debt", "expense"], "timeline in time order");
+  const order = ["*Summary*", "\nMilk\n- Sales: KSh 460 from 5 sales", "*Amount made today*", "*Needs attention*", "*Closing balances*", "- Milk: 40 L left", "*Notes from Jane*"].map((h) => text.indexOf(h));
+  if (order.some((i) => i < 0) || order.some((i, n) => n && i < order[n - 1])) throw new Error("sections missing or out of order:\n" + text);
+  const low = buildShiftReport({ shift: { startTime: t(5), endTime: t(14) }, employee: { id: "e1", name: "Jane" }, transactions: [sale("a", "Cash", 120, 2)], debtPayments: [], expenses: [], products: [{ ...milk, stock: 0 }], customers: [], productionBatches: [], billOfMaterials: [] });
+  eq(shiftAttention(low, null), ["Cash in the drawer was not counted", "Milk is out of stock"], "uncounted cash and empty stock are flagged");
 });
 
 
