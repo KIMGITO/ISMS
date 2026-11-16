@@ -68,8 +68,10 @@ export async function removeSupplier(id: string, staffName = 'staff') {
 
 // ---------------------------------------------------------------- Purchases
 
-export type PurchaseStatus = 'Pending' | 'Ordered' | 'Received' | 'Cancelled';
-export const PURCHASE_STATUSES: PurchaseStatus[] = ['Pending', 'Ordered', 'Received', 'Cancelled'];
+export type PurchaseStatus = 'Pending' | 'RFQ' | 'Awaiting approval' | 'Ordered' | 'Part received' | 'Received' | 'Cancelled';
+export const PURCHASE_STATUSES: PurchaseStatus[] = ['Pending', 'RFQ', 'Awaiting approval', 'Ordered', 'Part received', 'Received', 'Cancelled'];
+/** Still to finish: not yet ordered, waiting, or not everything has arrived. */
+export const OPEN_PURCHASE: PurchaseStatus[] = ['Pending', 'RFQ', 'Awaiting approval', 'Ordered', 'Part received'];
 
 export interface PurchaseLine {
   id?: string;
@@ -79,6 +81,13 @@ export interface PurchaseLine {
   unit: string;
   /** Price per unit. */
   price: number;
+  /** Arrived in good order so far (receiving in parts). */
+  received?: number;
+  /** Arrived damaged so far; not in stock. */
+  damaged?: number;
+  /** Central buying: the branch this line is for (null = this branch). */
+  forBusinessId?: string | null;
+  forBranchName?: string;
 }
 
 export interface PurchaseOrder {
@@ -93,6 +102,13 @@ export interface PurchaseOrder {
   createdBy: string;
   receivedAt: string | null;
   receivedBy: string | null;
+  requestedByUserId: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectedBy: string | null;
+  rejectReason: string | null;
+  orderedAt: string | null;
+  closedNote: string | null;
   lines: PurchaseLine[];
 }
 
@@ -106,7 +122,7 @@ export const lineTotal = (lines: PurchaseLine[]) =>
 export async function listPurchases(businessId: string, limit = 300): Promise<PurchaseOrder[]> {
   const { data, error } = await getSupabase()
     .from('purchases')
-    .select('id, supplier_id, supplier_name, reference_number, status, total_amount, date, notes, created_by, received_at, received_by, purchase_items(id, product_id, name, quantity, unit, price)')
+    .select('id, supplier_id, supplier_name, reference_number, status, total_amount, date, notes, created_by, received_at, received_by, requested_by_user_id, approved_by, approved_at, rejected_by, reject_reason, ordered_at, closed_note, purchase_items(id, product_id, name, quantity, unit, price, qty_received, qty_damaged, for_business_id, created_at)')
     .eq('business_id', toUuid(businessId))
     .order('date', { ascending: false })
     .limit(limit);
@@ -123,14 +139,26 @@ export async function listPurchases(businessId: string, limit = 300): Promise<Pu
     createdBy: r.created_by || '',
     receivedAt: r.received_at,
     receivedBy: r.received_by,
-    lines: (r.purchase_items || []).map((i: any) => ({
-      id: i.id,
-      productId: i.product_id,
-      name: i.name,
-      quantity: Number(i.quantity) || 0,
-      unit: i.unit || '',
-      price: Number(i.price) || 0,
-    })),
+    requestedByUserId: r.requested_by_user_id ?? null,
+    approvedBy: r.approved_by ?? null,
+    approvedAt: r.approved_at ?? null,
+    rejectedBy: r.rejected_by ?? null,
+    rejectReason: r.reject_reason ?? null,
+    orderedAt: r.ordered_at ?? null,
+    closedNote: r.closed_note ?? null,
+    lines: [...(r.purchase_items || [])]
+      .sort((a: any, b: any) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
+      .map((i: any) => ({
+        id: i.id,
+        productId: i.product_id,
+        name: i.name,
+        quantity: Number(i.quantity) || 0,
+        unit: i.unit || '',
+        price: Number(i.price) || 0,
+        received: Number(i.qty_received) || 0,
+        damaged: Number(i.qty_damaged) || 0,
+        forBusinessId: i.for_business_id ?? null,
+      })),
   }));
 }
 
@@ -147,8 +175,10 @@ export interface PurchaseDraft {
 /**
  * Create a purchase, or rewrite one that hasn't been received. Lines are replaced as a
  * set: they're never edited once received, so there's no history to keep on them.
+ * Saved as "Ordered" above the person's approval limit, the database makes it
+ * "Awaiting approval"; the status it ended up with is returned.
  */
-export async function savePurchase(businessId: string, draft: PurchaseDraft, staffName: string, id?: string): Promise<string> {
+export async function savePurchase(businessId: string, draft: PurchaseDraft, staffName: string, id?: string): Promise<{ id: string; status: PurchaseStatus }> {
   const db = getSupabase();
   const lines = draft.lines.filter((l) => l.name.trim() && Number(l.quantity) > 0);
   const head = {
@@ -184,11 +214,13 @@ export async function savePurchase(businessId: string, draft: PurchaseDraft, sta
         quantity: Number(l.quantity),
         unit: l.unit.trim() || 'pcs',
         price: Number(l.price) || 0,
+        for_business_id: l.forBusinessId || null,
       })),
     );
     if (error) throw error;
   }
-  return purchaseId!;
+  const { data: after } = await db.from('purchases').select('status').eq('id', purchaseId!).maybeSingle();
+  return { id: purchaseId!, status: ((after as any)?.status || draft.status) as PurchaseStatus };
 }
 
 export async function setPurchaseStatus(id: string, status: 'Pending' | 'Ordered' | 'Cancelled') {

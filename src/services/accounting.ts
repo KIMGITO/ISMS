@@ -62,7 +62,8 @@ export interface JournalEntry {
 }
 
 export type SourceType = 'sale' | 'expense' | 'cledger' | 'payment' | 'purchase' | 'supplier_payment' | 'stock_adj'
-  | 'sales_delivery' | 'sales_invoice' | 'invoice_payment' | 'credit_note';
+  | 'sales_delivery' | 'sales_invoice' | 'invoice_payment' | 'credit_note'
+  | 'purchase_receipt' | 'supplier_bill' | 'supplier_return' | 'transfer_out' | 'transfer_close' | 'transfer_in';
 
 export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   sale: 'Sale',
@@ -76,6 +77,12 @@ export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   sales_invoice: 'Invoice',
   invoice_payment: 'Invoice payment',
   credit_note: 'Credit note',
+  purchase_receipt: 'Goods received',
+  supplier_bill: 'Supplier bill',
+  supplier_return: 'Return to supplier',
+  transfer_out: 'Transfer sent',
+  transfer_close: 'Transfer received (sender)',
+  transfer_in: 'Transfer received',
   manual: 'Typed entry',
 };
 
@@ -205,6 +212,10 @@ export async function loadReceivables(businessId: string): Promise<Receivable[]>
 }
 
 export interface SupplierBill {
+  /** 'bill' = a supplier bill; 'purchase' = a purchase received before bills existed. */
+  kind?: 'bill' | 'purchase';
+  billId?: string | null;
+  due?: string | null;
   purchaseId: string;
   ref: string;
   received: string;
@@ -219,6 +230,8 @@ export interface Payable {
   name: string;
   phone: string | null;
   billed: number;
+  returned: number;
+  notBilled: number;
   paid: number;
   owed: number;
   unlinkedPaid: number;
@@ -246,6 +259,8 @@ export async function loadPayables(businessId: string): Promise<{ suppliers: Pay
     suppliers: (r.suppliers || []).map((s: any) => ({
       ...s,
       billed: n(s.billed),
+      returned: n(s.returned),
+      notBilled: n(s.notBilled),
       paid: n(s.paid),
       owed: n(s.owed),
       unlinkedPaid: n(s.unlinkedPaid),
@@ -261,16 +276,19 @@ export interface VatMonth {
   sales: number;
   taxedSales: number;
   vatCharged: number;
+  vatOnPurchases: number;
   vatPaid: number;
 }
 
 export async function loadVat(businessId: string, start: string, end: string) {
   const r = await rpc('acc_vat', { p_business_id: toUuid(businessId), p_start: start, p_end: end });
   return {
-    months: (r.months || []).map((m: any): VatMonth => ({ month: m.month, sales: n(m.sales), taxedSales: n(m.taxedSales), vatCharged: n(m.vatCharged), vatPaid: n(m.vatPaid) })),
+    months: (r.months || []).map((m: any): VatMonth => ({ month: m.month, sales: n(m.sales), taxedSales: n(m.taxedSales), vatCharged: n(m.vatCharged), vatOnPurchases: n(m.vatOnPurchases), vatPaid: n(m.vatPaid) })),
     taxOn: !!r.taxOn,
     rate: r.rate == null ? null : n(r.rate),
     owedNow: n(r.owedNow),
+    chargedNow: n(r.chargedNow),
+    onPurchasesNow: n(r.onPurchasesNow),
   };
 }
 

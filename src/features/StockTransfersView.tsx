@@ -2,9 +2,16 @@
 // Sending takes the stock off this branch at once; the receiving branch counts what arrived
 // and confirms, and only that is added there. Nothing here is a sale or an expense, so sales,
 // profit and cash are untouched; each line carries the sender's cost so the receiving branch's
-// cost (and later profit) stays true. All of it runs in the database (send/receive/cancel).
+// cost (and later profit) stays true. All of it runs in the database.
+//
+// Also (20261118001): a branch can ask another for stock; a transfer above the sender's
+// approval limit waits for approval; a purchase bought for several branches drafts their
+// transfers when it arrives; and what arrived short is settled (arrived late, found at the
+// sender, or written off). Both branches' books follow every step.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowRightLeft, Check, PackageCheck, Plus, RotateCcw, Search, Send, Trash2, Truck, X } from 'lucide-react';
+import {
+  ArrowRight, ArrowRightLeft, Check, Hand, PackageCheck, Plus, RotateCcw, Search, Send, ShieldCheck, Trash2, Truck, X,
+} from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
 import { useBusinessStore } from '../stores/businessStore';
 import { useAuthStore } from '../stores/authStore';
@@ -16,9 +23,15 @@ import { toUuid } from '../utils/idUtils';
 import { searchMatch } from '../utils/stringUtils';
 import { useOverlay } from '../hooks/useOverlay';
 import SheetLayer from '../components/shared/SheetLayer';
+import {
+  acceptTransferRequest, approveStockTransfer, declineTransferRequest, requestStockTransfer, sendDraftTransfer,
+  settleTransferShortage, type ShortAction,
+} from '../services/buying';
 import type { Product } from '../types';
 
 const TZ = 'Africa/Nairobi';
+
+type Status = 'requested' | 'draft' | 'awaiting_approval' | 'in_transit' | 'received' | 'cancelled' | 'declined';
 
 interface TransferItem {
   id: string;
@@ -28,8 +41,13 @@ interface TransferItem {
   sku: string | null;
   unit: string;
   unitCost: number;
+  quantityRequested: number | null;
   quantitySent: number;
   quantityReceived: number | null;
+  quantityLate: number;
+  quantityFound: number;
+  quantityWrittenOff: number;
+  stillShort: number;
 }
 
 interface Transfer {
@@ -38,16 +56,24 @@ interface Transfer {
   direction: 'in' | 'out';
   fromName: string;
   toName: string;
-  status: 'in_transit' | 'received' | 'cancelled';
+  status: Status;
   note: string | null;
-  sentBy: string;
+  sentBy: string | null;
   sentAt: string;
+  createdAt: string;
   receivedBy: string | null;
   receivedAt: string | null;
   receiveNote: string | null;
   cancelledBy: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
+  requestedBy: string | null;
+  requestedAt: string | null;
+  declinedBy: string | null;
+  declinedAt: string | null;
+  declineReason: string | null;
+  approvedBy: string | null;
+  purchaseId: string | null;
   items: TransferItem[];
 }
 
@@ -58,7 +84,8 @@ interface Branch {
 
 const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
 const qty = (n: number) => String(Math.round(n * 1000) / 1000);
-const when = (iso: string) => {
+const when = (iso: string | null) => {
+  if (!iso) return '';
   const d = new Date(iso);
   const key = d.toLocaleDateString('en-CA', { timeZone: TZ });
   const today = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
@@ -69,10 +96,14 @@ const when = (iso: string) => {
   return `${d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', timeZone: TZ })} ${time}`;
 };
 const sentValue = (t: Transfer) => t.items.reduce((s, i) => s + i.quantitySent * i.unitCost, 0);
-const shortValue = (t: Transfer) =>
-  t.items.reduce((s, i) => s + (i.quantityReceived === null ? 0 : (i.quantitySent - i.quantityReceived) * i.unitCost), 0);
+const shortValue = (t: Transfer) => t.items.reduce((s, i) => s + i.stillShort * i.unitCost, 0);
+const hasShort = (t: Transfer) => t.status === 'received' && t.items.some((i) => i.stillShort > 0);
+/** The time that matters for where the transfer is now. */
+const shownAt = (t: Transfer) =>
+  t.status === 'requested' || t.status === 'declined' ? t.requestedAt || t.createdAt : t.status === 'draft' || t.status === 'awaiting_approval' ? t.createdAt : t.sentAt;
 
 function mapTransfer(r: any): Transfer {
+  const num = (v: any) => (v === null || v === undefined ? 0 : Number(v) || 0);
   return {
     id: r.id,
     reference: r.reference,
@@ -83,12 +114,20 @@ function mapTransfer(r: any): Transfer {
     note: r.note,
     sentBy: r.sentBy,
     sentAt: r.sentAt,
+    createdAt: r.createdAt || r.sentAt,
     receivedBy: r.receivedBy,
     receivedAt: r.receivedAt,
     receiveNote: r.receiveNote,
     cancelledBy: r.cancelledBy,
     cancelledAt: r.cancelledAt,
     cancelReason: r.cancelReason,
+    requestedBy: r.requestedBy ?? null,
+    requestedAt: r.requestedAt ?? null,
+    declinedBy: r.declinedBy ?? null,
+    declinedAt: r.declinedAt ?? null,
+    declineReason: r.declineReason ?? null,
+    approvedBy: r.approvedBy ?? null,
+    purchaseId: r.purchaseId ?? null,
     items: (r.items || []).map((i: any) => ({
       id: i.id,
       fromProductId: i.fromProductId,
@@ -96,9 +135,14 @@ function mapTransfer(r: any): Transfer {
       productName: i.productName,
       sku: i.sku,
       unit: i.unit,
-      unitCost: Number(i.unitCost) || 0,
-      quantitySent: Number(i.quantitySent) || 0,
+      unitCost: num(i.unitCost),
+      quantityRequested: i.quantityRequested === null || i.quantityRequested === undefined ? null : Number(i.quantityRequested),
+      quantitySent: num(i.quantitySent),
       quantityReceived: i.quantityReceived === null || i.quantityReceived === undefined ? null : Number(i.quantityReceived),
+      quantityLate: num(i.quantityLate),
+      quantityFound: num(i.quantityFound),
+      quantityWrittenOff: num(i.quantityWrittenOff),
+      stillShort: num(i.stillShort),
     })),
   };
 }
@@ -114,11 +158,22 @@ function matchHere(item: TransferItem, products: Product[]): Product | undefined
   return live.find((p) => (p.name || '').trim().toLowerCase() === name);
 }
 
-const STATUS: Record<Transfer['status'], { label: string; cls: string }> = {
+const STATUS: Record<Status, { label: string; cls: string }> = {
+  requested: { label: 'Asked for', cls: 'bg-sky-500/15 text-sky-700 dark:text-sky-300' },
+  draft: { label: 'Draft', cls: 'bg-slate-500/12 text-slate-600 dark:text-slate-300' },
+  awaiting_approval: { label: 'Needs approval', cls: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' },
   in_transit: { label: 'On the way', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
   received: { label: 'Received', cls: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400' },
   cancelled: { label: 'Cancelled', cls: 'bg-slate-500/12 text-slate-600 dark:text-slate-300' },
+  declined: { label: 'Declined', cls: 'bg-red-500/12 text-red-700 dark:text-red-300' },
 };
+
+function rowLabel(t: Transfer): string {
+  if (t.status === 'requested') return t.direction === 'out' ? 'Asked of you' : 'You asked';
+  if (t.status === 'in_transit') return t.direction === 'in' ? 'To receive' : 'On the way';
+  if (hasShort(t)) return 'Short to settle';
+  return STATUS[t.status].label;
+}
 
 export default function StockTransfersView() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
@@ -128,13 +183,16 @@ export default function StockTransfersView() {
   const { products } = useAppStore();
   const canSend = hasRolePermission(role, 'inventory.transfer_stock');
   const canReceive = canSend || hasRolePermission(role, 'inventory.receive_stock');
+  const canRequest = canSend || hasRolePermission(role, 'inventory.request_transfer' as any);
+  const canApprove = hasRolePermission(role, 'purchases.approve');
+  const canWriteOff = canSend && (hasRolePermission(role, 'inventory.wastage') || hasRolePermission(role, 'inventory.adjust_stock'));
 
   const [tab, setTab] = useState<'open' | 'history'>('open');
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  const [sheet, setSheet] = useState<'send' | 'request' | null>(null);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -169,11 +227,18 @@ export default function StockTransfersView() {
 
   const incoming = transfers.filter((t) => t.status === 'in_transit' && t.direction === 'in');
   const outgoing = transfers.filter((t) => t.status === 'in_transit' && t.direction === 'out');
-  const history = transfers.filter((t) => t.status !== 'in_transit');
+  const toAnswer = transfers.filter(
+    (t) => (t.status === 'requested' && t.direction === 'out') || (t.direction === 'out' && (t.status === 'draft' || t.status === 'awaiting_approval')),
+  );
+  const asked = transfers.filter((t) => t.status === 'requested' && t.direction === 'in');
+  const shorts = transfers.filter(hasShort);
+  const openList = [...toAnswer, ...incoming, ...outgoing, ...asked, ...shorts];
+  const openIds = new Set(openList.map((t) => t.id));
+  const history = transfers.filter((t) => !openIds.has(t.id));
   const onTheWayValue = outgoing.reduce((s, t) => s + sentValue(t), 0);
   const opened = transfers.find((t) => t.id === openId) || null;
 
-  const list = tab === 'open' ? [...incoming, ...outgoing] : history;
+  const list = tab === 'open' ? openList : history;
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
@@ -190,17 +255,32 @@ export default function StockTransfersView() {
                 <p className="text-xs text-app-text-muted">Not a sale or an expense: sales, profit and cash don't change.</p>
               </div>
             </div>
-            {canSend && (
-              <button
-                data-shortcut="new"
-                onClick={() => setSending(true)}
-                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-4 py-2.5 cursor-pointer"
-              >
-                <Send size={15} /> Send stock
-              </button>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              {canRequest && (
+                <button
+                  data-shortcut="transfer-request"
+                  onClick={() => setSheet('request')}
+                  className="flex items-center gap-1.5 bg-app-bg ring-1 ring-app-border text-app-text font-medium text-sm rounded-xl px-4 py-2.5 cursor-pointer"
+                >
+                  <Hand size={15} /> Ask for stock
+                </button>
+              )}
+              {canSend && (
+                <button
+                  data-shortcut="new"
+                  onClick={() => setSheet('send')}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-4 py-2.5 cursor-pointer"
+                >
+                  <Send size={15} /> Send stock
+                </button>
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-app-bg p-3">
+              <p className="text-[11px] text-app-text-muted">To answer or send</p>
+              <p className="text-lg font-bold text-app-text tabular-nums">{toAnswer.length}</p>
+            </div>
             <div className="rounded-xl bg-app-bg p-3">
               <p className="text-[11px] text-app-text-muted">Coming to {branchName}</p>
               <p className="text-lg font-bold text-app-text tabular-nums">{incoming.length}</p>
@@ -208,7 +288,7 @@ export default function StockTransfersView() {
             <div className="rounded-xl bg-app-bg p-3">
               <p className="text-[11px] text-app-text-muted">Sent, not yet received</p>
               <p className="text-lg font-bold text-app-text tabular-nums">
-                {outgoing.length} <span className="text-xs font-medium text-app-text-muted">· {ksh(onTheWayValue)} at cost</span>
+                {outgoing.length} <span className="text-xs font-medium text-app-text-muted">· {ksh(onTheWayValue)}</span>
               </p>
             </div>
           </div>
@@ -217,7 +297,7 @@ export default function StockTransfersView() {
         {/* Tabs */}
         <div role="tablist" className="flex bg-app-card rounded-xl p-1 shadow-xs">
           {([
-            ['open', `On the way (${incoming.length + outgoing.length})`],
+            ['open', `To do (${openList.length})`],
             ['history', 'History'],
           ] as const).map(([id, label]) => (
             <button
@@ -246,13 +326,14 @@ export default function StockTransfersView() {
           ) : list.length === 0 ? (
             <div className="p-8 text-center space-y-1">
               <Truck size={28} className="mx-auto text-app-text-muted" />
-              <p className="text-sm text-app-text">{tab === 'open' ? 'Nothing on the way.' : 'No transfers yet.'}</p>
-              {tab === 'open' && canSend && <p className="text-xs text-app-text-muted">Tap Send stock to supply another branch.</p>}
+              <p className="text-sm text-app-text">{tab === 'open' ? 'Nothing to do.' : 'No transfers yet.'}</p>
+              {tab === 'open' && canSend && <p className="text-xs text-app-text-muted">Tap Send stock to supply another branch, or Ask for stock when you run low.</p>}
             </div>
           ) : (
             <ul className="divide-y divide-app-border">
               {list.map((t) => {
                 const short = shortValue(t);
+                const value = sentValue(t);
                 return (
                   <li key={t.id}>
                     <button onClick={() => setOpenId(t.id)} className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-app-bg cursor-pointer">
@@ -261,7 +342,7 @@ export default function StockTransfersView() {
                           t.direction === 'in' ? 'bg-teal-500/12 text-teal-600 dark:text-teal-400' : 'bg-indigo-500/12 text-indigo-600 dark:text-indigo-400'
                         }`}
                       >
-                        {t.direction === 'in' ? <PackageCheck size={17} /> : <Send size={16} />}
+                        {t.status === 'requested' ? <Hand size={16} /> : t.direction === 'in' ? <PackageCheck size={17} /> : <Send size={16} />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-app-text flex items-center gap-1.5 flex-wrap">
@@ -270,14 +351,15 @@ export default function StockTransfersView() {
                           <span className="break-words">{t.toName}</span>
                         </p>
                         <p className="text-[11px] text-app-text-muted mt-0.5 break-words">
-                          {t.reference} · {when(t.sentAt)} · {t.items.length} {t.items.length === 1 ? 'product' : 'products'} · {ksh(sentValue(t))}
+                          {t.reference} · {when(shownAt(t))} · {t.items.length} {t.items.length === 1 ? 'product' : 'products'}
+                          {value > 0 && t.status !== 'requested' ? ` · ${ksh(value)}` : ''}
                         </p>
-                        {t.status === 'received' && short > 0 && (
-                          <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">Arrived short · {ksh(short)} at cost</p>
+                        {hasShort(t) && short > 0 && (
+                          <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">Arrived short · {ksh(short)} at cost still to settle</p>
                         )}
                       </div>
-                      <span className={`shrink-0 px-2 py-1 rounded-full text-[11px] font-medium ${STATUS[t.status].cls}`}>
-                        {t.status === 'in_transit' && t.direction === 'in' ? 'To receive' : STATUS[t.status].label}
+                      <span className={`shrink-0 px-2 py-1 rounded-full text-[11px] font-medium ${hasShort(t) ? 'bg-red-500/12 text-red-700 dark:text-red-300' : STATUS[t.status].cls}`}>
+                        {rowLabel(t)}
                       </span>
                     </button>
                   </li>
@@ -288,16 +370,17 @@ export default function StockTransfersView() {
         </section>
       </div>
 
-      {sending && businessId && (
-        <SendSheet
+      {sheet && businessId && (
+        <PickSheet
+          mode={sheet}
           businessId={businessId}
           branchName={branchName}
           products={products}
-          onClose={() => setSending(false)}
-          onSent={(reference, toName) => {
-            setSending(false);
+          onClose={() => setSheet(null)}
+          onDone={(title, message) => {
+            setSheet(null);
             setTab('open');
-            showToast('Stock sent', `${reference} is on the way to ${toName}. It is off this branch's stock now.`, undefined, 'success');
+            showToast(title, message, undefined, 'success');
             void load();
           }}
         />
@@ -307,8 +390,7 @@ export default function StockTransfersView() {
         <DetailSheet
           transfer={opened}
           products={products}
-          canReceive={canReceive}
-          canCancel={canSend}
+          can={{ send: canSend, receive: canReceive, request: canRequest, approve: canApprove, writeOff: canWriteOff }}
           onClose={() => setOpenId(null)}
           onDone={(title, message) => {
             setOpenId(null);
@@ -323,25 +405,28 @@ export default function StockTransfersView() {
 }
 
 // ---------------------------------------------------------------------------
-// Send
+// Send stock, or ask another branch for it
 // ---------------------------------------------------------------------------
-function SendSheet({
+function PickSheet({
+  mode,
   businessId,
   branchName,
   products,
   onClose,
-  onSent,
+  onDone,
 }: {
+  mode: 'send' | 'request';
   businessId: string;
   branchName: string;
   products: Product[];
   onClose: () => void;
-  onSent: (reference: string, toName: string) => void;
+  onDone: (title: string, message: string) => void;
 }) {
   useOverlay(true, onClose, 'bottom-sheet');
+  const sending = mode === 'send';
   const [branches, setBranches] = useState<Branch[] | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
-  const [to, setTo] = useState<string>('');
+  const [other, setOther] = useState<string>('');
   const [lines, setLines] = useState<{ productId: string; qty: string }[]>([]);
   const [query, setQuery] = useState('');
   const [note, setNote] = useState('');
@@ -359,7 +444,7 @@ function SendSheet({
         if (e) return setBranchError(toUserMessage(e, 'Could not load your branches.'));
         const list = (data || []).map((b: any) => ({ id: b.id, name: b.name }));
         setBranches(list);
-        if (list.length === 1) setTo(list[0].id);
+        if (list.length === 1) setOther(list[0].id);
       });
     return () => {
       live = false;
@@ -371,10 +456,10 @@ function SendSheet({
   const matches = useMemo(() => {
     const q = query.trim();
     return products
-      .filter((p) => !picked.has(p.id) && (p.stock || 0) > 0 && (!q || searchMatch([p.name, p.sku, p.category].filter(Boolean).join(' '), q)))
+      .filter((p) => !picked.has(p.id) && (!sending || (p.stock || 0) > 0) && (!q || searchMatch([p.name, p.sku, p.category].filter(Boolean).join(' '), q)))
       .slice(0, q ? 30 : 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, query, lines]);
+  }, [products, query, lines, sending]);
 
   const rows = lines.map((l) => {
     const p = byId.get(l.productId);
@@ -383,29 +468,43 @@ function SendSheet({
       ? 'Not in this branch any more'
       : !Number.isFinite(n) || n <= 0
         ? 'Enter how much'
-        : n > (p.stock || 0)
+        : sending && n > (p.stock || 0)
           ? `Only ${qty(p.stock || 0)} ${p.unit} here`
           : null;
     return { ...l, product: p, n, problem };
   });
   const total = rows.reduce((s, r) => s + (r.product && !r.problem ? r.n * (r.product.cost || 0) : 0), 0);
-  const toName = branches?.find((b) => b.id === to)?.name || '';
-  const ready = !!to && rows.length > 0 && rows.every((r) => !r.problem) && !busy;
+  const otherName = branches?.find((b) => b.id === other)?.name || '';
+  const ready = !!other && rows.length > 0 && rows.every((r) => !r.problem) && !busy;
 
   const submit = async () => {
     if (!ready) return;
     setBusy(true);
     setError(null);
-    const { data, error: e } = await getSupabase().rpc('send_stock_transfer', {
-      p_from_business_id: toUuid(businessId),
-      p_to_business_id: to,
-      p_items: rows.map((r) => ({ product_id: toUuid(r.productId), quantity: r.n })),
-      p_note: note.trim() || null,
-      p_reference_id: reference,
-    });
-    setBusy(false);
-    if (e) return setError(toUserMessage(e, 'Could not send. Check your connection and try again.'));
-    onSent((data as any)?.reference || 'Transfer', toName);
+    try {
+      if (sending) {
+        const { data, error: e } = await getSupabase().rpc('send_stock_transfer', {
+          p_from_business_id: toUuid(businessId),
+          p_to_business_id: other,
+          p_items: rows.map((r) => ({ product_id: toUuid(r.productId), quantity: r.n })),
+          p_note: note.trim() || null,
+          p_reference_id: reference,
+        });
+        if (e) throw e;
+        const ref = (data as any)?.reference || 'Transfer';
+        if ((data as any)?.status === 'awaiting_approval') {
+          onDone('Waiting for approval', `${ref} is above your limit. Nothing has left yet; it goes once someone approves it.`);
+        } else {
+          onDone('Stock sent', `${ref} is on the way to ${otherName}. It is off this branch's stock now.`);
+        }
+      } else {
+        const r = await requestStockTransfer(businessId, other, rows.map((x) => ({ productId: x.productId, quantity: x.n })), note.trim());
+        onDone('Stock asked for', `${r.reference}: ${otherName} is told. You'll see it here when they send it.`);
+      }
+    } catch (e) {
+      setBusy(false);
+      setError(toUserMessage(e, sending ? 'Could not send. Check your connection and try again.' : 'Could not ask. Check your connection and try again.'));
+    }
   };
 
   const input = 'w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500';
@@ -413,37 +512,33 @@ function SendSheet({
   return (
     <SheetLayer>
       <div className="fixed inset-0 z-[9000] flex items-end sm:items-center justify-center bg-black/40 sm:p-4" onClick={onClose}>
-        <div
-          className="w-full sm:max-w-lg bg-app-card rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="w-full sm:max-w-lg bg-app-card rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
-            <h3 className="text-base font-semibold text-app-text">Send stock from {branchName}</h3>
+            <h3 className="text-base font-semibold text-app-text">{sending ? `Send stock from ${branchName}` : `Ask for stock for ${branchName}`}</h3>
             <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer">
               <X size={18} />
             </button>
           </div>
 
           <div className="overflow-y-auto px-4 pb-3 space-y-4 min-h-0">
-            {/* Branch */}
             <div>
-              <p className="text-xs font-medium text-app-text-muted mb-1.5">To</p>
+              <p className="text-xs font-medium text-app-text-muted mb-1.5">{sending ? 'To' : 'Ask'}</p>
               {branchError ? (
                 <p className="text-xs text-red-600 dark:text-red-400">{branchError}</p>
               ) : branches === null ? (
                 <p className="text-xs text-app-text-muted">Loading branches…</p>
               ) : branches.length === 0 ? (
                 <p className="text-xs text-app-text-muted">
-                  There is no other branch to send to. Branches must have the same owner; add one under Business Management.
+                  There is no other branch. Branches must have the same owner; add one under Business Management.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {branches.map((b) => (
                     <button
                       key={b.id}
-                      onClick={() => setTo(b.id)}
-                      aria-pressed={to === b.id}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer ${to === b.id ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
+                      onClick={() => setOther(b.id)}
+                      aria-pressed={other === b.id}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer ${other === b.id ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
                     >
                       {b.name}
                     </button>
@@ -452,7 +547,6 @@ function SendSheet({
               )}
             </div>
 
-            {/* Picked */}
             {rows.length > 0 && (
               <ul className="space-y-2">
                 {rows.map((r) => (
@@ -462,7 +556,7 @@ function SendSheet({
                         <p className="text-sm font-medium text-app-text break-words">{r.product?.name || 'Removed product'}</p>
                         {r.product && (
                           <p className="text-[11px] text-app-text-muted">
-                            {qty(r.product.stock || 0)} {r.product.unit} here · cost {ksh(r.product.cost || 0)} each
+                            {qty(r.product.stock || 0)} {r.product.unit} here{sending ? ` · cost ${ksh(r.product.cost || 0)} each` : ''}
                           </p>
                         )}
                       </div>
@@ -473,7 +567,7 @@ function SendSheet({
                         step="any"
                         value={r.qty}
                         onChange={(e) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: e.target.value } : l)))}
-                        aria-label={`How much ${r.product?.name || ''} to send`}
+                        aria-label={`How much ${r.product?.name || ''}`}
                         className="w-24 bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                       <button
@@ -490,7 +584,6 @@ function SendSheet({
               </ul>
             )}
 
-            {/* Add products */}
             <div>
               <p className="text-xs font-medium text-app-text-muted mb-1.5">Add products</p>
               <div className="relative">
@@ -499,7 +592,7 @@ function SendSheet({
               </div>
               <ul className="mt-2 max-h-56 overflow-y-auto divide-y divide-app-border rounded-xl border border-app-border">
                 {matches.length === 0 ? (
-                  <li className="p-3 text-xs text-app-text-muted text-center">{query ? 'No product with stock matches.' : 'No products with stock.'}</li>
+                  <li className="p-3 text-xs text-app-text-muted text-center">{query ? 'No product matches.' : sending ? 'No products with stock.' : 'No products.'}</li>
                 ) : (
                   matches.map((p) => (
                     <li key={p.id}>
@@ -524,7 +617,13 @@ function SendSheet({
 
             <label className="block text-xs font-medium text-app-text-muted">
               Note (optional)
-              <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. With Kamau, morning van" className={`${input} mt-1`} />
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={200}
+                placeholder={sending ? 'e.g. With Kamau, morning van' : 'e.g. For the weekend, before Friday'}
+                className={`${input} mt-1`}
+              />
             </label>
           </div>
 
@@ -532,8 +631,9 @@ function SendSheet({
             {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
             {rows.length > 0 && (
               <p className="text-xs text-app-text-muted">
-                {rows.length} {rows.length === 1 ? 'product' : 'products'} · {ksh(total)} at cost. Comes off {branchName}'s stock now;
-                {toName ? ` added to ${toName}` : ' added at the other branch'} when they confirm what arrived.
+                {sending
+                  ? `${rows.length} ${rows.length === 1 ? 'product' : 'products'} · ${ksh(total)} at cost. Comes off ${branchName}'s stock now;${otherName ? ` added to ${otherName}` : ' added at the other branch'} when they confirm what arrived.`
+                  : `${rows.length} ${rows.length === 1 ? 'product' : 'products'}. ${otherName || 'The other branch'} sends what it can; you confirm what arrives.`}
               </p>
             )}
             <button
@@ -541,7 +641,8 @@ function SendSheet({
               disabled={!ready}
               className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold text-sm rounded-xl py-3 cursor-pointer"
             >
-              <Send size={15} /> {busy ? 'Sending…' : toName ? `Send to ${toName}` : 'Send'}
+              {sending ? <Send size={15} /> : <Hand size={15} />}
+              {busy ? (sending ? 'Sending…' : 'Asking…') : sending ? (otherName ? `Send to ${otherName}` : 'Send') : otherName ? `Ask ${otherName}` : 'Ask'}
             </button>
           </div>
         </div>
@@ -551,75 +652,164 @@ function SendSheet({
 }
 
 // ---------------------------------------------------------------------------
-// Detail: receive, cancel, or read
+// Detail: answer, send, approve, receive, settle a shortage, cancel, or read
 // ---------------------------------------------------------------------------
+type Mode = 'answer' | 'draft' | 'approve' | 'receive' | 'settle' | 'none';
+
 function DetailSheet({
   transfer: t,
   products,
-  canReceive,
-  canCancel,
+  can,
   onClose,
   onDone,
   onError,
 }: {
   transfer: Transfer;
   products: Product[];
-  canReceive: boolean;
-  canCancel: boolean;
+  can: { send: boolean; receive: boolean; request: boolean; approve: boolean; writeOff: boolean };
   onClose: () => void;
   onDone: (title: string, message: string) => void;
   onError: (title: string, message: string) => void;
 }) {
   useOverlay(true, onClose, 'bottom-sheet');
-  const receiving = t.status === 'in_transit' && t.direction === 'in' && canReceive;
-  const cancellable = t.status === 'in_transit' && t.direction === 'out' && canCancel;
-  const [got, setGot] = useState<Record<string, string>>(() => Object.fromEntries(t.items.map((i) => [i.id, qty(i.quantitySent)])));
+  const out = t.direction === 'out';
+  const mode: Mode =
+    t.status === 'requested' && out && can.send ? 'answer'
+      : t.status === 'draft' && out && can.send ? 'draft'
+        : t.status === 'awaiting_approval' && out && can.approve ? 'approve'
+          : t.status === 'in_transit' && !out && can.receive ? 'receive'
+            : hasShort(t) && (out ? can.send : can.receive) ? 'settle'
+              : 'none';
+  const editsQty = mode === 'answer' || mode === 'draft' || mode === 'receive';
+  const cancellable =
+    (t.status === 'in_transit' && out && can.send) ||
+    ((t.status === 'draft' || t.status === 'awaiting_approval') && out && (can.send || can.approve)) ||
+    (t.status === 'requested' && !out && can.request);
+
+  const [got, setGot] = useState<Record<string, string>>(() =>
+    Object.fromEntries(t.items.map((i) => [i.id, qty(mode === 'answer' ? i.quantityRequested ?? i.quantitySent : i.quantitySent)])),
+  );
+  const [settle, setSettle] = useState<Record<string, { action: ShortAction | ''; qty: string }>>(() =>
+    Object.fromEntries(t.items.filter((i) => i.stillShort > 0).map((i) => [i.id, { action: '' as const, qty: qty(i.stillShort) }])),
+  );
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [closing, setClosing] = useState<'cancel' | 'decline' | null>(null);
   const [reason, setReason] = useState('');
 
   const lineProblem = (i: TransferItem) => {
+    if (!editsQty) return null;
     const n = Number(got[i.id]);
-    if (got[i.id] === '' || !Number.isFinite(n) || n < 0) return 'Enter what arrived (0 if none)';
-    if (n > i.quantitySent) return `Only ${qty(i.quantitySent)} was sent`;
+    if (got[i.id] === '' || !Number.isFinite(n) || n < 0) return mode === 'receive' ? 'Enter what arrived (0 if none)' : 'Enter how much (0 leaves it out)';
+    if (mode === 'receive' && n > i.quantitySent) return `Only ${qty(i.quantitySent)} was sent`;
     return null;
   };
-  const anyProblem = receiving && t.items.some((i) => lineProblem(i));
-  const shortNow = receiving
-    ? t.items.reduce((s, i) => {
-        const n = Number(got[i.id]);
-        return s + (Number.isFinite(n) && n < i.quantitySent ? (i.quantitySent - n) * i.unitCost : 0);
-      }, 0)
-    : shortValue(t);
+  const anyProblem = editsQty && t.items.some((i) => lineProblem(i));
+  const allZero = (mode === 'answer' || mode === 'draft') && t.items.every((i) => Number(got[i.id]) === 0);
+  const shortNow =
+    mode === 'receive'
+      ? t.items.reduce((s, i) => {
+          const n = Number(got[i.id]);
+          return s + (Number.isFinite(n) && n < i.quantitySent ? (i.quantitySent - n) * i.unitCost : 0);
+        }, 0)
+      : shortValue(t);
 
-  const receive = async () => {
-    if (anyProblem || busy) return;
+  const run = async (fn: () => Promise<void>, failTitle: string, failMsg: string) => {
+    if (busy) return;
     setBusy(true);
-    const { data, error } = await getSupabase().rpc('receive_stock_transfer', {
-      p_transfer_id: t.id,
-      p_lines: t.items.map((i) => ({ item_id: i.id, quantity_received: Number(got[i.id]) })),
-      p_note: note.trim() || null,
-    });
-    setBusy(false);
-    if (error) return onError('Not received', toUserMessage(error, 'Could not save. Check your connection and try again.'));
-    const added = Number((data as any)?.productsAdded) || 0;
-    onDone(
-      'Stock received',
-      `${t.reference} is in stock.` +
-        (shortNow > 0 ? ` ${ksh(shortNow)} short was reported to ${t.fromName}.` : '') +
-        (added > 0 ? ` ${added} new ${added === 1 ? 'product was' : 'products were'} added here; check the selling price.` : ''),
-    );
+    try {
+      await fn();
+    } catch (e) {
+      setBusy(false);
+      onError(failTitle, toUserMessage(e, failMsg));
+    }
   };
 
-  const cancel = async () => {
-    if (!reason.trim() || busy) return;
-    setBusy(true);
-    const { error } = await getSupabase().rpc('cancel_stock_transfer', { p_transfer_id: t.id, p_reason: reason.trim() });
-    setBusy(false);
-    if (error) return onError('Not cancelled', toUserMessage(error, 'Could not cancel. Check your connection and try again.'));
-    onDone('Transfer cancelled', `${t.reference}: the stock is back in ${t.fromName}.`);
-  };
+  const qtyLines = () => t.items.map((i) => ({ itemId: i.id, quantity: Number(got[i.id]) }));
+
+  const answer = () =>
+    run(async () => {
+      const r = await acceptTransferRequest(t.id, qtyLines());
+      onDone(
+        r.status === 'awaiting_approval' ? 'Waiting for approval' : 'Stock sent',
+        r.status === 'awaiting_approval'
+          ? `${t.reference} is above your limit. It goes once someone approves it.`
+          : `${t.reference} is on the way to ${t.toName}. It is off this branch's stock now.`,
+      );
+    }, 'Not sent', 'Could not send. Check your connection and try again.');
+
+  const sendDraft = () =>
+    run(async () => {
+      const r = await sendDraftTransfer(t.id, qtyLines());
+      onDone(
+        r.status === 'awaiting_approval' ? 'Waiting for approval' : 'Stock sent',
+        r.status === 'awaiting_approval' ? `${t.reference} is above your limit. It goes once someone approves it.` : `${t.reference} is on the way to ${t.toName}.`,
+      );
+    }, 'Not sent', 'Could not send. Check your connection and try again.');
+
+  const approve = () =>
+    run(async () => {
+      await approveStockTransfer(t.id);
+      onDone('Approved and sent', `${t.reference} is on the way to ${t.toName}.`);
+    }, 'Not approved', 'Could not approve. Check your connection and try again.');
+
+  const receive = () =>
+    run(async () => {
+      const { data, error } = await getSupabase().rpc('receive_stock_transfer', {
+        p_transfer_id: t.id,
+        p_lines: t.items.map((i) => ({ item_id: i.id, quantity_received: Number(got[i.id]) })),
+        p_note: note.trim() || null,
+      });
+      if (error) throw error;
+      const added = Number((data as any)?.productsAdded) || 0;
+      onDone(
+        'Stock received',
+        `${t.reference} is in stock.` +
+          (shortNow > 0 ? ` ${ksh(shortNow)} short was reported to ${t.fromName}.` : '') +
+          (added > 0 ? ` ${added} new ${added === 1 ? 'product was' : 'products were'} added here; check the selling price.` : ''),
+      );
+    }, 'Not received', 'Could not save. Check your connection and try again.');
+
+  const settleChosen = Object.entries(settle).filter(([, v]) => v.action);
+  const settleProblem = settleChosen.some(([id, v]) => {
+    const i = t.items.find((x) => x.id === id)!;
+    const n = Number(v.qty);
+    return !Number.isFinite(n) || n <= 0 || n > i.stillShort;
+  });
+  const saveSettle = () =>
+    run(async () => {
+      await settleTransferShortage(
+        t.id,
+        settleChosen.map(([itemId, v]) => ({ itemId, action: v.action as ShortAction, quantity: Number(v.qty) })),
+        note.trim(),
+      );
+      onDone('Shortage settled', `${t.reference}: both branches' books now show where the stock went.`);
+    }, 'Not saved', 'Could not save. Check your connection and try again.');
+
+  const close = () =>
+    run(async () => {
+      if (closing === 'decline') {
+        await declineTransferRequest(t.id, reason.trim());
+        onDone('Request declined', `${t.toName} is told why.`);
+        return;
+      }
+      const { error } = await getSupabase().rpc('cancel_stock_transfer', { p_transfer_id: t.id, p_reason: reason.trim() });
+      if (error) throw error;
+      onDone(
+        t.status === 'requested' ? 'Request withdrawn' : 'Transfer cancelled',
+        t.status === 'in_transit' ? `${t.reference}: the stock is back in ${t.fromName}.` : `${t.reference} is cancelled. No stock moved.`,
+      );
+    }, 'Not saved', 'Could not save. Check your connection and try again.');
+
+  const settleOptions = (): { id: ShortAction; label: string }[] =>
+    out
+      ? [{ id: 'found', label: 'Found here' }, ...(can.writeOff ? [{ id: 'written_off' as const, label: 'Write off (lost)' }] : [])]
+      : [{ id: 'late', label: 'Arrived late' }];
+
+  const primary =
+    'w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold text-sm rounded-xl py-3 cursor-pointer';
+  const inputCls =
+    'w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500';
 
   return (
     <SheetLayer>
@@ -631,7 +821,7 @@ function DetailSheet({
                 {t.fromName} <ArrowRight size={14} className="text-app-text-muted" /> {t.toName}
               </h3>
               <p className="text-xs text-app-text-muted">
-                {t.reference} · <span className={`px-1.5 py-0.5 rounded-full ${STATUS[t.status].cls}`}>{STATUS[t.status].label}</span>
+                {t.reference} · <span className={`px-1.5 py-0.5 rounded-full ${STATUS[t.status].cls}`}>{rowLabel(t)}</span>
               </p>
             </div>
             <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer">
@@ -641,8 +831,24 @@ function DetailSheet({
 
           <div className="overflow-y-auto px-4 pb-3 space-y-3 min-h-0">
             <dl className="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-app-text-muted">
-              <dt>Sent</dt>
-              <dd className="text-app-text">{when(t.sentAt)} by {t.sentBy}</dd>
+              {t.requestedAt && (
+                <>
+                  <dt>Asked</dt>
+                  <dd className="text-app-text">{when(t.requestedAt)} by {t.requestedBy}</dd>
+                </>
+              )}
+              {(t.status === 'in_transit' || t.status === 'received') && (
+                <>
+                  <dt>Sent</dt>
+                  <dd className="text-app-text">{when(t.sentAt)} by {t.sentBy}{t.approvedBy ? ` · approved by ${t.approvedBy}` : ''}</dd>
+                </>
+              )}
+              {(t.status === 'draft' || t.status === 'awaiting_approval') && t.sentBy && (
+                <>
+                  <dt>{t.status === 'draft' ? 'Drafted' : 'Sent by'}</dt>
+                  <dd className="text-app-text">{when(t.createdAt)} · {t.sentBy}</dd>
+                </>
+              )}
               {t.note && (
                 <>
                   <dt>Note</dt>
@@ -661,6 +867,12 @@ function DetailSheet({
                   <dd className="text-app-text break-words">{t.receiveNote}</dd>
                 </>
               )}
+              {t.declinedAt && (
+                <>
+                  <dt>Declined</dt>
+                  <dd className="text-app-text break-words">{when(t.declinedAt)} by {t.declinedBy}: {t.declineReason}</dd>
+                </>
+              )}
               {t.cancelledAt && (
                 <>
                   <dt>Cancelled</dt>
@@ -669,15 +881,38 @@ function DetailSheet({
               )}
             </dl>
 
-            {receiving && (
+            {mode === 'receive' && (
               <p className="text-xs rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 p-3">
                 Count what actually arrived. Only that is added to {t.toName}'s stock; anything missing is reported back to {t.fromName}.
+              </p>
+            )}
+            {mode === 'answer' && (
+              <p className="text-xs rounded-xl bg-sky-500/10 text-sky-800 dark:text-sky-300 p-3">
+                {t.toName} asked for this. Change an amount to send less, or 0 to leave it out. It comes off {t.fromName}'s stock when you send.
+              </p>
+            )}
+            {mode === 'draft' && (
+              <p className="text-xs rounded-xl bg-app-bg text-app-text-muted p-3">
+                {t.purchaseId ? `Drafted when a purchase for ${t.toName} arrived here. ` : ''}Check the amounts, then send. Nothing has left yet.
+              </p>
+            )}
+            {t.status === 'awaiting_approval' && (
+              <p className="text-xs rounded-xl bg-violet-500/10 text-violet-800 dark:text-violet-300 p-3">
+                Worth {ksh(t.items.reduce((s, i) => s + i.quantitySent * i.unitCost, 0))} at cost, above {t.sentBy || 'the sender'}'s limit. Nothing has left yet.
+                {mode !== 'approve' && ' Someone who can approve this amount has to send it.'}
+              </p>
+            )}
+            {mode === 'settle' && (
+              <p className="text-xs rounded-xl bg-red-500/10 text-red-800 dark:text-red-300 p-3">
+                {out
+                  ? `Part of this didn't reach ${t.toName}. If it never left, say it was found here; if it was lost on the way, write it off as a stock loss.`
+                  : `Part of this didn't arrive. If it came later, record it here so it is added to stock.`}
               </p>
             )}
 
             <ul className="space-y-2">
               {t.items.map((i) => {
-                const here = receiving ? matchHere(i, products) : undefined;
+                const here = mode === 'receive' ? matchHere(i, products) : undefined;
                 const n = Number(got[i.id]);
                 const newCost =
                   here && Number.isFinite(n) && n > 0
@@ -685,32 +920,42 @@ function DetailSheet({
                       ? i.unitCost
                       : Math.round((((here.stock || 0) * (here.cost || 0) + n * i.unitCost) / ((here.stock || 0) + n)) * 100) / 100
                     : null;
-                const problem = receiving ? lineProblem(i) : null;
-                const short = i.quantityReceived !== null ? i.quantitySent - i.quantityReceived : 0;
+                const problem = lineProblem(i);
+                const s = settle[i.id];
                 return (
                   <li key={i.id} className="rounded-xl bg-app-bg p-3">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-app-text break-words">{i.productName}</p>
                         <p className="text-[11px] text-app-text-muted">
-                          Sent {qty(i.quantitySent)} {i.unit} · cost {ksh(i.unitCost)} each
+                          {t.status === 'requested'
+                            ? `Asked for ${qty(i.quantityRequested ?? i.quantitySent)} ${i.unit}`
+                            : `${t.status === 'draft' || t.status === 'awaiting_approval' ? 'To send' : 'Sent'} ${qty(i.quantitySent)} ${i.unit}${i.unitCost > 0 ? ` · cost ${ksh(i.unitCost)} each` : ''}`}
+                          {i.quantityRequested !== null && t.status !== 'requested' && i.quantityRequested !== i.quantitySent && ` · asked ${qty(i.quantityRequested)}`}
                           {i.quantityReceived !== null && ` · received ${qty(i.quantityReceived)}`}
                         </p>
-                        {short > 0 && (
-                          <p className="text-[11px] text-red-600 dark:text-red-400">
-                            {qty(short)} {i.unit} short · {ksh(short * i.unitCost)}
+                        {(i.quantityLate > 0 || i.quantityFound > 0 || i.quantityWrittenOff > 0) && (
+                          <p className="text-[11px] text-app-text-muted">
+                            {[i.quantityLate > 0 && `${qty(i.quantityLate)} arrived late`, i.quantityFound > 0 && `${qty(i.quantityFound)} found at ${t.fromName}`, i.quantityWrittenOff > 0 && `${qty(i.quantityWrittenOff)} written off`]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </p>
                         )}
-                        {receiving && !here && <p className="text-[11px] text-app-text-muted">New here: it will be added to this branch's products.</p>}
-                        {receiving && here && newCost !== null && Math.abs(newCost - (here.cost || 0)) >= 0.01 && (
+                        {i.stillShort > 0 && (
+                          <p className="text-[11px] text-red-600 dark:text-red-400">
+                            {qty(i.stillShort)} {i.unit} still short · {ksh(i.stillShort * i.unitCost)}
+                          </p>
+                        )}
+                        {mode === 'receive' && !here && <p className="text-[11px] text-app-text-muted">New here: it will be added to this branch's products.</p>}
+                        {mode === 'receive' && here && newCost !== null && Math.abs(newCost - (here.cost || 0)) >= 0.01 && (
                           <p className="text-[11px] text-app-text-muted">
                             Cost here goes from {ksh(here.cost || 0)} to {ksh(newCost)} (average of what you have and what came)
                           </p>
                         )}
                       </div>
-                      {receiving && (
+                      {editsQty && (
                         <label className="shrink-0 text-[11px] text-app-text-muted text-right">
-                          Arrived
+                          {mode === 'receive' ? 'Arrived' : 'Send'}
                           <input
                             type="number"
                             inputMode="decimal"
@@ -723,72 +968,129 @@ function DetailSheet({
                         </label>
                       )}
                     </div>
+                    {mode === 'settle' && s && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        {settleOptions().map((o) => (
+                          <button
+                            key={o.id}
+                            onClick={() => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], action: m[i.id].action === o.id ? '' : o.id } }))}
+                            aria-pressed={s.action === o.id}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${s.action === o.id ? 'bg-amber-500 text-slate-950' : 'bg-app-card text-app-text ring-1 ring-app-border'}`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                        {s.action && (
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="any"
+                            value={s.qty}
+                            onChange={(e) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: e.target.value } }))}
+                            aria-label="How much"
+                            className="w-20 ml-auto bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text"
+                          />
+                        )}
+                      </div>
+                    )}
                     {problem && <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">{problem}</p>}
                   </li>
                 );
               })}
             </ul>
 
-            {receiving && (
+            {(mode === 'receive' || mode === 'settle') && (
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={200}
-                placeholder="Note (optional), e.g. two packets burst"
-                className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                placeholder={mode === 'receive' ? 'Note (optional), e.g. two packets burst' : 'Note (optional), e.g. fell off the van'}
+                className={inputCls}
               />
             )}
 
-            {cancelling && (
+            {closing && (
               <div className="space-y-2">
-                <p className="text-xs text-app-text-muted">The stock goes back into {t.fromName}. {t.toName} is told.</p>
+                <p className="text-xs text-app-text-muted">
+                  {closing === 'decline'
+                    ? `${t.toName} is told why.`
+                    : t.status === 'in_transit'
+                      ? `The stock goes back into ${t.fromName}. ${t.toName} is told.`
+                      : 'Nothing has moved, so no stock changes.'}
+                </p>
                 <input
                   autoFocus
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   maxLength={200}
-                  placeholder="Why? e.g. van did not leave"
-                  className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder={closing === 'decline' ? 'Why? e.g. we are out too' : 'Why? e.g. van did not leave'}
+                  className={inputCls}
                 />
               </div>
             )}
           </div>
 
           <div className="border-t border-app-border px-4 pt-3 pb-[calc(1rem+var(--inset-bottom,0px))] space-y-2">
-            <p className="text-xs text-app-text-muted">
-              {t.items.length} {t.items.length === 1 ? 'product' : 'products'} · {ksh(sentValue(t))} at cost
-              {shortNow > 0 ? ` · ${ksh(shortNow)} short` : ''}
-            </p>
-            {receiving && (
-              <button
-                onClick={() => void receive()}
-                disabled={anyProblem || busy}
-                className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold text-sm rounded-xl py-3 cursor-pointer"
-              >
-                <Check size={16} /> {busy ? 'Saving…' : 'Confirm received'}
-              </button>
+            {t.status !== 'requested' && (
+              <p className="text-xs text-app-text-muted">
+                {t.items.length} {t.items.length === 1 ? 'product' : 'products'} · {ksh(sentValue(t))} at cost
+                {shortNow > 0 ? ` · ${ksh(shortNow)} short` : ''}
+              </p>
             )}
-            {cancellable &&
-              (cancelling ? (
-                <div className="flex gap-2">
-                  <button onClick={() => setCancelling(false)} className="flex-1 py-3 rounded-xl text-sm text-app-text bg-app-bg cursor-pointer">
-                    Keep it
-                  </button>
-                  <button
-                    onClick={() => void cancel()}
-                    disabled={!reason.trim() || busy}
-                    className="flex-1 py-3 rounded-xl text-sm font-semibold bg-red-600 text-white disabled:opacity-50 cursor-pointer"
-                  >
-                    {busy ? 'Cancelling…' : 'Cancel transfer'}
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setCancelling(true)} className="w-full py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-500/10 cursor-pointer">
-                  Cancel this transfer
+            {closing ? (
+              <div className="flex gap-2">
+                <button onClick={() => setClosing(null)} className="flex-1 py-3 rounded-xl text-sm text-app-text bg-app-bg cursor-pointer">
+                  Keep it
                 </button>
-              ))}
-            {t.status === 'in_transit' && t.direction === 'in' && !canReceive && (
-              <p className="text-xs text-app-text-muted">Ask a manager to confirm this when it arrives.</p>
+                <button
+                  onClick={() => void close()}
+                  disabled={!reason.trim() || busy}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold bg-red-600 text-white disabled:opacity-50 cursor-pointer"
+                >
+                  {busy ? 'Saving…' : closing === 'decline' ? 'Decline request' : t.status === 'requested' ? 'Withdraw request' : 'Cancel transfer'}
+                </button>
+              </div>
+            ) : (
+              <>
+                {mode === 'answer' && (
+                  <button onClick={() => void answer()} disabled={anyProblem || allZero || busy} className={primary}>
+                    <Send size={15} /> {busy ? 'Sending…' : `Send to ${t.toName}`}
+                  </button>
+                )}
+                {mode === 'draft' && (
+                  <button onClick={() => void sendDraft()} disabled={anyProblem || allZero || busy} className={primary}>
+                    <Send size={15} /> {busy ? 'Sending…' : `Send to ${t.toName}`}
+                  </button>
+                )}
+                {mode === 'approve' && (
+                  <button onClick={() => void approve()} disabled={busy} className={primary}>
+                    <ShieldCheck size={16} /> {busy ? 'Approving…' : 'Approve and send'}
+                  </button>
+                )}
+                {mode === 'receive' && (
+                  <button onClick={() => void receive()} disabled={anyProblem || busy} className={primary}>
+                    <Check size={16} /> {busy ? 'Saving…' : 'Confirm received'}
+                  </button>
+                )}
+                {mode === 'settle' && (
+                  <button onClick={() => void saveSettle()} disabled={!settleChosen.length || settleProblem || busy} className={primary}>
+                    <Check size={16} /> {busy ? 'Saving…' : 'Save'}
+                  </button>
+                )}
+                {mode === 'answer' && (
+                  <button onClick={() => setClosing('decline')} className="w-full py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-500/10 cursor-pointer">
+                    Decline
+                  </button>
+                )}
+                {cancellable && (
+                  <button onClick={() => setClosing('cancel')} className="w-full py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-500/10 cursor-pointer">
+                    {t.status === 'requested' ? 'Withdraw request' : t.status === 'in_transit' ? 'Cancel this transfer' : t.status === 'awaiting_approval' && mode === 'approve' ? 'Reject' : 'Cancel'}
+                  </button>
+                )}
+                {t.status === 'in_transit' && !out && !can.receive && <p className="text-xs text-app-text-muted">Ask a manager to confirm this when it arrives.</p>}
+                {t.status === 'requested' && out && !can.send && <p className="text-xs text-app-text-muted">Someone who can send stock has to answer this.</p>}
+              </>
             )}
           </div>
         </div>

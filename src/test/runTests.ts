@@ -778,7 +778,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView", "SalesDocsView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AssetsFilesView", "AccountingView", "SalesDocsView", "BuyingView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8")).join("\n");
   // A button is tagged directly, or through a list entry (`shortcut: "name"`) that renders data-shortcut.
   const tagged = (name: string) => code.includes(`data-shortcut="${name}"`) || code.includes(`shortcut: "${name}"`) || code.includes(`shortcut: '${name}'`);

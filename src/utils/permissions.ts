@@ -55,6 +55,7 @@ export type PermissionCode =
   | 'inventory.receive_stock'
   | 'inventory.adjust_stock'
   | 'inventory.transfer_stock'
+  | 'inventory.request_transfer'
   | 'inventory.stock_count'
   | 'inventory.stock_history'
   | 'inventory.wastage'
@@ -119,6 +120,8 @@ export type PermissionCode =
   | 'purchases.import'
   | 'purchases.print'
   | 'purchases.manage'
+  | 'purchases.request_quote'
+  | 'supplier_bills.manage'
   // Production & Recipes
   | 'production.view'
   | 'production.create'
@@ -242,7 +245,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'inventory.view', category: 'Products & Inventory', description: 'View current stock levels' },
   { code: 'inventory.receive_stock', category: 'Products & Inventory', description: 'Accept stock arrivals' },
   { code: 'inventory.adjust_stock', category: 'Products & Inventory', description: 'Log manual adjustments' },
-  { code: 'inventory.transfer_stock', category: 'Products & Inventory', description: 'Move stock to other warehouses' },
+  { code: 'inventory.transfer_stock', category: 'Products & Inventory', description: 'Send stock to other branches, answer their requests, settle shortages' },
+  { code: 'inventory.request_transfer', category: 'Products & Inventory', description: 'Ask another branch for stock (without being able to send any)' },
   { code: 'inventory.stock_count', category: 'Products & Inventory', description: 'Perform shelf stock audits' },
   { code: 'inventory.stock_history', category: 'Products & Inventory', description: 'View stock logs timeline' },
   { code: 'inventory.wastage', category: 'Products & Inventory', description: 'Record milk spillages or spoilage' },
@@ -318,6 +322,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'purchases.import', category: 'Suppliers & Purchases', description: 'Load incoming supplier invoices' },
   { code: 'purchases.print', category: 'Suppliers & Purchases', description: 'Print purchase dossiers' },
   { code: 'purchases.manage', category: 'Suppliers & Purchases', description: 'Close purchase bills' },
+  { code: 'purchases.request_quote', category: 'Suppliers & Purchases', description: 'Ask suppliers for prices on a draft and choose the best' },
+  { code: 'supplier_bills.manage', category: 'Suppliers & Purchases', description: 'Enter, check and void supplier bills' },
 
   // Production & Recipes
   { code: 'production.view', category: 'Production & Recipes', description: 'Browse raw milk batches' },
@@ -421,13 +427,14 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'staff.view', 'staff.schedule', 'loyalty.adjust',
       'business.view', 'business.switch', 'settings.view', 'settings.update', 'settings.theme', 'settings.tax',
       'products.view', 'products.create', 'products.update', 'products.import', 'products.export', 'products.manage_categories',
-      'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.transfer_stock', 'inventory.stock_count', 'inventory.stock_history', 'inventory.wastage', 'inventory.expiry',
+      'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.transfer_stock', 'inventory.request_transfer', 'inventory.stock_count', 'inventory.stock_history', 'inventory.wastage', 'inventory.expiry',
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.walkin_customer',
       'customers.view', 'customers.create', 'customers.update', 'customers.debts', 'customers.loyalty', 'customers.schedules', 'customers.manage',
       'orders.view', 'orders.create', 'orders.update', 'orders.complete', 'orders.assign_rider',
       'deliveries.view', 'deliveries.create', 'deliveries.assign', 'deliveries.complete', 'deliveries.cancel',
       'suppliers.view', 'suppliers.create', 'suppliers.update', 'suppliers.import', 'suppliers.export',
       'purchases.view', 'purchases.create', 'purchases.update', 'purchases.approve', 'purchases.export', 'purchases.print',
+      'purchases.request_quote', 'supplier_bills.manage',
       'production.view', 'production.create', 'production.update', 'production.approve',
       'bom.view', 'bom.create', 'bom.update',
       'expenses.view', 'expenses.create', 'expenses.update', 'pettycash.record', 'finance.view', 'accounting.view',

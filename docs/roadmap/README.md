@@ -6,8 +6,8 @@ Agreed on 2026-11-16. The aim is for KayKay's to do what Odoo does for a Kenyan 
 |---|------|--------|------|
 | 1 | Accounting (double-entry books) | Built 2026-11-16 (`32bbefc`), migration `20261116003` not yet applied | — |
 | 2 | Quotes → sales orders → invoices, credit notes and refunds | Built 2026-11-17, migration `20261117001` not yet applied | [02-quotes-orders-invoices.md](02-quotes-orders-invoices.md) |
-| 3 | Smarter buying: quotes from suppliers, purchase orders with approval, reorder points, supplier bills | Next | [03-smarter-buying.md](03-smarter-buying.md) |
-| 4 | HR and payroll (Kenya) | Planned | [04-hr-payroll.md](04-hr-payroll.md) |
+| 3 | Smarter buying: quotes from suppliers, purchase orders with approval, reorder points, supplier bills, stock transfers in the books | Built 2026-11-16 on `feat/smarter-buying`, migration `20261118001` not yet applied | [03-smarter-buying.md](03-smarter-buying.md) |
+| 4 | HR and payroll (Kenya) | Next | [04-hr-payroll.md](04-hr-payroll.md) |
 | 5 | Inventory valuation, lots, expiry, counts, locations | Planned | [05-inventory-valuation.md](05-inventory-valuation.md) |
 | 6 | CRM pipeline and campaigns | Planned | [06-crm-pipeline.md](06-crm-pipeline.md) |
 | 7 | Platform: modules on/off, multi-company and currency, reports, Swahili, API | Planned | [07-platform.md](07-platform.md) |

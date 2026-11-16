@@ -35,6 +35,7 @@ import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptV
 import FinanceView from './features/FinanceView';
 import AccountingView from './features/AccountingView';
 import SalesDocsView from './features/SalesDocsView';
+import BuyingView from './features/BuyingView';
 import SuppliersView from './features/SuppliersView';
 import AssetsFilesView from './features/AssetsFilesView';
 import AuditLogView from './features/AuditLogView';
@@ -141,6 +142,7 @@ import {
   PieChart,
   BookOpen,
   FileSignature,
+  ClipboardList,
   Send,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
@@ -162,6 +164,7 @@ import { TermsDialog } from './components/legal/TermsDialog';
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
 const SUPPLIER_PERMISSIONS = SCREEN_BY_ID.get('suppliers')!.permissions;
 const INVOICING_PERMISSIONS = SCREEN_BY_ID.get('invoicing')!.permissions;
+const BUYING_PERMISSIONS = SCREEN_BY_ID.get('buying')!.permissions;
 const ASSET_PERMISSIONS = SCREEN_BY_ID.get('assets')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
@@ -186,6 +189,7 @@ const MOBILE_TABS = [
   { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
   { id: 'invoicing', label: 'Quotes & Invoices', icon: FileSignature, permission: INVOICING_PERMISSIONS },
+  { id: 'buying', label: 'Buying', icon: ClipboardList, permission: BUYING_PERMISSIONS },
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
   { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
@@ -323,9 +327,16 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-stock-transfers',
     title: 'Stock Transfers',
-    content: 'Send stock to another branch, and confirm what arrived from one. A transfer is not a sale, so profit does not change.',
+    content: 'Send stock to another branch, ask one for stock, and confirm what arrived. Settle what arrived short. A transfer is not a sale, so profit does not change, but both branches\' books follow it.',
     placement: 'right',
     tab: 'stock-transfers',
+  },
+  {
+    targetSelector: '#sidebar-tab-buying',
+    title: 'Buying',
+    content: 'What is running low and how much to order, or which branch has plenty. Approve purchases above someone\'s limit, enter supplier bills, and send goods back.',
+    placement: 'right',
+    tab: 'buying',
   },
   {
     targetSelector: '#sidebar-tab-sales',
@@ -3729,6 +3740,13 @@ export default function App() {
                       permission: TRANSFER_PERMISSIONS,
                     },
                     {
+                      id: 'buying',
+                      label: 'Buying',
+                      icon: ClipboardList,
+                      desc: 'Reorder, approvals, supplier bills',
+                      permission: BUYING_PERMISSIONS,
+                    },
+                    {
                       id: 'sales',
                       label: 'Sales Log',
                       icon: Receipt,
@@ -4470,6 +4488,13 @@ export default function App() {
                       <motion.div key="invoicing-view" {...SCREEN_MOTION} className="absolute inset-0">
                         <SecurityGuard permission={INVOICING_PERMISSIONS as any}>
                           <SalesDocsView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'buying' && (
+                      <motion.div key="buying-view" {...SCREEN_MOTION} className="absolute inset-0">
+                        <SecurityGuard permission={BUYING_PERMISSIONS as any}>
+                          <BuyingView />
                         </SecurityGuard>
                       </motion.div>
                     )}

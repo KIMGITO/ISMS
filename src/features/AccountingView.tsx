@@ -23,6 +23,7 @@ import {
   type Payable, type QuickTemplate, type Receivable, type SourceType, type StatementRow, type SupplierPayment, type VatMonth,
   type MoneyCheck, type CheckHistory,
 } from '../services/accounting';
+import { recordBillPayment } from '../services/buying';
 
 type Tab = 'overview' | 'pnl' | 'balance' | 'trial' | 'journal' | 'accounts' | 'receivables' | 'payables' | 'checks' | 'vat' | 'settings';
 
@@ -146,7 +147,7 @@ export default function AccountingView() {
   const [entryOpen, setEntryOpen] = useState<JournalEntry | null>(null);
   const [newEntry, setNewEntry] = useState<{ template: QuickTemplate | null; editing?: JournalEntry } | null>(null);
   const [accountForm, setAccountForm] = useState<Partial<AccountBalance> | null>(null);
-  const [paying, setPaying] = useState<{ supplier: Payable; purchaseId: string | null; amount: number } | null>(null);
+  const [paying, setPaying] = useState<{ supplier: Payable; purchaseId: string | null; amount: number; billId?: string | null } | null>(null);
   const [counting, setCounting] = useState<MoneyCheck | null>(null);
 
   const load = useCallback(async () => {
@@ -408,7 +409,7 @@ export default function AccountingView() {
         {report && tab === 'receivables' && businessId && <ReceivablesTab businessId={businessId} version={version} />}
 
         {report && tab === 'payables' && businessId && (
-          <PayablesTab businessId={businessId} version={version} onPay={(s, purchaseId, amount) => setPaying({ supplier: s, purchaseId, amount })} onChanged={changed} />
+          <PayablesTab businessId={businessId} version={version} onPay={(s, purchaseId, amount, billId) => setPaying({ supplier: s, purchaseId, amount, billId })} onChanged={changed} />
         )}
 
         {report && tab === 'checks' && businessId && (
@@ -983,7 +984,7 @@ function ReceivablesTab({ businessId, version }: { businessId: string; version: 
 // ---------------------------------------------------------------- Suppliers
 
 function PayablesTab({ businessId, version, onPay, onChanged }: {
-  businessId: string; version: number; onPay: (s: Payable, purchaseId: string | null, amount: number) => void; onChanged: () => void;
+  businessId: string; version: number; onPay: (s: Payable, purchaseId: string | null, amount: number, billId?: string | null) => void; onChanged: () => void;
 }) {
   const showToast = useNotificationStore((s) => s.showToast);
   const [data, setData] = useState<{ suppliers: Payable[]; payments: SupplierPayment[]; canPay: boolean } | null>(null);
@@ -1013,7 +1014,7 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
 
   return (
     <div className="space-y-4">
-      <Card title="What we owe suppliers" subtitle="Received purchases less what was paid. Pay a whole purchase, or any amount on account.">
+      <Card title="What we owe suppliers" subtitle="Supplier bills (and purchases received before bills) less returns and what was paid. Pay a bill, or any amount on account. Goods received without a bill yet are shown apart.">
         {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
         {!data && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
         {data && (
@@ -1032,7 +1033,7 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
                       {open === s.party ? <ChevronDown size={15} className="text-app-text-muted shrink-0" /> : <ChevronRight size={15} className="text-app-text-muted shrink-0" />}
                       <span className="min-w-0">
                         <span className="block text-[13px] text-app-text truncate">{s.name}</span>
-                        <span className="block text-[11px] text-app-text-muted">Bought {money(s.billed)} · paid {money(s.paid)}</span>
+                        <span className="block text-[11px] text-app-text-muted">Billed {money(s.billed)}{s.returned > 0 ? ` · returned ${money(s.returned)}` : ''} · paid {money(s.paid)}{s.notBilled > 0 ? ` · ${money(s.notBilled)} received, not billed yet` : ''}</span>
                       </span>
                     </button>
                     <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${s.owed > 0 ? 'text-app-text' : 'text-emerald-600 dark:text-emerald-400'}`}>{exact(s.owed)}</span>
@@ -1043,12 +1044,12 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
                   {open === s.party && (
                     <div className="mt-2 ml-6 space-y-1">
                       {s.bills.map((b) => (
-                        <div key={b.purchaseId} className="flex items-center gap-2 text-[12px]">
+                        <div key={b.billId || b.purchaseId} className="flex items-center gap-2 text-[12px]">
                           <span className="min-w-0 flex-1 text-app-text truncate">{b.ref} · {day(b.received)}</span>
                           <span className="tabular-nums text-app-text-muted">{exact(b.total)}</span>
                           <span className={`tabular-nums w-24 text-right ${b.owed > 0 ? 'text-app-text font-medium' : 'text-emerald-600 dark:text-emerald-400'}`}>{b.owed > 0 ? `owe ${exact(b.owed)}` : 'paid'}</span>
                           {data.canPay && b.owed > 0 && (
-                            <button onClick={() => onPay(s, b.purchaseId, b.owed)} className="text-xs underline text-app-text cursor-pointer">Pay</button>
+                            <button onClick={() => onPay(s, b.purchaseId, b.owed, b.billId)} className="text-xs underline text-app-text cursor-pointer">Pay</button>
                           )}
                         </div>
                       ))}
@@ -1085,8 +1086,8 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
   );
 }
 
-function PaySupplierForm({ businessId, supplier, purchaseId, amount, lockDate, onClose, onSaved }: {
-  businessId: string; supplier: Payable; purchaseId: string | null; amount: number; lockDate: string | null; onClose: () => void; onSaved: () => void;
+function PaySupplierForm({ businessId, supplier, purchaseId, amount, billId, lockDate, onClose, onSaved }: {
+  businessId: string; supplier: Payable; purchaseId: string | null; amount: number; billId?: string | null; lockDate: string | null; onClose: () => void; onSaved: () => void;
 }) {
   const [value, setValue] = useState(String(Math.round(amount * 100) / 100));
   const [method, setMethod] = useState('M-Pesa');
@@ -1095,16 +1096,20 @@ function PaySupplierForm({ businessId, supplier, purchaseId, amount, lockDate, o
   const [date, setDate] = useState(kenyaToday());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const bill = supplier.bills.find((b) => b.purchaseId === purchaseId);
+  const bill = billId ? supplier.bills.find((b) => b.billId === billId) : supplier.bills.find((b) => b.purchaseId === purchaseId && !b.billId);
 
   const save = async () => {
     setBusy(true);
     setErr(null);
     try {
       const paidAt = date === kenyaToday() ? null : new Date(`${date}T12:00:00+03:00`).toISOString();
-      await recordSupplierPayment(businessId, {
-        supplierId: supplier.supplierId, supplierName: supplier.name, purchaseId, amount: Number(value), method, reference, note, paidAt,
-      });
+      if (billId) {
+        await recordBillPayment(billId, { amount: Number(value), method, reference, note, paidAt });
+      } else {
+        await recordSupplierPayment(businessId, {
+          supplierId: supplier.supplierId, supplierName: supplier.name, purchaseId, amount: Number(value), method, reference, note, paidAt,
+        });
+      }
       onSaved();
     } catch (e) {
       setErr(toUserMessage(e, 'Could not record the payment.'));
@@ -1293,7 +1298,7 @@ function CountMoneyForm({ businessId, check, onClose, onSaved }: { businessId: s
 function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
   businessId: string; start: string; end: string; version: number; canManage: boolean; onPayVat: () => void;
 }) {
-  const [data, setData] = useState<{ months: VatMonth[]; taxOn: boolean; rate: number | null; owedNow: number } | null>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof loadVat>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -1303,11 +1308,12 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
 
   const charged = (data?.months || []).reduce((s, m) => s + m.vatCharged, 0);
   const paid = (data?.months || []).reduce((s, m) => s + m.vatPaid, 0);
+  const onPurchases = (data?.months || []).reduce((s, m) => s + m.vatOnPurchases, 0);
 
   return (
     <Card
       title="VAT"
-      subtitle="VAT charged on sales each month, and what was paid to KRA. File the return on iTax; this gives you the figures."
+      subtitle="VAT charged on sales each month, VAT on supplier bills (claimed back), and what was paid to KRA. File the return on iTax; this gives you the figures."
       action={canManage ? <button onClick={onPayVat} className={secondaryBtn}>Record VAT paid</button> : undefined}
     >
       {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
@@ -1315,8 +1321,9 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
       {data && (
         <>
           {!data.taxOn && <div className="mb-3"><Note tone="info">VAT is switched off for this branch (Business Management → tax), so sales charge none.</Note></div>}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             <Tile label="Charged in period" value={money(charged)} />
+            <Tile label="On purchases in period" value={money(onPurchases)} />
             <Tile label="Paid to KRA in period" value={money(paid)} />
             <Tile label="Owed to KRA now" value={money(data.owedNow)} tone={data.owedNow > 0 ? 'bad' : undefined} />
           </div>
@@ -1328,6 +1335,7 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
                   <th className="text-right font-medium">Sales</th>
                   <th className="text-right font-medium">With VAT</th>
                   <th className="text-right font-medium">VAT charged</th>
+                  <th className="text-right font-medium">On purchases</th>
                   <th className="text-right font-medium">Paid</th>
                 </tr>
               </thead>
@@ -1338,13 +1346,14 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
                     <td className="text-right">{exact(m.sales)}</td>
                     <td className="text-right pl-2">{exact(m.taxedSales)}</td>
                     <td className="text-right pl-2 font-medium">{exact(m.vatCharged)}</td>
+                    <td className="text-right pl-2">{exact(m.vatOnPurchases)}</td>
                     <td className="text-right pl-2">{exact(m.vatPaid)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-app-text-muted mt-2">"With VAT" is sales that charged VAT; the rest were zero-rated or VAT was off. VAT on purchases is not tracked yet.</p>
+          <p className="text-[11px] text-app-text-muted mt-2">"With VAT" is sales that charged VAT; the rest were zero-rated or VAT was off. "Owed to KRA now" is VAT charged less VAT on purchases.</p>
         </>
       )}
     </Card>

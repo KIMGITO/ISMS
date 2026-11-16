@@ -2,7 +2,7 @@
 // The switches for what this person gets notified about, used by the Notifications page and Settings.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bell, BellOff, BellRing, Bike, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
+import { Bell, BellOff, BellRing, Bike, ClipboardList, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
 import { NotificationPreferences, NotificationSettings } from '../services/notifications/notificationPreferences';
 import { NotificationRepository } from '../services/notifications/notificationRepository';
 import { useBusinessStore } from '../stores/businessStore';
@@ -12,7 +12,9 @@ import RingToneSetting from './RingToneSetting';
 import AlarmHealthCard from './AlarmHealthCard';
 
 const CATEGORY_DETAILS: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
-  stock: { label: 'Stock alerts', description: 'Low stock and products running out', icon: <PackageSearch size={15} /> },
+  stock: { label: 'Stock alerts', description: 'Low stock, products running out, and stock between branches', icon: <PackageSearch size={15} /> },
+  buying: { label: 'Buying', description: 'What to reorder each morning, and supplier bills coming due', icon: <ClipboardList size={15} /> },
+  approvals: { label: 'Approvals', description: 'Purchases, transfers and supplier bills waiting for someone to approve them', icon: <ShieldCheck size={15} /> },
   sales: { label: 'Sales reports', description: 'Daily, weekly and monthly summaries', icon: <Wallet size={15} /> },
   debts: { label: 'Debt reminders', description: 'Customer debts that are due', icon: <CircleDollarSign size={15} /> },
   deliveries: { label: 'Deliveries', description: 'Assigned and completed deliveries', icon: <Bike size={15} /> },

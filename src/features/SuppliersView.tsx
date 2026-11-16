@@ -1,10 +1,14 @@
 // Suppliers & Purchases: who you buy from, and what you ordered from them.
-// A purchase goes Pending → Ordered → Received (or Cancelled). Receiving adds every line
-// linked to a product to stock (a Restock in Stock History, numbered with the purchase),
-// and can set the product's cost to what was paid.
+// A purchase goes Draft → (Asking prices) → (Needs approval) → Ordered → Part received →
+// Received, or Cancelled. Placing an order above the person's approval limit waits for
+// someone allowed that amount. Receiving counts what came in good order (into stock) and
+// damaged (noted, still owed); each delivery is a GRN. Then the supplier's bill is entered
+// against the deliveries, and goods can be sent back. The database enforces all of it
+// (20261118001_smarter_buying.sql).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Truck, Plus, Search, Phone, Mail, Pencil, Trash2, PackageCheck, Send, Ban, RotateCcw, ShoppingCart, X,
+  ShieldCheck, MessageCircle, MessageSquare, FileText, Undo2, Lock, Undo,
 } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
 import { useAuthStore } from '../stores/authStore';
@@ -19,21 +23,34 @@ import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn, dangerBtn } fro
 import SearchableDropdown from '../components/SearchableDropdown';
 import { appDialog } from '../components/AppDialog';
 import {
-  listSuppliers, saveSupplier, removeSupplier, listPurchases, savePurchase, setPurchaseStatus, receivePurchase,
-  deletePurchase, purchaseRef, lineTotal,
+  listSuppliers, saveSupplier, removeSupplier, listPurchases, savePurchase, setPurchaseStatus,
+  deletePurchase, purchaseRef, lineTotal, OPEN_PURCHASE,
   type Supplier, type SupplierDraft, type PurchaseOrder, type PurchaseDraft, type PurchaseLine, type PurchaseStatus,
 } from '../services/operations';
+import {
+  approvePurchase, askSupplierPrices, chooseSupplierQuote, closePurchase, listBranches, loadBuyingOverview, loadPurchaseDetails,
+  placePurchaseOrder, rejectPurchase, rfqMessage, saveSupplierQuote,
+  type Branch, type PurchaseDetails, type SupplierQuote,
+} from '../services/buying';
+import { BillSheet, ReasonSheet, ReceiveSheet, ReturnSheet } from '../components/buying/BuyingSheets';
+import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
 
 type Tab = 'suppliers' | 'purchases';
 type StatusFilter = 'open' | 'received' | 'cancelled' | 'all';
 
 const STATUS_STYLE: Record<PurchaseStatus, string> = {
   Pending: 'bg-slate-500/15 text-app-text-muted',
+  RFQ: 'bg-teal-500/15 text-teal-700 dark:text-teal-300',
+  'Awaiting approval': 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
   Ordered: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  'Part received': 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   Received: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   Cancelled: 'bg-red-500/15 text-red-700 dark:text-red-300',
 };
-const STATUS_WORD: Record<PurchaseStatus, string> = { Pending: 'Draft', Ordered: 'Ordered', Received: 'Received', Cancelled: 'Cancelled' };
+const STATUS_WORD: Record<PurchaseStatus, string> = {
+  Pending: 'Draft', RFQ: 'Asking prices', 'Awaiting approval': 'Needs approval', Ordered: 'Ordered',
+  'Part received': 'Part received', Received: 'Received', Cancelled: 'Cancelled',
+};
 
 const emptySupplier: SupplierDraft = { name: '', company: '', phone: '', email: '', productSupplied: '', notes: '' };
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
@@ -59,6 +76,12 @@ export default function SuppliersView() {
   const canCancelPurchase = can('purchases.cancel');
   const canReceive = (can('purchases.update') || can('purchases.approve') || can('purchases.manage'))
     && (can('inventory.receive_stock') || can('inventory.adjust_stock'));
+  const canAskPrices = can('purchases.request_quote');
+  const canApprove = can('purchases.approve');
+  const canBill = can('supplier_bills.manage');
+  const canReturn = (can('purchases.update') || can('purchases.manage') || can('purchases.approve'))
+    && (can('inventory.adjust_stock') || can('inventory.receive_stock'));
+  const businessName = useBusinessStore((s) => s.businesses.find((b) => b.id === s.activeBusinessId)?.name) || 'We';
 
   const tabs = [
     { id: 'suppliers' as Tab, label: 'Suppliers', icon: <Truck size={14} />, shortcut: 'suppliers-tab', allowed: seesSuppliers },
@@ -92,7 +115,19 @@ export default function SuppliersView() {
   }, [businessId, seesSuppliers, seesPurchases]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => onBranchChange(() => { setSuppliers([]); setPurchases([]); }), []);
+  useEffect(() => onBranchChange(() => { setSuppliers([]); setPurchases([]); setBranches([]); }), []);
+
+  // Other branches, for buying on their behalf (central buying).
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [tolerancePct, setTolerancePct] = useState(2);
+  useEffect(() => {
+    if (!businessId || !canCreatePurchase) return;
+    let live = true;
+    listBranches(businessId).then((b) => live && setBranches(b)).catch(() => live && setBranches([]));
+    if (canBill) loadBuyingOverview(businessId).then((o) => live && setTolerancePct(o.settings.tolerancePct)).catch(() => undefined);
+    return () => { live = false; };
+  }, [businessId, canCreatePurchase, canBill]);
+  const branchName = (id?: string | null) => (id ? branches.find((b) => b.id === id)?.name || 'another branch' : undefined);
 
   // Per supplier: how many purchases and how much was spent (received only).
   const spend = useMemo(() => {
@@ -119,12 +154,14 @@ export default function SuppliersView() {
   const shownSuppliers = suppliers.filter((s) =>
     !q || [s.name, s.company, s.phone, s.email, s.productSupplied].some((v) => v.toLowerCase().includes(q)));
   const shownPurchases = purchases.filter((p) => {
-    if (statusFilter === 'open' && !(p.status === 'Pending' || p.status === 'Ordered')) return false;
+    if (statusFilter === 'open' && !OPEN_PURCHASE.includes(p.status)) return false;
     if (statusFilter === 'received' && p.status !== 'Received') return false;
     if (statusFilter === 'cancelled' && p.status !== 'Cancelled') return false;
     return !q || [p.supplierName, purchaseRef(p), p.notes, ...p.lines.map((l) => l.name)].some((v) => v.toLowerCase().includes(q));
   });
-  const openTotal = purchases.filter((p) => p.status === 'Ordered').reduce((s, p) => s + p.total, 0);
+  const openTotal = purchases
+    .filter((p) => p.status === 'Ordered' || p.status === 'Part received')
+    .reduce((s, p) => s + p.lines.reduce((t, l) => t + Math.max(l.quantity - (l.received || 0), 0) * l.price, 0), 0);
 
   // ---------------------------------------------------------------- supplier form
   const [editingSupplier, setEditingSupplier] = useState<{ id?: string; draft: SupplierDraft } | null>(null);
@@ -170,8 +207,29 @@ export default function SuppliersView() {
 
   // ---------------------------------------------------------------- purchase form
   const [editingPurchase, setEditingPurchase] = useState<{ id?: string; draft: PurchaseDraft } | null>(null);
-  const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
-  const [updateCost, setUpdateCost] = useState(false);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const viewing = purchases.find((p) => p.id === viewingId) || null;
+  const setViewing = (p: PurchaseOrder | null) => setViewingId(p?.id ?? null);
+  const [details, setDetails] = useState<PurchaseDetails | null>(null);
+  const [receiving, setReceiving] = useState<PurchaseOrder | null>(null);
+  const [billing, setBilling] = useState<PurchaseOrder | null>(null);
+  const [returning, setReturning] = useState<PurchaseOrder | null>(null);
+  const [asking, setAsking] = useState<PurchaseOrder | null>(null);
+  const [pricing, setPricing] = useState<{ purchase: PurchaseOrder; quote: SupplierQuote } | null>(null);
+  const [reasonFor, setReasonFor] = useState<{ kind: 'reject' | 'close'; purchase: PurchaseOrder } | null>(null);
+
+  const reloadDetails = useCallback(async (id: string) => {
+    try {
+      setDetails(await loadPurchaseDetails(id));
+    } catch {
+      setDetails(null);
+    }
+  }, []);
+  useEffect(() => {
+    setDetails(null);
+    if (viewingId) void reloadDetails(viewingId);
+  }, [viewingId, reloadDetails]);
+
 
   const newPurchase = (supplier?: Supplier) => {
     setFormError(null);
@@ -199,7 +257,7 @@ export default function SuppliersView() {
         reference: p.reference,
         date: p.date.slice(0, 10),
         notes: p.notes,
-        status: p.status === 'Pending' ? 'Pending' : 'Ordered',
+        status: p.status === 'Pending' || p.status === 'RFQ' ? 'Pending' : 'Ordered',
         lines: p.lines.length ? p.lines.map((l) => ({ ...l })) : [blankLine()],
       },
     });
@@ -220,8 +278,12 @@ export default function SuppliersView() {
     setFormError(null);
     setBusy(true);
     try {
-      await savePurchase(businessId, d, staffName, editingPurchase.id);
-      showToast(editingPurchase.id ? 'Purchase saved' : 'Purchase recorded', `${d.supplierName} · ${formatCurrency(lineTotal(lines))}`, undefined, 'success');
+      const saved = await savePurchase(businessId, d, staffName, editingPurchase.id);
+      if (saved.status === 'Awaiting approval') {
+        showToast('Waiting for approval', `${d.supplierName} · ${formatCurrency(lineTotal(lines))} is above your limit. It is ordered once someone approves it.`, undefined, 'info');
+      } else {
+        showToast(editingPurchase.id ? 'Purchase saved' : 'Purchase recorded', `${d.supplierName} · ${formatCurrency(lineTotal(lines))}`, undefined, 'success');
+      }
       setEditingPurchase(null);
       setStatusFilter('open');
       void load();
@@ -245,8 +307,18 @@ export default function SuppliersView() {
     }
     setBusy(true);
     try {
-      await setPurchaseStatus(p.id, status);
-      setViewing(null);
+      if (status === 'Ordered') {
+        const result = await placePurchaseOrder(p.id);
+        showToast(
+          result === 'Ordered' ? 'Order placed' : 'Waiting for approval',
+          result === 'Ordered' ? `${purchaseRef(p)} to ${p.supplierName}.` : `${purchaseRef(p)} is above your limit. Someone who can approve ${formatCurrency(p.total)} has been told.`,
+          undefined,
+          result === 'Ordered' ? 'success' : 'info',
+        );
+      } else {
+        await setPurchaseStatus(p.id, status);
+        setViewing(null);
+      }
       void load();
     } catch (err) {
       showToast('Not changed', toUserMessage(err, 'Could not change the purchase.'), undefined, 'error');
@@ -255,25 +327,64 @@ export default function SuppliersView() {
     }
   };
 
-  const receive = async (p: PurchaseOrder) => {
+  const receive = (p: PurchaseOrder) => setReceiving({ ...p, lines: p.lines.map((l) => ({ ...l, forBranchName: branchName(l.forBusinessId) })) });
+
+  const approve = async (p: PurchaseOrder) => {
     setBusy(true);
     try {
-      const stocked = await receivePurchase(p.id, staffName, updateCost);
-      const notLinked = p.lines.filter((l) => !l.productId).length;
-      showToast(
-        'Purchase received',
-        `${stocked} ${stocked === 1 ? 'item' : 'items'} added to stock${notLinked ? `; ${notLinked} not linked to a product, so not stocked` : ''}.`,
-        undefined,
-        'success',
-      );
-      setViewing(null);
-      setUpdateCost(false);
+      await approvePurchase(p.id);
+      showToast('Approved', `${purchaseRef(p)} to ${p.supplierName} is ordered.`, undefined, 'success');
       void load();
+      void reloadDetails(p.id);
     } catch (err) {
-      showToast('Not received', toUserMessage(err, 'Could not receive the purchase.'), undefined, 'error');
+      showToast('Not approved', toUserMessage(err, 'Could not approve the purchase.'), undefined, 'error');
     } finally {
       setBusy(false);
     }
+  };
+
+  const backToDraft = async (p: PurchaseOrder) => {
+    setBusy(true);
+    try {
+      await setPurchaseStatus(p.id, 'Pending');
+      void load();
+    } catch (err) {
+      showToast('Not changed', toUserMessage(err, 'Could not change the purchase.'), undefined, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const choose = async (p: PurchaseOrder, q: SupplierQuote) => {
+    const ok = await appDialog.confirm({
+      title: `Order from ${q.supplier}?`,
+      message: `Their prices become the order (${formatCurrency(q.total)}). Items they can't supply are taken off. The other suppliers are marked as not chosen.`,
+      confirmLabel: 'Order from them',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const result = await chooseSupplierQuote(q.id);
+      showToast(
+        result === 'Ordered' ? 'Order placed' : 'Waiting for approval',
+        result === 'Ordered' ? `${purchaseRef(p)} to ${q.supplier}.` : `${formatCurrency(q.total)} is above your limit; it is ordered once approved.`,
+        undefined,
+        result === 'Ordered' ? 'success' : 'info',
+      );
+      void load();
+      void reloadDetails(p.id);
+    } catch (err) {
+      showToast('Not ordered', toUserMessage(err, 'Could not choose the supplier.'), undefined, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendRfq = (p: PurchaseOrder, q: SupplierQuote, via: 'whatsapp' | 'sms' | 'email') => {
+    const text = rfqMessage(businessName, purchaseRef(p), p.lines, q.supplier);
+    if (via === 'whatsapp') void ReceiptShareService.shareTextViaWhatsApp(q.phone || '', text);
+    else if (via === 'sms') void ReceiptShareService.openExternalUrl(`sms:${q.phone || ''}?body=${encodeURIComponent(text)}`);
+    else void ReceiptShareService.shareTextViaEmail(q.email || '', `Prices for ${purchaseRef(p)}`, text);
   };
 
   const removePurchase = async (p: PurchaseOrder) => {
@@ -292,6 +403,8 @@ export default function SuppliersView() {
       showToast('Not deleted', toUserMessage(err, 'Could not delete the purchase.'), undefined, 'error');
     }
   };
+
+  const isOpenLike = (st: PurchaseStatus) => st === 'Pending' || st === 'RFQ' || st === 'Awaiting approval' || st === 'Ordered';
 
   const productItems = useMemo(
     () => products.map((p) => ({ id: p.id, label: p.name, sublabel: `${p.stock} ${p.unit} in stock · cost ${formatCurrency(p.cost)}` })),
@@ -429,7 +542,7 @@ export default function SuppliersView() {
                 searchId={`pur-${p.id}`}
                 title={`${purchaseRef(p)} · ${p.supplierName}`}
                 subtitle={`${formatCurrency(p.total)} · ${STATUS_WORD[p.status]}`}
-                onClick={() => { setUpdateCost(false); setViewing(p); }}
+                onClick={() => setViewing(p)}
                 actions={[{
                   label: 'Delete', icon: <Trash2 size={18} />, tone: 'red',
                   hidden: !canCancelPurchase || !(p.status === 'Pending' || p.status === 'Cancelled'),
@@ -587,6 +700,19 @@ export default function SuppliersView() {
                   <input value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} placeholder="Unit" aria-label="Unit" maxLength={16} className={fieldClass} />
                   <input type="number" inputMode="decimal" min="0" step="any" value={l.price || ''} onChange={(e) => setLine(i, { price: Number(e.target.value) })} placeholder="Price each" aria-label="Price per unit" className={`${fieldClass} col-span-2 sm:col-span-1`} />
                 </div>
+                {branches.length > 0 && l.productId && (
+                  <label className="flex items-center gap-2 text-[11px] text-app-text-muted">
+                    For
+                    <select
+                      value={l.forBusinessId || ''}
+                      onChange={(e) => setLine(i, { forBusinessId: e.target.value || null })}
+                      className="bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs text-app-text"
+                    >
+                      <option value="">This branch</option>
+                      {branches.map((b) => <option key={b.id} value={b.id}>{b.name} (sent on after it arrives)</option>)}
+                    </select>
+                  </label>
+                )}
                 <p className="text-[11px] text-app-text-muted text-right tabular-nums">
                   {!l.productId && l.name ? 'Not linked: not added to stock · ' : ''}
                   {formatCurrency((Number(l.quantity) || 0) * (Number(l.price) || 0))}
@@ -606,31 +732,64 @@ export default function SuppliersView() {
         <FormSheet
           wide
           title={`${purchaseRef(viewing)} · ${viewing.supplierName}`}
-          subtitle={`${STATUS_WORD[viewing.status]} · ${shortDate(viewing.date)}${viewing.createdBy ? ` · by ${viewing.createdBy}` : ''}${viewing.receivedAt ? ` · received ${shortDate(viewing.receivedAt)} by ${viewing.receivedBy || 'staff'}` : ''}`}
+          subtitle={`${STATUS_WORD[viewing.status]} · ${shortDate(viewing.date)}${viewing.createdBy ? ` · by ${viewing.createdBy}` : ''}${viewing.approvedBy ? ` · approved by ${viewing.approvedBy}` : ''}${viewing.receivedAt ? ` · last received ${shortDate(viewing.receivedAt)} by ${viewing.receivedBy || 'staff'}` : ''}`}
           onClose={() => setViewing(null)}
           footer={
-            viewing.status === 'Received' || viewing.status === 'Cancelled' ? (
-              <>
-                {viewing.status === 'Cancelled' && canCancelPurchase && (
-                  <button className={`${secondaryBtn} mr-auto text-red-600`} onClick={() => void removePurchase(viewing)}><Trash2 size={15} /> Delete</button>
-                )}
-                <button className={secondaryBtn} onClick={() => setViewing(null)}>Close</button>
-              </>
-            ) : (
-              <>
-                {canCancelPurchase && <button className={`${secondaryBtn} mr-auto`} disabled={busy} onClick={() => void changeStatus(viewing, 'Cancelled')}><Ban size={15} /> Cancel</button>}
-                {canEditPurchase && <button className={secondaryBtn} disabled={busy} onClick={() => editPurchase(viewing)}><Pencil size={15} /> Edit</button>}
-                {viewing.status === 'Pending' && canEditPurchase && (
-                  <button className={secondaryBtn} disabled={busy} onClick={() => void changeStatus(viewing, 'Ordered')}><Send size={15} /> Mark ordered</button>
-                )}
-                {canReceive && (
-                  <button className={primaryBtn} disabled={busy} onClick={() => void receive(viewing)}><PackageCheck size={15} /> {busy ? 'Receiving…' : 'Receive into stock'}</button>
-                )}
-              </>
-            )
+            <>
+              {viewing.status === 'Cancelled' && canCancelPurchase && (
+                <button className={`${secondaryBtn} mr-auto text-red-600`} onClick={() => void removePurchase(viewing)}><Trash2 size={15} /> Delete</button>
+              )}
+              {isOpenLike(viewing.status) && canCancelPurchase && (
+                <button className={`${secondaryBtn} mr-auto`} disabled={busy} onClick={() => void changeStatus(viewing, 'Cancelled')}><Ban size={15} /> Cancel</button>
+              )}
+              {viewing.status === 'Part received' && canEditPurchase && (
+                <button className={`${secondaryBtn} mr-auto`} disabled={busy} onClick={() => setReasonFor({ kind: 'close', purchase: viewing })}><Lock size={15} /> Close, rest not coming</button>
+              )}
+              {(viewing.status === 'Pending' || viewing.status === 'RFQ' || viewing.status === 'Ordered') && canEditPurchase && (
+                <button className={secondaryBtn} disabled={busy} onClick={() => editPurchase(viewing)}><Pencil size={15} /> Edit</button>
+              )}
+              {viewing.status === 'RFQ' && canEditPurchase && (
+                <button className={secondaryBtn} disabled={busy} onClick={() => void backToDraft(viewing)}><Undo size={15} /> Back to draft</button>
+              )}
+              {(viewing.status === 'Pending' || viewing.status === 'RFQ') && canAskPrices && suppliers.length > 0 && (
+                <button className={secondaryBtn} disabled={busy} onClick={() => setAsking(viewing)}><MessageCircle size={15} /> Ask for prices</button>
+              )}
+              {viewing.status === 'Pending' && (canEditPurchase || canCreatePurchase) && (
+                <button className={primaryBtn} disabled={busy} onClick={() => void changeStatus(viewing, 'Ordered')}><Send size={15} /> Place order</button>
+              )}
+              {viewing.status === 'Awaiting approval' && canApprove && (
+                <>
+                  <button className={secondaryBtn} disabled={busy} onClick={() => setReasonFor({ kind: 'reject', purchase: viewing })}><Undo2 size={15} /> Not approved</button>
+                  <button className={primaryBtn} disabled={busy} onClick={() => void approve(viewing)}><ShieldCheck size={15} /> Approve</button>
+                </>
+              )}
+              {(viewing.status === 'Part received' || viewing.status === 'Received') && canReturn && (
+                <button className={secondaryBtn} onClick={() => setReturning(viewing)}><Undo2 size={15} /> Return goods</button>
+              )}
+              {details && details.unbilledValue > 0 && canBill && (
+                <button className={secondaryBtn} onClick={() => setBilling(viewing)}><FileText size={15} /> Enter their bill</button>
+              )}
+              {(viewing.status === 'Ordered' || viewing.status === 'Part received') && canReceive && (
+                <button className={primaryBtn} disabled={busy} onClick={() => receive(viewing)}><PackageCheck size={15} /> Receive</button>
+              )}
+              {(viewing.status === 'Received' || viewing.status === 'Cancelled') && <button className={secondaryBtn} onClick={() => setViewing(null)}>Close</button>}
+            </>
           }
         >
-          <div className="rounded-2xl ring-1 ring-app-border overflow-hidden">
+          {viewing.status === 'Awaiting approval' && (
+            <p className="text-xs rounded-xl bg-violet-500/10 text-violet-800 dark:text-violet-300 p-3">
+              {formatCurrency(viewing.total)} is above the limit of the person who placed it. It is ordered once someone allowed that amount approves it.
+              {!canApprove && ' You can still edit or cancel it.'}
+            </p>
+          )}
+          {viewing.status === 'Pending' && viewing.rejectReason && (
+            <p className="text-xs rounded-xl bg-red-500/10 text-red-800 dark:text-red-300 p-3">
+              Not approved by {viewing.rejectedBy || 'a manager'}: {viewing.rejectReason}. Change it and place it again, or cancel it.
+            </p>
+          )}
+          {viewing.closedNote && <p className="text-xs rounded-xl bg-app-bg text-app-text-muted p-3">Closed with the rest not coming: {viewing.closedNote}</p>}
+
+          <div className="rounded-2xl ring-1 ring-app-border overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-app-bg text-[11px] text-app-text-muted">
                 <tr>
@@ -642,14 +801,21 @@ export default function SuppliersView() {
               </thead>
               <tbody className="divide-y divide-app-border/60">
                 {viewing.lines.length === 0 && (
-                  <tr><td colSpan={4} className="px-3 py-3 text-xs text-app-text-muted">No items listed. {canEditPurchase && viewing.status !== 'Received' && viewing.status !== 'Cancelled' ? 'Edit it to add what was ordered; receiving adds only listed items to stock.' : ''}</td></tr>
+                  <tr><td colSpan={4} className="px-3 py-3 text-xs text-app-text-muted">No items listed. {canEditPurchase && isOpenLike(viewing.status) ? 'Edit it to add what was ordered; receiving adds only listed items to stock.' : ''}</td></tr>
                 )}
                 {viewing.lines.map((l, i) => (
                   <tr key={l.id || i}>
                     <td className="px-3 py-2">
                       {l.name}
-                      {!l.productId && viewing.status !== 'Received' && viewing.status !== 'Cancelled' && (
+                      {l.forBusinessId && <span className="block text-[10px] text-app-text-muted">For {branchName(l.forBusinessId)}</span>}
+                      {!l.productId && isOpenLike(viewing.status) && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400">Not linked to a product: not added to stock</span>
+                      )}
+                      {((l.received || 0) > 0 || (l.damaged || 0) > 0) && (
+                        <span className="block text-[10px] text-app-text-muted">
+                          {l.received || 0} in{(l.damaged || 0) > 0 ? ` · ${l.damaged} damaged` : ''}
+                          {l.quantity - (l.received || 0) > 0 && viewing.status !== 'Received' ? ` · ${Math.round((l.quantity - (l.received || 0)) * 1000) / 1000} to come` : ''}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{l.quantity} {l.unit}</td>
@@ -667,18 +833,300 @@ export default function SuppliersView() {
               </tfoot>
             </table>
           </div>
-          {viewing.notes && <p className="text-sm text-app-text-muted">{viewing.notes}</p>}
-          {canReceive && (viewing.status === 'Pending' || viewing.status === 'Ordered') && (
-            <label className="flex items-start gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={updateCost} onChange={(e) => setUpdateCost(e.target.checked)} className="mt-0.5 accent-amber-500" />
-              <span>
-                Set each product's cost to the price paid here
-                <span className="block text-[11px] text-app-text-muted">Profit on later sales uses the new cost.</span>
-              </span>
-            </label>
+          {viewing.notes && <p className="text-sm text-app-text-muted whitespace-pre-line">{viewing.notes}</p>}
+
+          {details && details.quotes.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-app-text-muted">Prices from suppliers</p>
+              {details.quotes.map((q) => (
+                <div key={q.id} className="rounded-2xl ring-1 ring-app-border p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{q.supplier}</p>
+                      <p className="text-[11px] text-app-text-muted">
+                        {q.status === 'asked' ? `Asked ${shortDate(q.askedAt)}${q.sentVia ? ` by ${q.sentVia}` : ''}, no prices yet`
+                          : q.status === 'priced' ? `${formatCurrency(q.total)}${q.deliveryDays !== null ? ` · delivers in ${q.deliveryDays} days` : ''}${q.lines.some((l) => !l.available) ? ' · not everything' : ''}`
+                          : q.status === 'won' ? `Chosen · ${formatCurrency(q.total)}` : `Not chosen · ${formatCurrency(q.total)}`}
+                      </p>
+                      {q.note && <p className="text-[11px] text-app-text-muted">{q.note}</p>}
+                    </div>
+                    {viewing.status === 'RFQ' && q.status === 'priced' && canAskPrices && (
+                      <button className={`${primaryBtn} !px-3 !py-1.5 text-xs`} disabled={busy} onClick={() => void choose(viewing, q)}>Order from them</button>
+                    )}
+                  </div>
+                  {viewing.status === 'RFQ' && (q.status === 'asked' || q.status === 'priced') && canAskPrices && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {q.phone && <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => sendRfq(viewing, q, 'whatsapp')}><MessageCircle size={13} /> WhatsApp</button>}
+                      {q.phone && <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => sendRfq(viewing, q, 'sms')}><MessageSquare size={13} /> SMS</button>}
+                      {q.email && <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => sendRfq(viewing, q, 'email')}><Mail size={13} /> Email</button>}
+                      <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => setPricing({ purchase: viewing, quote: q })}><Pencil size={13} /> {q.status === 'asked' ? 'Enter their prices' : 'Change prices'}</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {details && details.receipts.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-app-text-muted">Goods received</p>
+              {details.receipts.map((r) => (
+                <div key={r.id} className="flex items-start gap-2 text-[12px] rounded-xl bg-app-bg px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-app-text">{r.number} · {shortDate(r.receivedAt)}{r.by ? ` · ${r.by}` : ''}</p>
+                    <p className="text-[11px] text-app-text-muted">
+                      {r.lines.map((l) => `${l.name} ${l.received}${l.damaged ? ` (+${l.damaged} damaged)` : ''}`).join(', ')}
+                      {r.note ? ` · ${r.note}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-right shrink-0">
+                    <span className="block tabular-nums">{formatCurrency(r.value)}</span>
+                    <span className="block text-[10px] text-app-text-muted">{r.billNumber ? `Billed ${r.billNumber}` : 'Not billed'}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {details && (details.bills.length > 0 || details.returns.length > 0 || details.transfers.length > 0) && (
+            <div className="text-[12px] text-app-text-muted space-y-0.5">
+              {details.bills.map((b) => <p key={b.id}>Bill {b.number}: {formatCurrency(b.total)} · {b.status === 'needs_check' ? 'needs a check' : b.status === 'void' ? 'void' : b.balance > 0 ? `${formatCurrency(b.balance)} to pay` : 'paid'}</p>)}
+              {details.returns.map((r) => <p key={r.id}>Returned {r.number}: {formatCurrency(r.total)}</p>)}
+              {details.transfers.map((t) => <p key={t.id}>Transfer {t.reference} to {t.toName}: {t.status === 'draft' ? 'drafted, not sent' : t.status.replace('_', ' ')}</p>)}
+            </div>
           )}
         </FormSheet>
       )}
+
+      {receiving && (
+        <ReceiveSheet
+          purchase={receiving}
+          onClose={() => setReceiving(null)}
+          onDone={(r) => {
+            setReceiving(null);
+            showToast(
+              r.complete ? 'Everything received' : 'Goods received',
+              `${r.number}: ${formatCurrency(r.value)} into stock${r.damagedValue > 0 ? `, ${formatCurrency(r.damagedValue)} damaged` : ''}.${r.complete ? '' : ' The rest stays open.'}${r.transfersDrafted ? ` ${r.transfersDrafted} transfer${r.transfersDrafted === 1 ? '' : 's'} to other branches drafted on Stock Transfers.` : ''}`,
+              undefined,
+              'success',
+            );
+            void load();
+            if (viewingId) void reloadDetails(viewingId);
+          }}
+        />
+      )}
+
+      {billing && details && businessId && (
+        <BillSheet
+          businessId={businessId}
+          purchaseId={billing.id}
+          purchaseRef={purchaseRef(billing)}
+          supplier={billing.supplierName}
+          receipts={details.receipts.filter((r) => !r.billId).map((r) => ({ id: r.id, number: r.number, receivedAt: r.receivedAt, value: r.value }))}
+          tolerancePct={tolerancePct}
+          onClose={() => setBilling(null)}
+          onDone={(r) => {
+            setBilling(null);
+            showToast(
+              r.status === 'needs_check' ? 'Bill saved, needs a check' : 'Bill saved',
+              r.status === 'needs_check' ? `${r.number} differs from the goods received; someone who approves purchases checks it on Buying.` : `${r.number} is now owed to ${billing.supplierName}.`,
+              undefined,
+              r.status === 'needs_check' ? 'info' : 'success',
+            );
+            if (viewingId) void reloadDetails(viewingId);
+          }}
+        />
+      )}
+
+      {returning && businessId && (
+        <ReturnSheet
+          businessId={businessId}
+          suppliers={suppliers}
+          purchases={purchases}
+          products={products}
+          initialPurchaseId={returning.id}
+          onClose={() => setReturning(null)}
+          onDone={(r) => {
+            setReturning(null);
+            showToast('Goods returned', `${r.number}: you owe ${formatCurrency(r.total)} less.`, undefined, 'success');
+            if (viewingId) void reloadDetails(viewingId);
+          }}
+        />
+      )}
+
+      {reasonFor && (
+        <ReasonSheet
+          title={reasonFor.kind === 'reject' ? `Don't approve ${purchaseRef(reasonFor.purchase)}?` : `Close ${purchaseRef(reasonFor.purchase)}?`}
+          message={reasonFor.kind === 'reject' ? 'It goes back to a draft and the person who placed it is told why.' : 'What has arrived stays; the rest is no longer expected.'}
+          placeholder={reasonFor.kind === 'reject' ? 'e.g. Buy half this week' : 'e.g. Supplier out of stock'}
+          confirmLabel={reasonFor.kind === 'reject' ? 'Not approved' : 'Close purchase'}
+          destructive={reasonFor.kind === 'reject'}
+          onClose={() => setReasonFor(null)}
+          onConfirm={async (reason) => {
+            if (reasonFor.kind === 'reject') await rejectPurchase(reasonFor.purchase.id, reason);
+            else await closePurchase(reasonFor.purchase.id, reason);
+            setReasonFor(null);
+            void load();
+          }}
+        />
+      )}
+
+      {asking && (
+        <AskPricesSheet
+          purchase={asking}
+          suppliers={suppliers}
+          already={new Set((details?.quotes || []).map((q) => q.supplierId || ''))}
+          onClose={() => setAsking(null)}
+          onDone={(n) => {
+            setAsking(null);
+            showToast('Suppliers added', `Send each of the ${n} the request below, then enter their prices when they reply.`, undefined, 'success');
+            void load();
+            if (viewingId) void reloadDetails(viewingId);
+          }}
+        />
+      )}
+
+      {pricing && (
+        <QuotePricesSheet
+          purchase={pricing.purchase}
+          quote={pricing.quote}
+          onClose={() => setPricing(null)}
+          onDone={() => {
+            setPricing(null);
+            if (viewingId) void reloadDetails(viewingId);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- quotes from suppliers
+
+function AskPricesSheet({ purchase, suppliers, already, onClose, onDone }: {
+  purchase: PurchaseOrder; suppliers: Supplier[]; already: Set<string>; onClose: () => void; onDone: (n: number) => void;
+}) {
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const save = async () => {
+    if (!picked.size || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const n = await askSupplierPrices(purchase.id, [...picked], 'WhatsApp');
+      onDone(n);
+    } catch (e) {
+      setErr(toUserMessage(e, 'Could not save.'));
+      setBusy(false);
+    }
+  };
+  return (
+    <FormSheet
+      title={`Ask for prices · ${purchaseRef(purchase)}`}
+      subtitle="Choose who to ask. You then send each one the list by WhatsApp, SMS or email from the purchase."
+      onClose={onClose}
+      footer={<button className={primaryBtn} disabled={!picked.size || busy} onClick={() => void save()}>{busy ? 'Saving…' : `Ask ${picked.size || ''} ${picked.size === 1 ? 'supplier' : 'suppliers'}`}</button>}
+    >
+      <ul className="divide-y divide-app-border/60 rounded-2xl ring-1 ring-app-border">
+        {suppliers.map((s) => {
+          const asked = already.has(s.id);
+          return (
+            <li key={s.id}>
+              <label className={`flex items-center gap-3 px-3 py-2.5 ${asked ? 'opacity-60' : 'cursor-pointer'}`}>
+                <input
+                  type="checkbox"
+                  className="accent-amber-500"
+                  disabled={asked}
+                  checked={asked || picked.has(s.id)}
+                  onChange={(e) => setPicked((x) => { const y = new Set(x); if (e.target.checked) y.add(s.id); else y.delete(s.id); return y; })}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm">{s.name}{s.company ? ` · ${s.company}` : ''}</span>
+                  <span className="block text-[11px] text-app-text-muted">{asked ? 'Already asked' : [s.productSupplied, s.phone, s.email].filter(Boolean).join(' · ')}</span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      {err && <p className="text-xs text-red-600 dark:text-red-400">{err}</p>}
+    </FormSheet>
+  );
+}
+
+function QuotePricesSheet({ purchase, quote, onClose, onDone }: {
+  purchase: PurchaseOrder; quote: SupplierQuote; onClose: () => void; onDone: () => void;
+}) {
+  const [rows, setRows] = useState(() =>
+    purchase.lines.filter((l) => l.id).map((l) => {
+      const q = quote.lines.find((x) => x.itemId === l.id);
+      return { line: l, price: q ? String(q.price) : '', available: q ? q.available : true };
+    }),
+  );
+  const [days, setDays] = useState(quote.deliveryDays !== null ? String(quote.deliveryDays) : '');
+  const [note, setNote] = useState(quote.note || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const total = rows.reduce((s, r) => s + (r.available ? (Number(r.price) || 0) * r.line.quantity : 0), 0);
+  const ready = !busy && rows.some((r) => r.available) && rows.every((r) => !r.available || (r.price !== '' && Number(r.price) >= 0));
+  const save = async () => {
+    if (!ready) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await saveSupplierQuote(quote.id, rows.map((r) => ({ itemId: r.line.id!, price: Number(r.price) || 0, available: r.available })), days === '' ? null : Number(days), note.trim());
+      onDone();
+    } catch (e) {
+      setErr(toUserMessage(e, 'Could not save the prices.'));
+      setBusy(false);
+    }
+  };
+  return (
+    <FormSheet
+      wide
+      title={`${quote.supplier}'s prices`}
+      subtitle={`For ${purchaseRef(purchase)}. Untick anything they can't supply.`}
+      onClose={onClose}
+      footer={
+        <>
+          <span className="mr-auto self-center text-sm">Total <b className="tabular-nums">{formatCurrency(total)}</b></span>
+          <button className={primaryBtn} disabled={!ready} onClick={() => void save()}>{busy ? 'Saving…' : 'Save prices'}</button>
+        </>
+      }
+    >
+      <ul className="space-y-2">
+        {rows.map((r, i) => (
+          <li key={r.line.id} className="rounded-2xl ring-1 ring-app-border p-3 flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="accent-amber-500"
+              checked={r.available}
+              aria-label={`They can supply ${r.line.name}`}
+              onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, available: e.target.checked } : y)))}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm break-words">{r.line.name}</span>
+              <span className="block text-[11px] text-app-text-muted">{r.line.quantity} {r.line.unit} · we paid {formatCurrency(r.line.price)} each</span>
+            </span>
+            <input
+              type="number" inputMode="decimal" min="0" step="any" placeholder="Price each"
+              disabled={!r.available}
+              value={r.price}
+              onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, price: e.target.value } : y)))}
+              className="w-28 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums disabled:opacity-40"
+            />
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Delivers in (days, optional)">
+          <input type="number" inputMode="numeric" min="0" value={days} onChange={(e) => setDays(e.target.value)} className={fieldClass} />
+        </Field>
+        <Field label="Note (optional)">
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Price holds until Friday" className={fieldClass} />
+        </Field>
+      </div>
+      {err && <p className="text-xs text-red-600 dark:text-red-400">{err}</p>}
+    </FormSheet>
   );
 }
