@@ -4,6 +4,7 @@
 // the website's own palette (the same names on both sides, from website/src/adCards.ts), short text,
 // a link and an optional picture. Saved to website_settings.ad_cards; the database checks every
 // field again (fn_valid_ad_cards, migration 20261114006).
+import SearchableDropdown from '../SearchableDropdown';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUp, Eye, EyeOff, ImagePlus, Megaphone, Plus, Save, Tag, Trash2, X } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
@@ -157,17 +158,17 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
         </label>
         <label className="block text-sm font-medium text-app-text">
           Card opens
-          <select
-            value={customLink ? 'other' : card.href || '/shop'}
-            onChange={(e) => {
-              if (e.target.value === 'other') setCustomLink(true);
-              else { setCustomLink(false); set({ href: e.target.value }); }
-            }}
-            className={`${inputClass} mt-1`}
-          >
-            {LINK_CHOICES.map((c) => <option key={c.href} value={c.href}>{c.label}</option>)}
-            <option value="other">Other page or web address…</option>
-          </select>
+          <div className="mt-1">
+            <SearchableDropdown
+              items={[...LINK_CHOICES.map((c) => ({ id: c.href, label: c.label })), { id: 'other', label: 'Other page or web address…' }]}
+              selectedValue={customLink ? 'other' : card.href || '/shop'}
+              onChange={(v) => {
+                if (v === 'other') setCustomLink(true);
+                else { setCustomLink(false); set({ href: v }); }
+              }}
+              placeholder="Choose a page"
+            />
+          </div>
         </label>
         {customLink && (
           <label className="block text-sm font-medium text-app-text sm:col-span-2">

@@ -20,7 +20,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { toUuid } from '../utils/idUtils';
-import { searchMatch } from '../utils/stringUtils';
+import { displayName, searchMatch } from '../utils/stringUtils';
 import { useOverlay } from '../hooks/useOverlay';
 import SheetLayer from '../components/shared/SheetLayer';
 import {
@@ -451,15 +451,35 @@ function PickSheet({
     };
   }, [businessId]);
 
-  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  // Asking: the other branch's products this branch doesn't sell yet can be asked for too.
+  // Receiving adds them here, so a branch opened from scratch can stock up from another.
+  const [theirs, setTheirs] = useState<(Product & { theirs: true })[]>([]);
+  useEffect(() => {
+    setTheirs([]);
+    if (sending || !other) return;
+    let live = true;
+    void getSupabase()
+      .rpc('transfer_request_catalog', { p_to_business_id: toUuid(businessId), p_from_business_id: other })
+      .then(({ data, error: e }) => {
+        if (!live || e) return; // an older database: only this branch's products, as before
+        setTheirs(((data as any[]) || []).map((t) => ({
+          id: t.id, name: t.name, sku: t.sku || '', unit: t.unit || '', category: t.category || '',
+          price: Number(t.price) || 0, cost: 0, stock: Number(t.stock) || 0, minStock: 0, theirs: true,
+        } as any)));
+      });
+    return () => { live = false; };
+  }, [sending, other, businessId]);
+  const pool = useMemo(() => (sending ? products : [...products, ...theirs]), [sending, products, theirs]);
+
+  const byId = useMemo(() => new Map(pool.map((p) => [p.id, p])), [pool]);
   const picked = new Set(lines.map((l) => l.productId));
   const matches = useMemo(() => {
     const q = query.trim();
-    return products
+    return pool
       .filter((p) => !picked.has(p.id) && (!sending || (p.stock || 0) > 0) && (!q || searchMatch([p.name, p.sku, p.category].filter(Boolean).join(' '), q)))
       .slice(0, q ? 30 : 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, query, lines, sending]);
+  }, [pool, query, lines, sending]);
 
   const rows = lines.map((l) => {
     const p = byId.get(l.productId);
@@ -553,10 +573,12 @@ function PickSheet({
                   <li key={r.productId} className="rounded-xl bg-app-bg p-3">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-app-text break-words">{r.product?.name || 'Removed product'}</p>
+                        <p className="text-sm font-medium text-app-text break-words">{r.product ? displayName(r.product.name) : 'Removed product'}</p>
                         {r.product && (
                           <p className="text-[11px] text-app-text-muted">
-                            {qty(r.product.stock || 0)} {r.product.unit} here{sending ? ` · cost ${ksh(r.product.cost || 0)} each` : ''}
+                            {(r.product as any).theirs
+                              ? `${qty(r.product.stock || 0)} ${r.product.unit} at ${otherName} · new here, added when it arrives`
+                              : `${qty(r.product.stock || 0)} ${r.product.unit} here${sending ? ` · cost ${ksh(r.product.cost || 0)} each` : ''}`}
                           </p>
                         )}
                       </div>
@@ -567,7 +589,7 @@ function PickSheet({
                         step="any"
                         value={r.qty}
                         onChange={(e) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: e.target.value } : l)))}
-                        aria-label={`How much ${r.product?.name || ''}`}
+                        aria-label={`How much ${r.product ? displayName(r.product.name) : ''}`}
                         className="w-24 bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                       <button
@@ -604,9 +626,13 @@ function PickSheet({
                         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-app-bg cursor-pointer"
                       >
                         <Plus size={14} className="text-amber-600 shrink-0" />
-                        <span className="text-sm text-app-text flex-1 min-w-0 truncate">{p.name}</span>
-                        <span className="text-[11px] text-app-text-muted shrink-0 tabular-nums">
-                          {qty(p.stock || 0)} {p.unit}
+                        <span className="text-sm text-app-text flex-1 min-w-0 truncate">{displayName(p.name)}</span>
+                        <span className="text-[11px] text-app-text-muted shrink-0 tabular-nums text-right">
+                          {(p as any).theirs ? (
+                            <>{qty(p.stock || 0)} {p.unit} at {otherName}<span className="block text-amber-600">New here</span></>
+                          ) : (
+                            <>{qty(p.stock || 0)} {p.unit}</>
+                          )}
                         </span>
                       </button>
                     </li>
@@ -926,7 +952,7 @@ function DetailSheet({
                   <li key={i.id} className="rounded-xl bg-app-bg p-3">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-app-text break-words">{i.productName}</p>
+                        <p className="text-sm font-medium text-app-text break-words">{displayName(i.productName)}</p>
                         <p className="text-[11px] text-app-text-muted">
                           {t.status === 'requested'
                             ? `Asked for ${qty(i.quantityRequested ?? i.quantitySent)} ${i.unit}`

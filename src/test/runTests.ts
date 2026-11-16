@@ -67,6 +67,11 @@ function runTest(name: string, fn: () => void) {
 
 console.log("🚀 Starting Application Unit Tests...");
 
+
+// The whole database schema (20261120001 merged all earlier migrations). Function bodies are
+// kept as written, so the database's rules can be checked against the app's here.
+const SCHEMA_SQL = readFileSync("supabase/migrations/20261120001_schema.sql", "utf8");
+
 runTest("Alarm times read the same when set, listed and rung", () => {
   const cases: [string, string][] = [["13:38", "1:38 PM"], ["00:05", "12:05 AM"], ["12:00", "12:00 PM"], ["09:30:00", "9:30 AM"], ["23:59", "11:59 PM"]];
   for (const [input, want] of cases) {
@@ -103,7 +108,7 @@ runTest("Receipt numbers differ between sales, old tx- IDs included", () => {
   if (formatReceiptNumber(a) !== "TXN-" + (1762905600000).toString(16).slice(-8).toUpperCase()) throw new Error(formatReceiptNumber(a));
   if (!/^[0-9A-F]{8}$/.test(getShortId(a))) throw new Error("the code must stay 8 hex characters so search still finds it");
   if (newUuid() === newUuid() || !/^[0-9a-f-]{36}$/.test(newUuid())) throw new Error("new sale IDs must be random UUIDs");
-  const sql = readFileSync("supabase/migrations/20261112003_distinct_receipt_numbers.sql", "utf8");
+  const sql = SCHEMA_SQL;
   if (!sql.includes("'^74782d3[0-9](3[0-9]){12}$'")) throw new Error("the database must spot old IDs the same way");
 });
 
@@ -426,19 +431,24 @@ runTest("USSD menu registers, orders and checks balances", () => {
 });
 
 runTest("Database role permissions match the app's role permissions", () => {
-  // The newest migration that sets the role defaults is the one in force.
+  // For each role, the newest migration that sets its defaults is the one in force.
   const dir = "supabase/migrations";
-  const latest = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().reverse()
-    .find((f) => /INSERT INTO public\.role_default_permissions/.test(readFileSync(`${dir}/${f}`, "utf8")));
-  const migration = readFileSync(`${dir}/${latest}`, "utf8");
-  for (const role of ["Manager", "Cashier", "Rider"]) {
-    const match = migration.match(new RegExp(`\\('${role}', ARRAY\\[(.*?)\\]\\)`));
-    if (!match) throw new Error(`${role} is missing from the migration`);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().reverse().map((f) => readFileSync(`${dir}/${f}`, "utf8"));
+  for (const role of ["Manager", "Cashier", "Rider", "Supplier"]) {
+    const re = new RegExp(`\\('${role}', ARRAY\\[(.*?)\\]\\)`, "s");
+    const migration = files.find((sql) => /INSERT INTO public\.role_default_permissions/.test(sql) && re.test(sql));
+    const match = migration?.match(re);
+    if (!match) throw new Error(`${role} is missing from the migrations`);
     const inDatabase = [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
     const inApp = [...new Set<string>(SYSTEM_ROLES[role].permissions)].sort();
     if (JSON.stringify(inDatabase) !== JSON.stringify(inApp)) {
       throw new Error(`${role} permissions differ between the app and the migration`);
     }
+  }
+  // A supplier gets only supplier-portal permissions, and no staff role gets them.
+  if (SYSTEM_ROLES.Supplier.permissions.some((p) => !p.startsWith("supplier_portal."))) throw new Error("a supplier must only have supplier_portal permissions");
+  for (const role of ["Manager", "Cashier", "Rider"]) {
+    if (SYSTEM_ROLES[role].permissions.some((p) => p.startsWith("supplier_portal."))) throw new Error(`${role} must not have supplier_portal permissions`);
   }
 });
 
@@ -1068,12 +1078,12 @@ runTest("Points: 2 per KSh 1 paid, nothing on a credit sale, delivery excluded",
   if (pointsEarned(1000, 0, "Credit_Debt", 300) !== 600) throw new Error("the wallet-paid part of a credit sale earns 2 per KSh 1");
   if (pointsEarned(1000, 100, "Credit_Debt", 5000) !== 1800) throw new Error("wallet points stop at the goods total");
   if (DEBT_PAYMENT_POINTS_PER_KSH * 2 !== POINTS_PER_KSH) throw new Error("debt payments earn half of a cash purchase");
-  const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
+  const sql = SCHEMA_SQL;
   if (!/\* 2\)\)/.test(sql) || !/FLOOR\(NEW\.amount_paid\)/.test(sql)) throw new Error("database rule differs from the app's");
 });
 
 runTest("A walk-in sale added to a customer later earns the same points as at the till", () => {
-  const sql = readFileSync("supabase/migrations/20261108003_attach_sale_to_customer.sql", "utf8");
+  const sql = SCHEMA_SQL;
   if (!/FLOOR\(\(v_tx\.final_total - COALESCE\(v_tx\.delivery_fee, 0\)\) \* 2\)/.test(sql)) throw new Error("attach rule differs from the sale rule");
   if (!/customer_id IS NOT NULL THEN\s+RAISE/.test(sql)) throw new Error("a sale's customer must not be swapped");
   const base = { id: "x", items: [], total: 100, discount: 0, tax: 0, finalTotal: 100, staffId: "s", staffName: "S", status: "Synced", timestamp: "" } as any;
@@ -1087,7 +1097,7 @@ runTest("Points are worth less per point in higher tiers, as in the database", (
   if (pointsPerShilling(pointValueFor(DEFAULT_POINT_SETTINGS, "Silver")) !== 100) throw new Error("Silver: 100 points = KSh 1");
   if (pointsPerShilling(pointValueFor(DEFAULT_POINT_SETTINGS, "Gold")) !== 200) throw new Error("Gold: 200 points = KSh 1");
   if (pointValueFor(DEFAULT_POINT_SETTINGS, undefined) !== DEFAULT_POINT_SETTINGS.bronze) throw new Error("no tier counts as Bronze");
-  const sql = readFileSync("supabase/migrations/20261108002_loyalty_points_rule.sql", "utf8");
+  const sql = SCHEMA_SQL;
   if (!/WHEN 'Gold' THEN 0\.005 WHEN 'Silver' THEN 0\.01 ELSE 0\.02/.test(sql)) throw new Error("database tier values differ from the app's");
   if (/wallet_balance = v_wallet|'wallet_topup'/.test(sql.slice(sql.indexOf("FUNCTION public.fn_redeem_points")))) throw new Error("points must not become wallet money");
 });
@@ -1100,8 +1110,8 @@ runTest("People never see a database ID in stock or history text", () => {
   if (/[0-9a-f]{8}-[0-9a-f]{4}/i.test(readableIds(`Moved ${id} and ${id}`))) throw new Error("a raw ID was left in");
   if (readableIds("Damaged in transit") !== "Damaged in transit") throw new Error("plain text must not change");
   if (formatReceiptNumber(id) !== "TXN-3F2A9C1E") throw new Error("the database receipt number must match the app's");
-  const sql = readFileSync("supabase/migrations/20261108004_no_ids_in_text.sql", "utf8");
-  if (!/'TXN-' \|\| upper\(left\(replace\(p_id::TEXT, '-', ''\), 8\)\)/.test(sql)) throw new Error("database receipt number differs from the app's");
+  const sql = SCHEMA_SQL;
+  if (!sql.includes("'TXN-' || public.fn_short_id(p_id)")) throw new Error("database receipt number differs from the app's");
 });
 
 runTest("Customer names start every word with a capital", () => {
@@ -1119,7 +1129,7 @@ runTest("A credit sale recorded twice is one invoice line, not two with half pai
   // Records without a sale (manual debt) stay separate.
   const manual: any = (id: string) => ({ id, createdAt: "2026-11-02T08:00:00Z", amountOwed: 200, amountPaid: 0, balance: 200 });
   if (mergeDuplicateCredits([manual("m1"), manual("m2")]).length !== 2) throw new Error("manual balances must not merge");
-  const fix = readFileSync("supabase/migrations/20261109002_fix_double_credit_records.sql", "utf8");
+  const fix = SCHEMA_SQL;
   if (!/uq_credit_payments_transaction/.test(fix)) throw new Error("the database must allow one credit record per sale");
 });
 
@@ -1229,15 +1239,16 @@ runTest("Money comes in five ways only, the same in the app and the database", (
   if (normalizeReference("Bank", "  FT 1234  ") !== "FT 1234") throw new Error("bank references stay as typed");
 
   // Every table that stores a method allows exactly these five (transactions also allow credit).
-  const migration = readFileSync("supabase/migrations/20261114003_airtel_money_payment_switches.sql", "utf8");
+  const migration = SCHEMA_SQL;
   for (const constraint of ["payments_method_check", "money_assets_method_check", "expenses_payment_method_check", "debt_payments_payment_method_check", "transactions_payment_method_check"]) {
-    const at = migration.indexOf(`ADD CONSTRAINT ${constraint}`);
-    const text = at < 0 ? "" : migration.slice(at, migration.indexOf(";", at));
-    if (!text.includes("'Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'")) throw new Error(`${constraint} must allow the five methods`);
+    const at = migration.indexOf(`CONSTRAINT "${constraint}" CHECK`);
+    const text = at < 0 ? "" : migration.slice(at, migration.indexOf("\n", at));
+    if (!["Cash", "M-Pesa", "Airtel Money", "Card", "Bank"].every((m) => text.includes(`'${m}'::`))) throw new Error(`${constraint} must allow the five methods`);
   }
   // A sale with Airtel Money must land on its own balance, not the old "Other" fallback.
   if (!migration.includes("WHEN NEW.payment_method = 'Airtel Money' THEN 'Airtel Money'")) throw new Error("sale trigger doesn't know Airtel Money");
-  if (!readFileSync("supabase/migrations/20261114002_airtel_money_enum.sql", "utf8").includes("ADD VALUE IF NOT EXISTS 'Airtel Money'")) throw new Error("enum value missing");
+  const methodEnum = SCHEMA_SQL.slice(SCHEMA_SQL.indexOf('CREATE TYPE "public"."payment_method" AS ENUM'), SCHEMA_SQL.indexOf(");", SCHEMA_SQL.indexOf('CREATE TYPE "public"."payment_method" AS ENUM')));
+  if (!methodEnum.includes("'Airtel Money'")) throw new Error("enum value missing");
 });
 
 runTest("Payment methods switch on and off, and the till never ends up with none", () => {
@@ -1246,7 +1257,7 @@ runTest("Payment methods switch on and off, and the till never ends up with none
   same(enabledMethods([]), ["Cash", "M-Pesa", "Card", "Bank"], "an empty list gives the defaults");
   same(enabledMethods(["Bank", "Airtel Money", "Bank", "Other"]), ["Airtel Money", "Bank"], "kept in the app's order, unknown dropped");
   same(enabledMethods(["Mobile_Wallet"]), ["Cash", "M-Pesa", "Card", "Bank"], "only unknown methods gives the defaults");
-  const sql = readFileSync("supabase/migrations/20261114003_airtel_money_payment_switches.sql", "utf8");
+  const sql = SCHEMA_SQL;
   if (!sql.includes("assert_permission(p_business_id, 'payments.configure')")) throw new Error("switching methods needs payments.configure");
   if (!sql.includes("'Card' = ANY(b.default_payment_methods)")) throw new Error("the website must stop offering cards when Card is off");
   for (const fn of ["mpesa-payments", "airtel-payments", "card-payments", "customer-checkout"]) {

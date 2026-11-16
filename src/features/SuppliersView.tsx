@@ -5,10 +5,13 @@
 // damaged (noted, still owed); each delivery is a GRN. Then the supplier's bill is entered
 // against the deliveries, and goods can be sent back. The database enforces all of it
 // (20261118001_smarter_buying.sql).
+import { Checkbox } from '../components/shared/Checkbox';
+import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Truck, Plus, Search, Phone, Mail, Pencil, Trash2, PackageCheck, Send, Ban, RotateCcw, ShoppingCart, X,
   ShieldCheck, MessageCircle, MessageSquare, FileText, Undo2, Lock, Undo,
+  KeyRound,
 } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
 import { useAuthStore } from '../stores/authStore';
@@ -33,6 +36,7 @@ import {
   type Branch, type PurchaseDetails, type SupplierQuote,
 } from '../services/buying';
 import { BillSheet, ReasonSheet, ReceiveSheet, ReturnSheet } from '../components/buying/BuyingSheets';
+import { SupplierAccessSheet } from '../components/buying/SupplierAccessSheet';
 import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
 
 type Tab = 'suppliers' | 'purchases';
@@ -57,7 +61,11 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/N
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 const blankLine = (): PurchaseLine => ({ productId: null, name: '', quantity: 1, unit: 'pcs', price: 0 });
 
-export default function SuppliersView() {
+/**
+ * Suppliers and Purchases. Shown inside Buying (embedded), which owns the tabs; on its own it
+ * shows its two tabs itself.
+ */
+export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embedded?: boolean; tab?: 'suppliers' | 'purchases'; onTab?: (t: 'suppliers' | 'purchases') => void } = {}) {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const employee = useAuthStore((s) => s.currentEmployee);
   const role = employee?.role || 'Guest';
@@ -87,13 +95,17 @@ export default function SuppliersView() {
     { id: 'suppliers' as Tab, label: 'Suppliers', icon: <Truck size={14} />, shortcut: 'suppliers-tab', allowed: seesSuppliers },
     { id: 'purchases' as Tab, label: 'Purchases', icon: <ShoppingCart size={14} />, shortcut: 'purchases-tab', allowed: seesPurchases },
   ].filter((t) => t.allowed);
-  const [tab, setTab] = useState<Tab>(tabs[0]?.id ?? 'suppliers');
+  const [ownTab, setOwnTab] = useState<Tab>(tabs[0]?.id ?? 'suppliers');
+  const setTab = (t: Tab) => { setOwnTab(t); onTab?.(t); };
+  const tab: Tab = embedded && shownTab ? shownTab : ownTab;
+  useEffect(() => { setQuery(''); }, [shownTab]);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [accessFor, setAccessFor] = useState<Supplier | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
 
   const load = useCallback(async () => {
@@ -407,7 +419,7 @@ export default function SuppliersView() {
   const isOpenLike = (st: PurchaseStatus) => st === 'Pending' || st === 'RFQ' || st === 'Awaiting approval' || st === 'Ordered';
 
   const productItems = useMemo(
-    () => products.map((p) => ({ id: p.id, label: p.name, sublabel: `${p.stock} ${p.unit} in stock · cost ${formatCurrency(p.cost)}` })),
+    () => products.map((p) => ({ id: p.id, label: displayName(p.name), sublabel: `${p.stock} ${p.unit} in stock · cost ${formatCurrency(p.cost)}` })),
     [products],
   );
   const supplierItems = suppliers.map((s) => ({ id: s.id, label: s.name, sublabel: [s.company, s.productSupplied].filter(Boolean).join(' · ') }));
@@ -417,10 +429,10 @@ export default function SuppliersView() {
   }
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
-      <div className="max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3">
+    <div className={embedded ? 'contents' : 'h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav'}>
+      <div className={embedded ? 'space-y-3 min-w-0' : 'max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3'}>
         <div className="flex items-center gap-2 flex-wrap">
-          {tabs.length > 1 && <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={(t) => { setTab(t); setQuery(''); }} className="w-full sm:w-auto sm:flex-1 min-w-0 !pb-2" />}
+          {!embedded && tabs.length > 1 && <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={(t) => { setTab(t); setQuery(''); }} className="w-full sm:w-auto sm:flex-1 min-w-0 !pb-2" />}
           {tab === 'suppliers' && canAddSupplier && (
             <button data-shortcut="new" onClick={() => { setFormError(null); setEditingSupplier({ draft: { ...emptySupplier } }); }} className={`${primaryBtn} ml-auto`}>
               <Plus size={16} /> Add supplier
@@ -492,6 +504,7 @@ export default function SuppliersView() {
                     more={[
                       { label: 'Edit', icon: <Pencil size={16} />, hidden: !canEditSupplier, onClick: () => setEditingSupplier({ id: s.id, draft: { ...s } }) },
                       { label: 'New purchase', icon: <ShoppingCart size={16} />, hidden: !canCreatePurchase, onClick: () => { setTab('purchases'); newPurchase(s); } },
+                      { label: 'App access', icon: <KeyRound size={16} />, hidden: !seesSuppliers, onClick: () => setAccessFor(s) },
                       { label: 'Remove', icon: <Trash2 size={16} />, danger: true, hidden: !canDeleteSupplier, onClick: () => void confirmRemoveSupplier(s) },
                     ]}
                     contentClassName={`flex items-start gap-3 px-4 py-3 ${canEditSupplier ? 'cursor-pointer hover:bg-app-bg/50' : ''}`}
@@ -506,6 +519,16 @@ export default function SuppliersView() {
                         {stats ? ` · ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}${stats.total ? `, ${formatCurrency(stats.total)} received` : ''}` : ''}
                       </p>
                       {s.notes && <p className="text-[11px] text-app-text-muted mt-0.5 line-clamp-2">{s.notes}</p>}
+                      {s.pay && (s.pay.mpesaPaybill || s.pay.mpesaTill || s.pay.bankAccount) && (
+                        <p className="text-[11px] text-app-text-muted mt-0.5 break-words">
+                          Pay by {[
+                            s.pay.mpesaTill && `till ${s.pay.mpesaTill}`,
+                            s.pay.mpesaPaybill && `paybill ${s.pay.mpesaPaybill}${s.pay.mpesaAccount ? ` acc ${s.pay.mpesaAccount}` : ''}`,
+                            s.pay.bankAccount && `${s.pay.bankName || 'bank'} ${s.pay.bankAccount}`,
+                          ].filter(Boolean).join(' · ')}
+                          {s.pay.updatedBySupplierAt ? ` (set by them ${new Date(s.pay.updatedBySupplierAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })})` : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {s.phone && (
@@ -673,7 +696,7 @@ export default function SuppliersView() {
                       selectedValue={l.productId || ''}
                       onChange={(id) => {
                         const p = products.find((x) => x.id === id);
-                        if (p) setLine(i, { productId: p.id, name: p.name, unit: p.unit || l.unit, price: l.price || p.cost || 0 });
+                        if (p) setLine(i, { productId: p.id, name: displayName(p.name), unit: p.unit || l.unit, price: l.price || p.cost || 0 });
                       }}
                       placeholder={l.productId ? l.name : 'Link a product (adds to its stock)'}
                       searchPlaceholder="Search products"
@@ -701,17 +724,17 @@ export default function SuppliersView() {
                   <input type="number" inputMode="decimal" min="0" step="any" value={l.price || ''} onChange={(e) => setLine(i, { price: Number(e.target.value) })} placeholder="Price each" aria-label="Price per unit" className={`${fieldClass} col-span-2 sm:col-span-1`} />
                 </div>
                 {branches.length > 0 && l.productId && (
-                  <label className="flex items-center gap-2 text-[11px] text-app-text-muted">
+                  <div className="flex items-center gap-2 text-[11px] text-app-text-muted">
                     For
-                    <select
-                      value={l.forBusinessId || ''}
-                      onChange={(e) => setLine(i, { forBusinessId: e.target.value || null })}
-                      className="bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs text-app-text"
-                    >
-                      <option value="">This branch</option>
-                      {branches.map((b) => <option key={b.id} value={b.id}>{b.name} (sent on after it arrives)</option>)}
-                    </select>
-                  </label>
+                    <div className="flex-1 min-w-0">
+                      <SearchableDropdown
+                        items={[{ id: '', label: 'This branch' }, ...branches.map((b) => ({ id: b.id, label: b.name, sublabel: 'Sent on after it arrives' }))]}
+                        selectedValue={l.forBusinessId || ''}
+                        onChange={(v) => setLine(i, { forBusinessId: v || null })}
+                        placeholder="This branch"
+                      />
+                    </div>
+                  </div>
                 )}
                 <p className="text-[11px] text-app-text-muted text-right tabular-nums">
                   {!l.productId && l.name ? 'Not linked: not added to stock · ' : ''}
@@ -788,6 +811,13 @@ export default function SuppliersView() {
             </p>
           )}
           {viewing.closedNote && <p className="text-xs rounded-xl bg-app-bg text-app-text-muted p-3">Closed with the rest not coming: {viewing.closedNote}</p>}
+          {viewing.supplierConfirmedAt && (
+            <p className="text-xs rounded-xl bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 p-3">
+              {viewing.supplierName || 'The supplier'} confirmed in the app
+              {viewing.supplierExpectedDate ? `: delivering ${new Date(viewing.supplierExpectedDate).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}
+              {viewing.supplierNote ? ` · "${viewing.supplierNote}"` : ''}
+            </p>
+          )}
 
           <div className="rounded-2xl ring-1 ring-app-border overflow-x-auto">
             <table className="w-full text-sm">
@@ -806,7 +836,7 @@ export default function SuppliersView() {
                 {viewing.lines.map((l, i) => (
                   <tr key={l.id || i}>
                     <td className="px-3 py-2">
-                      {l.name}
+                      {displayName(l.name)}
                       {l.forBusinessId && <span className="block text-[10px] text-app-text-muted">For {branchName(l.forBusinessId)}</span>}
                       {!l.productId && isOpenLike(viewing.status) && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400">Not linked to a product: not added to stock</span>
@@ -875,7 +905,7 @@ export default function SuppliersView() {
                   <div className="min-w-0 flex-1">
                     <p className="text-app-text">{r.number} · {shortDate(r.receivedAt)}{r.by ? ` · ${r.by}` : ''}</p>
                     <p className="text-[11px] text-app-text-muted">
-                      {r.lines.map((l) => `${l.name} ${l.received}${l.damaged ? ` (+${l.damaged} damaged)` : ''}`).join(', ')}
+                      {r.lines.map((l) => `${displayName(l.name)} ${l.received}${l.damaged ? ` (+${l.damaged} damaged)` : ''}`).join(', ')}
                       {r.note ? ` · ${r.note}` : ''}
                     </p>
                   </div>
@@ -897,6 +927,9 @@ export default function SuppliersView() {
         </FormSheet>
       )}
 
+      {accessFor && (
+        <SupplierAccessSheet supplier={accessFor} businessName={businessName} canManage={can('suppliers.portal')} onClose={() => setAccessFor(null)} />
+      )}
       {receiving && (
         <ReceiveSheet
           purchase={receiving}
@@ -1033,13 +1066,7 @@ function AskPricesSheet({ purchase, suppliers, already, onClose, onDone }: {
           return (
             <li key={s.id}>
               <label className={`flex items-center gap-3 px-3 py-2.5 ${asked ? 'opacity-60' : 'cursor-pointer'}`}>
-                <input
-                  type="checkbox"
-                  className="accent-amber-500"
-                  disabled={asked}
-                  checked={asked || picked.has(s.id)}
-                  onChange={(e) => setPicked((x) => { const y = new Set(x); if (e.target.checked) y.add(s.id); else y.delete(s.id); return y; })}
-                />
+                <Checkbox checked={asked || picked.has(s.id)} onChange={(on) => setPicked((x) => { const y = new Set(x); if (on) y.add(s.id); else y.delete(s.id); return y; })} disabled={asked} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm">{s.name}{s.company ? ` · ${s.company}` : ''}</span>
                   <span className="block text-[11px] text-app-text-muted">{asked ? 'Already asked' : [s.productSupplied, s.phone, s.email].filter(Boolean).join(' · ')}</span>
@@ -1097,13 +1124,7 @@ function QuotePricesSheet({ purchase, quote, onClose, onDone }: {
       <ul className="space-y-2">
         {rows.map((r, i) => (
           <li key={r.line.id} className="rounded-2xl ring-1 ring-app-border p-3 flex items-center gap-3">
-            <input
-              type="checkbox"
-              className="accent-amber-500"
-              checked={r.available}
-              aria-label={`They can supply ${r.line.name}`}
-              onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, available: e.target.checked } : y)))}
-            />
+            <Checkbox checked={r.available} onChange={(on) => setRows((x) => x.map((y, j) => (j === i ? { ...y, available: on } : y)))} ariaLabel={`They can supply ${r.line.name}`} />
             <span className="min-w-0 flex-1">
               <span className="block text-sm break-words">{r.line.name}</span>
               <span className="block text-[11px] text-app-text-muted">{r.line.quantity} {r.line.unit} · we paid {formatCurrency(r.line.price)} each</span>

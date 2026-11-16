@@ -1,5 +1,7 @@
 // Sheets shared by the Buying screen and Suppliers & Purchases: a reason box, receiving a
 // purchase in parts, entering and paying a supplier bill, and returning goods.
+import { Checkbox } from '../shared/Checkbox';
+import { displayName } from '../../utils/stringUtils';
 import React, { useEffect, useMemo, useState } from 'react';
 import { PackageCheck, Plus, Trash2 } from 'lucide-react';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn, dangerBtn } from '../shared/FormSheet';
@@ -139,7 +141,7 @@ export function ReceiveSheet({
       <ul className="space-y-2">
         {rows.map(({ l, left, problem }) => (
           <li key={l.id} className="rounded-2xl ring-1 ring-app-border p-3">
-            <p className="text-sm font-medium break-words">{l.name}</p>
+            <p className="text-sm font-medium break-words">{displayName(l.name)}</p>
             <p className="text-[11px] text-app-text-muted">
               Ordered {q3(l.quantity)} {l.unit}
               {(l.received || 0) > 0 ? ` · ${q3(l.received || 0)} already in` : ''}
@@ -175,7 +177,7 @@ export function ReceiveSheet({
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Driver Otieno, delivery note 4471" className={fieldClass} />
       </Field>
       <label className="flex items-start gap-2 text-sm cursor-pointer">
-        <input type="checkbox" checked={updateCost} onChange={(e) => setUpdateCost(e.target.checked)} className="mt-0.5 accent-amber-500" />
+        <Checkbox checked={updateCost} onChange={(on) => setUpdateCost(on)} />
         <span>
           Set each product's cost to the price paid here
           <span className="block text-[11px] text-app-text-muted">Profit on later sales uses the new cost.</span>
@@ -251,12 +253,7 @@ export function BillSheet({
         <p className="text-xs font-medium text-app-text-muted">Deliveries on this bill</p>
         {receipts.map((r) => (
           <label key={r.id} className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-amber-500"
-              checked={picked.has(r.id)}
-              onChange={(e) => setPicked((s) => { const x = new Set(s); if (e.target.checked) x.add(r.id); else x.delete(r.id); return x; })}
-            />
+            <Checkbox checked={picked.has(r.id)} onChange={(on) => setPicked((s) => { const x = new Set(s); if (on) x.add(r.id); else x.delete(r.id); return x; })} />
             <span className="flex-1">{r.number} · {new Date(r.receivedAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</span>
             <span className="tabular-nums text-app-text-muted">{formatCurrency(r.value)}</span>
           </label>
@@ -335,9 +332,7 @@ export function PayBillSheet({ bill, onClose, onDone }: { bill: SupplierBill; on
           <input type="number" inputMode="decimal" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className={fieldClass} />
         </Field>
         <Field label="Paid from">
-          <select value={method} onChange={(e) => setMethod(e.target.value)} className={fieldClass}>
-            {METHODS.map((m) => <option key={m}>{m}</option>)}
-          </select>
+          <SearchableDropdown items={METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={setMethod} placeholder="Choose how" />
         </Field>
         <Field label="Date">
           <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} className={fieldClass} />
@@ -417,7 +412,7 @@ export function ReturnSheet({
 
   const productItems = products
     .filter((p) => !lines.some((l) => l.productId === p.id) && (p.stock || 0) > 0)
-    .map((p) => ({ id: p.id, label: p.name, sublabel: `${q3(p.stock || 0)} ${p.unit} in stock` }));
+    .map((p) => ({ id: p.id, label: displayName(p.name), sublabel: `${q3(p.stock || 0)} ${p.unit} in stock` }));
 
   return (
     <FormSheet
@@ -451,10 +446,12 @@ export function ReturnSheet({
           )}
         </Field>
         <Field label="From purchase (optional)" hint="Its prices are used for the credit">
-          <select value={purchaseId || ''} onChange={(e) => setPurchaseId(e.target.value || null)} className={fieldClass}>
-            <option value="">Not one purchase</option>
-            {receivedFrom.map((p) => <option key={p.id} value={p.id}>{p.reference || p.id.slice(0, 8)} · {p.supplierName} · {new Date(p.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</option>)}
-          </select>
+          <SearchableDropdown
+            items={[{ id: '', label: 'Not one purchase' }, ...receivedFrom.map((p) => ({ id: p.id, label: `${p.reference || p.id.slice(0, 8)} · ${p.supplierName}`, sublabel: new Date(p.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) }))]}
+            selectedValue={purchaseId || ''}
+            onChange={(v) => setPurchaseId(v || null)}
+            placeholder="Not one purchase"
+          />
         </Field>
       </div>
       <ul className="space-y-2">

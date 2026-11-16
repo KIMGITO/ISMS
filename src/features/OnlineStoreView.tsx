@@ -1090,10 +1090,14 @@ function PromotionsTab({ businessId }: { businessId: string }) {
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm font-medium text-app-text">
             Type
-            <select value={form.kind} onChange={(e) => set({ kind: e.target.value as PromoCode['kind'] })} className={`${inputClass} mt-1`}>
-              <option value="percent">Percent off</option>
-              <option value="amount">Ksh off</option>
-            </select>
+            <div className="mt-1">
+              <SearchableDropdown
+                items={[{ id: 'percent', label: 'Percent off' }, { id: 'amount', label: 'Ksh off' }]}
+                selectedValue={form.kind}
+                onChange={(v) => set({ kind: v as PromoCode['kind'] })}
+                placeholder="Kind of discount"
+              />
+            </div>
           </label>
           <label className="block text-sm font-medium text-app-text">
             {form.kind === 'percent' ? 'Percent' : 'Amount (Ksh)'}

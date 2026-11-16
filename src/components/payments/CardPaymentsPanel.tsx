@@ -2,6 +2,7 @@
 // Money → Cards: the Paystack connection and every card payment taken through it.
 // Card machine (PDQ) payments aren't here; they are ordinary Card payments and sales.
 
+import { Checkbox } from '../shared/Checkbox';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Copy, CreditCard, Loader2, Nfc, Globe, Settings2, XCircle } from 'lucide-react';
 import { CardRepository, type CardPayment, type CardStatus } from '../../services/repositories';
@@ -165,7 +166,7 @@ export default function CardPaymentsPanel() {
               <input value={terminalId} onChange={(e) => setTerminalId(e.target.value)} placeholder="From Paystack → Terminals" className={`${input} mt-1 font-mono`} />
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={onlineEnabled} onChange={(e) => setOnlineEnabled(e.target.checked)} className="accent-amber-500 w-4 h-4" />
+              <Checkbox checked={onlineEnabled} onChange={(on) => setOnlineEnabled(on)} />
               Online card payments (payment page, link and QR, and the website checkout)
             </label>
             {status?.webhookUrl && (

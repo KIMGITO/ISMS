@@ -2,6 +2,9 @@
 // Quote → (accepted) sales order → deliveries (stock goes out) and invoices (money owed)
 // → payments, and credit notes when something comes back. The database numbers every
 // document, keeps the totals and statuses, moves stock and posts to the books.
+import { useUiStore } from '../stores/uiStore';
+import { Checkbox } from '../components/shared/Checkbox';
+import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FileText, ClipboardList, Receipt, Undo2, Clock, Plus, Search, RotateCcw, Pencil, Trash2, Send, Check, X, Ban,
@@ -59,6 +62,9 @@ const INVOICE_TONE: Record<string, string> = { unpaid: TONE.sky, part_paid: TONE
 function Pill({ tone, children }: { tone: string; children: React.ReactNode }) {
   return <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${tone}`}>{children}</span>;
 }
+
+/** A line's name as shown: product names in title case, typed items as they were written. */
+const itemName = (l: { name: string; productId?: string | null }) => (l.productId ? displayName(l.name) : l.name);
 
 const blankLine = (vat: number): DraftLine => ({ productId: null, name: '', unit: '', quantity: 1, unitPrice: 0, discountPct: 0, vatRate: vat });
 
@@ -198,6 +204,22 @@ export default function SalesDocsView() {
         notes: '', terms: '', deliveryFee: 0, lines: [blankLine(defaultVat)], ...from,
       },
     });
+  // A quote started on another screen (Loyalty customer, POS cart).
+  const quoteDraft = useUiStore((st) => st.quoteDraft);
+  useEffect(() => {
+    if (!quoteDraft || !manageQuotes) return;
+    useUiStore.getState().clearQuoteDraft();
+    setTab('quotes');
+    newDoc('quote', {
+      customerId: quoteDraft.customerId ?? null,
+      customerName: quoteDraft.customerName ?? '',
+      customerPhone: quoteDraft.customerPhone ?? '',
+      ...(quoteDraft.lines?.length
+        ? { lines: quoteDraft.lines.map((l) => ({ ...blankLine(defaultVat), ...l, discountPct: l.discountPct ?? 0 })) }
+        : {}),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteDraft]);
   const editQuote = (q: Quote) =>
     setEditing({ kind: 'quote', id: q.id, draft: { customerId: q.customerId, customerName: q.customerName, customerPhone: q.customerPhone, date: q.issueDate, untilDate: q.validUntil, notes: q.notes, terms: q.terms, deliveryFee: q.deliveryFee, lines: q.lines.map(toDraftLine) } });
   const editOrder = (o: SalesOrder) =>
@@ -455,7 +477,7 @@ export default function SalesDocsView() {
                 <tbody className="divide-y divide-app-border/60">
                   {x.lines.map((l) => (
                     <tr key={l.id}>
-                      <td className="px-3 py-2">{l.name}{!l.productId && <span className="block text-[10px] text-app-text-muted">Not a stock item</span>}</td>
+                      <td className="px-3 py-2">{itemName(l)}{!l.productId && <span className="block text-[10px] text-app-text-muted">Not a stock item</span>}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{qtyText(l.quantity)} {l.unit}</td>
                       <td className={`px-3 py-2 text-right tabular-nums ${l.delivered >= l.quantity ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{qtyText(l.delivered)}</td>
                       <td className={`px-3 py-2 text-right tabular-nums ${l.invoiced >= l.quantity ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{qtyText(l.invoiced)}</td>
@@ -475,7 +497,7 @@ export default function SalesDocsView() {
                     <PackageCheck size={15} className="shrink-0 text-app-text-muted" />
                     <div className="min-w-0 flex-1">
                       <p className={d.cancelled ? 'line-through' : ''}>{d.number} · {shortDate(d.at)}{d.by ? ` · ${d.by}` : ''}</p>
-                      <p className="text-[11px] text-app-text-muted truncate">{d.lines.map((l) => `${qtyText(l.quantity)} ${l.name}`).join(', ')}{d.note ? ` · ${d.note}` : ''}</p>
+                      <p className="text-[11px] text-app-text-muted truncate">{d.lines.map((l) => `${qtyText(l.quantity)} ${itemName(l)}`).join(', ')}{d.note ? ` · ${d.note}` : ''}</p>
                     </div>
                     {d.cancelled ? <Pill tone={TONE.red}>Undone</Pill> : manageOrders && (
                       <button className="text-xs underline text-app-text-muted cursor-pointer" disabled={busy} onClick={async () => {
@@ -624,7 +646,7 @@ export default function SalesDocsView() {
             <p className="text-xs text-app-text-muted">{SETTLEMENT_WORD[x.settlement]}{x.method ? ` by ${x.method}` : ''}{x.returnStock ? ' · items put back in stock' : ''}</p>
             <div className="rounded-2xl ring-1 ring-app-border divide-y divide-app-border/60">
               {x.lines.map((l, i) => (
-                <div key={i} className="flex justify-between gap-2 px-3 py-2 text-sm"><span>{qtyText(l.quantity)} × {l.name}</span><span className="tabular-nums">{formatCurrency(l.total)}</span></div>
+                <div key={i} className="flex justify-between gap-2 px-3 py-2 text-sm"><span>{qtyText(l.quantity)} × {itemName(l)}</span><span className="tabular-nums">{formatCurrency(l.total)}</span></div>
               ))}
             </div>
             <Totals net={x.subtotal} vat={x.vat} fee={0} total={x.total} />
@@ -671,7 +693,7 @@ function LinesTable({ lines, credited }: { lines: DocLine[]; credited?: Record<s
           {lines.map((l) => (
             <tr key={l.id}>
               <td className="px-3 py-2">
-                {l.name}
+                {itemName(l)}
                 {l.discountPct > 0 && <span className="block text-[10px] text-app-text-muted">{l.discountPct}% off</span>}
                 {credited && credited[l.id] > 0 && <span className="block text-[10px] text-amber-600 dark:text-amber-400">{qtyText(credited[l.id])} credited</span>}
               </td>
@@ -690,7 +712,7 @@ function LinesTable({ lines, credited }: { lines: DocLine[]; credited?: Record<s
 function Totals({ net, vat, fee, total, extra = [], balance }: { net: number; vat: number; fee: number; total: number; extra?: [string, number][]; balance?: number }) {
   const row = (label: string, v: number, strong = false) => (
     <div key={label} className={`flex justify-between gap-4 ${strong ? 'font-semibold text-app-text' : 'text-app-text-muted'}`}>
-      <span>{label}</span><span className="tabular-nums">{formatCurrency(v)}</span>
+      <span>{label}</span><span className="tabular-nums">{v < 0 ? `− ${formatCurrency(-v)}` : formatCurrency(v)}</span>
     </div>
   );
   return (
@@ -753,7 +775,7 @@ function DocForm({ kind, id, draft, setDraft, busy, onSubmit, onClose, defaultVa
   const setLine = (i: number, patch: Partial<DraftLine>) => set({ lines: draft.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   const totals = draftTotals(draft.lines, draft.deliveryFee);
   const productItems = useMemo(
-    () => products.filter((p) => !(p as any).deletedAt).map((p) => ({ id: p.id, label: p.name, sublabel: `${formatCurrency(p.price)} · ${p.stock} ${p.unit} in stock` })),
+    () => products.filter((p) => !(p as any).deletedAt).map((p) => ({ id: p.id, label: displayName(p.name), sublabel: `${formatCurrency(p.price)} · ${p.stock} ${p.unit} in stock` })),
     [products],
   );
   const customerItems = useMemo(
@@ -816,7 +838,7 @@ function DocForm({ kind, id, draft, setDraft, busy, onSubmit, onClose, defaultVa
                     selectedValue={l.productId || ''}
                     onChange={(pid) => {
                       const p = products.find((x) => x.id === pid);
-                      if (p) setLine(i, { productId: p.id, name: p.name, unit: p.unit || '', unitPrice: p.price || 0 });
+                      if (p) setLine(i, { productId: p.id, name: displayName(p.name), unit: p.unit || '', unitPrice: p.price || 0 });
                     }}
                     placeholder={l.productId ? l.name : 'Choose a product (or type a service below)'}
                     searchPlaceholder="Search products"
@@ -832,9 +854,12 @@ function DocForm({ kind, id, draft, setDraft, busy, onSubmit, onClose, defaultVa
                 <input type="number" inputMode="decimal" min="0" step="any" value={l.quantity || ''} onChange={(e) => setLine(i, { quantity: Number(e.target.value) })} placeholder="Qty" aria-label="Quantity" className={fieldClass} />
                 <input type="number" inputMode="decimal" min="0" step="any" value={l.unitPrice || ''} onChange={(e) => setLine(i, { unitPrice: Number(e.target.value) })} placeholder="Price each" aria-label="Price each before VAT" className={fieldClass} />
                 <input type="number" inputMode="decimal" min="0" max="100" step="any" value={l.discountPct || ''} onChange={(e) => setLine(i, { discountPct: Number(e.target.value) })} placeholder="% off" aria-label="Discount percent" className={fieldClass} />
-                <select value={l.vatRate} onChange={(e) => setLine(i, { vatRate: Number(e.target.value) })} aria-label="VAT" className={fieldClass}>
-                  {VAT_RATES.map((r) => <option key={r} value={r}>{r ? `VAT ${r}%` : 'No VAT'}</option>)}
-                </select>
+                <SearchableDropdown
+                  items={VAT_RATES.map((r) => ({ id: String(r), label: r ? `VAT ${r}%` : 'No VAT' }))}
+                  selectedValue={String(l.vatRate)}
+                  onChange={(v) => setLine(i, { vatRate: Number(v) })}
+                  placeholder="VAT"
+                />
               </div>
               <p className="text-[11px] text-app-text-muted text-right tabular-nums">
                 {!l.productId && l.name ? 'Not a stock item · ' : ''}{formatCurrency(a.net)}{a.vat ? ` + VAT ${formatCurrency(a.vat)}` : ''} = <b className="text-app-text">{formatCurrency(a.total)}</b>
@@ -894,7 +919,7 @@ function QtySheet({ kind, order, busy, customerTerms, onClose, onSubmit }: {
         {order.lines.map((l) => (
           <div key={l.id} className="flex items-center gap-3 px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm truncate">{l.name}</p>
+              <p className="text-sm truncate">{itemName(l)}</p>
               <p className="text-[11px] text-app-text-muted">{qtyText(left(l))} {l.unit} left of {qtyText(l.quantity)}{kind === 'invoice' ? ` · ${qtyText(l.delivered)} delivered` : ''}</p>
             </div>
             <input type="number" inputMode="decimal" min="0" max={left(l)} step="any" disabled={left(l) <= 0} aria-label={`How many ${l.name}`}
@@ -918,7 +943,7 @@ function QtySheet({ kind, order, busy, customerTerms, onClose, onSubmit }: {
           </Field>
           {order.customerId && terms !== customerTerms && termsSetting(terms) && (
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-amber-500" />
+              <Checkbox checked={remember} onChange={(on) => setRemember(on)} />
               Use these terms for {order.customerName} from now on
             </label>
           )}
@@ -977,9 +1002,7 @@ function PaymentSheet({ invoice, businessId, busy, onClose, onSubmit }: {
             <input type="number" inputMode="decimal" min="0" step="any" value={amount || ''} onChange={(e) => setAmount(Number(e.target.value))} className={fieldClass} />
           </Field>
           <Field label="Paid by">
-            <select value={method} onChange={(e) => setMethod(e.target.value as MoneyMethod)} className={fieldClass}>
-              {MONEY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <SearchableDropdown items={MONEY_METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={(v) => setMethod(v as MoneyMethod)} placeholder="Choose how" />
           </Field>
           <Field label={method === 'M-Pesa' || method === 'Airtel Money' ? 'Transaction code' : 'Reference (optional)'} hint={method === 'M-Pesa' ? 'A code already in Payments is used, not counted twice.' : undefined}>
             <input value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} maxLength={40} placeholder={method === 'M-Pesa' ? 'e.g. SKL4ABC123' : ''} className={fieldClass} />
@@ -1048,10 +1071,9 @@ function CreditSheet({ invoice, busy, onClose, onSubmit }: {
           const left = l.quantity - l.credited;
           return (
             <div key={l.id} className="flex items-center gap-3 px-3 py-2">
-              <input type="checkbox" aria-label={`Credit ${l.name}`} disabled={left <= 0} checked={(qty[l.id] || 0) > 0}
-                onChange={(e) => setQty((q) => ({ ...q, [l.id]: e.target.checked ? left : 0 }))} className="accent-amber-500 size-4" />
+              <Checkbox checked={(qty[l.id] || 0) > 0} onChange={(on) => setQty((q) => ({ ...q, [l.id]: on ? left : 0 }))} disabled={left <= 0} ariaLabel={`Credit ${l.name}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm truncate">{l.name}</p>
+                <p className="text-sm truncate">{itemName(l)}</p>
                 <p className="text-[11px] text-app-text-muted">{qtyText(left)} of {qtyText(l.quantity)} left · {formatCurrency(l.quantity ? l.total / l.quantity : 0)} each</p>
               </div>
               <input type="number" inputMode="decimal" min="0" max={left} step="any" disabled={left <= 0} aria-label={`How many ${l.name}`}
@@ -1078,13 +1100,11 @@ function CreditSheet({ invoice, busy, onClose, onSubmit }: {
       </div>
       {settlement === 'refund' && (
         <Field label="Paid back by">
-          <select value={method} onChange={(e) => setMethod(e.target.value as MoneyMethod)} className={fieldClass}>
-            {MONEY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <SearchableDropdown items={MONEY_METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={(v) => setMethod(v as MoneyMethod)} placeholder="Choose how" />
         </Field>
       )}
       <label className="flex items-start gap-2 text-sm cursor-pointer">
-        <input type="checkbox" checked={returnStock} onChange={(e) => setReturnStock(e.target.checked)} className="mt-0.5 accent-amber-500" />
+        <Checkbox checked={returnStock} onChange={(on) => setReturnStock(on)} />
         <span>Put the items back in stock<span className="block text-[11px] text-app-text-muted">Leave it off for a price correction or goods thrown away.</span></span>
       </label>
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}

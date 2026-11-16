@@ -75,8 +75,7 @@ A production-ready, cross-platform enterprise management application engineered 
 │   │   ├── 20261105011_fix_process_business_payment.sql # One working payment RPC
 │   │   └── 20261105012_scheduled_jobs.sql      # pg_cron jobs, including due backups
 │   ├── functions/             # Deno edge functions, one folder each
-│   ├── dev_clear.sql          # Wipes all data, keeps the schema (development only)
-│   └── dev_reset.sql          # Drops the schema and data (development only)
+│   └── dev_wipe.sql           # Empties every table to start from scratch (asks you to opt in first)
 └── vite.config.ts             # Vite project configuration (React, Tailwind setup)
 ```
 

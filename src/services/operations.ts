@@ -15,6 +15,8 @@ export interface Supplier {
   email: string;
   productSupplied: string;
   notes: string;
+  /** How they get paid; kept by the supplier in their portal (read-only here). */
+  pay?: { kraPin: string; mpesaPaybill: string; mpesaAccount: string; mpesaTill: string; bankName: string; bankAccount: string; updatedBySupplierAt: string | null };
 }
 
 export type SupplierDraft = Omit<Supplier, 'id'>;
@@ -27,12 +29,16 @@ const toSupplier = (r: any): Supplier => ({
   email: r.email || '',
   productSupplied: r.product_supplied || '',
   notes: r.notes || '',
+  pay: {
+    kraPin: r.kra_pin || '', mpesaPaybill: r.mpesa_paybill || '', mpesaAccount: r.mpesa_account || '', mpesaTill: r.mpesa_till || '',
+    bankName: r.bank_name || '', bankAccount: r.bank_account || '', updatedBySupplierAt: r.details_updated_by_supplier_at || null,
+  },
 });
 
 export async function listSuppliers(businessId: string): Promise<Supplier[]> {
   const { data, error } = await getSupabase()
     .from('suppliers')
-    .select('id, name, company, phone, email, product_supplied, notes')
+    .select('id, name, company, phone, email, product_supplied, notes, kra_pin, mpesa_paybill, mpesa_account, mpesa_till, bank_name, bank_account, details_updated_by_supplier_at')
     .eq('business_id', toUuid(businessId))
     .is('deleted_at', null)
     .order('name');
@@ -109,6 +115,10 @@ export interface PurchaseOrder {
   rejectReason: string | null;
   orderedAt: string | null;
   closedNote: string | null;
+  /** The supplier confirmed in their portal, with the day they will deliver. */
+  supplierConfirmedAt?: string | null;
+  supplierExpectedDate?: string | null;
+  supplierNote?: string | null;
   lines: PurchaseLine[];
 }
 
@@ -122,7 +132,7 @@ export const lineTotal = (lines: PurchaseLine[]) =>
 export async function listPurchases(businessId: string, limit = 300): Promise<PurchaseOrder[]> {
   const { data, error } = await getSupabase()
     .from('purchases')
-    .select('id, supplier_id, supplier_name, reference_number, status, total_amount, date, notes, created_by, received_at, received_by, requested_by_user_id, approved_by, approved_at, rejected_by, reject_reason, ordered_at, closed_note, purchase_items(id, product_id, name, quantity, unit, price, qty_received, qty_damaged, for_business_id, created_at)')
+    .select('id, supplier_id, supplier_name, reference_number, status, total_amount, date, notes, created_by, received_at, received_by, requested_by_user_id, approved_by, approved_at, rejected_by, reject_reason, ordered_at, closed_note, supplier_confirmed_at, supplier_expected_date, supplier_note, purchase_items(id, product_id, name, quantity, unit, price, qty_received, qty_damaged, for_business_id, created_at)')
     .eq('business_id', toUuid(businessId))
     .order('date', { ascending: false })
     .limit(limit);
@@ -146,6 +156,9 @@ export async function listPurchases(businessId: string, limit = 300): Promise<Pu
     rejectReason: r.reject_reason ?? null,
     orderedAt: r.ordered_at ?? null,
     closedNote: r.closed_note ?? null,
+    supplierConfirmedAt: r.supplier_confirmed_at ?? null,
+    supplierExpectedDate: r.supplier_expected_date ?? null,
+    supplierNote: r.supplier_note ?? null,
     lines: [...(r.purchase_items || [])]
       .sort((a: any, b: any) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
       .map((i: any) => ({

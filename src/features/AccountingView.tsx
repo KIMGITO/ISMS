@@ -1,4 +1,7 @@
-// Accounting: the business's books. Every sale, expense, petty cash entry, customer payment,
+// Finance & Accounting: one screen for the money side. "Summary" is the plain view (profit,
+// money in and out, debts, wallets, points; FinanceView, finance.view). The other parts are
+// the business's books (accounting.view).
+// The books: Every sale, expense, petty cash entry, customer payment,
 // purchase, supplier payment and stock loss posts itself as a double-entry journal entry
 // (see services/accounting.ts and 20261116003_accounting.sql). Owners and admins can add
 // entries by hand, count money, pay suppliers, lock past months and rebuild the books;
@@ -10,7 +13,13 @@ import {
 import { useBusinessStore } from '../stores/businessStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { toUserMessage } from '../utils/userError';
-import { Tabs } from '../components/TabOptions';
+import { GroupedTabs, type TabGroup } from '../components/TabOptions';
+import FinanceView from './FinanceView';
+import SearchableDropdown from '../components/SearchableDropdown';
+import { Checkbox } from '../components/shared/Checkbox';
+import { useAuthStore } from '../stores/authStore';
+import { useUiStore } from '../stores/uiStore';
+import { hasRolePermission } from '../utils/permissions';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn, dangerBtn } from '../components/shared/FormSheet';
 import { appDialog } from '../components/AppDialog';
 import { formatKsh, getRange, kenyaNow, RANGE_LABELS, toDateInput, type RangeKey } from './home/metrics';
@@ -25,9 +34,9 @@ import {
 } from '../services/accounting';
 import { recordBillPayment } from '../services/buying';
 
-type Tab = 'overview' | 'pnl' | 'balance' | 'trial' | 'journal' | 'accounts' | 'receivables' | 'payables' | 'checks' | 'vat' | 'settings';
+type Tab = 'summary' | 'overview' | 'pnl' | 'balance' | 'trial' | 'journal' | 'accounts' | 'receivables' | 'payables' | 'checks' | 'vat' | 'settings';
 
-const RANGES: RangeKey[] = ['month', 'last30', 'quarter', 'year', 'today', 'last7', 'custom'];
+const RANGES: RangeKey[] = ['today', 'yesterday', 'last7', 'month', 'last30', 'quarter', 'year', 'custom'];
 const TYPES: AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense'];
 const METHODS = ['Cash', 'M-Pesa', 'Airtel Money', 'Bank', 'Card'];
 
@@ -46,8 +55,8 @@ const monthName = (m: string) => new Date(`${m}-15T12:00:00+03:00`).toLocaleDate
 function Card({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="bg-app-card rounded-2xl p-4 shadow-xs min-w-0">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
+      <div className="flex items-start gap-2 flex-wrap">
+        <div className="min-w-0 flex-1 basis-56">
           <h2 className="text-sm font-semibold text-app-text">{title}</h2>
           {subtitle && <p className="text-xs text-app-text-muted mt-0.5">{subtitle}</p>}
         </div>
@@ -111,26 +120,31 @@ function AccountSelect({ accounts, value, onChange, filter, placeholder = 'Choos
 }) {
   const list = accounts.filter((a) => a.active && (!filter || filter(a)));
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={fieldClass}>
-      <option value="">{placeholder}</option>
-      {TYPES.map((t) => {
-        const group = list.filter((a) => a.type === t);
-        if (!group.length) return null;
-        return (
-          <optgroup key={t} label={TYPE_LABELS[t]}>
-            {group.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
-          </optgroup>
-        );
-      })}
-    </select>
+    <SearchableDropdown
+      items={TYPES.flatMap((t) => list.filter((a) => a.type === t).map((a) => ({ id: a.id, label: `${a.code} · ${a.name}`, sublabel: TYPE_LABELS[t] })))}
+      selectedValue={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      searchPlaceholder="Search accounts by name or code"
+    />
   );
 }
 
 export default function AccountingView() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const showToast = useNotificationStore((s) => s.showToast);
+  const role = useAuthStore((s) => s.currentEmployee?.role) || 'Guest';
+  const seesSummary = hasRolePermission(role, 'finance.view' as any);
+  const seesBooks = hasRolePermission(role, 'accounting.view' as any);
 
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(seesSummary ? 'summary' : 'overview');
+  // Opened as "accounting" (old screen id, G then 3, search): start on the books.
+  const section = useUiStore((s) => s.screenSection);
+  useEffect(() => {
+    if (section !== 'books') return;
+    useUiStore.getState().setScreenSection(null);
+    if (seesBooks) setTab('overview');
+  }, [section, seesBooks]);
   const [rangeKey, setRangeKey] = useState<RangeKey>('month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -151,7 +165,7 @@ export default function AccountingView() {
   const [counting, setCounting] = useState<MoneyCheck | null>(null);
 
   const load = useCallback(async () => {
-    if (!businessId) return;
+    if (!businessId || !seesBooks) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
@@ -161,7 +175,7 @@ export default function AccountingView() {
     } finally {
       setLoading(false);
     }
-  }, [businessId, start, end]);
+  }, [businessId, start, end, seesBooks]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -178,19 +192,27 @@ export default function AccountingView() {
   const [version, setVersion] = useState(0);
   const changed = () => { setVersion((v) => v + 1); void load(); };
 
-  const tabs = [
-    { id: 'overview' as const, label: 'Overview' },
-    { id: 'pnl' as const, label: 'Profit & loss', shortcut: 'acc-pnl' },
-    { id: 'balance' as const, label: 'Balance sheet', shortcut: 'acc-balance' },
-    { id: 'trial' as const, label: 'Trial balance' },
-    { id: 'journal' as const, label: 'Journal', shortcut: 'acc-journal' },
-    { id: 'accounts' as const, label: 'Accounts' },
-    { id: 'receivables' as const, label: 'Customers owe' },
-    { id: 'payables' as const, label: 'Suppliers', shortcut: 'acc-payables' },
-    { id: 'checks' as const, label: 'Count money & stock', shortcut: 'acc-checks' },
-    { id: 'vat' as const, label: 'VAT' },
-    ...(canManage ? [{ id: 'settings' as const, label: 'Lock & rebuild', badge: report?.errors || 0 }] : []),
+  const groups: TabGroup<Tab>[] = [
+    { id: 'summary', label: 'Summary', tabs: seesSummary ? [{ id: 'summary', label: 'Summary', shortcut: 'fin-summary' }] : [] },
+    { id: 'books', label: 'Books', tabs: seesBooks ? [
+      { id: 'overview', label: 'Overview', shortcut: 'acc-overview' },
+      { id: 'pnl', label: 'Profit & loss', shortcut: 'acc-pnl' },
+      { id: 'balance', label: 'Balance sheet', shortcut: 'acc-balance' },
+      { id: 'trial', label: 'Trial balance', shortcut: 'acc-trial' },
+      { id: 'journal', label: 'Journal', shortcut: 'acc-journal' },
+      { id: 'accounts', label: 'Accounts', shortcut: 'acc-accounts' },
+    ] : [] },
+    { id: 'owed', label: 'Who owes', tabs: seesBooks ? [
+      { id: 'receivables', label: 'Customers owe us', shortcut: 'acc-receivables' },
+      { id: 'payables', label: 'We owe suppliers', shortcut: 'acc-payables' },
+    ] : [] },
+    { id: 'checks', label: 'Checks', tabs: seesBooks ? [
+      { id: 'checks', label: 'Count money & stock', shortcut: 'acc-checks' },
+      { id: 'vat', label: 'VAT', shortcut: 'acc-vat' },
+      ...(canManage ? [{ id: 'settings' as const, label: 'Lock & rebuild', badge: report?.errors || 0, shortcut: 'acc-settings' }] : []),
+    ] : [] },
   ];
+  const [summaryReload, setSummaryReload] = useState(0);
 
   const periodWord = rangeKey === 'custom' ? `${day(start)} – ${day(end)}` : RANGE_LABELS[rangeKey].toLowerCase();
 
@@ -198,7 +220,7 @@ export default function AccountingView() {
     <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
       <div className="max-w-6xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-4 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={setTab} className="w-full min-w-0 !pb-2" />
+          <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} className="w-full" />
         </div>
 
         {tab !== 'accounts' && tab !== 'receivables' && tab !== 'payables' && tab !== 'checks' && tab !== 'settings' && (
@@ -222,19 +244,22 @@ export default function AccountingView() {
                 <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-app-card border border-app-border rounded-lg px-2 py-1" />
               </div>
             )}
-            <button onClick={changed} className="ml-auto p-2 rounded-lg text-app-text-muted hover:bg-app-card cursor-pointer" title="Refresh" aria-label="Refresh">
+            <button onClick={() => { if (tab === 'summary') setSummaryReload((n) => n + 1); else changed(); }} className="ml-auto p-2 rounded-lg text-app-text-muted hover:bg-app-card cursor-pointer" title="Refresh" aria-label="Refresh">
               <RotateCcw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         )}
 
-        {error && (
+        {tab !== 'summary' && error && (
           <div className="bg-app-card rounded-2xl p-4 text-sm text-red-600 dark:text-red-400 flex items-center justify-between gap-3">
             {error}
             <button onClick={() => void load()} className="text-app-text underline cursor-pointer">Try again</button>
           </div>
         )}
-        {!report && loading && <p className="text-sm text-app-text-muted text-center py-10">Opening the books…</p>}
+        {tab === 'summary' && seesSummary && (
+          <FinanceView embedded period={{ rangeKey, customStart, customEnd }} reloadKey={summaryReload} />
+        )}
+        {tab !== 'summary' && !report && loading && <p className="text-sm text-app-text-muted text-center py-10">Opening the books…</p>}
 
         {report && tab === 'overview' && (
           <div className="space-y-4">
@@ -530,10 +555,14 @@ function JournalTab({ businessId, start, end, version, canManage, onOpen, onNew 
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
           <input type="search" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="JE-120, rent, Mama Njeri…" className={`${fieldClass} pl-9`} />
         </div>
-        <select value={kind} onChange={(e) => setKind(e.target.value as any)} className={`${fieldClass} !w-auto`}>
-          <option value="">Everything</option>
-          {(Object.keys(SOURCE_LABELS) as (SourceType | 'manual')[]).map((k) => <option key={k} value={k}>{SOURCE_LABELS[k]}</option>)}
-        </select>
+        <div className="w-full sm:w-56">
+          <SearchableDropdown
+            items={[{ id: '', label: 'Everything' }, ...(Object.keys(SOURCE_LABELS) as (SourceType | 'manual')[]).map((k) => ({ id: k, label: SOURCE_LABELS[k] }))]}
+            selectedValue={kind}
+            onChange={(v) => setKind(v as any)}
+            placeholder="Everything"
+          />
+        </div>
       </div>
       {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
       <div className="divide-y divide-app-border/60">
@@ -911,15 +940,17 @@ function AccountForm({ businessId, initial, onClose, onSaved }: { businessId: st
         <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} placeholder="Motorbike fuel" maxLength={80} /></Field>
       </div>
       <Field label="Kind" hint="Codes usually start 1 (own), 2 (owe), 3 (owner), 4 (income), 5–6 (expenses).">
-        <select value={type} onChange={(e) => setType(e.target.value as AccountType)} disabled={system} className={fieldClass}>
-          {TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-        </select>
+        <SearchableDropdown
+          items={TYPES.map((t) => ({ id: t, label: TYPE_LABELS[t] }))}
+          selectedValue={type}
+          onChange={(v) => setType(v as AccountType)}
+          disabled={system}
+          placeholder="Choose a kind"
+        />
       </Field>
       <Field label="Description (optional)"><input value={description} onChange={(e) => setDescription(e.target.value)} className={fieldClass} maxLength={200} /></Field>
       {!system && (
-        <label className="flex items-center gap-2 text-sm text-app-text">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> In use (off hides it from new entries)
-        </label>
+        <Checkbox checked={active} onChange={setActive} label="In use" description="Off hides it from new entries" />
       )}
       {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
     </FormSheet>
@@ -1022,7 +1053,7 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
             <div className="flex items-center gap-3 mb-3 flex-wrap">
               <div className="text-lg font-bold tabular-nums text-app-text">{money(total)}</div>
               <label className="ml-auto flex items-center gap-2 text-xs text-app-text-muted">
-                <input type="checkbox" checked={showPaid} onChange={(e) => setShowPaid(e.target.checked)} /> Show suppliers paid up
+                <Checkbox checked={showPaid} onChange={(on) => setShowPaid(on)} /> Show suppliers paid up
               </label>
             </div>
             <div className="divide-y divide-app-border/60">
@@ -1127,9 +1158,7 @@ function PaySupplierForm({ businessId, supplier, purchaseId, amount, billId, loc
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Amount (KSh)"><input type="number" inputMode="decimal" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className={fieldClass} /></Field>
         <Field label="Paid from">
-          <select value={method} onChange={(e) => setMethod(e.target.value)} className={fieldClass}>
-            {METHODS.map((m) => <option key={m}>{m}</option>)}
-          </select>
+          <SearchableDropdown items={METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={setMethod} placeholder="Choose how" />
         </Field>
         <Field label="Date" hint={lockDate ? `Books are locked up to ${day(lockDate)}.` : undefined}>
           <input type="date" value={date} max={kenyaToday()} onChange={(e) => setDate(e.target.value)} className={fieldClass} />

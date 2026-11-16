@@ -56,7 +56,7 @@ Deliveries named with a typed-in rider name aren't linked to any account, so nob
 - Points can come off a till sale or website order, or be moved onto the account. They can't be exchanged for cash.
 - Points used on a cancelled order come back. A website order must leave at least Ksh 1 to pay by M-Pesa.
 
-To reset balances from sales history, run `supabase/recalculate_loyalty_points.sql`. Older app versions still award extra points, so run it once more after everyone has updated.
+Balances come from the points log (`loyalty_points_earned` and `loyalty_redemptions`); adjust a customer's points on Loyalty → Points rather than with a script.
 
 ## Duplicate customers
 

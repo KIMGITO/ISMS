@@ -330,6 +330,13 @@ input[type="number"] {
   scrollbar-width: none;
 }
 
+/* A row of tabs wider than the screen fades at its right edge, so it reads as "more this way". */
+.tab-row {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  padding-right: 20px;
+}
+
 /* ─── Mobile Responsive Overrides (< 480px) ─── */
 @media (max-width: 480px) {
   /* Prevent any element from causing horizontal scrolling */

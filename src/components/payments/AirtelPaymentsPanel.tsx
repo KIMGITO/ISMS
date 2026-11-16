@@ -5,6 +5,7 @@
 // Customers who pay the Airtel merchant code themselves: Airtel's open API doesn't announce
 // those, so they're recorded on the Payments tab with the Airtel transaction ID.
 
+import SearchableDropdown from '../SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Copy, Send, Settings2, Smartphone } from 'lucide-react';
 import { AirtelRepository, type AirtelStatus } from '../../services/repositories';
@@ -182,10 +183,12 @@ export default function AirtelPaymentsPanel() {
               </label>
               <label>
                 <span className={label}>Mode</span>
-                <select value={environment} onChange={(e) => setEnvironment(e.target.value as 'staging' | 'production')} className={input}>
-                  <option value="staging">Test (staging)</option>
-                  <option value="production">Live</option>
-                </select>
+                <SearchableDropdown
+                  items={[{ id: 'staging', label: 'Test (staging)' }, { id: 'production', label: 'Live' }]}
+                  selectedValue={environment}
+                  onChange={(v) => setEnvironment(v as 'staging' | 'production')}
+                  placeholder="Choose"
+                />
               </label>
               <label>
                 <span className={label}>Airtel merchant code (optional)</span>

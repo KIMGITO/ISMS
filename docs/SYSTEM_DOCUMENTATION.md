@@ -213,9 +213,7 @@ ISMS/
 ├── supabase/
 │   ├── migrations/           40 SQL migrations (see Appendix C)
 │   ├── functions/            18 edge functions + shared/
-│   ├── recalculate_loyalty_points.sql
-│   ├── dev_clear.sql         Wipes data, keeps schema (development only)
-│   └── dev_reset.sql         Drops schema and data (development only)
+│   └── dev_wipe.sql          Empties every table to start from scratch (opt-in guard)
 ├── android/                  Capacitor Android project
 │   └── app/src/main/java/com/kaykays/app/
 │       ├── AppUpdatePlugin.java        Download, verify and install updates
@@ -801,7 +799,7 @@ The values are stored in `loyalty_settings.value_bronze`, `value_silver` and `va
 - Debt paid with points (`loyalty_redemptions.kind = 'account'`) is taken off Home profit. Till and online redemptions are already netted out of the sale total.
 - Points used on a cancelled order come back. A website order must leave at least Ksh 1 to pay by M-Pesa.
 
-Every point earned is logged in `loyalty_points_earned`, which feeds the **Points report** on the Loyalty screen. Balances earned under the old rule (1 point per Ksh 100) were multiplied by 200, once, when the migration ran (`app_data_conversions` records that it ran). To rebuild balances from sales history, run `supabase/recalculate_loyalty_points.sql`.
+Every point earned is logged in `loyalty_points_earned`, which feeds the **Points report** on the Loyalty screen. Balances earned under the old rule (1 point per Ksh 100) were multiplied by 200, once, when the migration ran (`app_data_conversions` records that it ran).
 
 ## 10.2 Tiers
 
@@ -1218,7 +1216,7 @@ Every business table carries `business_id`. Row-level security policies let a si
 
 ## 16.8 Development scripts
 
-`supabase/dev_clear.sql` wipes all data but keeps the schema; `supabase/dev_reset.sql` drops the schema and data. **Never run either against a database with real data.**
+`supabase/dev_wipe.sql` empties every table (and sign-ins and uploaded files) but keeps the schema; it refuses to run until you `SET app.wipe_everything = 'yes, wipe it';`. `supabase db reset` rebuilds the schema too. **Never run either against a database with real data without a backup.**
 
 <div class="page-break"></div>
 
@@ -1491,7 +1489,7 @@ Supabase's own database backups remain the primary recovery path; the Sheets exp
 |---|---|
 | Daily | Clear the **Paid to the till** queue; check flagged online orders |
 | Weekly | Review crash reports and failed backups |
-| After a release | Confirm a device updated; after all devices update, run `recalculate_loyalty_points.sql` if points changed |
+| After a release | Confirm a device updated |
 | Every 6 months | Renew the Apple sign-in client secret, if Apple sign-in is on |
 | If a callback URL leaks | Change `MPESA_CALLBACK_TOKEN` or `USSD_CALLBACK_TOKEN`, re-register the till, update the Africa's Talking channel |
 

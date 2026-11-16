@@ -39,6 +39,7 @@ import CustomerGroupFields, { CustomerGroupValues } from "../components/Customer
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
+import CustomerDocsCard from "../components/invoices/CustomerDocsCard";
 import { appDialog } from '../components/AppDialog';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
@@ -1098,6 +1099,7 @@ export default function CustomersView() {
                 </button>
               </div>
 
+              <CustomerDocsCard customer={selectedCustomer} />
               </div>
               <div className="mt-2 lg:mt-0">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />

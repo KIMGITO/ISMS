@@ -1,6 +1,7 @@
 // Audit Log: who changed what. Written by the database (20261116001) for products' details,
 // suppliers, purchases, assets, files, and staff PIN and role changes; nobody can edit it.
 // Admins clear old entries from Settings → log cleanup.
+import SearchableDropdown from '../components/SearchableDropdown';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, RotateCcw, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
@@ -108,10 +109,14 @@ export default function AuditLogView() {
               </button>
             ))}
           </div>
-          <select value={table} onChange={(e) => setTable(e.target.value)} aria-label="What changed" className={`${fieldClass} !w-auto !py-2 bg-app-card`}>
-            <option value="">Everything</option>
-            {Object.entries(AUDIT_TABLES).filter(([k]) => k !== 'transactions').map(([k, v]) => <option key={k} value={k}>{v}s</option>)}
-          </select>
+          <div className="w-44 shrink-0">
+            <SearchableDropdown
+              items={[{ id: '', label: 'Everything' }, ...Object.entries(AUDIT_TABLES).filter(([k]) => k !== 'transactions').map(([k, v]) => ({ id: k, label: `${v}s` }))]}
+              selectedValue={table}
+              onChange={setTable}
+              placeholder="Everything"
+            />
+          </div>
         </div>
 
         <div className="relative">

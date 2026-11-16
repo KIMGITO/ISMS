@@ -1192,23 +1192,20 @@ export default function SettingsView({
                           {aiLiveModels.length ? `Live list (${aiLiveModels.length})` : 'Load live list'}
                         </button>
                       </div>
-                      <select
-                        value={aiModelOptions.some((m) => m.id === aiConfig.model) ? aiConfig.model : '__custom__'}
-                        onChange={(e) => {
-                          if (e.target.value === '__custom__') {
+                      <SearchableDropdown
+                        items={[...aiModelOptions.map((m) => ({ id: m.id, label: m.label })), { id: '__custom__', label: 'Other (type the model name)…' }]}
+                        selectedValue={aiModelOptions.some((m) => m.id === aiConfig.model) ? aiConfig.model : '__custom__'}
+                        onChange={(v) => {
+                          if (v === '__custom__') {
                             setAiCustomModel(true);
                           } else {
                             setAiCustomModel(false);
-                            setAiConfig({ ...aiConfig, model: e.target.value });
+                            setAiConfig({ ...aiConfig, model: v });
                           }
                         }}
-                        className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                      >
-                        {aiModelOptions.map((m) => (
-                          <option key={m.id} value={m.id}>{m.label}</option>
-                        ))}
-                        <option value="__custom__">Other (type the model name)...</option>
-                      </select>
+                        placeholder="Choose a model"
+                        searchPlaceholder="Search models"
+                      />
                       {(aiCustomModel || !aiModelOptions.some((m) => m.id === aiConfig.model)) && (
                         <input
                           type="text"

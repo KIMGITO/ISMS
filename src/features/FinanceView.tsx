@@ -42,7 +42,9 @@ interface Report {
   products: { name: string; qty: number; revenue: number; cost: number; profit: number }[];
   daily: { day: string; sales: number; cost: number; expenses: number; points: number; profit: number }[];
   activity: { at: string; kind: string; amount: number; wallet: number; method: string | null; customer: string | null; by: string | null; detail: string | null }[];
-  profit: { sales: number; costOfGoods: number; gross: number; expenses: number; pointsToDebt: number; net: number };
+  profit: { sales: number; costOfGoods: number; gross: number; expenses: number; pointsToDebt: number; net: number; invoiced?: number };
+  /** Quotes & Invoices in the period, from the books (20261119001). */
+  invoices?: { count: number; income: number; cost: number; owed: number };
 }
 
 const num = (v: unknown) => Number(v) || 0;
@@ -66,6 +68,7 @@ function normalise(r: any): Report {
     daily: (r.daily || []).map(n),
     activity: (r.activity || []).map(n),
     profit: n(r.profit) as any,
+    invoices: r.invoices ? n(r.invoices) as any : undefined,
   };
 }
 
@@ -226,11 +229,23 @@ function DailyProfit({ daily }: { daily: Report['daily'] }) {
   );
 }
 
-export default function FinanceView() {
+/**
+ * The cash view of the business: profit, money in and out, debts, wallets and points.
+ * On its own it has its own period picker; inside Finance & Accounting (embedded) the
+ * screen's period picker drives it.
+ */
+export default function FinanceView({ embedded, period, reloadKey = 0 }: {
+  embedded?: boolean;
+  period?: { rangeKey: RangeKey; customStart: string; customEnd: string };
+  reloadKey?: number;
+} = {}) {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
-  const [rangeKey, setRangeKey] = useState<RangeKey>('month');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [ownRangeKey, setRangeKey] = useState<RangeKey>('month');
+  const [ownStart, setCustomStart] = useState('');
+  const [ownEnd, setCustomEnd] = useState('');
+  const rangeKey = period?.rangeKey ?? ownRangeKey;
+  const customStart = period?.customStart ?? ownStart;
+  const customEnd = period?.customEnd ?? ownEnd;
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -261,7 +276,7 @@ export default function FinanceView() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   const r = report;
   const net = r?.profit.net ?? 0;
@@ -281,11 +296,10 @@ export default function FinanceView() {
       ]
     : [];
 
-  return (
-    <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
-      <div className="max-w-6xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-4 min-w-0">
+  const body = (
+      <>
         {/* Period */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {!embedded && <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none min-w-0 max-w-full">
             {RANGES.map((k) => (
               <button
@@ -308,7 +322,7 @@ export default function FinanceView() {
           <button onClick={() => void load()} className="ml-auto p-2 rounded-lg text-app-text-muted hover:bg-app-card cursor-pointer" title="Refresh" aria-label="Refresh">
             <RotateCcw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-        </div>
+        </div>}
 
         {error && (
           <div className="bg-app-card rounded-2xl p-4 text-sm text-red-600 dark:text-red-400 flex items-center justify-between gap-3">
@@ -330,7 +344,14 @@ export default function FinanceView() {
                 </div>
                 <p className={`text-3xl font-bold tabular-nums mt-1 break-words ${net < 0 ? 'text-red-600 dark:text-red-400' : 'text-app-text'}`}>{formatKsh(net)}</p>
                 <div className="mt-3">
-                  <Line label="Sales" value={r.profit.sales} note={r.sales.vat > 0 ? `Without ${formatKsh(r.sales.vat)} VAT, which goes to KRA` : `${r.sales.count} sales`} />
+                  <Line
+                    label="Sales"
+                    value={r.profit.sales}
+                    note={[
+                      r.sales.vat > 0 ? `Without ${formatKsh(r.sales.vat)} VAT, which goes to KRA` : `${r.sales.count} sales`,
+                      r.invoices && r.invoices.income ? `includes ${formatKsh(r.invoices.income)} invoiced${r.invoices.owed > 0 ? `, ${formatKsh(r.invoices.owed)} of it not paid yet` : ''}` : '',
+                    ].filter(Boolean).join(' · ')}
+                  />
                   <Line label="Cost of the goods sold" value={r.profit.costOfGoods} minus />
                   <Line label="Gross profit" value={r.profit.gross} strong />
                   <Line label="Expenses" value={r.profit.expenses} minus note={r.expenses.pettyCash > 0 ? `Includes ${formatKsh(r.expenses.pettyCash)} petty cash` : undefined} />
@@ -554,7 +575,13 @@ export default function FinanceView() {
             </Card>
           </>
         )}
-      </div>
+      </>
+  );
+
+  if (embedded) return <div className="space-y-4 min-w-0">{body}</div>;
+  return (
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
+      <div className="max-w-6xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-4 min-w-0">{body}</div>
     </div>
   );
 }

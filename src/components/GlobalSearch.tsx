@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { pressShortcut } from "../utils/pressShortcut";
 import { useAppStore } from "../stores/appStore";
 import { useInventoryStore } from "../stores/inventoryStore";
 import { useAuthStore } from "../stores/authStore";
@@ -350,8 +351,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
             go(f.screen);
             // Open the exact panel, e.g. Points on Loyalty. A button the role can't use isn't rendered.
             if (f.target) setTimeout(() => {
-              const button = document.querySelector<HTMLElement>(`[data-shortcut="${f.target}"]`);
-              if (button && button.getAttribute("aria-pressed") !== "true") button.click();
+              pressShortcut(f.target!, document, { skipIfPressed: true });
               if (f.id === "points-settings") setTimeout(() => document.getElementById("points-settings")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
             }, 350);
             if (f.id === "keyboard-shortcuts") setTimeout(() => {

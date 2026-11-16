@@ -4,6 +4,9 @@
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 
+/** Permissions only the Supplier role has, shown on its own in Roles. */
+export const SUPPLIER_PORTAL_CATEGORY = 'Supplier portal';
+
 export type PermissionCode =
   // Top-level screens
   | 'home.view'
@@ -122,6 +125,14 @@ export type PermissionCode =
   | 'purchases.manage'
   | 'purchases.request_quote'
   | 'supplier_bills.manage'
+  | 'suppliers.portal'
+  // What people at a supplier see when they sign in (role Supplier)
+  | 'supplier_portal.orders'
+  | 'supplier_portal.price_requests'
+  | 'supplier_portal.deliveries'
+  | 'supplier_portal.statement'
+  | 'supplier_portal.update_details'
+  | 'supplier_portal.stock'
   // Production & Recipes
   | 'production.view'
   | 'production.create'
@@ -324,6 +335,13 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'purchases.manage', category: 'Suppliers & Purchases', description: 'Close purchase bills' },
   { code: 'purchases.request_quote', category: 'Suppliers & Purchases', description: 'Ask suppliers for prices on a draft and choose the best' },
   { code: 'supplier_bills.manage', category: 'Suppliers & Purchases', description: 'Enter, check and void supplier bills' },
+  { code: 'suppliers.portal', category: 'Suppliers & Purchases', description: 'Give people at a supplier their own sign-in, or take it away' },
+  { code: 'supplier_portal.orders', category: SUPPLIER_PORTAL_CATEGORY, description: 'See orders placed with them and confirm the day they will deliver' },
+  { code: 'supplier_portal.price_requests', category: SUPPLIER_PORTAL_CATEGORY, description: 'See price requests sent to them and type their own prices' },
+  { code: 'supplier_portal.deliveries', category: SUPPLIER_PORTAL_CATEGORY, description: 'See what was received from them, and what was damaged' },
+  { code: 'supplier_portal.statement', category: SUPPLIER_PORTAL_CATEGORY, description: 'See their bills, payments, returns and what is owed to them' },
+  { code: 'supplier_portal.update_details', category: SUPPLIER_PORTAL_CATEGORY, description: 'Change their own phone, email, KRA PIN and how they get paid' },
+  { code: 'supplier_portal.stock', category: SUPPLIER_PORTAL_CATEGORY, description: 'See your stock of the products they supply (to plan deliveries)' },
 
   // Production & Recipes
   { code: 'production.view', category: 'Production & Recipes', description: 'Browse raw milk batches' },
@@ -460,6 +478,14 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'notifications.view', 'ai.use'
     ]
   },
+  'Supplier': {
+    name: 'Supplier',
+    description: 'Someone at a supplier with their own sign-in. Sees only their own orders, price requests, deliveries and statement; never customers, sales, profit, staff or other suppliers.',
+    permissions: [
+      'supplier_portal.deliveries', 'supplier_portal.orders', 'supplier_portal.price_requests',
+      'supplier_portal.statement', 'supplier_portal.update_details'
+    ]
+  },
   'Rider': {
     name: 'Rider',
     description: 'Delivery personnel. Navigates routes, processes cashouts, and completes dispatches.',
@@ -491,7 +517,7 @@ export function getDynamicRoles(): Record<string, RoleConfig> {
           };
         } else {
           // Only preserve if it matches our strict 5 core active positions
-          if (['Owner', 'Admin', 'Manager', 'Cashier', 'Rider'].includes(roleKey)) {
+          if (['Owner', 'Admin', 'Manager', 'Cashier', 'Rider', 'Supplier'].includes(roleKey)) {
             merged[roleKey] = parsed[roleKey];
           }
         }
@@ -508,7 +534,7 @@ export function saveDynamicRoles(roles: Record<string, RoleConfig>) {
   try {
     // Filter to ensure only our 5 main roles persist to local configuration overrides
     const filteredRoles: Record<string, RoleConfig> = {};
-    ['Owner', 'Admin', 'Manager', 'Cashier', 'Rider'].forEach(rk => {
+    ['Owner', 'Admin', 'Manager', 'Cashier', 'Rider', 'Supplier'].forEach(rk => {
       if (roles[rk]) filteredRoles[rk] = roles[rk];
     });
     localStorage.setItem('kkm_dynamic_roles_v2', JSON.stringify(filteredRoles));

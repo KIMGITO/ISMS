@@ -1,4 +1,5 @@
 import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SearchableDropdown from '../SearchableDropdown';
 import {
   AlignCenter,
   AlignJustify,
@@ -263,20 +264,15 @@ function ToolSelect({
   className?: string;
 }) {
   return (
-    <select
-      aria-label={label}
-      title={label}
-      value={value}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-      className={`h-8 shrink-0 rounded-md border border-app-border bg-app-bg px-2 text-xs font-medium text-app-text outline-none focus:border-brand-500 disabled:opacity-40 ${className}`}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div title={label} aria-label={label} className={`w-36 shrink-0 ${disabled ? 'opacity-40' : ''} ${className}`}>
+      <SearchableDropdown
+        items={options.map((o) => ({ id: o.value, label: o.label }))}
+        selectedValue={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={label}
+      />
+    </div>
   );
 }
 

@@ -33,15 +33,13 @@ export const SCREENS: AppScreen[] = [
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products, stock levels, categories and adjustments", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every restock, wastage, count and production change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
   { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Send stock to another branch and receive what branches send you", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way", "ask for stock", "request stock", "shortage"], permissions: ["inventory.transfer_stock", "inventory.receive_stock", "inventory.request_transfer"] },
-  { id: "suppliers", group: "Stock", title: "Suppliers & Purchases", description: "Who you buy from, what you ordered, asking for prices, and receiving it in parts", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn"], permissions: ["suppliers.view", "purchases.view"] },
-  { id: "buying", group: "Stock", title: "Buying", description: "What to reorder, approvals, supplier bills, returns to suppliers and approval limits", keywords: ["reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "grn", "return to supplier", "vat on purchases", "lead time"], permissions: ["purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
+  { id: "buying", group: "Stock", title: "Buying", description: "Suppliers, purchases, what to reorder, approvals, supplier bills and returns", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
   { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Record payments and expenses, void payments, M-Pesa till, Airtel Money, cards and which payment methods are on", keywords: ["payments", "expenses", "mpesa", "m-pesa", "airtel", "till", "void", "money", "cash", "payment methods", "switch off"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.airtel", "payments.verify", "payments.configure", "expenses.view", "expenses.create"] },
   { id: "prompt", group: "Money", title: "Payment Prompts", description: "Send an M-Pesa or Airtel Money prompt to a phone and watch it get paid", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
-  { id: "finance", group: "Money", title: "Finances", description: "Profit or loss, income, spending, debts, wallets and what points cost", keywords: ["finance", "profit", "loss", "income", "spending", "report", "accounts", "debts", "p&l", "books"], permissions: ["finance.view"] },
-  { id: "accounting", group: "Money", title: "Accounting", description: "The books: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe, money counts", keywords: ["accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "p&l", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock"], permissions: ["accounting.view"] },
+  { id: "finance", group: "Money", title: "Finance & Accounting", description: "Profit or loss, income and spending, the books, balance sheet, journal, VAT, who owes and money counts", keywords: ["finance", "profit", "loss", "income", "spending", "report", "debts", "p&l", "accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock", "wallets", "points cost"], permissions: ["finance.view", "accounting.view"] },
   { id: "invoicing", group: "Selling", title: "Quotes & Invoices", description: "Quotes, sales orders, deliveries, invoices, payments on them, credit notes and who owes", keywords: ["quote", "quotation", "proforma", "estimate", "sales order", "order", "lpo", "delivery note", "invoice", "bill", "credit note", "refund", "return", "ageing", "aging", "overdue", "terms", "b2b", "wholesale"], permissions: ["quotes.view", "quotes.manage", "sales_orders.view", "sales_orders.manage", "invoices.view", "invoices.manage"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
@@ -61,8 +59,22 @@ export const SCREENS: AppScreen[] = [
 
 export const SCREEN_BY_ID = new Map(SCREENS.map((s) => [s.id, s]));
 
+/**
+ * Screens that were merged into another. Opening the old id opens the new screen at the
+ * matching part, so links, shortcuts, saved start screens and the tour keep working.
+ */
+export const SCREEN_ALIASES: Record<string, { screen: ScreenId; section: string }> = {
+  accounting: { screen: "finance", section: "books" },
+  suppliers: { screen: "buying", section: "suppliers" },
+};
+
+/** The screen an id really opens (itself, or the screen it was merged into). */
+export function resolveScreen(id: string): ScreenId {
+  return (SCREEN_ALIASES[id]?.screen ?? id) as ScreenId;
+}
+
 export function canOpenScreen(role: string | undefined, id: string): boolean {
-  const screen = SCREEN_BY_ID.get(id as ScreenId);
+  const screen = SCREEN_BY_ID.get(resolveScreen(id));
   if (!screen || !role) return false;
   return screen.permissions.length === 0 || screen.permissions.some((code) => hasRolePermission(role, code as any));
 }

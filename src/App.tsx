@@ -32,11 +32,10 @@ import OnlineStoreView from './features/OnlineStoreView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
-import FinanceView from './features/FinanceView';
 import AccountingView from './features/AccountingView';
 import SalesDocsView from './features/SalesDocsView';
 import BuyingView from './features/BuyingView';
-import SuppliersView from './features/SuppliersView';
+import SupplierPortalView from './features/SupplierPortalView';
 import AssetsFilesView from './features/AssetsFilesView';
 import AuditLogView from './features/AuditLogView';
 import { useNotificationStore } from './stores/notificationStore';
@@ -162,9 +161,9 @@ import { TermsDialog } from './components/legal/TermsDialog';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
-const SUPPLIER_PERMISSIONS = SCREEN_BY_ID.get('suppliers')!.permissions;
 const INVOICING_PERMISSIONS = SCREEN_BY_ID.get('invoicing')!.permissions;
 const BUYING_PERMISSIONS = SCREEN_BY_ID.get('buying')!.permissions;
+const FINANCE_PERMISSIONS = SCREEN_BY_ID.get('finance')!.permissions;
 const ASSET_PERMISSIONS = SCREEN_BY_ID.get('assets')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
@@ -202,10 +201,8 @@ const MOBILE_TABS = [
   { id: 'money', label: 'Payments', icon: Wallet, permission: MONEY_PERMISSIONS },
   { id: 'prompt', label: 'Prompts', icon: Send, permission: PROMPT_PERMISSIONS },
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
-  { id: 'finance', label: 'Finances', icon: PieChart, permission: 'finance.view' },
-  { id: 'accounting', label: 'Accounting', icon: BookOpen, permission: 'accounting.view' },
+  { id: 'finance', label: 'Finance', icon: PieChart, permission: FINANCE_PERMISSIONS },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
-  { id: 'suppliers', label: 'Suppliers', icon: Truck, permission: SUPPLIER_PERMISSIONS },
   { id: 'assets', label: 'Assets', icon: HardDrive, permission: ASSET_PERMISSIONS },
   { id: 'audit', label: 'Audit Log', icon: Activity, permission: 'audit.view' },
   { id: 'settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
@@ -334,7 +331,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-buying',
     title: 'Buying',
-    content: 'What is running low and how much to order, or which branch has plenty. Approve purchases above someone\'s limit, enter supplier bills, and send goods back.',
+    content: 'Your suppliers and what you order from them. See what is running low and how much to order, or which branch has plenty to send instead. Receive deliveries into stock, approve purchases above someone\'s limit, enter supplier bills and pay them, and send goods back. Give a supplier app access (⋯ on a supplier) and they confirm orders, send prices and follow their payments themselves.',
     placement: 'right',
     tab: 'buying',
   },
@@ -391,13 +388,6 @@ const tourSteps: TourStep[] = [
     tab: 'petty-cash',
   },
   {
-    targetSelector: '#sidebar-tab-suppliers',
-    title: 'Suppliers & Purchases',
-    content: 'Keep your suppliers, record what you order from them, and tap Receive into stock when it arrives: linked items are added to stock with the purchase number.',
-    placement: 'right',
-    tab: 'suppliers',
-  },
-  {
     targetSelector: '#sidebar-tab-assets',
     title: 'Assets & Files',
     content: 'What the business owns, with codes, values and where it is, and the documents you keep, like licences and contracts.',
@@ -413,17 +403,10 @@ const tourSteps: TourStep[] = [
   },
   {
     targetSelector: '#sidebar-tab-finance',
-    title: 'Finances',
-    content: 'Profit or loss, income, spending, debts, wallets, and what loyalty points cost you.',
+    title: 'Finance & Accounting',
+    content: 'Summary shows profit or loss, money in and out, debts, wallets and what points cost. Books, Who owes and Checks are the full accounts, kept by themselves from every sale, expense, payment, purchase and transfer: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe, money counts.',
     placement: 'right',
     tab: 'finance',
-  },
-  {
-    targetSelector: '#sidebar-tab-accounting',
-    title: 'Accounting',
-    content: 'The books keep themselves from every sale, expense, payment and purchase: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe. Owners can pay suppliers, count money and lock past months.',
-    placement: 'right',
-    tab: 'accounting',
   },
   {
     targetSelector: '#sidebar-tab-deliveries',
@@ -558,6 +541,7 @@ function tourStepsFor(role: string | undefined): TourStep[] {
 export default function App() {
   const isKeyboardVisible = useKeyboardVisible();
   const mainConstraintsRef = useRef<HTMLDivElement>(null);
+  const supplierAccounts = useAuthStore((st) => st.supplierAccounts);
   const {
     currentEmployee,
     isOnline,
@@ -1885,6 +1869,11 @@ export default function App() {
                 </button>
               </motion.div>
             </div>
+          ) : currentUser && currentUser.isVerified && !currentEmployee && supplierAccounts.length > 0 ? (
+            /* SOMEONE AT A SUPPLIER: their own portal, no staff screens */
+            <motion.div key="supplier-portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col min-h-dvh">
+              <SupplierPortalView themeMode={themeMode} onToggleTheme={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')} />
+            </motion.div>
           ) : !currentUser ||
             !currentUser.isVerified ||
             !currentEmployee ||
@@ -3743,7 +3732,7 @@ export default function App() {
                       id: 'buying',
                       label: 'Buying',
                       icon: ClipboardList,
-                      desc: 'Reorder, approvals, supplier bills',
+                      desc: 'Suppliers, orders, bills, reorder',
                       permission: BUYING_PERMISSIONS,
                     },
                     {
@@ -3846,17 +3835,10 @@ export default function App() {
                     },
                     {
                       id: 'finance',
-                      label: 'Finances',
+                      label: 'Finance & Accounting',
                       icon: PieChart,
-                      desc: 'Profit, spending, debts, points',
-                      permission: 'finance.view' as const,
-                    },
-                    {
-                      id: 'accounting',
-                      label: 'Accounting',
-                      icon: BookOpen,
-                      desc: 'Books, balance sheet, VAT, suppliers',
-                      permission: 'accounting.view' as const,
+                      desc: 'Profit, the books, VAT, who owes',
+                      permission: FINANCE_PERMISSIONS,
                     },
                     {
                       id: 'production',
@@ -3864,13 +3846,6 @@ export default function App() {
                       icon: FlaskConical,
                       desc: 'BOM & Batch Tracking',
                       permission: 'bom.view' as const,
-                    },
-                    {
-                      id: 'suppliers',
-                      label: 'Suppliers & Purchases',
-                      icon: Truck,
-                      desc: 'Suppliers, orders, receiving',
-                      permission: SUPPLIER_PERMISSIONS,
                     },
                     {
                       id: 'assets',
@@ -4479,8 +4454,8 @@ export default function App() {
                         {...SCREEN_MOTION}
                         className="absolute inset-0"
                       >
-                        <SecurityGuard permission="finance.view">
-                          <FinanceView />
+                        <SecurityGuard permission={FINANCE_PERMISSIONS as any}>
+                          <AccountingView />
                         </SecurityGuard>
                       </motion.div>
                     )}
@@ -4498,13 +4473,6 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
-                    {activeTab === 'accounting' && (
-                      <motion.div key="accounting-view" {...SCREEN_MOTION} className="absolute inset-0">
-                        <SecurityGuard permission="accounting.view">
-                          <AccountingView />
-                        </SecurityGuard>
-                      </motion.div>
-                    )}
                     {activeTab === 'production' && (
                       <motion.div
                         key="production-view"
@@ -4513,13 +4481,6 @@ export default function App() {
                       >
                         <SecurityGuard permission="bom.view">
                           <ProductionBOMView />
-                        </SecurityGuard>
-                      </motion.div>
-                    )}
-                    {activeTab === 'suppliers' && (
-                      <motion.div key="suppliers-view" {...SCREEN_MOTION} className="absolute inset-0">
-                        <SecurityGuard permission={SUPPLIER_PERMISSIONS as any}>
-                          <SuppliersView />
                         </SecurityGuard>
                       </motion.div>
                     )}

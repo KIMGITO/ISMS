@@ -4,6 +4,7 @@
 // product stands on the banner like a shop display. Saved to website_settings.hero_slides; the
 // database checks every field again (fn_valid_hero_slides, migrations 20261111002 + 20261112004).
 // Pictures can be dragged and zoomed anywhere in the display; their boxes are saved as positions.
+import SearchableDropdown from '../SearchableDropdown';
 import { FormEvent, KeyboardEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, ImagePlus, Minus, Monitor, Move, Plus, RotateCcw, Save, ShoppingCart, Smartphone, Tablet, Trash2, X, ZoomIn } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
@@ -595,21 +596,21 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
         </label>
         <label className="block text-sm font-medium text-app-text">
           Button opens
-          <select
-            value={customLink ? 'other' : slide.ctaHref || '/shop'}
-            onChange={(e) => {
-              if (e.target.value === 'other') {
-                setCustomLink(true);
-              } else {
-                setCustomLink(false);
-                set({ ctaHref: e.target.value });
-              }
-            }}
-            className={`${inputClass} mt-1`}
-          >
-            {LINK_CHOICES.map((c) => <option key={c.href} value={c.href}>{c.label}</option>)}
-            <option value="other">Other page or web address…</option>
-          </select>
+          <div className="mt-1">
+            <SearchableDropdown
+              items={[...LINK_CHOICES.map((c) => ({ id: c.href, label: c.label })), { id: 'other', label: 'Other page or web address…' }]}
+              selectedValue={customLink ? 'other' : slide.ctaHref || '/shop'}
+              onChange={(v) => {
+                if (v === 'other') {
+                  setCustomLink(true);
+                } else {
+                  setCustomLink(false);
+                  set({ ctaHref: v });
+                }
+              }}
+              placeholder="Choose a page"
+            />
+          </div>
         </label>
         {customLink && (
           <label className="block text-sm font-medium text-app-text sm:col-span-2">

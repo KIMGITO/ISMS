@@ -1,11 +1,14 @@
-// Buying: what to reorder (or ask a branch for), approvals waiting, supplier bills,
-// returns to suppliers, and the approval limits per role.
+// Buying: suppliers and purchases (SuppliersView, embedded), what to reorder (or ask a branch
+// for), approvals waiting, supplier bills, returns to suppliers, and the approval limits per role.
 // Everything is checked and done in the database (20261118001_smarter_buying.sql); this
 // screen reads it and calls the functions.
+import SearchableDropdown from '../components/SearchableDropdown';
+import { Checkbox } from '../components/shared/Checkbox';
+import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowRightLeft, CalendarClock, ClipboardList, FileText, Hand, PackageSearch, RotateCcw, Search,
-  Settings2, ShieldCheck, ShoppingCart, Undo2, Wallet,
+  Settings2, ShieldCheck, ShoppingCart, Truck, Undo2, Wallet,
 } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
 import { useAuthStore } from '../stores/authStore';
@@ -15,7 +18,8 @@ import { useUiStore } from '../stores/uiStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { formatCurrency } from '../utils/helpers';
-import { Tabs } from '../components/TabOptions';
+import { GroupedTabs, type TabGroup } from '../components/TabOptions';
+import SuppliersView from './SuppliersView';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import { appDialog } from '../components/AppDialog';
 import { BillSheet, PayBillSheet, ReasonSheet, ReturnSheet } from '../components/buying/BuyingSheets';
@@ -27,7 +31,7 @@ import {
 import { listPurchases, listSuppliers, type PurchaseOrder, type Supplier } from '../services/operations';
 import { getSupabase } from '../services/supabaseClient';
 
-type Tab = 'reorder' | 'approvals' | 'bills' | 'returns' | 'settings';
+type Tab = 'suppliers' | 'purchases' | 'reorder' | 'approvals' | 'bills' | 'returns' | 'settings';
 
 const q3 = (n: number) => String(Math.round(n * 1000) / 1000);
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00+03:00` : iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -44,7 +48,7 @@ function Card({ title, subtitle, action, children }: { title: string; subtitle?:
   return (
     <section className="bg-app-card rounded-2xl ring-1 ring-app-border/70 p-4 space-y-3">
       <div className="flex items-start gap-3 flex-wrap">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-56">
           <h3 className="text-sm font-semibold text-app-text">{title}</h3>
           {subtitle && <p className="text-xs text-app-text-muted mt-0.5">{subtitle}</p>}
         </div>
@@ -79,14 +83,39 @@ export default function BuyingView() {
   const [error, setError] = useState<string | null>(null);
 
   const waiting = overview ? overview.approvals.purchases.length + overview.approvals.transfers.length + overview.approvals.bills.length : 0;
+  const seesSuppliers = can('suppliers.view');
   const tabs = [
+    { id: 'suppliers' as Tab, label: 'Suppliers', icon: <Truck size={14} />, shortcut: 'suppliers-tab', allowed: seesSuppliers },
+    { id: 'purchases' as Tab, label: 'Purchases', icon: <ShoppingCart size={14} />, shortcut: 'purchases-tab', allowed: can('purchases.view') },
     { id: 'reorder' as Tab, label: 'Reorder', icon: <PackageSearch size={14} />, shortcut: 'buying-reorder', allowed: canSeePurchases || canAsk },
     { id: 'approvals' as Tab, label: 'Approvals', icon: <ShieldCheck size={14} />, shortcut: 'buying-approvals', allowed: canApprove || canBill, badge: waiting },
     { id: 'bills' as Tab, label: 'Bills', icon: <FileText size={14} />, shortcut: 'buying-bills', allowed: canBill || canSeePurchases, badge: overview?.toBill.length || 0 },
     { id: 'returns' as Tab, label: 'Returns', icon: <Undo2 size={14} />, shortcut: 'buying-returns', allowed: canSeePurchases },
     { id: 'settings' as Tab, label: 'Settings', icon: <Settings2 size={14} />, shortcut: 'buying-settings', allowed: canSeePurchases || canApprove },
   ].filter((t) => t.allowed);
-  const [tab, setTab] = useState<Tab>(tabs[0]?.id ?? 'reorder');
+  const only = (...ids: Tab[]) => ids.flatMap((id) => tabs.filter((t) => t.id === id));
+  // Grouped so the phone shows four tabs, in the order work happens:
+  // who we buy from → what to order and approve → bills (and returns) → settings.
+  const groups: TabGroup<Tab>[] = [
+    { id: 'suppliers', label: 'Suppliers', tabs: only('suppliers') },
+    { id: 'orders', label: 'Orders', tabs: only('reorder', 'purchases', 'approvals') },
+    { id: 'bills', label: 'Bills', tabs: only('bills', 'returns') },
+    { id: 'settings', label: 'Settings', tabs: only('settings') },
+  ];
+  const [tab, setTabState] = useState<Tab>(tabs.find((t) => t.id === 'reorder')?.id ?? tabs[0]?.id ?? 'reorder');
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    // Suppliers & Purchases save on their own; refresh the counts on the buying tabs.
+    if (t !== 'suppliers' && t !== 'purchases') void load();
+  };
+  // Opened as "suppliers" (old screen id, G then Z, search): start on that tab.
+  const section = useUiStore((st) => st.screenSection);
+  useEffect(() => {
+    if (section !== 'suppliers' && section !== 'purchases') return;
+    useUiStore.getState().setScreenSection(null);
+    if (tabs.some((t) => t.id === section)) setTabState(section);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -118,7 +147,9 @@ export default function BuyingView() {
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
       <div className="max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3">
-        <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={setTab} className="!pb-2" />
+        <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} />
+
+        {(tab === 'suppliers' || tab === 'purchases') && <SuppliersView embedded tab={tab} onTab={setTabState} />}
 
         {overview && overview.dueSoon.length > 0 && (
           <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/30 p-3 text-sm text-amber-900 dark:text-amber-200 flex items-start gap-2">
@@ -290,7 +321,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" className={`${fieldClass} pl-9`} />
           </div>
           <label className="flex items-center gap-2 text-xs text-app-text-muted">
-            <input type="checkbox" className="accent-amber-500" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> All products
+            <Checkbox checked={showAll} onChange={(on) => setShowAll(on)} /> All products
           </label>
           {canSetLevels && withSuggestion.length > 0 && (
             <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => void useSuggested()}>Set levels from sales</button>
@@ -308,16 +339,10 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
               return (
                 <li key={r.productId} className="py-2.5 px-1 flex items-start gap-3">
                   {p && (canCreate || canAsk) ? (
-                    <input
-                      type="checkbox"
-                      className="mt-1 accent-amber-500"
-                      checked={p.on}
-                      aria-label={`Order ${r.name}`}
-                      onChange={(e) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], on: e.target.checked } }))}
-                    />
+                    <Checkbox checked={p.on} onChange={(on) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], on: on } }))} ariaLabel={`Order ${displayName(r.name)}`} />
                   ) : <span className="w-[13px]" />}
                   <button className="min-w-0 flex-1 text-left cursor-pointer" onClick={() => canSetLevels && setEditing(r)}>
-                    <p className="text-sm font-medium text-app-text break-words">{r.name}</p>
+                    <p className="text-sm font-medium text-app-text break-words">{displayName(r.name)}</p>
                     <p className="text-[11px] text-app-text-muted">
                       {q3(r.stock)} {r.unit} in stock
                       {r.level !== null ? ` · level ${q3(r.level)}` : ' · no level'}
@@ -335,19 +360,22 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                       <input
                         type="number" inputMode="decimal" min="0" step="any"
                         value={p.qty}
-                        aria-label={`How much ${r.name}`}
+                        aria-label={`How much ${displayName(r.name)}`}
                         onChange={(e) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], qty: e.target.value } }))}
                         className="w-24 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums"
                       />
                       {r.transferFrom && canAsk && (
-                        <select
-                          value={p.from}
-                          onChange={(e) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], from: e.target.value } }))}
-                          className="bg-app-bg border border-app-border rounded-lg px-1.5 py-1 text-[11px] max-w-[10rem]"
-                        >
-                          <option value={r.transferFrom.businessId}>Ask {r.transferFrom.name} ({q3(r.transferFrom.spare)} spare)</option>
-                          <option value="buy">Buy</option>
-                        </select>
+                        <div className="w-44 max-w-full">
+                          <SearchableDropdown
+                            items={[
+                              { id: r.transferFrom.businessId, label: `Ask ${r.transferFrom.name}`, sublabel: `${q3(r.transferFrom.spare)} spare` },
+                              { id: 'buy', label: 'Buy from a supplier' },
+                            ]}
+                            selectedValue={p.from}
+                            onChange={(v) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], from: v } }))}
+                            placeholder="Ask or buy"
+                          />
+                        </div>
                       )}
                     </div>
                   )}
@@ -413,10 +441,13 @@ function ReorderSheet({ businessId, row, suppliers, onClose, onSaved }: {
           <input type="number" inputMode="decimal" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} className={fieldClass} />
         </Field>
         <Field label="Usual supplier">
-          <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={fieldClass}>
-            <option value="">None</option>
-            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}{s.company ? ` · ${s.company}` : ''}</option>)}
-          </select>
+          <SearchableDropdown
+            items={[{ id: '', label: 'None' }, ...suppliers.map((s) => ({ id: s.id, label: s.name, sublabel: s.company || undefined }))]}
+            selectedValue={supplierId}
+            onChange={setSupplierId}
+            placeholder="None"
+            searchPlaceholder="Search suppliers"
+          />
         </Field>
         <Field label="Their price each (KSh)" hint={`Cost now ${formatCurrency(row.cost)}`}>
           <input type="number" inputMode="decimal" min="0" step="any" value={price} onChange={(e) => setPrice(e.target.value)} className={fieldClass} />
@@ -715,7 +746,7 @@ function ReturnsTab({ businessId, overview, suppliers, purchases, products, canR
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{r.supplier} · {r.number}</p>
                   <p className="text-[11px] text-app-text-muted">{day(r.createdAt)}{r.by ? ` · ${r.by}` : ''} · {r.reason}</p>
-                  <p className="text-[11px] text-app-text-muted break-words">{r.lines.map((l) => `${l.name} ${l.quantity} ${l.unit || ''}`).join(' · ')}</p>
+                  <p className="text-[11px] text-app-text-muted break-words">{r.lines.map((l) => `${displayName(l.name)} ${l.quantity} ${l.unit || ''}`).join(' · ')}</p>
                 </div>
                 <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(r.total)}</span>
               </li>
@@ -801,7 +832,7 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
             <button className={primaryBtn} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
           )}
           {s.updatedBy && <span className="text-[11px] text-app-text-muted">Last changed by {s.updatedBy}{s.updatedAt ? ` on ${day(s.updatedAt)}` : ''}</span>}
-          <button className={`${secondaryBtn} ml-auto !px-3 !py-1.5 text-xs`} onClick={() => goTo('suppliers')}><ClipboardList size={13} /> Suppliers & Purchases</button>
+          <button className={`${secondaryBtn} ml-auto !px-3 !py-1.5 text-xs`} onClick={() => goTo('suppliers')}><ClipboardList size={13} /> Suppliers</button>
         </div>
       </Card>
     </div>

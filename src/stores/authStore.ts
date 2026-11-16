@@ -1,4 +1,5 @@
 // src/stores/authStore.ts
+import { loadSupplierAccounts, type SupplierAccount } from "../services/supplierPortal";
 import { create } from "zustand";
 import { User, Business, BusinessMembership, Invitation, Employee, Shift, EmployeeRole } from "../types";
 import { onBranchChange, useBusinessStore } from "./businessStore";
@@ -28,6 +29,8 @@ interface AuthState {
   // Existing state for backwards compatibility
   employees: Employee[];
   currentEmployee: Employee | null;
+  /** Businesses this person signs in to as a supplier (no staff membership there). */
+  supplierAccounts: SupplierAccount[];
   activeShift: Shift | null;
   shifts: Shift[];
   login: (pin: string) => boolean;
@@ -202,6 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // Backward-compatible properties
     employees: [],
     currentEmployee: null,
+    supplierAccounts: [],
     activeShift: null,
     shifts: [],
 
@@ -290,6 +294,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           set({
             currentUser: null,
             currentEmployee: null,
+            supplierAccounts: [],
             currentBusinessId: null,
             memberships: [],
             users: [],
@@ -470,8 +475,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
           }
         }
 
+        // Someone at a supplier: no staff membership, but a supplier account (supplier portal).
+        let supplierAccounts: SupplierAccount[] = [];
+        if (mappedMems.length === 0) {
+          supplierAccounts = await loadSupplierAccounts().catch(() => []);
+        }
+
         // Set auth state
         set({
+          supplierAccounts,
           currentUser: mappedUser,
           currentBusinessId: activeBizId,
           memberships: mappedMems,
@@ -571,6 +583,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({
           currentUser: null,
           currentEmployee: null,
+          supplierAccounts: [],
           currentBusinessId: null,
           memberships: [],
           users: [],

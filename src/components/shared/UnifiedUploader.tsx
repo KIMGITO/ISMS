@@ -1,5 +1,6 @@
 // src/components/shared/UnifiedUploader.tsx
 import { toUserMessage } from "../../utils/userError";
+import { SwitchCamera } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
@@ -197,6 +198,8 @@ export default function UnifiedUploader({
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
+  const [cameraCount, setCameraCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Crop gestures states
@@ -385,8 +388,14 @@ export default function UnifiedUploader({
     setIsCameraActive(false);
   };
 
-  const startCamera = async () => {
+  // Back camera first (products, receipts); the switch button flips to the selfie camera.
+  const startCamera = async (facing: "user" | "environment" = cameraFacing) => {
     setCameraError("");
+    setCameraFacing(facing);
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
     setIsCameraActive(true);
     try {
       const permission = await devicePermissionService.request("camera");
@@ -394,9 +403,18 @@ export default function UnifiedUploader({
         throw new Error("Camera permission denied. Please grant permission to continue.");
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 480, height: 480, facingMode: "user" }
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 1280 }, facingMode: { ideal: facing } }
+        });
+      } catch {
+        // Laptops with one camera may refuse the size or the facing; take whatever camera there is.
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      navigator.mediaDevices.enumerateDevices?.()
+        .then(devices => setCameraCount(devices.filter(d => d.kind === "videoinput").length))
+        .catch(() => {});
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -408,16 +426,23 @@ export default function UnifiedUploader({
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
     try {
+      // Square centre of the frame, as the preview shows it, without stretching.
+      const side = Math.min(video.videoWidth, video.videoHeight);
+      const out = Math.min(side, 1080);
       const canvas = document.createElement("canvas");
-      canvas.width = 480;
-      canvas.height = 480;
+      canvas.width = out;
+      canvas.height = out;
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.translate(480, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoRef.current, 0, 0, 480, 480);
+        if (cameraFacing === "user") {
+          // The selfie preview is mirrored; keep the photo the way the person saw it.
+          ctx.translate(out, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, (video.videoWidth - side) / 2, (video.videoHeight - side) / 2, side, side, 0, 0, out, out);
         
         canvas.toBlob((blob) => {
           if (blob) {
@@ -1340,8 +1365,19 @@ export default function UnifiedUploader({
                               ref={videoRef}
                               autoPlay
                               playsInline
-                              className="w-full h-full object-cover scale-x-[-1]"
+                              className={`w-full h-full object-cover ${cameraFacing === "user" ? "scale-x-[-1]" : ""}`}
                             />
+                            {cameraCount !== 1 && (
+                              <button
+                                type="button"
+                                onClick={() => startCamera(cameraFacing === "user" ? "environment" : "user")}
+                                aria-label={cameraFacing === "user" ? "Use the back camera" : "Use the front camera"}
+                                title={cameraFacing === "user" ? "Use the back camera" : "Use the front camera"}
+                                className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center cursor-pointer"
+                              >
+                                <SwitchCamera size={18} />
+                              </button>
+                            )}
                           </div>
                           <button
                             type="button"
@@ -1359,7 +1395,7 @@ export default function UnifiedUploader({
                           </p>
                           <button
                             type="button"
-                            onClick={startCamera}
+                            onClick={() => startCamera()}
                             className="py-1.5 px-4 bg-brand-500 text-app-bg text-[9px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
                           >
                             Activate Camera Feed

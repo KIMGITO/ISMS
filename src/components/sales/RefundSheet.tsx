@@ -1,6 +1,9 @@
 // Refund some or all of a till sale. The sale stays in the Sales Log; a credit note is made
 // and the customer gets the money back (cash, M-Pesa, …), into their wallet, or off the debt
 // this sale left. Ticking "Put back in stock" returns the items to stock.
+import SearchableDropdown from '../SearchableDropdown';
+import { Checkbox } from '../shared/Checkbox';
+import { displayName } from '../../utils/stringUtils';
 import React, { useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Undo2 } from 'lucide-react';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../shared/FormSheet';
@@ -115,16 +118,9 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
           <div className="rounded-2xl ring-1 ring-app-border divide-y divide-app-border/60">
             {info.lines.map((l) => (
               <div key={l.id} className="flex items-center gap-3 px-3 py-2">
-                <input
-                  type="checkbox"
-                  aria-label={`Refund ${l.name}`}
-                  checked={(qty[l.id] || 0) > 0}
-                  disabled={l.left <= 0}
-                  onChange={(e) => setQty((q) => ({ ...q, [l.id]: e.target.checked ? l.left : 0 }))}
-                  className="accent-amber-500 size-4"
-                />
+                <Checkbox checked={(qty[l.id] || 0) > 0} onChange={(on) => setQty((q) => ({ ...q, [l.id]: on ? l.left : 0 }))} disabled={l.left <= 0} ariaLabel={`Refund ${displayName(l.name)}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm truncate">{l.name}</p>
+                  <p className="text-sm truncate">{displayName(l.name)}</p>
                   <p className="text-[11px] text-app-text-muted">
                     {l.left < l.quantity ? `${l.left} of ${l.quantity} left` : `${l.quantity} sold`} · {formatCurrency(l.unitNet * (1 + l.vatRate / 100))} each
                   </p>
@@ -146,10 +142,12 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
           </div>
 
           <Field label="Why">
-            <select value={REASONS.includes(reason) ? reason : '__other'} onChange={(e) => setReason(e.target.value === '__other' ? '' : e.target.value)} className={fieldClass}>
-              {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-              <option value="__other">Something else…</option>
-            </select>
+            <SearchableDropdown
+              items={[...REASONS.map((r) => ({ id: r, label: r })), { id: '__other', label: 'Something else…' }]}
+              selectedValue={REASONS.includes(reason) ? reason : '__other'}
+              onChange={(v) => setReason(v === '__other' ? '' : v)}
+              placeholder="Choose why"
+            />
             {!REASONS.includes(reason) && (
               <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Say why" className={`${fieldClass} mt-2`} />
             )}
@@ -173,15 +171,13 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
             </div>
             {settlement === 'refund' && (
               <Field label="Paid back by">
-                <select value={method} onChange={(e) => setMethod(e.target.value as MoneyMethod)} className={fieldClass}>
-                  {MONEY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <SearchableDropdown items={MONEY_METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={(v) => setMethod(v as MoneyMethod)} placeholder="Choose how" />
               </Field>
             )}
           </div>
 
           <label className="flex items-start gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={returnStock} onChange={(e) => setReturnStock(e.target.checked)} className="mt-0.5 accent-amber-500" />
+            <Checkbox checked={returnStock} onChange={(on) => setReturnStock(on)} />
             <span>
               Put the items back in stock
               <span className="block text-[11px] text-app-text-muted">Leave it off for spoilt goods that are thrown away.</span>

@@ -12,7 +12,7 @@ import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
-import { searchMatch } from '../utils/stringUtils';
+import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
 
 const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; icon: typeof Banknote; style: string }> = [
@@ -141,7 +141,7 @@ export default function QuickSaleView() {
     setError(null);
     const inCart = cart.find((item) => item.product.id === product.id)?.quantity || 0;
     if (inCart >= product.stock) {
-      showToast('Out of Stock', `Only ${formatQty(product.stock)} ${product.name} available.`, undefined, 'info');
+      showToast('Out of Stock', `Only ${formatQty(product.stock)} ${displayName(product.name)} available.`, undefined, 'info');
       nativeUiService.hapticError();
       return;
     }
@@ -164,7 +164,7 @@ export default function QuickSaleView() {
       return;
     }
     if (qty > product.stock) {
-      showToast('Not enough stock', `Only ${formatQty(product.stock)} ${product.name} available.`, undefined, 'info');
+      showToast('Not enough stock', `Only ${formatQty(product.stock)} ${displayName(product.name)} available.`, undefined, 'info');
       nativeUiService.hapticError();
       qty = product.stock;
     }
@@ -272,7 +272,7 @@ export default function QuickSaleView() {
                   query && index === highlight ? 'ring-2 ring-amber-500' : inCart > 0 ? 'ring-1 ring-amber-500/60' : 'hover:ring-1 hover:ring-amber-500/50'
                 }`}
               >
-                <span className="block text-sm font-semibold text-app-text leading-snug line-clamp-2">{product.name}</span>
+                <span className="block text-sm font-semibold text-app-text leading-snug line-clamp-2">{displayName(product.name)}</span>
                 <span className="block mt-1 text-sm font-bold text-amber-600">{formatCurrency(product.price)}</span>
                 <span className="block text-xs text-app-text-muted">{soldOut ? 'Sold out' : `${formatQty(product.stock)} ${product.unit || ''} left`}</span>
                 {inCart > 0 && (

@@ -23,7 +23,10 @@ import {
   ReceiptText,
   Keyboard,
   X,
+  FileSignature,
 } from 'lucide-react';
+import { hasRolePermission } from '../utils/permissions';
+import { useUiStore } from '../stores/uiStore';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { titleCase, sentenceCase, searchMatch } from '../utils/stringUtils';
@@ -488,6 +491,34 @@ export default function POSView() {
                   </h2>
                  
                 </div>
+                <div className="flex items-center gap-1">
+                {hasRolePermission(currentEmployee?.role || 'Guest', 'quotes.manage' as any) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // A customer who wants prices first: the cart becomes a quote in Quotes & Invoices.
+                      useUiStore.getState().startQuote({
+                        customerId: selectedCustomer?.id ?? null,
+                        customerName: selectedCustomer?.name ?? '',
+                        customerPhone: selectedCustomer?.phone ?? '',
+                        lines: cart.map((item) => ({
+                          productId: item.product.id,
+                          name: item.product.name,
+                          unit: item.product.unit || '',
+                          quantity: item.quantity,
+                          unitPrice: item.product.price,
+                          discountPct: item.discountPercentage || 0,
+                        })),
+                      });
+                    }}
+                    disabled={cart.length === 0}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 disabled:opacity-30 text-app-text hover:bg-app-bg rounded-xl ring-1 ring-app-border text-[11px] font-medium transition cursor-pointer"
+                    title="Make a quote from this cart"
+                    aria-label="Make a quote from this cart"
+                  >
+                    <FileSignature size={14} /> Quote
+                  </button>
+                )}
                 <button
                   onClick={clearCart}
                   disabled={cart.length === 0}
@@ -496,6 +527,7 @@ export default function POSView() {
                 >
                   <Trash2 size={15} />
                 </button>
+                </div>
               </div>
 
               {/* Drawer Body - Scrollable Items List */}

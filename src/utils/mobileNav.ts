@@ -20,8 +20,8 @@ const ROLE_PRIORITY: Record<string, string[]> = {
 // Used for roles without their own list, and to order everything else.
 const DEFAULT_PRIORITY = [
   'home', 'dashboard', 'sell', 'pos', 'sales', 'inventory', 'customers', 'deliveries',
-  'online-store', 'invoicing', 'production', 'stock-history', 'stock-transfers', 'suppliers', 'buying', 'feedback', 'workers', 'ai', 'permissions',
-  'money', 'prompt', 'petty-cash', 'finance', 'accounting', 'assets', 'audit', 'business-management', 'profile', 'settings', 'about',
+  'online-store', 'invoicing', 'production', 'stock-history', 'stock-transfers', 'buying', 'feedback', 'workers', 'ai', 'permissions',
+  'money', 'prompt', 'petty-cash', 'finance', 'assets', 'audit', 'business-management', 'profile', 'settings', 'about',
 ];
 
 function rank(order: string[], id: string): number {

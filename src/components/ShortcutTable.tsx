@@ -1,5 +1,6 @@
 // Keyboard shortcuts this person's role can use, with a search and a "where" filter.
 // Used in About this app (all screens) and the "?" help (the current screen).
+import SearchableDropdown from './SearchableDropdown';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Keyboard, Search, X } from 'lucide-react';
@@ -71,15 +72,15 @@ export function ShortcutTable({ scopes, autoFocus, listClassName = '' }: TablePr
           />
         </label>
         {places.length > 1 && (
-          <select
-            value={where}
-            onChange={(e) => setWhere(e.target.value as ShortcutScope | 'all')}
-            aria-label="Where the shortcut works"
-            className="bg-app-bg text-app-text text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <option value="all">All screens</option>
-            {places.map((p) => <option key={p} value={p}>{scopeLabel(p)}</option>)}
-          </select>
+          <div className="w-full sm:w-56">
+            <SearchableDropdown
+              items={[{ id: 'all', label: 'All screens' }, ...places.map((p) => ({ id: p, label: scopeLabel(p) }))]}
+              selectedValue={where}
+              onChange={(v) => setWhere(v as ShortcutScope | 'all')}
+              placeholder="All screens"
+              searchPlaceholder="Search screens"
+            />
+          </div>
         )}
       </div>
 

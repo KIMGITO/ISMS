@@ -3,6 +3,7 @@
 // Shows the time the same way the app shows it everywhere ("1:38 PM"), whatever the phone's
 // own clock setting, unlike the browser's time box.
 
+import SearchableDropdown from './SearchableDropdown';
 import React from 'react';
 import { AlarmClock } from 'lucide-react';
 import { formatClock, minutesFromNow, parseClock, toClock } from '../utils/timeFormat';
@@ -25,9 +26,6 @@ const QUICK = [
   { label: '+1 hr', minutes: 60 },
 ];
 
-const selectClass =
-  'bg-app-bg text-app-text text-lg font-mono font-black px-2 py-1.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none cursor-pointer disabled:opacity-50';
-
 export default function AlarmTimePicker({ value, onChange, onQuickPick, disabled }: Props) {
   const parts = parseClock(value) || { hour: 9, minute: 0 };
   const pm = parts.hour >= 12;
@@ -37,29 +35,25 @@ export default function AlarmTimePicker({ value, onChange, onQuickPick, disabled
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
         <AlarmClock size={18} className="text-amber-500 shrink-0" aria-hidden />
-        <select
-          aria-label="Hour"
-          disabled={disabled}
-          value={hour12}
-          onChange={(e) => onChange(toClock(Number(e.target.value), parts.minute, pm))}
-          className={selectClass}
-        >
-          {HOURS.map((h) => (
-            <option key={h} value={h}>{h}</option>
-          ))}
-        </select>
+        <div className="w-20" aria-label="Hour">
+          <SearchableDropdown
+            items={HOURS.map((h) => ({ id: String(h), label: String(h) }))}
+            selectedValue={String(hour12)}
+            onChange={(v) => onChange(toClock(Number(v), parts.minute, pm))}
+            disabled={disabled}
+            placeholder="Hour"
+          />
+        </div>
         <span className="text-lg font-black text-app-text">:</span>
-        <select
-          aria-label="Minute"
-          disabled={disabled}
-          value={parts.minute}
-          onChange={(e) => onChange(toClock(hour12, Number(e.target.value), pm))}
-          className={selectClass}
-        >
-          {MINUTES.map((m) => (
-            <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
-          ))}
-        </select>
+        <div className="w-20" aria-label="Minute">
+          <SearchableDropdown
+            items={MINUTES.map((m) => ({ id: String(m), label: String(m).padStart(2, '0') }))}
+            selectedValue={String(parts.minute)}
+            onChange={(v) => onChange(toClock(hour12, Number(v), pm))}
+            disabled={disabled}
+            placeholder="Min"
+          />
+        </div>
         <div role="radiogroup" aria-label="AM or PM" className="flex rounded-xl border border-app-border overflow-hidden ml-1">
           {(['AM', 'PM'] as const).map((p) => {
             const active = (p === 'PM') === pm;

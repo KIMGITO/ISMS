@@ -63,7 +63,8 @@ export default function WorkersView() {
   // Only Owners and Admins can make someone an Owner or Admin.
   const callerIsTop = ['Owner', 'Admin'].includes(currentEmployee?.role || '');
   const roleOptions = Object.values(getDynamicRoles())
-    .filter((r) => callerIsTop || !['Owner', 'Admin'].includes(r.name))
+    // Suppliers are invited from Buying → Suppliers, tied to their supplier; never as staff.
+    .filter((r) => r.name !== 'Supplier' && (callerIsTop || !['Owner', 'Admin'].includes(r.name)))
     .map((r) => ({ id: r.name, label: r.name }));
   const selectedRoleInfo = getDynamicRoles()[role];
 

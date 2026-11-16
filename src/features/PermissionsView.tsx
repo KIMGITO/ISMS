@@ -2,7 +2,7 @@
 // Streams Single-Open Accordions, System Uniform Toasts, and Bulletproof Owner/Admin Protections
 
 import React, { useState, useEffect } from "react";
-import { getDynamicRoles, saveDynamicRoles, ALL_PERMISSIONS, PermissionCode, SYSTEM_ROLES } from "../utils/permissions";
+import { getDynamicRoles, saveDynamicRoles, ALL_PERMISSIONS, PermissionCode, SYSTEM_ROLES, SUPPLIER_PORTAL_CATEGORY } from "../utils/permissions";
 import { ShieldCheck, ToggleLeft, ToggleRight, Info, Bot, RefreshCw, Lock, Search, X, Check, ShieldAlert, Grid, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useAuthStore } from "../stores/authStore";
@@ -20,6 +20,11 @@ export default function PermissionsView() {
 
   // Helper validation rule to guard root account hierarchies
   const isRootRole = selectedRole === "Owner" || selectedRole === "Admin" || selectedRole === "Administrator";
+  // Suppliers have their own short list (what they see when they sign in); staff roles never get it.
+  const pool = ALL_PERMISSIONS.filter((p) => (selectedRole === "Supplier") === (p.category === SUPPLIER_PORTAL_CATEGORY));
+  useEffect(() => {
+    if (selectedRole === "Supplier") setActiveOpenCategory(SUPPLIER_PORTAL_CATEGORY);
+  }, [selectedRole]);
 
   useEffect(() => {
     const roleDbPerms = dbPermissions
@@ -42,7 +47,7 @@ export default function PermissionsView() {
         setSearchQuery(target);
         setHighlightedPerm(target);
         
-        const found = ALL_PERMISSIONS.find(p => p.code === target);
+        const found = pool.find(p => p.code === target);
         if (found) {
           setActiveOpenCategory(found.category);
         }
@@ -86,7 +91,7 @@ export default function PermissionsView() {
       showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
       return;
     }
-    const allCodes = ALL_PERMISSIONS.map(p => p.code);
+    const allCodes = pool.map(p => p.code);
     setEditedPermissions(allCodes);
     showToast("Privileges Granted", `All system privileges assigned to "${selectedRole}". Save changes to commit.`, undefined, "info" as any);
   };
@@ -105,7 +110,7 @@ export default function PermissionsView() {
       showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
       return;
     }
-    const viewCodes = ALL_PERMISSIONS.filter(p => p.code.endsWith(".view") || p.code.includes("view_all") || p.code === "ai.use").map(p => p.code);
+    const viewCodes = pool.filter(p => p.code.endsWith(".view") || p.code.includes("view_all") || p.code === "ai.use").map(p => p.code);
     setEditedPermissions(viewCodes);
     showToast("View-Only Restricted", `Applied strict view-only configurations to "${selectedRole}". Save changes to commit.`, undefined, "info" as any);
   };
@@ -115,7 +120,7 @@ export default function PermissionsView() {
       showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
       return;
     }
-    const modulePerms = ALL_PERMISSIONS.filter(p => p.category === category).map(p => p.code);
+    const modulePerms = pool.filter(p => p.category === category).map(p => p.code);
     const hasAll = modulePerms.every(p => editedPermissions.includes(p));
 
     if (hasAll) {
@@ -161,9 +166,9 @@ export default function PermissionsView() {
     );
   };
 
-  const categories = Array.from(new Set(ALL_PERMISSIONS.map(p => p.category)));
+  const categories = Array.from(new Set(pool.map(p => p.category)));
 
-  const filteredPermissions = ALL_PERMISSIONS.filter(p => {
+  const filteredPermissions = pool.filter(p => {
     if (!searchQuery.trim()) return true;
     const term = searchQuery.toLowerCase();
     return p.code.toLowerCase().includes(term) || p.description.toLowerCase().includes(term);
@@ -234,7 +239,7 @@ export default function PermissionsView() {
               setSearchQuery(val);
               if (val.trim()) {
                 const term = val.toLowerCase();
-                const matched = ALL_PERMISSIONS.find(p => p.code.toLowerCase().includes(term) || p.description.toLowerCase().includes(term));
+                const matched = pool.find(p => p.code.toLowerCase().includes(term) || p.description.toLowerCase().includes(term));
                 if (matched) setActiveOpenCategory(matched.category);
               }
             }}
@@ -264,14 +269,14 @@ export default function PermissionsView() {
       <div className="space-y-3.5">
         {categories.map((category) => {
           const categoryPerms = filteredPermissions.filter(p => p.category === category);
-          const totalInCat = ALL_PERMISSIONS.filter(p => p.category === category).length;
+          const totalInCat = pool.filter(p => p.category === category).length;
           
           if (categoryPerms.length === 0) return null;
 
           const isExpanded = activeOpenCategory === category || searchQuery.trim().length > 0;
-          const rolePerms = isRootRole ? ALL_PERMISSIONS.map(p => p.code) : editedPermissions;
-          const matchedInRole = isRootRole ? totalInCat : ALL_PERMISSIONS.filter(p => p.category === category && rolePerms.includes(p.code)).length;
-          const hasAllInModule = isRootRole ? true : ALL_PERMISSIONS.filter(p => p.category === category).map(p => p.code).every(p => rolePerms.includes(p));
+          const rolePerms = isRootRole ? pool.map(p => p.code) : editedPermissions;
+          const matchedInRole = isRootRole ? totalInCat : pool.filter(p => p.category === category && rolePerms.includes(p.code)).length;
+          const hasAllInModule = isRootRole ? true : pool.filter(p => p.category === category).map(p => p.code).every(p => rolePerms.includes(p));
 
           return (
             <div key={category} className="bg-app-card border border-app-border rounded-2xl flex flex-col shadow-xs overflow-hidden">

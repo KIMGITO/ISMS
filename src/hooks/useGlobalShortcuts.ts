@@ -4,6 +4,7 @@
 // utils/shortcuts.ts. Screens with their own keys (POS, Quick Sale, receipts) keep them.
 
 import { useEffect, useRef } from "react";
+import { pressShortcut } from "../utils/pressShortcut";
 import { canOpenScreen, type ScreenId } from "../utils/screens";
 import { GO_TO_KEYS, shortcutsFor } from "../utils/shortcuts";
 
@@ -25,12 +26,7 @@ function viewport(): HTMLElement {
 
 /** Presses the visible, enabled button tagged data-shortcut=name on the current screen. */
 function press(name: string): boolean {
-  const el = Array.from(viewport().querySelectorAll<HTMLElement>(`[data-shortcut="${name}"]`)).find(
-    (b) => isVisible(b) && !(b as HTMLButtonElement).disabled,
-  );
-  if (!el) return false;
-  el.click();
-  return true;
+  return pressShortcut(name, viewport());
 }
 
 function focusPageSearch(): boolean {
