@@ -180,7 +180,7 @@ export function ReviewForm({ productId, productName }: { productId: string | nul
     return (
       <div className="rounded-xl border border-dashed border-line p-5">
         <p className="font-semibold">Tried {productName ?? 'our shop'}?</p>
-        <p className="mt-1 text-muted">Sign in to share what you think. Reviews from customers who ordered are marked as verified.</p>
+        <p className="mt-1 text-muted">Sign in to write a review.</p>
         <a href="/account" className="btn btn-secondary mt-4">Sign in to write a review</a>
       </div>
     );
@@ -188,7 +188,7 @@ export function ReviewForm({ productId, productName }: { productId: string | nul
   if (sent) {
     return (
       <p role="status" className="rounded-xl bg-emerald-50 p-5 font-medium text-emerald-900">
-        Thank you! Your review will appear once our team has checked it, usually within a day.
+        Thank you! It shows once we have checked it.
       </p>
     );
   }
@@ -234,7 +234,7 @@ export function ReviewForm({ productId, productName }: { productId: string | nul
         Your review
         <textarea required minLength={3} maxLength={2000} rows={4} value={body} onChange={(e) => setBody(e.target.value)} placeholder="What did you like? How was delivery?" className="field" />
       </label>
-      <p className="text-sm text-muted">We show your first name and initial. Reviews are checked before they appear.</p>
+      <p className="text-sm text-muted">We show your first name and initial.</p>
       <ErrorText>{error}</ErrorText>
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={busy} className="btn btn-primary">{busy ? 'Sending…' : 'Send review'}</button>
@@ -346,7 +346,7 @@ export function ReviewsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Reviews" title="What Our Customers Say" body={`Honest reviews from ${business.name} customers. Every review is from a signed-in customer and checked by our team.`}>
+      <PageHeader eyebrow="Reviews" title="What Our Customers Say" body={`What ${business.name} customers say.`}>
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Reviews' }]} />
       </PageHeader>
       <div className={`${pageClass} grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start`}>

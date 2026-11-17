@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Check, MessageCircleQuestion, Send, ShoppingCart, X } from 'lucide-react';
+import { Bot, Check, Send, ShoppingCart, X } from 'lucide-react';
 import { askAssistant, AssistantReply, friendlyError } from './api';
 import { useCart, useStorefront } from './store';
 import { formatPrice, primaryButton } from './ui';
@@ -12,7 +12,10 @@ interface ChatMessage {
   reply?: AssistantReply;
 }
 
-const SUGGESTIONS = ['Do you have milk?', 'How do I store milk?', 'Do you deliver?'];
+const SUGGESTIONS = ['Do you have milk?', 'Do you deliver?', 'How do I pay?'];
+
+/** The same name as the assistant in the ISMS app. */
+const AI_NAME: string = import.meta.env.VITE_AI_NAME || 'Kim';
 
 export default function Assistant() {
   const { business, products } = useStorefront();
@@ -27,7 +30,7 @@ export default function Assistant() {
     {
       id: 0,
       from: 'assistant',
-      text: "Hello! I can check what we have, work out the cost of your order, and help you look after your milk. What would you like?",
+      text: "Hi! Ask me about our products, prices, delivery or your order.",
     },
   ]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -57,8 +60,8 @@ export default function Assistant() {
       // Still point somewhere useful: the shop works without the assistant, and the team can answer.
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
       const text = offline
-        ? "You seem to be offline. Check your connection and ask again. You can still look through the shop."
-        : friendlyError(err, "Sorry, I can't answer right now. Please try again in a moment, look through the shop, or contact our team.");
+        ? "You seem to be offline. Check your connection and try again."
+        : friendlyError(err, "Sorry, I can't answer right now. Please try again, or contact us.");
       const reply: AssistantReply = {
         reply: text,
         link: offline ? { label: 'Go to the shop', href: '/shop' } : { label: 'Contact us', href: '/contact' },
@@ -78,11 +81,11 @@ export default function Assistant() {
     return (
       <button
         onClick={() => setOpen(true)}
-        aria-label="Ask us"
+        aria-label={`Ask ${AI_NAME}`}
         className="fixed bottom-[calc(5rem+var(--float-offset,0px)+env(safe-area-inset-bottom))] right-4 z-30 flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-brand-deep font-semibold text-white shadow-lg transition hover:brightness-110 md:px-4 lg:bottom-6 lg:right-6"
       >
-        <MessageCircleQuestion size={21} aria-hidden />
-        <span className="hidden md:inline">Ask us</span>
+        <Bot size={21} aria-hidden />
+        <span className="hidden md:inline">Ask {AI_NAME}</span>
       </button>
     );
   }
@@ -93,9 +96,12 @@ export default function Assistant() {
       className="assistant-enter fixed inset-0 z-50 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(36rem,calc(100dvh-3rem))] sm:w-96 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-2xl"
     >
       <header className="flex items-center justify-between gap-3 bg-brand-deep px-4 py-3 text-white">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold">{business.name} assistant</h2>
-          <p className="text-sm text-white/80">Products, orders and milk care</p>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Bot size={22} className="shrink-0" aria-hidden />
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold">{AI_NAME}</h2>
+            <p className="truncate text-sm text-white/80">{business.name} assistant</p>
+          </div>
         </div>
         <button onClick={() => setOpen(false)} aria-label="Close assistant" className="grid size-11 shrink-0 place-items-center">
           <X aria-hidden />

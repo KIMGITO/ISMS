@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { usePendingActionStore } from '../stores/pendingActionStore';
 import { useCustomerStore } from '../stores/customerStore';
-import { Send, ChevronDown, ChevronUp, MessageSquareText } from 'lucide-react';
+import { Send, ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { getDynamicRoles, ALL_PERMISSIONS } from '../utils/permissions';
 import { useAuthStore } from '../stores/authStore';
 import { SupabaseService } from '../services/supabaseService';
@@ -346,7 +346,7 @@ export default function WorkspaceAssistantView() {
       {/* Header */}
       <div className="bg-app-card border-b border-app-border px-4 py-3 flex items-center gap-2.5 shrink-0 shadow-xs z-10">
         <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
-          <MessageSquareText size={18} />
+          <Bot size={18} />
         </div>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold font-display text-app-text">{aiName}</h2>

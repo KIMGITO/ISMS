@@ -16,8 +16,7 @@ export function OrderAnyWayBand() {
         <div className="max-w-xl">
           <h2 id="order-heading" className="display-lg font-semibold">Order the way that suits you</h2>
           <p className="mt-2 text-sm text-muted sm:text-base">
-            Shop here and pay with M-Pesa, or send us a message and we will put your order together.
-            {settings.deliveryEnabled ? ' Delivered to your door or ready for pickup.' : ' Ready for pickup at our shop.'}
+            Order here, or message us and we'll put it together.
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-2.5">
@@ -43,7 +42,7 @@ export default function PageEnd() {
   const popular = inStockFirst(site.products).slice(0, 12);
   return (
     <div className="pb-4">
-      <ProductCarousel id="page-end-popular" title="Popular Products" products={popular} viewAll={site.products.length > popular.length ? '/shop' : undefined} />
+      <ProductCarousel id="page-end-popular" title="Our Products" products={popular} viewAll={site.products.length > popular.length ? '/shop' : undefined} />
       <div className="site-gutter pt-12 sm:pt-16"><TrustStrip site={site} /></div>
       <OrderAnyWayBand />
     </div>

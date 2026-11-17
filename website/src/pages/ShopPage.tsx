@@ -78,7 +78,7 @@ export default function ShopPage({ route }: { route: Route }) {
       <PageHeader
         eyebrow={searching ? 'Search' : 'Our dairy'}
         title={title}
-        body={searching ? `${visible.length} ${visible.length === 1 ? 'product matches' : 'products match'}. Refine with the filters below.` : 'Order online, pay with M-Pesa, and choose delivery or pickup.'}
+        body={searching ? `${visible.length} ${visible.length === 1 ? 'product' : 'products'}` : 'Order online, pay with M-Pesa, and choose delivery or pickup.'}
       >
         <Breadcrumbs
           items={searching

@@ -4,6 +4,10 @@
 // in the app under Online Store > Pages; an empty page uses the default below.
 // Plain data with no browser APIs, because scripts/prerender.ts and seo.ts import it.
 import type { Storefront } from './api';
+
+/** How customers pay on their phone, from what the shop has switched on. (Type-only import above:
+ * the ISMS app imports this file and must not load the website's API client.) */
+const phonePay = (site: Storefront) => ((site.business.paymentMethods ?? []).includes('Airtel Money') ? 'M-Pesa or Airtel Money' : 'M-Pesa');
 import { pointsOn } from './points';
 
 export type InfoPageId = 'about' | 'help' | 'delivery' | 'payments' | 'returns' | 'terms' | 'privacy' | 'cookies';
@@ -109,11 +113,11 @@ function defaultText(id: InfoPageId, site: Storefront): string {
         '## What we promise',
         '- **Fresh every day.** We sell what we can keep fresh, and the shop shows live stock, so what you see is what we have.',
         '- **Fair, clear prices.** The price you see is the price you pay. Any delivery fee is shown before you pay.',
-        '- **Easy to order.** Order online, pay with M-Pesa, and choose delivery or pickup.',
+        `- **Easy to order.** Order online, pay with ${phonePay(site)}, and choose delivery or pickup.`,
         '- **People who answer.** Real staff read every message and every piece of feedback.',
         '## How ordering works',
         '1. Choose your products in the [shop](/shop).',
-        '2. Pay with M-Pesa when the prompt reaches your phone.',
+        `2. Pay with ${phonePay(site)} when the prompt reaches your phone.`,
         `3. ${site.settings.deliveryEnabled ? 'We deliver to you, or you pick up from us.' : 'Pick up your order from us.'}`,
         'Want the same order every week? Set up [regular orders](/account/schedules) and we will prepare it on your chosen days.',
         '## Visit us',
@@ -124,13 +128,13 @@ function defaultText(id: InfoPageId, site: Storefront): string {
     case 'help':
       return lines(
         '## How do I place an order?',
-        'Add products to your cart from the [shop](/shop), open your [cart](/cart), choose delivery or pickup, and select **Continue to payment**. You need a free account so we can send your order updates.',
+        'Add products to your cart from the [shop](/shop), open your [cart](/cart), choose delivery or pickup, and select **Place order**. You need a free account so we can send your order updates.',
         '## Do I need an account?',
         'Yes. Your account keeps your orders, regular orders, messages and reward points in one place. [Create one or sign in](/account) with your email or Google.',
         '## How do I pay?',
-        'With M-Pesa. After you place your order, we send a payment prompt to your phone. Enter your PIN and the order is confirmed. [Read more about payments](/payments).',
+        `With ${phonePay(site)}, or by card where offered. After you place your order, we send a payment prompt to your phone. Enter your PIN and the order is confirmed. [Read more about payments](/payments).`,
         '## What if the M-Pesa prompt does not arrive?',
-        'Check that your phone is on and unlocked, then open the order in [My orders](/account/orders) and select **Pay with M-Pesa** again. Make sure the number shown is your M-Pesa number.',
+        'Check that your phone is on and unlocked, then open the order in [My orders](/account/orders) and select **Pay with M-Pesa** again. The number to pay from can be different from your account phone.',
         '## How much is delivery?',
         ...deliveryLines(site),
         '## Is there a minimum order?',
@@ -148,8 +152,8 @@ function defaultText(id: InfoPageId, site: Storefront): string {
         'See your balance under [Rewards](/account/rewards).',
         '## Are prices the same as in the shop?',
         'Yes. Prices on the website come straight from our shop system, and stock updates live.',
-        '## How do I change my phone number or delivery address?',
-        'Go to [My account > Profile](/account/profile) and save your new details.',
+        '## How do I change my phone number or delivery location?',
+        'Go to [My account > Profile](/account/profile) and save your new details. Checkout can also save a new location for you.',
       );
 
     case 'delivery':
@@ -222,7 +226,7 @@ function defaultText(id: InfoPageId, site: Storefront): string {
         '## 1. Who we are',
         `This website is run by ${name}${site.business.address ? `, ${site.business.address}` : ''}, Kenya. ${contactLine(site)}`,
         '## 2. Your account',
-        '- You must give a real name and an M-Pesa phone number you are allowed to use.',
+        '- You must give your real full name and a phone number you use.',
         '- Keep your password private. You are responsible for orders placed through your account.',
         '- We may suspend an account that is used for fraud, abuse of staff or other customers, or repeated unpaid orders.',
         '## 3. Products and prices',
@@ -263,8 +267,8 @@ function defaultText(id: InfoPageId, site: Storefront): string {
       return lines(
         `${name} respects your privacy and handles personal data in line with the Kenya Data Protection Act, 2019. This policy explains what we collect, why, and the choices you have.`,
         '## What we collect',
-        '- **Account details:** your name, M-Pesa phone number and email address.',
-        '- **Delivery details:** the delivery location and notes you give us.',
+        '- **Account details:** your full name, phone number and email address.',
+        '- **Delivery details:** your delivery area, estate or street, building, landmark and instructions.',
         '- **Orders:** what you ordered, when, how much you paid and your M-Pesa receipt number.',
         '- **Messages and feedback** you send us through the website.',
         '- **Assistant questions:** what you type into the website assistant.',

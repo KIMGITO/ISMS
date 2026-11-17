@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       return errorResponse("You've asked a lot of questions. Please try again in a little while.", 429);
     }
 
-    const [productResult, articleResult] = await Promise.all([
+    const [productResult, articleResult, zoneResult, cardsResult, airtelResult] = await Promise.all([
       admin
         .from("products")
         .select("id, name, category, price, unit, stock, min_stock")
@@ -69,6 +69,9 @@ Deno.serve(async (req) => {
         .select("slug, title, summary, body")
         .eq("business_id", business.id)
         .eq("published", true),
+      admin.from("delivery_zones").select("id", { count: "exact", head: true }).eq("business_id", business.id).eq("active", true),
+      admin.rpc("website_accepts_cards", { p_slug: String(slug ?? "") }),
+      admin.rpc("website_accepts_airtel", { p_slug: String(slug ?? "") }),
     ]);
 
     if (productResult.error) throw productResult.error;
@@ -77,10 +80,13 @@ Deno.serve(async (req) => {
     const articles = articleResult.data;
 
     const ctx: AssistantContext = {
+      assistantName: Deno.env.get("VITE_AI_NAME") || "Kim",
       businessName: business.name,
       currency: business.currency,
       deliveryEnabled: settings?.delivery_enabled ?? true,
-      deliveryFee: Number(settings?.delivery_fee ?? 150),
+      deliveryFee: Number(settings?.delivery_fee ?? 0),
+      deliveryByArea: (zoneResult.count ?? 0) > 0,
+      payOnline: ["M-Pesa", ...(airtelResult.data === true ? ["Airtel Money"] : []), ...(cardsResult.data === true ? ["card"] : [])],
       paymentMethods: business.default_payment_methods ?? [],
       address: business.address,
       phone: business.contact_phone || null,

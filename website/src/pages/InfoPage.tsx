@@ -13,7 +13,7 @@ function ContactCard() {
   return (
     <aside className="rounded-lg border border-line bg-shell p-5 sm:p-6">
       <h2 className="display-md">Still need help?</h2>
-      <p className="mt-2 text-muted">Our team reads every message.{settings.openingHours ? ` We're open ${settings.openingHours}.` : ''}</p>
+      <p className="mt-2 text-muted">Our team reads every message.{settings.openingHours ? ` We're open ${settings.openingHours.replace(/\s*\n\s*/g, '; ')}.` : ''}</p>
       <div className="mt-4 flex flex-wrap gap-3">
         <a href="/account/messages" className="btn btn-primary"><MessageCircle size={17} aria-hidden /> Message us</a>
         {business.contactPhone && (

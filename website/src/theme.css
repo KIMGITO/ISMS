@@ -311,10 +311,8 @@
   }
 
   .eyebrow {
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 0.8125rem;
+    font-weight: 600;
     color: var(--color-ember);
   }
 
@@ -373,19 +371,15 @@
 
   /* The burnt amber panels used for feature sections. */
   .ember-panel {
-    background:
-      radial-gradient(70% 90% at 45% 35%, #b84f15 0%, transparent 70%),
-      linear-gradient(135deg, #5a2209 0%, #2b1409 100%);
+    background: #5a2209;
     color: var(--color-cream);
   }
 
   /* The soft sand panel behind the hero and page banners, with a faint doodle pattern. */
   .soft-panel {
     background-color: var(--color-sand);
-    background-image:
-      radial-gradient(circle at 1px 1px, rgb(154 67 19 / 0.09) 1.2px, transparent 0),
-      radial-gradient(90% 90% at 80% 40%, #fbf4ea 0%, transparent 60%);
-    background-size: 22px 22px, 100% 100%;
+    background-image: radial-gradient(circle at 1px 1px, rgb(154 67 19 / 0.09) 1.2px, transparent 0);
+    background-size: 22px 22px;
   }
 
   /* Centred section title with a short muted line under it. */

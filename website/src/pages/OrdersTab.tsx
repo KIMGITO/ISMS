@@ -185,7 +185,7 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
       <CheckoutSteps step={3} />
       {timedOut && (
         <p role="status" className="rounded-lg bg-white px-3.5 py-2.5">
-          We haven't received confirmation yet. If you already paid, please wait a few minutes and refresh this page before paying again.
+          Not confirmed yet. If you paid, wait a few minutes before paying again.
         </p>
       )}
       {(cardsOn || airtelOn) && (
@@ -206,7 +206,7 @@ function PaymentPanel({ order, onChange }: { order: Order; onChange: () => Promi
         </label>
       ) : (
         <p className="rounded-lg bg-white px-3.5 py-2.5 text-sm">
-          You'll go to Paystack's secure page to enter your card, then come straight back here. We never see your card number.
+          You enter your card on Paystack's secure page, then come back here.
         </p>
       )}
       <ErrorText>{error}</ErrorText>

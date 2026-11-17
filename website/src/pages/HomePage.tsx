@@ -233,7 +233,7 @@ function AdPoster({ card }: { card: AdCard }) {
         />
       )}
       <span className="relative z-10 flex w-[62%] flex-col p-4 sm:p-5 lg:p-6">
-        {card.kicker && <span className="text-[0.6875rem] font-semibold uppercase tracking-wide sm:text-xs" style={{ color: tone.kicker }}>{card.kicker}</span>}
+        {card.kicker && <span className="text-xs font-semibold sm:text-sm" style={{ color: tone.kicker }}>{card.kicker}</span>}
         <span className="mt-1 text-lg font-semibold leading-tight sm:text-xl lg:text-2xl">{card.title}</span>
         {card.body && <span className="mt-1.5 line-clamp-3 text-xs opacity-80 sm:text-sm">{card.body}</span>}
         {card.ctaLabel && (
@@ -257,7 +257,7 @@ function AdStrip({ card }: { card: AdCard }) {
     >
       <Tag size={18} className="shrink-0" aria-hidden style={{ color: tone.kicker }} />
       <span className="min-w-0 flex-1 leading-tight">
-        {card.kicker && <span className="mr-2 text-[0.6875rem] font-semibold uppercase tracking-wide max-sm:block sm:text-xs" style={{ color: tone.kicker }}>{card.kicker}</span>}
+        {card.kicker && <span className="mr-2 text-xs font-semibold max-sm:block sm:text-sm" style={{ color: tone.kicker }}>{card.kicker}</span>}
         <span className="text-sm font-semibold sm:text-base">{card.title}</span>
         {card.body && <span className="ml-2 hidden text-sm opacity-80 md:inline">{card.body}</span>}
       </span>
@@ -293,8 +293,9 @@ export default function HomePage() {
   const offers = inStockFirst(products.filter((p) => p.wasPrice && p.wasPrice > p.price)).slice(0, 12);
   const popular = inStockFirst(products).slice(0, 12);
   const reviewCount = (id: string) => reviews.filter((r) => r.productId === id).length;
-  const bestSellers = products.length > 6
-    ? products.filter((p) => p.inStock).sort((a, b) => reviewCount(b.id) - reviewCount(a.id)).slice(0, 12)
+  // Only products customers actually reviewed, most reviews first. Sales figures aren't public.
+  const mostReviewed = products.length > 6
+    ? products.filter((p) => p.inStock && reviewCount(p.id) > 0).sort((a, b) => reviewCount(b.id) - reviewCount(a.id)).slice(0, 12)
     : [];
   const recent = recentIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined).slice(0, 12);
 
@@ -313,8 +314,8 @@ export default function HomePage() {
       {strips[0] && <div className="site-gutter pt-6 sm:pt-8"><AdStrip card={strips[0]} /></div>}
       <Promotions />
       <ProductCarousel id="offers" title="Exclusive Offers" products={offers} viewAll="/shop?offers=1" />
-      <ProductCarousel id="popular" title="Popular Products" products={popular} viewAll={products.length > popular.length ? '/shop' : undefined} />
-      <ProductCarousel id="best" title="Best Sellers" products={bestSellers} />
+      <ProductCarousel id="popular" title="Our Products" products={popular} viewAll={products.length > popular.length ? '/shop' : undefined} />
+      <ProductCarousel id="best" title="Most Reviewed" products={mostReviewed} />
       {strips[1] && <div className="site-gutter pt-10 sm:pt-12"><AdStrip card={strips[1]} /></div>}
       {aisles.map((category) => (
         <ProductCarousel

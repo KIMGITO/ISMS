@@ -89,7 +89,7 @@ function SoldBy() {
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{business.name}</p>
           {address && <p className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><MapPin size={14} className="mt-0.5 shrink-0" aria-hidden /> {address}</p>}
-          {settings.openingHours && <p className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Clock size={14} className="mt-0.5 shrink-0" aria-hidden /> {settings.openingHours}</p>}
+          {settings.openingHours && <p className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Clock size={14} className="mt-0.5 shrink-0" aria-hidden /> <span className="whitespace-pre-line">{settings.openingHours}</span></p>}
         </div>
         {hasStorePicker(site) && (
           <button onClick={() => open('store')} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-ember hover:underline">

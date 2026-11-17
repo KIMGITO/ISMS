@@ -240,7 +240,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
   const paid = !['pending_payment', 'payment_failed', 'cancelled'].includes(order.status);
   const steps = order.fulfilment === 'delivery'
     ? ['We prepare your order now', 'A rider brings it to you; we message you when it is on the way', 'Keep fresh dairy in the fridge as soon as it arrives']
-    : ['We prepare your order now', 'We message you when it is ready to collect', settings.openingHours ? `Collect it during opening hours: ${settings.openingHours}` : 'Collect it from our shop'];
+    : ['We prepare your order now', 'We message you when it is ready to collect', settings.openingHours ? `Collect it during opening hours: ${settings.openingHours.replace(/\s*\n\s*/g, '; ')}` : 'Collect it from our shop'];
 
   return (
     <div className={`${pageClass} max-w-3xl`}>

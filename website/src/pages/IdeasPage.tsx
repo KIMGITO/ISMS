@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Clock, Lightbulb, PackageCheck, Sparkles, ThumbsUp } from 'lucide-react';
+import { CheckCircle2, Clock, Hammer, Lightbulb, PackageCheck, ThumbsUp } from 'lucide-react';
 import { fetchProductIdeas, friendlyError, ProductIdea, suggestProductIdea, voteProductIdea } from '../api';
 import { productPaths } from '../seo';
 import { useAuth, useStorefront } from '../store';
@@ -18,7 +18,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 const STATUS: Record<ProductIdea['status'], { label: string; className: string; icon: typeof Clock }> = {
   pending: { label: 'Waiting for our team', className: 'bg-stone-100 text-stone-700', icon: Clock },
   open: { label: 'Voting open', className: 'bg-amber-100 text-amber-900', icon: ThumbsUp },
-  planned: { label: 'We are making it', className: 'bg-sky-100 text-sky-900', icon: Sparkles },
+  planned: { label: 'We are making it', className: 'bg-sky-100 text-sky-900', icon: Hammer },
   available: { label: 'Now in the shop', className: 'bg-emerald-100 text-emerald-900', icon: PackageCheck },
 };
 
@@ -41,7 +41,7 @@ function SuggestForm({ onDone }: { onDone: () => Promise<void> }) {
     setBusy(true);
     try {
       await suggestProductIdea(title, description);
-      setSent(`Thanks! "${title.trim()}" is with our team. Once they approve it, other customers can vote for it too.`);
+      setSent(`Thanks! We'll check "${title.trim()}", then others can vote for it.`);
       setTitle('');
       setDescription('');
       await onDone();
@@ -57,10 +57,10 @@ function SuggestForm({ onDone }: { onDone: () => Promise<void> }) {
       <h2 id="suggest-heading" className="flex items-center gap-2 text-lg font-medium">
         <Lightbulb size={20} className="text-ember" aria-hidden /> Suggest a product
       </h2>
-      <p className="mt-1 text-sm text-muted">Something you wish we sold? Tell us. The most-voted ideas are the ones we make first.</p>
+      <p className="mt-1 text-sm text-muted">Tell us what you wish we sold.</p>
       {!account ? (
         <div className="mt-4 rounded-lg bg-shell p-4 text-sm">
-          <p>Sign in to suggest products and vote. It keeps the list fair: one vote per customer.</p>
+          <p>Sign in to suggest products and vote.</p>
           <a href="/account" className={`${primaryButton} mt-3 w-full`}>Sign in or create an account</a>
         </div>
       ) : (
@@ -169,7 +169,7 @@ function IdeaCard({ idea, onVoted }: { idea: ProductIdea; onVoted: (idea: Produc
           <a href={productHref} className="mt-3 inline-block text-sm font-medium text-ember underline">See it in the shop</a>
         )}
         {idea.status === 'pending' && (
-          <p className="mt-2 text-xs text-muted">Only you can see this until our team approves it. Your vote is already counted.</p>
+          <p className="mt-2 text-xs text-muted">Only you see this until we approve it.</p>
         )}
         {error && <div className="mt-3"><ErrorText>{error}</ErrorText></div>}
       </div>
@@ -213,7 +213,7 @@ export default function IdeasPage() {
       <PageHeader
         eyebrow="Your say"
         title="Vote & Suggest Products"
-        body={`Help ${business.name} decide what to make next. Vote for products that are coming, or suggest your own.`}
+        body={`Vote for what ${business.name} makes next.`}
       >
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Vote & suggest' }]} />
       </PageHeader>
@@ -242,7 +242,7 @@ export default function IdeasPage() {
           ) : (
             <p className="mt-5 rounded-xl border border-dashed border-line p-10 text-center text-muted">
               {filter === 'available'
-                ? 'Nothing here yet. Products that win the vote show up here once they are in the shop.'
+                ? 'Nothing here yet.'
                 : 'No ideas here yet. Be the first to suggest a product.'}
             </p>
           )}

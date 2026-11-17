@@ -47,7 +47,7 @@ export default function ContactPreferences() {
             />
             <span>
               <span className="block font-medium">Order updates and reminders</span>
-              <span className="text-muted">If you turn this off, you can still follow orders on your Orders page.</span>
+              <span className="text-muted">You can still follow orders here.</span>
             </span>
           </label>
           <label className="flex min-h-11 items-start gap-3">
@@ -59,7 +59,7 @@ export default function ContactPreferences() {
             />
             <span>
               <span className="block font-medium">Offers and news</span>
-              <span className="text-muted">Occasional offers on our milk and products.</span>
+              <span className="text-muted">Now and then, never too often.</span>
             </span>
           </label>
         </div>

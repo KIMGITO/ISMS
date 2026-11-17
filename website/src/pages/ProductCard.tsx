@@ -77,7 +77,7 @@ export function CartStepper({ product, size = 'sm' }: { product: Product; size?:
         type="button"
         aria-label={`Add ${product.name} to cart`}
         onClick={() => addToCart(product)}
-        className={`${height} w-full rounded-full border border-ember bg-white text-xs font-semibold uppercase tracking-wide text-ember transition hover:bg-ember hover:text-white sm:text-[0.8125rem]`}
+        className={`${height} w-full rounded-full border border-ember bg-white text-xs font-semibold text-ember transition hover:bg-ember hover:text-white sm:text-[0.8125rem]`}
       >
         Add
       </button>

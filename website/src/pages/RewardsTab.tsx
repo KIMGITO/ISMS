@@ -64,8 +64,7 @@ export default function RewardsTab() {
 
       {rewards.enabled === false ? (
         <p className="rounded-xl bg-sand p-4 text-muted">
-          Reward points are paused at the moment. You can't earn or use points for now, but the points you
-          have stay in your account.
+          Points are paused for now. Your points stay in your account.
         </p>
       ) : (
       <div>

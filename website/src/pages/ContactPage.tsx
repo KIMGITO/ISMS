@@ -18,7 +18,7 @@ function ContactTile({ icon: Icon, title, body, href, external = false }: {
       <Icon size={26} strokeWidth={1.5} className="shrink-0 text-ember" aria-hidden />
       <span className="min-w-0">
         <span className="block text-sm font-medium">{title}</span>
-        <span className="mt-0.5 block break-words text-sm text-muted">{body}</span>
+        <span className="mt-0.5 block whitespace-pre-line break-words text-sm text-muted">{body}</span>
       </span>
     </>
   );
