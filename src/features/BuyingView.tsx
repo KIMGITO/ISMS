@@ -7,7 +7,7 @@ import { Checkbox } from '../components/shared/Checkbox';
 import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRightLeft, BellRing, CalendarClock, ClipboardList, FileText, Hand, PackageSearch, RotateCcw, Search,
+  AlertTriangle, ArrowRightLeft, BellRing, CalendarClock, FileText, Hand, PackageSearch, RotateCcw, Search,
   Settings2, ShieldCheck, ShoppingCart, Truck, Undo2, Wallet,
 } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
@@ -153,11 +153,11 @@ export default function BuyingView() {
 
         {(tab === 'suppliers' || tab === 'purchases') && <SuppliersView embedded tab={tab} onTab={setTabState} />}
 
-        {overview && overview.dueSoon.length > 0 && (
+        {overview && overview.dueSoon.length > 0 && (tab === 'bills' || tab === 'approvals') && (
           <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/30 p-3 text-sm text-amber-900 dark:text-amber-200 flex items-start gap-2">
             <CalendarClock size={16} className="shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="font-medium">Supplier bills due this week</p>
+              <p className="font-medium">Bills due this week</p>
               <p className="text-xs">
                 {overview.dueSoon.map((d) => `${d.supplier} ${formatCurrency(d.balance)} (${d.dueDate < todayIso() ? 'overdue' : `by ${day(d.dueDate)}`})`).join(' · ')}
               </p>
@@ -252,7 +252,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
       const made = await createSuggestedPurchases(businessId, toBuy.map(([productId, p]) => ({ productId, quantity: Number(p.qty) })));
       onToast(
         made.length === 1 ? 'Draft purchase made' : `${made.length} draft purchases made`,
-        `${made.map((m) => `${m.supplierName} ${formatCurrency(m.total)}`).join(' · ')}. Open them in Suppliers & Purchases to ask for prices or place the order.`,
+        `${made.map((m) => `${m.supplierName} ${formatCurrency(m.total)}`).join(' · ')}. See Purchases.`,
         undefined,
         'success',
       );
@@ -304,37 +304,23 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
 
   return (
     <div className="space-y-3">
-      <Card
-        title={low.length ? `${low.length} ${low.length === 1 ? 'product is' : 'products are'} at or below the reorder level` : 'Nothing is below its reorder level'}
-        subtitle="Below reorder level and not on order."
-        action={
-          <div className="flex gap-2 flex-wrap">
-            {canAsk && toAsk.length > 0 && (
-              <button className={secondaryBtn} disabled={busy} onClick={() => void ask()}><Hand size={15} /> Ask branches ({toAsk.length})</button>
-            )}
-            {canCreate && (
-              <button data-shortcut="new" className={primaryBtn} disabled={busy || !toBuy.length} onClick={() => void buy()}>
-                <ShoppingCart size={15} /> Make draft purchases ({toBuy.length})
-              </button>
-            )}
-          </div>
-        }
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[12rem]">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" className={`${fieldClass} pl-9`} />
-          </div>
-          <label className="flex items-center gap-2 text-xs text-app-text-muted">
-            <Checkbox checked={showAll} onChange={(on) => setShowAll(on)} /> All products
-          </label>
-          {canSetLevels && withSuggestion.length > 0 && (
-            <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => void useSuggested()}>Set levels from sales</button>
-          )}
+      {/* Search first; the actions live in a bar at the bottom once something is ticked. */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" className={`${fieldClass} pl-9 bg-app-card`} />
         </div>
-        {noLevels > 0 && !showAll && (
-          <p className="text-[11px] text-app-text-muted">{noLevels} {noLevels === 1 ? 'product has' : 'products have'} no level yet, so {noLevels === 1 ? 'it is' : 'they are'} never suggested. Tick All products and tap one to set it.</p>
-        )}
+        <label className="shrink-0 flex items-center gap-1.5 text-xs text-app-text-muted bg-app-card ring-1 ring-app-border rounded-xl px-3 py-2.5 cursor-pointer">
+          <Checkbox checked={showAll} onChange={(on) => setShowAll(on)} /> All
+        </label>
+      </div>
+      <Card
+        title={low.length ? `${low.length} low on stock` : 'All stocked up'}
+        subtitle={noLevels > 0 && !showAll ? `${noLevels} without a reorder level. Tick All to set them.` : undefined}
+        action={canSetLevels && withSuggestion.length > 0 ? (
+          <button className={`${secondaryBtn} !px-3 !py-1.5 text-xs`} onClick={() => void useSuggested()}>Levels from sales</button>
+        ) : undefined}
+      >
         {shown.length === 0 ? (
           <p className="text-sm text-app-text-muted text-center py-4">{showAll ? 'No products match.' : 'All stocked up.'}</p>
         ) : (
@@ -353,7 +339,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                       {r.level !== null ? ` · level ${q3(r.level)}` : ' · no level'}
                       {r.sold30 > 0 ? ` · sells ${q3(r.avgDaily)}/day` : ''}
                       {r.onOrder > 0 ? ` · ${q3(r.onOrder)} on order` : ''}
-                      {r.onTheWay > 0 ? ` · ${q3(r.onTheWay)} coming from a branch` : ''}
+                      {r.onTheWay > 0 ? ` · ${q3(r.onTheWay)} coming` : ''}
                     </p>
                     <p className="text-[11px] text-app-text-muted">
                       {r.supplierName ? `${r.supplierName}${r.supplierPrice !== null ? ` · ${formatCurrency(r.supplierPrice)}` : ''}${r.leadDays !== null ? ` · ${r.leadDays} days` : ''}` : 'No preferred supplier'}
@@ -366,25 +352,25 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setAsking(r); } }}
                         className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
                       >
-                        <BellRing size={12} /> {r.supplierName ? `Ask ${r.supplierName} to deliver` : 'Ask a supplier to deliver'}
+                        <BellRing size={12} /> {r.supplierName ? `Ask ${r.supplierName}` : 'Ask a supplier'}
                       </span>
                     )}
-                    {r.low && r.need === 0 && <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Covered by what is on order or on the way</p>}
+                    {r.low && r.need === 0 && <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Covered by orders on the way</p>}
                   </button>
                   {p && (
-                    <div className="shrink-0 flex flex-col items-end gap-1">
+                    <div className="shrink-0 flex flex-col items-end gap-1 w-24 sm:w-44">
                       <NumberInput min={0}
                         value={p.qty}
                         aria-label={`How much ${displayName(r.name)}`}
                         onChange={(v) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], qty: (v == null ? '' : String(v)) } }))}
-                        size="sm" className="w-24" inputClassName="text-right tabular-nums"
+                        size="sm" className="w-full sm:w-24" inputClassName="text-right tabular-nums"
                       />
                       {r.transferFrom && canAsk && (
-                        <div className="w-44 max-w-full">
+                        <div className="w-full">
                           <SearchableDropdown
                             items={[
                               { id: r.transferFrom.businessId, label: `Ask ${r.transferFrom.name}`, sublabel: `${q3(r.transferFrom.spare)} spare` },
-                              { id: 'buy', label: 'Buy from a supplier' },
+                              { id: 'buy', label: 'Buy' },
                             ]}
                             selectedValue={p.from}
                             onChange={(v) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], from: v } }))}
@@ -400,6 +386,19 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
           </ul>
         )}
       </Card>
+
+      {((canCreate && toBuy.length > 0) || (canAsk && toAsk.length > 0)) && (
+        <div className="sticky bottom-2 z-10 flex gap-2 rounded-2xl bg-app-card/95 backdrop-blur ring-1 ring-app-border p-2 shadow-lg">
+          {canAsk && toAsk.length > 0 && (
+            <button className={`${secondaryBtn} flex-1`} disabled={busy} onClick={() => void ask()}><Hand size={15} /> Ask branch ({toAsk.length})</button>
+          )}
+          {canCreate && toBuy.length > 0 && (
+            <button data-shortcut="new" className={`${primaryBtn} flex-1`} disabled={busy} onClick={() => void buy()}>
+              <ShoppingCart size={15} /> {busy ? 'Saving…' : `Draft order (${toBuy.length})`}
+            </button>
+          )}
+        </div>
+      )}
 
       {editing && (
         <ReorderSheet
@@ -805,7 +804,6 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
     Object.fromEntries(LIMIT_ROLES.map((r) => [r, s.limits.find((l) => l.role === r)?.max?.toString() ?? ''])),
   );
   const [busy, setBusy] = useState(false);
-  const goTo = useUiStore((st) => st.setActiveTab);
   const ro = !s.canEdit;
 
   const save = async () => {
@@ -822,42 +820,44 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
     }
   };
 
+  // One line per setting: name on the left, a small box on the right.
+  const row = (label: string, box: React.ReactNode, key?: string) => (
+    <div key={key ?? label} className="flex items-center justify-between gap-3 py-2">
+      <span className="text-sm text-app-text min-w-0">{label}</span>
+      <div className="w-32 shrink-0">{box}</div>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <Card
-        title="Approval limits"
-        subtitle="Above the limit needs approval. Empty: no limit."
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          {LIMIT_ROLES.map((role) => (
-            <Field key={role} label={`${role} (KSh)`}>
-              <NumberInput decimals={0} min={0} disabled={ro} placeholder="No limit"
-                value={limits[role]}
-                onChange={(v) => setLimits((m) => ({ ...m, [role]: (v == null ? '' : String(v)) }))}
-              />
-            </Field>
-          ))}
+      <Card title="Approval limits (KSh)" subtitle="Orders above need approval. Empty: no limit.">
+        <div className="divide-y divide-app-border/60 -my-1">
+          {LIMIT_ROLES.map((role) => row(role, (
+            <NumberInput decimals={0} min={0} size="sm" disabled={ro} placeholder="No limit" aria-label={`${role} limit`}
+              value={limits[role]} inputClassName="text-right tabular-nums"
+              onChange={(v) => setLimits((m) => ({ ...m, [role]: (v == null ? '' : String(v)) }))}
+            />
+          ), role))}
         </div>
       </Card>
       <Card title="Bills and reorder">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Allowed bill difference (%)" hint="A bill differing from the goods received by more waits for a check">
-            <NumberInput min={0} max={50} disabled={ro} value={tol} onChange={(v) => setTol((v == null ? '' : String(v)))} />
-          </Field>
-          <Field label="Safety days" hint="Added to the lead time when suggesting reorder levels from sales">
-            <NumberInput decimals={0} min={0} max={90} disabled={ro} value={safety} onChange={(v) => setSafety((v == null ? '' : String(v)))} />
-          </Field>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {ro ? (
-            <p className="text-xs text-app-text-muted">Only the owner or an admin can change these.</p>
-          ) : (
-            <button className={primaryBtn} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
-          )}
-          {s.updatedBy && <span className="text-[11px] text-app-text-muted">Last changed by {s.updatedBy}{s.updatedAt ? ` on ${day(s.updatedAt)}` : ''}</span>}
-          <button className={`${secondaryBtn} ml-auto !px-3 !py-1.5 text-xs`} onClick={() => goTo('suppliers')}><ClipboardList size={13} /> Suppliers</button>
+        <div className="divide-y divide-app-border/60 -my-1">
+          {row('Bill difference allowed (%)', (
+            <NumberInput min={0} max={50} size="sm" disabled={ro} value={tol} aria-label="Bill difference allowed" inputClassName="text-right tabular-nums" onChange={(v) => setTol((v == null ? '' : String(v)))} />
+          ))}
+          {row('Safety days', (
+            <NumberInput decimals={0} min={0} max={90} size="sm" disabled={ro} value={safety} aria-label="Safety days" inputClassName="text-right tabular-nums" onChange={(v) => setSafety((v == null ? '' : String(v)))} />
+          ))}
         </div>
       </Card>
+      <div className="flex items-center gap-2 flex-wrap">
+        {ro ? (
+          <p className="text-xs text-app-text-muted">Only the owner or an admin can change these.</p>
+        ) : (
+          <button className={primaryBtn} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
+        )}
+        {s.updatedBy && <span className="text-[11px] text-app-text-muted">By {s.updatedBy}{s.updatedAt ? `, ${day(s.updatedAt)}` : ''}</span>}
+      </div>
     </div>
   );
 }

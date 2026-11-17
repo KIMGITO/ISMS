@@ -1,11 +1,13 @@
 // Message customers: pick who gets it (by group or one by one), write it once with
-// variables, or have the assistant write it, and send. The composer is shared with the
+// variables, or have the assistant write it, and send. The two steps are tabs, so
+// neither needs the other scrolled past. The composer is shared with the
 // Customers screen. Also exports ShiftRemindersPanel, the signed-in person's own shift reminders.
 // Both sit inside the Feedback screen, which owns the page scroll and padding.
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, ShieldAlert, BellRing, Clock, ChevronRight } from 'lucide-react';
+import { Search, ShieldAlert, BellRing, Clock, ChevronRight, Users, PenLine } from 'lucide-react';
+import { Segmented } from '../components/shared/Choice';
 import { customerName, searchMatch } from '../utils/stringUtils';
 import { hasRolePermission } from '../utils/permissions';
 import { Checkbox } from '../components/shared/Checkbox';
@@ -30,6 +32,7 @@ export default function CommunicationCenterView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [groups, setGroups] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [step, setStep] = useState<'who' | 'message'>('who');
 
   const inGroups = useMemo(() => groupMatcher(groups, ctx), [groups, ctx]);
   const filteredCustomers = useMemo(
@@ -74,13 +77,19 @@ export default function CommunicationCenterView() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] items-start">
+    <div className="space-y-3">
+      <Segmented<'who' | 'message'>
+        ariaLabel="Step"
+        value={step}
+        onChange={setStep}
+        options={[
+          { id: 'who', label: 'Who gets it', icon: <Users />, count: selectedIds.size },
+          { id: 'message', label: 'The message', icon: <PenLine /> },
+        ]}
+      />
+
       {/* 1. Who gets it */}
-      <section className={`${card} p-3 sm:p-4 flex flex-col min-w-0`}>
-        <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
-          <span className="grid place-items-center size-5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-bold">1</span>
-          Who gets it
-        </h2>
+      <section hidden={step !== 'who'} className={`${card} p-3 sm:p-4 flex flex-col min-w-0`}>
 
         <div className="space-y-2 mb-3">
           <div className="relative">
@@ -120,7 +129,7 @@ export default function CommunicationCenterView() {
           )}
         </div>
 
-        <div className="max-h-[55vh] lg:max-h-[calc(100dvh-22rem)] min-h-48 overflow-y-auto -mx-1 px-1">
+        <div className="max-h-[calc(100dvh-26rem)] min-h-48 overflow-y-auto -mx-1 px-1">
           {filteredCustomers.length === 0 ? (
             <p className="p-8 text-center text-sm text-app-text-muted">
               {customers.length === 0 ? 'No customers yet.' : 'No customers match these groups.'}
@@ -167,14 +176,20 @@ export default function CommunicationCenterView() {
             </ul>
           )}
         </div>
+
+        {selectedIds.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setStep('message')}
+            className="mt-3 h-10 w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 text-slate-950 text-sm font-semibold hover:bg-amber-400 transition"
+          >
+            Write the message to {selectedIds.size} <ChevronRight size={15} />
+          </button>
+        )}
       </section>
 
       {/* 2. The message */}
-      <section className={`${card} p-3 sm:p-4 space-y-4 min-w-0 lg:sticky lg:top-3`}>
-        <h2 className="text-sm font-semibold flex items-center gap-2">
-          <span className="grid place-items-center size-5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-bold">2</span>
-          The message
-        </h2>
+      <section hidden={step !== 'message'} className={`${card} p-3 sm:p-4 space-y-4 min-w-0`}>
         <BulkMessageComposer
           recipients={selectedCustomers}
           ctx={ctx}

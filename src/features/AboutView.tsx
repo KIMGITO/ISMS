@@ -168,7 +168,6 @@ export default function AboutView() {
   const reportGroup = canReport ? (
     <Group
       title="Report a problem"
-      footer="Goes straight to the developer with the app version and screen. Customer details are never included."
     >
       <ReportProblemForm businessId={business.id} />
     </Group>

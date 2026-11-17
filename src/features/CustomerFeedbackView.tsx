@@ -434,7 +434,7 @@ Feedback: "${comment.comment}"`,
                   {summary.open}
                 </p>
               </button>
-              <div className={`${card} p-4`}>
+              <div className={`${card} p-4 col-span-2 lg:col-span-1`}>
                 <p className="text-xs text-app-text-muted">Average rating</p>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="text-2xl font-semibold tabular-nums">{summary.total ? summary.avgRating : '—'}</span>
@@ -500,36 +500,36 @@ Feedback: "${comment.comment}"`,
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <SearchableDropdown
                   items={[
-                    { id: 'all', label: 'Any rating' },
-                    { id: '5', label: '5 stars' },
-                    { id: '4', label: '4 stars' },
-                    { id: '3', label: '3 stars' },
-                    { id: '2', label: '2 stars' },
-                    { id: '1', label: '1 star' },
+                    { id: 'all', label: 'All stars' },
+                    { id: '5', label: '5 ★' },
+                    { id: '4', label: '4 ★' },
+                    { id: '3', label: '3 ★' },
+                    { id: '2', label: '2 ★' },
+                    { id: '1', label: '1 ★' },
                   ]}
                   selectedValue={String(ratingFilter)}
                   onChange={(val) => setRatingFilter(val === 'all' ? 'all' : Number(val))}
-                  placeholder="Rating"
+                  placeholder="Stars"
                 />
                 <SearchableDropdown
                   items={[
-                    { id: 'all', label: 'Any feeling' },
+                    { id: 'all', label: 'All moods' },
                     { id: 'positive', label: 'Happy' },
                     { id: 'neutral', label: 'Neutral' },
                     { id: 'negative', label: 'Unhappy' },
                   ]}
                   selectedValue={sentimentFilter}
                   onChange={(val) => setSentimentFilter(val as typeof sentimentFilter)}
-                  placeholder="Feeling"
+                  placeholder="Mood"
                 />
                 <SearchableDropdown
                   items={[
-                    { id: 'latest', label: 'Newest first' },
-                    { id: 'rating-high', label: 'Highest rating first' },
-                    { id: 'rating-low', label: 'Lowest rating first' },
+                    { id: 'latest', label: 'Newest' },
+                    { id: 'rating-high', label: 'Best rated' },
+                    { id: 'rating-low', label: 'Worst rated' },
                   ]}
                   selectedValue={sortBy}
                   onChange={(val) => setSortBy(val as typeof sortBy)}

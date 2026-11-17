@@ -2,9 +2,9 @@
 // suppliers, purchases, assets, files, staff PIN and role changes, and any change to a sale
 // after it was made (20261125001); nobody can edit it.
 // Admins clear old entries from Settings → log cleanup.
-import SearchableDropdown from '../components/SearchableDropdown';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, RotateCcw, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Activity, RotateCcw, Search, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { FilterChips } from '../components/shared/Choice';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
 import { toUserMessage } from '../utils/userError';
 import { fieldClass } from '../components/shared/FormSheet';
@@ -51,6 +51,7 @@ export default function AuditLogView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [showFilter, setShowFilter] = useState(false);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -110,15 +111,27 @@ export default function AuditLogView() {
               </button>
             ))}
           </div>
-          <div className="w-44 shrink-0">
-            <SearchableDropdown
-              items={[{ id: '', label: 'Everything' }, ...Object.entries(AUDIT_TABLES).map(([k, v]) => ({ id: k, label: `${v}s` }))]}
-              selectedValue={table}
-              onChange={setTable}
-              placeholder="Everything"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilter((v) => !v)}
+            aria-expanded={showFilter}
+            aria-label="Filter by type"
+            title="Filter by type"
+            className={`relative ml-auto grid place-items-center size-9 shrink-0 rounded-xl ring-1 cursor-pointer ${showFilter || table ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-amber-500/40' : 'bg-app-card text-app-text-muted ring-app-border hover:text-app-text'}`}
+          >
+            <SlidersHorizontal size={16} />
+            {table && <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-amber-500" aria-hidden />}
+          </button>
         </div>
+
+        {showFilter && (
+          <FilterChips
+            ariaLabel="Filter by type"
+            options={[{ id: '', label: 'Everything' }, ...Object.entries(AUDIT_TABLES).map(([k, v]) => ({ id: k, label: `${v}s` }))]}
+            value={table}
+            onChange={setTable}
+          />
+        )}
 
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />

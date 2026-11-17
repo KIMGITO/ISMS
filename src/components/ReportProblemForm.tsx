@@ -48,11 +48,11 @@ export function ReportProblemForm({ businessId }: { businessId: string }) {
     <form onSubmit={submit} className="px-3 py-3 flex flex-col gap-3 text-sm">
       <fieldset className="flex flex-col gap-1.5">
         <legend className="text-xs font-semibold text-app-text-muted pb-1">How bad is it?</legend>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {(Object.keys(SEVERITY_LABEL) as ProblemSeverity[]).map((key) => (
             <label
               key={key}
-              className={`px-3 py-2 min-h-10 rounded-lg border cursor-pointer inline-flex items-center ${
+              className={`min-w-0 px-2 py-2 min-h-10 rounded-lg border cursor-pointer flex items-center justify-center text-center text-xs sm:text-sm leading-tight ${
                 severity === key ? 'border-emerald-500 bg-emerald-500/10 text-app-text font-semibold' : 'border-app-border text-app-text-muted'
               }`}
             >
@@ -81,7 +81,6 @@ export function ReportProblemForm({ businessId }: { businessId: string }) {
           value={details}
           onChange={(e) => setDetails(e.target.value)}
           maxLength={4000}
-          rows={4}
           placeholder="Steps, the screen you were on, any message you saw"
           className="w-full px-3 py-2.5 rounded-lg bg-app-bg border border-app-border focus:border-emerald-500 focus:outline-none resize-y"
         />

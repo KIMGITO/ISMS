@@ -438,30 +438,31 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
   return (
     <div className={embedded ? 'contents' : 'h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav'}>
       <div className={embedded ? 'space-y-3 min-w-0' : 'max-w-5xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3'}>
-        <div className="flex items-center gap-2 flex-wrap">
-          {!embedded && tabs.length > 1 && <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={(t) => { setTab(t); setQuery(''); }} className="w-full sm:w-auto sm:flex-1 min-w-0 !pb-2" />}
+        {!embedded && tabs.length > 1 && <Tabs<Tab> tabs={tabs} activeTab={tab} onChange={(t) => { setTab(t); setQuery(''); }} className="w-full min-w-0 !pb-2" />}
+
+        {/* Search first, with the add button beside it so it stays in reach on a phone. */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={tab === 'suppliers' ? 'Search suppliers' : 'Search purchases'}
+              className={`${fieldClass} pl-9 bg-app-card`}
+            />
+          </div>
           {tab === 'suppliers' && (canAddSupplier || can('suppliers.portal')) && canOpenScreen(role, 'workers') && (
             // Suppliers are added and invited in Workers, with the same form as staff.
-            <button data-shortcut="new" onClick={() => inviteSupplier()} className={`${primaryBtn} ml-auto`}>
-              <Plus size={16} /> Invite a supplier
+            <button data-shortcut="new" onClick={() => inviteSupplier()} title="Invite a supplier" aria-label="Invite a supplier" className={`${primaryBtn} shrink-0 !px-3`}>
+              <Plus size={16} /> <span className="hidden sm:inline">Invite</span>
             </button>
           )}
           {tab === 'purchases' && canCreatePurchase && (
-            <button data-shortcut="new" onClick={() => newPurchase()} className={`${primaryBtn} ml-auto`}>
-              <Plus size={16} /> New purchase
+            <button data-shortcut="new" onClick={() => newPurchase()} title="New purchase" aria-label="New purchase" className={`${primaryBtn} shrink-0 !px-3`}>
+              <Plus size={16} /> <span className="hidden sm:inline">New</span>
             </button>
           )}
-        </div>
-
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={tab === 'suppliers' ? 'Search suppliers by name, phone or what they supply' : 'Search by supplier, number or item'}
-            className={`${fieldClass} pl-9 bg-app-card`}
-          />
         </div>
 
         {tab === 'purchases' && (
@@ -478,7 +479,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
                 </button>
               ))}
             </div>
-            {openTotal > 0 && <span className="text-xs text-app-text-muted">On order: <b className="text-app-text tabular-nums">{formatCurrency(openTotal)}</b></span>}
+            {openTotal > 0 && <span className="text-xs text-app-text-muted ml-auto">On order: <b className="text-app-text tabular-nums">{formatCurrency(openTotal)}</b></span>}
           </div>
         )}
 
@@ -494,7 +495,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
         ) : tab === 'suppliers' ? (
           shownSuppliers.length === 0 ? (
             <p className="p-6 text-sm text-app-text-muted text-center">
-              {suppliers.length ? 'No supplier matches that search.' : 'No suppliers yet. Add the people and companies you buy stock from.'}
+              {suppliers.length ? 'No supplier matches that search.' : 'No suppliers yet.'}
             </p>
           ) : (
             <ul className="bg-app-card rounded-2xl ring-1 ring-app-border/70 overflow-hidden divide-y divide-app-border/60">
@@ -562,7 +563,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
           )
         ) : shownPurchases.length === 0 ? (
           <p className="p-6 text-sm text-app-text-muted text-center">
-            {purchases.length ? 'No purchase in this list matches.' : 'No purchases yet. Record what you order from suppliers, then receive it into stock when it arrives.'}
+            {purchases.length ? 'No purchase in this list matches.' : 'No purchases yet.'}
           </p>
         ) : (
           <ul className="bg-app-card rounded-2xl ring-1 ring-app-border/70 overflow-hidden divide-y divide-app-border/60">

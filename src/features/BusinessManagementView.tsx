@@ -504,22 +504,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
         </div>
       </div>
 
-      {/* Payments, expenses and M-Pesa used to be tabs here. */}
-      {!isMoney && canOpenScreen(role, "money") && (
-        <button
-          type="button"
-          onClick={() => useUiStore.getState().setActiveTab("money")}
-          className="w-full flex items-center gap-3 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-left cursor-pointer transition"
-        >
-          <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center">
-            <Wallet size={20} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-app-text">Payments, expenses and M-Pesa</span>
-          </span>
-          <ChevronRight size={18} className="shrink-0 text-app-text-muted" />
-        </button>
-      )}
+     
 
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
       {!isMoney && (
