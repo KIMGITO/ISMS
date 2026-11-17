@@ -583,13 +583,15 @@ function PickSheet({
                           </p>
                         )}
                       </div>
-                      <NumberInput
-                        min={0}
-                        value={r.qty}
-                        onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
-                        aria-label={`How much ${r.product ? displayName(r.product.name) : ''}`}
-                        size="sm" className="w-24" inputClassName="text-right tabular-nums"
-                      />
+                      <div className="w-24 shrink-0">
+                        <NumberInput
+                          min={0}
+                          value={r.qty}
+                          onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
+                          aria-label={`How much ${r.product ? displayName(r.product.name) : ''}`}
+                          size="sm" inputClassName="text-right tabular-nums"
+                        />
+                      </div>
                       <button
                         onClick={() => setLines((ls) => ls.filter((l) => l.productId !== r.productId))}
                         aria-label="Remove"
@@ -978,13 +980,13 @@ function DetailSheet({
                         )}
                       </div>
                       {editsQty && (
-                        <label className="shrink-0 text-[11px] text-app-text-muted text-right">
+                        <label className="w-24 shrink-0 text-[11px] text-app-text-muted text-right">
                           {mode === 'receive' ? 'Arrived' : 'Send'}
                           <NumberInput
                             min={0}
                             value={got[i.id]}
                             onChange={(v) => setGot((g) => ({ ...g, [i.id]: (v == null ? '' : String(v)) }))}
-                            size="sm" className="mt-0.5 block w-24" inputClassName="text-right tabular-nums"
+                            size="sm" className="mt-0.5" inputClassName="text-right tabular-nums"
                           />
                         </label>
                       )}
@@ -1002,13 +1004,15 @@ function DetailSheet({
                           </button>
                         ))}
                         {s.action && (
-                          <NumberInput
-                            min={0}
-                            value={s.qty}
-                            onChange={(v) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: (v == null ? '' : String(v)) } }))}
-                            aria-label="How much"
-                            size="sm" className="w-20 ml-auto" inputClassName="text-right tabular-nums"
-                          />
+                          <div className="w-20 shrink-0 ml-auto">
+                            <NumberInput
+                              min={0}
+                              value={s.qty}
+                              onChange={(v) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: (v == null ? '' : String(v)) } }))}
+                              aria-label="How much"
+                              size="sm" inputClassName="text-right tabular-nums"
+                            />
+                          </div>
                         )}
                       </div>
                     )}

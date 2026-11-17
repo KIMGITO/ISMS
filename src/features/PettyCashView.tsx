@@ -284,14 +284,14 @@ export default function PettyCashView() {
               )}
             </div>
             {!editingCats ? (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {categories.map((c) => (
                   <button
                     type="button"
                     key={c.name}
                     onClick={() => setCategory(c.name)}
                     aria-pressed={category === c.name}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${category === c.name ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
+                    className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${category === c.name ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text border border-app-border'}`}
                   >
                     {c.name}
                   </button>

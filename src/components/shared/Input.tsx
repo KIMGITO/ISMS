@@ -14,8 +14,12 @@ import { Search, X, CalendarDays } from 'lucide-react';
 
 type Size = 'md' | 'sm';
 
-const shell = (size: Size, disabled?: boolean, invalid?: boolean) =>
-  `flex items-center gap-2 w-full min-w-0 rounded-xl border bg-app-bg text-app-text transition-colors focus-within:ring-1 ${
+// A plain width class from the caller (w-24, w-[5rem]…) replaces the default full width and keeps it from shrinking;
+// both in one class list would leave which wins up to CSS order.
+const ownWidth = (className: string) => /(^|\s)w-(?!full\b)/.test(className);
+
+const shell = (size: Size, disabled?: boolean, invalid?: boolean, className = '') =>
+  `flex items-center gap-2 ${ownWidth(className) ? 'shrink-0' : 'w-full'} min-w-0 rounded-xl border bg-app-bg text-app-text transition-colors focus-within:ring-1 ${
     invalid ? 'border-red-500 focus-within:ring-red-500' : 'border-app-border focus-within:ring-amber-500 focus-within:border-amber-500/60'
   } ${size === 'sm' ? 'h-9 px-2.5' : 'h-11 sm:h-10 px-3'} ${disabled ? 'opacity-60' : ''}`;
 
@@ -42,7 +46,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   ref,
 ) {
   return (
-    <div className={`${shell(size, disabled, invalid)} ${className}`}>
+    <div className={`${shell(size, disabled, invalid, className)} ${className}`}>
       {icon && <span className="shrink-0 text-app-text-muted [&>svg]:size-4">{icon}</span>}
       {prefix != null && <span className={affix}>{prefix}</span>}
       <input ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={`${inner} ${inputClassName}`} {...rest} />
