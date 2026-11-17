@@ -108,7 +108,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ selectedCustomer: customer });
   },
 
-  checkout: async (paymentMethod, note, taxRate = 0.16, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFee = 0, riderName = "") => {
+  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFee = 0, riderName = "") => {
     if (!checkPermissionGate("pos.create_sale")) {
       return { success: false, error: "Permission Denied: pos.create_sale" };
     }

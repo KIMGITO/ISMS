@@ -326,7 +326,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setContactPhone(activeBiz.contactPhone || "");
       setPrimaryColor(activeBiz.primaryColor || "#f59e0b");
       setSecondaryColor(activeBiz.secondaryColor || "#1e293b");
-      setIsTaxEnabled(activeBiz.isTaxEnabled !== false);
+      setIsTaxEnabled(activeBiz.isTaxEnabled === true);
       setTaxPercentage(typeof activeBiz.taxPercentage === 'number' ? activeBiz.taxPercentage : 16.0);
       
       // Check if business type is a custom type (not in the predefined list)
@@ -1029,12 +1029,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
                       </div>
                     </div>
 
-                    {/* Card 3: Tax & VAT Settings */}
+                    {/* Card 3: VAT. Only with KRA eTIMS connected; without it no sale carries VAT. */}
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Briefcase size={14} className="text-amber-500" />
                         <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Tax & VAT Settings
+                          VAT
                         </h3>
                       </div>
 
@@ -1042,34 +1042,29 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         <div className="flex items-center justify-between gap-4">
                           <div>
                             <span className="font-extrabold text-app-text text-xs block">
-                              Enable Tax / VAT Tracking
+                              Charge VAT
                             </span>
-                            <span className="text-[10px] text-app-text-muted font-medium block mt-0.5 leading-tight">
-                              Toggle tax computations during Point of Sale
-                              checkouts.
+                            <span className="text-[11px] text-app-text-muted block mt-0.5 leading-tight">
+                              {kraConnected
+                                ? 'Added to every sale and quote.'
+                                : kraStatus === undefined
+                                  ? 'Checking KRA eTIMS…'
+                                  : 'Off. Connect KRA eTIMS first (Settings → Receipts → KRA eTIMS).'}
                             </span>
                           </div>
                           <Switch
-                            checked={isTaxEnabled}
-                            // Turning VAT off is always allowed; turning it on needs KRA eTIMS
-                            disabled={!isTaxEnabled && !kraConnected}
+                            // Shows what sales really do: without eTIMS it is off, whatever was saved.
+                            checked={isTaxEnabled && kraConnected}
+                            disabled={!kraConnected}
                             onChange={() => setIsTaxEnabled(!isTaxEnabled)}
-                            ariaLabel="Charge tax"
+                            ariaLabel="Charge VAT"
                           />
                         </div>
 
-                        {!kraConnected && (
-                          <p className="text-[11px] text-app-text-muted leading-snug">
-                            {kraStatus === undefined
-                              ? 'Checking KRA eTIMS…'
-                              : 'Connect KRA eTIMS first to charge VAT and set its rate: Settings → Receipts & printing → KRA eTIMS.'}
-                          </p>
-                        )}
-
-                        {isTaxEnabled && (
+                        {isTaxEnabled && kraConnected && (
                           <div className="flex flex-col gap-1 bg-app-bg/50 p-3.5 border border-app-border rounded-2xl">
                             <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                              VAT Rate % (Supports 0% for Zero-Rating)
+                              Rate %
                             </label>
                             <input
                               type="number"

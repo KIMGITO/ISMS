@@ -10,11 +10,13 @@ interface Props {
   value: string[];
   onChange: (ids: string[]) => void;
   ctx: GroupContext;
-  /** Starts open (no summary row). */
+  /** Starts open. */
   defaultOpen?: boolean;
+  /** Its own scroll box when open (off when it already sits in a scrolling list). */
+  capHeight?: boolean;
 }
 
-export function GroupPicker({ customers, value, onChange, ctx, defaultOpen = false }: Props) {
+export function GroupPicker({ customers, value, onChange, ctx, defaultOpen = false, capHeight = true }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const groups = useMemo(() => visibleGroups(ctx), [ctx]);
   const counts = useMemo(() => {
@@ -52,7 +54,7 @@ export function GroupPicker({ customers, value, onChange, ctx, defaultOpen = fal
         )}
       </div>
       {open && (
-        <div className="px-3 pb-3 space-y-2.5 max-h-[45vh] overflow-y-auto">
+        <div className={`px-3 pb-3 space-y-2.5 ${capHeight ? 'max-h-[45vh] overflow-y-auto' : ''}`}>
           {sections.map(([section, list]) => (
             <div key={section}>
               <p className="text-[11px] font-medium text-app-text-muted mb-1">{section}</p>
@@ -78,7 +80,7 @@ export function GroupPicker({ customers, value, onChange, ctx, defaultOpen = fal
               </div>
             </div>
           ))}
-          <p className="text-[11px] text-app-text-muted">Within a section, any choice counts. Across sections, customers need all of them.</p>
+          <p className="text-[11px] text-app-text-muted">Same heading: any of them. Different headings: all of them.</p>
         </div>
       )}
     </div>

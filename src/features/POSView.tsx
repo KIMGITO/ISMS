@@ -41,6 +41,7 @@ import { CardRepository } from '../services/repositories';
 import { useCartStore } from '../stores/cartStore';
 import { markQuoteSold } from '../services/salesDocs';
 import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
+import { useVatPercent } from '../services/kra/kraService';
 
 
 export default function POSView() {
@@ -123,7 +124,8 @@ export default function POSView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [checkoutSuccess, lastTx]);
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
-  const businessTaxRate = activeBusiness?.isTaxEnabled ? (typeof activeBusiness.taxPercentage === 'number' ? activeBusiness.taxPercentage / 100 : 0.16) : 0.0;
+  // No VAT at all unless KRA eTIMS is connected, whatever the tax switch says.
+  const businessTaxRate = useVatPercent(activeBusiness) / 100;
   const [taxRate, setTaxRate] = useState<number>(businessTaxRate);
 
   useEffect(() => {
@@ -890,8 +892,9 @@ export default function POSView() {
                 )}
 
                 {/* Additional Checkout Controls: Tax & Discount */}
-                <div className="grid grid-cols-1 @md:grid-cols-2 gap-3 p-3 bg-app-bg/50 border border-app-border/60 rounded-2xl">
-                  {/* Tax Rate Setting */}
+                <div className={`grid grid-cols-1 ${businessTaxRate > 0 ? '@md:grid-cols-2' : ''} gap-3 p-3 bg-app-bg/50 border border-app-border/60 rounded-2xl`}>
+                  {/* Tax Rate Setting: only when VAT is allowed (eTIMS connected) */}
+                  {businessTaxRate > 0 && (
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] font-black text-app-text-muted uppercase">
                       Tax
@@ -921,6 +924,7 @@ export default function POSView() {
                       </button>
                     </div>
                   </div>
+                  )}
 
                   {/* Checkout Discount Setting */}
                   <div className="flex flex-col gap-1.5">
@@ -1004,7 +1008,8 @@ export default function POSView() {
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
+                  {tax > 0 && (
+                    <div className="flex justify-between">
                     <span className="text-app-text-muted">
                       VAT ({(taxRate * 100).toFixed(0)}%)
                     </span>
@@ -1012,6 +1017,7 @@ export default function POSView() {
                       KSh {tax.toFixed(2)}
                     </span>
                   </div>
+                  )}
                   {isDelivery && deliveryFee > 0 && (
                     <div className="flex justify-between">
                       <span className="text-blue-500 font-semibold">

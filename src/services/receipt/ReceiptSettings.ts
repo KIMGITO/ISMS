@@ -61,7 +61,7 @@ export function defaultReceiptSettings(business?: Business): BusinessReceiptSett
     currencyFormat: business?.currency && business.currency.toLowerCase() !== "ksh" ? business.currency : "KSh",
     dateFormat: "DD/MM/YYYY",
     timeFormat: "24h",
-    isTaxEnabled: business ? business.isTaxEnabled !== false : false,
+    isTaxEnabled: business?.isTaxEnabled === true,
     taxPercentage: typeof business?.taxPercentage === "number" ? business.taxPercentage : 16,
     showBarcode: true,
     extraQr: "none",
@@ -126,7 +126,7 @@ export class ReceiptSettingsService {
         if (v) settings[key] = v;
       }
       // Tax always follows the business setting used at checkout.
-      settings.isTaxEnabled = business.isTaxEnabled !== false;
+      settings.isTaxEnabled = business.isTaxEnabled === true;
       if (typeof business.taxPercentage === "number") settings.taxPercentage = business.taxPercentage;
     }
     return settings;

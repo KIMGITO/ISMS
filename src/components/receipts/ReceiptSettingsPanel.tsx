@@ -15,7 +15,7 @@ import { buildReceiptContent } from '../../services/receipt/ReceiptGenerator';
 import { buildReceiptLines, columnsFor } from '../../services/receipt/layout';
 import { printerService } from '../../services/printer/PrinterService';
 import { DevicePrinterPrefs, PrinterTarget } from '../../services/printer/types';
-import { kraService, KraSettings, useKraStatus } from '../../services/kra/kraService';
+import { kraService, KraSettings, useKraStatus, useVatPercent } from '../../services/kra/kraService';
 import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
 import { InvoicePaper } from '../invoices/InvoicePaper';
@@ -126,6 +126,7 @@ export default function ReceiptSettingsPanel() {
 
   // The preview is an example sale, so it shows from the start and never needs real data.
   // It uses this business's tax rate so the totals look like a real receipt.
+  const vatPct = useVatPercent(business);
   const sampleSale = useMemo<Transaction>(() => {
     const product = (id: string, name: string, price: number, unit: string) => ({ id, name, price, unit, stock: 0, category: '', sku: id.toUpperCase() } as unknown as Product);
     const items = [
@@ -134,7 +135,7 @@ export default function ReceiptSettingsPanel() {
       { product: product('sample-3', 'Sugar 1kg', 180, 'packet'), quantity: 1, discountPercentage: 10 },
     ];
     const total = items.reduce((sum, i) => sum + i.product.price * i.quantity * (1 - i.discountPercentage / 100), 0);
-    const rate = business?.isTaxEnabled ? Number(business.taxPercentage ?? 16) / 100 : 0;
+    const rate = vatPct / 100;
     const tax = Math.round(total * rate * 100) / 100;
     return {
       id: '00000000-0000-4000-8000-000000001234',
@@ -151,7 +152,7 @@ export default function ReceiptSettingsPanel() {
       timestamp: new Date().toISOString(),
       referenceId: 'SAMPLE1234',
     };
-  }, [business?.isTaxEnabled, business?.taxPercentage, currentEmployee?.id, currentEmployee?.name]);
+  }, [vatPct, currentEmployee?.id, currentEmployee?.name]);
   const previewLines = useMemo(
     () => buildReceiptLines(buildReceiptContent(sampleSale, settings), settings),
     [sampleSale, settings],
@@ -243,7 +244,7 @@ export default function ReceiptSettingsPanel() {
                 </Field>
               </div>
               <p className="text-xs text-app-text-muted">
-                VAT on receipts follows the business tax setting ({settings.isTaxEnabled ? `${settings.taxPercentage}%` : 'off'}).
+                {vatPct > 0 ? `VAT ${vatPct}% (eTIMS connected).` : 'No VAT: KRA eTIMS is not connected.'}
               </p>
             </>
           )}

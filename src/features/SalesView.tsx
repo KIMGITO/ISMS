@@ -1,5 +1,5 @@
 // src/features/SalesView.tsx
-// Re-engineered Chat-Style Accordion Chronological Sales Tracker
+// Sales Log: every sale, grouped by day, newest first.
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useUiStore } from "../stores/uiStore";
@@ -22,11 +22,14 @@ import { loadSaleCreditNotes } from "../services/salesDocs";
 import { Tabs } from "../components/TabOptions";
 import QuotesPanel from "../components/sales/QuotesPanel";
 
-interface GroupedTransactions {
-  today: Transaction[];
-  yesterday: Transaction[];
-  older: Record<string, Transaction[]>;
+interface DaySection {
+  key: string; // "today", "yesterday" or the day as YYYY-MM-DD
+  label: string;
+  txs: Transaction[]; // newest first
+  total: number;
 }
+
+const dayKey = (d: Date) => d.toLocaleDateString("en-CA");
 
 function getPaymentMethodLabel(method: string | undefined): string {
   switch (method) {
@@ -71,7 +74,7 @@ export default function SalesView() {
     if (!businessId) return;
     const ok = await appDialog.confirm({
       title: `Delete sale ${formatReceiptNumber(tx.id)}?`,
-      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. It is removed for everyone and can't be brought back. Stock is not put back, payments and debts stay, and sales reports for that day drop it.`,
+      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. Gone for everyone, for good. Stock, payments and debts stay as they are.`,
       confirmLabel: "Delete",
       destructive: true,
     });
@@ -106,11 +109,10 @@ export default function SalesView() {
   }, [businessId]);
   useEffect(() => { loadRefunds(); }, [loadRefunds, transactions.length]);
 
-  // ── FIX: Track only ONE active open section string to auto-collapse others ──
+  // One day open at a time; today starts open.
   const [activeOpenSection, setActiveOpenSection] = useState<string>("today");
 
   const handleToggleSection = (sectionKey: string) => {
-    // If clicking the already open section, close it (or leave it open based on choice, here we toggle)
     setActiveOpenSection(prev => prev === sectionKey ? "" : sectionKey);
   };
 
@@ -127,40 +129,41 @@ export default function SalesView() {
     useUiStore.getState().setScreenSection(null);
   }, [screenSection, seesQuotes]);
 
-  const groupedLogs = useMemo((): GroupedTransactions => {
+  // Newest first everywhere: today on top, then yesterday, then older days, and inside each
+  // day the latest sale first.
+  const sections = useMemo((): DaySection[] => {
     const safeTx = Array.isArray(transactions) ? transactions : [];
-    
-    // Messaging thread sorting layout (Oldest at top, Latest at bottom)
-    const chronologicalTx = [...safeTx].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-
-    const todayStr = new Date().toLocaleDateString();
-    
-    const yest = new Date();
-    yest.setDate(yest.getDate() - 1);
-    const yesterdayStr = yest.toLocaleDateString();
-
-    const groups: GroupedTransactions = { today: [], yesterday: [], older: {} };
-
-    chronologicalTx.forEach(tx => {
-      const txDate = new Date(tx.timestamp);
-      const txDateStr = txDate.toLocaleDateString();
-
-      if (txDateStr === todayStr) {
-        groups.today.push(tx);
-      } else if (txDateStr === yesterdayStr) {
-        groups.yesterday.push(tx);
-      } else {
-        if (!groups.older[txDateStr]) {
-          groups.older[txDateStr] = [];
-        }
-        groups.older[txDateStr].push(tx);
+    const sorted = [...safeTx].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const today = dayKey(new Date());
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yesterday = dayKey(y);
+    const byDay = new Map<string, DaySection>();
+    byDay.set(today, { key: "today", label: "Today", txs: [], total: 0 });
+    for (const tx of sorted) {
+      const d = new Date(tx.timestamp);
+      const k = dayKey(d);
+      let sec = byDay.get(k);
+      if (!sec) {
+        sec = k === yesterday
+          ? { key: "yesterday", label: "Yesterday", txs: [], total: 0 }
+          : { key: k, label: d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" }), txs: [], total: 0 };
+        byDay.set(k, sec);
       }
-    });
-
-    return groups;
+      sec.txs.push(tx);
+      sec.total += tx.finalTotal || 0;
+    }
+    // Map keeps insertion order: today first, then days in the order of the newest-first sales.
+    return Array.from(byDay.values());
   }, [transactions]);
+
+  // No sales yet today: open the latest day that has some (once, so a tap to close sticks).
+  const autoOpened = React.useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || sections.length < 2) return;
+    autoOpened.current = true;
+    if (sections[0].txs.length === 0) setActiveOpenSection(sections[1].key);
+  }, [sections]);
 
   if (!canViewSales) {
     return (
@@ -170,7 +173,7 @@ export default function SalesView() {
           <div>
             <h4 className="font-extrabold text-sm uppercase tracking-wider">No access</h4>
             <p className="text-[11px] text-app-text-muted mt-1 leading-relaxed">
-              Your operator account role (<strong>{currentEmployee?.role || "Guest"}</strong>) does not hold the clearances to review transaction records.
+              Your role ({currentEmployee?.role || "Guest"}) can't see sales.
             </p>
           </div>
         </div>
@@ -189,8 +192,9 @@ export default function SalesView() {
     });
     const unitSummary = Array.from(unitTotals.entries())
       .map(([unit, qty]) => {
-        const displayUnit = unit === "unit" ? "unit" : unit;
-        const plural = qty === 1 ? displayUnit : `${displayUnit}s`;
+        // Units are often saved plural already ("packets", "litres"): only add an s when missing.
+        const singular = unit.endsWith("s") && unit.length > 2 ? unit.slice(0, -1) : unit;
+        const plural = qty === 1 ? singular : `${singular}s`;
         return `${qty} ${plural}`;
       })
       .join(", ");
@@ -303,7 +307,7 @@ export default function SalesView() {
             Sales Log
           </h2>
           <p className="text-[10px] text-app-text-muted font-medium">
-            {view === "quotes" ? "Quotes made from the POS cart" : "Every sale and its receipt"}
+            {view === "quotes" ? "Quotes from the POS cart" : "Every sale, newest first"}
           </p>
         </div>
         <span className="px-2.5 py-1 bg-app-bg text-app-text border border-app-border rounded-full font-mono font-bold text-[10px] shadow-sm">
@@ -325,126 +329,51 @@ export default function SalesView() {
         </div>
       )}
 
-      {/* CHAT-STYLE SCROLL CONTAINER CONTAINER PANEL */}
       <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-4 pb-nav">
         {view === "quotes" ? (
           <QuotesPanel />
         ) : totalTxCount === 0 ? (
           <div className="p-12 bg-app-card rounded-2xl border border-dashed border-app-border text-center text-xs text-app-text-muted flex flex-col items-center gap-2 my-auto">
             <ReceiptText size={24} className="text-app-text-muted" />
-            <span>
-              No orders completed in this session yet. Complete some sales in
-              POS!
-            </span>
+            <span>No sales yet.</span>
           </div>
         ) : (
-          <>
-            {/* 1. ARCHIVED HISTORICAL DATES */}
-            {Object.entries(groupedLogs.older).map(([dateLabel, txList]) => {
-              const isSectionOpen = activeOpenSection === dateLabel;
-              return (
-                <div
-                  key={dateLabel}
-                  className="flex flex-col gap-2 bg-app-card/30 p-1.5 border border-app-border/40 rounded-2xl"
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSection(dateLabel)}
-                    className="w-full flex items-center justify-between p-2 hover:bg-app-card/60 rounded-xl transition text-left cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                      <span className="text-[10px] font-black font-mono text-app-text tracking-wide uppercase">
-                        Archive: {dateLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] font-black text-app-text-muted uppercase">
-                      <span>{txList.length} logs</span>
-                      {isSectionOpen ? (
-                        <ChevronUp size={14} />
-                      ) : (
-                        <ChevronDown size={12} />
-                      )}
-                    </div>
-                  </button>
-
-                  {isSectionOpen && (
-                    <div className="space-y-2 mt-1 px-0.5 animate-fadeIn">
-                      {txList.map(renderTxRow)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* 2. YESTERDAY SECTION CONTAINER */}
-            {groupedLogs.yesterday.length > 0 && (
-              <div className="flex flex-col gap-2 bg-app-card/40 p-1.5 border border-app-border rounded-2xl">
+          sections.map((sec) => {
+            const open = activeOpenSection === sec.key;
+            const isToday = sec.key === "today";
+            return (
+              <div key={sec.key} className="flex flex-col gap-2 bg-app-card/30 p-1.5 border border-app-border/50 rounded-2xl">
                 <button
                   type="button"
-                  onClick={() => handleToggleSection('yesterday')}
-                  className="w-full flex items-center justify-between p-2 hover:bg-app-card/60 rounded-xl transition text-left cursor-pointer"
+                  onClick={() => handleToggleSection(sec.key)}
+                  aria-expanded={open}
+                  className="w-full flex items-center justify-between gap-3 p-2 hover:bg-app-card/60 rounded-xl transition text-left cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500/60" />
-                    <span className="text-[10px] font-black text-app-text tracking-wider uppercase">
-                      Yesterday's Invoices
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[9px] font-black text-app-text-muted uppercase">
-                    <span>{groupedLogs.yesterday.length} logs</span>
-                    {activeOpenSection === 'yesterday' ? (
-                      <ChevronUp size={14} />
-                    ) : (
-                      <ChevronDown size={12} />
-                    )}
-                  </div>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isToday ? "bg-emerald-500" : "bg-slate-400"}`} />
+                    <span className={`text-xs font-bold truncate ${isToday ? "text-emerald-600 dark:text-emerald-400" : "text-app-text"}`}>{sec.label}</span>
+                  </span>
+                  <span className="flex items-center gap-2 text-[11px] text-app-text-muted shrink-0">
+                    <span className="tabular-nums">{sec.txs.length} {sec.txs.length === 1 ? "sale" : "sales"}</span>
+                    {sec.total > 0 && <span className="tabular-nums font-semibold text-app-text">{formatCurrency(sec.total)}</span>}
+                    {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </span>
                 </button>
 
-                {activeOpenSection === 'yesterday' && (
+                {open && (
                   <div className="space-y-2 mt-1 px-0.5 animate-fadeIn">
-                    {groupedLogs.yesterday.map(renderTxRow)}
+                    {sec.txs.length === 0 ? (
+                      <div className="p-5 border border-dashed border-app-border rounded-xl text-center text-xs text-app-text-muted">
+                        No sales yet today.
+                      </div>
+                    ) : (
+                      sec.txs.map(renderTxRow)
+                    )}
                   </div>
                 )}
               </div>
-            )}
-
-            {/* 3. TODAY ACTIVE STREAM (COLLAPSIBLE ACCORDION CONTAINER) */}
-            <div className="flex flex-col gap-2 bg-app-card/20 p-1.5 border border-app-border/40 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => handleToggleSection('today')}
-                className="w-full flex items-center justify-between p-2 hover:bg-app-card/60 rounded-xl transition text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
-                    Live Feed • Today's Activity
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[9px] font-black text-app-text-muted uppercase">
-                  <span>{groupedLogs.today.length} logs</span>
-                  {activeOpenSection === 'today' ? (
-                    <ChevronUp size={14} />
-                  ) : (
-                    <ChevronDown size={12} />
-                  )}
-                </div>
-              </button>
-
-              {activeOpenSection === 'today' && (
-                <div className="space-y-2.5 mt-1 px-0.5 animate-fadeIn">
-                  {groupedLogs.today.length === 0 ? (
-                    <div className="p-6 bg-app-card/40 border border-dashed border-app-border rounded-xl text-center text-[10px] text-app-text-muted font-bold">
-                      No transaction checkouts completed yet today.
-                    </div>
-                  ) : (
-                    groupedLogs.today.map(renderTxRow)
-                  )}
-                </div>
-              )}
-            </div>
-          </>
+            );
+          })
         )}
       </div>
 

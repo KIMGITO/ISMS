@@ -14,6 +14,7 @@ import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
 import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
+import { useVatPercent } from '../services/kra/kraService';
 
 const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; icon: typeof Banknote; style: string }> = [
   // Same numbers as POS: Alt+1 Cash, Alt+2 M-Pesa, Alt+4 Card, Alt+6 Airtel Money.
@@ -98,9 +99,8 @@ export default function QuickSaleView() {
   const payOptions = PAY_OPTIONS.filter((o) => enabled.includes(o.method as MoneyMethod));
 
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
-  const taxRate = activeBusiness?.isTaxEnabled
-    ? (typeof activeBusiness.taxPercentage === 'number' ? activeBusiness.taxPercentage / 100 : 0.16)
-    : 0;
+  // No VAT at all unless KRA eTIMS is connected, whatever the tax switch says.
+  const taxRate = useVatPercent(activeBusiness) / 100;
 
   // The products this shop actually sells come first, so most sales need no searching.
   const salesRank = useMemo(() => {

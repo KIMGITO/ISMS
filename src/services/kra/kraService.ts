@@ -165,3 +165,25 @@ export function useKraStatus(businessId: string | null | undefined): { status: K
     },
   };
 }
+
+/**
+ * VAT a sale may charge, as a percent (16 = 16%). VAT is only allowed while KRA eTIMS is
+ * connected: without signed receipts no sale, quote or order may carry VAT, even with the
+ * business tax switch on. Unknown status (still loading, offline) counts as not connected.
+ * The database applies the same rule (vat_allowed), so an old app can't get VAT past it.
+ */
+export function vatPercentFor(
+  business: { isTaxEnabled?: boolean; taxPercentage?: number } | null | undefined,
+  kra: KraStatus | undefined,
+): number {
+  if (!business?.isTaxEnabled || kra?.connected !== true) return 0;
+  return typeof business.taxPercentage === "number" ? business.taxPercentage : 16;
+}
+
+/** vatPercentFor for the given business, kept up to date with its eTIMS connection. */
+export function useVatPercent(
+  business: { id?: string; isTaxEnabled?: boolean; taxPercentage?: number } | null | undefined,
+): number {
+  const { status } = useKraStatus(business?.id);
+  return vatPercentFor(business, status);
+}

@@ -4,6 +4,7 @@ import { formatClock, minutesFromNow, toClock, toDateKey } from "../utils/timeFo
 import { readFileSync, readdirSync } from "node:fs";
 import { respond, UssdContext } from "../../supabase/functions/ussd/menu";
 import "./setupTests";
+import { vatPercentFor } from "../services/kra/kraService";
 import { formatReceiptNumber, formatCustomerNumber, getShortId, newUuid, toUuid } from "../utils/idUtils";
 import { EscPosGenerator, toPrinterText } from "../services/printer/EscPosGenerator";
 import { CODE128_PATTERNS, code128Codes } from "../services/receipt/code128";
@@ -1362,6 +1363,21 @@ runTest("Airtel numbers, networks and answers are read correctly", () => {
   // A callback only records money after asking Airtel: it settles through refreshPrompt.
   const callback = readFileSync("supabase/functions/airtel-callback/index.ts", "utf8");
   if (!callback.includes("refreshPrompt(admin, row)") || /p_success:\s*true/.test(callback)) throw new Error("callback must not trust the body for a success");
+});
+
+runTest("No VAT at all unless KRA eTIMS is connected, even with the tax switch on", () => {
+  const on = { isTaxEnabled: true, taxPercentage: 16 };
+  const connected = { connected: true, settings: null };
+  const off = { connected: false, settings: null };
+  if (vatPercentFor(on, connected) !== 16) throw new Error("switch on + eTIMS connected charges VAT");
+  if (vatPercentFor(on, off) !== 0) throw new Error("eTIMS not connected must mean no VAT");
+  if (vatPercentFor(on, undefined) !== 0) throw new Error("unknown eTIMS status (loading, offline) must mean no VAT");
+  if (vatPercentFor({ isTaxEnabled: false, taxPercentage: 16 }, connected) !== 0) throw new Error("switch off means no VAT");
+  if (vatPercentFor({}, connected) !== 0) throw new Error("a missing switch means off");
+  const sql = readFileSync("supabase/migrations/20261124001_vat_needs_etims.sql", "utf8");
+  for (const need of ["vat_allowed", "trg_tax_needs_etims", "trg_0_sale_vat_needs_etims", "IF NOT v_vat_ok THEN", "SET DEFAULT false"]) {
+    if (!sql.includes(need)) throw new Error(`database must enforce it too: ${need}`);
+  }
 });
 
 runTest("Card amounts and Paystack answers are read correctly", () => {

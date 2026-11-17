@@ -11,6 +11,7 @@ import { formatCurrency } from '../../utils/helpers';
 import { toUserMessage } from '../../utils/userError';
 import { draftTotals, loadSalesDocs, saveQuote, VAT_RATES, type DraftLine, type Quote } from '../../services/salesDocs';
 import { shareQuotePdf, shareQuoteWhatsApp } from '../../services/quoteShare';
+import { useVatPercent } from '../../services/kra/kraService';
 
 const VALID_FOR = [7, 14, 30];
 const isoDay = (offset = 0) => {
@@ -35,8 +36,9 @@ export function QuoteFromCartSheet({ deliveryFee, onClose }: { deliveryFee: numb
   const [saved, setSaved] = useState<Quote | null>(null);
 
   // Same prices and VAT as the till: VAT is added on top of the shelf price.
-  const taxPct = business?.isTaxEnabled ? Number(business.taxPercentage ?? 16) : 0;
-  const vatRate = (VAT_RATES as readonly number[]).includes(taxPct) ? taxPct : business?.isTaxEnabled ? 16 : 0;
+  // No VAT unless KRA eTIMS is connected.
+  const taxPct = useVatPercent(business);
+  const vatRate = taxPct === 0 ? 0 : (VAT_RATES as readonly number[]).includes(taxPct) ? taxPct : 16;
   const lines: DraftLine[] = cart.map((item) => ({
     productId: item.product.id,
     name: item.product.name,

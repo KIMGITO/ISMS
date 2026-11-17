@@ -790,6 +790,17 @@ export default function CustomersView() {
         } ${listCollapsed && !selecting ? 'lg:!hidden' : ''}`}
       >
         {/* Title and actions */}
+        {selecting ? (
+          <div className="px-4 pt-4 pb-3 shrink-0 flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-app-text leading-tight">Message customers</h2>
+              <span className="text-xs text-app-text-muted">Step 1 of 2 · Who gets it</span>
+            </div>
+            <button onClick={stopMessaging} className="px-3 py-2 rounded-xl bg-app-bg text-sm font-medium text-app-text cursor-pointer">
+              Cancel
+            </button>
+          </div>
+        ) : (
         <div className="px-4 pt-4 pb-3 shrink-0 space-y-2.5">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -842,10 +853,10 @@ export default function CustomersView() {
                 title="Pick customers by group and send them one message with their own names and amounts"
                 className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${selecting ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
               >
-                <MessageSquareText size={15} /> {selecting ? 'Done' : 'Message'}
+                <MessageSquareText size={15} /> Message
               </button>
             )}
-            {canCreateCustomers && !selecting && (
+            {canCreateCustomers && (
               <button
                 onClick={() => {
                   resetForm();
@@ -860,6 +871,7 @@ export default function CustomersView() {
             )}
           </div>
         </div>
+        )}
 
         {/* Search and filter */}
         <div className="px-3 pb-3 shrink-0 flex flex-col gap-2">
@@ -873,9 +885,18 @@ export default function CustomersView() {
               className="w-full bg-app-bg text-sm pl-9 pr-3 py-2.5 rounded-xl focus:outline-none text-app-text"
             />
           </div>
-          <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} defaultOpen={selecting} key={selecting ? 'pick' : 'filter'} />
+          {!selecting && <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} key="filter" />}
+        </div>
+
+        {/* Customers */}
+        <div className={`flex-1 min-h-0 overflow-y-auto ${selecting ? 'pb-3 lg:pb-nav' : 'pb-nav'}`}>
           {selecting && (
-            <div className="flex items-center gap-2 px-1">
+            <div className="px-3 pb-2">
+              <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} key="pick" defaultOpen capHeight={false} />
+            </div>
+          )}
+          {selecting && (
+            <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-app-card border-b border-app-border">
               <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                 <input
                   type="checkbox"
@@ -889,7 +910,7 @@ export default function CustomersView() {
                 />
                 {groupFilter.length || searchQuery ? `All ${filteredCustomers.length} shown` : `Everyone (${filteredCustomers.length})`}
               </label>
-              <span className="ml-auto text-xs text-app-text-muted tabular-nums">{pickedIds.size} picked</span>
+              <span className="ml-auto text-xs font-medium tabular-nums">{pickedIds.size} picked</span>
               {pickedIds.size > 0 && (
                 <button onClick={() => setPickedIds(new Set())} className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer">
                   Clear
@@ -897,10 +918,6 @@ export default function CustomersView() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Customers */}
-        <div className="flex-1 min-h-0 overflow-y-auto pb-nav">
           {filteredCustomers.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-sm font-medium text-app-text">No customers found</p>
@@ -984,8 +1001,8 @@ export default function CustomersView() {
               onClick={() => setComposeOpen(true)}
               className="w-full h-11 rounded-xl bg-amber-500 text-slate-950 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Send size={16} />
-              {pickedIds.size ? `Write message to ${pickedIds.size}` : 'Write message'}
+              {pickedIds.size ? `Next: write to ${pickedIds.size}` : 'Next: write message'}
+              <ChevronRight size={16} />
             </button>
           </div>
         )}
@@ -1016,14 +1033,15 @@ export default function CustomersView() {
                   <ArrowLeft size={20} />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-semibold">Message customers</h2>
+                  <h2 className="text-base font-semibold">Write the message</h2>
                   <p className="text-xs text-app-text-muted truncate">
+                    <span className="lg:hidden">Step 2 of 2 · </span>
                     {pickedIds.size
-                      ? `${pickedIds.size} picked${groupFilter.length ? ` · ${describeGroups(groupFilter)}` : ''}`
-                      : 'Pick customers on the left, by group or one by one, or ask the assistant.'}
+                      ? `To ${pickedIds.size}${groupFilter.length ? ` · ${describeGroups(groupFilter)}` : ''}`
+                      : 'Nobody picked yet'}
                   </p>
                 </div>
-                <button onClick={stopMessaging} className="px-3 py-1.5 rounded-xl text-sm text-app-text-muted hover:text-app-text hover:bg-app-card cursor-pointer">
+                <button onClick={stopMessaging} className="hidden lg:block px-3 py-1.5 rounded-xl text-sm text-app-text-muted hover:text-app-text hover:bg-app-card cursor-pointer">
                   Close
                 </button>
               </div>
@@ -2024,133 +2042,77 @@ export default function CustomersView() {
                   </div>
                 )}
 
-                {/* 3. SEND MESSAGE TAB */}
+                {/* 3. SEND MESSAGE TAB: pick a ready text (or type), then send */}
                 {activeDetailTab === 'message' && (
-                  <div className="flex flex-col gap-4 text-xs">
-                    <div className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-3.5">
-                      <h4 className="text-sm font-semibold text-app-text">
-                        Send a message
-                      </h4>
-
-                      {/* Debt breakdown automated card if has debt */}
-                      {selectedCustomer.debtBalance !== undefined &&
-                        selectedCustomer.debtBalance > 0 && (
-                          <div className="bg-red-500/5 border border-red-500/15 p-3.5 rounded-2xl flex flex-col gap-2 animate-fade-in">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 text-red-500 font-extrabold uppercase text-[10px] tracking-wider">
-                                <Brain size={13} className="text-red-500" />
-                                <span>
-                                  What they owe, item by item
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-[9.5px] text-app-text-muted leading-relaxed font-bold">
-                              Generate and load a detailed billing breakdown
-                              including all unpaid items, quantities, taxes, and
-                              delivery fees for this client.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const debtMsg =
-                                  getDebtBreakdownMessage(selectedCustomer);
-                                setMessageText(debtMsg);
-                                setSuccessMsg(
-                                  'Loaded detailed debt statement breakdown!',
-                                );
-                                setTimeout(() => setSuccessMsg(''), 3000);
-                              }}
-                              className="self-start px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[9.5px] font-black uppercase transition cursor-pointer flex items-center gap-1 shadow-sm"
-                            >
-                              <Coins size={11} />
-                              <span>Use this in the message</span>
-                            </button>
-                          </div>
-                        )}
-
-                      {/* Outreach Templates */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-app-text-muted">
-                          Templates
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {[
-                            {
-                              label: 'Payment reminder',
-                              text: `Hi ${getFirstName(selectedCustomer.name)}, this is a reminder that your balance at ${shopName} is ${formatCurrency(
-                                selectedCustomer.debtBalance || 0,
-                              )}. Please pay when you can. Thank you!`,
-                            },
-                            {
-                              label: 'Thank you',
-                              text: `Hi ${getFirstName(selectedCustomer.name)}, thank you for shopping at ${shopName}. We appreciate you!`,
-                            },
-                            {
-                              label: 'Points balance',
-                              text: `Hi ${getFirstName(selectedCustomer.name)}, you have ${selectedCustomer.loyaltyPoints || 0} loyalty points at ${shopName}.`,
-                            },
-                            {
-                              label: 'Wallet balance',
-                              text: `Hi ${getFirstName(selectedCustomer.name)}, your wallet balance at ${shopName} is ${formatCurrency(
-                                selectedCustomer.walletBalance || 0,
-                              )}.`,
-                            },
-                          ].map((t, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setMessageText(t.text)}
-                              className="p-2.5 text-left bg-app-card border border-app-border hover:border-amber-500/25 rounded-xl text-[10px] font-bold leading-tight transition cursor-pointer text-app-text hover:bg-app-card/80"
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Custom outreach text box */}
-                      <div className="flex flex-col gap-1 mt-1">
-                        <label className="text-xs font-medium text-app-text-muted">
-                          Message
-                        </label>
-                        <textarea
-                          rows={6}
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          placeholder="Type customer message or statement here..."
-                          className="bg-app-card border border-app-border rounded-xl px-3.5 py-3 text-xs text-app-text focus:outline-none focus:border-amber-500 font-medium leading-relaxed font-sans"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 mt-1.5">
+                  <div className="bg-app-bg p-3 sm:p-4 rounded-2xl flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        ...((selectedCustomer.debtBalance || 0) > 0
+                          ? [
+                              {
+                                label: 'Payment reminder',
+                                text: `Hi ${getFirstName(selectedCustomer.name)}, this is a reminder that your balance at ${shopName} is ${formatCurrency(
+                                  selectedCustomer.debtBalance || 0,
+                                )}. Please pay when you can. Thank you!`,
+                              },
+                              { label: 'What they owe, item by item', text: getDebtBreakdownMessage(selectedCustomer) },
+                            ]
+                          : []),
+                        {
+                          label: 'Thank you',
+                          text: `Hi ${getFirstName(selectedCustomer.name)}, thank you for shopping at ${shopName}. We appreciate you!`,
+                        },
+                        ...(pointsOn
+                          ? [{ label: 'Points', text: `Hi ${getFirstName(selectedCustomer.name)}, you have ${selectedCustomer.loyaltyPoints || 0} loyalty points at ${shopName}.` }]
+                          : []),
+                        ...((selectedCustomer.walletBalance || 0) > 0
+                          ? [
+                              {
+                                label: 'Wallet',
+                                text: `Hi ${getFirstName(selectedCustomer.name)}, your wallet balance at ${shopName} is ${formatCurrency(
+                                  selectedCustomer.walletBalance || 0,
+                                )}.`,
+                              },
+                            ]
+                          : []),
+                      ].map((t) => (
                         <button
+                          key={t.label}
                           type="button"
-                          onClick={() =>
-                            ReceiptShareService.shareTextViaWhatsApp(
-                              selectedCustomer.phone,
-                              messageText,
-                            )
-                          }
-                          className="py-2.5 bg-[#25D366] text-white hover:bg-[#20ba59] font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
+                          onClick={() => setMessageText(t.text)}
+                          className="rounded-full px-3 py-1.5 bg-app-card ring-1 ring-app-border hover:ring-amber-500/50 text-xs font-medium text-app-text cursor-pointer"
                         >
-                          <Send size={12} />
-                          <span>WhatsApp</span>
+                          {t.label}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            ReceiptShareService.shareTextViaEmail(
-                              selectedCustomer.email,
-                              `Your account at ${shopName}`,
-                              messageText,
-                            )
-                          }
-                          className="py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[11px] text-center flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-                        >
-                          <Mail size={12} />
-                          <span>Email</span>
-                        </button>
-                      </div>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows={6}
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      aria-label="Message"
+                      placeholder="Pick one above or type a message"
+                      className="bg-app-card ring-1 ring-app-border rounded-xl px-3.5 py-3 text-sm text-app-text focus:outline-none focus:ring-amber-500 leading-relaxed"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={!messageText.trim() || !selectedCustomer.phone}
+                        onClick={() => ReceiptShareService.shareTextViaWhatsApp(selectedCustomer.phone, messageText)}
+                        className="h-11 bg-[#25D366] text-white hover:bg-[#20ba59] font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                      >
+                        <Send size={15} /> WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!messageText.trim() || !selectedCustomer.email}
+                        onClick={() => ReceiptShareService.shareTextViaEmail(selectedCustomer.email, `Your account at ${shopName}`, messageText)}
+                        className="h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                      >
+                        <Mail size={15} /> Email
+                      </button>
                     </div>
                   </div>
                 )}

@@ -837,7 +837,7 @@ export class SupabaseService {
       secondaryColor: b.secondary_color || "",
       timezone: b.timezone || "Africa/Nairobi",
       defaultPaymentMethods: enabledMethods(Array.isArray(b.default_payment_methods) ? b.default_payment_methods : null),
-      isTaxEnabled: b.is_tax_enabled !== false,
+      isTaxEnabled: b.is_tax_enabled === true,
       taxPercentage: typeof b.tax_percentage === 'number' ? b.tax_percentage : 16.0
     }));
   }

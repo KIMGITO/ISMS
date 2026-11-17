@@ -96,6 +96,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
 
   // New variable
   const [newVar, setNewVar] = useState<{ label: string; value: string } | null>(null);
+  const [showAllVars, setShowAllVars] = useState(false);
   const [savingVar, setSavingVar] = useState(false);
 
   const variables = useMemo(() => allVariables(ctx), [ctx]);
@@ -307,245 +308,229 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
   const sendLabel = isSending
     ? `Sending ${progress!.done} of ${progress!.total}…`
     : sendMode === 'manual'
-    ? `List ${count} ${count === 1 ? 'customer' : 'customers'} to send by hand`
+    ? `List ${count} to send by hand`
     : `Send to ${count} ${count === 1 ? 'customer' : 'customers'}`;
+
+  const chip = 'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-app-border bg-app-bg text-app-text hover:ring-amber-500/50 cursor-pointer';
+  const quickKeys = ['first_name', 'debt', ...(pointsOn ? ['points'] : []), 'store_name'];
+  const quickVars = quickKeys.map((k) => shownVariables.find((v) => v.key === k)).filter(Boolean) as typeof shownVariables;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <span className={fieldLabel}>What kind of message</span>
-          <SearchableDropdown
-            items={[
-              { id: 'service', label: 'Reminder or update', sublabel: 'Goes to everyone who has not turned messages off' },
-              { id: 'promotion', label: 'Offer or promotion', sublabel: 'Only customers who agreed to offers' },
-            ]}
-            selectedValue={purpose}
-            onChange={(v) => setPurpose(v as Purpose)}
-            placeholder="Message type"
-          />
-        </div>
-        <div>
-          <span className={fieldLabel}>Send by</span>
-          <SearchableDropdown
-            items={[
-              { id: 'auto', label: 'Automatic', sublabel: 'WhatsApp, then SMS if that fails' },
-              { id: 'whatsapp', label: 'WhatsApp' },
-              { id: 'sms', label: 'SMS' },
-              { id: 'email', label: 'Email' },
-              { id: 'manual', label: 'By hand', sublabel: 'Open each WhatsApp chat yourself' },
-            ]}
-            selectedValue={sendMode}
-            onChange={(v) => setSendMode(v as SendMode)}
-            placeholder="How to send"
-          />
-        </div>
-      </div>
-
-      {/* The assistant */}
-      {canUseAi && (
-        <div className="rounded-xl ring-1 ring-violet-500/25 bg-violet-500/5">
-          <button
-            type="button"
-            onClick={() => setShowAi((v) => !v)}
-            aria-expanded={showAi}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-violet-700 dark:text-violet-300 cursor-pointer"
-          >
-            <Sparkles size={15} />
-            Write it with {aiName}
-            <ChevronRight size={15} className={`ml-auto transition ${showAi ? 'rotate-90' : ''}`} />
-          </button>
-          {showAi && (
-            <div className="px-3 pb-3 space-y-2">
-              {aiChat.length === 0 ? (
-                <p className="text-xs text-app-text-muted">
-                  Say what the message is for{onPickGroups && recipients.length === 0 ? ' and who should get it' : ''}. {aiName} uses the variables, so each customer gets their own name and amounts.
-                </p>
-              ) : (
-                <div className="max-h-44 overflow-y-auto space-y-1.5">
-                  {aiChat.map((m, i) => (
-                    <p
-                      key={i}
-                      className={`text-xs leading-relaxed rounded-lg px-2.5 py-1.5 whitespace-pre-wrap ${
-                        m.role === 'user' ? 'bg-app-card ml-6' : 'bg-violet-500/10 mr-6'
-                      }`}
-                    >
-                      {m.content}
-                    </p>
-                  ))}
-                </div>
-              )}
-              {aiChat.length === 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Remind everyone who owes money to pay this week',
-                    pointsOn ? 'Tell customers with enough points to come and use them' : 'Thank our Gold customers',
-                    'Invite customers who have not bought for 30 days back',
-                  ].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => askAi(s)}
-                      disabled={aiBusy}
-                      className="rounded-full bg-app-card ring-1 ring-app-border px-2.5 py-1 text-xs text-app-text hover:ring-violet-500/50 cursor-pointer disabled:opacity-50"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-end gap-2">
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Remind customers who owe to pay before Friday, kindly"
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      askAi();
-                    }
-                  }}
-                  className="flex-1 min-w-0 resize-none bg-app-card ring-1 ring-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-violet-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => askAi()}
-                  disabled={aiBusy || !aiPrompt.trim()}
-                  aria-label={`Ask ${aiName}`}
-                  className="h-9 shrink-0 inline-flex items-center rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-500 disabled:opacity-40 cursor-pointer"
-                >
-                  {aiBusy ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-                </button>
-              </div>
-            </div>
+      {/* 1. The message: start from a ready one or Kim, then edit */}
+      <section className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {canUseAi && (
+            <button
+              type="button"
+              onClick={() => setShowAi((v) => !v)}
+              aria-expanded={showAi}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium inline-flex items-center gap-1 cursor-pointer ${
+                showAi ? 'bg-violet-600 text-white' : 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-1 ring-violet-500/25'
+              }`}
+            >
+              <Sparkles size={12} /> Ask {aiName}
+            </button>
           )}
+          {STARTERS.filter((st) => pointsOn || !st.text.includes('{points')).map((st) => (
+            <button
+              key={st.label}
+              type="button"
+              onClick={() => {
+                setTemplate(st.text);
+                setPurpose(st.purpose);
+              }}
+              className={chip}
+            >
+              {st.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* The message */}
-      <div>
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <span className={fieldLabel + ' !mb-0'}>Message</span>
-          <div className="flex gap-1 overflow-x-auto">
-            {STARTERS.filter((s) => pointsOn || !s.text.includes('{points')).map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => {
-                  setTemplate(s.text);
-                  setPurpose(s.purpose);
+        {canUseAi && showAi && (
+          <div className="rounded-xl ring-1 ring-violet-500/25 bg-violet-500/5 p-2.5 space-y-2">
+            {aiChat.length === 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Remind those who owe to pay',
+                  pointsOn ? 'Tell them to use their points' : 'Thank Gold customers',
+                  'Invite quiet customers back',
+                ].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => askAi(t)}
+                    disabled={aiBusy}
+                    className="rounded-full bg-app-card ring-1 ring-app-border px-2.5 py-1 text-xs text-app-text hover:ring-violet-500/50 cursor-pointer disabled:opacity-50"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="max-h-40 overflow-y-auto space-y-1.5">
+                {aiChat.map((m, i) => (
+                  <p
+                    key={i}
+                    className={`text-xs leading-relaxed rounded-lg px-2.5 py-1.5 whitespace-pre-wrap ${
+                      m.role === 'user' ? 'bg-app-card ml-6' : 'bg-violet-500/10 mr-6'
+                    }`}
+                  >
+                    {m.content}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                rows={1}
+                placeholder={onPickGroups && recipients.length === 0 ? 'What is it for, and who gets it?' : 'What is the message for?'}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    askAi();
+                  }
                 }}
-                className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] text-app-text-muted hover:text-app-text hover:bg-app-bg cursor-pointer"
+                className="flex-1 min-w-0 resize-none bg-app-card ring-1 ring-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-violet-500"
+              />
+              <button
+                type="button"
+                onClick={() => askAi()}
+                disabled={aiBusy || !aiPrompt.trim()}
+                aria-label={`Ask ${aiName}`}
+                className="h-9 shrink-0 inline-flex items-center rounded-xl bg-violet-600 px-3 text-white hover:bg-violet-500 disabled:opacity-40 cursor-pointer"
               >
-                {s.label}
+                {aiBusy ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
               </button>
-            ))}
+            </div>
           </div>
-        </div>
+        )}
+
         <textarea
           ref={messageRef}
           rows={5}
           value={template}
           onChange={(e) => setTemplate(e.target.value)}
-          placeholder="Type your message. Tap a variable below to add it."
+          aria-label="Message"
+          placeholder="Type your message"
           className="w-full resize-y bg-app-bg ring-1 ring-app-border rounded-xl p-3 text-sm text-app-text focus:outline-none focus:ring-amber-500"
         />
-        <p className="mt-1 text-[11px] text-app-text-muted tabular-nums">
-          {preview.length} characters
-          {(sendMode === 'auto' || sendMode === 'sms') && ` · ${parts} SMS ${parts === 1 ? 'part' : 'parts'} each`}
-        </p>
-      </div>
 
-      {/* Variables */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-app-text-muted">Variables: each customer gets their own value</p>
-        {GROUP_ORDER.map((group) => {
-          const list = shownVariables.filter((v) => v.group === group);
-          if (!list.length) return null;
-          return (
-            <div key={group} className="flex flex-wrap items-center gap-1">
-              <span className="w-16 shrink-0 text-[11px] text-app-text-muted">{group === 'Shop' ? 'Shop & yours' : group}</span>
-              {list.map((v) => {
-                const custom = (ctx.custom ?? []).find((c) => c.key === v.key);
-                return (
-                  <span key={v.key} className="inline-flex items-center rounded-md ring-1 ring-app-border bg-app-bg">
-                    <button
-                      type="button"
-                      onClick={() => insert(`{${v.key}}`)}
-                      title={`{${v.key}}: ${v.describe}`}
-                      className="px-1.5 py-0.5 text-[11px] text-app-text hover:text-amber-700 dark:hover:text-amber-400 cursor-pointer"
-                    >
-                      + {v.label}
-                    </button>
-                    {custom && canSend && (
-                      <button type="button" onClick={() => removeVariable(custom)} aria-label={`Delete ${v.label}`} className="pr-1 text-app-text-muted hover:text-red-500 cursor-pointer">
-                        <X size={11} />
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          );
-        })}
-        {canSend &&
-          (newVar ? (
-            <div className="rounded-xl ring-1 ring-app-border p-2.5 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label className="text-xs text-app-text-muted">
-                  Name
-                  <input
-                    autoFocus
-                    value={newVar.label}
-                    maxLength={60}
-                    onChange={(e) => setNewVar({ ...newVar, label: e.target.value })}
-                    placeholder="e.g. Offer ends"
-                    className="mt-1 w-full bg-app-bg ring-1 ring-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-amber-500"
-                  />
-                </label>
-                <label className="text-xs text-app-text-muted">
-                  Value (same for everyone)
-                  <input
-                    value={newVar.value}
-                    maxLength={300}
-                    onChange={(e) => setNewVar({ ...newVar, value: e.target.value })}
-                    placeholder="e.g. Sunday 23 Nov"
-                    className="mt-1 w-full bg-app-bg ring-1 ring-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-amber-500"
-                  />
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-app-text-muted truncate">{newVar.label.trim() ? `Written as {${keyFromLabel(newVar.label)}}` : ''}</span>
-                <button type="button" onClick={() => setNewVar(null)} className="ml-auto px-2.5 py-1.5 rounded-lg text-xs text-app-text-muted hover:text-app-text cursor-pointer">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={addVariable}
-                  disabled={savingVar}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-semibold disabled:opacity-50 cursor-pointer"
-                >
-                  {savingVar ? 'Saving…' : 'Save and add'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setNewVar({ label: '', value: '' })}
-              className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
-            >
-              <Plus size={13} /> New variable
+        {/* Details that change per customer */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-app-text-muted">Add:</span>
+          {quickVars.map((v) => (
+            <button key={v.key} type="button" onClick={() => insert(`{${v.key}}`)} title={v.describe} className={chip}>
+              + {v.label}
             </button>
           ))}
-      </div>
+          <button
+            type="button"
+            onClick={() => setShowAllVars((v) => !v)}
+            aria-expanded={showAllVars}
+            className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer inline-flex items-center gap-0.5"
+          >
+            {showAllVars ? 'Less' : 'More'} <ChevronRight size={12} className={`transition ${showAllVars ? '-rotate-90' : 'rotate-90'}`} />
+          </button>
+          <span className="ml-auto text-[11px] text-app-text-muted tabular-nums">
+            {preview.length} chars{(sendMode === 'auto' || sendMode === 'sms') && parts > 1 ? ` · ${parts} SMS` : ''}
+          </span>
+        </div>
 
-      {/* Preview, one customer at a time */}
-      <div className="rounded-xl bg-app-bg ring-1 ring-app-border p-3">
+        {showAllVars && (
+          <div className="rounded-xl ring-1 ring-app-border p-2.5 space-y-2">
+            {GROUP_ORDER.map((group) => {
+              const list = shownVariables.filter((v) => v.group === group);
+              if (!list.length) return null;
+              return (
+                <div key={group}>
+                  <p className="text-[11px] text-app-text-muted mb-1">{group === 'Shop' ? 'Shop & yours' : group}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {list.map((v) => {
+                      const custom = (ctx.custom ?? []).find((c) => c.key === v.key);
+                      return (
+                        <span key={v.key} className="inline-flex items-center rounded-full ring-1 ring-app-border bg-app-bg">
+                          <button
+                            type="button"
+                            onClick={() => insert(`{${v.key}}`)}
+                            title={`{${v.key}}: ${v.describe}`}
+                            className="px-2.5 py-1 text-xs text-app-text hover:text-amber-700 dark:hover:text-amber-400 cursor-pointer"
+                          >
+                            + {v.label}
+                          </button>
+                          {custom && canSend && (
+                            <button type="button" onClick={() => removeVariable(custom)} aria-label={`Delete ${v.label}`} className="pr-2 text-app-text-muted hover:text-red-500 cursor-pointer">
+                              <X size={11} />
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {canSend &&
+              (newVar ? (
+                <div className="rounded-xl bg-app-bg p-2.5 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="text-xs text-app-text-muted">
+                      Name
+                      <input
+                        autoFocus
+                        value={newVar.label}
+                        maxLength={60}
+                        onChange={(e) => setNewVar({ ...newVar, label: e.target.value })}
+                        placeholder="e.g. Offer ends"
+                        className="mt-1 w-full bg-app-card ring-1 ring-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-amber-500"
+                      />
+                    </label>
+                    <label className="text-xs text-app-text-muted">
+                      Same for everyone
+                      <input
+                        value={newVar.value}
+                        maxLength={300}
+                        onChange={(e) => setNewVar({ ...newVar, value: e.target.value })}
+                        placeholder="e.g. Sunday 23 Nov"
+                        className="mt-1 w-full bg-app-card ring-1 ring-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-amber-500"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-app-text-muted truncate">{newVar.label.trim() ? `{${keyFromLabel(newVar.label)}}` : ''}</span>
+                    <button type="button" onClick={() => setNewVar(null)} className="ml-auto px-2.5 py-1.5 rounded-lg text-xs text-app-text-muted hover:text-app-text cursor-pointer">
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addVariable}
+                      disabled={savingVar}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-semibold disabled:opacity-50 cursor-pointer"
+                    >
+                      {savingVar ? 'Saving…' : 'Save and add'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setNewVar({ label: '', value: '' })}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  <Plus size={13} /> Your own detail
+                </button>
+              ))}
+          </div>
+        )}
+      </section>
+
+      {/* 2. How one customer gets it */}
+      <section className="rounded-xl bg-app-bg ring-1 ring-app-border p-3">
         <div className="flex items-center gap-1 mb-1">
           <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-app-text-muted">
-            {previewList.length ? `How ${customerName(previewCustomer.name)} gets it` : `Example: how ${getFirstName(sample.name)} would get it`}
+            {previewList.length ? `${customerName(previewCustomer.name)} gets` : `Example: ${getFirstName(sample.name)} gets`}
           </p>
           {previewList.length > 1 && (
             <>
@@ -564,7 +549,46 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
           {preview.trim() || <span className="text-app-text-muted">Nothing written yet.</span>}
         </p>
-      </div>
+      </section>
+
+      {/* 3. Kind and channel, right above Send */}
+      <section className="grid grid-cols-2 gap-2">
+        <div>
+          <span className={fieldLabel}>Kind</span>
+          <div className="h-10 grid grid-cols-2 gap-1 rounded-xl bg-app-bg ring-1 ring-app-border p-1" role="radiogroup" aria-label="Kind of message">
+            {([
+              ['service', 'Reminder'],
+              ['promotion', 'Offer'],
+            ] as [Purpose, string][]).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={purpose === id}
+                onClick={() => setPurpose(id)}
+                className={`rounded-lg text-xs font-medium cursor-pointer ${purpose === id ? 'bg-app-card shadow-sm text-app-text ring-1 ring-app-border' : 'text-app-text-muted'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className={fieldLabel}>Send by</span>
+          <SearchableDropdown
+            items={[
+              { id: 'auto', label: 'Automatic', sublabel: 'WhatsApp, else SMS' },
+              { id: 'whatsapp', label: 'WhatsApp' },
+              { id: 'sms', label: 'SMS' },
+              { id: 'email', label: 'Email' },
+              { id: 'manual', label: 'By hand', sublabel: 'You open each chat' },
+            ]}
+            selectedValue={sendMode}
+            onChange={(v) => setSendMode(v as SendMode)}
+            placeholder="How to send"
+          />
+        </div>
+      </section>
 
       {(unknown.length > 0 || blanks.length > 0) && (
         <div className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-app-text space-y-0.5">
@@ -572,7 +596,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
             <p className="flex gap-1.5">
               <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-600" />
               <span>
-                Not a variable: {unknown.map((u) => `{${u}}`).join(', ')}. It goes out exactly as written.
+                {unknown.map((u) => `{${u}}`).join(', ')} is not a known detail; it goes out as written.
               </span>
             </p>
           )}
@@ -580,7 +604,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
             <p key={b.label} className="flex gap-1.5">
               <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-600" />
               <span>
-                {b.label}: {b.count} of {reachable.length} have nothing here (for example KSh 0).
+                {b.label} is empty for {b.count} of {reachable.length}.
               </span>
             </p>
           ))}
@@ -589,7 +613,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
 
       {left > 0 && (
         <p className="text-xs text-app-text-muted">
-          {left} of {recipients.length} picked {purpose === 'promotion' ? "haven't agreed to offers" : 'turned off messages'} and will be left out.
+          {left} of {recipients.length} left out: {purpose === 'promotion' ? "they haven't agreed to offers" : 'they turned messages off'}.
         </p>
       )}
 
@@ -607,7 +631,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
       {manualQueue.length > 0 && (
         <div className="space-y-2 border-t border-app-border pt-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium">Send these yourself ({manualQueue.length} left)</p>
+            <p className="text-xs font-medium">Send yourself ({manualQueue.length} left)</p>
             <button type="button" onClick={() => setManualQueue([])} className="inline-flex items-center gap-1 text-xs text-app-text-muted hover:text-app-text cursor-pointer">
               <Trash2 size={12} /> Clear
             </button>

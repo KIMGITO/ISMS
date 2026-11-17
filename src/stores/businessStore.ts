@@ -295,7 +295,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
           contact_phone: contactPhone || "",
           primary_color: primaryColor || "",
           secondary_color: secondaryColor || "",
-          is_tax_enabled: isTaxEnabled !== false,
+          is_tax_enabled: isTaxEnabled === true,
           tax_percentage: typeof taxPercentage === 'number' ? taxPercentage : 16.0
         };
 
@@ -317,7 +317,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
             contactPhone: contactPhone || "",
             primaryColor: primaryColor || "",
             secondaryColor: secondaryColor || "",
-            isTaxEnabled: isTaxEnabled !== false,
+            isTaxEnabled: isTaxEnabled === true,
             taxPercentage: typeof taxPercentage === 'number' ? taxPercentage : 16.0
           } : b
         );
