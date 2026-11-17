@@ -68,7 +68,7 @@ interface AuthState {
   verifyInvitation: (token: string) => Promise<{ success: boolean; error?: string; invitation?: Invitation }>;
   acceptInvitation: (token: string, password?: string, name?: string, phone?: string) => Promise<{ success: boolean; error?: string; requiresLogin?: boolean; joined?: boolean }>;
   switchBusiness: (businessId: string) => void;
-  revokeInvitation: (id: string) => void;
+  revokeInvitation: (id: string) => Promise<void>;
   initializeAuthStateListener: () => (() => void);
   hydrateAuthSessionData: (authUser: any, force?: boolean, quiet?: boolean) => Promise<void>;
   /** Reloads the signed-in person's role, profile and team, e.g. after an admin changes them. */
@@ -1313,12 +1313,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     // Revoke Invitation
     revokeInvitation: async (id) => {
-      try {
+      {
         const supabase = getSupabase();
-        const { error } = await supabase
-          .from("invitations")
-          .delete()
-          .eq("id", id);
+        // Server deletes the invitation and the sign-up made for it (if that account has nothing else).
+        const { error } = await supabase.rpc("revoke_invitation", { p_invitation_id: id });
 
         if (error) throw error;
 
@@ -1353,8 +1351,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
           undefined,
           "info"
         );
-      } catch (err: any) {
-        console.error("Failed to revoke invitation:", err);
       }
     },
 

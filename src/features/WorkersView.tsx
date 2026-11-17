@@ -74,7 +74,7 @@ export default function WorkersView() {
     // Supplier: someone at a company you buy from. Not for changing a staff member's role.
     .filter((r) => (r.name === 'Supplier' ? handlesSuppliers && !editingEmployeeId : canInviteStaff || !!editingEmployeeId))
     .filter((r) => callerIsTop || !['Owner', 'Admin'].includes(r.name))
-    .map((r) => ({ id: r.name, label: r.name === 'Supplier' ? 'Supplier (a company you buy from)' : r.name }));
+    .map((r) => ({ id: r.name, label: r.name === 'Supplier' ? 'Supplier' : r.name }));
   const isSupplier = role === ('Supplier' as EmployeeRole);
 
   // ----- Supplier role: which supplier they work for
@@ -165,7 +165,7 @@ export default function WorkersView() {
                                   if (
                                     await appDialog.confirm({
                                       title: `Cancel ${titleCase(inv.name)}'s invitation?`,
-                                      message: 'The invitation link stops working straight away.',
+                                      message: 'The invitation and any sign-up made with it are deleted.',
                                       confirmLabel: 'Cancel invitation',
                                       cancelLabel: 'Keep',
                                       destructive: true,
@@ -352,11 +352,7 @@ export default function WorkersView() {
             Invite people to work with you and choose what each person can do.
           </p>
         </div>
-        <div className="text-right">
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-            {activeBusinessName}
-          </span>
-        </div>
+       
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

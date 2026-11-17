@@ -253,10 +253,10 @@ export default function StockTransfersView() {
               </span>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-app-text">Stock between branches</h2>
-                <p className="text-xs text-app-text-muted">Not a sale or an expense: sales, profit and cash don't change.</p>
+                <p className="text-xs text-app-text-muted">Not a sale!</p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap justify-between ">
               {canRequest && (
                 <button
                   data-shortcut="transfer-request"
@@ -279,15 +279,15 @@ export default function StockTransfersView() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-app-bg p-3">
-              <p className="text-[11px] text-app-text-muted">To answer or send</p>
+              <p className="text-[11px] text-app-text-muted">All</p>
               <p className="text-lg font-bold text-app-text tabular-nums">{toAnswer.length}</p>
             </div>
             <div className="rounded-xl bg-app-bg p-3">
-              <p className="text-[11px] text-app-text-muted">Coming to {branchName}</p>
+              <p className="text-[11px] text-app-text-muted">Receiving</p>
               <p className="text-lg font-bold text-app-text tabular-nums">{incoming.length}</p>
             </div>
             <div className="rounded-xl bg-app-bg p-3">
-              <p className="text-[11px] text-app-text-muted">Sent, not yet received</p>
+              <p className="text-[11px] text-app-text-muted">Pending</p>
               <p className="text-lg font-bold text-app-text tabular-nums">
                 {outgoing.length} <span className="text-xs font-medium text-app-text-muted">· {ksh(onTheWayValue)}</span>
               </p>
