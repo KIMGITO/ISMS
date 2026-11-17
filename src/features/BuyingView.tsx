@@ -7,7 +7,7 @@ import { Checkbox } from '../components/shared/Checkbox';
 import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRightLeft, CalendarClock, ClipboardList, FileText, Hand, PackageSearch, RotateCcw, Search,
+  AlertTriangle, ArrowRightLeft, BellRing, CalendarClock, ClipboardList, FileText, Hand, PackageSearch, RotateCcw, Search,
   Settings2, ShieldCheck, ShoppingCart, Truck, Undo2, Wallet,
 } from 'lucide-react';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
@@ -23,6 +23,7 @@ import SuppliersView from './SuppliersView';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import { appDialog } from '../components/AppDialog';
 import { BillSheet, PayBillSheet, ReasonSheet, ReturnSheet } from '../components/buying/BuyingSheets';
+import AskSupplierSheet from '../components/buying/AskSupplierSheet';
 import {
   approvePurchase, approveStockTransfer, approveSupplierBill, createSuggestedPurchases, loadBuyingOverview, loadReorder,
   rejectPurchase, requestStockTransfer, saveBuyingSettings, saveReorderSettings, voidSupplierBill, LIMIT_ROLES,
@@ -221,6 +222,9 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
   const [showAll, setShowAll] = useState(false);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<ReorderRow | null>(null);
+  const [asking, setAsking] = useState<ReorderRow | null>(null);
+  const role = useAuthStore((s) => s.currentEmployee?.role) || 'Guest';
+  const canAskSupplier = hasRolePermission(role, 'purchases.create') || hasRolePermission(role, 'purchases.request_quote');
   const [busy, setBusy] = useState(false);
   // Per product: ticked, how much, and where from (a branch id, or 'buy').
   const [plan, setPlan] = useState<Record<string, { on: boolean; qty: string; from: string }>>({});
@@ -353,6 +357,17 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                     <p className="text-[11px] text-app-text-muted">
                       {r.supplierName ? `${r.supplierName}${r.supplierPrice !== null ? ` · ${formatCurrency(r.supplierPrice)}` : ''}${r.leadDays !== null ? ` · ${r.leadDays} days` : ''}` : 'No preferred supplier'}
                     </p>
+                    {canAskSupplier && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setAsking(r); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setAsking(r); } }}
+                        className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        <BellRing size={12} /> {r.supplierName ? `Ask ${r.supplierName} to deliver` : 'Ask a supplier to deliver'}
+                      </span>
+                    )}
                     {r.low && r.need === 0 && <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Covered by what is on order or on the way</p>}
                   </button>
                   {p && (
@@ -393,6 +408,16 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
           suppliers={suppliers}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); onChanged(); }}
+        />
+      )}
+      {asking && (
+        <AskSupplierSheet
+          target={{
+            businessId, productId: asking.productId, productName: asking.name, unit: asking.unit,
+            supplierId: asking.supplierId, supplierName: asking.supplierName,
+            suggestedQty: asking.need > 0 ? asking.need : asking.reorderQty,
+          }}
+          onClose={() => setAsking(null)}
         />
       )}
     </div>

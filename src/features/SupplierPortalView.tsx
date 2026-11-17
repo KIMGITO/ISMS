@@ -3,24 +3,26 @@
 // requests to answer, what was received, their statement and their own details. It is its own
 // small app (no staff navigation). Everything comes from supplier_portal_* functions, which
 // check their supplier account and what the business shares (Roles → Supplier).
+// Stock requests ring on their phone (RingingAlerts below); Accept opens Requests.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CalendarCheck, CheckCircle2, ClipboardList, FileText, HelpCircle, LogOut, Moon, PackageCheck, RefreshCw, Search, Sun, Tag, Wallet, X,
+  BellRing, CalendarCheck, CheckCircle2, ClipboardList, FileText, HelpCircle, LogOut, Moon, PackageCheck, RefreshCw, Search, Sun, Tag, Wallet, X,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { GroupedTabs, type TabGroup } from '../components/TabOptions';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { Checkbox } from '../components/shared/Checkbox';
-import { Field, fieldClass, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
+import { dangerBtn, Field, fieldClass, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import { formatCurrency } from '../utils/helpers';
 import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
+import RingingAlerts from '../components/RingingAlerts';
 import {
-  confirmOrder, loadPortalData, loadSupplierAccounts, sendPrices, updateMyDetails,
-  type PortalData, type PortalOrder, type PortalPriceRequest, type SupplierAccount,
+  answerStockRequest, confirmOrder, loadPortalData, loadPortalStockRequests, loadSupplierAccounts, sendPrices, updateMyDetails,
+  type PortalData, type PortalOrder, type PortalPriceRequest, type PortalStockRequest, type SupplierAccount,
 } from '../services/supplierPortal';
 
-type Tab = 'orders' | 'deliveries' | 'stock' | 'prices' | 'statement' | 'details';
+type Tab = 'requests' | 'orders' | 'deliveries' | 'stock' | 'prices' | 'statement' | 'details';
 
 const day = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const todayIso = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
@@ -55,6 +57,7 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
   const account = accounts.find((a) => a.accountId === accountId) ?? accounts[0];
 
   const [data, setData] = useState<PortalData | null>(null);
+  const [requests, setRequests] = useState<PortalStockRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -66,9 +69,14 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
     setLoading(true);
     setError(null);
     try {
-      const [list, d] = await Promise.all([loadSupplierAccounts(), loadPortalData(account.businessId)]);
+      const [list, d, reqs] = await Promise.all([
+        loadSupplierAccounts(),
+        loadPortalData(account.businessId),
+        account.can.stockRequests ? loadPortalStockRequests(account.businessId).catch(() => null) : Promise.resolve([]),
+      ]);
       setAccounts(list.length ? list : accounts);
       setData(d);
+      if (reqs) setRequests(reqs);
     } catch (e) {
       setError(toUserMessage(e, 'Could not load. Check your connection.'));
     } finally {
@@ -81,6 +89,7 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
   const can = account?.can;
   const groups: TabGroup<Tab>[] = [
     { id: 'orders', label: 'Orders', tabs: [
+      ...(can?.stockRequests ? [{ id: 'requests' as Tab, label: 'Requests', icon: <BellRing size={13} />, badge: requests.filter((r) => r.status === 'sent' || r.status === 'seen').length }] : []),
       ...(can?.orders ? [{ id: 'orders' as Tab, label: 'Orders', icon: <ClipboardList size={13} />, badge: data?.orders.filter((o) => !o.confirmedAt && (o.status === 'Ordered' || o.status === 'Part received')).length || 0 }] : []),
       ...(can?.deliveries ? [{ id: 'deliveries' as Tab, label: 'Received', icon: <PackageCheck size={13} /> }] : []),
       ...(can?.stock ? [{ id: 'stock' as Tab, label: 'Their stock', icon: <Tag size={13} /> }] : []),
@@ -94,6 +103,12 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
   const allTabs = groups.flatMap((g) => g.tabs.map((t) => t.id));
   const [tab, setTab] = useState<Tab>('orders');
   useEffect(() => { if (!allTabs.includes(tab)) setTab(allTabs[0] ?? 'details'); }, [allTabs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Opening the app with a request waiting goes straight to it (once per business).
+  const jumped = useRef('');
+  useEffect(() => {
+    if (!account || jumped.current === account.businessId) return;
+    if (requests.some((r) => r.status === 'sent' || r.status === 'seen')) { jumped.current = account.businessId; setTab('requests'); }
+  }, [requests, account?.businessId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keys: / search, [ and ] change part, R refresh, ? the guide.
   useEffect(() => {
@@ -128,9 +143,11 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
 
   const openOrders = data?.orders.filter((o) => o.status === 'Ordered' || o.status === 'Part received') ?? [];
   const waitingPrices = data?.priceRequests.filter((q) => q.open && q.status === 'asked') ?? [];
+  const openRequests = requests.filter((r) => r.status === 'sent' || r.status === 'seen');
 
   return (
     <div className="min-h-dvh bg-app-bg text-app-text flex flex-col">
+      <RingingAlerts businessId={account.businessId} onOpen={() => { setTab('requests'); void load(); }} />
       {/* Top bar */}
       <header className="sticky z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 py-2.5" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-3xl mx-auto flex items-center gap-3">
@@ -164,6 +181,7 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
               <div className="min-w-0 flex-1 text-sm space-y-1.5">
                 <p className="font-semibold">How this works</p>
                 <ul className="list-disc pl-4 space-y-1 text-[13px]">
+                  {can?.stockRequests && <li><b>Requests</b>: when {account.businessName} runs low, they ask you here and your phone rings. <b>Accept</b> with the day you will deliver, or <b>Decline</b> and say why.</li>}
                   {can?.orders && <li><b>Orders</b>: what {account.businessName} ordered from you. Tap <b>Confirm</b> and pick the day you will deliver.</li>}
                   {can?.priceRequests && <li><b>Prices</b>: requests for your prices. Type a price for each item (untick what you can't supply) and send.</li>}
                   {can?.deliveries && <li><b>Received</b>: what arrived at their shop, and anything damaged.</li>}
@@ -180,10 +198,11 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
         {/* At a glance */}
         <div className="grid grid-cols-3 gap-2">
           {[
+            { label: 'Requests to answer', value: String(openRequests.length), go: 'requests' as Tab, on: can?.stockRequests },
             { label: 'Orders to confirm', value: String(openOrders.filter((o) => !o.confirmedAt).length), go: 'orders' as Tab, on: can?.orders },
             { label: 'Prices to send', value: String(waitingPrices.length), go: 'prices' as Tab, on: can?.priceRequests },
             { label: 'Owed to you', value: data ? formatCurrency(data.owed) : '…', go: 'statement' as Tab, on: can?.statement },
-          ].filter((t) => t.on).map((t) => (
+          ].filter((t) => t.on).slice(0, 3).map((t) => (
             <button key={t.label} onClick={() => setTab(t.go)} className="bg-app-card rounded-2xl ring-1 ring-app-border/70 p-3 text-left cursor-pointer min-w-0">
               <span className="block text-[11px] text-app-text-muted leading-tight">{t.label}</span>
               <span className="block text-base font-semibold tabular-nums mt-0.5 break-words">{t.value}</span>
@@ -209,6 +228,12 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
           <Card><p className="text-sm text-red-600 dark:text-red-400">{error} <button className="underline cursor-pointer" onClick={() => void load()}>Try again</button></p></Card>
         )}
         {!data && loading && <Empty>Loading…</Empty>}
+
+        {data && tab === 'requests' && (
+          requests.filter((r) => match([r.productName, r.note])).length === 0
+            ? <Empty>No requests yet. When {account.businessName} needs stock from you, it rings on your phone and shows here.</Empty>
+            : <div className="space-y-2">{requests.filter((r) => match([r.productName, r.note])).map((r) => <RequestCard key={r.id} request={r} businessName={account.businessName} onDone={load} />)}</div>
+        )}
 
         {data && tab === 'orders' && (
           data.orders.filter((o) => match([o.number, ...o.lines.map((l) => l.name)])).length === 0
@@ -270,6 +295,78 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
         {data && tab === 'details' && <Details account={account} data={data} onDone={load} />}
       </main>
     </div>
+  );
+}
+
+function requestStatus(r: PortalStockRequest) {
+  switch (r.status) {
+    case 'accepted': return <Pill tone="green">You accepted</Pill>;
+    case 'declined': return <Pill tone="red">You declined</Pill>;
+    case 'cancelled': return <Pill tone="grey">Cancelled by them</Pill>;
+    default: return <Pill tone="amber">To answer</Pill>;
+  }
+}
+
+function RequestCard({ request: r, businessName, onDone }: { request: PortalStockRequest; businessName: string; onDone: () => void }) {
+  const open = r.status === 'sent' || r.status === 'seen';
+  const [mode, setMode] = useState<'accept' | 'decline' | null>(null);
+  const [date, setDate] = useState(r.deliveryDate || (r.neededBy && r.neededBy >= todayIso() ? r.neededBy : todayIso()));
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const answer = async () => {
+    if (mode === 'decline' && !note.trim()) { setErr('Say why you can\'t, so they can find it elsewhere.'); return; }
+    setBusy(true); setErr(null);
+    try { await answerStockRequest(r.id, mode === 'accept', mode === 'accept' ? date : null, note); setMode(null); onDone(); }
+    catch (e) { setErr(toUserMessage(e, 'Could not send your answer. Try again.')); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Card className={open ? '!ring-amber-500/50' : ''}>
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold break-words">{qty(r.quantity)} {r.unit || ''} {displayName(r.productName)}</p>
+          <p className="text-[11px] text-app-text-muted">
+            Asked {day(r.askedAt)}{r.askedBy ? ` by ${r.askedBy}` : ''}{r.neededBy ? ` · needed by ${day(r.neededBy)}` : ''}
+          </p>
+        </div>
+        {requestStatus(r)}
+      </div>
+      {r.note && <p className="mt-2 text-[13px] rounded-xl bg-app-bg px-3 py-2 break-words">“{r.note}”</p>}
+      {r.status === 'accepted' && r.deliveryDate && <p className="mt-2 text-[12px] text-app-text-muted">You deliver {day(r.deliveryDate)}{r.responseNote ? `: ${r.responseNote}` : ''}</p>}
+      {r.status === 'declined' && r.responseNote && <p className="mt-2 text-[12px] text-app-text-muted break-words">Your reason: {r.responseNote}</p>}
+
+      {open && !mode && (
+        <div className="mt-3 flex gap-2 justify-end flex-wrap">
+          <button className={secondaryBtn} onClick={() => { setMode('decline'); setNote(''); setErr(null); }}><X size={15} /> Decline</button>
+          <button className={primaryBtn} onClick={() => { setMode('accept'); setNote(''); setErr(null); }}><CheckCircle2 size={15} /> Accept</button>
+        </div>
+      )}
+      {r.status === 'accepted' && !mode && (
+        <div className="mt-3 flex justify-end">
+          <button className={secondaryBtn} onClick={() => { setMode('accept'); setNote(r.responseNote || ''); }}><CalendarCheck size={15} /> Change day</button>
+        </div>
+      )}
+      {mode && (
+        <div className="mt-3 space-y-2 rounded-xl bg-app-bg p-3">
+          {mode === 'accept' && (
+            <Field label="Day you will deliver"><input type="date" min={todayIso()} value={date} onChange={(e) => setDate(e.target.value)} className={fieldClass} /></Field>
+          )}
+          <Field label={mode === 'accept' ? 'Note (optional)' : 'Why you can\'t'}>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} autoFocus={mode === 'decline'}
+              placeholder={mode === 'accept' ? 'e.g. Coming at 7 am, only 150 L' : 'e.g. No milk until Friday'} className={`${fieldClass} resize-none`} />
+          </Field>
+          {err && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
+          <div className="flex gap-2 justify-end flex-wrap">
+            <button className={secondaryBtn} onClick={() => setMode(null)}>Back</button>
+            <button className={mode === 'accept' ? primaryBtn : dangerBtn}
+              disabled={busy || (mode === 'accept' && !date)} onClick={() => void answer()}>
+              {busy ? 'Sending…' : mode === 'accept' ? `Tell ${businessName} yes` : 'Decline'}
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

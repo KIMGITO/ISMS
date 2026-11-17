@@ -13,6 +13,9 @@ import { useBusinessStore } from "../stores/businessStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useOverlay } from "../hooks/useOverlay";
 import { tidyNotification } from "../services/notifications/notificationText";
+import { useAuthStore } from "../stores/authStore";
+import { hasRolePermission } from "../utils/permissions";
+import AskSupplierSheet, { type AskSupplierTarget } from "../components/buying/AskSupplierSheet";
 
 import {
   Bell,
@@ -156,6 +159,9 @@ const ACTION_W = 76;
 
 export default function NotificationsView() {
   const { activeBusinessId } = useBusinessStore();
+  const role = useAuthStore((s) => s.currentEmployee?.role);
+  const canAskSupplier = !!role && (hasRolePermission(role, "purchases.create") || hasRolePermission(role, "purchases.request_quote"));
+  const [askTarget, setAskTarget] = useState<AskSupplierTarget | null>(null);
 
   const [items, setItems] = useState<Row[]>([]);
   const [archived, setArchived] = useState<Row[]>([]);
@@ -554,6 +560,7 @@ export default function NotificationsView() {
                       onToggleRead={() => (n.read_at ? markUnread(n.id) : markRead(n.id))}
                       onArchive={() => (view === "archived" ? restore(n.id) : archive(n.id))}
                       onDelete={() => askDelete([n.id])}
+                      onAskSupplier={canAskSupplier && activeBusinessId ? (t) => setAskTarget({ ...t, businessId: activeBusinessId }) : undefined}
                     />
                   ))}
                 </ul>
@@ -632,6 +639,7 @@ export default function NotificationsView() {
 
         <AnimatePresence>{prefsOpen && <NotificationPrefsSheet onClose={() => setPrefsOpen(false)} />}</AnimatePresence>
         <AnimatePresence>{toneOpen && <NotificationToneSheet onClose={() => setToneOpen(false)} reducedMotion={reducedMotion} />}</AnimatePresence>
+        {askTarget && <AskSupplierSheet target={askTarget} onClose={() => setAskTarget(null)} />}
 
         {/* Delete confirmation */}
         <AnimatePresence>
@@ -796,7 +804,11 @@ interface RowProps {
   onToggleRead: () => void;
   onArchive: () => void;
   onDelete: () => void;
+  /** Low-stock alerts for a product with a supplier: "Ask supplier". Missing without permission. */
+  onAskSupplier?: (t: Omit<AskSupplierTarget, "businessId">) => void;
 }
+
+const LOW_STOCK_TYPES = new Set(["Stock Almost Finished", "Out Of Stock"]);
 
 /**
  * Drag sideways and let go: the row stays open on its actions until one is tapped, the
@@ -804,7 +816,7 @@ interface RowProps {
  */
 function NotificationRow({
   notif, archivedView, selected, selecting, expanded, open, reducedMotion,
-  onOpenChange, onTap, onLongPress, onMenu, onToggleRead, onArchive, onDelete,
+  onOpenChange, onTap, onLongPress, onMenu, onToggleRead, onArchive, onDelete, onAskSupplier,
 }: RowProps) {
   const isUnread = !notif.read_at;
   const visual = getVisual(notif.type);
@@ -869,6 +881,19 @@ function NotificationRow({
       /* plain text payload */
     }
   }
+  const askSupplier =
+    onAskSupplier && LOW_STOCK_TYPES.has(notif.type as string) && payload.productId
+      ? () =>
+          onAskSupplier({
+            productId: String(payload.productId),
+            productName: String(payload.productName || ""),
+            unit: payload.unit ?? null,
+            supplierId: payload.supplierId ? String(payload.supplierId) : null,
+            supplierName: payload.supplierName ?? null,
+            suggestedQty: payload.suggestedQty != null ? Number(payload.suggestedQty) : null,
+            supplierInApp: typeof payload.supplierInApp === "boolean" ? payload.supplierInApp : null,
+          })
+      : null;
 
   const trayButton = "h-full flex flex-col items-center justify-center gap-1 text-white text-xs font-medium cursor-pointer";
   const hidden = open === null;
@@ -971,6 +996,23 @@ function NotificationRow({
               <AlertTriangle size={11} />
               {notif.priority === "critical" ? "Urgent" : "Important"}
             </span>
+          )}
+
+          {askSupplier && !selecting && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  askSupplier();
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[13px] font-semibold rounded-full transition cursor-pointer"
+              >
+                <BellRing size={14} />
+                {payload.supplierName ? `Ask ${payload.supplierName} to deliver` : "Ask a supplier to deliver"}
+              </button>
+            </div>
           )}
 
           <AnimatePresence initial={false}>

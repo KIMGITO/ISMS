@@ -1,6 +1,8 @@
 // src/components/RingingAlerts.tsx
 // Full-screen alert for shift reminders and urgent alerts. It can't be closed: Accept is the
 // only way out, and it opens the alert's screen. One person accepting clears it for everyone.
+// Staff get it from App; the supplier portal mounts its own with `businessId` and `onOpen`
+// (a stock request rings for everyone at the supplier who has the app).
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BellRing } from 'lucide-react';
@@ -32,19 +34,29 @@ function timeAgo(iso: string): string {
   return `${hours} hr${hours === 1 ? '' : 's'} ago`;
 }
 
-export default function RingingAlerts() {
-  const { currentEmployee, setActiveTab } = useAppStore();
-  const { activeBusinessId } = useBusinessStore();
+export default function RingingAlerts({ businessId, onOpen }: {
+  /** Supplier portal: the business whose alerts ring (staff use the active branch). */
+  businessId?: string;
+  /** Supplier portal: what Accept opens (staff go to the alert's screen). */
+  onOpen?: (target: string | undefined) => void;
+} = {}) {
+  const { currentEmployee: employee, setActiveTab } = useAppStore();
+  const activeBranchId = useBusinessStore((s) => s.activeBusinessId);
+  const supplierMode = !!businessId;
+  const activeBusinessId = businessId || activeBranchId;
+  // Who is signed in: the employee, or (in the portal) a stand-in so the same checks apply.
+  const currentEmployee = supplierMode ? { id: `supplier:${businessId}` } : employee;
   const [alerts, setAlerts] = useState<RingingAlert[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const noticed = useRef<Set<string>>(new Set());
-  const role = currentEmployee?.role;
+  const role = employee?.role;
 
   const open = useCallback((target: string | undefined) => {
-    if (target && role && canOpenScreen(role, target)) setActiveTab(target as any);
-  }, [role, setActiveTab]);
+    if (onOpen) onOpen(target);
+    else if (target && role && canOpenScreen(role, target)) setActiveTab(target as any);
+  }, [role, setActiveTab, onOpen]);
 
   const load = useCallback(async () => {
     if (!activeBusinessId) return;

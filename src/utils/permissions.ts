@@ -133,6 +133,7 @@ export type PermissionCode =
   | 'supplier_portal.statement'
   | 'supplier_portal.update_details'
   | 'supplier_portal.stock'
+  | 'supplier_portal.stock_requests'
   // Production & Recipes
   | 'production.view'
   | 'production.create'
@@ -342,6 +343,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'supplier_portal.statement', category: SUPPLIER_PORTAL_CATEGORY, description: 'See their bills, payments, returns and what is owed to them' },
   { code: 'supplier_portal.update_details', category: SUPPLIER_PORTAL_CATEGORY, description: 'Change their own phone, email, KRA PIN and how they get paid' },
   { code: 'supplier_portal.stock', category: SUPPLIER_PORTAL_CATEGORY, description: 'See your stock of the products they supply (to plan deliveries)' },
+  { code: 'supplier_portal.stock_requests', category: SUPPLIER_PORTAL_CATEGORY, description: 'Get your stock requests (they ring) and accept or decline them with a note' },
 
   // Production & Recipes
   { code: 'production.view', category: 'Production & Recipes', description: 'Browse raw milk batches' },
@@ -483,7 +485,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
     description: 'Someone at a supplier with their own sign-in. Sees only their own orders, price requests, deliveries and statement; never customers, sales, profit, staff or other suppliers.',
     permissions: [
       'supplier_portal.deliveries', 'supplier_portal.orders', 'supplier_portal.price_requests',
-      'supplier_portal.statement', 'supplier_portal.update_details'
+      'supplier_portal.statement', 'supplier_portal.stock_requests', 'supplier_portal.update_details'
     ]
   },
   'Rider': {

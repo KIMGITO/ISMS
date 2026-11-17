@@ -13,7 +13,7 @@ export interface SupplierAccount {
   businessPhone: string | null;
   supplierId: string;
   supplierName: string;
-  can: { orders: boolean; priceRequests: boolean; deliveries: boolean; statement: boolean; updateDetails: boolean; stock: boolean };
+  can: { orders: boolean; priceRequests: boolean; deliveries: boolean; statement: boolean; updateDetails: boolean; stock: boolean; stockRequests?: boolean };
 }
 
 export interface PortalOrder {
@@ -68,6 +68,17 @@ export const sendPrices = (quoteId: string, lines: { itemId: string; price: numb
   call<number>('supplier_portal_price', { p_quote_id: quoteId, p_lines: lines, p_delivery_days: deliveryDays, p_note: note || null });
 export const confirmOrder = (purchaseId: string, expectedDate: string, note: string) =>
   call<void>('supplier_portal_confirm', { p_purchase_id: purchaseId, p_expected_date: expectedDate, p_note: note || null });
+/** A business asking for stock (it rang on their phone). */
+export interface PortalStockRequest {
+  id: string; productName: string; unit: string | null; quantity: number; neededBy: string | null; note: string | null;
+  status: 'sent' | 'seen' | 'accepted' | 'declined' | 'cancelled'; askedBy: string | null; askedAt: string;
+  deliveryDate: string | null; responseNote: string | null; respondedAt: string | null;
+}
+export const loadPortalStockRequests = (businessId: string) =>
+  call<PortalStockRequest[]>('supplier_portal_stock_requests', { p_business_id: businessId });
+export const answerStockRequest = (id: string, accept: boolean, deliveryDate: string | null, note: string) =>
+  call<void>('supplier_portal_answer_stock_request', { p_request_id: id, p_accept: accept, p_delivery_date: deliveryDate, p_note: note.trim() || null });
+
 export const updateMyDetails = (businessId: string, d: Omit<SupplierDetails, 'id' | 'name' | 'company'>) =>
   call<void>('supplier_portal_update_details', { p_business_id: businessId, p_details: d });
 
