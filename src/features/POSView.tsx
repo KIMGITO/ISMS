@@ -40,6 +40,7 @@ import { getSupabase } from '../services/supabaseClient';
 import { QuantityInput } from '../components/shared/QuantityInput';
 import { Switch } from '../components/shared/Switch';
 import { DeliveryZone, fetchActiveZones } from '../components/DeliveryZonesEditor';
+import { formatLocation } from '../../website/src/customerProfile';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import CardChargeSheet, { type CardChargeResult, describeCard } from '../components/payments/CardChargeSheet';
@@ -231,6 +232,28 @@ export default function POSView() {
     if (!activeBusinessId || !isDelivery) return;
     fetchActiveZones(activeBusinessId).then(setDeliveryZones).catch(() => setDeliveryZones([]));
   }, [activeBusinessId, isDelivery]);
+
+  // Delivery for a customer with a saved location: fill it in (and their area's fee) unless
+  // the cashier typed something else. Picking another customer replaces what was filled in.
+  const filledLocation = React.useRef('');
+  useEffect(() => {
+    if (!isDelivery || !selectedCustomer) return;
+    const zone = deliveryZones.find((z) => z.id === selectedCustomer.deliveryZoneId);
+    const saved = formatLocation({
+      zoneName: zone?.name,
+      address: selectedCustomer.deliveryAddress,
+      building: selectedCustomer.deliveryBuilding,
+      landmark: selectedCustomer.deliveryLandmark,
+    });
+    if (!saved) return;
+    setDeliveryLocation((current) => {
+      const typed = current.trim() && current !== filledLocation.current && !deliveryZones.some((z) => z.name === current.trim());
+      if (typed) return current;
+      filledLocation.current = saved;
+      return saved;
+    });
+    if (zone) setDeliveryFee((fee) => (fee > 0 ? fee : Number(zone.fee)));
+  }, [isDelivery, selectedCustomer?.id, deliveryZones]);
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
@@ -666,7 +689,7 @@ export default function POSView() {
                   onClick={clearCart}
                   disabled={cart.length === 0}
                   data-shortcut="pos-clear"
-                  className="p-2 lg:pr-12 disabled:opacity-30 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
+                  className="inline-flex items-center p-2 disabled:opacity-30 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
                   title="Empty the cart (Ctrl+Delete)"
                 >
                   <Trash2 size={15} />
@@ -763,11 +786,11 @@ export default function POSView() {
                 </div>
 
                 {/* Assign Customer Profile with themed container */}
-                <div data-shortcut="pos-customer" className="p-3 lg:pb-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2">
+                <div data-shortcut="pos-customer" className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2">
                   <div className="flex items-center justify-between text-xs font-bold text-app-text">
                     <span className="flex items-center gap-1.5 text-amber-500">
                       <User size={13} />
-                      <span>Customer</span>
+                      <span data-kbd-here>Customer</span>
                     </span>
                     {selectedCustomer && (
                       <button
@@ -879,7 +902,7 @@ export default function POSView() {
                             setPaymentMethod(method.value);
                             if (method.value !== 'Card') setPaidCard(null);
                           }}
-                          className={`rounded-lg text-[10px] font-semibold transition cursor-pointer lg:pb-3 ${
+                          className={`kbd-stack rounded-lg text-[11px] font-semibold leading-tight transition cursor-pointer ${
                             paymentMethod === method.value
                               ? 'bg-amber-500 text-slate-950 shadow'
                               : 'text-app-text-muted hover:bg-app-bg'
@@ -892,7 +915,7 @@ export default function POSView() {
                   </div>
 
                   <div data-shortcut="pos-note" className="flex flex-col gap-1.5">
-                    <label htmlFor="pos-note" className="text-[11px] font-semibold text-app-text-muted">
+                    <label htmlFor="pos-note" data-kbd-here className="text-[11px] font-semibold text-app-text-muted">
                       Note
                     </label>
                     <input
@@ -908,10 +931,10 @@ export default function POSView() {
 
                 {/* Delivery Settings */}
                 <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2.5">
-                  <div data-shortcut="pos-delivery" className="flex items-center justify-between lg:pr-12">
+                  <div data-shortcut="pos-delivery" className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-amber-500 text-xs font-bold">
                       <Truck size={13} />
-                      <span>Delivery</span>
+                      <span data-kbd-here>Delivery</span>
                     </span>
                     <Switch
                       ariaLabel="Set as delivery order"
@@ -1027,7 +1050,7 @@ export default function POSView() {
                         <input
                           value={deliveryLocation}
                           onChange={(e) => setDeliveryLocation(e.target.value)}
-                          placeholder="Estate, street or landmark"
+                          placeholder="Estate, building, landmark"
                           className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-medium normal-case text-app-text"
                         />
                       </label>

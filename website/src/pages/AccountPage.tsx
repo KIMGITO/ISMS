@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { CalendarClock, Gift, LogOut, MessageSquare, Package, UserRound } from 'lucide-react';
-import { fetchMessages, friendlyError, supabase, updateAccount } from '../api';
+import { fetchMessages, friendlyError, locationOf, supabase, updateProfile } from '../api';
+import { CUSTOMER_FIELDS as F, displayPhone, isValidPhone, MESSAGES, NAME_MAX } from '../customerProfile';
+import DeliveryLocationFields from './DeliveryLocationFields';
 import { useAuth, useCart } from '../store';
 import { navigate } from '../router';
 import { RETURN_KEY } from './CartPage';
@@ -23,20 +25,21 @@ const TABS = [
 function ProfileTab() {
   const account = useAuth((s) => s.account)!;
   const [name, setName] = useState(account.name);
-  const [phone, setPhone] = useState(account.phone);
-  const [address, setAddress] = useState(account.delivery_address ?? '');
-  const [notes, setNotes] = useState(account.delivery_notes ?? '');
+  const [phone, setPhone] = useState(displayPhone(account.phone));
+  const [location, setLocation] = useState(locationOf(account));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError('');
     setSaved(false);
+    if (!name.trim()) return setError(MESSAGES.name);
+    if (!isValidPhone(phone)) return setError(MESSAGES.phone);
+    setBusy(true);
     try {
-      await updateAccount(name, phone, address, notes);
+      await updateProfile(name, phone, location);
       await useAuth.getState().refreshAccount();
       setSaved(true);
     } catch (err) {
@@ -48,26 +51,25 @@ function ProfileTab() {
 
   return (
     <div className="max-w-xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block font-medium">
-          Your name
-          <input required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
-        </label>
-        <label className="block font-medium">
-          M-Pesa phone number
-          <input required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
-        </label>
-        <label className="block font-medium">
-          Delivery location
-          <textarea rows={2} maxLength={300} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Estate, street, house number or landmark" className={fieldClass} />
-        </label>
-        <label className="block font-medium">
-          Delivery notes
-          <input maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="For example, call when you arrive" className={fieldClass} />
-        </label>
-        {account.email && <p className="text-muted">Email: {account.email}</p>}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Your details</h2>
+          <label className="block font-medium">
+            {F.name.label}
+            <input required maxLength={NAME_MAX} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+          </label>
+          <label className="block font-medium">
+            {F.phone.label}
+            <input required type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          </label>
+          {account.email && <p className="text-muted">{F.email.label}: {account.email}</p>}
+        </section>
+        <section className="space-y-4 border-t border-line pt-6">
+          <h2 className="text-xl font-semibold">Delivery location</h2>
+          <DeliveryLocationFields value={location} onChange={setLocation} />
+        </section>
         <ErrorText>{error}</ErrorText>
-        {saved && <p role="status" className="font-medium text-emerald-700">Your details are saved.</p>}
+        {saved && <p role="status" className="font-medium text-emerald-700">Saved.</p>}
         <button type="submit" disabled={busy} className={`${primaryButton} w-full sm:w-auto`}>
           {busy ? 'Saving…' : 'Save changes'}
         </button>

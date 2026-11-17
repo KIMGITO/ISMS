@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CalendarClock, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { deleteSchedule, fetchSchedules, friendlyError, saveSchedule, Schedule } from '../api';
 import { useAuth, useStorefront } from '../store';
+import { formatLocation } from '../customerProfile';
 import { cardClass, ErrorText, fieldClass, formatDate, formatQuantity, Loading, primaryButton, secondaryButton } from '../ui';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -194,7 +195,7 @@ export default function SchedulesTab() {
   return (
     <div className="max-w-2xl space-y-4">
       <p className="text-muted">
-        On each day you choose, we'll prepare your order and message you. Pay it from your Orders page to confirm it, since M-Pesa needs your PIN each time.
+        We prepare your order on the days you choose. Pay it from Orders to confirm.
       </p>
       <ErrorText>{error}</ErrorText>
       <button
@@ -204,7 +205,7 @@ export default function SchedulesTab() {
             quantities: {},
             days: [],
             fulfilment: settings.deliveryEnabled ? 'delivery' : 'pickup',
-            address: account.delivery_address ?? '',
+            address: formatLocation({ address: account.delivery_address, building: account.delivery_building, landmark: account.delivery_landmark }),
             notes: '',
             active: true,
           })

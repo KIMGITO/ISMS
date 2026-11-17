@@ -241,6 +241,8 @@ function Header({ section, path }: { section: string; path: string }) {
   const navLink = (active: boolean) =>
     `whitespace-nowrap py-3 text-sm font-medium transition hover:text-ember ${active ? 'text-ember' : 'text-ink'}`;
   const offers = site.products.some((p) => p.wasPrice && p.wasPrice > p.price);
+  // The customer's saved delivery area, or else their estate/street.
+  const myArea = account ? (site.deliveryZones.find((z) => z.id === account.delivery_zone_id)?.name || account.delivery_address || '') : '';
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -255,11 +257,11 @@ function Header({ section, path }: { section: string; path: string }) {
         </a>
         <div className="hidden max-w-56 shrink lg:block">
           {multiStore ? <StoreButton /> : (
-            <a href="/delivery" className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-shell">
-              <MapPin size={22} strokeWidth={1.6} className="text-ember" aria-hidden />
-              <span className="leading-tight">
+            <a href={settings.deliveryEnabled && account ? '/account/profile' : '/delivery'} className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 hover:bg-shell">
+              <MapPin size={22} strokeWidth={1.6} className="shrink-0 text-ember" aria-hidden />
+              <span className="min-w-0 leading-tight">
                 <span className="block text-[0.6875rem] text-muted">{settings.deliveryEnabled ? 'Delivered to' : 'Pick up at'}</span>
-                <span className="block text-sm font-medium">{settings.deliveryEnabled ? 'Your area' : 'Our shop'}</span>
+                <span className="block truncate text-sm font-medium">{settings.deliveryEnabled ? myArea || (account ? 'Add your location' : 'Your area') : 'Our shop'}</span>
               </span>
             </a>
           )}
@@ -293,7 +295,7 @@ function Header({ section, path }: { section: string; path: string }) {
       <nav aria-label="Main" className="hidden border-t border-line bg-shell lg:block">
         <div className="site-gutter flex items-center gap-6">
           <button onClick={() => open('categories')} className="-ml-1 inline-flex h-11 items-center gap-2 bg-ember px-4 text-sm font-semibold text-white transition hover:bg-brand-deep">
-            <Menu size={17} aria-hidden /> All Categories
+            <Menu size={17} aria-hidden /> All categories
           </button>
           <a href="/" aria-current={section === '' ? 'page' : undefined} className={navLink(section === '')}>Home</a>
           <a href="/shop" aria-current={section === 'shop' ? 'page' : undefined} className={navLink(section === 'shop' && !path.includes('offers=1'))}>Shop</a>
@@ -327,7 +329,8 @@ function Header({ section, path }: { section: string; path: string }) {
           <SearchBox />
         </div>
       )}
-      {/* Phones: a short row of shortcuts under the search, like a shop's quick links. */}
+      {/* Phones, home page only: a short row of quick links, so other pages keep a short header. */}
+      {section === '' && (
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-2 lg:hidden">
         <StoreButton compact />
         {offers && <a href="/shop?offers=1" className="chip min-h-8 shrink-0 px-3 text-xs">Offers</a>}
@@ -336,6 +339,7 @@ function Header({ section, path }: { section: string; path: string }) {
         <a href="/about" className="chip min-h-8 shrink-0 px-3 text-xs">About us</a>
         <a href="/help" className="chip min-h-8 shrink-0 px-3 text-xs">Help</a>
       </div>
+      )}
     </header>
   );
 }
@@ -356,7 +360,7 @@ function CategoriesDrawer() {
       <div className="drawer-backdrop absolute inset-0" onClick={close} />
       <div ref={ref} className="drawer-left absolute inset-y-0 left-0 flex w-[min(22rem,88vw)] flex-col bg-white pt-[env(safe-area-inset-top)] shadow-2xl">
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
-          <span className="text-lg font-semibold">All Categories</span>
+          <span className="text-lg font-semibold">All categories</span>
           <button onClick={close} aria-label="Close categories" className={iconButton}><X strokeWidth={1.7} aria-hidden /></button>
         </div>
         <ul className="flex-1 divide-y divide-line overflow-y-auto overscroll-contain px-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
@@ -448,7 +452,7 @@ function StorePicker() {
       close();
       const name = stores.find((s) => s.slug === choice)?.name ?? 'the new store';
       show(dropped > 0
-        ? `Now shopping at ${name}. ${dropped} ${dropped === 1 ? 'item isn\'t' : 'items aren\'t'} sold there, so we took ${dropped === 1 ? 'it' : 'them'} out of your cart.`
+        ? `Now at ${name}. ${dropped} ${dropped === 1 ? 'item' : 'items'} not sold here left your cart.`
         : `Now shopping at ${name}.`);
     } catch (err) {
       setError(friendlyError(err, 'We couldn\'t switch store. Please try again.'));
@@ -482,7 +486,7 @@ function StorePicker() {
                       {store.slug === current && <span className="rounded-full bg-leaf/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-leaf">Current</span>}
                     </span>
                     {store.address && <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><MapPin size={14} className="mt-0.5 shrink-0" aria-hidden /> {store.address}</span>}
-                    {store.openingHours && <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Clock size={14} className="mt-0.5 shrink-0" aria-hidden /> {store.openingHours}</span>}
+                    {store.openingHours && <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Clock size={14} className="mt-0.5 shrink-0" aria-hidden /> <span className="whitespace-pre-line">{store.openingHours}</span></span>}
                     {store.phone && <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted"><Phone size={14} className="mt-0.5 shrink-0" aria-hidden /> {store.phone}</span>}
                   </span>
                 </label>
@@ -864,7 +868,7 @@ function Footer() {
               <li className="flex items-center gap-3"><span className={contactIcon}><Mail size={15} aria-hidden /></span> <span className="min-w-0 break-all">{business.contactEmail}</span></li>
             )}
             {settings.openingHours && (
-              <li className="flex items-center gap-3"><span className={contactIcon}><Clock size={15} aria-hidden /></span> {settings.openingHours}</li>
+              <li className="flex items-center gap-3"><span className={contactIcon}><Clock size={15} aria-hidden /></span> <span className="whitespace-pre-line">{settings.openingHours}</span></li>
             )}
           </ul>
         </div>
@@ -887,8 +891,8 @@ function Footer() {
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5"><Lock size={13} aria-hidden /> Secure payments</span>
-            <span className="rounded bg-white px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
-            {takesAirtel(site) && <span className="rounded bg-white px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-[#e40000] ring-1 ring-line">AIRTEL MONEY</span>}
+            <span className="rounded bg-white px-2 py-0.5 text-xs font-semibold text-[#2f8a3b] ring-1 ring-line">M-Pesa</span>
+            {takesAirtel(site) && <span className="rounded bg-white px-2 py-0.5 text-xs font-semibold text-[#e40000] ring-1 ring-line">Airtel Money</span>}
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top" className="grid size-9 place-items-center rounded-full border border-line bg-white hover:border-ink">
               <ArrowUp size={15} aria-hidden />
             </button>

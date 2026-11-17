@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Gift, Lock, MapPin, Minus, Plus, ShoppingBag, Store, Tag, Trash2, Truck, X } from 'lucide-react';
-import { checkPromoCode, CartLine, fetchRewards, friendlyError, placeOrder, Product, PromoCheck, Rewards } from '../api';
+import { acceptsCards, checkPromoCode, CartLine, fetchRewards, friendlyError, locationOf, LocationDraft, placeOrder, Product, PromoCheck, Rewards, takesAirtel, updateProfile } from '../api';
+import { displayPhone, formatLocation } from '../customerProfile';
+import DeliveryLocationFields from './DeliveryLocationFields';
 import { navigate } from '../router';
 import { productPaths } from '../seo';
 import { useAuth, useCart, usePanels, usePromo, useStorefront } from '../store';
@@ -23,12 +25,12 @@ function useCartRows(): Row[] {
 
 const subtotalOf = (rows: Row[]) => rows.reduce((sum, { line, product }) => sum + product.price * line.quantity, 0);
 
-/** Cart, then sign-in and details, then M-Pesa payment on the order page. */
+/** Cart, then sign-in and details, then payment on the order page. */
 export function CheckoutSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
   const steps = [
     { label: 'Cart', href: '/cart' },
     { label: 'Checkout', href: '/checkout' },
-    { label: 'Pay with M-Pesa' },
+    { label: 'Pay' },
     { label: 'Confirmed' },
   ];
   return (
@@ -253,8 +255,9 @@ export function CheckoutPage() {
   const { code: promoCode, result: promo, error: promoError } = usePromoCheck(subtotal);
 
   const [fulfilment, setFulfilment] = useState<'delivery' | 'pickup'>(settings.deliveryEnabled ? 'delivery' : 'pickup');
-  const [address, setAddress] = useState('');
-  const [zoneId, setZoneId] = useState('');
+  const [location, setLocation] = useState<LocationDraft>(locationOf(null));
+  const [saveLocation, setSaveLocation] = useState(true);
+  const [cards, setCards] = useState(false);
   const [rewards, setRewards] = useState<Rewards | null>(null);
   const [usePoints, setUsePoints] = useState(false);
   const [points, setPoints] = useState('');
@@ -266,10 +269,16 @@ export function CheckoutPage() {
     if (account) fetchRewards().then(setRewards).catch(() => setRewards(null));
   }, [account]);
 
+  // The saved delivery location fills the form; the rider instructions start the note.
   useEffect(() => {
-    if (account?.delivery_address) setAddress((current) => current || account.delivery_address!);
-    if (account?.delivery_notes) setNotes((current) => current || account.delivery_notes!);
+    if (!account) return;
+    setLocation((current) => (current.address || current.building ? current : locationOf(account)));
+    if (account.delivery_notes) setNotes((current) => current || account.delivery_notes!);
   }, [account]);
+
+  useEffect(() => {
+    acceptsCards().then(setCards);
+  }, []);
 
   // Google sign-in comes back to /account, which sends the shopper here again.
   useEffect(() => {
@@ -297,7 +306,12 @@ export function CheckoutPage() {
   }
   if (!account) return <FinishAccountForm />;
 
-  const zone = deliveryZones.find((z) => z.id === zoneId);
+  // A saved area from another branch doesn't count here.
+  const zone = deliveryZones.find((z) => z.id === location.zoneId);
+  const zoneId = zone ? zone.id : '';
+  const savedLocation = locationOf(account);
+  const locationChanged = (['zoneId', 'address', 'building', 'landmark'] as const).some((k) => location[k].trim() !== savedLocation[k].trim());
+  const payWays = ['M-Pesa', ...(takesAirtel(site) ? ['Airtel Money'] : []), ...(cards ? ['card'] : [])];
   const fee = fulfilment !== 'delivery' ? 0 : Number(deliveryZones.length > 0 ? zone?.fee ?? 0 : settings.deliveryFee);
   const saving = promo?.saving ?? 0;
   // The same limits the server enforces (fn_build_online_order): from the minimum, up to the
@@ -319,7 +333,13 @@ export function CheckoutPage() {
     setError('');
     setBusy(true);
     try {
+      const address = formatLocation({ ...location, zoneName: null });
       const orderId = await placeOrder(lines, fulfilment, address, notes, zoneId || null, pointsUsed, promo ? promoCode : null);
+      if (fulfilment === 'delivery' && saveLocation && locationChanged) {
+        // The order is placed; a failed save only means typing it again next time.
+        await updateProfile(account.name, account.phone, { ...location, notes: savedLocation.notes }).catch(() => undefined);
+        useAuth.getState().refreshAccount().catch(() => undefined);
+      }
       clear();
       setPromo('');
       navigate(`/account/orders/${orderId}`);
@@ -346,7 +366,7 @@ export function CheckoutPage() {
               <a href="/account/profile" className="text-sm font-medium underline">Change</a>
             </div>
             <p className="mt-2 font-medium">{account.name}</p>
-            <p className="text-muted">M-Pesa {account.phone}{account.email ? ` · ${account.email}` : ''}</p>
+            <p className="text-muted">{displayPhone(account.phone)}{account.email ? ` · ${account.email}` : ''}</p>
           </section>
 
           <section className={`${cardClass} space-y-4 p-5`}>
@@ -382,32 +402,28 @@ export function CheckoutPage() {
                 })}
               </div>
             </fieldset>
-            {fulfilment === 'delivery' && deliveryZones.length > 0 && (
-              <label className="block font-medium">
-                Delivery area
-                <select required value={zoneId} onChange={(e) => setZoneId(e.target.value)} className={fieldClass}>
-                  <option value="">Choose your area</option>
-                  {deliveryZones.map((z) => <option key={z.id} value={z.id}>{z.name} ({formatPrice(business.currency, z.fee)})</option>)}
-                </select>
-              </label>
-            )}
             {fulfilment === 'delivery' && (
-              <label className="block font-medium">
-                Delivery location
-                <textarea required rows={2} maxLength={300} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Estate, street, house number or landmark" className={fieldClass} />
-              </label>
+              <>
+                <DeliveryLocationFields value={location} onChange={setLocation} required showNotes={false} />
+                {locationChanged && (
+                  <label className="flex min-h-11 items-center gap-3">
+                    <input type="checkbox" checked={saveLocation} onChange={(e) => setSaveLocation(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-ember)]" />
+                    <span>Save as my delivery location</span>
+                  </label>
+                )}
+              </>
             )}
             <label className="block font-medium">
-              Note for us <span className="font-normal text-muted">(optional)</span>
-              <input maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="For example, call when you arrive" className={fieldClass} />
+              {fulfilment === 'delivery' ? 'Delivery instructions' : 'Note for us'} <span className="font-normal text-muted">(optional)</span>
+              <input maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Call when you arrive at the gate" className={fieldClass} />
             </label>
           </section>
 
           <section className={`${cardClass} space-y-4 p-5`}>
             <h2 className="text-lg font-medium">3. Payment</h2>
-            <div className="flex items-center gap-3 rounded-xl border border-ink bg-amber-50 p-4">
-              <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold tracking-wide text-[#2f8a3b] ring-1 ring-line">M-PESA</span>
-              <span className="text-sm">After you place the order, we send a prompt to <strong>{account.phone}</strong>. Enter your PIN to pay. <a href="/payments" className="underline">How it works</a></span>
+            <div className="rounded-xl border border-ink bg-amber-50 p-4 text-sm">
+              <p className="font-medium">{payWays.join(', ').replace(/, ([^,]*)$/, ' or $1')}</p>
+              <p className="mt-0.5 text-muted">You pay on the next step. <a href="/payments" className="underline">How it works</a></p>
             </div>
             {rewards && rewards.enabled !== false && (
               <PointsPanel
@@ -541,7 +557,7 @@ function PointsPanel({ rewards, currency, enabled, canUse, maxPoints, value, use
           <p className={`text-xs ${outOfRange ? 'text-red-800' : 'text-muted'}`}>
             {outOfRange
               ? `Choose between ${rewards.minRedeem.toLocaleString('en-KE')} and ${maxPoints.toLocaleString('en-KE')} points. We'll use ${used.toLocaleString('en-KE')}.`
-              : `${used.toLocaleString('en-KE')} points take ${formatPrice(currency, usedValue)} off. At least ${formatPrice(currency, 1)} is paid by M-Pesa.`}
+              : `${used.toLocaleString('en-KE')} points take ${formatPrice(currency, usedValue)} off. At least ${formatPrice(currency, 1)} is left to pay.`}
           </p>
         </div>
       )}

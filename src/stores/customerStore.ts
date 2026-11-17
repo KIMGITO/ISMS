@@ -96,7 +96,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
         name: customerName(customerData.name),
         phone: normalizedPhone,
         joinDate: new Date().toISOString().split("T")[0],
-        loyaltyPoints: customerData.loyaltyPoints || 10,
+        loyaltyPoints: customerData.loyaltyPoints ?? 0,
         purchasesCount: 0,
         debtBalance: customerData.debtBalance || 0,
         walletBalance: customerData.walletBalance || 0,

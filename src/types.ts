@@ -112,6 +112,12 @@ export interface Customer {
   deliveryFrequency?: DeliveryFrequency;
   notifyService?: boolean;
   notifyPromotions?: boolean;
+  /** Delivery location, the same parts the website asks for (20261128001). */
+  deliveryZoneId?: string | null;
+  deliveryAddress?: string;
+  deliveryBuilding?: string;
+  deliveryLandmark?: string;
+  deliveryNotes?: string;
 }
 
 export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer';

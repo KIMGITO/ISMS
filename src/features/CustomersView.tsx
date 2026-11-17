@@ -5,7 +5,6 @@ import { useBusinessStore } from '../stores/businessStore';
 import { useUiStore } from '../stores/uiStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
-import { FloatingButton } from '../components/shared/FloatingButton';
 import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
@@ -32,12 +31,12 @@ import {
   Check,
   ArrowLeft,
   RefreshCw,
-  MessageSquareText,
   Coins,
   ShoppingBag,
   CreditCard,
   Wallet,
   ChevronDown,
+  MapPin,
   ChevronUp,
   Filter,
   FileText,
@@ -46,16 +45,15 @@ import {
   PanelLeftOpen,
   Archive,
   ArchiveRestore,
-  PenLine,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useForm } from "../hooks/useForm";
+import CustomerDetailsFields, { CustomerDetailsDraft, DetailsErrors, checkDetails, detailsOf, detailsToCustomer, emptyDetails, useDeliveryZones } from "../components/CustomerDetailsFields";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency, formatDate } from "../utils/helpers";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { Tabs } from "../components/TabOptions";
 import { titleCase, searchMatch, getFirstName } from "../utils/stringUtils";
-import { normalizePhone, validatePhone, SUPPORTED_COUNTRIES } from "../utils/phoneUtils";
+import { formatLocation, normalizePhone } from "../../website/src/customerProfile";
 import { formatReceiptNumber } from "../utils/idUtils";
 import { SupabaseService } from "../services/supabaseService";
 import { ReceiptShareService } from "../services/receipt/ReceiptShareService";
@@ -70,10 +68,9 @@ import CustomerRewards from "../components/CustomerRewards";
 import CustomerReferralCard from "../components/loyalty/CustomerReferralCard";
 import { appDialog } from '../components/AppDialog';
 import { GroupPicker } from '../components/messaging/GroupPicker';
-import { BulkMessageComposer } from '../components/messaging/BulkMessageComposer';
-import { groupMatcher, describeGroups } from '../services/messaging/customerGroups';
+import { groupMatcher } from '../services/messaging/customerGroups';
 import { useMessageContext } from '../hooks/useMessageContext';
-import { NumberInput } from '../components/shared/Input';
+import { Field, NumberInput } from '../components/shared/Input';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -148,7 +145,7 @@ export default function CustomersView() {
   useOverlay(!!selectedCustomerId, () => setSelectedCustomerId(null), 'screen');
   const pointsOn = usePointsEnabled(activeBusinessId); // off: points are hidden here
   // Variables, groups and buying history for messages and group filters.
-  const { ctx: messageCtx, setCustom: setMessageVariables } = useMessageContext(activeBusinessId);
+  const { ctx: messageCtx } = useMessageContext(activeBusinessId);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
   const [newGroups, setNewGroups] = useState<CustomerGroupValues>({
@@ -166,7 +163,6 @@ export default function CustomersView() {
     notifyPromotions: false,
   });
   const [isAdding, setIsAdding] = useState(false);
-  const [successBanner, setSuccessBanner] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<"money" | "overview" | "history" | "invoice" | "message" | "ledger">("money");
   // Invoices: a new one for this customer, or one issued earlier.
   const [invoiceFor, setInvoiceFor] = useState<typeof customers[number] | null>(null);
@@ -194,14 +190,9 @@ export default function CustomersView() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
-  // Country selector states
-  const [selectedCountryCode, setSelectedCountryCode] = useState("+254");
-  const [editCountryCode, setEditCountryCode] = useState("+254");
-
   // Local state for profile edits within detail panel
-  const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editEmail, setEditEmail] = useState("");
+  const [editDetails, setEditDetails] = useState<CustomerDetailsDraft>(emptyDetails);
+  const [editErrors, setEditErrors] = useState<DetailsErrors>({});
   const [editTier, setEditTier] = useState<"Bronze" | "Silver" | "Gold">("Bronze");
   const [editPoints, setEditPoints] = useState(0);
   const [editDescription, setEditDescription] = useState("");
@@ -214,12 +205,6 @@ export default function CustomersView() {
 
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Messaging many customers: pick by group or one by one, then write once with variables.
-  const [selecting, setSelecting] = useState(false);
-  const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
-  // Phones: the composer takes the screen once the picking is done.
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeWithAi, setComposeWithAi] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAddingDebt, setIsAddingDebt] = useState(false);
   const [isPayingDebt, setIsPayingDebt] = useState(false);
@@ -289,31 +274,6 @@ export default function CustomersView() {
     setSelectedCustomerId(id);
   };
 
-  // Message many: the list turns into tick boxes and the right side becomes the composer.
-  const canMessage = currentEmployee ? hasRolePermission(currentEmployee.role, "communication.send") : false;
-  const startMessaging = (withAi = false) => {
-    setSelectedCustomerId(null);
-    setShowPoints(false);
-    setSelecting(true);
-    setComposeWithAi(withAi);
-    // With the assistant, phones go straight to writing; it can pick the groups itself.
-    setComposeOpen(withAi);
-  };
-  const stopMessaging = () => {
-    setSelecting(false);
-    setComposeOpen(false);
-    setComposeWithAi(false);
-    setPickedIds(new Set());
-  };
-  const togglePicked = (id: string) =>
-    setPickedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  useOverlay(composeOpen, () => setComposeOpen(false), 'screen');
-  useOverlay(selecting && !composeOpen, stopMessaging, 'screen');
   const [duplicateCount, setDuplicateCount] = useState(0);
 
   const refreshDuplicateCount = React.useCallback(() => {
@@ -325,61 +285,51 @@ export default function CustomersView() {
 
   useEffect(refreshDuplicateCount, [refreshDuplicateCount, customers.length]);
 
-  // New Customer Form handling using custom useForm hook
-  const {
-    values,
-    errors,
-    handleChange,
-    handleSubmit,
-    resetForm,
-    isSubmitting
-  } = useForm({
-    initialValues: {
-      name: "",
-      phone: "",
-      email: "",
-      tier: "Bronze" as "Bronze" | "Silver" | "Gold",
-      description: "",
-    },
-    validate: (vals) => {
-      const errs: Record<string, string> = {};
-      if (!vals.name.trim()) errs.name = "Customer name is required.";
-      if (!vals.phone.trim()) {
-        errs.phone = "Phone number is required.";
-      } else {
-        const fullPhone = normalizePhone(vals.phone, selectedCountryCode);
-        if (!validatePhone(fullPhone)) {
-          errs.phone = "Phone must be valid. Check country prefix and length.";
-        }
-      }
-      return errs;
-    },
-    onSubmit: async (vals) => {
-      try {
-        await addCustomer({
-          name: vals.name,
-          phone: normalizePhone(vals.phone, selectedCountryCode),
-          email: vals.email || "no-email@kaykays.com",
-          loyaltyPoints: 0,
-          tier: vals.tier,
-          description: vals.description,
-          ...newGroups,
-        });
-        setIsAdding(false);
-        setNewGroups({ customerType: "individual", paymentTerms: "pay_now", deliveryFrequency: "none", notifyService: true, notifyPromotions: false });
-        setSuccessBanner(true);
-        setTimeout(() => setSuccessBanner(false), 2000);
-        showToast("Customer Added", `"${vals.name}" successfully created.`, undefined, "success");
-      } catch (err: any) {
-        showToast("Not added", toUserMessage(err, "Could not add the customer."), undefined, "error");
-      }
-    },
-  });
+  // New customer: full name and phone are needed; everything else can be added now or later.
+  const [newDetails, setNewDetails] = useState<CustomerDetailsDraft>(emptyDetails);
+  const [newErrors, setNewErrors] = useState<DetailsErrors>({});
+  const [newDescription, setNewDescription] = useState("");
+  const [newMore, setNewMore] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const zones = useDeliveryZones(activeBusinessId);
+
+  const resetForm = () => {
+    setNewDetails(emptyDetails());
+    setNewErrors({});
+    setNewDescription("");
+    setNewMore(false);
+    setNewGroups({ customerType: "individual", paymentTerms: "pay_now", deliveryFrequency: "none", notifyService: true, notifyPromotions: false });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = checkDetails(newDetails);
+    setNewErrors(errs);
+    if (Object.keys(errs).length) return;
+    setIsSubmitting(true);
+    try {
+      const details = detailsToCustomer(newDetails);
+      await addCustomer({
+        ...details,
+        loyaltyPoints: 0,
+        tier: "Bronze",
+        description: newDescription,
+        ...newGroups,
+      } as any);
+      setIsAdding(false);
+      resetForm();
+      showToast("Customer added", details.name!, undefined, "success");
+    } catch (err: any) {
+      showToast("Not added", toUserMessage(err, "Could not add the customer."), undefined, "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
   const shopName = useBusinessStore((st) => st.businesses.find((b) => b.id === st.activeBusinessId)?.name) || 'us';
 
-  const enteredPhoneKey = phoneKey(normalizePhone(values.phone, selectedCountryCode));
+  const enteredPhoneKey = phoneKey(normalizePhone(newDetails.phone, newDetails.countryCode) ?? '');
   const samePhoneCustomer = enteredPhoneKey ? customers.find((c) => phoneKey(c.phone) === enteredPhoneKey) : undefined;
 
   // Unified History Event Timeline Builder
@@ -570,8 +520,8 @@ export default function CustomersView() {
 
   useEffect(() => {
     if (selectedCustomer) {
-      setEditName(selectedCustomer.name);
-      setEditEmail(selectedCustomer.email);
+      setEditDetails(detailsOf(selectedCustomer));
+      setEditErrors({});
       setEditTier(selectedCustomer.tier);
       setEditPoints(selectedCustomer.loyaltyPoints);
       setEditDescription(selectedCustomer.description || "");
@@ -586,15 +536,6 @@ export default function CustomersView() {
       setMessageText("");
       setSuccessMsg("");
 
-      // Attempt to auto-detect country code from the customer's phone number
-      const matchedCountry = SUPPORTED_COUNTRIES.find(c => selectedCustomer.phone.startsWith(c.code));
-      if (matchedCountry) {
-        setEditCountryCode(matchedCountry.code);
-        setEditPhone(selectedCustomer.phone.slice(matchedCountry.code.length));
-      } else {
-        setEditCountryCode("+254");
-        setEditPhone(selectedCustomer.phone);
-      }
     }
   }, [selectedCustomerId, selectedCustomer]);
 
@@ -705,23 +646,6 @@ export default function CustomersView() {
     searchMatch(c.email, searchQuery) ||
     searchMatch(c.tier, searchQuery)
   ));
-  const pickedCustomers = customers.filter((c) => pickedIds.has(c.id));
-  const shownPicked = filteredCustomers.filter((c) => pickedIds.has(c.id)).length;
-  const allShownPicked = filteredCustomers.length > 0 && shownPicked === filteredCustomers.length;
-  const toggleAllShown = () =>
-    setPickedIds((prev) => {
-      const next = new Set(prev);
-      filteredCustomers.forEach((c) => (allShownPicked ? next.delete(c.id) : next.add(c.id)));
-      return next;
-    });
-  // The assistant chose who gets it: show those groups and pick everyone in them.
-  const pickGroups = (ids: string[]) => {
-    setGroupFilter(ids);
-    setSearchQuery("");
-    const match = groupMatcher(ids, messageCtx);
-    setPickedIds(new Set(customers.filter(match).map((c) => c.id)));
-  };
-
   // Generate automated debt breakdown text for WhatsApp
   const getDebtBreakdownMessage = (cust: typeof selectedCustomer) => {
     if (!cust) return "";
@@ -823,21 +747,10 @@ export default function CustomersView() {
       {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
         className={`w-full lg:w-80 xl:w-[21rem] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
-          selectedCustomerId || showPoints || composeOpen ? 'hidden lg:flex' : 'flex'
-        } ${listCollapsed && !selecting ? 'lg:!hidden' : ''}`}
+          selectedCustomerId || showPoints ? 'hidden lg:flex' : 'flex'
+        } ${listCollapsed ? 'lg:!hidden' : ''}`}
       >
         {/* Title and actions */}
-        {selecting ? (
-          <div className="px-4 pt-4 pb-3 shrink-0 flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold text-app-text leading-tight">Message customers</h2>
-              <span className="text-xs text-app-text-muted">Step 1 of 2 · Who gets it</span>
-            </div>
-            <button onClick={stopMessaging} className="px-3 py-2 rounded-xl bg-app-bg text-sm font-medium text-app-text cursor-pointer">
-              Cancel
-            </button>
-          </div>
-        ) : (
         <div className="px-4 pt-4 pb-3 shrink-0 space-y-2.5">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -884,16 +797,6 @@ export default function CustomersView() {
                 )}
               </button>
             )}
-            {canMessage && (
-              <button
-                onClick={() => (selecting ? stopMessaging() : startMessaging())}
-                aria-pressed={selecting}
-                title="Pick customers by group and send them one message with their own names and amounts"
-                className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${selecting ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
-              >
-                <MessageSquareText size={15} /> Message
-              </button>
-            )}
             {canCreateCustomers && (
               <button
                 onClick={() => {
@@ -909,7 +812,6 @@ export default function CustomersView() {
             )}
           </div>
         </div>
-        )}
 
         {/* Search and filter */}
         <div className="px-3 pb-3 shrink-0 flex flex-col gap-2">
@@ -923,39 +825,11 @@ export default function CustomersView() {
               className="w-full bg-app-bg text-sm pl-9 pr-3 py-2.5 rounded-xl focus:outline-none text-app-text"
             />
           </div>
-          {!selecting && <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} key="filter" />}
+          <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} key="filter" />
         </div>
 
         {/* Customers */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${selecting ? 'pb-3 lg:pb-nav' : 'pb-nav'}`}>
-          {selecting && (
-            <div className="px-3 pb-2">
-              <GroupPicker customers={customers} value={groupFilter} onChange={setGroupFilter} ctx={messageCtx} key="pick" defaultOpen capHeight={false} />
-            </div>
-          )}
-          {selecting && (
-            <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-app-card border-b border-app-border">
-              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allShownPicked}
-                  ref={(el) => {
-                    if (el) el.indeterminate = shownPicked > 0 && !allShownPicked;
-                  }}
-                  onChange={toggleAllShown}
-                  disabled={filteredCustomers.length === 0}
-                  className="size-4 accent-amber-500"
-                />
-                {groupFilter.length || searchQuery ? `All ${filteredCustomers.length} shown` : `Everyone (${filteredCustomers.length})`}
-              </label>
-              <span className="ml-auto text-xs font-medium tabular-nums">{pickedIds.size} picked</span>
-              {pickedIds.size > 0 && (
-                <button onClick={() => setPickedIds(new Set())} className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline cursor-pointer">
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
+        <div className="flex-1 min-h-0 overflow-y-auto pb-nav">
           {filteredCustomers.length === 0 ? (
             <div className="px-6 py-16 text-center">
               <p className="text-sm font-medium text-app-text">No customers found</p>
@@ -966,8 +840,7 @@ export default function CustomersView() {
           ) : (
             <div className="divide-y divide-app-border">
               {filteredCustomers.map((c) => {
-                const picked = selecting && pickedIds.has(c.id);
-                const isSelected = selecting ? picked : selectedCustomerId === c.id;
+                const isSelected = selectedCustomerId === c.id;
                 const debt = c.debtBalance || 0;
                 const offline = (c as any).sync_status && (c as any).sync_status !== 'synced';
                 return (
@@ -984,25 +857,14 @@ export default function CustomersView() {
                     ]}
                   >
                   <button
-                    onClick={() => (selecting ? togglePicked(c.id) : openCustomer(c.id))}
-                    role={selecting ? 'checkbox' : undefined}
-                    aria-checked={selecting ? picked : undefined}
+                    onClick={() => openCustomer(c.id)}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 cursor-pointer ${
                       isSelected ? 'bg-amber-500/10' : 'hover:bg-app-bg'
                     }`}
                   >
-                    {selecting ? (
-                      <span
-                        aria-hidden
-                        className={`grid place-items-center size-10 rounded-full shrink-0 ${picked ? 'bg-amber-500 text-slate-950' : 'ring-2 ring-inset ring-app-border text-transparent'}`}
-                      >
-                        <Check size={18} />
-                      </span>
-                    ) : (
                       <span className={`grid place-items-center size-10 rounded-full shrink-0 text-sm font-semibold ${tierTone(c.tier)}`}>
                         {initials(c.name)}
                       </span>
-                    )}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <span className="text-sm font-medium text-app-text truncate">{customerName(c.name)}</span>
@@ -1033,27 +895,16 @@ export default function CustomersView() {
             </div>
           )}
         </div>
-        {selecting && (
-          <div className="lg:hidden shrink-0 px-3 pt-2 pb-nav border-t border-app-border bg-app-card">
-            <button
-              onClick={() => setComposeOpen(true)}
-              className="w-full h-11 rounded-xl bg-amber-500 text-slate-950 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {pickedIds.size ? `Next: write to ${pickedIds.size}` : 'Next: write message'}
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* CUSTOMER: one scroll on phones; side panel on large screens */}
       <div
         className={`relative flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
-          !selectedCustomerId && !showPoints && !composeOpen ? 'hidden lg:flex' : 'flex'
+          !selectedCustomerId && !showPoints ? 'hidden lg:flex' : 'flex'
         }`}
       >
         {/* Brings the folded customer list back (wide screens) */}
-        {listCollapsed && !selecting && (
+        {listCollapsed && (
           <button
             onClick={toggleList}
             aria-label="Show the customer list"
@@ -1063,40 +914,7 @@ export default function CustomersView() {
             <PanelLeftOpen size={16} /> Customers
           </button>
         )}
-        {selecting ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-            <div className="px-3 pt-3 pb-nav lg:px-5 lg:pt-4 lg:pb-6 max-w-2xl mx-auto w-full space-y-3">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setComposeOpen(false)} aria-label="Back to picking customers" className="p-2 -ml-2 rounded-xl hover:bg-app-card cursor-pointer lg:hidden">
-                  <ArrowLeft size={20} />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-semibold">Write the message</h2>
-                  <p className="text-xs text-app-text-muted truncate">
-                    <span className="lg:hidden">Step 2 of 2 · </span>
-                    {pickedIds.size
-                      ? `To ${pickedIds.size}${groupFilter.length ? ` · ${describeGroups(groupFilter)}` : ''}`
-                      : 'Nobody picked yet'}
-                  </p>
-                </div>
-                <button onClick={stopMessaging} className="hidden lg:block px-3 py-1.5 rounded-xl text-sm text-app-text-muted hover:text-app-text hover:bg-app-card cursor-pointer">
-                  Close
-                </button>
-              </div>
-              <div className="rounded-2xl bg-app-card p-3 sm:p-4">
-                <BulkMessageComposer
-                  recipients={pickedCustomers}
-                  ctx={messageCtx}
-                  onCustomChange={setMessageVariables}
-                  audience={describeGroups(groupFilter)}
-                  onPickGroups={pickGroups}
-                  onSent={() => setPickedIds(new Set())}
-                  startWithAi={composeWithAi}
-                />
-              </div>
-            </div>
-          </div>
-        ) : showPoints && !selectedCustomer && activeBusinessId ? (
+        {showPoints && !selectedCustomer && activeBusinessId ? (
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className={`px-3 pt-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
               {pointsOn ? (
@@ -1155,6 +973,19 @@ export default function CustomersView() {
                     {selectedCustomer.phone}
                     {selectedCustomer.accountNumber ? ` · Acc. ${selectedCustomer.accountNumber}` : ''}
                   </p>
+                  {(() => {
+                    const where = formatLocation({
+                      zoneName: zones.find((z) => z.id === selectedCustomer.deliveryZoneId)?.name,
+                      address: selectedCustomer.deliveryAddress,
+                      building: selectedCustomer.deliveryBuilding,
+                      landmark: selectedCustomer.deliveryLandmark,
+                    });
+                    return where ? (
+                      <p className="flex items-start gap-1 text-xs text-app-text-muted mt-0.5">
+                        <MapPin size={12} className="mt-0.5 shrink-0" /> <span className="min-w-0">{where}</span>
+                      </p>
+                    ) : null;
+                  })()}
                   {customerGroupLabels(selectedCustomer).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {customerGroupLabels(selectedCustomer).map((label) => (
@@ -1414,43 +1245,7 @@ export default function CustomersView() {
                         Details
                       </h4>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs font-medium text-app-text-muted">
-                            Name
-                          </label>
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs font-medium text-app-text-muted">
-                            Phone
-                          </label>
-                          <div className="grid  grid-cols-4 gap-1.5">
-                            <SearchableDropdown
-                              items={SUPPORTED_COUNTRIES.map((country) => ({
-                                id: country.code,
-                                label: `${country.code}`,
-                              }))}
-                              selectedValue={editCountryCode}
-                              onChange={(val) => setEditCountryCode(val)}
-                              placeholder="Code"
-                              className="w-28 shrink-0 col-span-1 "
-                            />
-                            <input
-                              type="text"
-                              value={editPhone}
-                              onChange={(e) => setEditPhone(e.target.value)}
-                              className="flex-1 col-span-3 bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500 tabular-nums"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <CustomerDetailsFields value={editDetails} onChange={setEditDetails} errors={editErrors} zones={zones} />
 
                       <CustomerGroupFields
                         values={editGroups}
@@ -1489,19 +1284,6 @@ export default function CustomersView() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-app-text-muted">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          disabled
-                          value={editEmail}
-                          className="bg-app-card/50 border border-app-border/40 opacity-70 rounded-xl px-3 py-2 text-xs text-app-text cursor-not-allowed font-medium"
-                          title="Emails are secured for fraud prevention."
-                        />
-                      </div>
-
                 <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium text-app-text-muted">
                           Notes
@@ -1519,50 +1301,21 @@ export default function CustomersView() {
                         type="button"
                         disabled={isSavingProfile}
                         onClick={async () => {
-                          if (!editName.trim()) {
-                            showToast(
-                              'Input Validation',
-                              'Customer name cannot be empty.',
-                              undefined,
-                              'error',
-                            );
-                            return;
-                          }
-                          const fullPhone = normalizePhone(
-                            editPhone,
-                            editCountryCode,
-                          );
-                          if (!validatePhone(fullPhone)) {
-                            showToast(
-                              'Input Validation',
-                              'Invalid phone number or length for the selected country.',
-                              undefined,
-                              'error',
-                            );
-                            return;
-                          }
+                          const errs = checkDetails(editDetails);
+                          setEditErrors(errs);
+                          if (Object.keys(errs).length) return;
                           setIsSavingProfile(true);
                           try {
                             await updateCustomer({
                               ...selectedCustomer,
-                              name: editName,
-                              phone: fullPhone,
+                              ...detailsToCustomer(editDetails),
                               tier: editTier,
                               loyaltyPoints: editPoints,
                               description: editDescription,
                               ...editGroups,
                             });
                             playSfx('save');
-                            setSuccessMsg(
-                              'Customer record updated successfully!',
-                            );
-                            setTimeout(() => setSuccessMsg(''), 3000);
-                            showToast(
-                              'Profile Updated',
-                              `Customer "${editName}" successfully updated in database.`,
-                              undefined,
-                              'success',
-                            );
+                            showToast('Saved', editDetails.name.trim(), undefined, 'success');
                           } catch (err: any) {
                             showToast(
                               'Not saved',
@@ -2361,73 +2114,22 @@ export default function CustomersView() {
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
 
-              <h3 className="text-sm font-semibold font-display text-app-text">
-                Enroll Loyalty Member
-              </h3>
-              <p className="text-[10px] text-app-text-muted font-bold mt-0.5">
-                Add them to your customer list
-              </p>
+              <h3 className="text-base font-semibold text-app-text">New customer</h3>
 
               <div className="h-[1px] bg-app-border my-3 shrink-0" />
 
               <form
                 onSubmit={handleSubmit}
-                className="flex-1 overflow-y-auto flex flex-col gap-3.5 pb-20 text-xs font-semibold"
+                noValidate
+                className="flex-1 overflow-y-auto flex flex-col gap-3 pb-20"
               >
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="e.g., Sarah Jenkins"
-                    value={values.name}
-                    onChange={handleChange}
-                    className={`bg-app-bg border ${
-                      errors.name ? 'border-red-500' : 'border-app-border'
-                    } rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500`}
-                  />
-                  {errors.name && (
-                    <span className="text-[11px] text-red-500 font-bold">
-                      {errors.name}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted">
-                    Phone *
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    <SearchableDropdown
-                      items={SUPPORTED_COUNTRIES.map((country) => ({
-                        id: country.code,
-                        label: `${country.flag} ${country.code}`,
-                      }))}
-                      selectedValue={selectedCountryCode}
-                      onChange={(val) => setSelectedCountryCode(val)}
-                      placeholder="Code"
-                      className="w-28 shrink-0 col-span-1"
-                    />
-                    <input
-                      type="tel"
-                      name="phone"
-                      inputMode="tel"
-                      placeholder="e.g., 0712345678"
-                      value={values.phone}
-                      onChange={handleChange}
-                      className={`flex-1 bg-app-bg border col-span-3 ${
-                        errors.phone ? 'border-red-500' : 'border-app-border'
-                      } rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500`}
-                    />
-                  </div>
-                  <span className="text-[11px] text-app-text-muted">
-                    Stored E.164:{' '}
-                    {normalizePhone(values.phone, selectedCountryCode)}
-                  </span>
-                  {samePhoneCustomer && (
-                    <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-app-text">
+                <CustomerDetailsFields
+                  value={newDetails}
+                  onChange={setNewDetails}
+                  errors={newErrors}
+                  zones={zones}
+                  phoneExtra={samePhoneCustomer && (
+                    <div className="mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-app-text">
                       <span>{titleCase(samePhoneCustomer.name)} already has this number.</span>
                       <button
                         type="button"
@@ -2435,73 +2137,40 @@ export default function CustomersView() {
                           setIsAdding(false);
                           setSelectedCustomerId(samePhoneCustomer.id);
                         }}
-                        className="shrink-0 font-bold text-amber-500 underline cursor-pointer"
+                        className="shrink-0 font-semibold text-amber-600 dark:text-amber-400 underline cursor-pointer"
                       >
                         Open
                       </button>
                     </div>
                   )}
-                  {errors.phone && (
-                    <span className="text-[11px] text-red-500 font-bold">
-                      {errors.phone}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="e.g., sarah.j@outlook.com"
-                    value={values.email}
-                    onChange={handleChange}
-                    className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted">
-                      Starting Tier
-                    </label>
-                    <SearchableDropdown
-                      items={[
-                        { id: 'Bronze', label: 'Bronze' },
-                        { id: 'Silver', label: 'Silver' },
-                        { id: 'Gold', label: 'Gold' },
-                      ]}
-                      selectedValue={values.tier}
-                      onChange={(val) =>
-                        handleChange({
-                          target: { name: 'tier', value: val },
-                        } as any)
-                      }
-                      placeholder="Select starting tier..."
-                    />
-                  </div>
-                </div>
-
-                <CustomerGroupFields
-                  values={newGroups}
-                  onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
                 />
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted">
-                    Notes
-                  </label>
-                  <textarea
-                    name="description"
-                    rows={3}
-                    placeholder="e.g., Prefers raw whole milk, delivers before 8 AM"
-                    value={values.description}
-                    onChange={handleChange}
-                    className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500 font-sans"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewMore((v) => !v)}
+                  aria-expanded={newMore}
+                  className="flex items-center justify-between rounded-xl border border-app-border px-3 py-2.5 text-sm font-medium text-app-text cursor-pointer"
+                >
+                  Type, payment terms and notes
+                  <ChevronDown size={16} className={`transition-transform ${newMore ? 'rotate-180' : ''}`} />
+                </button>
+                {newMore && (
+                  <>
+                    <CustomerGroupFields
+                      values={newGroups}
+                      onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
+                    />
+                    <Field label="Notes">
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Prefers raw whole milk"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"
+                      />
+                    </Field>
+                  </>
+                )}
 
                 <div className="pt-4 border-t border-app-border flex gap-3 mt-4 shrink-0">
                   <button
@@ -2522,7 +2191,7 @@ export default function CustomersView() {
                     {isSubmitting ? (
                       <>
                         <RefreshCw size={13} className="animate-spin" />
-                        <span>Enrolling...</span>
+                        <span>Adding…</span>
                       </>
                     ) : (
                       <span className="whitespace-nowrap">Add customer</span>
@@ -2536,20 +2205,6 @@ export default function CustomersView() {
       </AnimatePresence>
       </SheetLayer>
 
-      {/* Success Notification */}
-      <AnimatePresence>
-        {successBanner && (
-          <div className="absolute bottom-(--mobile-nav-space) md:bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-xs font-bold animate-bounce">
-            <CheckCircle2 size={14} />
-            <span>Loyalty Customer Account Registered!</span>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Floating: write a message to many customers with the assistant (it can pick who, too) */}
-      {canMessage && !selecting && !selectedCustomerId && !showPoints && (
-        <FloatingButton id="customers-write-ai" icon={<PenLine />} label="Write with AI" onClick={() => startMessaging(true)} />
-      )}
       <ReceiptSheet transaction={receiptTx} onClose={() => setReceiptTx(null)} />
     </div>
   );

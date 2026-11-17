@@ -1,9 +1,10 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { authErrorMessage, createAccount, friendlyError, isProviderEnabled, supabase } from '../api';
+import { authErrorMessage, createAccount, friendlyError, isProviderEnabled, saveOffersChoice, supabase } from '../api';
 import { PHOTOS, photoUrl } from '../images';
 import { useAuth, useStorefront } from '../store';
 import { ErrorText, fieldClass, primaryButton, secondaryButton } from '../ui';
+import { CUSTOMER_FIELDS as F, isValidPhone, MESSAGES, NAME_MAX, normalizePhone } from '../customerProfile';
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'phone';
 
@@ -11,13 +12,7 @@ type Mode = 'signin' | 'signup' | 'forgot' | 'phone';
 // appear once listed here, after they work in Supabase.
 const ENABLED_PROVIDERS = (import.meta.env.VITE_AUTH_PROVIDERS ?? 'google').split(',').map((p: string) => p.trim());
 
-const toE164 = (phone: string) => {
-  const digits = phone.replace(/\D/g, '');
-  return digits.startsWith('254') ? `+${digits}` : `+254${digits.replace(/^0/, '')}`;
-};
-
-/** Same rule as fn_normalize_ke_phone in the database. */
-const isKenyanMobile = (phone: string) => /^(254|0)?[17]\d{8}$/.test(phone.replace(/\D/g, ''));
+const toE164 = (phone: string) => normalizePhone(phone) ?? phone;
 
 function GoogleMark() {
   return (
@@ -67,6 +62,7 @@ export function AuthForms() {
   const [done, setDone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [offers, setOffers] = useState(false);
 
   // Someone who declines on Google's page comes back with an error in the address.
   useEffect(() => {
@@ -101,8 +97,8 @@ export function AuthForms() {
   const handlePhone = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!isKenyanMobile(phone)) {
-      setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
+    if (!isValidPhone(phone)) {
+      setError(MESSAGES.phone);
       return;
     }
     setBusy(true);
@@ -133,15 +129,15 @@ export function AuthForms() {
         if (authError) setError(authErrorMessage(authError, 'signin'));
       } else if (mode === 'signup') {
         if (!name.trim()) {
-          setError('Please enter your own name, as you would like us to address you.');
+          setError(MESSAGES.name);
           return;
         }
         if (password.length < 8) {
           setError('Your password needs at least 8 characters.');
           return;
         }
-        if (!isKenyanMobile(phone)) {
-          setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
+        if (!isValidPhone(phone)) {
+          setError(MESSAGES.phone);
           return;
         }
         const { error: authError, data } = await supabase.auth.signUp({
@@ -150,7 +146,7 @@ export function AuthForms() {
           options: {
             // Not "phone": the staff signup trigger copies that key into public.users, where it must be unique,
             // and customers may share a number, such as one family M-Pesa line.
-            data: { name, customer_phone: phone, account_type: 'customer' },
+            data: { name, customer_phone: phone, account_type: 'customer', offers },
             emailRedirectTo: `${window.location.origin}/account`,
           },
         });
@@ -178,11 +174,11 @@ export function AuthForms() {
     }
   };
 
-  const titles = { signin: 'Welcome Back', signup: 'Create Your Account', forgot: 'Reset Your Password', phone: 'Use Your Phone Number' };
+  const titles = { signin: 'Welcome back', signup: 'Create your account', forgot: 'Reset your password', phone: 'Use your phone number' };
   const actions = { signin: 'Sign in', signup: 'Create account', forgot: 'Send reset link', phone: 'Send me a code' };
   const subtitles = {
     signin: 'Sign in to order and follow your deliveries.',
-    signup: 'It only takes a minute.',
+    signup: 'Name and phone now, the rest later.',
     forgot: "Enter your email and we'll send you a link.",
     phone: "We'll text you a code to sign in.",
   };
@@ -223,8 +219,8 @@ export function AuthForms() {
       ) : mode === 'phone' ? (
         <form onSubmit={handlePhone} className="mt-8 space-y-4">
           <label className="block font-medium">
-            Phone number
-            <input required type="tel" autoComplete="tel" placeholder="0712 345 678" value={phone} disabled={codeSent} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+            {F.phone.label}
+            <input required type="tel" autoComplete="tel" placeholder={F.phone.placeholder} value={phone} disabled={codeSent} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
           </label>
           {codeSent && (
             <label className="block font-medium">
@@ -242,12 +238,12 @@ export function AuthForms() {
           {mode === 'signup' && (
             <>
               <label className="block font-medium">
-                Your name
-                <input required maxLength={100} autoComplete="name" placeholder="e.g. Jane Wanjiru" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+                {F.name.label}
+                <input required maxLength={NAME_MAX} autoComplete="name" placeholder={F.name.placeholder} value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
               </label>
               <label className="block font-medium">
-                M-Pesa phone number
-                <input required type="tel" autoComplete="tel" placeholder="0712 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+                {F.phone.label}
+                <input required type="tel" autoComplete="tel" placeholder={F.phone.placeholder} value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
               </label>
             </>
           )}
@@ -267,6 +263,12 @@ export function AuthForms() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={fieldClass}
               />
+            </label>
+          )}
+          {mode === 'signup' && (
+            <label className="flex min-h-11 items-center gap-3">
+              <input type="checkbox" checked={offers} onChange={(e) => setOffers(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-ember)]" />
+              <span>Send me offers and news</span>
             </label>
           )}
           <ErrorText>{error}</ErrorText>
@@ -303,6 +305,7 @@ export function FinishAccountForm() {
   const isCustomerSignup = meta.account_type === 'customer' || (provider && provider !== 'email' && provider !== 'phone');
   const [name, setName] = useState<string>(isCustomerSignup ? (meta.name ?? meta.full_name ?? '') : '');
   const [phone, setPhone] = useState<string>(isCustomerSignup ? (meta.customer_phone ?? '') : '');
+  const [offers, setOffers] = useState<boolean>(meta.offers === true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -313,13 +316,14 @@ export function FinishAccountForm() {
       setError('Please enter your own name.');
       return;
     }
-    if (!isKenyanMobile(phone)) {
-      setError('Please enter a valid Kenyan phone number, like 0712 345 678.');
+    if (!isValidPhone(phone)) {
+      setError(MESSAGES.phone);
       return;
     }
     setBusy(true);
     try {
       await createAccount(name, phone);
+      if (offers) await saveOffersChoice(true);
       await useAuth.getState().refreshAccount();
       if (!useAuth.getState().account) {
         setError(useAuth.getState().accountError || 'Your account was created, but we couldn\'t open it. Please refresh the page.');
@@ -332,21 +336,25 @@ export function FinishAccountForm() {
   };
 
   return (
-    <AuthLayout title="One Last Step" subtitle="Add your name and the M-Pesa number you'll pay with.">
+    <AuthLayout title="One last step" subtitle="Your name and phone number.">
       {!isCustomerSignup && (
         <p className="mt-6 rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
-          You signed in with {session?.user.email ?? 'an account'}, which is also used for the staff app. You can still shop with it: enter your own name below.
+          {session?.user.email ?? 'This account'} is also a staff login. To shop with it, enter your own name.
         </p>
       )}
       {accountError && !error && <div className="mt-6"><ErrorText>{accountError}</ErrorText></div>}
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <label className="block font-medium">
-          Your name
-          <input required maxLength={100} autoComplete="name" placeholder="e.g. Jane Wanjiru" value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
+          {F.name.label}
+          <input required maxLength={NAME_MAX} autoComplete="name" placeholder={F.name.placeholder} value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
         </label>
         <label className="block font-medium">
-          M-Pesa phone number
-          <input required type="tel" autoComplete="tel" placeholder="0712 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+          {F.phone.label}
+          <input required type="tel" autoComplete="tel" placeholder={F.phone.placeholder} value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldClass} />
+        </label>
+        <label className="flex min-h-11 items-center gap-3">
+          <input type="checkbox" checked={offers} onChange={(e) => setOffers(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-ember)]" />
+          <span>Send me offers and news</span>
         </label>
         <ErrorText>{error}</ErrorText>
         <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>{busy ? 'Please wait…' : 'Continue'}</button>
@@ -374,7 +382,7 @@ export function NewPasswordForm() {
   };
 
   return (
-    <AuthLayout title="Choose a New Password">
+    <AuthLayout title="Choose a new password">
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <label className="block font-medium">
           New password

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Session } from '@supabase/supabase-js';
-import { Account, CartLine, createAccount, fetchAccount, friendlyError, Storefront, supabase } from './api';
+import { Account, CartLine, createAccount, fetchAccount, friendlyError, saveOffersChoice, Storefront, supabase } from './api';
 
 const safeStorage = createJSONStorage(() => ({
   getItem: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
@@ -78,6 +78,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         const meta = session.user.user_metadata;
         if (meta?.account_type === 'customer' && meta?.name && meta?.customer_phone) {
           await createAccount(meta.name, meta.customer_phone);
+          if (meta.offers === true) await saveOffersChoice(true).catch(() => undefined);
           account = await fetchAccount();
         }
       }

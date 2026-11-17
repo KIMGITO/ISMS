@@ -425,6 +425,47 @@ export class TransactionRepository {
 // ─────────────────────────────────────────────
 // CUSTOMER REPOSITORY
 // ─────────────────────────────────────────────
+/** One customers row as the app's Customer. */
+function rowToCustomer(c: any): SQLiteRow<Customer> {
+  return {
+    id: c.id,
+    name: customerName(c.name),
+    phone: c.phone,
+    email: c.email || "",
+    loyaltyPoints: Number(c.loyalty_points),
+    joinDate: c.join_date,
+    tier: c.tier,
+    purchasesCount: Number(c.purchases_count),
+    debtBalance: Number(c.debt_balance),
+    walletBalance: Number(c.wallet_balance),
+    accountNumber: c.account_number || undefined,
+    businessId: c.business_id,
+    description: c.description || "",
+    customerType: c.customer_type,
+    paymentTerms: c.payment_terms,
+    deliveryFrequency: c.delivery_frequency,
+    notifyService: c.notify_service,
+    notifyPromotions: c.notify_promotions,
+    deliveryZoneId: c.delivery_zone_id ?? null,
+    deliveryAddress: c.delivery_address ?? "",
+    deliveryBuilding: c.delivery_building ?? "",
+    deliveryLandmark: c.delivery_landmark ?? "",
+    deliveryNotes: c.delivery_notes ?? "",
+    sync_status: "synced",
+  } as SQLiteRow<Customer>;
+}
+
+/** Only the delivery parts that were given (the database trims and empties blanks). */
+function deliveryPayload(c: Partial<Customer>): Record<string, any> {
+  const out: Record<string, any> = {};
+  if (c.deliveryZoneId !== undefined) out.delivery_zone_id = c.deliveryZoneId || null;
+  if (c.deliveryAddress !== undefined) out.delivery_address = c.deliveryAddress || null;
+  if (c.deliveryBuilding !== undefined) out.delivery_building = c.deliveryBuilding || null;
+  if (c.deliveryLandmark !== undefined) out.delivery_landmark = c.deliveryLandmark || null;
+  if (c.deliveryNotes !== undefined) out.delivery_notes = c.deliveryNotes || null;
+  return out;
+}
+
 export class CustomerRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_customers: any[]) {}
@@ -441,27 +482,7 @@ export class CustomerRepository {
       .order("name");
 
     if (error) { triggerNetworkFailureEvent(); throw error; }
-    return (data || []).map(c => ({
-      id: c.id,
-      name: customerName(c.name),
-      phone: c.phone,
-      email: c.email || "",
-      loyaltyPoints: c.loyalty_points,
-      joinDate: c.join_date,
-      tier: c.tier,
-      purchasesCount: c.purchases_count,
-      debtBalance: Number(c.debt_balance),
-      walletBalance: Number(c.wallet_balance),
-      accountNumber: c.account_number || undefined,
-      businessId: c.business_id,
-      description: c.description || "",
-      customerType: c.customer_type,
-      paymentTerms: c.payment_terms,
-      deliveryFrequency: c.delivery_frequency,
-      notifyService: c.notify_service,
-      notifyPromotions: c.notify_promotions,
-      sync_status: "synced"
-    }));
+    return (data || []).map(rowToCustomer);
   }
 
   public static async getById(id: string): Promise<SQLiteRow<Customer> | null> {
@@ -476,27 +497,7 @@ export class CustomerRepository {
     if (error) { triggerNetworkFailureEvent(); throw error; }
     if (!data) return null;
 
-    return {
-      id: data.id,
-      name: customerName(data.name),
-      phone: data.phone,
-      email: data.email || "",
-      loyaltyPoints: data.loyalty_points,
-      joinDate: data.join_date,
-      tier: data.tier,
-      purchasesCount: data.purchases_count,
-      debtBalance: Number(data.debt_balance),
-      walletBalance: Number(data.wallet_balance),
-      accountNumber: data.account_number || undefined,
-      businessId: data.business_id,
-      description: data.description || "",
-      customerType: data.customer_type,
-      paymentTerms: data.payment_terms,
-      deliveryFrequency: data.delivery_frequency,
-      notifyService: data.notify_service,
-      notifyPromotions: data.notify_promotions,
-      sync_status: "synced"
-    };
+    return rowToCustomer(data);
   }
 
   public static subscribe(callback: (customers: SQLiteRow<Customer>[]) => void): () => void {
@@ -535,7 +536,7 @@ export class CustomerRepository {
       business_id: toUuid(customer.businessId || activeBusinessId),
       name: customerName(customer.name),
       phone: customer.phone,
-      email: customer.email ? normalizeForStorage(customer.email) : "",
+      email: customer.email ? normalizeForStorage(customer.email) : null,
       loyalty_points: customer.loyaltyPoints || 0,
       join_date: customer.joinDate || new Date().toISOString().split("T")[0],
       tier: customer.tier || "Bronze",
@@ -548,32 +549,13 @@ export class CustomerRepository {
       delivery_frequency: customer.deliveryFrequency || "none",
       notify_service: customer.notifyService ?? true,
       notify_promotions: customer.notifyPromotions ?? false,
+      ...deliveryPayload(customer),
     };
 
     const { data, error } = await supabase.from("customers").insert(payload).select().single();
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
-    return {
-      id: data.id,
-      name: customerName(data.name),
-      phone: data.phone,
-      email: data.email || "",
-      loyaltyPoints: Number(data.loyalty_points),
-      joinDate: data.join_date,
-      tier: data.tier,
-      purchasesCount: Number(data.purchases_count),
-      debtBalance: Number(data.debt_balance),
-      walletBalance: Number(data.wallet_balance),
-      accountNumber: data.account_number || undefined,
-      businessId: data.business_id,
-      description: data.description || "",
-      customerType: data.customer_type,
-      paymentTerms: data.payment_terms,
-      deliveryFrequency: data.delivery_frequency,
-      notifyService: data.notify_service,
-      notifyPromotions: data.notify_promotions,
-      sync_status: "synced"
-    };
+    return rowToCustomer(data);
   }
 
   public static async update(id: string, updates: Partial<Customer>): Promise<SQLiteRow<Customer> | null> {
@@ -582,7 +564,7 @@ export class CustomerRepository {
 
     if (updates.name !== undefined) payload.name = customerName(updates.name);
     if (updates.phone !== undefined) payload.phone = updates.phone;
-    if (updates.email !== undefined) payload.email = updates.email ? normalizeForStorage(updates.email) : updates.email;
+    if (updates.email !== undefined) payload.email = updates.email ? normalizeForStorage(updates.email) : null;
     if (updates.loyaltyPoints !== undefined) payload.loyalty_points = updates.loyaltyPoints;
     if (updates.joinDate !== undefined) payload.join_date = updates.joinDate;
     if (updates.tier !== undefined) payload.tier = updates.tier;
@@ -594,32 +576,13 @@ export class CustomerRepository {
     if (updates.deliveryFrequency !== undefined) payload.delivery_frequency = updates.deliveryFrequency;
     if (updates.notifyService !== undefined) payload.notify_service = updates.notifyService;
     if (updates.notifyPromotions !== undefined) payload.notify_promotions = updates.notifyPromotions;
+    Object.assign(payload, deliveryPayload(updates));
     if (updates.description !== undefined) payload.description = updates.description ? normalizeForStorage(updates.description) : "";
 
     const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
-    return {
-      id: data.id,
-      name: customerName(data.name),
-      phone: data.phone,
-      email: data.email || "",
-      loyaltyPoints: Number(data.loyalty_points),
-      joinDate: data.join_date,
-      tier: data.tier,
-      purchasesCount: Number(data.purchases_count),
-      debtBalance: Number(data.debt_balance),
-      walletBalance: Number(data.wallet_balance),
-      accountNumber: data.account_number || undefined,
-      businessId: data.business_id,
-      description: data.description || "",
-      customerType: data.customer_type,
-      paymentTerms: data.payment_terms,
-      deliveryFrequency: data.delivery_frequency,
-      notifyService: data.notify_service,
-      notifyPromotions: data.notify_promotions,
-      sync_status: "synced"
-    };
+    return rowToCustomer(data);
   }
 
   public static async delete(id: string): Promise<boolean> {

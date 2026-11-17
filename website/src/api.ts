@@ -152,8 +152,28 @@ export interface Account {
   phone: string;
   email: string | null;
   delivery_address: string | null;
+  delivery_building?: string | null;
+  delivery_landmark?: string | null;
   delivery_notes: string | null;
+  delivery_zone_id?: string | null;
 }
+
+/** The parts of a delivery location, as the profile and checkout forms edit them. */
+export interface LocationDraft {
+  zoneId: string;
+  address: string;
+  building: string;
+  landmark: string;
+  notes: string;
+}
+
+export const locationOf = (account: Account | null): LocationDraft => ({
+  zoneId: account?.delivery_zone_id ?? '',
+  address: account?.delivery_address ?? '',
+  building: account?.delivery_building ?? '',
+  landmark: account?.delivery_landmark ?? '',
+  notes: account?.delivery_notes ?? '',
+});
 
 export interface OrderItem {
   id: string;
@@ -447,20 +467,40 @@ export const redeemPoints = (points: number) =>
 export async function fetchAccount(): Promise<Account | null> {
   const uid = await myUserId();
   if (!uid) return null;
-  const { data, error } = await supabase
-    .from('customer_accounts')
-    .select('id, name, phone, email, delivery_address, delivery_notes')
-    .eq('id', uid)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const run = (columns: string) => supabase.from('customer_accounts').select(columns).eq('id', uid).maybeSingle();
+  let result = await run('id, name, phone, email, delivery_address, delivery_building, delivery_landmark, delivery_notes, delivery_zone_id');
+  // Before 20261128001 the building and landmark columns don't exist yet.
+  if (result.error?.code === '42703') result = await run('id, name, phone, email, delivery_address, delivery_notes, delivery_zone_id');
+  if (result.error) throw result.error;
+  return result.data as unknown as Account | null;
 }
 
 export const createAccount = (name: string, phone: string) =>
   rpc<string>('create_customer_account', { p_slug: storeSlug(), p_name: name, p_phone: phone });
 
-export const updateAccount = (name: string, phone: string, address: string, notes: string) =>
-  rpc('update_my_account', { p_name: name, p_phone: phone, p_address: address, p_notes: notes });
+/** The customer agreed (or not) to offers; order updates stay on. Same switch as the app's. */
+export async function saveOffersChoice(promotions: boolean) {
+  const { error } = await supabase.rpc('update_my_contact_preferences', { p_service: true, p_promotions: promotions });
+  if (error) throw error;
+}
+
+/** Saves the name, phone and whole delivery location, on the account and on the shop's customer record. */
+export async function updateProfile(name: string, phone: string, loc: LocationDraft) {
+  try {
+    await rpc('update_my_profile', {
+      p_name: name, p_phone: phone, p_address: loc.address, p_building: loc.building,
+      p_landmark: loc.landmark, p_notes: loc.notes, p_zone_id: loc.zoneId || null,
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code !== 'PGRST202') throw err;
+    // An older database: the address in one line.
+    await rpc('update_my_account', {
+      p_name: name, p_phone: phone,
+      p_address: [loc.building, loc.address, loc.landmark].map((p) => p.trim()).filter(Boolean).join(', '),
+      p_notes: loc.notes,
+    });
+  }
+}
 
 /** The promo code is only sent when there is one, so ordering still works on a database without promo codes. */
 export async function placeOrder(items: CartLine[], fulfilment: string, address: string, notes: string, zoneId: string | null, points: number, promoCode: string | null = null) {
