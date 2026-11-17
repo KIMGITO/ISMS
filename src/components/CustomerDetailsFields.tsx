@@ -97,13 +97,14 @@ export default function CustomerDetailsFields({ value, onChange, errors = {}, zo
 
       <Field label={`${F.phone.label} *`} error={errors.phone} group>
         <div className="flex gap-2">
-          <SearchableDropdown
-            items={SUPPORTED_COUNTRIES.map((c) => ({ id: c.code, label: c.code }))}
-            selectedValue={value.countryCode}
-            onChange={(code) => onChange({ ...value, countryCode: code })}
-            placeholder="Code"
-            className="w-24 shrink-0"
-          />
+          <div className="w-24 shrink-0">
+            <SearchableDropdown
+              items={SUPPORTED_COUNTRIES.map((c) => ({ id: c.code, label: c.code }))}
+              selectedValue={value.countryCode}
+              onChange={(code) => onChange({ ...value, countryCode: code })}
+              placeholder="Code"
+            />
+          </div>
           <TextInput type="tel" inputMode="tel" autoComplete="off" placeholder={F.phone.placeholder} value={value.phone} onChange={set('phone')} invalid={!!errors.phone} inputClassName="tabular-nums" aria-label={F.phone.label} />
         </div>
         {phoneExtra}

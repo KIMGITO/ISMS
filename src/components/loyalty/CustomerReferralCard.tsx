@@ -47,7 +47,7 @@ export default function CustomerReferralCard({ customer }: { customer: Customer 
       {onHold && <p className="text-xs text-red-600 dark:text-red-400">This code is {r.codeStatus === 'suspended' ? 'on hold' : 'revoked'}{r.codeReason ? `: ${r.codeReason}` : ''}.</p>}
       {r.campaign && !onHold && (
         <p className="text-xs text-app-text-muted">
-          A new customer who gives this code gets {r.campaign.friendGets}; {customer.name.split(' ')[0]} gets {r.campaign.youGet} after their first purchase.
+          A new customer who gives this code gets {r.campaign.friendGets}; You, {customer.name.split(' ')[0]} gets {r.campaign.youGet} after their first purchase of at least {r.campaign.minPurchase} Ksh by the end of {r.campaign.endsAt}.
         </p>
       )}
       <div className="grid grid-cols-4 gap-1.5 text-center">
@@ -81,10 +81,10 @@ export default function CustomerReferralCard({ customer }: { customer: Customer 
       {r.campaign && !onHold && (
         <div className="flex gap-1.5">
           <button onClick={whatsapp} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold py-2 cursor-pointer">
-            <MessageCircle size={14} /> WhatsApp
+            <MessageCircle size={14} /> WhatsApp Code
           </button>
           <button onClick={sms} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-app-bg ring-1 ring-app-border text-app-text text-xs font-semibold py-2 cursor-pointer">
-            <MessageSquareText size={14} /> SMS
+            <MessageSquareText size={14} /> SMS Code
           </button>
           <button onClick={() => void copy()} aria-label="Copy the message" className="inline-flex items-center justify-center rounded-xl bg-app-bg ring-1 ring-app-border text-app-text px-3 cursor-pointer">
             <Copy size={14} />

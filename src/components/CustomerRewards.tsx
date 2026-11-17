@@ -1,6 +1,3 @@
-// src/components/CustomerRewards.tsx
-// Shows what a customer's points are worth (by tier) and lets staff use them to pay off debt.
-// Points are not money: they never become cash, M-Pesa or wallet balance.
 
 import React, { useEffect, useState } from 'react';
 import { Gift } from 'lucide-react';
@@ -65,10 +62,7 @@ export default function CustomerRewards({ customer, formatCurrency }: Props) {
           {(customer.loyaltyPoints || 0).toLocaleString()} points, worth {formatCurrency((customer.loyaltyPoints || 0) * value)}
         </span>
       </div>
-      <p className="text-[11px] text-app-text-muted">
-        {customer.tier || 'Bronze'}: {pointsPerShilling(value)} points = KSh 1. Points come off a purchase at the till, or pay off debt here
-        {debt > 0 ? ` (up to ${usable.toLocaleString()} points)` : ''}. They are not cash.
-      </p>
+     
       {canRedeem && debt > 0 && usable >= settings.minRedeem && (
         <div className="flex gap-2">
           <NumberInput decimals={0}
