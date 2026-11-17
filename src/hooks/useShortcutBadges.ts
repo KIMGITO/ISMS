@@ -1,9 +1,12 @@
 // src/hooks/useShortcutBadges.ts
-// On big screens every button with a keyboard shortcut shows its key in its bottom-right
-// corner. Buttons are tagged data-shortcut="<name>"; the name is looked up in the one list
+// On big screens every button with a keyboard shortcut shows its key after its text, never on
+// top of it. Buttons are tagged data-shortcut="<name>"; the name is looked up in the one list
 // of shortcuts (utils/shortcuts.ts), first as a page action of this screen (target), then by
 // id. The key is stamped as data-kbd and drawn by CSS (index.css, min-width 1024px), so
 // phones never show it and no screen has to draw its own.
+//
+// A tagged section (a div holding a box or a switch) shows the key beside the element inside it
+// marked data-kbd-here, usually its label; without one it shows nothing.
 
 import { useEffect } from "react";
 import { shortcutsFor } from "../utils/shortcuts";
@@ -28,10 +31,13 @@ export function useShortcutBadges(role: string | undefined, activeTab: string) {
       document.querySelectorAll<HTMLElement>("[data-shortcut]").forEach((el) => {
         // Inputs can't draw a badge; their placeholder already says the key.
         if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return;
+        const isButton = el.tagName === "BUTTON" || el.tagName === "A" || el.getAttribute("role") === "button";
+        const host = isButton ? el : el.querySelector<HTMLElement>("[data-kbd-here]");
+        if (!host) return;
         const keys = keysFor(el.dataset.shortcut || "");
         if (keys) {
-          if (el.dataset.kbd !== keys) el.dataset.kbd = keys;
-        } else if (el.dataset.kbd) delete el.dataset.kbd;
+          if (host.dataset.kbd !== keys) host.dataset.kbd = keys;
+        } else if (host.dataset.kbd) delete host.dataset.kbd;
       });
     };
 

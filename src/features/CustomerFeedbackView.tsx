@@ -378,7 +378,7 @@ Feedback: "${comment.comment}"`,
 
   const tabs: TabOption<TabType>[] = [
     { id: 'reviews', label: 'Reviews', icon: <MessageSquare size={13} />, badge: summary.open },
-    ...(canMessage ? [{ id: 'messages' as const, label: 'Message customers', icon: <Megaphone size={13} /> }] : []),
+    ...(canMessage ? [{ id: 'messages' as const, label: 'Communication', icon: <Megaphone size={13} />, shortcut: 'messages' }] : []),
     { id: 'reminders', label: 'My reminders', icon: <BellRing size={13} />, badge: unreadReminderCount },
   ];
 
@@ -396,7 +396,7 @@ Feedback: "${comment.comment}"`,
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-app-text">Feedback</h1>
             <p className="text-xs text-app-text-muted">
-              Read and answer what customers say, and send them messages.
+              Reviews, and messages to customers.
             </p>
           </div>
         </header>

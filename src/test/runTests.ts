@@ -792,7 +792,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AccountingView", "BuyingView", "SalesView", "POSView", "WorkersView", "AboutView", "PromotionsView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AccountingView", "BuyingView", "SalesView", "POSView", "WorkersView", "AboutView", "PromotionsView", "CustomerFeedbackView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8"))
     // Screens built from panels: their buttons live in these components.
     .concat(["payments/ExpensesPanel", "sales/QuotesPanel"].map((f) => readFileSync(`src/components/${f}.tsx`, "utf8")))

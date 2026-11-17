@@ -406,22 +406,20 @@ tr.search-spotlight > td {
   .search-spotlight:not(tr)::after { animation: none; }
 }
 
-/* Keyboard shortcut on big screens: the key in the bottom-right corner of the button it
-   presses (stamped as data-kbd by hooks/useShortcutBadges.ts). Phones and tablets never
-   show it. */
+/* Keyboard shortcut on big screens: the key after the text of the button it presses (stamped
+   as data-kbd by hooks/useShortcutBadges.ts), so it never covers a word. Icon-only buttons
+   (size-*, or .kbd-corner) keep it in the corner; .kbd-stack puts it under the text, for
+   narrow buttons in a row. Phones and tablets never show it. */
 @media (min-width: 1024px) {
-  [data-kbd]:not(.absolute):not(.fixed):not(.sticky) {
-    position: relative;
-  }
   [data-kbd]::after {
     content: attr(data-kbd);
-    position: absolute;
-    right: 3px;
-    bottom: 2px;
+    display: inline-block;
+    margin-left: 0.375rem;
+    vertical-align: middle;
     padding: 1px 3px;
     border-radius: 3px;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
@@ -431,4 +429,20 @@ tr.search-spotlight > td {
     pointer-events: none;
     background: color-mix(in srgb, currentColor 10%, transparent);
   }
+  [data-kbd].kbd-stack::after {
+    display: block;
+    width: max-content;
+    margin: 2px auto 0;
+  }
+  [data-kbd]:is([class*="size-"], .kbd-corner):not(.absolute):not(.fixed):not(.sticky) {
+    position: relative;
+  }
+  [data-kbd]:is([class*="size-"], .kbd-corner)::after {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    margin: 0;
+    font-size: 9px;
+  }
 }
+
