@@ -153,6 +153,7 @@ import PasswordInput from './components/shared/PasswordInput';
 import { Checkbox } from './components/shared/Checkbox';
 import { SwipeRow } from './components/shared/SwipeRow';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { useShortcutBadges } from './hooks/useShortcutBadges';
 import { ShortcutHelp } from './components/ShortcutTable';
 import { TermsDialog } from './components/legal/TermsDialog';
 
@@ -585,6 +586,8 @@ export default function App() {
     reload: () => void reloadNow(),
     goBack: () => useUiStore.getState().goBack(),
   });
+  // Big screens: each button with a shortcut shows its key in its corner.
+  useShortcutBadges(currentEmployee?.role, activeTab as string);
 
   const [businessType, setBusinessType] = useState('');
   const [customTypeInput, setCustomTypeInput] = useState('');

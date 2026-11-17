@@ -405,3 +405,30 @@ tr.search-spotlight > td {
 @media (prefers-reduced-motion: reduce) {
   .search-spotlight:not(tr)::after { animation: none; }
 }
+
+/* Keyboard shortcut on big screens: the key in the bottom-right corner of the button it
+   presses (stamped as data-kbd by hooks/useShortcutBadges.ts). Phones and tablets never
+   show it. */
+@media (min-width: 1024px) {
+  [data-kbd]:not(.absolute):not(.fixed):not(.sticky) {
+    position: relative;
+  }
+  [data-kbd]::after {
+    content: attr(data-kbd);
+    position: absolute;
+    right: 3px;
+    bottom: 2px;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    opacity: 0.6;
+    pointer-events: none;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+}

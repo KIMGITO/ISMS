@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 
+/**
+ * POS cart quantity: − / + or type. Tapping the number selects it, so typing replaces it
+ * whole (no deleting the old number first). Enter or leaving the box applies it; 0 removes
+ * the line; Esc puts the old number back.
+ */
 export function QuantityInput({ item, updateCartQty, removeFromCart }) {
   const [inputValue, setInputValue] = useState(String(item.quantity ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
+  // A click focuses, then its mouseup would drop the selection; the first mouseup is ignored.
+  const keepSelection = useRef(false);
 
   // Synchronize local input with parent state ONLY when user is NOT focused/typing
   useEffect(() => {
@@ -13,7 +20,7 @@ export function QuantityInput({ item, updateCartQty, removeFromCart }) {
 
   // Finalizes quantity when user clicks outside (blur) or presses Enter
   const handleCommit = () => {
-    const parsed = parseFloat(inputValue);
+    const parsed = parseFloat(inputValue.replace(",", "."));
 
     if (isNaN(parsed) || parsed <= 0) {
       removeFromCart(item.product.id);
@@ -29,6 +36,7 @@ export function QuantityInput({ item, updateCartQty, removeFromCart }) {
       {/* Decrease Button */}
       <button
         type="button"
+        aria-label={`One less ${item.product.name}`}
         onClick={() => {
           const current = item.quantity || 0;
           const newQty = Math.round(Math.max(0, current - 1) * 100) / 100;
@@ -48,16 +56,32 @@ export function QuantityInput({ item, updateCartQty, removeFromCart }) {
         ref={inputRef}
         type="text"
         inputMode="decimal"
+        enterKeyHint="done"
+        autoComplete="off"
+        aria-label={`Quantity of ${item.product.name}`}
         value={inputValue}
+        onFocus={(e) => {
+          keepSelection.current = true;
+          const el = e.target;
+          el.select();
+          requestAnimationFrame(() => el.select());
+        }}
+        onMouseUp={(e) => {
+          if (keepSelection.current) {
+            e.preventDefault();
+            keepSelection.current = false;
+          }
+        }}
         onChange={(e) => {
+          keepSelection.current = false;
           const val = e.target.value;
 
           // Allow digits and a single optional decimal point
-          if (/^\d*\.?\d*$/.test(val)) {
+          if (/^\d*([.,]\d*)?$/.test(val)) {
             setInputValue(val);
 
-            const parsed = parseFloat(val);
-            if (!isNaN(parsed) && parsed > 0 && !val.endsWith(".")) {
+            const parsed = parseFloat(val.replace(",", "."));
+            if (!isNaN(parsed) && parsed > 0 && !/[.,]$/.test(val)) {
               const rounded = Math.round(parsed * 100) / 100;
               updateCartQty(item.product.id, rounded);
             }
@@ -65,17 +89,25 @@ export function QuantityInput({ item, updateCartQty, removeFromCart }) {
         }}
         onBlur={handleCommit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            handleCommit();
+          // The POS + / − / Delete keys act on the cart; inside the box they type.
+          // Complete sale (F9, Ctrl+Enter) still works from here.
+          const completeSale = e.key === "F9" || (e.key === "Enter" && (e.ctrlKey || e.metaKey));
+          if (!completeSale) e.stopPropagation();
+          if (e.key === "Enter" && !completeSale) {
             inputRef.current?.blur();
+          } else if (e.key === "Escape") {
+            setInputValue(String(item.quantity ?? ""));
+            // Blur commits the value just put back, so nothing changes.
+            requestAnimationFrame(() => inputRef.current?.blur());
           }
         }}
-        className="w-12 text-center text-xs font-bold text-app-text bg-transparent outline-none"
+        className="w-12 text-center text-xs font-bold text-app-text bg-transparent outline-none rounded focus:ring-2 focus:ring-amber-500 selection:bg-amber-500/40 tabular-nums"
       />
 
       {/* Increase Button */}
       <button
         type="button"
+        aria-label={`One more ${item.product.name}`}
         onClick={() => {
           const current = item.quantity || 0;
           const newQty = Math.round((current + 1) * 100) / 100;

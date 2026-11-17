@@ -28,6 +28,10 @@ interface Delivery {
   notes: string | null;
   amount: number;
   delivery_fee: number;
+  /** How the delivery is paid (20261125001): on the shop's bill, to the rider in cash, or free. */
+  delivery_mode?: 'charged' | 'rider_collects' | 'free';
+  /** What the rider earns for it. */
+  rider_pay?: number;
   status: DeliveryStatus;
   assigned_at: string;
   delivered_at: string | null;
@@ -145,7 +149,13 @@ export default function RiderDeliveriesView() {
   );
   const history = useMemo(() => (mine ?? []).filter((d) => d.status === 'delivered' || d.status === 'failed'), [mine]);
   const delivered = history.filter((d) => d.status === 'delivered');
-  const fees = delivered.reduce((sum, d) => sum + Number(d.delivery_fee || 0), 0);
+  // What the rider earned: the shop owes them for deliveries on the bill or free; with
+  // 'rider_collects' they already kept it from the customer. (Before 20261125001 there's no
+  // rider_pay, so the fee stands in.)
+  const payOf = (d: Delivery) => Number(d.rider_pay ?? d.delivery_fee ?? 0);
+  const fees = delivered.reduce((sum, d) => sum + payOf(d), 0);
+  const kept = delivered.filter((d) => d.delivery_mode === 'rider_collects').reduce((sum, d) => sum + payOf(d), 0);
+  const fromShop = fees - kept;
 
   // Open on the tab with work in it.
   const currentTab: TabId = tab ?? (active.length > 0 ? 'mine' : 'requests');
@@ -185,6 +195,7 @@ export default function RiderDeliveriesView() {
             {Number(d.delivery_fee) > 0 && (
               <span className="text-app-text-muted"> including {formatCurrency(Number(d.delivery_fee))} delivery</span>
             )}
+            <DeliveryPayNote d={d} pay={payOf(d)} />
           </span>
           {d.payment && (
             <span className="flex items-center gap-1 text-xs text-app-text-muted">
@@ -227,8 +238,13 @@ export default function RiderDeliveriesView() {
               <dd className="text-lg font-bold">{active.length}</dd>
             </div>
             <div>
-              <dt className="text-xs text-app-text-muted">Delivery fees</dt>
+              <dt className="text-xs text-app-text-muted">Delivery pay</dt>
               <dd className="text-lg font-bold">{formatCurrency(fees)}</dd>
+              {kept > 0 && (
+                <dd className="text-[10px] leading-tight text-app-text-muted">
+                  {formatCurrency(fromShop)} from the shop · {formatCurrency(kept)} kept
+                </dd>
+              )}
             </div>
           </dl>
         )}
@@ -335,5 +351,28 @@ export default function RiderDeliveriesView() {
         {currentTab === 'zones' && activeBusinessId && <DeliveryZonesEditor businessId={activeBusinessId} />}
       </div>
     </div>
+  );
+}
+
+/** What the rider collects for the delivery and who pays them, in one plain line. */
+function DeliveryPayNote({ d, pay }: { d: Delivery; pay: number }) {
+  if (!d.delivery_mode || pay <= 0) return null;
+  const cls = 'block text-xs font-medium text-emerald-600 dark:text-emerald-400';
+  if (d.delivery_mode === 'rider_collects') {
+    // A cash sale whose money the rider brings back: one amount to collect, one to keep.
+    const goods = d.payment === 'Cash' ? Number(d.amount) || 0 : 0;
+    return (
+      <span className={cls}>
+        {goods > 0
+          ? `Collect ${formatCurrency(goods + pay)} in cash: bring ${formatCurrency(goods)} to the shop, keep ${formatCurrency(pay)} for delivery.`
+          : `Collect ${formatCurrency(pay)} for delivery in cash and keep it.`}
+      </span>
+    );
+  }
+  return (
+    <span className={cls}>
+      {d.delivery_mode === 'free' ? 'Free delivery for the customer. ' : 'Delivery is on the shop\'s bill. '}
+      Collect nothing for it: the shop pays you {formatCurrency(pay)}.
+    </span>
   );
 }

@@ -147,6 +147,8 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     taxTotal: tax,
     taxRate: tax > 0 && subtotalBeforeTax > 0 ? Math.round((tax / subtotalBeforeTax) * 1000) / 10 : 0,
     deliveryFee: tx.isDelivery ? round2(tx.deliveryFee || 0) : 0,
+    freeDelivery: !!tx.isDelivery && tx.deliveryMode === "free",
+    payRiderOnDelivery: tx.isDelivery && tx.deliveryMode === "rider_collects" ? round2(tx.riderPay || 0) : 0,
     grandTotal,
     amountPaid: credit ? 0 : grandTotal,
     walletPaid,

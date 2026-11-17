@@ -3,9 +3,15 @@ import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, usePointsEna
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import { SwipeRow } from '../components/shared/SwipeRow';
-import React, { useState, useEffect, useRef } from 'react';
-import { useAppStore } from '../stores/appStore';
-import { Product, ProductCategory, PaymentMethod, Transaction, MoneyMethod } from '../types';
+import React, { useState, useEffect, useRef, useMemo, useDeferredValue, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useAuthStore } from '../stores/authStore';
+import { useInventoryStore } from '../stores/inventoryStore';
+import { useCustomerStore } from '../stores/customerStore';
+import { useTransactionStore } from '../stores/transactionStore';
+import { useNotificationStore } from '../stores/notificationStore';
+import { useBusinessStore } from '../stores/businessStore';
+import { Product, ProductCategory, PaymentMethod, Transaction, MoneyMethod, PAYMENT_TERMS_LABELS, type DeliveryMode } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import {
   ShoppingCart,
@@ -44,27 +50,65 @@ import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
 import { useVatPercent } from '../services/kra/kraService';
 
 
+// The three ways a delivery is paid at the till (see DeliveryMode in types.ts).
+const DELIVERY_MODES: { value: DeliveryMode; label: string; help: (onCredit: boolean) => string }[] = [
+  {
+    value: 'charged',
+    label: 'On our bill',
+    help: (onCredit) =>
+      onCredit
+        ? 'The fee goes on their account with the goods; they pay it later. We pay the rider, who collects nothing.'
+        : 'The fee is added to the bill and paid to us. We pay the rider, who collects nothing.',
+  },
+  {
+    value: 'rider_collects',
+    label: 'Pay the rider',
+    help: () => "Not on our bill. The customer pays the rider the fee in cash and the rider keeps it.",
+  },
+  {
+    value: 'free',
+    label: 'Free',
+    help: () => "The customer isn't charged. We pay the rider from our own money.",
+  },
+];
+
 export default function POSView() {
-  const {
-    products,
-    cart,
-    selectedCustomer,
-    customers,
-    addToCart,
-    removeFromCart,
-    categories: productCategories,
-    updateCartQty,
-    updateCartDiscount,
-    selectCustomer,
-    checkout,
-    clearCart,
-    isOnline,
-    employees,
-    showToast,
-    businesses,
-    activeBusinessId,
-    currentEmployee,
-  } = useAppStore();
+  // Each store is read for just what the till uses, so a toast, a notification or another
+  // screen's data doesn't redraw every product card.
+  const { businesses, activeBusinessId } = useBusinessStore(
+    useShallow((s) => ({ businesses: s.businesses, activeBusinessId: s.activeBusinessId })),
+  );
+  const { allProducts, productCategories } = useInventoryStore(
+    useShallow((s) => ({ allProducts: s.products, productCategories: s.categories })),
+  );
+  const allCustomers = useCustomerStore((s) => s.customers);
+  const { cart, selectedCustomer, addToCart, removeFromCart, updateCartQty, updateCartDiscount, selectCustomer, checkout, clearCart } =
+    useCartStore(
+      useShallow((s) => ({
+        cart: s.cart,
+        selectedCustomer: s.selectedCustomer,
+        addToCart: s.addToCart,
+        removeFromCart: s.removeFromCart,
+        updateCartQty: s.updateCartQty,
+        updateCartDiscount: s.updateCartDiscount,
+        selectCustomer: s.selectCustomer,
+        checkout: s.checkout,
+        clearCart: s.clearCart,
+      })),
+    );
+  const isOnline = useTransactionStore((s) => s.isOnline);
+  const { employees, currentEmployee } = useAuthStore(
+    useShallow((s) => ({ employees: s.employees, currentEmployee: s.currentEmployee })),
+  );
+  const showToast = useNotificationStore((s) => s.showToast);
+  const products = useMemo(
+    () => (Array.isArray(allProducts) ? allProducts : []).filter((p) => p.businessId === activeBusinessId),
+    [allProducts, activeBusinessId],
+  );
+  const customers = useMemo(
+    () => (Array.isArray(allCustomers) ? allCustomers : []).filter((c) => c.businessId === activeBusinessId),
+    [allCustomers, activeBusinessId],
+  );
 
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'All'>(
     'All',
@@ -73,9 +117,11 @@ export default function POSView() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const cartQuote = useCartStore((s) => s.quote);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   // Only the methods this business has switched on; Credit is a sale on debt, always offered.
   const enabledMethods = usePaymentMethods();
+  // M-Pesa first (most sales), else the first method switched on.
+  const defaultMethod: PaymentMethod = enabledMethods.includes('M-Pesa') ? 'M-Pesa' : (enabledMethods[0] ?? 'Credit_Debt');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(defaultMethod);
   const payChoices = (
     [
       { value: 'Cash', label: 'Cash', shortcut: 'pos-cash' },
@@ -88,9 +134,26 @@ export default function POSView() {
   ).filter((m) => m.value === 'Credit_Debt' || enabledMethods.includes(m.value));
   useEffect(() => {
     if (paymentMethod !== 'Credit_Debt' && !enabledMethods.includes(paymentMethod as MoneyMethod)) {
-      setPaymentMethod(enabledMethods[0] ?? 'Credit_Debt');
+      setPaymentMethod(defaultMethod);
     }
-  }, [enabledMethods, paymentMethod]);
+  }, [enabledMethods, paymentMethod, defaultMethod]);
+
+  // A customer who pays weekly or monthly buys on credit, so choosing them picks Credit.
+  // Taking them off (or choosing a pay-now customer) puts back the default, but only if
+  // Credit was picked for them; a method the cashier chose stays.
+  const autoCredit = useRef(false);
+  const customerTerms = selectedCustomer?.paymentTerms;
+  const paysLater = customerTerms === 'weekly' || customerTerms === 'monthly';
+  useEffect(() => {
+    if (paysLater) {
+      autoCredit.current = true;
+      setPaymentMethod('Credit_Debt');
+    } else if (autoCredit.current) {
+      autoCredit.current = false;
+      setPaymentMethod(defaultMethod);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?.id, paysLater]);
   // Card: the sheet takes the card first, then the sale is saved. A card already paid is kept
   // here, so if saving the sale fails, trying again doesn't charge the card twice.
   const [cardSheetOpen, setCardSheetOpen] = useState(false);
@@ -139,6 +202,10 @@ export default function POSView() {
   // Delivery states
   const [isDelivery, setIsDelivery] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  // How the delivery is paid: on our bill (now or on their account), to the rider in cash,
+  // or free. The fee typed is what the rider earns; only 'charged' adds it to our total.
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('charged');
+  const customerPaysDelivery = isDelivery && deliveryMode === 'charged';
   const [riderName, setRiderName] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [pointsToUse, setPointsToUse] = useState('');
@@ -162,13 +229,22 @@ export default function POSView() {
 
   const categories: (ProductCategory | 'All')[] = ['All', ...productCategories];
 
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory =
-      activeCategory === 'All' || p.category === activeCategory;
-    const matchesSearch =
-      searchMatch(p.name, searchQuery) || searchMatch(p.sku, searchQuery);
-    return matchesCategory && matchesSearch;
-  });
+  // Typing stays quick on a big catalogue: the grid catches up a moment later.
+  const deferredQuery = useDeferredValue(searchQuery);
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
+        const matchesSearch = searchMatch(p.name, deferredQuery) || searchMatch(p.sku, deferredQuery);
+        return matchesCategory && matchesSearch;
+      }),
+    [products, activeCategory, deferredQuery],
+  );
+  const cartQtyById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const item of cart) m.set(item.product.id, item.quantity);
+    return m;
+  }, [cart]);
 
   // ── Big screens and keyboard ──────────────────────────────────────────
   const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
@@ -216,7 +292,7 @@ export default function POSView() {
   const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount;
   const totalDiscount = totalItemDiscount + cartDiscount;
   const tax = subtotal * taxRate;
-  const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
+  const finalTotal = subtotal + tax + (customerPaysDelivery ? deliveryFee : 0);
   // On credit, the customer's wallet pays first (the server does the same).
   const walletCovers = selectedCustomer ? Math.min(Math.max(0, selectedCustomer.walletBalance || 0), Math.round(finalTotal * 100) / 100) : 0;
 
@@ -293,6 +369,7 @@ export default function POSView() {
         isDelivery,
         deliveryFee,
         isDelivery ? riderName : '',
+        deliveryMode,
       );
       if (result.success && result.transaction) {
         setPaidCard(null);
@@ -323,6 +400,10 @@ export default function POSView() {
         setTaxRate(businessTaxRate);
         setIsDelivery(false);
         setDeliveryFee(0);
+        setDeliveryMode('charged');
+        // The next sale starts on the default method again (or Credit for a pay-later customer).
+        autoCredit.current = false;
+        setPaymentMethod(defaultMethod);
         setRiderName('');
         setSelectedRiderId('');
         setDeliveryLocation('');
@@ -487,8 +568,9 @@ export default function POSView() {
                 <button
                   onClick={clearCart}
                   disabled={cart.length === 0}
-                  className="p-2 disabled:opacity-30 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
-                  title="Clear Cart"
+                  data-shortcut="pos-clear"
+                  className="p-2 lg:pr-12 disabled:opacity-30 text-red-500 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
+                  title="Empty the cart (Ctrl+Delete)"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -584,11 +666,11 @@ export default function POSView() {
                 </div>
 
                 {/* Assign Customer Profile with themed container */}
-                <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2">
+                <div data-shortcut="pos-customer" className="p-3 lg:pb-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2">
                   <div className="flex items-center justify-between text-xs font-bold text-app-text">
                     <span className="flex items-center gap-1.5 text-amber-500">
                       <User size={13} />
-                      <span>Loyalty Customer</span>
+                      <span>Customer</span>
                     </span>
                     {selectedCustomer && (
                       <button
@@ -609,8 +691,17 @@ export default function POSView() {
                         Tier:{' '}
                         <span className="text-amber-500 font-bold">
                           {selectedCustomer.tier}
-                        </span>{' '}
+                        </span>
+                        {' · '}
+                        {PAYMENT_TERMS_LABELS[selectedCustomer.paymentTerms ?? 'pay_now']}
                       </p>
+                      {paysLater && (
+                        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                          {paymentMethod === 'Credit_Debt'
+                            ? `Credit picked: they pay ${customerTerms}.`
+                            : `They usually pay ${customerTerms}; this sale is ${paymentMethod.replace('_', ' ')}.`}
+                        </p>
+                      )}
                       <div className={`grid ${pointsOn ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 mt-1.5`}>
                         {pointsOn && (
                           <div className="rounded-lg bg-app-bg px-2 py-1">
@@ -675,7 +766,7 @@ export default function POSView() {
                       Payment
                     </label>
                     <div
-                      className="h-10 grid gap-1 bg-app-bg p-1 rounded-xl border border-app-border"
+                      className="h-10 lg:h-12 grid gap-1 bg-app-bg p-1 rounded-xl border border-app-border"
                       style={{ gridTemplateColumns: `repeat(${payChoices.length}, minmax(0, 1fr))` }}
                       role="radiogroup"
                       aria-label="Payment"
@@ -691,7 +782,7 @@ export default function POSView() {
                             setPaymentMethod(method.value);
                             if (method.value !== 'Card') setPaidCard(null);
                           }}
-                          className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
+                          className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer lg:pb-3 ${
                             paymentMethod === method.value
                               ? 'bg-amber-500 text-slate-950 shadow'
                               : 'text-app-text-muted hover:bg-app-bg'
@@ -703,8 +794,8 @@ export default function POSView() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-app-text-muted uppercase">
+                  <div data-shortcut="pos-note" className="flex flex-col gap-1.5">
+                    <label htmlFor="pos-note" className="text-[9px] font-black text-app-text-muted uppercase">
                       Note
                     </label>
                     <input
@@ -720,7 +811,7 @@ export default function POSView() {
 
                 {/* Delivery Settings */}
                 <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
+                  <div data-shortcut="pos-delivery" className="flex items-center justify-between lg:pr-12">
                     <span className="flex items-center gap-1.5 text-amber-500 text-xs font-bold">
                       <Truck size={13} />
                       <span>Delivery</span>
@@ -732,6 +823,7 @@ export default function POSView() {
                         setIsDelivery(on);
                         if (!on) {
                           setDeliveryFee(0);
+                          setDeliveryMode('charged');
                           setRiderName('');
                           setSelectedRiderId('');
                         }
@@ -741,6 +833,28 @@ export default function POSView() {
 
                   {isDelivery && (
                     <div className="space-y-3 pt-2 border-t border-app-border/40 animate-fade-in">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-app-text-muted uppercase">How delivery is paid</span>
+                        <div className="grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border" role="radiogroup" aria-label="How delivery is paid">
+                          {DELIVERY_MODES.map((o) => (
+                            <button
+                              key={o.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={deliveryMode === o.value}
+                              onClick={() => setDeliveryMode(o.value)}
+                              className={`min-h-9 px-1 rounded-lg text-[11px] font-bold leading-tight transition cursor-pointer ${
+                                deliveryMode === o.value ? 'bg-amber-500 text-slate-950 shadow' : 'text-app-text-muted hover:bg-app-card'
+                              }`}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-app-text-muted">
+                          {DELIVERY_MODES.find((o) => o.value === deliveryMode)!.help(paymentMethod === 'Credit_Debt')}
+                        </p>
+                      </div>
                       {deliveryZones.length > 0 && (
                         <div className="flex flex-col gap-1">
                           <span className="text-[9px] font-black text-app-text-muted uppercase">Area</span>
@@ -774,7 +888,7 @@ export default function POSView() {
                       <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
-                            Fee (KSh)
+                            {deliveryMode === 'charged' ? 'Fee (KSh)' : 'Rider gets (KSh)'}
                           </label>
                           <input
                             type="number"
@@ -1018,16 +1132,25 @@ export default function POSView() {
                     </span>
                   </div>
                   )}
-                  {isDelivery && deliveryFee > 0 && (
+                  {isDelivery && deliveryFee > 0 && (customerPaysDelivery ? (
                     <div className="flex justify-between">
                       <span className="text-blue-500 font-semibold">
-                        Delivery Fee
+                        Delivery
                       </span>
                       <span className="text-blue-500 font-bold font-mono">
                         KSh {deliveryFee.toFixed(2)}
                       </span>
                     </div>
-                  )}
+                  ) : (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-app-text-muted">
+                        {deliveryMode === 'free'
+                          ? `Delivery: free (we pay the rider KSh ${deliveryFee.toFixed(0)})`
+                          : `Delivery: customer pays the rider KSh ${deliveryFee.toFixed(0)} in cash`}
+                      </span>
+                      <span className="text-app-text-muted font-mono shrink-0">not on bill</span>
+                    </div>
+                  ))}
                   <div className="h-[1px] bg-app-border my-1" />
                   <div className="flex justify-between text-xs font-black">
                     <span className="text-app-text">Final Total</span>
@@ -1103,6 +1226,7 @@ export default function POSView() {
           <button
             // The same help as every screen, from the one list of shortcuts.
             onClick={() => window.dispatchEvent(new Event('app:shortcut-help'))}
+            data-shortcut="help"
             title="Keyboard shortcuts (? or F1)"
             className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-app-bg text-app-text-muted hover:text-app-text text-xs font-medium cursor-pointer"
           >
@@ -1131,90 +1255,16 @@ export default function POSView() {
 
       {/* Products Grid */}
       <div className="flex-1 overflow-y-auto p-2.5 lg:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2.5 lg:gap-3 content-start pb-nav lg:pb-6">
-        {filteredProducts.map((product, index) => {
-          const isLowStock = product.stock <= product.minStock;
-          const isOutOfStock = product.stock === 0;
-          const cartItem = cart.find((item) => item.product.id === product.id);
-          const cartQty = cartItem?.quantity || 0;
-
-          return (
-            <motion.div
-              key={product.id}
-              id={`pos-product-${index}`}
-              data-search-id={`prod-${product.id}`}
-              whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
-              onClick={() => !isOutOfStock && addToCart(product)}
-              className={`bg-app-card rounded-2xl border ${
-                index === highlight
-                  ? 'border-sky-500 ring-2 ring-sky-500/50'
-                  : cartQty > 0
-                  ? 'border-amber-500 ring-1 ring-amber-500/50'
-                  : 'border-app-border'
-              } overflow-hidden shadow-xs cursor-pointer select-none relative flex flex-col min-h-[220px] h-fit`}
-            >
-              <div className="w-full h-24 bg-app-bg relative shrink-0">
-                <img
-                  src={product.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D'}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                {isOutOfStock ? (
-                  <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-extrabold text-[10px] uppercase tracking-wider">
-                    Out of Stock
-                  </div>
-                ) : isLowStock ? (
-                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-wider shadow">
-                    Low Stock
-                  </div>
-                ) : null}
-
-                {cartQty > 0 && (
-                  <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-black text-[11px] shadow">
-                    {cartQty}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
-                <div>
-                  <span className="text-[9px] font-mono font-bold text-app-text-muted block">
-                    {titleCase(product.unit)} · {product.sku}
-                  </span>
-                  <h3 className="text-[11px] font-bold font-display text-app-text mt-0.5 line-clamp-2 leading-tight">
-                    {titleCase(product.name)}
-                  </h3>
-                </div>
-                <div className="text-[8.5px] text-app-text-muted leading-tight">
-                  {product.description?.trim() ? (
-                    sentenceCase(product.description)
-                  ) : (
-                    <span className="italic text-app-text-muted/70">
-                      No description provided
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between mt-1 gap-1">
-                  <span className="text-xs font-black text-amber-500 whitespace-nowrap">
-                    KSh {Math.round(product.price)}
-                  </span>
-                  <span
-                    className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                      isOutOfStock
-                        ? 'bg-red-500/10 text-red-500'
-                        : isLowStock
-                        ? 'bg-amber-500/10 text-amber-500'
-                        : 'bg-emerald-500/10 text-emerald-500'
-                    }`}
-                  >
-                    {product.stock} left
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
+        {filteredProducts.map((product, index) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            index={index}
+            highlighted={index === highlight}
+            cartQty={cartQtyById.get(product.id) || 0}
+            onAdd={addToCart}
+          />
+        ))}
       </div>
 
       </div>
@@ -1371,7 +1421,7 @@ export default function POSView() {
         }}
         onClose={() => setCardSheetOpen(false)}
       />
-      {quoting && <QuoteFromCartSheet deliveryFee={isDelivery ? deliveryFee : 0} onClose={() => setQuoting(false)} />}
+      {quoting && <QuoteFromCartSheet deliveryFee={customerPaysDelivery ? deliveryFee : 0} onClose={() => setQuoting(false)} />}
       <ReceiptSheet
         transaction={receiptTx}
         startPrinting={receiptAutoPrint}
@@ -1383,3 +1433,99 @@ export default function POSView() {
     </div>
   );
 }
+
+// One product on the till. Memoised: adding to the cart redraws only the card whose count
+// changed, not the whole grid.
+const ProductCard = memo(function ProductCard({
+  product,
+  index,
+  highlighted,
+  cartQty,
+  onAdd,
+}: {
+  product: Product;
+  index: number;
+  highlighted: boolean;
+  cartQty: number;
+  onAdd: (product: Product) => void;
+}) {
+  const isLowStock = product.stock <= product.minStock;
+  const isOutOfStock = product.stock === 0;
+  return (
+    <div
+      id={`pos-product-${index}`}
+      data-search-id={`prod-${product.id}`}
+      onClick={() => !isOutOfStock && onAdd(product)}
+      className={`bg-app-card rounded-2xl border transition-transform ${!isOutOfStock ? 'active:scale-[0.98]' : ''} [content-visibility:auto] [contain-intrinsic-size:auto_220px] ${
+        highlighted
+          ? 'border-sky-500 ring-2 ring-sky-500/50'
+          : cartQty > 0
+          ? 'border-amber-500 ring-1 ring-amber-500/50'
+          : 'border-app-border'
+      } overflow-hidden shadow-xs cursor-pointer select-none relative flex flex-col min-h-[220px] h-fit`}
+    >
+      <div className="w-full h-24 bg-app-bg relative shrink-0">
+        <img
+          loading="lazy"
+          decoding="async"
+          src={product.image || 'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D'}
+          alt={product.name}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+        {isOutOfStock ? (
+          <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-extrabold text-[10px] uppercase tracking-wider">
+            Out of Stock
+          </div>
+        ) : isLowStock ? (
+          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-wider shadow">
+            Low Stock
+          </div>
+        ) : null}
+
+        {cartQty > 0 && (
+          <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-black text-[11px] shadow">
+            {cartQty}
+          </div>
+        )}
+      </div>
+
+      <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
+        <div>
+          <span className="text-[9px] font-mono font-bold text-app-text-muted block">
+            {titleCase(product.unit)} · {product.sku}
+          </span>
+          <h3 className="text-[11px] font-bold font-display text-app-text mt-0.5 line-clamp-2 leading-tight">
+            {titleCase(product.name)}
+          </h3>
+        </div>
+        <div className="text-[8.5px] text-app-text-muted leading-tight">
+          {product.description?.trim() ? (
+            sentenceCase(product.description)
+          ) : (
+            <span className="italic text-app-text-muted/70">
+              No description provided
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mt-1 gap-1">
+          <span className="text-xs font-black text-amber-500 whitespace-nowrap">
+            KSh {Math.round(product.price)}
+          </span>
+          <span
+            className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+              isOutOfStock
+                ? 'bg-red-500/10 text-red-500'
+                : isLowStock
+                ? 'bg-amber-500/10 text-amber-500'
+                : 'bg-emerald-500/10 text-emerald-500'
+            }`}
+          >
+            {product.stock} left
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});

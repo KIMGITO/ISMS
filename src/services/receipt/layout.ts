@@ -127,6 +127,7 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   if (pointsValue > 0) row(`Paid with ${formatQty(content.loyalty!.pointsUsed)} points`, `-${formatMoney(pointsValue)}`);
   if (content.taxTotal > 0) row(content.taxRate ? `VAT ${formatQty(content.taxRate)}%` : "VAT", formatMoney(content.taxTotal));
   if (content.deliveryFee > 0) row("Delivery", formatMoney(content.deliveryFee));
+  else if (content.freeDelivery) row("Delivery", "Free");
   rule("=");
   row("TOTAL", `${cur} ${formatMoney(content.grandTotal)}`, true);
   if (content.amountPaid > 0) row(`Paid (${content.paymentMethod})`, `${cur} ${formatMoney(content.amountPaid)}`);
@@ -137,6 +138,8 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
     row("Payment:", "On credit, not paid");
     row("BALANCE DUE", `${cur} ${formatMoney(content.balanceDue)}`, true);
   }
+  // Delivery paid straight to the rider: not ours, but the customer must know to pay it.
+  if ((content.payRiderOnDelivery || 0) > 0) row("Delivery: pay the rider", `${cur} ${formatMoney(content.payRiderOnDelivery!)}`);
   rule("=");
 
   // Loyalty points

@@ -475,6 +475,23 @@ export async function listAudit(
   });
 }
 
+/**
+ * Changes made to sales after they were made (amounts, items, customer, note…), by sale id,
+ * oldest first. The database writes these itself (20261125001); nobody can skip or edit them.
+ */
+export async function listSaleEdits(businessId: string, sinceDays = 120): Promise<Map<string, AuditEntry[]>> {
+  const since = new Date(Date.now() - sinceDays * 86_400_000).toISOString();
+  const entries = await listAudit(businessId, { since, table: 'transactions', limit: 1000 });
+  const bySale = new Map<string, AuditEntry[]>();
+  for (const e of entries.reverse()) {
+    if (e.action === 'CREATE') continue;
+    const list = bySale.get(e.recordId) ?? [];
+    list.push(e);
+    bySale.set(e.recordId, list);
+  }
+  return bySale;
+}
+
 /** Plain words for the tables the log covers. */
 export const AUDIT_TABLES: Record<string, string> = {
   products: 'Product',
@@ -492,7 +509,11 @@ const FIELD_LABELS: Record<string, string> = {
   min_stock: 'Low-stock level', status: 'Status', phone: 'Phone', email: 'Email', company: 'Company',
   product_supplied: 'Supplies', value: 'Value', location: 'Location', serial_number: 'Serial',
   code: 'Code', total_amount: 'Total', supplier_name: 'Supplier', reference_number: 'Number',
-  deleted_at: 'Removed', notes: 'Notes', received_by: 'Received by', created_by: 'Created by', supplier_id: 'Supplier link', description: 'Description', image: 'Photo', is_active: 'On sale',
+  deleted_at: 'Removed', notes: 'Notes', note: 'Note',
+  final_total: 'Total', total: 'Before discounts', discount: 'Discount', tax: 'VAT', amount_paid: 'Paid',
+  payment_method: 'Payment', customer_name: 'Customer', customer_id: 'Customer link', delivery_fee: 'Delivery fee',
+  delivery_mode: 'Delivery paid', rider_pay: 'Rider pay', is_delivery: 'Delivery', timestamp: 'Time of sale', wallet_applied: 'From wallet',
+  staff_name: 'Sold by', received_by: 'Received by', created_by: 'Created by', supplier_id: 'Supplier link', description: 'Description', image: 'Photo', is_active: 'On sale',
 };
 
 export function describeChanges(changes: AuditEntry['changes']): string[] {

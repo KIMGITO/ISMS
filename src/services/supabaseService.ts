@@ -88,6 +88,8 @@ export class SupabaseService {
       note: t.note,
       isDelivery: t.is_delivery,
       deliveryFee: Number(t.delivery_fee),
+      deliveryMode: t.delivery_mode || 'charged',
+      riderPay: Number(t.rider_pay) || 0,
       riderName: t.rider_name,
       referenceId: t.reference_id || undefined,
       businessId: t.business_id,
@@ -157,6 +159,8 @@ export class SupabaseService {
         note: tx.note,
         is_delivery: tx.isDelivery,
         delivery_fee: tx.deliveryFee,
+        // Deliveries only (needs migration 20261125001); other sales don't send them.
+        ...(tx.isDelivery ? { delivery_mode: tx.deliveryMode || 'charged', rider_pay: tx.riderPay || 0 } : {}),
         rider_name: tx.riderName,
         reference_id: tx.referenceId || null,
       })
@@ -254,6 +258,8 @@ export class SupabaseService {
     note?: string;
     isDelivery?: boolean;
     deliveryFee?: number;
+    deliveryMode?: string;
+    riderPay?: number;
     riderName?: string;
     referenceId: string;
     items: Array<{
@@ -284,6 +290,8 @@ export class SupabaseService {
       p_rider_name: params.riderName || null,
       p_reference_id: params.referenceId,
       p_items: params.items,
+      // Deliveries only (needs migration 20261125001); other sales match the older function too.
+      ...(params.isDelivery ? { p_delivery_mode: params.deliveryMode || 'charged', p_rider_pay: params.riderPay || 0 } : {}),
     });
 
     if (error) {

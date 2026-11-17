@@ -45,13 +45,26 @@ export interface Transaction {
   timestamp: string;
   note?: string;
   isDelivery?: boolean;
+  /** What the customer pays THE SHOP for delivery (on the bill); 0 unless deliveryMode is 'charged'. */
   deliveryFee?: number;
+  /** How the delivery is paid; see DeliveryMode. */
+  deliveryMode?: DeliveryMode;
+  /** What the rider earns for this delivery (owed by the shop unless 'rider_collects'). */
+  riderPay?: number;
   riderName?: string;
   businessId?: string;
   referenceId?: string;
   /** Part of a credit sale paid from the customer's wallet; the rest is owed. */
   walletApplied?: number;
 }
+
+/**
+ * How a delivery is paid:
+ * - charged: the fee is on our bill (paid now, or later on a weekly / monthly account); the shop pays the rider.
+ * - rider_collects: the customer pays the rider the fee in cash on delivery; the rider keeps it.
+ * - free: the customer isn't charged; the shop pays the rider from its own money.
+ */
+export type DeliveryMode = 'charged' | 'rider_collects' | 'free';
 
 export type CustomerTier = 'Bronze' | 'Silver' | 'Gold';
 export type CustomerType = 'individual' | 'institution' | 'business' | 'other';

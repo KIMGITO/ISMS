@@ -5,7 +5,9 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2 } from "lucide-react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2, History, X } from "lucide-react";
+import { SheetLayer } from "../components/shared/SheetLayer";
+import { listSaleEdits, describeChanges, describeAction, type AuditEntry } from "../services/operations";
 import { hasRolePermission } from "../utils/permissions";
 import { formatCurrency } from "../utils/helpers";
 import { formatReceiptNumber } from "../utils/idUtils";
@@ -108,6 +110,16 @@ export default function SalesView() {
     loadSaleCreditNotes(businessId).then(setRefunds).catch(() => undefined);
   }, [businessId]);
   useEffect(() => { loadRefunds(); }, [loadRefunds, transactions.length]);
+
+  // Every change to a sale after it was made is logged by the database; people who can see
+  // the audit log see it here, on the sale.
+  const seesEdits = hasRolePermission(role, "audit.view" as any);
+  const [edits, setEdits] = useState<Map<string, AuditEntry[]>>(new Map());
+  const [editsOf, setEditsOf] = useState<Transaction | null>(null);
+  useEffect(() => {
+    if (!businessId || !seesEdits) return;
+    listSaleEdits(businessId).then(setEdits).catch(() => undefined);
+  }, [businessId, seesEdits, transactions]);
 
   // One day open at a time; today starts open.
   const [activeOpenSection, setActiveOpenSection] = useState<string>("today");
@@ -233,6 +245,7 @@ export default function SalesView() {
         more={[
           { label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) },
           { label: 'Refund (credit note)', icon: <Undo2 size={16} />, hidden: !canRefund(tx), onClick: () => setRefunding(tx) },
+          { label: `Changes made to this sale (${edits.get(tx.id)?.length ?? 0})`, icon: <History size={16} />, hidden: !edits.get(tx.id)?.length, onClick: () => setEditsOf(tx) },
           { label: 'Delete sale', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
         className="rounded-2xl border border-app-border shadow-2xs hover:border-amber-500 transition animate-fadeIn"
@@ -253,6 +266,16 @@ export default function SalesView() {
               <span className="w-1 h-1 rounded-full bg-current" />
               <span>{isSynced ? 'Synced' : 'Waiting to sync'}</span>
             </span>
+            {edits.get(tx.id)?.length ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setEditsOf(tx); }}
+                className="text-[9px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 flex items-center gap-1 cursor-pointer"
+                title="This sale was changed after it was made. See what changed."
+              >
+                <History size={10} /> Edited {edits.get(tx.id)!.length}×
+              </button>
+            ) : null}
             {refunds.get(tx.id)?.length ? (
               <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300" title={refunds.get(tx.id)!.map((r) => `${r.number} ${formatCurrency(r.total)}`).join(', ')}>
                 Refunded {formatCurrency(refunds.get(tx.id)!.reduce((s, r) => s + r.total, 0))} · {refunds.get(tx.id)![0].number}
@@ -379,6 +402,57 @@ export default function SalesView() {
 
       <ReceiptSheet transaction={selectedTx} onClose={() => setSelectedTx(null)} />
       {refunding && <RefundSheet transactionId={refunding.id} onClose={() => setRefunding(null)} onDone={() => loadRefunds()} />}
+      {editsOf && (
+        <SaleEditsSheet sale={editsOf} entries={edits.get(editsOf.id) ?? []} onClose={() => setEditsOf(null)} />
+      )}
     </div>
+  );
+}
+
+/** What was changed on one sale after it was made, who changed it and when, oldest first. */
+function SaleEditsSheet({ sale, entries, onClose }: { sale: Transaction; entries: AuditEntry[]; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <SheetLayer>
+      <div className="absolute inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
+        <div
+          role="dialog"
+          aria-label={`Changes to sale ${formatReceiptNumber(sale.id)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full md:max-w-md max-h-[85%] bg-app-card border border-app-border rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+        >
+          <div className="px-5 py-4 border-b border-app-border flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-app-text">Changes to sale {formatReceiptNumber(sale.id)}</h2>
+              <p className="text-xs text-app-text-muted mt-0.5">Logged by the system; nobody can change or remove them.</p>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Close" className="p-2 rounded-xl hover:bg-app-bg text-app-text-muted cursor-pointer">
+              <X size={16} />
+            </button>
+          </div>
+          <ol className="overflow-y-auto p-4 flex flex-col gap-3 pb-[calc(1rem+var(--inset-bottom))]">
+            {entries.map((e) => (
+              <li key={e.id} className="rounded-2xl border border-app-border p-3">
+                <p className="text-xs font-semibold text-app-text">{describeAction(e)}</p>
+                <p className="text-[11px] text-app-text-muted">
+                  {e.by || "Someone"} · {new Date(e.at).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}
+                </p>
+                {describeChanges(e.changes).length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {describeChanges(e.changes).map((c, i) => (
+                      <li key={i} className="text-xs text-app-text break-words">{c}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </SheetLayer>
   );
 }

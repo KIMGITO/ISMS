@@ -1,7 +1,7 @@
 import { toUserMessage } from "../utils/userError";
 import { newUuid } from "../utils/idUtils";
 import { create } from "zustand";
-import { CartItem, Customer, Product, Transaction, PaymentMethod } from "../types";
+import { CartItem, Customer, Product, Transaction, PaymentMethod, DeliveryMode } from "../types";
 import { useAuthStore } from "./authStore";
 import { useInventoryStore } from "./inventoryStore";
 import { useTransactionStore } from "./transactionStore";
@@ -43,7 +43,9 @@ interface CartState {
     cartDiscountValue?: number,
     isDelivery?: boolean,
     deliveryFee?: number,
-    riderName?: string
+    riderName?: string,
+    /** How the delivery is paid (on our bill, to the rider, or free). The fee is what the rider earns. */
+    deliveryMode?: DeliveryMode
   ) => Promise<{ success: boolean; transaction?: Transaction; error?: string; /** saved on this device, syncs later */ offline?: boolean }>;
 }
 
@@ -108,7 +110,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ selectedCustomer: customer });
   },
 
-  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFee = 0, riderName = "") => {
+  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFeeIn = 0, riderName = "", deliveryMode = "charged") => {
     if (!checkPermissionGate("pos.create_sale")) {
       return { success: false, error: "Permission Denied: pos.create_sale" };
     }
@@ -152,6 +154,11 @@ export const useCartStore = create<CartState>((set, get) => ({
         };
       }
     }
+
+    // The fee typed at the till is what the rider earns. Only 'charged' puts it on our bill;
+    // with 'rider_collects' the customer hands it to the rider, with 'free' nobody charges it.
+    const deliveryFee = isDelivery && deliveryMode === "charged" ? deliveryFeeIn : 0;
+    const riderPay = isDelivery ? Math.max(0, deliveryFeeIn) : 0;
 
     try {
       // Deduct stock in real time in inventoryStore
@@ -203,6 +210,8 @@ export const useCartStore = create<CartState>((set, get) => ({
         note,
         isDelivery,
         deliveryFee: isDelivery ? deliveryFee : 0,
+        deliveryMode: isDelivery ? deliveryMode : undefined,
+        riderPay,
         riderName: isDelivery ? riderName : undefined,
         businessId: activeBusinessId,
         referenceId,
@@ -223,12 +232,14 @@ export const useCartStore = create<CartState>((set, get) => ({
 
       // Making a sale proves the person is working, so a forgotten clock-in fixes itself.
       // Clocking in needs the server, so offline it waits for the next online sale.
+      // Not waited for: the sale doesn't depend on it. The shift counter follows the clock-in.
       if (!isOffline && !useAuthStore.getState().activeShift) {
-        await useAuthStore.getState().punchIn().catch(() => {});
+        void useAuthStore.getState().punchIn()
+          .then(() => useAuthStore.getState().addShiftSale(finalTotal))
+          .catch(() => {});
+      } else {
+        useAuthStore.getState().addShiftSale(finalTotal);
       }
-
-      // Update active shift counters
-      useAuthStore.getState().addShiftSale(finalTotal);
 
       if (isOffline) return saveOffline();
 
@@ -256,6 +267,8 @@ export const useCartStore = create<CartState>((set, get) => ({
           note,
           isDelivery,
           deliveryFee: isDelivery ? deliveryFee : 0,
+          deliveryMode: isDelivery ? deliveryMode : undefined,
+          riderPay,
           riderName: isDelivery ? riderName : undefined,
           referenceId,
           items: cart.map(item => ({
@@ -283,16 +296,19 @@ export const useCartStore = create<CartState>((set, get) => ({
           throw saveErr;
         }
 
-        // The database trigger awards points and counts the purchase; this picks up the new balance.
+        // The database trigger awards points and counts the purchase; this picks up the new
+        // balance in the background (the till doesn't wait for it).
         if (selectedCustomer) {
-          await useCustomerStore.getState().refreshCustomer(selectedCustomer.id);
+          void useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
         }
       }
 
       // A credit sale adds to what the customer owes; only other sales are money received.
       // Wallet money paid for part (or all) of a credit sale; only the rest is a debt.
+      // Notifying the owner happens after the till is free again (not waited for).
       const fromWallet = isCredit ? Number(savedTx?.walletApplied) || 0 : 0;
       const onCredit = Math.max(0, Math.round((finalTotal - fromWallet) * 100) / 100);
+      void (async () => {
       if (isCredit && selectedCustomer) {
         await useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
       }
@@ -324,6 +340,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           { role: "Owner", priority: "medium" }
         );
       }
+      })().catch((e) => console.error("Could not send the sale notification:", e?.code ?? e));
 
       if (isDelivery && riderName) {
         NotificationService.createDeliveryNotification(riderName, selectedCustomer?.name || "a walk-in customer", "assigned", {

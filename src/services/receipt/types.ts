@@ -84,6 +84,10 @@ export interface ReceiptContent {
   taxTotal: number;
   taxRate: number;
   deliveryFee: number;
+  /** Delivered free: the shop pays the rider. */
+  freeDelivery?: boolean;
+  /** The customer pays the rider this in cash on delivery; it is not part of our total. */
+  payRiderOnDelivery?: number;
   grandTotal: number;
   amountPaid: number;
   /** Part of the bill paid from the customer's wallet (credit sales). */

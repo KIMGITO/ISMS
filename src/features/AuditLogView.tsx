@@ -1,5 +1,6 @@
 // Audit Log: who changed what. Written by the database (20261116001) for products' details,
-// suppliers, purchases, assets, files, and staff PIN and role changes; nobody can edit it.
+// suppliers, purchases, assets, files, staff PIN and role changes, and any change to a sale
+// after it was made (20261125001); nobody can edit it.
 // Admins clear old entries from Settings → log cleanup.
 import SearchableDropdown from '../components/SearchableDropdown';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -111,7 +112,7 @@ export default function AuditLogView() {
           </div>
           <div className="w-44 shrink-0">
             <SearchableDropdown
-              items={[{ id: '', label: 'Everything' }, ...Object.entries(AUDIT_TABLES).filter(([k]) => k !== 'transactions').map(([k, v]) => ({ id: k, label: `${v}s` }))]}
+              items={[{ id: '', label: 'Everything' }, ...Object.entries(AUDIT_TABLES).map(([k, v]) => ({ id: k, label: `${v}s` }))]}
               selectedValue={table}
               onChange={setTable}
               placeholder="Everything"

@@ -228,22 +228,24 @@ export class TransactionRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_transactions: any[]) {}
 
-  public static async getAll(): Promise<SQLiteRow<Transaction>[]> {
+  /** All of this branch's sales, or just the ones given (after a live change). */
+  public static async getAll(ids?: string[]): Promise<SQLiteRow<Transaction>[]> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("transactions")
       .select(`
         *,
         transaction_items (
           *,
-          products (*)
+          products (id, name, category, image, stock, min_stock, unit, sku, price, cost)
         )
       `)
       .eq("business_id", activeBusinessId)
-      .is("deleted_at", null)
-      .order("timestamp", { ascending: false });
+      .is("deleted_at", null);
+    if (ids) query = query.in("id", ids);
+    const { data, error } = await query.order("timestamp", { ascending: false });
 
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
@@ -263,6 +265,8 @@ export class TransactionRepository {
       note: t.note || "",
       isDelivery: t.is_delivery,
       deliveryFee: Number(t.delivery_fee || 0),
+      deliveryMode: t.delivery_mode || "charged",
+      riderPay: Number(t.rider_pay || 0),
       riderName: t.rider_name || "",
       referenceId: t.reference_id || undefined,
       walletApplied: Number(t.wallet_applied) || 0,
@@ -292,9 +296,42 @@ export class TransactionRepository {
     let activeChannel: any = null;
     let isCancelled = false;
 
-    this.getAll().then((txs) => {
-      if (!isCancelled) callback(txs);
-    }).catch(console.error);
+    // A live change fetches only the sales that changed and merges them in. Reloading every
+    // sale (with items and products) after each one made the till slower with every sale.
+    let current: SQLiteRow<Transaction>[] = [];
+    const emit = (list: SQLiteRow<Transaction>[]) => {
+      if (isCancelled) return;
+      current = list;
+      callback(list);
+    };
+    const changed = new Set<string>();
+    const retried = new Set<string>();
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    // Waits a moment: a sale's items are written just after the sale itself.
+    const flush = async () => {
+      flushTimer = undefined;
+      const ids = Array.from(changed);
+      changed.clear();
+      if (ids.length === 0) return;
+      try {
+        const fresh = await this.getAll(ids);
+        const gone = new Set(ids);
+        const merged = [...fresh, ...current.filter((t) => !gone.has(t.id))];
+        merged.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+        emit(merged);
+        // On a slow line the items can land after we looked: look once more for a new sale
+        // that came back without them.
+        const late = fresh.filter((t) => (t.items || []).length === 0 && !retried.has(t.id));
+        if (late.length) {
+          late.forEach((t) => { retried.add(t.id); changed.add(t.id); });
+          if (!flushTimer) flushTimer = setTimeout(() => void flush(), 2500);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    this.getAll().then(emit).catch(console.error);
 
     setTimeout(() => {
       if (isCancelled) return;
@@ -315,8 +352,15 @@ export class TransactionRepository {
               table: "transactions", 
               filter: filterString 
             },
-            () => { 
-              this.getAll().then(callback).catch(console.error); 
+            (payload: any) => {
+              const id = payload?.new?.id ?? payload?.old?.id;
+              if (!id) {
+                this.getAll().then(emit).catch(console.error);
+                return;
+              }
+              changed.add(String(id));
+              if (flushTimer) clearTimeout(flushTimer);
+              flushTimer = setTimeout(() => void flush(), 700);
             }
           )
           .subscribe();
@@ -327,6 +371,7 @@ export class TransactionRepository {
 
     return () => { 
       isCancelled = true;
+      if (flushTimer) clearTimeout(flushTimer);
       if (activeChannel) {
         const supabase = getSupabase();
         supabase.removeChannel(activeChannel); 
@@ -354,6 +399,8 @@ export class TransactionRepository {
       note: createdTx.note || transaction.note || "",
       isDelivery: createdTx.is_delivery !== undefined ? createdTx.is_delivery : transaction.isDelivery,
       deliveryFee: Number(createdTx.delivery_fee || transaction.deliveryFee || 0),
+      deliveryMode: createdTx.delivery_mode || transaction.deliveryMode || "charged",
+      riderPay: Number(createdTx.rider_pay || transaction.riderPay || 0),
       riderName: createdTx.rider_name || transaction.riderName || "",
       status: "Synced",
       sync_status: "synced",
