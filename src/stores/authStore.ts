@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { User, Business, BusinessMembership, Invitation, Employee, Shift, EmployeeRole } from "../types";
 import { onBranchChange, useBusinessStore } from "./businessStore";
 import { useNotificationStore } from "./notificationStore";
-import { isSupabaseConfigured, getSupabase } from "../services/supabaseClient";
+import { isSupabaseConfigured, getSupabase, onSessionRevoked } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
 import { getApiUrl, safeFetch } from "../utils/apiUtils";
 import { EmailService } from "../services/emailService";
@@ -55,6 +55,8 @@ interface AuthState {
   currentBusinessId: string | null;
   emailVerificationCode: string | null;
   ownerExists: boolean;
+  /** Only the person who set up the system (or the very first sign-up) may create a business. */
+  canCreateBusiness: boolean;
 
   // New Actions
   checkOwnerExists: () => Promise<boolean>;
@@ -176,6 +178,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
   let hydrateAgain = false;
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   let lastFocusRefresh = 0;
+  // Sign-out: bumping the epoch makes any sign-in data still loading throw itself
+  // away, so a slow request can't put the signed-out person back on screen.
+  let authEpoch = 0;
+  let signOutInFlight: Promise<void> | null = null;
+  const settleSignOut = async () => {
+    if (signOutInFlight) await signOutInFlight.catch(() => undefined);
+  };
+  const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+    Promise.race([p, new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), ms))]);
+
+  // The database says this session was signed out (here or on another device).
+  onSessionRevoked(() => {
+    if (get().currentUser && !signOutInFlight) get().logout();
+  });
 
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     const refreshOnReturn = () => {
@@ -197,6 +213,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     currentBusinessId: null,
     emailVerificationCode: null,
     ownerExists: true,
+    canCreateBusiness: false,
     isInitializing: true,
     isHydrating: false,
     initializationError: null,
@@ -290,11 +307,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
             await get().hydrateAuthSessionData(session.user);
           }
         } else if (event === "SIGNED_OUT") {
+          // Ended outside a logout click (other tab, refresh refused): full cleanup.
+          if (get().currentUser && !signOutInFlight) {
+            get().logout();
+            return;
+          }
           // Clear cached state
           set({
             currentUser: null,
             currentEmployee: null,
             supplierAccounts: [],
+            canCreateBusiness: false,
             currentBusinessId: null,
             memberships: [],
             users: [],
@@ -319,6 +342,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         refreshTimer = setTimeout(async () => {
           refreshTimer = null;
           try {
+            if (signOutInFlight) return resolve();
             const { data } = await getSupabase().auth.getSession();
             const user = data.session?.user;
             if (user) await get().hydrateAuthSessionData(user, true, true);
@@ -331,6 +355,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     hydrateAuthSessionData: async (authUser, force = false, quiet = false) => {
+      if (signOutInFlight) return;
+      const epoch = authEpoch;
       if (get().isHydrating) {
         if (force) hydrateAgain = true;
         return;
@@ -481,9 +507,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
           supplierAccounts = await loadSupplierAccounts().catch(() => []);
         }
 
+        // The server decides who may create a business; anything unclear means no.
+        const { data: canCreate } = await supabase.rpc("can_create_business");
+        const canCreateBusiness = canCreate === true;
+
+        // Signed out while this was loading: show nothing of it.
+        if (epoch !== authEpoch) return;
+
         // Set auth state
         set({
           supplierAccounts,
+          canCreateBusiness,
           currentUser: mappedUser,
           currentBusinessId: activeBizId,
           memberships: mappedMems,
@@ -595,7 +629,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await supabase.auth.signOut().catch(console.error);
       } finally {
         set({ isHydrating: false });
-        if (hydrateAgain) {
+        if (hydrateAgain && !signOutInFlight) {
           hydrateAgain = false;
           get().refreshSession().catch(console.error);
         }
@@ -609,11 +643,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     logout: async () => {
-      // While still signed in: this phone stops getting this person's pushes and alarms.
+      if (signOutInFlight) return signOutInFlight;
+      authEpoch++;
+      const supabase = getSupabase();
       const pushToken = notificationService.getPushToken();
-      if (pushToken) await SupabaseService.unregisterDeviceToken(pushToken).catch(() => undefined);
-      await clearAlarms();
 
+      // 1. Instantly: stop every listener and wipe everything on screen. With no
+      //    current user the app shows the sign-in screen on this same click.
       if (unsubPerms) {
         unsubPerms();
         unsubPerms = null;
@@ -626,13 +662,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
         unsubPresence();
         unsubPresence = null;
       }
-
-      try {
-        const supabase = getSupabase();
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error("Supabase signOut error:", err);
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+        refreshTimer = null;
       }
+      hydrateAgain = false;
 
       // Explicitly clear local variables and persistent storage caches
       localStorage.removeItem("kkm_current_user_id_v2");
@@ -720,6 +754,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({
         currentUser: null,
         currentEmployee: null,
+        supplierAccounts: [],
+        canCreateBusiness: false,
         currentBusinessId: null,
         memberships: [],
         users: [],
@@ -730,11 +766,52 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
 
       useNotificationStore.getState().showToast(
-        "Logged Out",
-        "Your session has been terminated securely.",
+        "Signed out",
+        "You have been signed out.",
         undefined,
         "info"
       );
+
+      // 2. In the background: end the session on the server, so the database
+      //    refuses this sign-in from now on.
+      signOutInFlight = (async () => {
+        // While the session still works: this phone stops getting this person's pushes and alarms.
+        if (pushToken) {
+          await withTimeout(SupabaseService.unregisterDeviceToken(pushToken).catch(() => undefined), 3000);
+        }
+        await clearAlarms().catch(() => undefined);
+
+        // Only this device's session; the person stays signed in on their other devices.
+        let ended = false;
+        try {
+          const result = await withTimeout(supabase.auth.signOut({ scope: "local" }), 8000);
+          ended = !!result && !result.error;
+          if (result?.error) console.error("Sign-out error:", result.error);
+        } catch (err) {
+          console.error("Sign-out error:", err);
+        }
+        // Offline or the server didn't answer: still forget the session on this device.
+        if (!ended) {
+          try {
+            await (supabase.auth as any)._removeSession?.();
+          } catch {
+            /* ignore */
+          }
+          try {
+            const key = (supabase.auth as any).storageKey;
+            if (key) {
+              localStorage.removeItem(key);
+              localStorage.removeItem(`${key}-code-verifier`);
+              localStorage.removeItem(`${key}-user`);
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      })().finally(() => {
+        signOutInFlight = null;
+      });
+      return signOutInFlight;
     },
 
     // Owner Account Creation
@@ -753,6 +830,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         // 1. SignUp through Supabase Auth
+        await settleSignOut();
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: password,
@@ -839,6 +917,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     loginOnline: async (emailOrPhone, password) => {
       try {
         const supabase = getSupabase();
+        await settleSignOut();
         const { data, error } = await supabase.auth.signInWithPassword({
           email: emailOrPhone.trim().toLowerCase(),
           password
@@ -860,8 +939,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           return { success: false, error: "This is a customer account. Please sign in on our website instead." };
         }
 
-        // Hydrate data
-        await get().hydrateAuthSessionData(data.user);
+        // Always load fresh: the email may have just been verified or an invitation finished.
+        await get().hydrateAuthSessionData(data.user, true);
 
         useNotificationStore.getState().showToast(
           "Welcome Back",
@@ -1065,6 +1144,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         // 2. Register account in Supabase Auth (without emailRedirectTo to avoid magic links)
         let authUserId: string | undefined;
+        await settleSignOut();
         const { data, error } = await supabase.auth.signUp({
           email: invite.email,
           password: password,

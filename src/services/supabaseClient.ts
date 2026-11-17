@@ -4,6 +4,27 @@ import { configManager } from "./configManager";
 
 let supabaseClient: SupabaseClient | null = null;
 
+// The database refuses requests from a session that was signed out (here or
+// on another device) with 401 {"code":"session_revoked"}. The auth store
+// registers a handler that drops straight to the sign-in screen.
+let sessionRevokedHandler: (() => void) | null = null;
+export function onSessionRevoked(handler: (() => void) | null): void {
+  sessionRevokedHandler = handler;
+}
+
+const watchedFetch: typeof fetch = async (input, init) => {
+  const res = await fetch(input, init);
+  if (res.status === 401 && sessionRevokedHandler) {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes("/rest/v1/")) {
+      res.clone().json().then((body) => {
+        if (body?.code === "session_revoked") sessionRevokedHandler?.();
+      }).catch(() => undefined);
+    }
+  }
+  return res;
+};
+
 /**
    * Lazy initializer for Supabase client.
    * Securely falls back to configManager environment settings.
@@ -25,7 +46,8 @@ export function getSupabase(): SupabaseClient {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
+    global: { fetch: watchedFetch }
   });
 
   return supabaseClient;

@@ -551,6 +551,7 @@ export default function App() {
     currentBusinessId,
     emailVerificationCode,
     ownerExists,
+    canCreateBusiness,
     isInitializing,
     initializationError,
     performInitialization,
@@ -856,6 +857,7 @@ export default function App() {
     | 'reset-password'
     | 'session-expired'
     | 'unauthorized'
+    | 'no-business'
   >('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -919,7 +921,6 @@ export default function App() {
           'login',
           'register',
           'verify',
-          'create-biz',
           'accept-invite',
           'forgot-password',
           'verify-reset-code',
@@ -988,8 +989,13 @@ export default function App() {
         const activeMems = memberships.filter(
           (m) => m.userId === currentUser.id && m.status === 'Active',
         );
+        // Not in any business yet. Only the person who set up the system may
+        // create one; everyone else joins by invitation.
         if (activeMems.length === 0) {
-          setAuthViewTab('create-biz');
+          const next = canCreateBusiness ? 'create-biz' : 'no-business';
+          if (authViewTab !== next && authViewTab !== 'accept-invite') setAuthViewTab(next);
+        } else if (authViewTab === 'create-biz' || authViewTab === 'no-business') {
+          setAuthViewTab('login');
         }
       }
     } else {
@@ -1013,7 +1019,7 @@ export default function App() {
         }
       }
     }
-  }, [currentUser, ownerExists, memberships, authViewTab]);
+  }, [currentUser, ownerExists, canCreateBusiness, memberships, authViewTab]);
 
   const handleResendCode = async () => {
     // Guard: verifyEmail must be set before resending
@@ -1076,7 +1082,9 @@ export default function App() {
         try {
           const loginRes = await loginOnline(verifyEmail, regPassword);
           if (loginRes.success) {
-            setAuthViewTab('create-biz');
+            // Invited people are now in their business and the app opens; the
+            // screen effect sends only the system's creator to set up a business.
+            setAuthSuccess('');
           } else {
             setAuthViewTab('login');
             setLoginEmail(verifyEmail);
@@ -1414,9 +1422,12 @@ export default function App() {
   }, [themeMode]);
 
   // Offline: the top bar turns red, so the phone's status-bar icons switch to white.
+  // The sign-in screens are always light, whatever the app theme.
+  const onAuthScreen =
+    !currentUser || !currentUser.isVerified || !currentEmployee || showWorkspaceSwitcher;
   useEffect(() => {
-    statusBarService.setStyle(isOnline ? themeMode : 'dark');
-  }, [isOnline, themeMode]);
+    statusBarService.setStyle(!isOnline ? 'dark' : onAuthScreen ? 'light' : themeMode);
+  }, [isOnline, themeMode, onAuthScreen]);
 
   // Bottom nav: double-tapping empty space hides or shows it, on any screen.
   // Taps on buttons, fields, links and sheets are ignored.
@@ -1721,24 +1732,24 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none"
+              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-100 text-slate-900 min-h-dvh overflow-y-auto select-none"
             >
-              <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
+              <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-bold text-lg">
                     <ShieldCheck size={22} />
                   </div>
-                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-500">
+                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-600">
                     Terms & Agreement
                   </h1>
-                  <p className="text-[10px] text-slate-400 font-bold">
+                  <p className="text-[10px] text-slate-500 font-bold">
                     Please read and accept to continue
                   </p>
                 </div>
 
-                <div className="max-h-[220px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-4 text-[10px] text-slate-400 font-medium leading-relaxed space-y-3 text-left">
+                <div className="max-h-[220px] overflow-y-auto bg-slate-50 border border-slate-200 rounded-2xl p-4 text-[10px] text-slate-500 font-medium leading-relaxed space-y-3 text-left">
                   <div>
-                    <p className="font-bold text-slate-200 mb-1">
+                    <p className="font-bold text-slate-800 mb-1">
                       1. Who can use the app
                     </p>
                     <p>
@@ -1747,7 +1758,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 mb-1">
+                    <p className="font-bold text-slate-800 mb-1">
                       2. Customer information
                     </p>
                     <p>
@@ -1756,7 +1767,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 mb-1">
+                    <p className="font-bold text-slate-800 mb-1">
                       3. Checking sales
                     </p>
                     <p>
@@ -1765,7 +1776,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 mb-1">
+                    <p className="font-bold text-slate-800 mb-1">
                       4. Working without internet
                     </p>
                     <p>
@@ -1774,7 +1785,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 mb-1">
+                    <p className="font-bold text-slate-800 mb-1">
                       5. The AI assistant
                     </p>
                     <p>
@@ -1788,7 +1799,7 @@ export default function App() {
                   checked={agreeChecked}
                   onChange={setAgreeChecked}
                   label={
-                    <span className="text-[10.5px] text-slate-300 leading-normal font-semibold">
+                    <span className="text-[10.5px] text-slate-700 leading-normal font-semibold">
                       I agree to these terms.
                     </span>
                   }
@@ -1862,29 +1873,19 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none relative"
+              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-100 text-slate-900 min-h-dvh overflow-y-auto select-none relative"
             >
-              {/* Floating Theme Button */}
-              <button
-                onClick={() =>
-                  setThemeMode(themeMode === 'light' ? 'dark' : 'light')
-                }
-                className="absolute right-4 top-4 p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition cursor-pointer border border-slate-800 shadow-lg flex items-center justify-center"
-                title="Toggle Theme"
-              >
-                {themeMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-              </button>
 
-              <div className="w-full max-w-lg bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 animate-fade-in relative">
+              <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-6 animate-fade-in relative">
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
-                  <div className="mx-auto w-14 h-14 bg-slate-900 border border-amber-500/30 rounded-2xl flex items-center justify-center overflow-hidden">
+                  <div className="mx-auto w-14 h-14 bg-white border border-amber-500/30 rounded-2xl flex items-center justify-center overflow-hidden">
                     <img src="/icon.png" alt="KayKay's" className="w-full h-full object-cover" />
                   </div>
-                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-500">
+                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-600">
                     KayKay's
                   </h1>
-                  <p className="text-[10.5px] text-slate-400 font-bold">
+                  <p className="text-[10.5px] text-slate-500 font-bold">
                     Sales, stock and money for your shop
                   </p>
                 </div>
@@ -1893,10 +1894,10 @@ export default function App() {
                 {showWorkspaceSwitcher && currentUser ? (
                   <div className="space-y-4 animate-fade-in">
                     <div className="text-center space-y-1">
-                      <h2 className="text-xs font-semibold text-amber-500">
+                      <h2 className="text-xs font-semibold text-amber-600">
                         Choose a business
                       </h2>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[10px] text-slate-500">
                         Your account belongs to more than one business. Pick one.
                       </p>
                     </div>
@@ -1924,7 +1925,7 @@ export default function App() {
                                 switchBusiness(m.businessId);
                                 setShowWorkspaceSwitcher(false);
                               }}
-                              className="w-full p-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/30 rounded-2xl flex items-center justify-between transition group text-left cursor-pointer"
+                              className="w-full p-4 bg-white hover:bg-slate-100 border border-slate-200 hover:border-amber-500/30 rounded-2xl flex items-center justify-between transition group text-left cursor-pointer"
                             >
                               <div className="flex items-center gap-3">
                                 <WorkspaceLogo
@@ -1932,17 +1933,17 @@ export default function App() {
                                   name={biz.name}
                                 />
                                 <div>
-                                  <h4 className="text-xs font-semibold text-slate-100 group-hover:text-amber-500 transition-colors">
+                                  <h4 className="text-xs font-semibold text-slate-900 group-hover:text-amber-600 transition-colors">
                                     {biz.name}
                                   </h4>
-                                  <span className="text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                                  <span className="text-[11px] font-semibold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
                                     {m.role}
                                   </span>
                                 </div>
                               </div>
                               <ArrowRight
                                 size={14}
-                                className="text-slate-500 group-hover:text-amber-500 transition-colors"
+                                className="text-slate-500 group-hover:text-amber-600 transition-colors"
                               />
                             </button>
                           );
@@ -1951,7 +1952,7 @@ export default function App() {
 
                     <button
                       onClick={() => logout()}
-                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs transition tracking-wide"
+                      className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition tracking-wide"
                     >
                       Log Out / Back to Login
                     </button>
@@ -1960,14 +1961,14 @@ export default function App() {
                   <>
                     {/* Error & Success Alerts */}
                     {authError && (
-                      <div className="p-3 bg-red-500/10 border border-red-500/25 text-red-500 rounded-2xl text-[11px] leading-relaxed font-semibold flex items-start gap-2 animate-fade-in">
+                      <div className="p-3 bg-red-500/10 border border-red-500/25 text-red-600 rounded-2xl text-[11px] leading-relaxed font-semibold flex items-start gap-2 animate-fade-in">
                         <AlertCircle size={14} className="shrink-0 mt-0.5" />
                         <span>{authError}</span>
                       </div>
                     )}
 
                     {authSuccess && (
-                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-2xl text-[11px] leading-relaxed font-semibold flex items-start gap-2 animate-fade-in">
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 rounded-2xl text-[11px] leading-relaxed font-semibold flex items-start gap-2 animate-fade-in">
                         <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
                         <span>{authSuccess}</span>
                       </div>
@@ -1976,8 +1977,9 @@ export default function App() {
                     {/* Navigation Tabs (Only shown if owner exists and not in verifying or business creation steps) */}
                     {ownerExists &&
                       authViewTab !== 'verify' &&
-                      authViewTab !== 'create-biz' && (
-                        <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
+                      authViewTab !== 'create-biz' &&
+                      authViewTab !== 'no-business' && (
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                           <button
                             type="button"
                             onClick={() => {
@@ -1988,7 +1990,7 @@ export default function App() {
                             className={`py-2 text-[10px] font-semibold rounded-xl transition ${
                               authViewTab === 'login'
                                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                           >
                             Login
@@ -2003,7 +2005,7 @@ export default function App() {
                             className={`py-2 text-[10px] font-semibold rounded-xl transition ${
                               authViewTab === 'accept-invite'
                                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                           >
                             Join Team
@@ -2071,7 +2073,7 @@ export default function App() {
                         className="space-y-4 text-xs"
                       >
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold block">
+                          <label className="text-[10px] text-slate-500 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -2080,7 +2082,7 @@ export default function App() {
                               placeholder="e.g. owner@kaykays.com"
                               value={loginEmail}
                               onChange={(e) => setLoginEmail(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                              className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                             />
                             <Mail
                               size={13}
@@ -2100,7 +2102,7 @@ export default function App() {
                                 setForgotEmail(loginEmail);
                                 setAuthViewTab('forgot-password');
                               }}
-                              className="text-[10px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer bg-transparent border-none outline-none"
+                              className="text-[10px] text-amber-600 hover:text-amber-700 font-bold transition cursor-pointer bg-transparent border-none outline-none"
                             >
                               Forgot Password?
                             </button>
@@ -2113,7 +2115,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer mt-2"
                         >
                           {authLoading
                             ? 'Authenticating Session...'
@@ -2125,14 +2127,14 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setAuthTermsOpen(true)}
-                            className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                            className="text-amber-600 hover:text-amber-700 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
                           >
                             Terms of Use
                           </button>
                           .
                         </p>
 
-                        <div className="text-center mt-3 pt-1 border-t border-slate-900/60">
+                        <div className="text-center mt-3 pt-1 border-t border-slate-200">
                           <button
                             type="button"
                             onClick={() => {
@@ -2141,7 +2143,7 @@ export default function App() {
                               setVerifyEmail(loginEmail);
                               setAuthViewTab('verify');
                             }}
-                            className="text-[10px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer bg-transparent border-none outline-none"
+                            className="text-[10px] text-amber-600 hover:text-amber-700 font-bold transition cursor-pointer bg-transparent border-none outline-none"
                           >
                             Have an unverified account? Verify here
                           </button>
@@ -2196,12 +2198,12 @@ export default function App() {
                         className="space-y-4 text-xs"
                       >
                         <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1.5">
-                          <h4 className="text-[10.5px] font-semibold text-amber-500 flex items-center gap-1.5">
+                          <h4 className="text-[10.5px] font-semibold text-amber-600 flex items-center gap-1.5">
                             <Building size={12} /> You will be the owner
                           </h4>
-                          <p className="text-[11px] text-slate-400 leading-normal">
+                          <p className="text-[11px] text-slate-500 leading-normal">
                             The person who creates the account becomes the{' '}
-                            <strong className="text-slate-300 font-semibold">
+                            <strong className="text-slate-700 font-semibold">
                               owner
                             </strong>{' '}
                             and can do everything. Your business is ready as
@@ -2210,7 +2212,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold block">
+                          <label className="text-[10px] text-slate-500 font-bold block">
                             Full Name *
                           </label>
                           <div className="relative">
@@ -2219,7 +2221,7 @@ export default function App() {
                               placeholder="e.g. Jane Wanjiku"
                               value={regName}
                               onChange={(e) => setRegName(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                              className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                             />
                             <User
                               size={13}
@@ -2229,7 +2231,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold block">
+                          <label className="text-[10px] text-slate-500 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -2238,7 +2240,7 @@ export default function App() {
                               placeholder="e.g. owner@kaykays.com"
                               value={regEmail}
                               onChange={(e) => setRegEmail(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                              className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                             />
                             <Mail
                               size={13}
@@ -2248,7 +2250,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold block">
+                          <label className="text-[10px] text-slate-500 font-bold block">
                             Phone Number *
                           </label>
                           <div className="relative">
@@ -2257,7 +2259,7 @@ export default function App() {
                               placeholder="e.g. +254712345678"
                               value={regPhone}
                               onChange={(e) => setRegPhone(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                              className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                             />
                             <Phone
                               size={13}
@@ -2276,7 +2278,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                         >
                           {authLoading
                             ? 'Creating Profile...'
@@ -2288,7 +2290,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setAuthTermsOpen(true)}
-                            className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                            className="text-amber-600 hover:text-amber-700 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
                           >
                             Terms of Use
                           </button>
@@ -2301,22 +2303,22 @@ export default function App() {
                     {authViewTab === 'verify' && (
                       <div className="space-y-5 text-xs animate-fade-in text-center">
                         <div className="py-4 flex justify-center">
-                          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 ">
+                          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-600 ">
                             <Mail size={24} />
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-xs font-semibold text-amber-500">
+                          <h3 className="text-xs font-semibold text-amber-600">
                             Confirm Your Email
                           </h3>
 
                           {!isEditingEmail ? (
                             <div className="space-y-1.5">
-                              <p className="text-[10.5px] text-slate-300 leading-relaxed">
+                              <p className="text-[10.5px] text-slate-700 leading-relaxed">
                                 We've sent a 6-digit verification code to:
                               </p>
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl">
-                                <span className="font-bold text-slate-200">
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                <span className="font-bold text-slate-800">
                                   {verifyEmail || '(no email set)'}
                                 </span>
                                 <button
@@ -2326,7 +2328,7 @@ export default function App() {
                                     setAuthError('');
                                     setAuthSuccess('');
                                   }}
-                                  className="text-amber-500 hover:text-amber-400 p-0.5 transition cursor-pointer"
+                                  className="text-amber-600 hover:text-amber-700 p-0.5 transition cursor-pointer"
                                   title="Edit Email"
                                 >
                                   <Edit size={12} />
@@ -2398,10 +2400,10 @@ export default function App() {
                                   }
                                 }
                               }}
-                              className="w-full max-w-sm mx-auto space-y-3 bg-slate-950 p-3.5 border border-slate-800 rounded-2xl animate-fade-in"
+                              className="w-full max-w-sm mx-auto space-y-3 bg-slate-50 p-3.5 border border-slate-200 rounded-2xl animate-fade-in"
                             >
                               <div className="text-left space-y-1">
-                                <label className="text-[11px] text-slate-400 font-bold block">
+                                <label className="text-[11px] text-slate-500 font-bold block">
                                   Update Email Address
                                 </label>
                                 <input
@@ -2411,7 +2413,7 @@ export default function App() {
                                   onChange={(e) =>
                                     setNewEmailInput(e.target.value)
                                   }
-                                  className="w-full bg-slate-900 text-slate-100 px-3 py-2 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                  className="w-full bg-white text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                                 />
                               </div>
                               <div className="flex gap-2 text-[10px]">
@@ -2425,7 +2427,7 @@ export default function App() {
                                 <button
                                   type="button"
                                   onClick={() => setIsEditingEmail(false)}
-                                  className="px-3 py-2 bg-slate-800 text-slate-300 font-bold rounded-lg transition hover:bg-slate-700 cursor-pointer"
+                                  className="px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg transition hover:bg-slate-200 cursor-pointer"
                                 >
                                   Cancel
                                 </button>
@@ -2450,9 +2452,9 @@ export default function App() {
 
                             <div className="flex flex-col gap-2.5">
                               {verifyCountdown > 0 ? (
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[10px] text-slate-500">
                                   Can Resend code in{' '}
-                                  <strong className="text-amber-500">
+                                  <strong className="text-amber-600">
                                     {verifyCountdown}s
                                   </strong>
                                 </span>
@@ -2461,7 +2463,7 @@ export default function App() {
                                   type="button"
                                   onClick={handleResendCode}
                                   disabled={isResending}
-                                  className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer"
+                                  className="text-[10.5px] text-amber-600 hover:text-amber-700 font-bold transition cursor-pointer"
                                 >
                                   {isResending
                                     ? 'Resending Code...'
@@ -2475,7 +2477,7 @@ export default function App() {
                                 disabled={
                                   authLoading || verifyCode.length !== 6
                                 }
-                                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
+                                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
                               >
                                 {authLoading ? 'Verifying...' : 'Verify Code'}
                               </button>
@@ -2489,7 +2491,7 @@ export default function App() {
                                       setAuthError('');
                                       setAuthSuccess('');
                                     }}
-                                    className="text-[10px] text-slate-400 hover:text-slate-300 transition cursor-pointer font-bold bg-transparent border-none outline-none"
+                                    className="text-[10px] text-slate-500 hover:text-slate-700 transition cursor-pointer font-bold bg-transparent border-none outline-none"
                                   >
                                     Return to Login
                                   </button>
@@ -2499,7 +2501,7 @@ export default function App() {
                                 <button
                                   type="button"
                                   onClick={() => logout()}
-                                  className="text-[10px] text-red-400 hover:text-red-300 transition cursor-pointer mt-1 font-bold bg-transparent border-none outline-none"
+                                  className="text-[10px] text-red-600 hover:text-red-700 transition cursor-pointer mt-1 font-bold bg-transparent border-none outline-none"
                                 >
                                   Cancel & Sign Out
                                 </button>
@@ -2511,13 +2513,13 @@ export default function App() {
                     )}
 
                     {/* TAB CONTENT: OWNER ONBOARDING (STAGE 3: CREATE BUSINESS) */}
-                    {authViewTab === 'create-biz' && (
+                    {authViewTab === 'create-biz' && canCreateBusiness && (
                       <div className="space-y-5 text-xs animate-fade-in">
                         <div className="text-center space-y-1">
-                          <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
+                          <h3 className="text-xs font-semibold text-amber-600 flex items-center justify-center gap-1.5">
                             <Building size={16} /> Register Business Hub
                           </h3>
-                          <p className="text-[10.5px] text-slate-400">
+                          <p className="text-[10.5px] text-slate-500">
                             Tell us about your business and first branch.
                           </p>
                         </div>
@@ -2550,7 +2552,7 @@ export default function App() {
                           className="space-y-4"
                         >
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold block">
+                            <label className="text-[10px] text-slate-500 font-bold block">
                               Business / Outlet Name *
                             </label>
                             <div className="relative">
@@ -2561,7 +2563,7 @@ export default function App() {
                                 onChange={(e) =>
                                   setBizNameField(e.target.value)
                                 }
-                                className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                               />
                               <Building
                                 size={13}
@@ -2572,7 +2574,7 @@ export default function App() {
 
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block">
+                              <label className="text-[10px] text-slate-500 font-bold block">
                                 Business Type *
                               </label>
 
@@ -2599,18 +2601,18 @@ export default function App() {
                                     onChange={(e) =>
                                       setCustomTypeInput(e.target.value)
                                     }
-                                    className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-amber-500/50 focus:border-amber-500 focus:outline-none text-xs placeholder:text-slate-600 animate-in fade-in slide-in-from-top-1 duration-150"
+                                    className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-amber-500/50 focus:border-amber-500 focus:outline-none text-xs placeholder:text-slate-400 animate-in fade-in slide-in-from-top-1 duration-150"
                                     autoFocus
                                   />
                                   <Edit3
                                     size={13}
-                                    className="absolute left-3 top-4.5 text-amber-500 pointer-events-none"
+                                    className="absolute left-3 top-4.5 text-amber-600 pointer-events-none"
                                   />
                                 </div>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block">
+                              <label className="text-[10px] text-slate-500 font-bold block">
                                 Country *
                               </label>
                               <div className="relative">
@@ -2631,7 +2633,7 @@ export default function App() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold block">
+                            <label className="text-[10px] text-slate-500 font-bold block">
                               Base Operating Currency *
                             </label>
                             <div className="relative">
@@ -2659,7 +2661,7 @@ export default function App() {
                           <button
                             type="submit"
                             disabled={authLoading}
-                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition font-sans"
+                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition font-sans"
                           >
                             {authLoading
                               ? 'Setting up...'
@@ -2673,10 +2675,10 @@ export default function App() {
                     {authViewTab === 'accept-invite' && (
                       <div className="space-y-4 text-xs animate-fade-in">
                         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1">
-                          <h4 className="text-[10.5px] font-semibold text-amber-500 flex items-center gap-1.5">
+                          <h4 className="text-[10.5px] font-semibold text-amber-600 flex items-center gap-1.5">
                             <Key size={12} /> Invitation Verification Portal
                           </h4>
-                          <p className="text-[11px] text-slate-400 leading-normal">
+                          <p className="text-[11px] text-slate-500 leading-normal">
                             Enter the invitation code the owner or manager sent you.
                           </p>
                         </div>
@@ -2719,7 +2721,7 @@ export default function App() {
                             className="space-y-4"
                           >
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block text-center mb-2">
+                              <label className="text-[10px] text-slate-500 font-bold block text-center mb-2">
                                 Enter 6-Digit Invitation Code *
                               </label>
                               <div className="flex justify-center py-2">
@@ -2780,7 +2782,7 @@ export default function App() {
                                   ? inviteTokenInput.length !== 10
                                   : inviteTokenInput.length !== 6)
                               }
-                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer"
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition cursor-pointer"
                             >
                               {authLoading
                                 ? 'Validating Token...'
@@ -2859,24 +2861,24 @@ export default function App() {
                             }}
                             className="space-y-4"
                           >
-                            <div className="p-3 bg-slate-950 border border-slate-850 rounded-2xl space-y-1 font-sans">
-                              <span className="text-[11px] font-semibold text-amber-500">
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1 font-sans">
+                              <span className="text-[11px] font-semibold text-amber-600">
                                 You are joining
                               </span>
-                              <h5 className="text-[11px] font-bold text-slate-200">
+                              <h5 className="text-[11px] font-bold text-slate-800">
                                 {validatedInvite.businessName ||
                                   businesses.find(
                                     (b) => b.id === validatedInvite.businessId,
                                   )?.name ||
                                   "the business"}
                               </h5>
-                              <span className="text-[11px] font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
+                              <span className="text-[11px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded inline-block mt-1">
                                 As: {validatedInvite.role}
                               </span>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block">
+                              <label className="text-[10px] text-slate-500 font-bold block">
                                 Your email (the one invited) *
                               </label>
                               <div className="relative">
@@ -2887,7 +2889,7 @@ export default function App() {
                                   onChange={(e) =>
                                     setInviteEmail(e.target.value)
                                   }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                  className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                                 />
                                 <Mail
                                   size={13}
@@ -2897,7 +2899,7 @@ export default function App() {
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block">
+                              <label className="text-[10px] text-slate-500 font-bold block">
                                 Full Name *
                               </label>
                               <div className="relative">
@@ -2908,7 +2910,7 @@ export default function App() {
                                   onChange={(e) =>
                                     setInviteName(e.target.value)
                                   }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                  className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                                 />
                                 <User
                                   size={13}
@@ -2918,7 +2920,7 @@ export default function App() {
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold block">
+                              <label className="text-[10px] text-slate-500 font-bold block">
                                 Phone Number *
                               </label>
                               <div className="relative">
@@ -2929,7 +2931,7 @@ export default function App() {
                                   onChange={(e) =>
                                     setInvitePhone(e.target.value)
                                   }
-                                  className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                                  className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                                 />
                                 <Phone
                                   size={13}
@@ -2951,14 +2953,14 @@ export default function App() {
                                   setAuthError('');
                                   setAuthSuccess('');
                                 }}
-                                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold rounded-xl transition"
+                                className="flex-1 py-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl transition"
                               >
                                 Check another code
                               </button>
                               <button
                                 type="submit"
                                 disabled={authLoading}
-                                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-semibold rounded-xl transition"
+                                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-semibold rounded-xl transition"
                               >
                                 {authLoading ? 'Joining...' : 'Accept & Join'}
                               </button>
@@ -2968,7 +2970,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setAuthTermsOpen(true)}
-                                className="text-amber-500 hover:text-amber-400 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
+                                className="text-amber-600 hover:text-amber-700 font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
                               >
                                 Terms of Use
                               </button>
@@ -3009,16 +3011,16 @@ export default function App() {
                         className="space-y-4 text-xs animate-fade-in"
                       >
                         <div className="text-center space-y-1">
-                          <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
+                          <h3 className="text-xs font-semibold text-amber-600 flex items-center justify-center gap-1.5">
                             <Key size={16} /> Recover Password
                           </h3>
-                          <p className="text-[10.5px] text-slate-400">
+                          <p className="text-[10.5px] text-slate-500">
                             We'll email you a 6-digit code.
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold block">
+                          <label className="text-[10px] text-slate-500 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -3027,7 +3029,7 @@ export default function App() {
                               placeholder="e.g. owner@kaykays.com"
                               value={forgotEmail}
                               onChange={(e) => setForgotEmail(e.target.value)}
-                              className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
+                              className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
                             />
                             <Mail
                               size={13}
@@ -3039,7 +3041,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                         >
                           {authLoading
                             ? 'Sending Recovery Code...'
@@ -3053,7 +3055,7 @@ export default function App() {
                             setAuthError('');
                             setAuthSuccess('');
                           }}
-                          className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-705 text-slate-400 hover:text-slate-200 font-bold rounded-xl text-xs transition tracking-wide text-center"
+                          className="w-full py-2.5 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 font-bold rounded-xl text-xs transition tracking-wide text-center"
                         >
                           Return to Login
                         </button>
@@ -3064,15 +3066,15 @@ export default function App() {
                     {authViewTab === 'verify-reset-code' && (
                       <div className="space-y-5 text-xs animate-fade-in text-center">
                         <div className="py-4 flex justify-center">
-                          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 ">
+                          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-600 ">
                             <ShieldCheck size={24} />
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-xs font-semibold text-amber-500">
+                          <h3 className="text-xs font-semibold text-amber-600">
                             Verify Recovery Code
                           </h3>
-                          <p className="text-[10.5px] text-slate-300 leading-relaxed">
+                          <p className="text-[10.5px] text-slate-700 leading-relaxed">
                             We've sent a 6-digit recovery code to{' '}
                             <strong>{forgotEmail}</strong>. Enter it below to
                             verify:
@@ -3111,9 +3113,9 @@ export default function App() {
 
                         <div className="flex flex-col gap-2.5">
                           {resetCountdown > 0 ? (
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-slate-500">
                               Can Resend code in{' '}
-                              <strong className="text-amber-500">
+                              <strong className="text-amber-600">
                                 {resetCountdown}s
                               </strong>
                             </span>
@@ -3140,7 +3142,7 @@ export default function App() {
                                   );
                                 }
                               }}
-                              className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer"
+                              className="text-[10.5px] text-amber-600 hover:text-amber-700 font-bold transition cursor-pointer"
                             >
                               Resend Code
                             </button>
@@ -3176,7 +3178,7 @@ export default function App() {
                               }
                             }}
                             disabled={authLoading || resetOtpCode.length !== 6}
-                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
+                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
                           >
                             {authLoading ? 'Verifying...' : 'Verify Code'}
                           </button>
@@ -3188,7 +3190,7 @@ export default function App() {
                               setAuthError('');
                               setAuthSuccess('');
                             }}
-                            className="text-[10px] text-slate-400 hover:text-slate-300 transition cursor-pointer mt-1"
+                            className="text-[10px] text-slate-500 hover:text-slate-700 transition cursor-pointer mt-1"
                           >
                             Return to Login
                           </button>
@@ -3270,10 +3272,10 @@ export default function App() {
                             className="space-y-4 text-xs animate-fade-in"
                           >
                             <div className="text-center space-y-1">
-                              <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
+                              <h3 className="text-xs font-semibold text-amber-600 flex items-center justify-center gap-1.5">
                                 <Lock size={16} /> Choose New Password
                               </h3>
-                              <p className="text-[10.5px] text-slate-400">
+                              <p className="text-[10.5px] text-slate-500">
                                 Choose a strong password
                                 credentials for your profile.
                               </p>
@@ -3283,22 +3285,22 @@ export default function App() {
 
                             {/* PASSWORD STRENGTH VISUAL INDICATOR */}
                             {newPassword && (
-                              <div className="space-y-2 p-3 bg-slate-950/65 border border-slate-800 rounded-2xl text-left">
+                              <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl text-left">
                                 <div className="flex justify-between items-center text-[10px]">
-                                  <span className="text-slate-400 font-semibold">
+                                  <span className="text-slate-500 font-semibold">
                                     Password Strength:
                                   </span>
                                   <span
                                     className={`font-semibold ${
                                       strengthScore >= 3
                                         ? 'text-emerald-400'
-                                        : 'text-red-400'
+                                        : 'text-red-600'
                                     }`}
                                   >
                                     {strengthText}
                                   </span>
                                 </div>
-                                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                                <div className="w-full h-1.5 bg-white rounded-full overflow-hidden">
                                   <div
                                     className={`h-full ${strengthColor} transition-all duration-300`}
                                     style={{
@@ -3307,13 +3309,13 @@ export default function App() {
                                   />
                                 </div>
 
-                                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-400 font-medium">
+                                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-500 font-medium">
                                   <li className="flex items-center gap-1">
                                     <div
                                       className={`w-1.5 h-1.5 rounded-full ${
                                         hasLength
                                           ? 'bg-emerald-500'
-                                          : 'bg-slate-700'
+                                          : 'bg-slate-200'
                                       }`}
                                     />
                                     <span>At least 8 chars</span>
@@ -3323,7 +3325,7 @@ export default function App() {
                                       className={`w-1.5 h-1.5 rounded-full ${
                                         hasUpper
                                           ? 'bg-emerald-500'
-                                          : 'bg-slate-700'
+                                          : 'bg-slate-200'
                                       }`}
                                     />
                                     <span>Uppercase letter</span>
@@ -3333,7 +3335,7 @@ export default function App() {
                                       className={`w-1.5 h-1.5 rounded-full ${
                                         hasLower
                                           ? 'bg-emerald-500'
-                                          : 'bg-slate-700'
+                                          : 'bg-slate-200'
                                       }`}
                                     />
                                     <span>Lowercase letter</span>
@@ -3343,7 +3345,7 @@ export default function App() {
                                       className={`w-1.5 h-1.5 rounded-full ${
                                         hasNumber
                                           ? 'bg-emerald-500'
-                                          : 'bg-slate-700'
+                                          : 'bg-slate-200'
                                       }`}
                                     />
                                     <span>A number</span>
@@ -3353,7 +3355,7 @@ export default function App() {
                                       className={`w-1.5 h-1.5 rounded-full ${
                                         hasSpecial
                                           ? 'bg-emerald-500'
-                                          : 'bg-slate-700'
+                                          : 'bg-slate-200'
                                       }`}
                                     />
                                     <span>Special character (e.g. !@#$)</span>
@@ -3367,7 +3369,7 @@ export default function App() {
                             <button
                               type="submit"
                               disabled={authLoading || strengthScore < 3}
-                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                             >
                               {authLoading
                                 ? 'Updating Password...'
@@ -3380,14 +3382,14 @@ export default function App() {
                     {/* TAB CONTENT: SESSION EXPIRED */}
                     {authViewTab === 'session-expired' && (
                       <div className="space-y-4 text-xs animate-fade-in text-center py-4">
-                        <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-500 animate-bounce">
+                        <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-600 animate-bounce">
                           <Clock size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-semibold text-red-500">
+                          <h3 className="text-xs font-semibold text-red-600">
                             Session Expired
                           </h3>
-                          <p className="text-[10.5px] text-slate-400 leading-normal">
+                          <p className="text-[10.5px] text-slate-500 leading-normal">
                             You were signed out. Please sign in again.
                           </p>
                         </div>
@@ -3405,17 +3407,60 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* TAB CONTENT: SIGNED IN BUT NOT IN ANY BUSINESS */}
+                    {authViewTab === 'no-business' && currentUser && (
+                      <div className="space-y-4 text-xs animate-fade-in text-center py-4">
+                        <div className="mx-auto w-12 h-12 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center justify-center text-amber-600">
+                          <Key size={22} />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            Not in a business yet
+                          </h3>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Ask the owner to invite {currentUser.email}, then enter the code.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInviteEmail(currentUser.email);
+                            setAuthError('');
+                            setAuthSuccess('');
+                            setAuthViewTab('accept-invite');
+                          }}
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition cursor-pointer"
+                        >
+                          Enter invitation code
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => useAuthStore.getState().refreshSession()}
+                          className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition cursor-pointer"
+                        >
+                          Check again
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => logout()}
+                          className="text-[11px] text-red-600 hover:text-red-700 transition cursor-pointer font-semibold bg-transparent border-none outline-none"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+
                     {/* TAB CONTENT: UNAUTHORIZED */}
                     {authViewTab === 'unauthorized' && (
                       <div className="space-y-4 text-xs animate-fade-in text-center py-4">
-                        <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-500">
+                        <div className="mx-auto w-12 h-12 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-center text-red-600">
                           <ShieldCheck size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-semibold text-red-500">
+                          <h3 className="text-xs font-semibold text-red-600">
                             No access
                           </h3>
-                          <p className="text-[10.5px] text-slate-400 leading-normal">
+                          <p className="text-[10.5px] text-slate-500 leading-normal">
                             Your account is not allowed to open this business.
                           </p>
                         </div>
@@ -3759,7 +3804,7 @@ export default function App() {
                     {
                       id: 'ai',
                       label: `${aiName}`,
-                      icon: MessageSquareText,
+                      icon: Bot,
                       desc: 'AI assistant',
                       permission: 'ai.use' as const,
                     },

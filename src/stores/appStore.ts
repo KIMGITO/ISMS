@@ -77,6 +77,7 @@ export const useAppStore = () => {
     currentBusinessId: auth.currentBusinessId,
     emailVerificationCode: auth.emailVerificationCode,
     ownerExists: auth.ownerExists,
+    canCreateBusiness: auth.canCreateBusiness,
     isInitializing: auth.isInitializing,
     initializationError: auth.initializationError,
     checkOwnerExists: auth.checkOwnerExists,
