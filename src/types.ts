@@ -56,6 +56,9 @@ export interface Transaction {
   referenceId?: string;
   /** Part of a credit sale paid from the customer's wallet; the rest is owed. */
   walletApplied?: number;
+  /** Promotion or referral code used on the sale, and the part of `discount` it gave (set by the database). */
+  promotionCode?: string;
+  promotionDiscount?: number;
 }
 
 /**
@@ -369,7 +372,9 @@ export interface CustomerLedgerEntry {
   id: string;
   businessId: string;
   customerId: string;
-  type: 'wallet_topup' | 'wallet_usage' | 'debt_creation' | 'debt_payment' | 'debt_adjustment' | 'refund';
+  type: 'wallet_topup' | 'wallet_usage' | 'debt_creation' | 'debt_payment' | 'debt_adjustment' | 'refund'
+    /** Wallet credit from the referral programme, and the same taken back after a refund. */
+    | 'referral_reward' | 'referral_reversal';
   amount: number;
   walletBalance: number;
   debtBalance: number;

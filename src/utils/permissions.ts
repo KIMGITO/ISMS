@@ -76,6 +76,12 @@ export type PermissionCode =
   | 'pos.override_price'
   | 'pos.walkin_customer'
   | 'pos.manage'
+  | 'pos.apply_promotion'
+  // Promotions & referrals
+  | 'promotions.view'
+  | 'promotions.manage'
+  | 'referrals.view'
+  | 'referrals.manage'
   // Customers & Loyalty
   | 'customers.view'
   | 'customers.create'
@@ -284,6 +290,11 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'pos.override_price', category: 'POS & Checkout', description: 'Override default price rules' },
   { code: 'pos.walkin_customer', category: 'POS & Checkout', description: 'Bypass loyalty on quick checkouts' },
   { code: 'pos.manage', category: 'POS & Checkout', description: 'Edit checkout register profiles' },
+  { code: 'pos.apply_promotion', category: 'POS & Checkout', description: 'Type a promotion or referral code at the till' },
+  { code: 'promotions.view', category: 'Promotions & Referrals', description: 'See promotions, their uses and what they cost' },
+  { code: 'promotions.manage', category: 'Promotions & Referrals', description: 'Create, change, switch off and archive promotion codes' },
+  { code: 'referrals.view', category: 'Promotions & Referrals', description: 'See referrals, top referrers and what rewards cost' },
+  { code: 'referrals.manage', category: 'Promotions & Referrals', description: 'Set up the referral programme, approve or refuse rewards, hold or revoke codes' },
 
   // Customers & Loyalty
   { code: 'customers.view', category: 'Customers & Loyalty', description: 'Access profiles registry' },
@@ -448,7 +459,8 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'business.view', 'business.switch', 'settings.view', 'settings.update', 'settings.theme', 'settings.tax',
       'products.view', 'products.create', 'products.update', 'products.import', 'products.export', 'products.manage_categories',
       'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.transfer_stock', 'inventory.request_transfer', 'inventory.stock_count', 'inventory.stock_history', 'inventory.wastage', 'inventory.expiry',
-      'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.walkin_customer',
+      'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.walkin_customer', 'pos.apply_promotion',
+      'promotions.view', 'promotions.manage', 'referrals.view', 'referrals.manage',
       'customers.view', 'customers.create', 'customers.update', 'customers.debts', 'customers.loyalty', 'customers.schedules', 'customers.manage',
       'orders.view', 'orders.create', 'orders.update', 'orders.complete', 'orders.assign_rider',
       'deliveries.view', 'deliveries.create', 'deliveries.assign', 'deliveries.complete', 'deliveries.cancel',
@@ -473,7 +485,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'dashboard.view', 'complaints.view', 'online_store.view',
       'business.view', 'settings.theme',
       'products.view', 'inventory.view',
-      'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.cancel_sale', 'pos.discount', 'pos.walkin_customer',
+      'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.cancel_sale', 'pos.discount', 'pos.walkin_customer', 'pos.apply_promotion',
       'customers.view', 'customers.create', 'customers.debts', 'customers.loyalty', 'customers.schedules',
       'orders.view', 'orders.create', 'orders.update', 'orders.assign_rider',
       'payments.cash', 'payments.mpesa', 'payments.airtel', 'payments.card', 'payments.verify', 'pettycash.record',

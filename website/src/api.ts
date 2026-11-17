@@ -414,6 +414,32 @@ export interface Rewards {
 }
 
 export const fetchRewards = () => rpc<Rewards | null>('get_my_rewards', {});
+
+/** The signed-in customer's referral code and how it's doing. Friends appear by first name only. */
+export interface MyReferral {
+  linked: boolean;
+  running: boolean;
+  code?: string | null;
+  codeStatus?: 'active' | 'suspended' | 'revoked' | null;
+  campaign?: { name: string; endsAt: string | null; youGet: string; friendGets: string; minPurchase: number } | null;
+  invited?: number;
+  successful?: number;
+  pending?: number;
+  rewardsEarned?: number;
+  rewardsAvailable?: { kind: string; what: string; code: string | null; expiresAt: string | null }[];
+  rewardsUsed?: number;
+  walletEarned?: number;
+  pointsEarned?: number;
+  friends?: { name: string; status: string; at: string }[];
+}
+/** Null on a database without the referral programme (20261126002). */
+export async function fetchMyReferral(): Promise<MyReferral | null> {
+  try {
+    return await rpc<MyReferral>('my_referral', { p_slug: storeSlug() });
+  } catch {
+    return null;
+  }
+}
 /** Points pay off what the customer owes (never cash or wallet money). */
 export const redeemPoints = (points: number) =>
   rpc<{ value: number; pointsUsed: number; points: number }>('redeem_my_points', { p_points: points });

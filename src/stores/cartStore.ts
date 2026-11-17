@@ -45,7 +45,9 @@ interface CartState {
     deliveryFee?: number,
     riderName?: string,
     /** How the delivery is paid (on our bill, to the rider, or free). The fee is what the rider earns. */
-    deliveryMode?: DeliveryMode
+    deliveryMode?: DeliveryMode,
+    /** A promotion or referral code held with promo_reserve; its discount is already in cartDiscountValue. */
+    promotion?: { redemptionId: string; code?: string; discount: number } | null
   ) => Promise<{ success: boolean; transaction?: Transaction; error?: string; /** saved on this device, syncs later */ offline?: boolean }>;
 }
 
@@ -110,7 +112,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ selectedCustomer: customer });
   },
 
-  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFeeIn = 0, riderName = "", deliveryMode = "charged") => {
+  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFeeIn = 0, riderName = "", deliveryMode = "charged", promotion = null) => {
     if (!checkPermissionGate("pos.create_sale")) {
       return { success: false, error: "Permission Denied: pos.create_sale" };
     }
@@ -127,6 +129,14 @@ export const useCartStore = create<CartState>((set, get) => ({
       return {
         success: false,
         error: "Credit sales need an internet connection. Take cash, card or M-Pesa, or try again when you're back online.",
+      };
+    }
+
+    // The database checks a code when the sale is saved, so a sale with one can't wait offline.
+    if (isOffline && promotion) {
+      return {
+        success: false,
+        error: "Promotion and referral codes need an internet connection. Remove the code, or try again when you're back online.",
       };
     }
 
@@ -215,6 +225,8 @@ export const useCartStore = create<CartState>((set, get) => ({
         riderName: isDelivery ? riderName : undefined,
         businessId: activeBusinessId,
         referenceId,
+        promotionCode: promotion?.code,
+        promotionDiscount: promotion ? promotion.discount : 0,
       };
 
       // Keeps the sale on this device until it reaches the server
@@ -271,6 +283,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           riderPay,
           riderName: isDelivery ? riderName : undefined,
           referenceId,
+          promotionRedemptionId: promotion?.redemptionId ?? null,
           items: cart.map(item => ({
             product_id: item.product.id,
             product_name: item.product.name,
@@ -286,6 +299,14 @@ export const useCartStore = create<CartState>((set, get) => ({
         if (saved) walletApplied = Number(saved.wallet_applied) || 0;
         else walletApplied = Math.min(Number(selectedCustomer.walletBalance) || 0, finalTotal);
         savedTx = { ...newTransaction, id: txId, walletApplied };
+      } else if (promotion) {
+        // A code on a paid sale: header, items and the code are saved together. Not kept
+        // offline on a dropped line: the database must see the code before the sale counts.
+        const txId = await SupabaseService.recordTillSale(newTransaction, promotion.redemptionId);
+        savedTx = { ...newTransaction, id: txId };
+        if (selectedCustomer) {
+          void useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
+        }
       } else {
         // Non-credit or walk-in customer: use the standard transaction flow.
         // If the connection drops mid-sale, keep it offline instead of losing it.

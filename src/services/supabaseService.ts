@@ -192,6 +192,48 @@ export class SupabaseService {
   }
 
   /**
+   * Saves a paid sale that uses a promotion or referral code: header and items in one
+   * database transaction (record_till_sale), so the database can check the code against the
+   * items actually sold before the sale is kept. Same row rules as createTransaction.
+   * @returns the sale's id
+   */
+  static async recordTillSale(tx: Transaction, promotionRedemptionId: string): Promise<string> {
+    const { data, error } = await getSupabase().rpc("record_till_sale", {
+      p_sale: {
+        id: tx.id ? toUuid(tx.id) : null,
+        business_id: toUuid(tx.businessId),
+        total: tx.total,
+        discount: tx.discount,
+        tax: tx.tax,
+        final_total: tx.finalTotal,
+        payment_method: tx.paymentMethod,
+        customer_id: tx.customerId ? toUuid(tx.customerId) : null,
+        customer_name: customerName(tx.customerName) || null,
+        staff_id: tx.staffId ? toUuid(tx.staffId) : null,
+        staff_name: tx.staffName,
+        timestamp: tx.timestamp,
+        note: tx.note,
+        is_delivery: tx.isDelivery,
+        delivery_fee: tx.deliveryFee,
+        delivery_mode: tx.isDelivery ? tx.deliveryMode || 'charged' : null,
+        rider_pay: tx.isDelivery ? tx.riderPay || 0 : 0,
+        rider_name: tx.riderName,
+        reference_id: tx.referenceId || null,
+        promotion_redemption_id: promotionRedemptionId,
+      },
+      p_items: tx.items.map((item) => ({
+        product_id: toUuid(item.product.id),
+        product_name: item.product.name,
+        unit_price: item.product.price,
+        quantity: item.quantity,
+        discount_percentage: item.discountPercentage,
+      })),
+    });
+    if (error) throw error;
+    return data as string;
+  }
+
+  /**
    * Sends a sale that was saved offline. Safe to repeat: the database refuses a second
    * sale with the same reference_id, so a retry after a dropped connection never counts
    * a sale twice. If the earlier try saved the sale but lost its items (they are a
@@ -262,6 +304,8 @@ export class SupabaseService {
     riderPay?: number;
     riderName?: string;
     referenceId: string;
+    /** A held promotion or referral code (promo_reserve); the database checks it when the sale commits. */
+    promotionRedemptionId?: string | null;
     items: Array<{
       product_id: string;
       product_name: string;
@@ -292,6 +336,8 @@ export class SupabaseService {
       p_items: params.items,
       // Deliveries only (needs migration 20261125001); other sales match the older function too.
       ...(params.isDelivery ? { p_delivery_mode: params.deliveryMode || 'charged', p_rider_pay: params.riderPay || 0 } : {}),
+      // Needs migration 20261126001; sales without a code match the older function too.
+      ...(params.promotionRedemptionId ? { p_promotion_redemption_id: params.promotionRedemptionId } : {}),
     });
 
     if (error) {

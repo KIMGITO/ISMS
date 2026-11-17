@@ -8,7 +8,7 @@ export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
   | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers"
-  | "suppliers" | "audit" | "accounting" | "buying";
+  | "suppliers" | "audit" | "accounting" | "buying" | "promotions";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -41,6 +41,7 @@ export const SCREENS: AppScreen[] = [
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Record money taken from the till to spend, and see today's spending", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finance & Accounting", description: "Profit or loss, income and spending, the books, balance sheet, journal, VAT, who owes and money counts", keywords: ["finance", "profit", "loss", "income", "spending", "report", "debts", "p&l", "accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock", "wallets", "points cost"], permissions: ["finance.view", "accounting.view"] },
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
+  { id: "promotions", group: "Selling", title: "Promotions & Referrals", description: "Promotion codes, the referral programme, what they cost and how they did", keywords: ["promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
   { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
   { id: "workers", group: "Team", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },

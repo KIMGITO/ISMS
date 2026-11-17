@@ -21,6 +21,7 @@ CUSTOMERS          └──── STOCK ◄─────┘
 | POS | a sale, with customer, discounts, points, wallet, credit | same as Quick Sale, plus customer debt, wallet and points. **Quote** turns the cart into a quote |
 | Online Store | website orders (sales with delivery) | same as a sale, plus Deliveries for riders |
 | Quotes & Invoices | quote → sales order → deliveries → invoices → payments, credit notes | stock goes down on delivery, books (sales, cost of goods, receivables, VAT), the customer in Loyalty |
+| Promotions & Referrals | promotion codes (till and website), the referral programme, uses, rewards | a code takes its discount off a POS sale (checked by the database when the sale is saved); referral rewards go to the customer's wallet, points or a personal code; books (Promotion discounts, Referral rewards). See PROMOTIONS_AND_REFERRALS.md |
 | Sales Log | refunds (credit notes) on past sales | stock back, money back or into the wallet, books |
 | Deliveries | rider tasks for delivery sales | sale status, rider fees |
 

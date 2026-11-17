@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchRewards, friendlyError, redeemPoints, Rewards } from '../api';
 import { ErrorText, fieldClass, Loading, primaryButton } from '../ui';
+import { useStorefront } from '../store';
+import ReferralPanel from './ReferralPanel';
 
 export default function RewardsTab() {
+  const { business } = useStorefront();
   const [rewards, setRewards] = useState<Rewards | null>(null);
   const [points, setPoints] = useState('');
   const [busy, setBusy] = useState(false);
@@ -92,6 +95,7 @@ export default function RewardsTab() {
         {message && <p role="status" className="mt-2 font-medium text-emerald-700">{message}</p>}
       </div>
       )}
+      <ReferralPanel shopName={business.name} />
     </div>
   );
 }

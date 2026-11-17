@@ -15,7 +15,8 @@ import { EmailService } from "../services/emailService";
 import { toUserMessage, AppError } from "../utils/userError";
 import { scrubPersonalData } from "../services/crashReporter";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
-import { hasRolePermission, SYSTEM_ROLES } from "../utils/permissions";
+import { hasRolePermission, SYSTEM_ROLES, ALL_PERMISSIONS } from "../utils/permissions";
+import { referralShareText } from "../services/promotions";
 import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
@@ -791,7 +792,7 @@ runTest("Keyboard shortcuts and search features follow the roles", () => {
     seen.add(k);
   }
   // Every page action points at a button that exists in the code.
-  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AccountingView", "BuyingView", "SalesView", "POSView", "WorkersView", "AboutView"]
+  const code = ["InventoryView", "CustomersView", "ProductionBOMView", "DashboardView", "BusinessManagementView", "NotificationsView", "StockTransfersView", "PaymentPromptView", "SuppliersView", "AccountingView", "BuyingView", "SalesView", "POSView", "WorkersView", "AboutView", "PromotionsView"]
     .map((f) => readFileSync(`src/features/${f}.tsx`, "utf8"))
     // Screens built from panels: their buttons live in these components.
     .concat(["payments/ExpensesPanel", "sales/QuotesPanel"].map((f) => readFileSync(`src/components/${f}.tsx`, "utf8")))
@@ -919,6 +920,40 @@ runTest("Receipt shows points used, earned and the balance", () => {
   if (body.split("\n").some((l) => l.length > cols)) throw new Error("points lines wider than the paper");
   const walkIn = buildReceiptText(buildReceiptContent(sampleTx, receiptSettings, { pointsUsed: { points: 50, value: 50 } }), receiptSettings).body;
   if (walkIn.includes("LOYALTY")) throw new Error("a walk-in sale has no points section");
+});
+
+runTest("Receipt names the promotion code apart from other discounts", () => {
+  const base = Number(sampleTx.discount) || 0;
+  const tx = { ...sampleTx, discount: base + 100, promotionCode: "MILK10", promotionDiscount: 100 } as any;
+  const { body } = buildReceiptText(buildReceiptContent(tx, receiptSettings, {}), receiptSettings);
+  if (!body.includes("Code MILK10")) throw new Error(`missing the code line:\n${body}`);
+  if (base > 0 && !body.includes("Discount")) throw new Error("the other discount is gone");
+  if (base === 0 && body.includes("Discount")) throw new Error("the code was counted twice as a discount");
+  const plain = buildReceiptText(buildReceiptContent(sampleTx, receiptSettings, {}), receiptSettings).body;
+  if (plain.includes("Code ")) throw new Error("a sale without a code shows a code line");
+  const cols = columnsFor(receiptSettings);
+  if (body.split("\n").some((l) => l.length > cols)) throw new Error("code line wider than the paper");
+});
+
+runTest("Promotion and referral permissions exist and follow the roles", () => {
+  // Every permission the promotion and referral functions check is one the Roles screen knows.
+  const sql = ["20261126001_promotions.sql", "20261126002_referrals.sql"].map((f) => readFileSync(`supabase/migrations/${f}`, "utf8")).join("\n");
+  const asked = new Set([...sql.matchAll(/assert_permission\([^,]+,\s*([^)]*)\)/g)].flatMap((m) => [...m[1].matchAll(/'([a-z_]+\.[a-z_]+)'/g)].map((x) => x[1])));
+  const known = new Set(ALL_PERMISSIONS.map((p) => p.code));
+  for (const p of asked) if (!known.has(p as any)) throw new Error(`${p} is checked by the database but missing in the app`);
+  if (!hasRolePermission("Cashier", "pos.apply_promotion")) throw new Error("cashiers type codes at the till");
+  if (hasRolePermission("Cashier", "promotions.manage") || hasRolePermission("Cashier", "referrals.manage")) throw new Error("cashiers must not manage promotions or referrals");
+  if (hasRolePermission("Rider", "pos.apply_promotion")) throw new Error("riders don't apply codes");
+  if (!hasRolePermission("Manager", "promotions.manage") || !hasRolePermission("Manager", "referrals.view")) throw new Error("managers run promotions");
+  if (featuresFor("Cashier").some((f) => ["promo-codes", "referral-programme"].includes(f.id))) throw new Error("a cashier must not find promotion management");
+});
+
+runTest("Referral share text names the shop, code and the friend's reward", () => {
+  const text = referralShareText("KayKay's", {
+    code: "DENNIS482", campaign: { name: "x", endsAt: null, youGet: "KSh 100 wallet credit", friendGets: "KSh 50 off", minPurchase: 300 },
+  } as any);
+  for (const want of ["KayKay's", "DENNIS482", "KSh 50 off", "KSh 300"]) if (!text.includes(want)) throw new Error(`missing ${want}: ${text}`);
+  if (text.includes("100")) throw new Error("the referrer's own reward isn't for the friend");
 });
 
 runTest("A credit sale's receipt shows the wallet paying first and only the rest owed", () => {

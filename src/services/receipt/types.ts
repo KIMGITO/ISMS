@@ -94,6 +94,8 @@ export interface ReceiptContent {
   walletPaid?: number;
   balanceDue: number;
   note?: string;
+  /** A promotion or referral code and the part of `discount` it gave. */
+  promotion?: { code: string; discount: number };
   /** Loyalty points: spent on this sale, earned from it, and the customer's balance. */
   loyalty?: { pointsUsed: number; pointsValue: number; pointsEarned: number; balance?: number };
   kra?: KraSignature;

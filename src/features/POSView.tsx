@@ -48,6 +48,7 @@ import { useCartStore } from '../stores/cartStore';
 import { markQuoteSold } from '../services/salesDocs';
 import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
 import { useVatPercent } from '../services/kra/kraService';
+import { promoCheck, promoReserve, promoRelease, type PromoResult } from '../services/promotions';
 
 
 // The three ways a delivery is paid at the till (see DeliveryMode in types.ts).
@@ -209,6 +210,13 @@ export default function POSView() {
   const [riderName, setRiderName] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [pointsToUse, setPointsToUse] = useState('');
+  // A promotion or referral code. The server works out what it gives; the till only shows it.
+  // promoCode is the applied code; promo is the server's latest answer for this cart.
+  const [promoInput, setPromoInput] = useState('');
+  const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [promo, setPromo] = useState<PromoResult | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const canPromo = !!currentEmployee && hasRolePermission(currentEmployee.role, 'pos.apply_promotion');
   // A point's value depends on the customer's tier (the till checks again when spending).
   const [pointSettings, setPointSettings] = useState(DEFAULT_POINT_SETTINGS);
   useEffect(() => {
@@ -289,12 +297,69 @@ export default function POSView() {
   const pointValue = pointValueFor(pointSettings, selectedCustomer?.tier);
   const pointsDiscount = Math.min(Math.round(pointsNum * pointValue * 100) / 100, subtotalBeforeCartDiscount - cartDiscount);
 
-  const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount;
+  // Cart discount and points already taken off: a code that can't be combined is refused.
+  const otherDiscount = cartDiscount + pointsDiscount;
+  const promoDiscount = promoCode && promo?.ok
+    ? Math.min(Number(promo.discount) || 0, Math.max(0, subtotalBeforeCartDiscount - otherDiscount))
+    : 0;
+  const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount - promoDiscount;
   const totalDiscount = totalItemDiscount + cartDiscount;
   const tax = subtotal * taxRate;
   const finalTotal = subtotal + tax + (customerPaysDelivery ? deliveryFee : 0);
   // On credit, the customer's wallet pays first (the server does the same).
   const walletCovers = selectedCustomer ? Math.min(Math.max(0, selectedCustomer.walletBalance || 0), Math.round(finalTotal * 100) / 100) : 0;
+
+  // The applied code is checked again whenever the cart, customer or other discounts change.
+  const cartKey = cart.map((i) => `${i.product.id}:${i.quantity}:${i.product.price}:${i.discountPercentage}`).join('|');
+  const otherKey = Math.round(otherDiscount * 100);
+  useEffect(() => {
+    if (!promoCode || !activeBusinessId) return;
+    if (cart.length === 0) {
+      setPromoCode(null);
+      setPromo(null);
+      return;
+    }
+    let stale = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await promoCheck(activeBusinessId, promoCode, selectedCustomer?.id ?? null, useCartStore.getState().cart, otherKey / 100);
+        if (!stale) setPromo(r);
+      } catch (e) {
+        if (!stale) setPromo({ ok: false, reason: toUserMessage(e, 'Could not check the code. Try again.') });
+      }
+    }, 350);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promoCode, cartKey, selectedCustomer?.id, otherKey, activeBusinessId]);
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code || !activeBusinessId || promoBusy) return;
+    if (!isOnline) {
+      setPromoCode(null);
+      setPromo({ ok: false, reason: 'Codes need an internet connection.' });
+      return;
+    }
+    setPromoBusy(true);
+    try {
+      const r = await promoCheck(activeBusinessId, code, selectedCustomer?.id ?? null, cart, otherDiscount);
+      setPromo(r);
+      setPromoCode(r.ok ? r.code ?? code : null);
+      if (r.ok) setPromoInput('');
+    } catch (e) {
+      setPromoCode(null);
+      setPromo({ ok: false, reason: toUserMessage(e, 'Could not check the code. Try again.') });
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+  const removePromo = () => {
+    setPromoCode(null);
+    setPromo(null);
+  };
 
   const refundPoints = async (redemptionId: string | null) => {
     if (!redemptionId) return;
@@ -314,6 +379,15 @@ export default function POSView() {
 
   const handleCheckout = async (cardArg?: CardChargeResult) => {
     if (isCheckingOut) return;
+    // A code must be good before any card is charged.
+    if (promoCode && !promo?.ok) {
+      failCheckout(`The code ${promoCode} can't be used: ${promo?.reason ?? 'it is still being checked'} Remove it, or change the cart.`);
+      return;
+    }
+    if (promoCode && !isOnline) {
+      failCheckout('Codes need an internet connection. Remove the code, or try again when you are back online.');
+      return;
+    }
     let card: CardChargeResult | null = null;
     if (paymentMethod === 'Card') {
       if (cart.length === 0) return;
@@ -331,6 +405,7 @@ export default function POSView() {
     setIsCheckingOut(true);
     setCheckoutError(null);
     let redemptionId: string | null = null;
+    let promoHold: { redemptionId: string; code?: string; discount: number } | null = null;
     let pointsSpent: { points: number; value: number } | null = null;
     try {
       // Points come off first and count as a discount; if the sale fails they're given back.
@@ -348,6 +423,21 @@ export default function POSView() {
         pointsSpent = { points, value: Number(data.value) || 0 };
         discountType = 'amount';
         discountValue = cartDiscount + Number(data.value);
+      }
+      // The code's use is held now; the discount charged is the server's, never the till's.
+      if (promoCode && activeBusinessId) {
+        const held = await promoReserve(activeBusinessId, promoCode, selectedCustomer?.id ?? null, cart,
+          cartDiscount + (pointsSpent?.value ?? 0));
+        promoHold = { redemptionId: held.redemptionId!, code: held.code, discount: Number(held.discount) || 0 };
+        if (Math.abs(promoHold.discount - promoDiscount) > 0.009) {
+          setPromo(held);
+          await promoRelease(promoHold.redemptionId);
+          await refundPoints(redemptionId);
+          failCheckout(cardFailNote(card, `The code now takes off KSh ${promoHold.discount.toFixed(2)}, not KSh ${promoDiscount.toFixed(2)}. Check the total and press again.`));
+          return;
+        }
+        discountType = 'amount';
+        discountValue = cartDiscount + (pointsSpent?.value ?? 0) + promoHold.discount;
       }
       const cardNote = card
         ? card.via === 'machine'
@@ -370,6 +460,7 @@ export default function POSView() {
         deliveryFee,
         isDelivery ? riderName : '',
         deliveryMode,
+        promoHold,
       );
       if (result.success && result.transaction) {
         setPaidCard(null);
@@ -408,6 +499,9 @@ export default function POSView() {
         setSelectedRiderId('');
         setDeliveryLocation('');
         setPointsToUse('');
+        setPromoCode(null);
+        setPromo(null);
+        setPromoInput('');
 
         // Send a professional toast popup notification on completed checkout action
         showToast(
@@ -420,10 +514,12 @@ export default function POSView() {
         );
       } else {
         await refundPoints(redemptionId);
+        await promoRelease(promoHold?.redemptionId);
         failCheckout(cardFailNote(card, result.error || 'The sale could not be saved. Try again.'));
       }
     } catch (err: any) {
       await refundPoints(redemptionId);
+      await promoRelease(promoHold?.redemptionId);
       failCheckout(cardFailNote(card, toUserMessage(err, 'The sale could not be saved. Try again.')));
     } finally {
       setIsCheckingOut(false);
@@ -1092,6 +1188,63 @@ export default function POSView() {
                   </div>
                 </div>
 
+                {/* Promotion or referral code */}
+                {canPromo && cart.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {!promoCode ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void applyPromo();
+                        }}
+                        className="flex gap-1.5"
+                      >
+                        <label className="sr-only" htmlFor="pos-promo-code">Promotion or referral code</label>
+                        <div className="relative flex-1 min-w-0">
+                          <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                          <input
+                            id="pos-promo-code"
+                            value={promoInput}
+                            onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                            placeholder={isOnline ? 'Promotion or referral code' : 'Codes need internet'}
+                            disabled={!isOnline}
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            className="h-10 w-full bg-app-bg border border-app-border rounded-xl pl-8 pr-3 text-xs font-mono uppercase text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-60"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={!promoInput.trim() || promoBusy || !isOnline}
+                          className="h-10 px-4 rounded-xl bg-app-text text-app-bg text-xs font-bold disabled:opacity-40 cursor-pointer"
+                        >
+                          {promoBusy ? 'Checking…' : 'Apply'}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className={`flex items-start gap-2 rounded-xl px-3 py-2 text-xs ${promo?.ok ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                        <Tag size={14} className="mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold font-mono">{promoCode}{promo?.ok && promo.summary ? <span className="font-sans font-semibold"> · {promo.summary}</span> : null}</p>
+                          {promo?.ok && promo.referral && (
+                            <p className="text-[11px] opacity-90">Referred by {promo.referrer}. They get {promo.referrerReward} after this sale.</p>
+                          )}
+                          {promo?.ok && promo.note && <p className="text-[11px] opacity-90">{promo.note}</p>}
+                          {promo && !promo.ok && <p className="text-[11px]">{promo.reason}{promo.hint ? ` ${promo.hint}` : ''}</p>}
+                        </div>
+                        <button type="button" onClick={removePromo} aria-label={`Remove code ${promoCode}`} className="p-1 -m-1 rounded-lg hover:bg-black/5 cursor-pointer shrink-0">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                    {!promoCode && promo && !promo.ok && (
+                      <p role="alert" className="text-[11px] text-red-600 dark:text-red-400 px-1">
+                        {promo.reason}{promo.hint ? ` ${promo.hint}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Pricing Summary */}
                 <div className="bg-app-bg border border-app-border rounded-2xl p-3 text-xs flex flex-col gap-1.5">
                   <div className="flex justify-between">
@@ -1109,6 +1262,16 @@ export default function POSView() {
                       </span>
                       <span className="text-amber-500 font-bold font-mono">
                         -KSh {totalDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                        {promo?.referral ? 'Referral' : 'Promotion'} {promoCode}
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono shrink-0">
+                        -KSh {promoDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}

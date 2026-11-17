@@ -39,6 +39,7 @@ export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   sales: "s",
   customers: "l", // Loyalty
   "online-store": "o",
+  promotions: "%", // % off
   deliveries: "d",
   inventory: "i",
   "stock-history": "y", // histor-Y
@@ -153,6 +154,7 @@ const pages: Shortcut[] = [
   { id: "shift-form-save", keys: "Ctrl+Enter", action: "Save the reminder (in the form)", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "shift-form-cancel", keys: "Esc", action: "Close the reminder form", scope: "dashboard", permissions: ["dashboard.view"] },
   { id: "transfer-new", keys: "N", key: "n", target: "new", action: "Send stock to another branch", scope: "stock-transfers", permissions: ["inventory.transfer_stock"] },
+  { id: "promotion-new", keys: "N", key: "n", target: "new", action: "New promotion", scope: "promotions", permissions: ["promotions.manage"] },
   { id: "transfer-request", keys: "A", key: "a", target: "transfer-request", action: "Ask another branch for stock", scope: "stock-transfers", permissions: ["inventory.transfer_stock", "inventory.request_transfer"] },
   { id: "buying-new", keys: "N", key: "n", target: "new", action: "Invite a supplier / new purchase / draft purchases from the ticked suggestions / enter a bill / return goods (on that tab)", scope: "buying", permissions: ["suppliers.create", "purchases.create", "supplier_bills.manage", "purchases.update"] },
   { id: "accounting-new", keys: "N", key: "n", target: "new", action: "New journal entry / account (on that tab)", scope: "finance", permissions: ["accounting.manage"] },
@@ -239,7 +241,8 @@ export const FEATURES: AppFeature[] = [
   { id: "purchases", title: "Purchases", description: "Orders to suppliers: drafts, ordered, received and cancelled", screen: "buying", permissions: ["purchases.view"], keywords: ["purchase", "order", "lpo", "buy"], target: "purchases-tab" },
   { id: "website-banner", title: "Website home banner", description: "The sliding pictures at the top of your website (Online Store → Home banner)", screen: "online-store", permissions: ["business.update"], keywords: ["hero", "banner", "slider", "carousel", "website picture"] },
   { id: "website-pages", title: "Website pages", description: "Edit About, Delivery, Returns and other website pages with photos (Online Store → Pages)", screen: "online-store", permissions: ["business.update"], keywords: ["page editor", "about page", "website text", "terms", "returns"] },
-  { id: "promo-codes", title: "Promo codes", description: "Discount codes customers type at checkout on the website (Online Store → Promotions)", screen: "online-store", permissions: ["business.update"], keywords: ["promo", "coupon", "discount code", "voucher", "offer"] },
+  { id: "promo-codes", title: "Promotion codes", description: "Codes for the till and the website: percentage or amount off, buy X get Y, free product, first purchase (Promotions & Referrals)", screen: "promotions", permissions: ["promotions.view", "promotions.manage"], keywords: ["promo", "coupon", "discount code", "voucher", "offer", "website promo"] },
+  { id: "referral-programme", title: "Referral programme", description: "Customers share their code; the new customer and the referrer both get a reward after the first purchase (Promotions & Referrals → Referrals)", screen: "promotions", permissions: ["referrals.view", "referrals.manage"], keywords: ["referral", "refer a friend", "invite", "reward", "bring a friend"], target: "referrals" },
   { id: "website-reviews", title: "Website reviews", description: "Approve or hide product reviews from the website (Online Store → Reviews)", screen: "online-store", permissions: ["business.update"], keywords: ["reviews", "ratings", "stars", "approve review"] },
   { id: "background-remover", title: "Remove a photo's background", description: "When adding a product photo, tap Remove background; it runs on this device for free", screen: "inventory", permissions: ["products.create", "products.update"], keywords: ["background", "cut out", "cutout", "transparent", "remove background", "photo", "picture"] },
   { id: "delete-notifications", title: "Delete notifications", description: "Swipe a notification to delete it, or hold it for more", screen: "notifications", permissions: [], keywords: ["clear notifications", "remove alert", "swipe", "delete"] },

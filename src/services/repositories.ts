@@ -270,6 +270,8 @@ export class TransactionRepository {
       riderName: t.rider_name || "",
       referenceId: t.reference_id || undefined,
       walletApplied: Number(t.wallet_applied) || 0,
+      promotionCode: t.promotion_code || undefined,
+      promotionDiscount: Number(t.promotion_discount) || 0,
       status: "Synced" as const,
       sync_status: "synced",
       items: (t.transaction_items || []).map((ti: any) => ({

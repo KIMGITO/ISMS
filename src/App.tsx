@@ -36,6 +36,7 @@ import AccountingView from './features/AccountingView';
 import BuyingView from './features/BuyingView';
 import SupplierPortalView from './features/SupplierPortalView';
 import AuditLogView from './features/AuditLogView';
+import PromotionsView from './features/PromotionsView';
 import { useNotificationStore } from './stores/notificationStore';
 import { useTransactionStore } from './stores/transactionStore';
 import SearchableDropdown from './components/SearchableDropdown';
@@ -121,6 +122,7 @@ import {
   ArrowRight,
   Briefcase,
   Globe,
+  BadgePercent,
   Coins,
   Mail,
   Phone,
@@ -163,6 +165,7 @@ const BUYING_PERMISSIONS = SCREEN_BY_ID.get('buying')!.permissions;
 const FINANCE_PERMISSIONS = SCREEN_BY_ID.get('finance')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
+const PROMOTION_PERMISSIONS = SCREEN_BY_ID.get('promotions')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
 const SCREEN_MOTION = {
@@ -187,6 +190,7 @@ const MOBILE_TABS = [
   { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
   { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
+  { id: 'promotions', label: 'Promotions', icon: BadgePercent, permission: PROMOTION_PERMISSIONS },
   { id: 'deliveries', label: 'Deliveries', icon: Truck, permission: 'deliveries.view' },
   { id: 'workers', label: 'Workers', icon: Users, permission: 'staff.view' },
   { id: 'permissions', label: 'Roles', icon: Key, permission: 'staff.roles' },
@@ -3773,6 +3777,13 @@ export default function App() {
                       permission: 'online_store.view' as const,
                     },
                     {
+                      id: 'promotions',
+                      label: 'Promotions',
+                      icon: BadgePercent,
+                      desc: 'Codes, referrals, results',
+                      permission: PROMOTION_PERMISSIONS,
+                    },
+                    {
                       id: 'workers',
                       label: 'Workers List',
                       icon: Users,
@@ -4347,6 +4358,17 @@ export default function App() {
                       >
                         <SecurityGuard permission="online_store.view">
                           <OnlineStoreView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'promotions' && (
+                      <motion.div
+                        key="promotions-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={PROMOTION_PERMISSIONS as any}>
+                          <PromotionsView />
                         </SecurityGuard>
                       </motion.div>
                     )}

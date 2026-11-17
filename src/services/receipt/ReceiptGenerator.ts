@@ -154,6 +154,9 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     walletPaid,
     balanceDue: owed,
     note: tx.note || undefined,
+    promotion: tx.promotionCode && (tx.promotionDiscount || 0) > 0
+      ? { code: tx.promotionCode, discount: round2(tx.promotionDiscount || 0) }
+      : undefined,
     loyalty: loyaltyFor(tx, extras),
     kra: extras.kra,
     extraQr: extraQr(settings, receiptNumber),

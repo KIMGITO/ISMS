@@ -78,6 +78,10 @@ Each merge is saved in `customer_merges` with both records as they were. There's
 
 Customers choose in their website profile, and staff can record the choice on the customer's form. Order updates and reminders are on by default. Offers need the customer's agreement. The Communication Center asks what kind of message is being sent and skips anyone who hasn't agreed. The SMS, WhatsApp and email functions check again.
 
+## Promotions and referrals
+
+Cashiers type promotion and referral codes at the till (`pos.apply_promotion`) but can't create or change them. Managers, owners and admins see and manage promotions (`promotions.view`, `promotions.manage`) and the referral programme (`referrals.view`, `referrals.manage`). The database checks the same permissions. Details: PROMOTIONS_AND_REFERRALS.md.
+
 ## Known limits
 
 - Any member can read colleagues' names and contact details from `employees`, because the app needs them for assigning and display.

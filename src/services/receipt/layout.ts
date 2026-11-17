@@ -121,9 +121,12 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   // Totals
   row("Subtotal", formatMoney(content.subtotal));
   // Points paid part of the bill: shown on their own line, apart from ordinary discounts
+  // and so is a promotion or referral code.
   const pointsValue = Math.min(content.loyalty?.pointsValue || 0, content.discount);
-  const otherDiscount = Math.round((content.discount - pointsValue) * 100) / 100;
+  const promoValue = Math.min(content.promotion?.discount || 0, Math.max(0, content.discount - pointsValue));
+  const otherDiscount = Math.round((content.discount - pointsValue - promoValue) * 100) / 100;
   if (otherDiscount > 0) row("Discount", `-${formatMoney(otherDiscount)}`);
+  if (promoValue > 0) row(`Code ${content.promotion!.code}`, `-${formatMoney(promoValue)}`);
   if (pointsValue > 0) row(`Paid with ${formatQty(content.loyalty!.pointsUsed)} points`, `-${formatMoney(pointsValue)}`);
   if (content.taxTotal > 0) row(content.taxRate ? `VAT ${formatQty(content.taxRate)}%` : "VAT", formatMoney(content.taxTotal));
   if (content.deliveryFee > 0) row("Delivery", formatMoney(content.deliveryFee));

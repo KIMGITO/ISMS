@@ -39,6 +39,7 @@ import CustomerGroupFields, { CustomerGroupValues } from "../components/Customer
 import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
+import CustomerReferralCard from "../components/loyalty/CustomerReferralCard";
 import { appDialog } from '../components/AppDialog';
 import { GroupPicker } from '../components/messaging/GroupPicker';
 import { BulkMessageComposer } from '../components/messaging/BulkMessageComposer';
@@ -434,7 +435,8 @@ export default function CustomersView() {
 
     // 3. Wallet & Balance Ledger Events
     (ledgerEntries || []).forEach((entry: CustomerLedgerEntry) => {
-      if (entry.type === 'wallet_topup' || entry.type === 'wallet_usage' || entry.type === 'debt_adjustment') {
+      if (entry.type === 'wallet_topup' || entry.type === 'wallet_usage' || entry.type === 'debt_adjustment'
+          || entry.type === 'referral_reward' || entry.type === 'referral_reversal') {
         let title = 'Wallet & Balance Adjustment';
         let statusStyle = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
 
@@ -444,6 +446,12 @@ export default function CustomersView() {
         } else if (entry.type === 'wallet_usage') {
           title = 'Wallet Balance Spent';
           statusStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        } else if (entry.type === 'referral_reward') {
+          title = 'Referral Reward (wallet credit)';
+          statusStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        } else if (entry.type === 'referral_reversal') {
+          title = 'Referral Reward Taken Back';
+          statusStyle = 'bg-red-500/10 text-red-400 border-red-500/30';
         }
 
         events.push({
@@ -1190,6 +1198,7 @@ export default function CustomersView() {
               </div>
               <div className="mt-2 lg:mt-0">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
+                <CustomerReferralCard customer={selectedCustomer} />
               </div>
             </aside>
 
@@ -1662,6 +1671,16 @@ export default function CustomersView() {
                               typeColor = 'text-purple-500';
                               amountSign = '+';
                               break;
+                            case 'referral_reward':
+                              typeLabel = 'Referral Reward';
+                              typeColor = 'text-emerald-500';
+                              amountSign = '+';
+                              break;
+                            case 'referral_reversal':
+                              typeLabel = 'Referral Reward Taken Back';
+                              typeColor = 'text-red-500';
+                              amountSign = '-';
+                              break;
                           }
 
                           return (
@@ -1985,8 +2004,8 @@ export default function CustomersView() {
                           // RENDER WALLET / LEDGER ADJUSTMENT EVENT
                           if (ev.eventType === 'wallet_ledger' && ev.rawLedger) {
                             const entry: CustomerLedgerEntry = ev.rawLedger;
-                            const isDeposit = entry.type === 'wallet_topup';
-                            const isSpent = entry.type === 'wallet_usage';
+                            const isDeposit = entry.type === 'wallet_topup' || entry.type === 'referral_reward';
+                            const isSpent = entry.type === 'wallet_usage' || entry.type === 'referral_reversal';
 
                             return (
                               <div
