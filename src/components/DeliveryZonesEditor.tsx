@@ -142,8 +142,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
           <MapPin size={16} className="text-amber-500" /> Delivery areas and prices
         </h3>
         <p className="text-xs text-app-text-muted">
-          Customers on the website choose one of the areas that are on and pay its price. With no areas on, every
-          delivery uses the website's flat delivery fee. Orders already placed keep the price they were charged.
+          Customers pick an area and pay its price. None on: the flat fee is used.
         </p>
       </div>
 

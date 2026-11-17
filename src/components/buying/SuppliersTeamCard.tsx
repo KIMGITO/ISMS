@@ -46,7 +46,7 @@ export function SuppliersTeamCard({ canManage, onInvite, refreshKey = 0 }: {
   return (
     <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3">
       <div className="border-b border-app-border/40 pb-2.5 flex items-center gap-2">
-        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5">
+        <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5">
           <Truck size={14} className="text-amber-500" /> Suppliers ({suppliers?.length ?? '…'})
         </h3>
         <span className="ml-auto text-[10px] text-app-text-muted">Add one with the form: role Supplier</span>
@@ -99,16 +99,16 @@ export function SuppliersTeamCard({ canManage, onInvite, refreshKey = 0 }: {
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   {signedIn > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                       <UserCheck size={10} /> {signedIn} can sign in
                     </span>
                   )}
                   {invited > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300">
                       <Clock size={10} /> {invited} invited
                     </span>
                   )}
-                  {a && signedIn === 0 && invited === 0 && <span className="text-[9px] text-app-text-muted">No app access</span>}
+                  {a && signedIn === 0 && invited === 0 && <span className="text-[11px] text-app-text-muted">No app access</span>}
                 </div>
               </SwipeRow>
             );

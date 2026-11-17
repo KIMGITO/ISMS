@@ -84,7 +84,7 @@ export async function fetchOpenCredit(customerId: string): Promise<OpenCredit[]>
 function friendly(err: any): Error {
   const msg = String(err?.message || err || "");
   if (/issue_invoice|invoice_counters|invoices|set_invoice_archived|delete_invoice|archived_at/.test(msg) && /does not exist|not find|schema cache/i.test(msg)) {
-    return new Error("Invoices are not set up on the server yet. Apply the latest database update, then try again.");
+    return new Error("Invoices are not available right now. Try again later.");
   }
   return err instanceof Error ? err : new Error(msg || "Could not issue the invoice.");
 }

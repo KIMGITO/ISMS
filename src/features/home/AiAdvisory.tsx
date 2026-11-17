@@ -5,7 +5,7 @@
 // The `metrics` keys are the ones that function reads; keep them as they are.
 
 import React, { useState } from "react";
-import { ArrowRight, Brain, CheckCircle, Square } from "lucide-react";
+import { ArrowRight, CheckCircle, Square, Lightbulb } from "lucide-react";
 import { SupabaseService } from "../../services/supabaseService";
 import { useUiStore } from "../../stores/uiStore";
 import { canOpenScreen } from "../../utils/screens";
@@ -76,10 +76,10 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500"><Brain size={18} /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500"><Lightbulb size={18} /></span>
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold text-app-text">{aiName}'s advice</h3>
-            <p className="text-xs text-app-text-muted">Reads your books for this period: profit, cash, who owes, bills due, VAT and stock.</p>
+            <p className="text-xs text-app-text-muted">Advice from this period's figures.</p>
           </div>
         </div>
       </div>
@@ -102,8 +102,8 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
 
       {advice && (
         <div className={`mt-5 space-y-5 transition-opacity ${busy ? "opacity-50" : ""}`}>
-          {offline && <p className="text-xs text-app-text-muted">{aiName} could not be reached, so this summary was made on this device from the figures above.</p>}
-          {!offline && advice.fromBooks === false && <p className="text-xs text-app-text-muted">Your role can't see the books, so this uses sales and stock figures only.</p>}
+          {offline && <p className="text-xs text-app-text-muted">{aiName} could not be reached. This summary is from the figures above.</p>}
+          {!offline && advice.fromBooks === false && <p className="text-xs text-app-text-muted">From sales and stock only.</p>}
 
           {/* The verdict */}
           <div className="flex items-start gap-3">
@@ -118,7 +118,7 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
 
           {advice.answer && (
             <div className="rounded-xl bg-brand-500/5 ring-1 ring-brand-500/20 p-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Your question</h4>
+              <h4 className="text-xs font-semibold text-app-text-muted">Your question</h4>
               <p className="mt-1 text-sm leading-relaxed text-app-text">{advice.answer}</p>
             </div>
           )}
@@ -139,7 +139,7 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
           {/* What to do, most valuable first */}
           {!!advice.actions.length && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Do this week ({doneCount}/{advice.actions.length})</h4>
+              <h4 className="text-xs font-semibold text-app-text-muted">Do this week ({doneCount}/{advice.actions.length})</h4>
               <ul className="mt-2 space-y-1.5">
                 {advice.actions.map((a) => (
                   <li key={a.title} className="flex items-start gap-2 rounded-xl px-2 py-2 hover:bg-app-bg">
@@ -167,7 +167,7 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
           <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
             {!!advice.whatHappened.length && (
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">What happened</h4>
+                <h4 className="text-xs font-semibold text-app-text-muted">What happened</h4>
                 <ul className="mt-2 space-y-1.5 text-sm text-app-text list-disc pl-4">
                   {advice.whatHappened.map((t, i) => <li key={i} className="leading-snug">{t}</li>)}
                 </ul>
@@ -176,13 +176,13 @@ export default function AiAdvisory({ businessId, metrics, period, fallback }: {
             <div className="space-y-5">
               {advice.cash && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Cash</h4>
+                  <h4 className="text-xs font-semibold text-app-text-muted">Cash</h4>
                   <p className="mt-2 text-sm leading-relaxed text-app-text">{advice.cash}</p>
                 </div>
               )}
               {!!advice.watchOuts.length && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Watch out</h4>
+                  <h4 className="text-xs font-semibold text-app-text-muted">Watch out</h4>
                   <ul className="mt-2 space-y-1.5 text-sm text-app-text list-disc pl-4">
                     {advice.watchOuts.map((t, i) => <li key={i} className="leading-snug">{t}</li>)}
                   </ul>

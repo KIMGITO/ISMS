@@ -141,7 +141,7 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
   const deleteUse = async (r: Redemption) => {
     const ok = await appDialog.confirm({
       title: `Delete this record of ${r.points.toLocaleString()} points used?`,
-      message: "Only the record goes: the customer's balance stays. It no longer counts in this report or in profit, and can't be refunded later.",
+      message: "The customer's balance stays.",
       confirmLabel: 'Delete',
       destructive: true,
     });

@@ -84,7 +84,7 @@ export class ComplaintService {
       .eq('id', id);
     if (error) {
       if (/archived_at/.test(String(error.message))) {
-        throw new Error('Archiving feedback is not set up on the server yet. Apply the latest database update, then try again.');
+        throw new Error('Archiving feedback is not available right now. Try again later.');
       }
       throw error;
     }

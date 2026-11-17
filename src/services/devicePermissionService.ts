@@ -27,71 +27,71 @@ export interface PermissionDetails {
 export const PERMISSION_METADATA: Record<PermissionType, PermissionDetails> = {
   camera: {
     type: "camera",
-    label: "Camera Access",
-    description: "Scan product barcodes and capture staff avatars.",
+    label: "Camera",
+    description: "Scan barcodes and take photos.",
     explanation: "We require camera access to let your device scan product SKU barcodes on checking out and take real-time profile pictures of employees.",
     iconName: "camera"
   },
   photos: {
     type: "photos",
-    label: "Photo Library",
-    description: "Upload business logos and custom avatars.",
+    label: "Photos",
+    description: "Choose logos and photos.",
     explanation: "Photo library access lets you choose pre-saved high-quality store logos and employee avatars directly from your photo album.",
     iconName: "photos"
   },
   storage: {
     type: "storage",
-    label: "Local Storage Caching",
-    description: "Offline database transactions cache buffering.",
+    label: "Storage",
+    description: "Keep sales when offline.",
     explanation: "Local storage persistence is essential to cache products, customers, and pending sales transactions securely on your device during network blackouts.",
     iconName: "storage"
   },
   microphone: {
     type: "microphone",
-    label: "Microphone Access",
-    description: "Dictate voice search terms and talk to Kim AI Assistant.",
+    label: "Microphone",
+    description: "Search and ask by voice.",
     explanation: "We utilize microphone inputs for audio queries, letting cashiers dictate notes, search orders by voice, and communicate with the AI assistant hands-free.",
     iconName: "microphone"
   },
   location: {
     type: "location",
-    label: "GPS Location Coordinates",
-    description: "Verify branches and rider logistics routes.",
+    label: "Location",
+    description: "Delivery routes.",
     explanation: "GPS coordinates are requested to verify location accuracy for staff punch-ins at active branches and map optimal routes for dispatch riders.",
     iconName: "location"
   },
   notifications: {
     type: "notifications",
-    label: "System Notifications",
-    description: "Receive critical out-of-stock and AI insight warnings.",
+    label: "Notifications",
+    description: "Alerts and reminders.",
     explanation: "Push notifications guarantee you immediately receive warning banners for expiring stocks, low-cash registers, and urgent AI audit reports.",
     iconName: "notifications"
   },
   bluetooth: {
     type: "bluetooth",
-    label: "Bluetooth Connectivity",
-    description: "Connect and print receipts to thermal printer units.",
+    label: "Bluetooth",
+    description: "Receipt printers.",
     explanation: "We require Bluetooth search capabilities to pair with and print real-time sales receipts to external mobile thermal receipt printers.",
     iconName: "bluetooth"
   },
   contacts: {
     type: "contacts",
-    label: "Device Contacts Book",
-    description: "Import client profiles directly from addresses.",
+    label: "Contacts",
+    description: "Add customers from contacts.",
     explanation: "Address book imports allow cashiers to register new loyalty customers in one tap by selecting their details from their device contacts.",
     iconName: "contacts"
   },
   calendar: {
     type: "calendar",
-    label: "Calendar Integration",
-    description: "Sync shift schedules to device calendars.",
+    label: "Calendar",
+    description: "Add shifts to your calendar.",
     explanation: "Calendar access is used to export and synchronize assigned shift schedules directly to your personal device calendar.",
     iconName: "calendar"
   },
   phone: {
     type: "phone",
-    label: "Direct Phone Calling",
-    description: "Call riders and customers from order details.",
+    label: "Phone calls",
+    description: "Call riders and customers.",
     explanation: "Phone dialer integration allows cashiers to call dispatch riders and customers directly from the app to resolve delivery issues.",
     iconName: "phone"
   }

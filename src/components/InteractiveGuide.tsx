@@ -314,7 +314,7 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
         <div className="relative z-10 flex flex-col gap-3">
           {/* Header & Step Indicator */}
           <div className="flex justify-between items-center pb-2 border-b border-app-border/40">
-            <div className="flex items-center gap-1.5 text-amber-500 font-extrabold text-[10px] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-amber-500 font-semibold text-[10px]">
               <HelpCircle size={12} />
               <span>Guided Tour ({currentStepIndex + 1} of {totalSteps})</span>
             </div>
@@ -329,7 +329,7 @@ export const InteractiveGuide: React.FC<InteractiveGuideProps> = ({
 
           {/* Body Content */}
           <div className="text-left">
-            <h4 className="text-xs font-black text-app-text uppercase tracking-wider leading-snug">
+            <h4 className="text-xs font-semibold text-app-text leading-snug">
               {currentStep.title}
             </h4>
             <p className="text-[10.5px] text-app-text-muted leading-relaxed font-medium mt-1.5">

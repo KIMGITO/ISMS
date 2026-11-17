@@ -34,7 +34,6 @@ import {
   PackageSearch,
   CircleDollarSign,
   Bike,
-  Brain,
   CalendarClock,
   AlertTriangle,
   Info,
@@ -44,18 +43,18 @@ import {
   Megaphone,
   RefreshCw,
   ArrowRight,
-  Sparkles,
   Mail,
   ListChecks,
   CreditCard,
   ShoppingBag,
+  Lightbulb,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types and lookups
 // ---------------------------------------------------------------------------
 
-type TabId = "all" | "unread" | "system" | "transactions" | "activity" | "mentions";
+type TabId = "all" | "unread" | "system" | "transactions" | "activity";
 type ViewMode = "feed" | "archived";
 type Delay = ReturnType<typeof setTimeout>;
 type Row = SQLiteRow<AppNotification>;
@@ -72,8 +71,8 @@ const TYPE_VISUALS: Record<string, NotifVisual> = {
   "Out Of Stock": { icon: <AlertTriangle size={17} />, cls: "bg-red-500/12 text-red-500", category: "inventory" },
   "Stock Transfer": { icon: <PackageSearch size={17} />, cls: "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400", category: "inventory" },
   "Stock Almost Finished": { icon: <PackageSearch size={17} />, cls: "bg-amber-500/12 text-amber-600 dark:text-amber-400", category: "inventory" },
-  "AI Business Insight": { icon: <Brain size={17} />, cls: "bg-indigo-500/12 text-indigo-500", category: "activity" },
-  "AI Recommendation": { icon: <Sparkles size={17} />, cls: "bg-fuchsia-500/12 text-fuchsia-500", category: "activity" },
+  "AI Business Insight": { icon: <Lightbulb size={17} />, cls: "bg-slate-500/12 text-slate-600 dark:text-slate-300", category: "activity" },
+  "AI Recommendation": { icon: <Lightbulb size={17} />, cls: "bg-slate-500/12 text-slate-600 dark:text-slate-300", category: "activity" },
   "AI Risk Alert": { icon: <ShieldCheck size={17} />, cls: "bg-rose-500/12 text-rose-500", category: "security" },
   "Sales Summary": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
   "Daily Report": { icon: <Wallet size={17} />, cls: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", category: "transactions" },
@@ -106,16 +105,13 @@ const TAB_DEFS: { id: TabId; label: string }[] = [
   { id: "transactions", label: "Money" },
   { id: "activity", label: "Activity" },
   { id: "system", label: "System" },
-  { id: "mentions", label: "Mentions" },
 ];
 
-const mentions = (n: Row) => (n.message + " " + (n.title || "")).toLowerCase().includes("@");
 
 function inTab(n: Row, tab: TabId): boolean {
   const cat = getVisual(n.type).category;
   switch (tab) {
     case "unread": return !n.read_at;
-    case "mentions": return mentions(n);
     case "system": return cat === "system" || cat === "security" || cat === "inventory";
     case "transactions": return cat === "transactions";
     case "activity": return cat === "activity" || cat === "schedule";
@@ -505,7 +501,6 @@ export default function NotificationsView() {
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none pt-3 -mx-4 px-4 md:mx-0 md:px-0" role="tablist" aria-label="Filter notifications">
           {TAB_DEFS.map((t) => {
             const count = view === "feed" ? tabCount(t.id) : 0;
-            if (view === "feed" && t.id === "mentions" && count === 0 && tab !== "mentions") return null;
             const active = tab === t.id;
             return (
               <button
@@ -1060,16 +1055,6 @@ function NotificationRow({
                     </div>
                   )}
 
-                  {payload.confidenceScore && (
-                    <div className="bg-indigo-500/5 rounded-xl px-3 py-2.5">
-                      <div className="flex items-center justify-between text-indigo-500 font-medium text-xs">
-                        <span className="flex items-center gap-1"><Sparkles size={12} /> AI confidence</span>
-                        <span>{payload.confidenceScore}%</span>
-                      </div>
-                      {payload.recommendedAction && <p className="text-[13px] leading-relaxed mt-1">{payload.recommendedAction}</p>}
-                    </div>
-                  )}
-
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-app-text-muted">
                     <dt>Received</dt>
                     <dd className="text-app-text">{formatDetailDate(whenOf(notif))}</dd>
@@ -1140,7 +1125,7 @@ function renderInline(text: string): React.ReactNode[] {
   let key = 0;
   while ((m = regex.exec(text)) !== null) {
     if (m.index > last) parts.push(escapeHtml(text.slice(last, m.index)));
-    parts.push(<strong key={key++} className="font-extrabold">{escapeHtml(m[1])}</strong>);
+    parts.push(<strong key={key++} className="font-semibold">{escapeHtml(m[1])}</strong>);
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(escapeHtml(text.slice(last)));
@@ -1209,7 +1194,7 @@ function MarkdownBlock({ text }: { text: string }) {
       flushList();
       const header = line.slice(1, -1).trim();
       blocks.push(
-        <div key={key++} className="text-[10px] font-black uppercase tracking-widest text-amber-400 mt-2.5 first:mt-0">
+        <div key={key++} className="text-[10px] font-semibold text-amber-400 mt-2.5 first:mt-0">
           {renderInline(header)}
         </div>
       );
@@ -1323,7 +1308,7 @@ function NotificationToneSheet({ onClose, reducedMotion }: { onClose: () => void
       icon={<BellRing size={17} />}
       onClose={onClose}
       reducedMotion={reducedMotion}
-      footer={<p className="shrink-0 px-5 pb-4 pt-1 text-xs text-app-text-muted">Tap a tone to hear it. On the phone app it is used for new notifications.</p>}
+      footer={<p className="shrink-0 px-5 pb-4 pt-1 text-xs text-app-text-muted">Tap a tone to hear it.</p>}
     >
       <div role="radiogroup" aria-label="Notification tone">
         {NotificationToneService.getTones().map((tone) => {

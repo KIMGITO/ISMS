@@ -214,7 +214,7 @@ export default function InventoryView() {
         );
       } catch (err: any) {
         showToast(
-          'Database Error',
+          'Not saved',
           toUserMessage(err, "Could not add the product."),
           undefined,
           'error',
@@ -245,8 +245,8 @@ export default function InventoryView() {
     if (!editingProduct || isSavingEdit) return;
     if (!validateEditForm()) {
       showToast(
-        'Validation Error',
-        'Please correct editing configuration errors.',
+        'Check the form',
+        'Fix the boxes marked in red.',
         undefined,
         'error',
       );
@@ -339,7 +339,7 @@ export default function InventoryView() {
       );
     } catch (err: any) {
       showToast(
-        'Database Error',
+        'Not saved',
         toUserMessage(err, "Could not change the stock."),
         undefined,
         'error',
@@ -380,7 +380,7 @@ export default function InventoryView() {
                 setEditingCategoryName(null);
                 setIsManagingCategories(true);
               }}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-app-card hover:bg-app-bg text-amber-500 font-extrabold rounded-xl text-xs border border-app-border transition flex items-center justify-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-app-card hover:bg-app-bg text-amber-500 font-semibold rounded-xl text-xs border border-app-border transition flex items-center justify-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
               title="Manage Product Categories"
             >
               <Tag size={13} />
@@ -399,7 +399,7 @@ export default function InventoryView() {
                 setIsAddingProduct(true);
               }}
               data-shortcut="new"
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 transition flex items-center justify-center gap-1 shadow-sm shrink-0 cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs hover:bg-amber-600 transition flex items-center justify-center gap-1 shadow-sm shrink-0 cursor-pointer"
             >
               <Plus size={14} />
               <span>Add Product</span>
@@ -412,7 +412,7 @@ export default function InventoryView() {
       <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-5 pb-nav">
         {/* CURRENT STOCK LIST SECTION */}
         <div className="flex flex-col gap-2.5">
-          <h2 className="text-[10px] font-black text-app-text-muted uppercase tracking-wider px-1">
+          <h2 className="text-[10px] font-semibold text-app-text-muted px-1">
             Current Stock Levels
           </h2>
           {filteredProducts.map((p) => {
@@ -461,7 +461,7 @@ export default function InventoryView() {
                               );
                             } catch (err: any) {
                               showToast(
-                                'Database Error',
+                                'Not saved',
                                 'Failed to delete item records.',
                                 undefined,
                                 'error',
@@ -495,14 +495,14 @@ export default function InventoryView() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[9px] font-mono font-bold text-app-text-muted">
+                    <span className="text-[11px] font-mono font-bold text-app-text-muted">
                       {p.sku}
                     </span>
-                    <span className="text-[8.5px] px-1.5 py-0.5 bg-app-bg rounded-md font-bold text-app-text border border-app-border truncate max-w-[120px]">
+                    <span className="text-[11px] px-1.5 py-0.5 bg-app-bg rounded-md font-bold text-app-text border border-app-border truncate max-w-[120px]">
                       {titleCase(p.category)}
                     </span>
                     <span
-                      className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${
+                      className={`text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${
                         (p as any).sync_status === 'synced'
                           ? 'bg-emerald-500/15 text-emerald-500'
                           : 'bg-amber-500/15 text-amber-500 '
@@ -540,7 +540,7 @@ export default function InventoryView() {
                 <div className="flex flex-col items-end shrink-0 gap-1.5">
                   <div className="text-right">
                     <span
-                      className={`text-sm font-black ${
+                      className={`text-sm font-semibold ${
                         isLow ? 'text-amber-500' : 'text-app-text'
                       }`}
                     >
@@ -575,7 +575,7 @@ export default function InventoryView() {
                     {canAdjustStock && (
                       <button
                         onClick={() => startAdjust(p)}
-                        className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/25 rounded-lg text-[10px] font-black transition flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/25 rounded-lg text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
                       >
                         <span>Adjust</span>
                       </button>
@@ -627,23 +627,23 @@ export default function InventoryView() {
               className="absolute bottom-0 left-0 right-0 max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-hidden"
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
-              <h3 className="text-base font-extrabold font-display text-app-text uppercase tracking-wide">
+              <h3 className="text-base font-semibold font-display text-app-text">
                 Manual Stock Adjustment
               </h3>
-              <p className="text-[10px] text-app-text-muted font-bold uppercase mt-0.5 tracking-wider">
+              <p className="text-[10px] text-app-text-muted font-bold mt-0.5">
                 ITEM: {selectedProduct.name} ({selectedProduct.sku})
               </p>
               <div className="h-[1px] bg-app-border my-3 shrink-0" />
 
               <div className="flex-1 overflow-y-auto flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[9.5px] font-black text-app-text-muted uppercase">
+                  <label className="text-[11px] font-semibold text-app-text-muted">
                     Adjustment Type
                   </label>
                   <div className="grid grid-cols-2 gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
                     <button
                       onClick={() => setAdjustmentType('Restock')}
-                      className={`py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
                         adjustmentType === 'Restock'
                           ? 'bg-amber-500 text-slate-950 shadow'
                           : 'text-app-text-muted'
@@ -654,7 +654,7 @@ export default function InventoryView() {
                     </button>
                     <button
                       onClick={() => setAdjustmentType('Damage')}
-                      className={`py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
                         adjustmentType === 'Damage'
                           ? 'bg-red-500 text-white shadow'
                           : 'text-app-text-muted'
@@ -666,7 +666,7 @@ export default function InventoryView() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[9.5px] font-black text-app-text-muted uppercase">
+                  <label className="text-[11px] font-semibold text-app-text-muted">
                     Quantity to Adjust
                   </label>
                   <div className="flex items-center justify-between bg-app-bg rounded-2xl p-2 border border-app-border">
@@ -694,7 +694,7 @@ export default function InventoryView() {
                       onBlur={() => {
                         if (adjustQty <= 0) setAdjustQty(0.5);
                       }}
-                      className="font-black text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none" inputClassName="text-center"
+                      className="font-bold text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none" inputClassName="text-center"
                     />
                     <button
                       type="button"
@@ -739,7 +739,7 @@ export default function InventoryView() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[9.5px] font-black text-app-text-muted uppercase">
+                  <label className="text-[11px] font-semibold text-app-text-muted">
                     Audit Note / Reason
                   </label>
                   <input
@@ -761,7 +761,7 @@ export default function InventoryView() {
                 <button
                   onClick={handleAdjustStock}
                   disabled={isAdjustingStock}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer"
                 >
                   {isAdjustingStock ? (
                     <>
@@ -801,10 +801,10 @@ export default function InventoryView() {
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <div>
-                  <h3 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold font-display text-app-text">
                     Add New Product
                   </h3>
-                  <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                  <p className="text-[10px] text-app-text-muted font-bold">
                     Catalog Entry Management (KSh KES)
                   </p>
                 </div>
@@ -823,7 +823,7 @@ export default function InventoryView() {
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Product Name *
                     </label>
                     <input
@@ -838,7 +838,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       SKU Code *
                     </label>
                     <input
@@ -855,7 +855,7 @@ export default function InventoryView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Category
                     </label>
                     <SearchableDropdown
@@ -868,7 +868,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Unit size *
                     </label>
                     <input
@@ -883,7 +883,7 @@ export default function InventoryView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Price (KSh) *
                     </label>
                     <NumberInput
@@ -894,7 +894,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Cost (KSh) *
                     </label>
                     <NumberInput
@@ -907,7 +907,7 @@ export default function InventoryView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Initial Stock Level *
                     </label>
                     <NumberInput
@@ -918,7 +918,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Min Safety Alert *
                     </label>
                     <NumberInput
@@ -942,7 +942,7 @@ export default function InventoryView() {
 
                     {/* Interactive Label */}
                     <label
-                      className="text-[10px] font-bold text-app-text-muted uppercase cursor-pointer select-none"
+                      className="text-[10px] font-bold text-app-text-muted cursor-pointer select-none"
                       onClick={() =>
                         setValues({ ...values, perishable: !values.perishable })
                       }
@@ -952,7 +952,7 @@ export default function InventoryView() {
                   </div>
                   {values.perishable && (
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                      <label className="text-[10px] font-bold text-app-text-muted">
                         Shelf Life (Days) *
                       </label>
                       <NumberInput
@@ -966,7 +966,7 @@ export default function InventoryView() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Description / Notes
                   </label>
                   <textarea
@@ -979,7 +979,7 @@ export default function InventoryView() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Product Image
                   </label>
                   <div className="flex items-center gap-3 bg-app-bg border border-app-border rounded-xl p-2">
@@ -1010,7 +1010,7 @@ export default function InventoryView() {
                   type="button"
                   disabled={isSubmitting}
                   onClick={handleSubmit}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1 shadow cursor-pointer"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl text-xs flex items-center justify-center gap-1 shadow cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -1053,7 +1053,7 @@ export default function InventoryView() {
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <div>
-                  <h3 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold font-display text-app-text">
                     Manage Categories
                   </h3>
                 </div>
@@ -1078,7 +1078,7 @@ export default function InventoryView() {
                     if (!newCategoryName.trim()) return;
                     if (await addCategory(newCategoryName.trim())) setNewCategoryName('');
                   }}
-                  className="px-4 py-2 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 transition"
+                  className="px-4 py-2 bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs hover:bg-amber-600 transition"
                 >
                   Create
                 </button>
@@ -1112,7 +1112,7 @@ export default function InventoryView() {
                           aria-label={`New name for ${cat}`}
                           className="flex-1 min-w-0 bg-app-card border border-amber-500 rounded-lg px-2 py-1 text-xs text-app-text focus:outline-none"
                         />
-                        <button type="submit" className="px-2.5 py-1 bg-amber-500 text-slate-950 rounded-lg text-[11px] font-black cursor-pointer">Save</button>
+                        <button type="submit" className="px-2.5 py-1 bg-amber-500 text-slate-950 rounded-lg text-[11px] font-semibold cursor-pointer">Save</button>
                         <button type="button" onClick={() => setRenamingCategory(null)} aria-label="Cancel" className="p-1 text-slate-400 cursor-pointer"><X size={12} /></button>
                       </form>
                     ) : (
@@ -1159,7 +1159,7 @@ export default function InventoryView() {
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <div>
-                  <h3 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold font-display text-app-text">
                     Edit Product Details
                   </h3>
                 </div>
@@ -1178,7 +1178,7 @@ export default function InventoryView() {
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Product Name *
                     </label>
                     <input
@@ -1191,7 +1191,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       SKU Code *
                     </label>
                     <input
@@ -1206,7 +1206,7 @@ export default function InventoryView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Category
                     </label>
                     <SearchableDropdown
@@ -1219,7 +1219,7 @@ export default function InventoryView() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Unit *
                     </label>
                     <input
@@ -1234,7 +1234,7 @@ export default function InventoryView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Price (KSh) *
                     </label>
                     <NumberInput
@@ -1245,11 +1245,11 @@ export default function InventoryView() {
                           price: (v ?? 0),
                         })
                       }
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      size="sm"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Cost (KSh) *
                     </label>
                     <NumberInput
@@ -1260,14 +1260,14 @@ export default function InventoryView() {
                           cost: (v ?? 0),
                         })
                       }
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      size="sm"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <span className="text-[10px] font-bold text-app-text-muted">
                       Current stock
                     </span>
                     <div className="flex items-center gap-1.5 bg-app-bg border border-app-border rounded-xl pl-3 pr-1 py-1 text-xs text-app-text min-w-0">
@@ -1293,7 +1293,7 @@ export default function InventoryView() {
                     <span className="text-[10px] text-app-text-muted">Changed only through Adjust stock, so every change is logged.</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Min Safety Alert *
                     </label>
                     <NumberInput
@@ -1306,7 +1306,7 @@ export default function InventoryView() {
                           minStock: (v ?? 0),
                         })
                       }
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      size="sm"
                     />
                   </div>
                 </div>
@@ -1326,7 +1326,7 @@ export default function InventoryView() {
 
                     {/* Interactive Label */}
                     <label
-                      className="text-[10px] font-bold text-app-text-muted uppercase cursor-pointer select-none"
+                      className="text-[10px] font-bold text-app-text-muted cursor-pointer select-none"
                       onClick={() =>
                         setEditValues({
                           ...editValues,
@@ -1340,7 +1340,7 @@ export default function InventoryView() {
 
                   {editValues.perishable && (
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                      <label className="text-[10px] font-bold text-app-text-muted">
                         Shelf Life (Days) *
                       </label>
                       <NumberInput
@@ -1356,14 +1356,14 @@ export default function InventoryView() {
                             expiryDays: (v ?? 0),
                           })
                         }
-                        className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"
+                        size="sm"
                       />
                     </div>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Description / Notes
                   </label>
                   <textarea
@@ -1380,7 +1380,7 @@ export default function InventoryView() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Product Image
                   </label>
                   <div className="flex items-center gap-3 bg-app-bg border border-app-border rounded-xl p-2">
@@ -1411,7 +1411,7 @@ export default function InventoryView() {
                   type="button"
                   disabled={isSavingEdit}
                   onClick={handleSaveProductEdit}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1 shadow cursor-pointer"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl text-xs flex items-center justify-center gap-1 shadow cursor-pointer"
                 >
                   {isSavingEdit ? (
                     <>

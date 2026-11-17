@@ -14,12 +14,12 @@ interface PasswordInputProps {
 
 const VARIANTS = {
   auth: {
-    label: 'text-[10px] text-slate-400 font-bold uppercase tracking-wider block',
+    label: 'text-[10px] text-slate-400 font-bold block',
     input: 'bg-slate-950 text-slate-100 pl-8 border-slate-800',
     icon: 'text-slate-500 hover:text-slate-300',
   },
   app: {
-    label: 'text-[10px] text-app-text-muted font-bold uppercase tracking-wider block',
+    label: 'text-[10px] text-app-text-muted font-bold block',
     input: 'bg-app-bg text-app-text pl-3 border-app-border',
     icon: 'text-app-text-muted hover:text-app-text',
   },

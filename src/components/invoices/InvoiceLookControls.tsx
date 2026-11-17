@@ -41,7 +41,7 @@ export function InvoiceLookControls({ texts, set, receipt, hasLogo }: Props) {
           />
           <button type="button" className={iconBtn} onClick={() => setSize(size + 2)} disabled={size >= LOGO_SIZE.max} aria-label="Bigger logo"><Plus size={14} /></button>
         </div>
-        {!hasLogo && <span className="block mt-1 text-[11px] text-app-text-muted">No logo yet: add one in Business settings. Until then the initials are shown.</span>}
+        {!hasLogo && <span className="block mt-1 text-[11px] text-app-text-muted">No logo yet. Add one in Business settings.</span>}
       </div>
 
       <Switch

@@ -4,9 +4,27 @@
 
 import React, { useState } from 'react';
 import {
-  CheckCircle2, AlertTriangle, Ban, Play, Loader2, ShoppingBag, UserPlus, UserCog, Wallet,
-  HandCoins, PackagePlus, Package, ArrowRightLeft, Receipt, CalendarClock, Clock, Sparkles,
-  Plus, Trash2, ChevronDown, ChevronUp,
+  CheckCircle2,
+  AlertTriangle,
+  Ban,
+  Play,
+  Loader2,
+  ShoppingBag,
+  UserPlus,
+  UserCog,
+  Wallet,
+  HandCoins,
+  PackagePlus,
+  Package,
+  ArrowRightLeft,
+  Receipt,
+  CalendarClock,
+  Clock,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  CircleCheck,
 } from 'lucide-react';
 import { usePendingActionStore } from '../../stores/pendingActionStore';
 import { useInventoryStore } from '../../stores/inventoryStore';
@@ -128,7 +146,7 @@ export default function ActionCard({ action }: { action: PendingAction }) {
   const isDone = action.status === 'executed';
   const params = action.params || {};
   const fields = FIELDS[action.type] ?? fallbackFields(params);
-  const Icon = ICONS[action.type] ?? Sparkles;
+  const Icon = ICONS[action.type] ?? CircleCheck;
   const { validation } = action;
 
   const setParam = (field: Field, value: any) => {
@@ -331,12 +349,12 @@ export default function ActionCard({ action }: { action: PendingAction }) {
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-xs font-bold text-app-text">{action.title}</h4>
             {isDone && (
-              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 size={10} /> Done
               </span>
             )}
             {action.status === 'rejected' && (
-              <span className="text-[9px] font-black text-app-text-muted bg-app-bg px-2 py-0.5 rounded-full">Discarded</span>
+              <span className="text-[11px] font-semibold text-app-text-muted bg-app-bg px-2 py-0.5 rounded-full">Discarded</span>
             )}
           </div>
           {action.summary && <p className="text-[11px] text-app-text-muted mt-0.5 break-words">{action.summary}</p>}

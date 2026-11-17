@@ -384,7 +384,7 @@ export default function FinanceView({ embedded, period, reloadKey = 0 }: {
                 <ShareBar parts={paidParts} />
                 {r.moneyIn.otherPayments > 0 && (
                   <p className="mt-3 text-[11px] text-app-text-muted">
-                    Also {formatKsh(r.moneyIn.otherPayments)} in recorded payments not linked to a customer (for example till payments). These may be for sales already counted above.
+                    Also {formatKsh(r.moneyIn.otherPayments)} in payments not linked to a customer.
                   </p>
                 )}
               </Card>
@@ -571,7 +571,7 @@ export default function FinanceView({ embedded, period, reloadKey = 0 }: {
                   Show more ({feedRows.length - feedShown})
                 </button>
               )}
-              {r.activity.length >= 400 && <p className="mt-2 text-[11px] text-app-text-muted">Showing the latest 400 events. Pick a shorter period to see older ones.</p>}
+              {r.activity.length >= 400 && <p className="mt-2 text-[11px] text-app-text-muted">Showing the latest 400.</p>}
             </Card>
           </>
         )}

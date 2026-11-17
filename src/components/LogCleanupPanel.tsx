@@ -94,7 +94,7 @@ export default function LogCleanupPanel() {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-app-text">Old records</h3>
           <p className="text-xs text-app-text-muted">
-            Logs that keep growing. Deleting them frees space and never changes stock, points balances or money.
+            Deleting logs frees space. Stock and money stay.
           </p>
         </div>
         <button onClick={() => void load()} title="Refresh" aria-label="Refresh" className="p-2 rounded-xl text-app-text-muted hover:bg-app-bg cursor-pointer shrink-0">

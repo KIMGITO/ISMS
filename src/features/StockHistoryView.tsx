@@ -183,7 +183,7 @@ export default function StockHistoryView() {
     const many = ids.length === 1 ? 'this stock log' : `${ids.length} stock logs`;
     const ok = await appDialog.confirm({
       title: `Delete ${many}?`,
-      message: `They are removed for everyone and can't be brought back. Stock levels stay as they are.${tooNew ? ` ${tooNew} from the last 3 days ${tooNew === 1 ? 'stays' : 'stay'}.` : ''}`,
+      message: `Deleted for good. Stock stays.${tooNew ? ` ${tooNew} from the last 3 days ${tooNew === 1 ? 'stays' : 'stay'}.` : ''}`,
       confirmLabel: 'Delete',
       destructive: true,
     });

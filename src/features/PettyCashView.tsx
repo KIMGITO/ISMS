@@ -386,7 +386,7 @@ export default function PettyCashView() {
                     <Plus size={16} />
                   </button>
                 </div>
-                <p className="text-[11px] text-app-text-muted">Renaming also renames past entries. Removing keeps past entries as they are.</p>
+                <p className="text-[11px] text-app-text-muted">Renaming changes past entries too.</p>
               </div>
             )}
           </div>
@@ -515,7 +515,7 @@ export default function PettyCashView() {
         <div className="fixed inset-0 z-[9000] grid place-items-center p-4 bg-black/40" onClick={() => setRemoving(null)}>
           <div className="w-full max-w-sm bg-app-card rounded-2xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-app-text">Remove {ksh(removing.amount)} for {removing.category.toLowerCase()}?</h3>
-            <p className="text-xs text-app-text-muted">The money counts as back in the till. The entry stays in the book, crossed out, with your reason.</p>
+            <p className="text-xs text-app-text-muted">The money goes back in the till.</p>
             <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why? e.g. typed the wrong amount" className={input} />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setRemoving(null)} className="px-4 py-2 rounded-xl text-sm text-app-text bg-app-bg cursor-pointer">Keep</button>

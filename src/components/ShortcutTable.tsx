@@ -106,7 +106,7 @@ export function ShortcutTable({ scopes, autoFocus, listClassName = '' }: TablePr
         {rows.length === 0 && <p className="py-6 text-center text-sm text-app-text-muted">No shortcuts match.</p>}
       </div>
       <p className="text-xs text-app-text-muted">
-        Shortcuts don't work while you're typing in a box, apart from F-keys, Ctrl+K and Esc. You only see the ones your role can use.
+        Shortcuts don't work while typing, except F-keys, Ctrl+K and Esc.
       </p>
     </div>
   );

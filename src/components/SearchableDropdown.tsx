@@ -233,7 +233,7 @@ export default function SearchableDropdown({
                       <div className="truncate pr-4">
                         <span className="block font-bold truncate">{item.label}</span>
                         {item.sublabel && (
-                          <span className="block text-[9.5px] text-app-text-muted font-normal mt-0.5 truncate">
+                          <span className="block text-[11px] text-app-text-muted font-normal mt-0.5 truncate">
                             {item.sublabel}
                           </span>
                         )}

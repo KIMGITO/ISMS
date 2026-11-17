@@ -58,8 +58,7 @@ export default function WhatsAppSettingsPanel({ businessId }: { businessId: stri
         <h3 className="text-xs font-bold text-app-text">WhatsApp API (optional)</h3>
       </div>
       <p className="text-xs text-app-text-muted">
-        When this is off, staff open each WhatsApp chat by hand. WhatsApp requires an approved template to
-        message customers who haven't written in the last 24 hours.
+        Off: staff open each chat by hand.
       </p>
       <Switch checked={enabled} onChange={setEnabled} label="Send messages automatically through WhatsApp" />
       <label className="flex flex-col gap-1 text-xs font-medium text-app-text">

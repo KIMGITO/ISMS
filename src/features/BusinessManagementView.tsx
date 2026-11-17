@@ -373,12 +373,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
     e.preventDefault();
 
     if (!activeBusinessId) {
-      showToast("Operation Failed", "No active business workspace detected.", undefined, "error");
+      showToast("No branch chosen", "Pick a branch first.", undefined, "error");
       return;
     }
 
     if (!validateForm()) {
-      showToast("Validation Error", "Please correct the highlighted errors.", undefined, "error");
+      showToast("Check the form", "Fix the boxes marked in red.", undefined, "error");
       return;
     }
 
@@ -405,7 +405,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
         taxPercentage
       );
 
-      showToast("Workspace Synced", "Business configuration has been updated.", undefined, "success");
+      showToast("Saved", "Your business details are updated.", undefined, "success");
     } catch (err: any) {
       console.error("Failed to update business configuration:", err);
       showToast("Update Failed", toUserMessage(err, "Could not save business details."), undefined, "error");
@@ -417,7 +417,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const handlePresetSelect = (primary: string, secondary: string) => {
     setPrimaryColor(primary);
     setSecondaryColor(secondary);
-    showToast("Branding Preset", `Applied theme colors.`, undefined, "info");
+    showToast("Colours applied", `Tap Save to keep them.`, undefined, "info");
   };
 
   const isOwner = currentEmployee?.role === 'Owner';
@@ -449,7 +449,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
     e.preventDefault();
 
     if (!newBizName.trim()) {
-      showToast("Validation Error", "Branch/Business Name is required.", undefined, "error");
+      showToast("Name needed", "Type the branch or business name.", undefined, "error");
       return;
     }
 
@@ -489,14 +489,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
       {/* Title Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-app-border/40 pb-3">
         <div>
-          <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold font-display text-app-text flex items-center gap-1.5">
             {isMoney ? (
               <><Wallet size={16} className="text-amber-500" /> Payments &amp; Expenses</>
             ) : (
-              <><Building size={16} className="text-amber-500" /> Admin Business Management</>
+              <><Building size={16} className="text-amber-500" /> Business & branches</>
             )}
           </h2>
-          <p className="text-[9.5px] text-app-text-muted mt-0.5 font-medium leading-normal">
+          <p className="text-[11px] text-app-text-muted mt-0.5 font-medium leading-normal">
             {isMoney
               ? "Record money coming in and going out, and handle M-Pesa payments."
               : "Configure metadata, contact points, brand representations, and global workspace defaults for your business branches."}
@@ -543,7 +543,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
               style={{ minHeight: '110px' }}
             >
               {/* Cover Image / Badge Header */}
-              <div className="h-[52px] w-full bg-gradient-to-r from-amber-500/80 to-amber-600/60 relative overflow-hidden">
+              <div className="h-[52px] w-full bg-amber-500/70 relative overflow-hidden">
                 {biz.coverImageUrl && (
                   <img
                     src={biz.coverImageUrl}
@@ -552,7 +552,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     referrerPolicy="no-referrer"
                   />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
+                <div className="absolute inset-0 bg-slate-950/25" />
                 {/* Logo overlapping cover */}
                 <img
                   src={
@@ -570,14 +570,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {/* Badge Info */}
               <div className="pt-5 pb-2 px-3 bg-app-card">
-                <h4 className="text-[10px] font-black text-app-text uppercase tracking-wider truncate">
+                <h4 className="text-[10px] font-semibold text-app-text truncate">
                   {titleCase(biz.name)}
                 </h4>
-                <p className="text-[8.5px] text-app-text-muted font-bold uppercase tracking-wider truncate mt-0.5">
+                <p className="text-[11px] text-app-text-muted font-bold truncate mt-0.5">
                   {biz.businessType || 'Retail'}
                 </p>
                 {biz.address && (
-                  <span className="text-[8px] font-mono text-app-text-muted uppercase truncate flex items-center gap-0.5 mt-1">
+                  <span className="text-[11px] text-app-text-muted truncate flex items-center gap-0.5 mt-1">
                     <MapPin size={7} /> {biz.address}
                   </span>
                 )}
@@ -598,21 +598,21 @@ export default function BusinessManagementView({ section = "business" }: { secti
             }`}
           >
             <Plus size={18} />
-            <span className="text-[8.5px] font-black uppercase tracking-wider">Add Branch</span>
+            <span className="text-[11px] font-semibold">Add Branch</span>
           </button>
         )}
       </div>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left Column: Businesses & Branches Directory */}
+        {/* Left Column: Businesses & Branches */}
         <div className={`xl:hidden flex flex-col gap-4 ${isMoney ? "hidden" : ""}`}>
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
-              <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                Branches Directory
+              <span className="text-[10px] text-app-text-muted font-bold">
+                Branches
               </span>
-              <span className="text-[8.5px] font-mono text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-mono text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
                 {businesses.length}/5
               </span>
             </div>
@@ -648,7 +648,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         <h4 className="text-[11px] font-bold text-app-text truncate">
                           {titleCase(biz.name)}
                         </h4>
-                        <p className="text-[8.5px] text-app-text-muted truncate">
+                        <p className="text-[11px] text-app-text-muted truncate">
                           {biz.businessType || 'Retail'}
                         </p>
                       </div>
@@ -657,7 +657,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                       )}
                     </div>
                     {biz.address && (
-                      <span className="text-[7.5px] font-mono text-app-text-muted uppercase truncate flex items-center gap-0.5">
+                      <span className="text-[11px] text-app-text-muted truncate flex items-center gap-0.5">
                         <MapPin size={8} /> {biz.address}
                       </span>
                     )}
@@ -674,7 +674,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 <button
                   type="button"
                   onClick={() => setIsCreating(true)}
-                  className={`w-full py-2 border-2 border-dashed rounded-xl text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`w-full py-2 border-2 border-dashed rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     isCreating
                       ? 'border-amber-500 text-amber-500 bg-amber-500/5'
                       : 'border-app-border text-app-text-muted hover:border-amber-500/50 hover:text-amber-500'
@@ -697,8 +697,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
               <div className="flex items-center justify-between border-b border-app-border/40 pb-2">
                 <div className="flex items-center gap-2">
                   <Building size={14} className="text-amber-500" />
-                  <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                    Establish New Business Branch
+                  <h3 className="text-xs font-bold text-app-text">
+                    New branch
                   </h3>
                 </div>
                 <button
@@ -713,7 +713,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                  <label className="text-[10px] text-app-text-muted font-bold">
                     Branch / Business Name *
                   </label>
                   <input
@@ -726,10 +726,10 @@ export default function BusinessManagementView({ section = "business" }: { secti
                   />
                 </div>
 
-                 {/* Operation Type */}
+                 {/* Type of business */}
                  <div className="flex flex-col gap-1">
-                   <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                     Operation Type
+                   <label className="text-[10px] text-app-text-muted font-bold">
+                     Type of business
                    </label>
                    <SearchableDropdown
                      items={
@@ -751,10 +751,10 @@ export default function BusinessManagementView({ section = "business" }: { secti
                    )}
                  </div>
 
-                {/* Country Context */}
+                {/* Country */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                    Country Context
+                  <label className="text-[10px] text-app-text-muted font-bold">
+                    Country
                   </label>
                   <SearchableDropdown
                     items={[
@@ -773,8 +773,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                 {/* Currency */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                    Operational Currency
+                  <label className="text-[10px] text-app-text-muted font-bold">
+                    Currency
                   </label>
                   <input
                     type="text"
@@ -789,8 +789,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {/* Description */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                  Operational Description / Notes
+                <label className="text-[10px] text-app-text-muted font-bold">
+                  Description (optional)
                 </label>
                 <textarea
                   rows={2}
@@ -803,8 +803,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {/* Address */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                  Physical Address / Location
+                <label className="text-[10px] text-app-text-muted font-bold">
+                  Address
                 </label>
                 <div className="relative">
                   <input
@@ -823,7 +823,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {/* Logo URL */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                <label className="text-[10px] text-app-text-muted font-bold">
                   Custom Logo URL (Optional)
                 </label>
                 <input
@@ -847,7 +847,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 <button
                   type="submit"
                   disabled={creatingLoading}
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md text-xs"
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-md text-xs"
                 >
                   {creatingLoading ? (
                     <>
@@ -855,7 +855,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                       <span>Creating...</span>
                     </>
                   ) : (
-                    'Establish Branch'
+                    'Add branch'
                   )}
                 </button>
               </div>
@@ -885,20 +885,20 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Building size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Core Workspace Profile
+                        <h3 className="text-xs font-bold text-app-text">
+                          Business details
                         </h3>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Business Name */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             Business / Branch Name *
                           </label>
                           <input
                             type="text"
-                            placeholder="e.g. Westlands Dairy Depot"
+                            placeholder="e.g. Westlands branch"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${
@@ -908,7 +908,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             }`}
                           />
                           {errors.name && (
-                            <span className="text-[9px] text-red-500 font-medium">
+                            <span className="text-[11px] text-red-500 font-medium">
                               {errors.name}
                             </span>
                           )}
@@ -916,8 +916,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                          {/* Business Type */}
                          <div className="flex flex-col gap-1">
-                           <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                             Operation Type
+                           <label className="text-[10px] text-app-text-muted font-bold">
+                             Type of business
                            </label>
                            <SearchableDropdown
                              items={
@@ -946,8 +946,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Description */}
                         <div className="flex flex-col gap-1 md:col-span-2">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                            Operational Description
+                          <label className="text-[10px] text-app-text-muted font-bold">
+                            Description
                           </label>
                           <textarea
                             rows={3}
@@ -964,16 +964,16 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Phone size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Contact & Communications
+                        <h3 className="text-xs font-bold text-app-text">
+                          Contact details
                         </h3>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Address */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                            Physical Address
+                          <label className="text-[10px] text-app-text-muted font-bold">
+                            Address
                           </label>
                           <input
                             type="text"
@@ -986,7 +986,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Email */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             Contact Email
                           </label>
                           <input
@@ -1001,7 +1001,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             }`}
                           />
                           {errors.contactEmail && (
-                            <span className="text-[9px] text-red-500 font-medium">
+                            <span className="text-[11px] text-red-500 font-medium">
                               {errors.contactEmail}
                             </span>
                           )}
@@ -1009,8 +1009,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Phone */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
-                            Contact Hotline
+                          <label className="text-[10px] text-app-text-muted font-bold">
+                            Phone
                           </label>
                           <input
                             type="tel"
@@ -1024,7 +1024,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             }`}
                           />
                           {errors.contactPhone && (
-                            <span className="text-[9px] text-red-500 font-medium">
+                            <span className="text-[11px] text-red-500 font-medium">
                               {errors.contactPhone}
                             </span>
                           )}
@@ -1036,7 +1036,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <Briefcase size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
+                        <h3 className="text-xs font-bold text-app-text">
                           VAT
                         </h3>
                       </div>
@@ -1044,7 +1044,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                       <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <span className="font-extrabold text-app-text text-xs block">
+                            <span className="font-semibold text-app-text text-xs block">
                               Charge VAT
                             </span>
                             <span className="text-[11px] text-app-text-muted block mt-0.5 leading-tight">
@@ -1052,7 +1052,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                 ? 'Added to every sale and quote.'
                                 : kraStatus === undefined
                                   ? 'Checking KRA eTIMS…'
-                                  : 'Off. Connect KRA eTIMS first (Settings → Receipts → KRA eTIMS).'}
+                                  : 'Needs KRA eTIMS.'}
                             </span>
                           </div>
                           <Switch
@@ -1066,7 +1066,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {isTaxEnabled && kraConnected && (
                           <div className="flex flex-col gap-1 bg-app-bg/50 p-3.5 border border-app-border rounded-2xl">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               Rate %
                             </label>
                             <NumberInput
@@ -1094,15 +1094,15 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     <div className="bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-app-border/40 pb-2">
                         <ImageIcon size={14} className="text-amber-500" />
-                        <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">
-                          Brand Graphics
+                        <h3 className="text-xs font-bold text-app-text">
+                          Logo and cover
                         </h3>
                       </div>
 
                       {/* Logo Section */}
                       <div className="flex flex-col gap-3">
-                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">
-                          Workspace Logo
+                        <span className="text-[10px] text-app-text-muted font-bold text-center block">
+                          Logo
                         </span>
                         <UnifiedUploader
                           onUploadSuccess={(url) => setLogoUrl(url)}
@@ -1122,7 +1122,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               />
                               <div className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition">
                                 <Edit size={12} className="text-amber-500 " />
-                                <span className="text-[7px] font-black uppercase text-amber-500">
+                                <span className="text-[11px] font-semibold text-amber-500">
                                   Edit
                                 </span>
                               </div>
@@ -1134,13 +1134,13 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           placeholder="Or paste custom Logo URL..."
                           value={logoUrl}
                           onChange={(e) => setLogoUrl(e.target.value)}
-                          className="w-full hidden bg-app-bg text-app-text border border-app-border rounded-xl px-2.5 py-1.5 text-[9.5px] font-mono text-center focus:outline-none focus:border-amber-500"
+                          className="w-full hidden bg-app-bg text-app-text border border-app-border rounded-xl px-2.5 py-1.5 text-[11px] font-mono text-center focus:outline-none focus:border-amber-500"
                         />
                       </div>
 
                       {/* Cover Image Section */}
                       <div className="flex flex-col gap-3 border-t border-app-border/20 pt-4">
-                        <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider text-center block">
+                        <span className="text-[10px] text-app-text-muted font-bold text-center block">
                           Cover Banner{' '}
                         </span>
                         <UnifiedUploader
@@ -1161,7 +1161,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               />
                               <div className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition gap-1">
                                 <Edit size={16} className="text-amber-500" />
-                                <span className="text-[8px] font-black uppercase text-amber-500">
+                                <span className="text-[11px] font-semibold text-amber-500">
                                   Edit Cover Banner
                                 </span>
                               </div>
@@ -1173,7 +1173,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           placeholder="Or paste custom Cover Image URL..."
                           value={coverImageUrl}
                           onChange={(e) => setCoverImageUrl(e.target.value)}
-                          className="w-full hidden bg-app-bg text-app-text border border-app-border rounded-xl px-2.5 py-1.5 text-[9.5px] font-mono text-center focus:outline-none focus:border-amber-500"
+                          className="w-full hidden bg-app-bg text-app-text border border-app-border rounded-xl px-2.5 py-1.5 text-[11px] font-mono text-center focus:outline-none focus:border-amber-500"
                         />
                       </div>
                     </div>
@@ -1186,15 +1186,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           className="text-amber-500 shrink-0 mt-0.5"
                         />
                         <span>
-                          Saving configuration changes will sync live settings
-                          parameters.
+                          Changes show on every device once you save.
                         </span>
                       </div>
 
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md text-xs"
                       >
                         <Save size={14} />
                         <span>
@@ -1241,14 +1240,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           <div key={m} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                             <div className="flex items-center gap-2">
                               {METHOD_ICONS[m]}
-                              <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
+                              <span className="text-[11px] font-semibold text-app-text-muted">
                                 {m}
                               </span>
                             </div>
-                            <span className="text-sm font-black font-mono text-app-text">
+                            <span className="text-sm font-semibold font-mono text-app-text">
                               KSh 0
                             </span>
-                            <span className="text-[8px] text-app-text-muted font-semibold uppercase">
+                            <span className="text-[11px] text-app-text-muted font-semibold">
                               No payments yet
                             </span>
                           </div>
@@ -1259,15 +1258,15 @@ export default function BusinessManagementView({ section = "business" }: { secti
                       <div key={asset.id || asset.method} className="bg-app-card border border-app-border rounded-2xl p-3.5 flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
                           {METHOD_ICONS[asset.method as MoneyMethod] ?? <Wallet size={14} className="text-slate-500" />}
-                          <span className="text-[9.5px] font-black uppercase tracking-wider text-app-text-muted">
+                          <span className="text-[11px] font-semibold text-app-text-muted">
                             {asset.method}
                           </span>
                         </div>
-                        <span className="text-sm font-black font-mono text-emerald-500">
+                        <span className="text-sm font-semibold font-mono text-emerald-500">
                           KSh {Number(asset.balance || 0).toLocaleString()}
                         </span>
                         {asset.lastPaymentAt && (
-                          <span className="text-[8px] text-app-text-muted font-semibold">
+                          <span className="text-[11px] text-app-text-muted font-semibold">
                             Last: {new Date(asset.lastPaymentAt).toLocaleDateString()}
                           </span>
                         )}
@@ -1287,11 +1286,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <CircleDollarSign size={16} className="text-amber-500" />
                           </div>
                           <div>
-                            <h3 className="text-xs font-black text-app-text uppercase tracking-wider">
+                            <h3 className="text-xs font-semibold text-app-text">
                               Receive Payment
                             </h3>
-                            <p className="text-[9px] text-app-text-muted font-medium">
-                              Records money asset + customer credit
+                            <p className="text-[11px] text-app-text-muted font-medium">
+                              Money in from a customer or walk-in
                             </p>
                           </div>
                         </div>
@@ -1304,7 +1303,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               setPayType('customer');
                               setPaySenderName("");
                             }}
-                            className={`py-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                            className={`py-2 rounded-lg text-[11px] font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                               payType === 'customer'
                                 ? 'bg-amber-500 text-slate-950 shadow-sm'
                                 : 'text-app-text-muted hover:text-app-text'
@@ -1319,7 +1318,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               setPayType('walk-in');
                               setPayCustomerId("");
                             }}
-                            className={`py-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                            className={`py-2 rounded-lg text-[11px] font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                               payType === 'walk-in'
                                 ? 'bg-amber-500 text-slate-950 shadow-sm'
                                 : 'text-app-text-muted hover:text-app-text'
@@ -1333,7 +1332,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         {/* Customer selector (only for customer type) */}
                         {payType === 'customer' && (
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               Customer Account *
                             </label>
                             <div className="relative">
@@ -1390,15 +1389,15 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                               <p className="text-[11px] font-bold text-app-text truncate">
                                                 {c.name}
                                               </p>
-                                              <div className="flex items-center gap-2 text-[8.5px] text-app-text-muted font-mono">
+                                              <div className="flex items-center gap-2 text-[11px] text-app-text-muted font-mono">
                                                 {c.phone && <span>{c.phone}</span>}
                                                 {Number(c.debtBalance || 0) > 0 && (
-                                                  <span className="text-red-500 font-black">
+                                                  <span className="text-red-500 font-semibold">
                                                     Debt: KSh {Number(c.debtBalance).toLocaleString()}
                                                   </span>
                                                 )}
                                                 {Number(c.walletBalance || 0) > 0 && (
-                                                  <span className="text-emerald-500 font-black">
+                                                  <span className="text-emerald-500 font-semibold">
                                                     Wallet: KSh {Number(c.walletBalance).toLocaleString()}
                                                   </span>
                                                 )}
@@ -1419,8 +1418,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             {payCustomerId && (
                               <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
                                 <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
-                                <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
-                                  Payment will reconcile against this customer's account
+                                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                                  The payment goes to this customer's account
                                 </span>
                               </div>
                             )}
@@ -1429,11 +1428,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Amount */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             Amount Received (KSh) *
                           </label>
                           <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-[11px] font-black text-app-text-muted">
+                            <span className="absolute left-3 top-2.5 text-[11px] font-semibold text-app-text-muted">
                               KSh
                             </span>
                             <NumberInput
@@ -1450,7 +1449,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         {/* Payment Method - Modern Cards */}
                         <div className="flex flex-col gap-1.5">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               Payment Method *
                             </label>
                            
@@ -1471,7 +1470,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                   }`}
                                 >
                                   {METHOD_ICONS[m]}
-                                  <span className={`text-[10px] font-black ${payMethod === m ? 'text-amber-500' : 'text-app-text'}`}>
+                                  <span className={`text-[10px] font-semibold ${payMethod === m ? 'text-amber-500' : 'text-app-text'}`}>
                                     {methodLabel(m)}
                                   </span>
                                 </button>
@@ -1488,7 +1487,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           {payMethod === 'Card' && (
                             <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 space-y-2">
                               <p className="text-[10px] text-app-text-muted">
-                                Used a card machine? Type its approval code below and record. Or charge the card now, online or on the card reader.
+                                Card machine: type the approval code. Or charge the card now.
                               </p>
                               {hasRolePermission(role, "payments.card") && (
                                 <button
@@ -1505,7 +1504,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Sender Name */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             {payType === 'customer' ? 'Payer Name' : 'Customer / Payer Name *'}
                           </label>
                           <div className="relative">
@@ -1523,7 +1522,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Sender Phone */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             Phone (Optional)
                           </label>
                           <input
@@ -1538,7 +1537,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         {/* Reference + Status + Date grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div className="flex flex-col gap-1.5 sm:col-span-2">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               {referenceHint(payMethod)?.label ?? 'Reference (optional)'}{payMethod !== 'Cash' ? ' *' : ''}
                             </label>
                             <input
@@ -1552,7 +1551,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </div>
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               Status
                             </label>
                             <SearchableDropdown
@@ -1568,7 +1567,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </div>
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                            <label className="text-[10px] text-app-text-muted font-bold">
                               Date
                             </label>
                             <input
@@ -1583,7 +1582,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
                         {/* Description */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
+                          <label className="text-[10px] text-app-text-muted font-bold">
                             Notes / Description
                           </label>
                           <textarea
@@ -1600,8 +1599,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           <div className="bg-app-bg/50 border border-app-border rounded-xl p-3 space-y-1.5">
                             <div className="flex items-center gap-1.5">
                               <ShieldCheck size={12} className="text-amber-500 shrink-0" />
-                              <span className="text-[9px] font-black uppercase tracking-wider text-app-text-muted">
-                                Reconciliation Preview
+                              <span className="text-[11px] font-semibold text-app-text-muted">
+                                Where the money goes
                               </span>
                             </div>
                             {(() => {
@@ -1613,21 +1612,21 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               const walletApplied = amt > debt ? amt - debt : 0;
                               return (
                                 <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-[9.5px]">
+                                  <div className="flex items-center justify-between text-[11px]">
                                     <span className="text-app-text-muted font-semibold">Outstanding Debt</span>
-                                    <span className={`font-black font-mono ${debt > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                    <span className={`font-semibold font-mono ${debt > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                                       KSh {debt.toLocaleString()}
                                     </span>
                                   </div>
                                   {amt > 0 && (
                                     <>
-                                      <div className="flex items-center justify-between text-[9.5px]">
+                                      <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-app-text-muted font-semibold">→ Applied to debt</span>
-                                        <span className="font-black font-mono text-red-500">-KSh {debtApplied.toLocaleString()}</span>
+                                        <span className="font-semibold font-mono text-red-500">-KSh {debtApplied.toLocaleString()}</span>
                                       </div>
-                                      <div className="flex items-center justify-between text-[9.5px]">
+                                      <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-app-text-muted font-semibold">→ Credited to wallet</span>
-                                        <span className="font-black font-mono text-emerald-500">+KSh {walletApplied.toLocaleString()}</span>
+                                        <span className="font-semibold font-mono text-emerald-500">+KSh {walletApplied.toLocaleString()}</span>
                                       </div>
                                     </>
                                   )}
@@ -1640,7 +1639,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         <button
                           type="submit"
                           disabled={paymentSubmitting}
-                          className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md text-xs"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md text-xs"
                         >
                           {paymentSubmitting ? (
                             <>
@@ -1665,10 +1664,10 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <TrendingUp size={14} className="text-emerald-500" />
                           </div>
                           <div>
-                            <h3 className="text-xs font-black text-app-text uppercase tracking-wider">
-                              Payment Ledger
+                            <h3 className="text-xs font-semibold text-app-text">
+                              Payments
                             </h3>
-                            <p className="text-[8.5px] text-app-text-muted font-medium">
+                            <p className="text-[11px] text-app-text-muted font-medium">
                               All received business payments
                             </p>
                           </div>
@@ -1680,7 +1679,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                 type="button"
                                 key={f}
                                 onClick={() => setPayFilter(f)}
-                                className={`px-2.5 py-1 rounded-md text-[8.5px] font-black uppercase tracking-wider transition cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
                                   payFilter === f
                                     ? 'bg-amber-500 text-slate-950'
                                     : 'text-app-text-muted hover:text-app-text'
@@ -1690,7 +1689,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                               </button>
                             ))}
                           </div>
-                          <span className="text-[9px] font-mono text-app-text-muted font-black bg-app-bg border border-app-border rounded-lg px-2 py-1 whitespace-nowrap">
+                          <span className="text-[11px] font-mono text-app-text-muted font-semibold bg-app-bg border border-app-border rounded-lg px-2 py-1 whitespace-nowrap">
                             {localPayments.length} Payments
                           </span>
                         </div>
@@ -1700,7 +1699,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                         {localPayments.length > 0 ? (
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="border-b border-app-border/40 text-[8.5px] text-app-text-muted font-bold uppercase tracking-wider">
+                              <tr className="border-b border-app-border/40 text-[11px] text-app-text-muted font-bold">
                                 <th className="py-2.5">Date</th>
                                 <th className="py-2.5">Payer</th>
                                 <th className="py-2.5">Type</th>
@@ -1718,7 +1717,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                   <tr data-search-id={`pay-${pay.id}`} className={`hover:bg-app-bg/30 transition ${pay.status === 'Voided' ? 'opacity-60' : ''}`}>
                                     <td className="py-2.5 font-mono text-[10px] whitespace-nowrap">
                                       <div>{new Date(pay.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                                      <div className="text-[8px] text-app-text-muted">
+                                      <div className="text-[11px] text-app-text-muted">
                                         {new Date(pay.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                                       </div>
                                     </td>
@@ -1726,20 +1725,20 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                       <div className="font-bold text-app-text">{pay.senderName}</div>
                                       <div className="flex items-center gap-1.5 mt-0.5">
                                         {pay.senderPhone && (
-                                          <span className="text-[8.5px] text-app-text-muted font-mono">{pay.senderPhone}</span>
+                                          <span className="text-[11px] text-app-text-muted font-mono">{pay.senderPhone}</span>
                                         )}
-                                        <span className="text-[8.5px] font-mono text-app-text-muted bg-app-bg border border-app-border rounded px-1.5 py-0.5">
+                                        <span className="text-[11px] font-mono text-app-text-muted bg-app-bg border border-app-border rounded px-1.5 py-0.5">
                                           {pay.referenceCode}
                                         </span>
                                       </div>
                                       {pay.description && (
-                                        <div className="text-[8.5px] text-app-text-muted font-medium mt-0.5 truncate max-w-[180px]" title={pay.description}>
+                                        <div className="text-[11px] text-app-text-muted font-medium mt-0.5 truncate max-w-[180px]" title={pay.description}>
                                           {pay.description}
                                         </div>
                                       )}
                                     </td>
                                     <td className="py-2.5">
-                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${(pay.paymentType || 'walk-in') === 'customer' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 ${(pay.paymentType || 'walk-in') === 'customer' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
                                         {(pay.paymentType || 'walk-in') === 'customer' ? <UserIcon size={8} /> : <Store size={8} />}
                                         {(pay.paymentType || 'walk-in') === 'customer' ? (pay.customerName || 'Customer') : 'Walk-in'}
                                       </span>
@@ -1763,33 +1762,33 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                     <td className="py-2.5">
                                       {(pay.appliedTo && pay.appliedTo !== 'none') ? (
                                         <div className="flex flex-col gap-0.5">
-                                          <span className={`text-[8px] font-black uppercase ${pay.appliedTo === 'debt' ? 'text-red-500' : pay.appliedTo === 'wallet' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                          <span className={`text-[11px] font-semibold ${pay.appliedTo === 'debt' ? 'text-red-500' : pay.appliedTo === 'wallet' ? 'text-emerald-500' : 'text-amber-500'}`}>
                                             {pay.appliedTo === 'mixed' ? 'Mixed' : pay.appliedTo}
                                           </span>
                                           {Number(pay.debtApplied || 0) > 0 && (
-                                            <span className="text-[8px] font-mono text-red-500">
+                                            <span className="text-[11px] font-mono text-red-500">
                                               Debt: KSh {Number(pay.debtApplied).toLocaleString()}
                                             </span>
                                           )}
                                           {Number(pay.walletApplied || 0) > 0 && (
-                                            <span className="text-[8px] font-mono text-emerald-500">
+                                            <span className="text-[11px] font-mono text-emerald-500">
                                               Wallet: KSh {Number(pay.walletApplied).toLocaleString()}
                                             </span>
                                           )}
                                         </div>
                                       ) : (
-                                        <span className="text-[8.5px] text-app-text-muted font-semibold uppercase">N/A</span>
+                                        <span className="text-[11px] text-app-text-muted font-semibold">N/A</span>
                                       )}
                                     </td>
                                     <td className="py-2.5 text-right">
-                                      <span className={`font-black font-mono ${pay.status === 'Failed' ? 'text-red-500' : pay.status === 'Voided' ? 'text-app-text-muted line-through' : 'text-emerald-500'}`}>
+                                      <span className={`font-semibold font-mono ${pay.status === 'Failed' ? 'text-red-500' : pay.status === 'Voided' ? 'text-app-text-muted line-through' : 'text-emerald-500'}`}>
                                         KSh {Number(pay.amount).toLocaleString()}
                                       </span>
-                                      <span className={`block text-[8px] font-bold uppercase tracking-wider mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : pay.status === 'Voided' ? 'text-app-text-muted' : 'text-red-500'}`}>
+                                      <span className={`block text-[11px] font-bold mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : pay.status === 'Voided' ? 'text-app-text-muted' : 'text-red-500'}`}>
                                         {pay.status}
                                       </span>
                                       {pay.status === 'Voided' && pay.voidReason && (
-                                        <span className="block text-[8.5px] text-app-text-muted mt-0.5 max-w-[160px] ml-auto truncate" title={`${pay.voidReason}${pay.voidedBy ? ` (by ${pay.voidedBy})` : ''}`}>
+                                        <span className="block text-[11px] text-app-text-muted mt-0.5 max-w-[160px] ml-auto truncate" title={`${pay.voidReason}${pay.voidedBy ? ` (by ${pay.voidedBy})` : ''}`}>
                                           {pay.voidReason}
                                         </span>
                                       )}
@@ -1857,8 +1856,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
                             <CircleDollarSign size={32} className="text-slate-700 mb-2" />
                             <p className="text-[10.5px] font-bold">No Payments Recorded Yet</p>
-                            <p className="text-[9.5px] max-w-xs mt-0.5">
-                              Record customer or walk-in payments to track money assets and reconcile customer accounts.
+                            <p className="text-[11px] max-w-xs mt-0.5">
+                              Payments you record from customers and walk-ins show here.
                             </p>
                           </div>
                         )}
@@ -1872,12 +1871,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
             /* Fallback No Business Selected */
             <div className="bg-app-card border border-app-border rounded-2xl p-8 text-center text-app-text-muted flex flex-col items-center justify-center min-h-[300px]">
               <Building size={48} className="text-slate-600 mb-3 " />
-              <h3 className="text-sm font-extrabold uppercase font-display text-app-text">
+              <h3 className="text-sm font-semibold uppercase font-display text-app-text">
                 No Business Selected
               </h3>
               <p className="text-[10.5px] mt-1 max-w-xs leading-normal">
-                Please select an active business workspace from the Directory or
-                create a new branch.
+                Pick a branch from the list or add a new one.
               </p>
             </div>
           )}

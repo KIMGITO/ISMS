@@ -2,7 +2,7 @@
 // variables such as {first_name} and {debt}, see how each person gets it, and send.
 // Used on Customers (Message) and on the Message customers screen.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, MessageCircle, Plus, RefreshCw, Send, Sparkles, Trash2, X, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageCircle, Plus, RefreshCw, Send, Trash2, X, AlertTriangle, PenLine } from 'lucide-react';
 import type { Customer } from '../../types';
 import { useAppStore } from '../../stores/appStore';
 import { SupabaseService } from '../../services/supabaseService';
@@ -329,7 +329,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
                 showAi ? 'bg-violet-600 text-white' : 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-1 ring-violet-500/25'
               }`}
             >
-              <Sparkles size={12} /> Ask {aiName}
+              <PenLine size={12} /> Ask {aiName}
             </button>
           )}
           {STARTERS.filter((st) => pointsOn || !st.text.includes('{points')).map((st) => (

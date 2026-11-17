@@ -125,7 +125,7 @@ export default function AskSupplierSheet({ target, onClose, onSent }: {
           </button>
         </div>
         {!sent.inApp && (
-          <p className="text-[11px] text-app-text-muted">To have requests ring on their phone, invite them in Buying → Suppliers → App access.</p>
+          <p className="text-[11px] text-app-text-muted">Invite them in Buying → Suppliers → App access.</p>
         )}
       </FormSheet>
     );

@@ -53,8 +53,11 @@ class ConfigManager {
       this.activeEnv = "Production";
     }
 
-    // 2. Check for manual override (Developer Mode) in localStorage
-    if (typeof localStorage !== "undefined") {
+    // 2. A saved override only counts in development builds. Shipped apps always use
+    //    their own backend, and any old "Developer Mode" choice left on a device is cleared.
+    if (typeof localStorage !== "undefined" && envMode !== "development") {
+      try { localStorage.removeItem("kkm_active_env"); } catch { /* ignore */ }
+    } else if (typeof localStorage !== "undefined") {
       const savedEnv = localStorage.getItem("kkm_active_env") as AppEnvironment;
       if (savedEnv && ["Development", "Staging", "Production", "Developer Mode"].includes(savedEnv)) {
         this.activeEnv = savedEnv;

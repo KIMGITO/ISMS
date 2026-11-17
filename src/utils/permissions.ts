@@ -279,7 +279,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'pos.create_sale', category: 'POS & Checkout', description: 'Checkout sales carts' },
   { code: 'pos.cancel_sale', category: 'POS & Checkout', description: 'Void draft checkout carts' },
   { code: 'pos.refund', category: 'POS & Checkout', description: 'Process customer cashbacks' },
-  { code: 'refunds.create', category: 'POS & Checkout', description: 'Refund any till sale with a credit note (staff who can cancel a sale may refund only today\'s)' },
+  { code: 'refunds.create', category: 'POS & Checkout', description: 'Refund any sale' },
   { code: 'quotes.view', category: 'Quotes & Invoices', description: 'See quotes' },
   { code: 'quotes.manage', category: 'Quotes & Invoices', description: 'Make, send, accept and decline quotes' },
   { code: 'sales_orders.view', category: 'Quotes & Invoices', description: 'See sales orders and deliveries' },
@@ -294,7 +294,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'promotions.view', category: 'Promotions & Referrals', description: 'See promotions, their uses and what they cost' },
   { code: 'promotions.manage', category: 'Promotions & Referrals', description: 'Create, change, switch off and archive promotion codes' },
   { code: 'referrals.view', category: 'Promotions & Referrals', description: 'See referrals, top referrers and what rewards cost' },
-  { code: 'referrals.manage', category: 'Promotions & Referrals', description: 'Set up the referral programme, approve or refuse rewards, hold or revoke codes' },
+  { code: 'referrals.manage', category: 'Promotions & Referrals', description: 'Run the referral programme' },
 
   // Customers & Loyalty
   { code: 'customers.view', category: 'Customers & Loyalty', description: 'Access profiles registry' },
@@ -354,7 +354,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'supplier_portal.statement', category: SUPPLIER_PORTAL_CATEGORY, description: 'See their bills, payments, returns and what is owed to them' },
   { code: 'supplier_portal.update_details', category: SUPPLIER_PORTAL_CATEGORY, description: 'Change their own phone, email, KRA PIN and how they get paid' },
   { code: 'supplier_portal.stock', category: SUPPLIER_PORTAL_CATEGORY, description: 'See your stock of the products they supply (to plan deliveries)' },
-  { code: 'supplier_portal.stock_requests', category: SUPPLIER_PORTAL_CATEGORY, description: 'Get your stock requests (they ring) and accept or decline them with a note' },
+  { code: 'supplier_portal.stock_requests', category: SUPPLIER_PORTAL_CATEGORY, description: 'Answer stock requests' },
 
   // Production & Recipes
   { code: 'production.view', category: 'Production & Recipes', description: 'Browse raw milk batches' },
@@ -380,8 +380,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'expenses.manage', category: 'Expenses & Payments', description: 'Adjust category budget limits' },
   { code: 'pettycash.record', category: 'Expenses & Payments', description: 'Record money spent from the till (petty cash)' },
   { code: 'finance.view', category: 'Expenses & Payments', description: 'See the Finances page: profit, spending, debts, points' },
-  { code: 'accounting.view', category: 'Expenses & Payments', description: 'Read the books: profit & loss, balance sheet, journal, VAT, who owes what' },
-  { code: 'accounting.manage', category: 'Expenses & Payments', description: 'Change the books: typed entries, accounts, money counts, supplier payments, lock date' },
+  { code: 'accounting.view', category: 'Expenses & Payments', description: 'See the books' },
+  { code: 'accounting.manage', category: 'Expenses & Payments', description: 'Change the books' },
   { code: 'payments.view', category: 'Expenses & Payments', description: 'View cash/M-Pesa registers' },
   { code: 'payments.verify', category: 'Expenses & Payments', description: 'Verify payment claims' },
   { code: 'payments.refund', category: 'Expenses & Payments', description: 'Process payment chargebacks' },
@@ -389,7 +389,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'payments.cash', category: 'Expenses & Payments', description: 'Accept physical cash ledger' },
   { code: 'payments.card', category: 'Expenses & Payments', description: 'Charge cards online or on a card reader' },
   { code: 'payments.airtel', category: 'Expenses & Payments', description: 'Send Airtel Money payment prompts' },
-  { code: 'payments.configure', category: 'Expenses & Payments', description: 'Switch payment methods (Cash, M-Pesa, Airtel Money, Card, Bank) on and off' },
+  { code: 'payments.configure', category: 'Expenses & Payments', description: 'Turn payment methods on or off' },
   { code: 'payments.manage', category: 'Expenses & Payments', description: 'Audit payment configurations' },
 
   // Staff & Roles
@@ -442,17 +442,17 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
 export const SYSTEM_ROLES: Record<string, RoleConfig> = {
   'Admin': {
     name: 'Admin',
-    description: 'System administrator with total master access to everything',
+    description: 'Can do everything',
     permissions: ALL_PERMISSIONS.map(p => p.code)
   },
   'Owner': {
     name: 'Owner',
-    description: 'Business Master Owner. Full access across company branches and financial parameters.',
+    description: 'Owns the business. Can do everything',
     permissions: ALL_PERMISSIONS.map(p => p.code)
   },
   'Manager': {
     name: 'Manager',
-    description: 'Business supervisor. Oversees operations, inventory, customers and deliveries.',
+    description: 'Runs the shop day to day',
     permissions: [
       'home.view', 'dashboard.view', 'complaints.view', 'complaints.reply', 'online_store.view',
       'staff.view', 'staff.schedule', 'loyalty.adjust',
@@ -480,7 +480,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
   },
   'Cashier': {
     name: 'Cashier',
-    description: 'Point of Sale operator. Reconciles registers and runs milk sales.',
+    description: 'Sells at the till',
     permissions: [
       'dashboard.view', 'complaints.view', 'online_store.view',
       'business.view', 'settings.theme',
@@ -494,7 +494,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
   },
   'Supplier': {
     name: 'Supplier',
-    description: 'Someone at a supplier with their own sign-in. Sees only their own orders, price requests, deliveries and statement; never customers, sales, profit, staff or other suppliers.',
+    description: 'A supplier. Sees only their own orders and payments',
     permissions: [
       'supplier_portal.deliveries', 'supplier_portal.orders', 'supplier_portal.price_requests',
       'supplier_portal.statement', 'supplier_portal.stock_requests', 'supplier_portal.update_details'
@@ -502,7 +502,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
   },
   'Rider': {
     name: 'Rider',
-    description: 'Delivery personnel. Navigates routes, processes cashouts, and completes dispatches.',
+    description: 'Delivers orders',
     permissions: [
       'dashboard.view',
       'business.view', 'settings.theme',

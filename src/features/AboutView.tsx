@@ -32,7 +32,7 @@ function formatDate(iso: string | null, withTime = true): string {
 function Group({ title, children, footer }: { title?: string; children: ReactNode; footer?: ReactNode }) {
   return (
     <section>
-      {title && <h2 className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted">{title}</h2>}
+      {title && <h2 className="px-3 pb-1.5 text-xs font-semibold text-app-text-muted">{title}</h2>}
       <div className="bg-app-card rounded-lg overflow-hidden divide-y divide-app-border">{children}</div>
       {footer && <p className="px-3 pt-1.5 text-xs text-app-text-muted">{footer}</p>}
     </section>
@@ -181,7 +181,7 @@ export default function AboutView() {
       onToggle={(e) => setShortcutsOpen(e.currentTarget.open)}
       className="group"
     >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 pb-1.5 text-xs font-semibold text-app-text-muted [&::-webkit-details-marker]:hidden">
         Keyboard shortcuts
         <ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>

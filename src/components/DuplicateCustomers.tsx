@@ -138,7 +138,7 @@ function MergeReview({ first, second, accountIds, onBack, onDone }: {
         <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 flex flex-col gap-2">
           <p className="flex items-start gap-2 text-xs text-app-text">
             <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-            {merge.name}'s record will close and this can't be undone from the app. Make sure they are the same person.
+            {merge.name}'s record will close. This can't be undone.
           </p>
           <div className="flex gap-2">
             <button onClick={submit} disabled={busy} className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer">
@@ -221,7 +221,7 @@ export default function DuplicateCustomers({ businessId, customers, onClose, onM
       >
         <div className="shrink-0 px-5 py-4 border-b border-app-border flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-extrabold text-app-text">Duplicate customers</h3>
+            <h3 className="text-sm font-semibold text-app-text">Duplicate customers</h3>
             <p className="text-[11px] text-app-text-muted">Check that they are the same person before merging.</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-2 rounded-full hover:bg-app-bg text-app-text cursor-pointer">

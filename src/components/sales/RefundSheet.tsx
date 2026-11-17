@@ -114,7 +114,7 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
         <>
           {blocked && <p className="text-xs rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 p-3">You can refund only today's sales. Ask a manager to refund this one.</p>}
           {nothingLeft && <p className="text-xs rounded-xl bg-app-bg p-3 text-app-text-muted">Everything on this sale was already refunded.</p>}
-          <p className="text-[11px] text-app-text-muted">The sale stays in the Sales Log. A credit note is made for what comes back.</p>
+          <p className="text-[11px] text-app-text-muted">A credit note is made.</p>
 
           <div className="rounded-2xl ring-1 ring-app-border divide-y divide-app-border/60">
             {info.lines.map((l) => (

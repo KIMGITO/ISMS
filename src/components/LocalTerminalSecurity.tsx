@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Lock, Eye, EyeOff, ShieldAlert, Key, LogOut, CheckCircle2, RotateCcw, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { getSupabase } from "../services/supabaseClient";
+import { toUserMessage } from "../utils/userError";
 
 interface LocalPinSetupCardProps {
   employee: {
@@ -37,7 +39,7 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
             if (next === firstPin) {
               onComplete(next);
             } else {
-              setError("PIN passcodes did not match. Please start over.");
+              setError("The PINs did not match. Start again.");
               setStage("enter");
               setFirstPin("");
               setEnteredPin("");
@@ -67,10 +69,10 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
         </div>
 
         <div className="space-y-1">
-          <span className="text-[9px] font-black tracking-widest text-amber-500 uppercase">
-            Local Security Configuration
+          <span className="text-[11px] font-semibold text-amber-500">
+            Set your PIN
           </span>
-          <h2 className="text-lg font-black font-display tracking-tight text-slate-100">
+          <h2 className="text-lg font-bold font-display tracking-tight text-slate-100">
             {stage === "enter" ? "Create Passcode" : "Confirm Passcode"}
           </h2>
           <p className="text-[10.5px] text-slate-400 font-medium leading-relaxed px-4">
@@ -87,7 +89,7 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
               key={index}
               className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
                 index < enteredPin.length
-                  ? "bg-amber-500 border-amber-500 scale-110 shadow-lg shadow-amber-500/20"
+                  ? "bg-amber-500 border-amber-500 scale-110"
                   : "bg-transparent border-slate-700"
               }`}
             />
@@ -108,26 +110,26 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
             <button
               key={num}
               onClick={() => handleKeyPress(num)}
-              className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-black text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
+              className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-bold text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
             >
               {num}
             </button>
           ))}
           <button
             onClick={handleClear}
-            className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer uppercase tracking-wider"
+            className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer"
           >
             Clear
           </button>
           <button
             onClick={() => handleKeyPress("0")}
-            className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-black text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
+            className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-bold text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
           >
             0
           </button>
           <button
             onClick={handleBackspace}
-            className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer uppercase tracking-wider"
+            className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer"
           >
             Delete
           </button>
@@ -135,7 +137,7 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
 
         {/* Helper Badge */}
         <div className="pt-2">
-          <span className="text-[8.5px] font-mono text-slate-500 uppercase tracking-widest block">
+          <span className="text-[11px] text-slate-500 block">
             Operator Context: {employee.name} ({employee.role})
           </span>
         </div>
@@ -228,7 +230,7 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
               const lockoutTime = Date.now() + 30000; // 30 seconds penalty
               localStorage.setItem(`kkm_lockout_until_${employee.id}`, String(lockoutTime));
               setLockoutRemaining(30);
-              setError("Terminal locked due to too many failed attempts.");
+              setError("Too many wrong tries. Wait a moment and try again.");
             } else {
               setError(`Incorrect passcode. ${5 - nextFailed} attempts remaining.`);
             }
@@ -250,25 +252,40 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
     setEnteredPin("");
   };
 
-  const handlePasswordResetVerify = (e: React.FormEvent) => {
+  const [resetChecking, setResetChecking] = useState(false);
+
+  // "Forgot PIN?" proves who you are with the account password, checked by the server.
+  const handlePasswordResetVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError("");
-
-    // Simulate online password check (accepting standard simulation codes)
     if (resetPassword.trim() === "") {
       setResetError("Please enter your account password.");
       return;
     }
-
-    if (resetPassword === "password" || resetPassword.length >= 4) {
-      // Authorized! Reset local PIN.
+    setResetChecking(true);
+    try {
+      const supabase = getSupabase();
+      const { data: userData } = await supabase.auth.getUser();
+      const email = userData?.user?.email;
+      if (!email) {
+        setResetError("Sign in again to reset your PIN. Tap Switch Account.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password: resetPassword });
+      if (error) {
+        setResetError(/invalid login credentials/i.test(error.message) ? "That password is not right. Try again." : toUserMessage(error, "Could not check the password. Check your connection."));
+        return;
+      }
       localStorage.setItem(`kkm_failed_attempts_${employee.id}`, "0");
       localStorage.removeItem(`kkm_lockout_until_${employee.id}`);
       setFailedAttempts(0);
       setLockoutRemaining(0);
+      setResetPassword("");
       onResetPin();
-    } else {
-      setResetError("Invalid security credentials. Check password or use 'password'.");
+    } catch (err) {
+      setResetError(toUserMessage(err, "Could not check the password. Check your connection."));
+    } finally {
+      setResetChecking(false);
     }
   };
 
@@ -284,7 +301,7 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
               <img
                 src={employee.avatar}
                 alt={employee.name}
-                className="w-16 h-16 rounded-3xl object-cover border-2 border-amber-500 shadow-xl shadow-amber-500/10 mx-auto"
+                className="w-16 h-16 rounded-3xl object-cover border-2 border-amber-500 mx-auto"
                 referrerPolicy="no-referrer"
               />
               <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-slate-950 border border-slate-800 text-amber-500 rounded-full flex items-center justify-center shadow-lg">
@@ -293,13 +310,13 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
             </div>
 
             <div className="space-y-1">
-              <span className="text-[8.5px] font-black uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md inline-block">
-                Terminal Locked
+              <span className="text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md inline-block">
+                Locked
               </span>
-              <h2 className="text-md font-black font-display tracking-tight text-slate-100 mt-2">
+              <h2 className="text-md font-semibold font-display tracking-tight text-slate-100 mt-2">
                 Welcome back, {employee.name}
               </h2>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <p className="text-[10px] text-slate-400 font-bold">
                 {employee.role} Access Authorization
               </p>
             </div>
@@ -310,8 +327,8 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
                 <div className="mx-auto w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center border border-red-500/20">
                   <ShieldAlert size={18} />
                 </div>
-                <h3 className="text-xs font-black text-red-400 uppercase tracking-widest">
-                  Lockout Penalty Active
+                <h3 className="text-xs font-semibold text-red-400">
+                  Too many wrong tries
                 </h3>
                 <p className="text-[10.5px] text-slate-400 font-medium max-w-xs mx-auto">
                   Terminal locked due to security violation. Try again in <strong className="text-red-400 font-mono text-xs">{lockoutRemaining}s</strong>.
@@ -326,7 +343,7 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
                       key={index}
                       className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
                         index < enteredPin.length
-                          ? "bg-amber-500 border-amber-500 scale-110 shadow-lg shadow-amber-500/20"
+                          ? "bg-amber-500 border-amber-500 scale-110"
                           : "bg-transparent border-slate-700"
                       }`}
                     />
@@ -347,27 +364,27 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
                     <button
                       key={num}
                       onClick={() => handleKeyPress(num)}
-                      className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-black text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
+                      className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-bold text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
                     >
                       {num}
                     </button>
                   ))}
                   <button
                     onClick={handleClear}
-                    className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer uppercase tracking-wider"
+                    className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer"
                   >
                     Clear
                   </button>
                   <button
                     key="0"
                     onClick={() => handleKeyPress("0")}
-                    className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-black text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
+                    className="h-14 bg-slate-900 hover:bg-slate-850 active:bg-slate-800 text-slate-200 font-bold text-lg rounded-2xl transition border border-slate-800 shadow-sm flex items-center justify-center cursor-pointer"
                   >
                     0
                   </button>
                   <button
                     onClick={handleBackspace}
-                    className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer uppercase tracking-wider"
+                    className="h-14 bg-slate-950 text-slate-500 hover:text-slate-300 font-bold text-xs rounded-2xl transition border border-transparent flex items-center justify-center cursor-pointer"
                   >
                     Delete
                   </button>
@@ -380,25 +397,20 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
               <div className="flex justify-between items-center px-2">
                 <button
                   onClick={() => setIsResetting(true)}
-                  className="text-[10px] font-black text-amber-500 hover:text-amber-400 uppercase tracking-widest cursor-pointer transition flex items-center gap-1"
+                  className="text-[10px] font-semibold text-amber-500 hover:text-amber-400 cursor-pointer transition flex items-center gap-1"
                 >
                   <RotateCcw size={10} />
                   <span>Forgot PIN?</span>
                 </button>
                 <button
                   onClick={onLogout}
-                  className="text-[10px] font-black text-slate-500 hover:text-slate-300 uppercase tracking-widest cursor-pointer transition flex items-center gap-1"
+                  className="text-[10px] font-semibold text-slate-500 hover:text-slate-300 cursor-pointer transition flex items-center gap-1"
                 >
                   <LogOut size={10} />
                   <span>Switch Account</span>
                 </button>
               </div>
 
-              {/* Offline Cheat-Sheet Helper to facilitate review testing */}
-              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-850 text-left">
-                <span className="text-[8px] font-mono font-black uppercase text-slate-600 block mb-1">Passcode Cheat Guide</span>
-                <span className="text-[8.5px] text-slate-400 block font-medium">Your current PIN is: <strong className="text-amber-500 font-mono text-xs">{employee.pin}</strong></span>
-              </div>
             </div>
           </>
         ) : (
@@ -408,22 +420,22 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
               <div className="mx-auto w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center border border-amber-500/20 mb-2">
                 <RotateCcw size={16} />
               </div>
-              <h3 className="text-xs font-black text-slate-100 uppercase tracking-widest">
-                Reset Passcode PIN
+              <h3 className="text-xs font-semibold text-slate-100">
+                Reset your PIN
               </h3>
               <p className="text-[10.5px] text-slate-400 font-medium px-4 leading-normal">
-                Authorize reset by entering your online Supabase account password.
+                Enter the password you sign in with to set a new PIN.
               </p>
             </div>
 
             <div className="space-y-1.5 pt-2">
-              <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-400">Account Password</label>
+              <label className="text-[11px] font-semibold text-slate-400">Account Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
-                  placeholder="Enter account password..."
+                  placeholder="Your account password"
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-medium"
                 />
                 <button
@@ -434,8 +446,8 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
                   {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
                 </button>
               </div>
-              <span className="text-[8.5px] text-slate-500 block leading-tight">
-                For simulation profiles, default password is <strong className="font-mono text-slate-400">password</strong>.
+              <span className="text-[11px] text-slate-500 block leading-tight">
+                Needs an internet connection.
               </span>
             </div>
 
@@ -455,15 +467,16 @@ export function LocalPinUnlockCard({ employee, onUnlock, onLogout, onResetPin }:
                   setResetPassword("");
                   setResetError("");
                 }}
-                className="flex-1 py-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-bold rounded-xl transition text-xs uppercase tracking-wider"
+                className="flex-1 py-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-bold rounded-xl transition text-xs"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition text-xs uppercase tracking-wider"
+                disabled={resetChecking}
+                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-slate-950 font-semibold rounded-xl transition text-xs"
               >
-                Verify Reset
+                {resetChecking ? "Checking..." : "Reset PIN"}
               </button>
             </div>
           </form>

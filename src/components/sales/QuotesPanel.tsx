@@ -140,7 +140,7 @@ export function QuotesPanel() {
         </button>
       </div>
       <p className="text-[11px] text-app-text-muted">
-        Make a quote in POS: fill the cart, then tap Quote (Alt+Q). When the customer comes back, tap Sell in POS.
+        Make quotes in POS with Quote (Alt+Q).
       </p>
 
       {quotes === null ? (
@@ -188,7 +188,7 @@ export function QuotesPanel() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-mono font-bold text-app-text-muted">{q.number}</span>
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${TONE[state]}`}>{state === 'accepted' ? 'Sold' : QUOTE_WORD[state]}</span>
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${TONE[state]}`}>{state === 'accepted' ? 'Sold' : QUOTE_WORD[state]}</span>
                   </div>
                   <div className="text-xs font-semibold text-app-text mt-1 truncate">{q.customerName}</div>
                   <div className="text-[10px] text-app-text-muted mt-0.5">
@@ -196,7 +196,7 @@ export function QuotesPanel() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span className="text-xs font-black text-amber-500 tabular-nums">{formatCurrency(q.total)}</span>
+                  <span className="text-xs font-semibold text-amber-500 tabular-nums">{formatCurrency(q.total)}</span>
                   {open && sells && (
                     <button
                       type="button"

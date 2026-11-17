@@ -98,7 +98,7 @@ export default function UpdateBar() {
     <div role="status" aria-live="polite" className="shrink-0 relative bg-emerald-500/10 border-b border-emerald-500/30">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5 text-xs sm:text-sm">
         {status === 'downloading' ? (
-          <Download size={15} className="shrink-0 text-emerald-600 animate-pulse" aria-hidden="true" />
+          <Download size={15} className="shrink-0 text-emerald-600" aria-hidden="true" />
         ) : (
           <RefreshCw size={15} className={`shrink-0 text-emerald-600 ${status === 'installing' ? 'animate-spin' : ''}`} aria-hidden="true" />
         )}

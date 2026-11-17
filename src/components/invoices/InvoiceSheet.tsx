@@ -373,7 +373,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                         <button onClick={() => run('pdf', () => InvoiceShareService.download(doc))} disabled={busy !== null} className={`${btn} w-full bg-app-bg hover:bg-app-border/50`}>
                           <Download size={16} /> Download PDF
                         </button>
-                        <p className="text-xs text-app-text-muted">WhatsApp gets a message with the amount and how to pay. Use Share PDF to send the PDF itself.</p>
+                        <p className="text-xs text-app-text-muted">Sends the amount and how to pay.</p>
                       </section>
                     ) : (
                       <>
@@ -414,7 +414,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                                 rebuild({ includeEarlier: on });
                               }}
                               label="Add what is unpaid from before"
-                              description="One line with the older unpaid balance, so the invoice shows everything owed."
+                              description="Adds the older unpaid balance."
                               className="mt-3"
                             />
                           )}
@@ -448,7 +448,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                             checked={combine}
                             onChange={toggleCombine}
                             label="Combine the same product"
-                            description="One line per product and price, and one per delivery fee. Totals stay the same. Resets edited descriptions."
+                            description="Groups lines by product. Totals stay the same."
                             className="mb-3"
                           />
                           {doc.lines.length === 0 && (

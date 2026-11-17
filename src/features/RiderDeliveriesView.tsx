@@ -268,12 +268,12 @@ export default function RiderDeliveriesView() {
           <>
             {requestsMissing && (
               <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-                Delivery requests need the latest database update. Ask the owner to apply it.
+                Delivery requests are not available right now. Try again later.
               </p>
             )}
             {!isRider && (
               <p className="text-xs text-app-text-muted">
-                Deliveries waiting for a rider. Riders accept them from here. The rider will be notified.
+                Deliveries waiting for a rider.
               </p>
             )}
             {renderList(requests, 'No delivery requests right now. New ones show up here and you get a notification.', (d) => (
@@ -309,7 +309,7 @@ export default function RiderDeliveriesView() {
                 {confirmFail === keyOf(d) ? (
                   <div className="flex flex-col gap-2 rounded-xl border border-red-500/40 p-3">
                     <p className="text-sm">
-                      Mark this as not delivered? The shop is told so they can sort it out with the customer.
+                      Mark as not delivered?
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" disabled={busy} onClick={() => setStatus(d, 'failed')} className="min-h-11 flex-1 rounded-xl bg-red-500 px-4 text-sm font-bold text-white disabled:opacity-40">

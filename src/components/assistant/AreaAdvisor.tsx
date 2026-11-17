@@ -3,7 +3,7 @@
 // It sends the question to the area-advisor function, which works out every figure itself;
 // this card only shows the scorecard and the AI's plain explanation, and keeps a short chat.
 import React, { useState } from 'react';
-import { ArrowRight, Bot, ChevronDown, Send, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronDown, Send, Lightbulb } from 'lucide-react';
 import { SupabaseService } from '../../services/supabaseService';
 import { useBusinessStore } from '../../stores/businessStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -103,7 +103,7 @@ export default function AreaAdvisor({ area }: { area: AdvisorArea }) {
         aria-expanded={open}
         className="w-full flex items-center gap-3 p-3 text-left cursor-pointer"
       >
-        <span className="grid place-items-center size-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0"><Bot size={18} /></span>
+        <span className="grid place-items-center size-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0"><Lightbulb size={18} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-app-text truncate">{copy.title}</span>
           <span className="block text-xs text-app-text-muted line-clamp-2">{copy.sub}</span>
@@ -123,7 +123,7 @@ export default function AreaAdvisor({ area }: { area: AdvisorArea }) {
             />
             <button onClick={() => ask('')} disabled={busy}
               className="inline-flex items-center gap-1.5 h-11 sm:h-10 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-3 cursor-pointer disabled:opacity-50">
-              <Sparkles size={14} /> {advice ? 'Refresh advice' : 'Get advice'}
+              {advice ? 'Refresh advice' : 'Get advice'}
             </button>
           </div>
 

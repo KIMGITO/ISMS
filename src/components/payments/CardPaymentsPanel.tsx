@@ -155,7 +155,7 @@ export default function CardPaymentsPanel() {
             <ol className="text-xs text-app-text-muted list-decimal pl-4 space-y-1">
               <li>Open a Paystack account for the business (paystack.com). It takes cards in KES.</li>
               <li>In Paystack, Settings → API Keys &amp; Webhooks: copy the <b>secret key</b> here.</li>
-              <li>Paste the webhook link below into the same page, so payments confirm even if the app is closed.</li>
+              <li>Paste this webhook link on the same page.</li>
             </ol>
             <label className={label}>
               Paystack secret key {status?.connected && '(leave empty to keep the saved one)'}
@@ -191,7 +191,7 @@ export default function CardPaymentsPanel() {
             </div>
             {confirmRemove && (
               <div className="rounded-xl ring-1 ring-red-500/40 p-3 space-y-2">
-                <p className="text-sm">Disconnect Paystack? Online and card reader payments stop. Payments already taken stay recorded.</p>
+                <p className="text-sm">Disconnect Paystack? Online card payments stop.</p>
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => setConfirmRemove(false)} className="px-3 py-2 rounded-lg text-sm bg-app-bg cursor-pointer">Keep</button>
                   <button type="button" disabled={busy === 'remove'} onClick={() => void remove()} className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white cursor-pointer">Disconnect</button>
@@ -208,7 +208,7 @@ export default function CardPaymentsPanel() {
       {unattached.length > 0 && (
         <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
           <h3 className="text-sm font-semibold flex items-center gap-1.5"><AlertTriangle size={15} className="text-amber-600" /> Paid by card, but no sale was saved</h3>
-          <p className="text-xs text-app-text-muted mt-1">The money came in, but the till didn't save the sale (the app may have closed). Make the sale again and choose Card → Card machine with the reference below, or refund it in Paystack.</p>
+          <p className="text-xs text-app-text-muted mt-1">Paid, but the sale wasn't saved. Make it again with Card → Card machine and this reference, or refund it.</p>
           <ul className="mt-2 space-y-1 text-sm">
             {unattached.map((r) => <li key={r.id}>{formatCurrency(r.amountPaid ?? r.amount)} · {when(r.paidAt)} · <span className="font-mono">{r.reference}</span></li>)}
           </ul>

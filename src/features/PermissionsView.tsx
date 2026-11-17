@@ -76,7 +76,7 @@ export default function PermissionsView() {
 
   const handleTogglePermission = (code: PermissionCode) => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     if (editedPermissions.includes(code)) {
@@ -88,36 +88,36 @@ export default function PermissionsView() {
 
   const handleGrantAll = () => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     const allCodes = pool.map(p => p.code);
     setEditedPermissions(allCodes);
-    showToast("Privileges Granted", `All system privileges assigned to "${selectedRole}". Save changes to commit.`, undefined, "info" as any);
+    showToast("All allowed", `${selectedRole} can now do everything. Tap Save to keep it.`, undefined, "info" as any);
   };
 
   const handleRevokeAll = () => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     setEditedPermissions([]);
-    showToast("Privileges Revoked", `Cleared all privilege configurations from "${selectedRole}". Save changes to commit.`, undefined, "warning" as any);
+    showToast("All removed", `${selectedRole} can no longer do anything. Tap Save to keep it.`, undefined, "warning" as any);
   };
 
   const handleGrantViewOnly = () => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     const viewCodes = pool.filter(p => p.code.endsWith(".view") || p.code.includes("view_all") || p.code === "ai.use").map(p => p.code);
     setEditedPermissions(viewCodes);
-    showToast("View-Only Restricted", `Applied strict view-only configurations to "${selectedRole}". Save changes to commit.`, undefined, "info" as any);
+    showToast("View only", `${selectedRole} can now only look, not change. Tap Save to keep it.`, undefined, "info" as any);
   };
 
   const handleToggleModule = (category: string) => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     const modulePerms = pool.filter(p => p.category === category).map(p => p.code);
@@ -153,14 +153,14 @@ export default function PermissionsView() {
 
   const handleReset = () => {
     if (isRootRole) {
-      showToast("Access Denied", "Root administrator positions hold mandatory system clearances and cannot be modified.", undefined, "error" as any);
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
       return;
     }
     const defaultPerms = SYSTEM_ROLES[selectedRole]?.permissions || [];
     setEditedPermissions(defaultPerms);
     showToast(
-      "Defaults Restored",
-      `System baseline credentials successfully re-applied for the "${selectedRole}" profile. Click save to finalize.`,
+      "Standard permissions",
+      `${selectedRole} is back to the standard permissions. Tap Save to keep it.`,
       undefined,
       "success"
     );
@@ -178,18 +178,18 @@ export default function PermissionsView() {
     <div id="permissions-panel" className="h-full overflow-y-auto p-4 pb-nav space-y-5 bg-app-bg text-app-text font-sans">
       
       <div>
-        <h2 className="text-base font-extrabold font-display text-app-text flex items-center gap-2">
-          Privilege Settings
+        <h2 className="text-base font-semibold font-display text-app-text flex items-center gap-2">
+          Role permissions
         </h2>
         <p className="text-[11px] text-app-text-muted">
-          Configure security credentials and roles dynamically. Grant or restrict specific functional modules. Settings take effect instantly across views and the workspace assistant.
+          What each role can see and do.
         </p>
       </div>
 
       {/* Role Picker Dashboard Grid */}
       <div className="bg-app-card border border-app-border rounded-2xl p-4 space-y-3 shadow-xs">
-        <span className="text-[9px] text-app-text-muted font-bold uppercase tracking-wider block">
-          Select Role to Configure
+        <span className="text-[11px] text-app-text-muted font-bold block">
+          Role
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {Object.keys(SYSTEM_ROLES).map((roleName) => {
@@ -201,7 +201,7 @@ export default function PermissionsView() {
                 onClick={() => setSelectedRole(roleName)}
                 className={`py-2 px-3 rounded-xl text-[10px] font-bold text-center border transition-all cursor-pointer truncate ${
                   isActive
-                    ? "bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-sm"
+                    ? "bg-amber-500 text-slate-950 border-amber-500 font-semibold shadow-sm"
                     : "bg-app-bg border-app-border hover:border-app-border/80 text-app-text-muted hover:text-app-text"
                 }`}
                 title={SYSTEM_ROLES[roleName].description}
@@ -218,8 +218,8 @@ export default function PermissionsView() {
             <span className="font-bold text-app-text">{selectedRole} description:</span>{" "}
             {SYSTEM_ROLES[selectedRole]?.description}
             {isRootRole && (
-              <span className="text-amber-500 block font-black mt-1 uppercase tracking-wider ">
-                Note: This administrator role has root privileges and bypasses all permissions. Manual modifications are disabled.
+              <span className="text-amber-500 block font-semibold mt-1 ">
+                This role always has every permission, so it can't be changed here.
               </span>
             )}
           </div>
@@ -253,14 +253,14 @@ export default function PermissionsView() {
         </div>
 
         <div className="flex gap-2 w-full md:w-auto shrink-0 overflow-x-auto pb-1 md:pb-0">
-          <button onClick={handleGrantAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[9.5px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-            <CheckSquare size={10} /><span>Grant All</span>
+          <button onClick={handleGrantAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+            <CheckSquare size={10} /><span>Allow all</span>
           </button>
-          <button onClick={handleGrantViewOnly} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[9.5px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleGrantViewOnly} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
             <ShieldAlert size={10} /><span>View Only</span>
           </button>
-          <button onClick={handleRevokeAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 border border-red-500/15 text-[9.5px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-            <X size={10} /><span>Revoke All</span>
+          <button onClick={handleRevokeAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 border border-red-500/15 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+            <X size={10} /><span>Remove all</span>
           </button>
         </div>
       </div>
@@ -287,12 +287,12 @@ export default function PermissionsView() {
               >
                 <div className="flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-amber-500 rounded-sm" />
-                  <h3 className="text-xs font-bold text-app-text font-display uppercase tracking-wider">{category}</h3>
-                  <span className="px-1.5 py-0.2 bg-slate-800 text-[8.5px] rounded-md text-slate-400 font-bold">{matchedInRole} / {totalInCat}</span>
+                  <h3 className="text-xs font-bold text-app-text font-display">{category}</h3>
+                  <span className="px-1.5 py-0.2 bg-slate-800 text-[11px] rounded-md text-slate-400 font-bold">{matchedInRole} / {totalInCat}</span>
                 </div>
                 
                 <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => handleToggleModule(category)} disabled={isRootRole} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border disabled:opacity-40 disabled:cursor-not-allowed ${hasAllInModule ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-app-bg text-app-text-muted border-app-border"}`}>
+                  <button onClick={() => handleToggleModule(category)} disabled={isRootRole} className={`px-2 py-0.5 rounded text-[11px] font-semibold border disabled:opacity-40 disabled:cursor-not-allowed ${hasAllInModule ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-app-bg text-app-text-muted border-app-border"}`}>
                     {hasAllInModule ? "Deselect All" : "Select All"}
                   </button>
                   <span className="text-[10px] text-app-text-muted">{isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={12} />}</span>
@@ -322,7 +322,7 @@ export default function PermissionsView() {
                           <code className={`text-[10px] font-mono font-bold block ${isHighlighted ? "text-amber-400" : "text-amber-500 dark:text-amber-400"}`}>
                             {perm.code}
                           </code>
-                          <p className="text-[9.5px] text-app-text-muted mt-0.5 leading-normal font-medium">{perm.description}</p>
+                          <p className="text-[11px] text-app-text-muted mt-0.5 leading-normal font-medium">{perm.description}</p>
                         </div>
                         <button className="shrink-0 text-app-text-muted transition-colors" disabled={isRootRole}>
                           {isRootRole ? (
@@ -348,15 +348,15 @@ export default function PermissionsView() {
         <div className="flex items-center gap-2">
           <Info size={14} className="text-amber-500 shrink-0" />
           <span className="text-[10px] text-app-text-muted leading-tight font-medium">
-            Remember to save changes. Baseline default roles can be reset at any time.
+            Remember to save.
           </span>
         </div>
         
         <div className="flex gap-2">
-          <button onClick={handleReset} disabled={isRootRole} className="px-3 py-2 bg-slate-800 border border-slate-700 text-[10px] font-black text-slate-300 rounded-xl transition flex items-center gap-1.5 uppercase hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
-            <RefreshCw size={11} /><span>Reset Default</span>
+          <button onClick={handleReset} disabled={isRootRole} className="px-3 py-2 bg-slate-800 border border-slate-700 text-[10px] font-semibold text-slate-300 rounded-xl transition flex items-center gap-1.5 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <RefreshCw size={11} /><span>Use standard</span>
           </button>
-          <button onClick={handleSave} className="px-4 py-2 bg-amber-500 text-slate-950 text-[10px] font-black rounded-xl transition flex items-center gap-1.5 shadow-md uppercase hover:bg-amber-600">
+          <button onClick={handleSave} className="px-4 py-2 bg-amber-500 text-slate-950 text-[10px] font-semibold rounded-xl transition flex items-center gap-1.5 shadow-md hover:bg-amber-600">
             <ShieldCheck size={12} /><span>Save Settings</span>
           </button>
         </div>

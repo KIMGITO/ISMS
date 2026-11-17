@@ -46,7 +46,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
   if (!currentEmployee) {
     return (
       <div className="p-8 text-center text-app-text-muted font-sans">
-        No active worker profile detected. Please log in first.
+        You are not signed in. Please sign in first.
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
 
     // Required details
     if (!name.trim() || !phone.trim()) {
-      setError("Name and Phone cannot be blank.");
+      setError("Name and phone are needed.");
       return;
     }
 
@@ -87,10 +87,10 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
         avatar: avatar.trim() || undefined
       });
 
-      setSuccess("Your profile details have been updated successfully!");
-      showToast("Profile Settings", "Profile updated successfully!", avatar);
+      setSuccess("Your details are saved.");
+      showToast("Profile", "Your details are saved.", avatar);
     } catch (err: any) {
-      setError(toUserMessage(err, "An error occurred while saving profile."));
+      setError(toUserMessage(err, "Could not save your details. Try again."));
     } finally {
       setIsSaving(false);
     }
@@ -107,11 +107,11 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
       
       {/* Title */}
       <div>
-        <h2 className="text-base font-extrabold font-display text-app-text flex items-center gap-1.5">
+        <h2 className="text-base font-semibold font-display text-app-text flex items-center gap-1.5">
           My Profile
         </h2>
         <p className="text-[11px] text-app-text-muted mt-0.5">
-          Manage your personal details and login session.
+          Your details and sign out.
         </p>
       </div>
 
@@ -151,7 +151,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
                 <div className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                   <Upload size={18} className="text-amber-500" />
                 </div>
-                <span className="absolute -bottom-2 -right-2 bg-amber-500 text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                <span className="absolute -bottom-2 -right-2 bg-amber-500 text-slate-950 text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm">
                   {currentEmployee.role}
                 </span>
               </div>
@@ -159,7 +159,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           />
 
           <div className="space-y-1">
-            <h3 className="text-sm font-black text-app-text uppercase">{name || "Staff Operator"}</h3>
+            <h3 className="text-sm font-semibold text-app-text uppercase">{name || "Your name"}</h3>
           </div>
 
 
@@ -169,25 +169,25 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
               type="button"
               onClick={() => {
                 logout();
-                showToast("Logged Out", "Session closed successfully.", undefined, "info");
+                showToast("Signed out", "You are signed out.", undefined, "info");
               }}
-              className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-[11.5px] font-black flex items-center justify-center gap-2 transition duration-200 cursor-pointer uppercase tracking-wider shadow-xs"
+              className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-[11.5px] font-semibold flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-xs"
             >
               <LogOut size={13} />
-              <span>Log Out of Session</span>
+              <span>Sign out</span>
             </button>
           </div>
         </div>
 
         {/* Update Details Form */}
         <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-          <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5 border-b border-app-border/45 pb-2">
+          <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5 border-b border-app-border/45 pb-2">
             <User size={14} className="text-amber-500" /> Account Security & Information
           </h3>
 
           <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="space-y-1">
-              <label className="text-[10px] text-app-text-muted font-bold uppercase block">Full Name</label>
+              <label className="text-[10px] text-app-text-muted font-bold block">Full Name</label>
               <div className="relative">
                 <input
                   type="text"
@@ -200,9 +200,9 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-app-text-muted font-bold uppercase block flex items-center justify-between">
+              <label className="text-[10px] text-app-text-muted font-bold block flex items-center justify-between">
                 <span>Email Address</span>
-                <span className="text-[8px] text-amber-500 font-bold tracking-tight lowercase flex items-center gap-0.5">
+                <span className="text-[11px] text-amber-500 font-bold tracking-tight lowercase flex items-center gap-0.5">
                   <Lock size={8} /> Locked
                 </span>
               </label>
@@ -218,7 +218,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-app-text-muted font-bold uppercase block">Phone Number</label>
+              <label className="text-[10px] text-app-text-muted font-bold block">Phone Number</label>
               <div className="relative">
                 <input
                   type="text"
@@ -235,7 +235,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full sm:w-auto px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
               >
                 {isSaving ? (
                   <>
@@ -260,8 +260,8 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
             <HelpCircle size={18} />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-app-text uppercase tracking-wider">Guided Walkthrough Tour</h3>
-            <p className="text-[10px] text-app-text-muted mt-0.5">Need help navigating the system? Restart the operator guided tour anytime.</p>
+            <h3 className="text-xs font-bold text-app-text">Guided tour</h3>
+            <p className="text-[10px] text-app-text-muted mt-0.5">Need help finding your way? Take the tour again any time.</p>
           </div>
         </div>
         <button
@@ -269,9 +269,9 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           onClick={() => {
             onRestartTour?.();
           }}
-          className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[10.5px] uppercase tracking-wider transition cursor-pointer shrink-0 shadow-sm"
+          className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl text-[10.5px] transition cursor-pointer shrink-0 shadow-sm"
         >
-          Request Guide
+          Start tour
         </button>
       </div>
 
@@ -282,7 +282,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           onClick={() => setShowSecurityClearance(!showSecurityClearance)}
           className="w-full flex items-center justify-between text-left group cursor-pointer focus:outline-none"
         >
-          <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-app-border/45 flex-1 mr-4">
+          <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5 pb-2 border-b border-app-border/45 flex-1 mr-4">
             <ShieldCheck size={14} className="text-amber-500" /> Digital security
           </h3>
           <span className="text-[11px] font-bold text-amber-500 group-hover:underline self-center">
@@ -301,21 +301,18 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
                   <ShieldCheck size={13} />
                 </div>
                 <div>
-                  <code className="text-[10px] font-mono font-black tracking-tight block">
-                    {perm.code}
-                  </code>
-                  <p className="text-[9.5px] text-app-text-muted leading-tight mt-0.5 font-medium">
-                    {perm.description}
+                  <p className="text-[10.5px] font-bold leading-tight">
+                    {perm.description || perm.code}
                   </p>
-                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider inline-block mt-1.5 bg-emerald-500/10 text-emerald-500">
-                    Access Approved
+                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded inline-block mt-1.5 bg-emerald-500/10 text-emerald-500">
+                    Allowed
                   </span>
                 </div>
               </div>
             ))}
             {rolePermissions.filter(perm => perm.granted).length === 0 && (
               <div className="col-span-full p-4 text-center text-[11px] text-app-text-muted italic bg-app-bg border border-app-border rounded-xl">
-                No active security clearances assigned to this profile.
+                Your role has no permissions yet.
               </div>
             )}
           </div>

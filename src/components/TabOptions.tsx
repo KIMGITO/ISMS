@@ -37,7 +37,7 @@ function useActiveInView(activeKey: string) {
 function Badge({ n }: { n?: number }) {
   if (!n) return null;
   return (
-    <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] text-amber-500">
+    <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-500">
       {n > 99 ? "99+" : n}
     </span>
   );
@@ -62,7 +62,7 @@ export function Tabs<T extends string>({
             aria-selected={isActive}
             data-shortcut={tab.shortcut}
             onClick={() => onChange(tab.id)}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded text-[11px] font-black uppercase tracking-widest transition-all ${
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded text-[11px] font-semibold transition-all ${
               isActive
                 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                 : "text-app-text-muted hover:bg-app-card border border-transparent"

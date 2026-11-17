@@ -8,10 +8,46 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
-  BadgePercent, Plus, RefreshCw, Gift, AlertTriangle, Check, X, Archive, Power, Pencil, Ban, PauseCircle,
-  PlayCircle, Sparkles, Percent, Banknote, ShoppingCart, PackagePlus, Users, UserPlus, Ticket, TrendingUp,
-  Receipt, Coins, Wallet, LayoutGrid, Store, Globe, CalendarDays, Hourglass, ShieldCheck, Package, Tags,
-  UserRound, ArrowRight, Infinity as InfinityIcon, Layers, Clock, Info, Undo2,
+  BadgePercent,
+  Plus,
+  RefreshCw,
+  Gift,
+  AlertTriangle,
+  Check,
+  X,
+  Archive,
+  Power,
+  Pencil,
+  Ban,
+  PauseCircle,
+  PlayCircle,
+  Percent,
+  Banknote,
+  ShoppingCart,
+  PackagePlus,
+  Users,
+  UserPlus,
+  Ticket,
+  TrendingUp,
+  Receipt,
+  Coins,
+  Wallet,
+  LayoutGrid,
+  Store,
+  Globe,
+  CalendarDays,
+  Hourglass,
+  ShieldCheck,
+  Package,
+  Tags,
+  UserRound,
+  ArrowRight,
+  Infinity as InfinityIcon,
+  Layers,
+  Clock,
+  Info,
+  Undo2,
+  Shuffle,
 } from 'lucide-react';
 import { useBusinessStore } from '../stores/businessStore';
 import { useInventoryStore } from '../stores/inventoryStore';
@@ -228,7 +264,7 @@ function Skeleton() {
 function Group({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <fieldset className="space-y-3 min-w-0 pt-1">
-      <legend className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-app-text-muted mb-2 [&>svg]:size-3.5">
+      <legend className="flex items-center gap-1.5 text-[11px] font-bold text-app-text-muted mb-2 [&>svg]:size-3.5">
         {icon} {title}
       </legend>
       {children}
@@ -829,12 +865,12 @@ function PromotionEditor({ businessId, promotion, onClose, onSaved }: {
             <TextInput
               value={d.code}
               onChange={(e) => set({ code: e.target.value.toUpperCase().replace(/\s/g, '') })}
-              placeholder="MILK10"
+              placeholder="SAVE10"
               maxLength={24}
               inputClassName="font-mono uppercase font-semibold tracking-wide"
               suffix={
                 <button type="button" onClick={() => void generate()} aria-label="Make a random code" title="Make a random code" className="grid place-items-center size-7 -mr-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer">
-                  <Sparkles size={15} />
+                  <Shuffle size={15} />
                 </button>
               }
             />
@@ -1380,7 +1416,7 @@ function CampaignEditor({ businessId, campaign, onClose, onSaved }: {
             onChange={(p) => set({ ...(p.kind ? { welcomeKind: p.kind } : {}), ...('value' in p ? { welcomeValue: p.value ?? null } : {}), ...('productId' in p ? { welcomeProductId: p.productId ?? null } : {}), ...('qty' in p ? { welcomeQty: p.qty ?? null } : {}) })} />
         </div>
         <p className="flex items-start gap-1.5 text-[11px] text-app-text-muted">
-          <Info size={12} className="shrink-0 mt-px" /> New customer's discount comes off the first sale. Wallet and points arrive after the wait. The referrer's discount becomes a code for next time.
+          <Info size={12} className="shrink-0 mt-px" /> Rewards arrive after the first purchase.
         </p>
       </Group>
 

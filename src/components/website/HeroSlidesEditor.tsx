@@ -628,7 +628,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
 
       <div>
         <p className="text-sm font-medium text-app-text">Pictures <span className="font-normal text-app-text-muted">({slide.images.length} of {HERO_LIMITS.images})</span></p>
-        <p className="text-xs text-app-text-muted">Photos with the background removed look best: tap "Remove" after choosing one. Drag a picture in the square to move it; scroll, pinch or use + / - to resize it. The same arrangement is used on every screen, only smaller on phones.</p>
+        <p className="text-xs text-app-text-muted">Drag to move a picture. Pinch or use + / - to resize.</p>
         <div className="mt-2 grid items-start gap-3 sm:grid-cols-[minmax(0,18rem)_1fr]">
         <div className="space-y-2 rounded-xl p-3" style={SAND_PANEL}>
           <ArrangeDisplay slide={slide} onPositions={(positions) => set({ positions })} />
@@ -761,7 +761,7 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       // An older database refuses the layout and colour fields; keep the rest rather than lose it all.
       ok = await write(
         cleaned.map(withoutLayoutChoices),
-        'Home banner saved, but without the phone layout, side and colour choices. Ask your administrator to apply database update 20261115002.',
+        'Home banner saved, but the phone layout, side and colour choices could not be saved. Try again later.',
       );
     }
     if (ok) {
@@ -791,8 +791,7 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       <section className={`${cardClass} space-y-3`}>
         <h3 className="font-bold text-app-text">Home banner</h3>
         <p className="text-sm text-app-text-muted">
-          {loadError} Check your connection. If this keeps happening, the database update for the home banner
-          (20261111002) may not be applied yet; until then the website shows its built-in slides.
+          {loadError} Check your connection and try again.
         </p>
         <button type="button" className={secondaryClass} onClick={tryLoad}><RotateCcw size={15} /> Try again</button>
       </section>

@@ -383,7 +383,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `biz-${b.id}`,
           title: b.name,
-          subtitle: b.description || "Sister Dairy Distribution Branch",
+          subtitle: b.description || b.address || "Branch",
           category: "Businesses",
           businessName: b.name,
           relevance: score + 10,
@@ -427,7 +427,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `cat-${cat}`,
           title: `${cat} Category`,
-          subtitle: `Active products logged: ${products.filter(p => p.category === cat).length}`,
+          subtitle: `${products.filter(p => p.category === cat).length} products`,
           category: "Product Categories",
           businessName: activeBizName,
           relevance: score,
@@ -451,7 +451,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `inv-${p.id}`,
           title: `Stock of ${p.name}`,
-          subtitle: `Current stock: ${p.stock} ${p.unit} (Safety Threshold: ${p.minStock})`,
+          subtitle: `Current stock: ${p.stock} ${p.unit} (restock at ${p.minStock})`,
           category: "Inventory",
           businessName: activeBizName,
           status: isLow ? "Low Stock" : "Healthy",
@@ -478,7 +478,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `adj-${adj.id}`,
           title: `Adjustment: ${adj.productName}`,
-          subtitle: `Quantity adjusted: ${adj.quantityAdjusted > 0 ? "+" : ""}${adj.quantityAdjusted} · Type: ${adj.type} · Reason: ${adj.reason} · By: ${adj.staffName}`,
+          subtitle: `Change: ${adj.quantityAdjusted > 0 ? "+" : ""}${adj.quantityAdjusted} · Type: ${adj.type} · Reason: ${adj.reason} · By: ${adj.staffName}`,
           category: "Inventory Transactions",
           businessName: activeBizName,
           relevance: score,
@@ -599,7 +599,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           matched.push({
             id: `sale-item-${t.id}-${index}`,
             title: `Item: ${item.product.name} (receipt ${formatReceiptNumber(t.id)})`,
-            subtitle: `Quantity sold: ${item.quantity} · Discount: ${item.discountPercentage}% · Total: KSh ${(item.product.price * item.quantity).toFixed(2)}`,
+            subtitle: `Sold: ${item.quantity} · Discount: ${item.discountPercentage}% · Total: KSh ${(item.product.price * item.quantity).toFixed(2)}`,
             category: "Sale Items",
             businessName: activeBizName,
             relevance: score,
@@ -671,35 +671,11 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           id: `batch-${b.id}`,
           title: `Production batch: ${b.recipeName}${b.referenceNumber ? ` · Ref ${b.referenceNumber}` : ""}`,
           spot: { text: b.recipeName },
-          subtitle: `Formula: ${b.recipeName} · Yield: ${b.quantityProduced} ${b.unit} · Operator: ${b.staffName} · Status: ${b.status}`,
+          subtitle: `${b.quantityProduced} ${b.unit} · By ${b.staffName} · ${b.status}`,
           category: "Production Batches",
           businessName: activeBizName,
           status: b.status,
           relevance: score + 10,
-          action: () => {
-            onNavigateTab("production");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
-    // 13. Recipes & Bill of Materials (BOM)
-    const recipes = extra.recipes || [];
-    recipes.forEach(r => {
-      const matchName = getRelevance(r.name, lower);
-      const matchCode = getRelevance(r.code, lower);
-      const score = Math.max(matchName, matchCode);
-      if (score > 0) {
-        matched.push({
-          id: `recipe-${r.id}`,
-          title: r.name,
-          subtitle: `Formula Code: ${r.code} · Yield: ${r.yieldQuantity} ${r.yieldUnit} · Ingredients count: ${r.ingredients.length}`,
-          category: "Recipes / BOM",
-          businessName: activeBizName,
-          relevance: score,
-          spot: { text: r.name },
           action: () => {
             onNavigateTab("production");
             setIsOpen(false);
@@ -732,31 +708,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 15. Search Payments (Verified cash registers and M-Pesa API references)
-    const payments = extra.payments || [];
-    payments.forEach(pay => {
-      const matchCode = getRelevance(pay.referenceCode, lower);
-      const matchSender = getRelevance(pay.senderName, lower);
-      const score = Math.max(matchCode, matchSender);
-      if (score > 0) {
-        matched.push({
-          id: `pay-${pay.id}`,
-          title: `Payment Ref: ${pay.referenceCode}`,
-          subtitle: `Amount: KSh ${pay.amount.toFixed(2)} · Method: ${pay.method} · From: ${pay.senderName} · Status: ${pay.status}`,
-          category: "Payments",
-          businessName: activeBizName,
-          status: pay.status,
-          relevance: score + 15,
-          spot: { text: pay.referenceCode, press: "money-payments" },
-          action: () => {
-            onNavigateTab("money");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
     // 16. Search Team Members (Employees list)
     employees.forEach(e => {
       const matchName = getRelevance(e.name, lower);
@@ -767,7 +718,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `worker-${e.id}`,
           title: e.name,
-          subtitle: `Workspace Role: ${e.role} · Email: ${e.email} · Phone: ${e.phone} · Tasks Assigned: ${e.tasks?.length || 0}`,
+          subtitle: `${e.role} · ${e.email} · ${e.phone}`,
           category: "Team Members",
           businessName: activeBizName,
           relevance: score + 10,
@@ -790,7 +741,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `user-${u.id}`,
           title: u.name,
-          subtitle: `User Login Email: ${u.email} · Verified status: ${u.isVerified ? "Yes" : "No"}`,
+          subtitle: `${u.email}${u.isVerified ? "" : " · email not verified"}`,
           category: "Users",
           businessName: activeBizName,
           status: u.isVerified ? "Verified" : "Pending",
@@ -840,8 +791,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       if (score > 0) {
         matched.push({
           id: `role-${roleKey}`,
-          title: `Role Config: ${r.name}`,
-          subtitle: `${r.description} · Configured privileges count: ${r.permissions.length}`,
+          title: `Role: ${r.name}`,
+          subtitle: `${r.description} · ${r.permissions.length} permissions`,
           category: "Roles",
           businessName: activeBizName,
           relevance: score,
@@ -863,8 +814,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       if (score > 0) {
         matched.push({
           id: `perm-${p.code}`,
-          title: `Permission: ${p.code}`,
-          subtitle: `${p.category} · ${p.description}`,
+          title: p.description || p.code,
+          subtitle: `Permission · ${p.category}`,
           category: "Permissions",
           businessName: activeBizName,
           relevance: score,
@@ -902,59 +853,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 22. Search Reports
-    const reportTerms = [
-      { term: "sales report", name: "Daily Sales Performance & Revenue Ledger", desc: "Browse charts, gross profits, and download PDF catalogs", key: "sales" },
-      { term: "inventory velocity", name: "Dairy Stock Outflow Velocity Analytics", desc: "Reconcile truck stock, receive raw milk batches", key: "inventory" },
-      { term: "customer retention", name: "Loyalty Tier Metrics & Demographics", desc: "Analyze Bronze, Silver, Gold and subscription frequency", key: "customers" },
-      { term: "profit margin", name: "Operational Profitability Audit Ledger", desc: "Cross-reference KRA VAT tax liabilities and expenses", key: "dashboard" },
-      { term: "expense chart", name: "Raw Milk Spillages & cooling diesel logs", desc: "Review operational costs and waste logging", key: "inventory" }
-    ];
-    reportTerms.forEach(rt => {
-      const scoreTerm = getRelevance(rt.term, lower);
-      const scoreName = getRelevance(rt.name, lower);
-      const score = Math.max(scoreTerm, scoreName);
-      if (score > 0) {
-        matched.push({
-          id: `report-${rt.term}`,
-          title: rt.name,
-          subtitle: rt.desc,
-          category: "Reports",
-          businessName: activeBizName,
-          relevance: score,
-          action: () => {
-            onNavigateTab(rt.key as any);
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
-    // 23. Search AI Insights
-    const insights = extra.aiInsights || [];
-    insights.forEach(ins => {
-      const matchTitle = getRelevance(ins.title, lower);
-      const matchContent = getRelevance(ins.content, lower);
-      const score = Math.max(matchTitle, matchContent);
-      if (score > 0) {
-        matched.push({
-          id: `insight-${ins.id}`,
-          title: `AI Recommendation: ${ins.title}`,
-          spot: { text: ins.title },
-          subtitle: ins.content,
-          category: "AI Insights",
-          businessName: activeBizName,
-          relevance: score + 10,
-          action: () => {
-            onNavigateTab("ai");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
-
     // 24. Search Audit Logs
     auditLogs.forEach(log => {
       const action = describeAction(log);
@@ -978,10 +876,10 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
 
     // 25. Search Settings Configurations
     const settingTerms = [
-      { term: "integrations", name: "API Credentials & Secret Keys Panel", desc: `Configure ${aiName} AI, WhatsApp, Twilio, and Firebase integrations` },
-      { term: "tax configuration", name: "Kenya Revenue Authority VAT settings", desc: "Configure KRA VAT rate and PIN registration values" },
-      { term: "dark mode theme", name: "Appearance Themes & Accessibility Settings", desc: "Toggle interface colors and high contrast slate layout" },
-      { term: "ai config", name: "AI Workspace Assistant Model Customization", desc: "Manage system instructions or custom models" }
+      { term: "connections sms whatsapp ai keys", name: "Connections", desc: `SMS, WhatsApp and ${aiName} settings` },
+      { term: "tax kra etims vat", name: "KRA eTIMS and VAT", desc: "Connect eTIMS and set tax on receipts" },
+      { term: "dark mode theme", name: "Light or dark look", desc: "Switch the app colours" },
+      { term: "ai assistant", name: `${aiName} settings`, desc: "Turn the assistant on and give it instructions" }
     ];
     settingTerms.forEach(st => {
       const scoreTerm = getRelevance(st.term, lower);
@@ -1212,7 +1110,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       <span>
         {parts.map((part, i) => 
           part.toLowerCase() === search.toLowerCase() ? (
-            <mark key={i} className="bg-amber-500/30 text-amber-500 font-extrabold rounded px-0.5">{part}</mark>
+            <mark key={i} className="bg-amber-500/30 text-amber-500 font-semibold rounded px-0.5">{part}</mark>
           ) : (
             part
           )
@@ -1260,7 +1158,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           >
             {results.length === 0 ? (
               <div className="p-6 text-center text-xs text-app-text-muted">
-                No matching records, documents, batches, audit logs, or settings found.
+                Nothing found.
               </div>
             ) : (
               // Grouped Results
@@ -1269,7 +1167,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                   let globalItemIndex = -1;
                   return Array.from(new Set(results.map(r => r.category))).map((cat) => (
                   <div key={cat} className="flex flex-col gap-1 border-b border-app-border/20 pb-2 last:border-b-0">
-                    <span className="text-[9px] font-black text-amber-500 uppercase tracking-wider px-2 pt-1 block">
+                    <span className="text-[11px] font-semibold text-amber-500 px-2 pt-1 block">
                       {cat}
                     </span>
                     {results
@@ -1323,7 +1221,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                                 </h4>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {res.status && (
-                                    <span className={`text-[7.5px] px-1 py-0.2 rounded font-black uppercase tracking-wider ${
+                                    <span className={`text-[11px] px-1 py-0.2 rounded font-semibold ${
                                       ["Success", "Approved", "Completed", "Active", "Verified"].includes(res.status)
                                         ? "bg-emerald-500/10 text-emerald-500"
                                         : ["Pending", "In_Progress", "Under_Maintenance"].includes(res.status)
@@ -1334,13 +1232,13 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                                     </span>
                                   )}
                                   {res.businessName && (
-                                    <span className="text-[7.5px] bg-slate-200 dark:bg-slate-800 text-app-text-muted px-1.5 py-0.2 rounded-md font-bold max-w-[80px] truncate">
+                                    <span className="text-[11px] bg-slate-200 dark:bg-slate-800 text-app-text-muted px-1.5 py-0.2 rounded-md font-bold max-w-[80px] truncate">
                                       {res.businessName}
                                     </span>
                                   )}
                                 </div>
                               </div>
-                              <p className="text-[9px] text-app-text-muted truncate mt-0.5 leading-normal">
+                              <p className="text-[11px] text-app-text-muted truncate mt-0.5 leading-normal">
                                 {renderHighlightedText(res.subtitle, query)}
                               </p>
                             </div>

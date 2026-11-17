@@ -13,8 +13,6 @@ import {
   Trash2,
   Send,
   RefreshCw,
-  Brain,
-  Wand2,
   Archive,
   ArchiveRestore,
   ArrowLeft,
@@ -22,6 +20,8 @@ import {
   X,
   BellRing,
   Megaphone,
+  Lightbulb,
+  PenLine,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useAppStore } from '../stores/appStore';
@@ -603,7 +603,7 @@ Feedback: "${comment.comment}"`,
               <div className={`${card} p-4 space-y-3`}>
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <Brain size={15} className="text-violet-500" /> What customers are saying
+                    <Lightbulb size={15} className="text-app-text-muted" /> What customers are saying
                   </h2>
                   <button
                     type="button"
@@ -724,13 +724,13 @@ Feedback: "${comment.comment}"`,
                         },
                         {
                           label: `Ask ${aiName} about it`,
-                          icon: <Brain size={16} />,
+                          icon: <Lightbulb size={16} />,
                           hidden: !hasAiPermission,
                           onClick: () => handleAiAnalyze(comment),
                         },
                         {
                           label: `Draft a reply with ${aiName}`,
-                          icon: <Wand2 size={16} />,
+                          icon: <PenLine size={16} />,
                           hidden: !hasAiPermission || !canReply,
                           onClick: () => handleAiGenerateReply(comment),
                         },
@@ -790,7 +790,7 @@ Feedback: "${comment.comment}"`,
                         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3 text-sm">
                           <div className="mb-1 flex items-center justify-between gap-2">
                             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-                              <Brain size={13} /> {aiName}'s view
+                              <Lightbulb size={13} /> {aiName}'s view
                             </span>
                             <button
                               type="button"
@@ -866,7 +866,7 @@ Feedback: "${comment.comment}"`,
                                   disabled={!!state}
                                   className={`${chipBtn} text-violet-600 dark:text-violet-400 hover:bg-violet-500/10`}
                                 >
-                                  {state === 'draft' ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                  {state === 'draft' ? <RefreshCw size={12} className="animate-spin" /> : <PenLine size={12} />}
                                   Draft reply
                                 </button>
                                 {draft.trim() && (
@@ -876,7 +876,7 @@ Feedback: "${comment.comment}"`,
                                     disabled={!!state}
                                     className={`${chipBtn} text-violet-600 dark:text-violet-400 hover:bg-violet-500/10`}
                                   >
-                                    {state === 'polish' ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                    {state === 'polish' ? <RefreshCw size={12} className="animate-spin" /> : <PenLine size={12} />}
                                     Improve my reply
                                   </button>
                                 )}
@@ -886,7 +886,7 @@ Feedback: "${comment.comment}"`,
                                   disabled={!!state}
                                   className={`${chipBtn} text-violet-600 dark:text-violet-400 hover:bg-violet-500/10`}
                                 >
-                                  {state === 'analyze' ? <RefreshCw size={12} className="animate-spin" /> : <Brain size={12} />}
+                                  {state === 'analyze' ? <RefreshCw size={12} className="animate-spin" /> : <Lightbulb size={12} />}
                                   Ask {aiName}
                                 </button>
                               </>

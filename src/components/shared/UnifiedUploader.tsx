@@ -54,7 +54,7 @@ function cameraWord(): "Camera" | "Webcam" {
   return "Webcam";
 }
 
-// Unsplash presets for Milk Shop theme
+// Pictures shown in the gallery before a search
 const UNSPLASH_PRESETS = [
   { id: "u-1", label: "Fresh Milk Glass", url: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=300" },
   { id: "u-2", label: "Dairy Cows Pasture", url: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=300" },
@@ -63,7 +63,6 @@ const UNSPLASH_PRESETS = [
   { id: "u-5", label: "Lush Green Meadow", url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=300" },
   { id: "u-6", label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" },
   { id: "u-7", label: "Creamy Yogurt Dessert", url: "https://images.unsplash.com/photo-1571244856341-4f3005953043?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-8", label: "Operator Jane", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
   { id: "u-9", label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
   { id: "u-10", label: "Cow Milking Process", url: "https://images.unsplash.com/photo-1596731046162-9745e69e4ce1?auto=format&fit=crop&q=80&w=300" },
   { id: "u-11", label: "Gourmet Cheese Platter", url: "https://images.unsplash.com/photo-1561043433-aaf687c4ce04?auto=format&fit=crop&q=80&w=300" },
@@ -80,9 +79,6 @@ const LOCAL_FALLBACK_CATALOG = [
   { keywords: ["cheese", "board", "food"], label: "Artisanal Cheese Board", url: "https://images.unsplash.com/photo-1486299267070-83823f5448dd?auto=format&fit=crop&q=80&w=300" },
   { keywords: ["yogurt", "bowl", "berry"], label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" },
   { keywords: ["yogurt", "strawberry", "spoon"], label: "Creamy Yogurt Dessert", url: "https://images.unsplash.com/photo-1571244856341-4f3005953043?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["worker", "staff", "person", "operator", "profile", "man", "woman"], label: "Operator Jane", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
-  { keywords: ["worker", "staff", "person", "operator", "profile", "man"], label: "Operator David", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
-  { keywords: ["worker", "staff", "person", "operator", "profile", "woman"], label: "Operator Sarah", url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150" },
   { keywords: ["butter", "cream", "bakery"], label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
 ];
 
@@ -939,7 +935,7 @@ export default function UnifiedUploader({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`py-2 px-3 bg-app-bg hover:bg-app-card border border-app-border text-app-text font-black rounded-xl transition cursor-pointer text-[9px] uppercase tracking-wider flex items-center gap-1.5 ${className}`}
+          className={`py-2 px-3 bg-app-bg hover:bg-app-card border border-app-border text-app-text font-semibold rounded-xl transition cursor-pointer text-[11px] flex items-center gap-1.5 ${className}`}
         >
           <Upload size={11} className="text-brand-500" />
           <span>{buttonText}</span>
@@ -959,7 +955,7 @@ export default function UnifiedUploader({
               <div className="flex items-center justify-between border-b border-app-border/40 pb-2.5">
                 <div className="flex items-center gap-2">
                   <Upload size={16} className="text-brand-500" />
-                  <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">{title}</h3>
+                  <h3 className="text-xs font-semibold text-app-text font-display">{title}</h3>
                 </div>
                 <button
                   type="button"
@@ -976,10 +972,10 @@ export default function UnifiedUploader({
                 /* GESTURE CROP SCREEN */
                 <div className="flex flex-col gap-4">
                   <div>
-                    <h4 className="text-[10px] font-black text-app-text uppercase tracking-wider text-center">
+                    <h4 className="text-[10px] font-semibold text-app-text text-center">
                       {cropOn ? "Position and zoom" : "Check your picture"}
                     </h4>
-                    <p className="text-[8.5px] text-app-text-muted text-center mt-0.5">
+                    <p className="text-[11px] text-app-text-muted text-center mt-0.5">
                       {cropOn ? "Drag to move · Pinch or scroll wheel to zoom" : "The whole picture is kept. Switch on cropping below to cut part of it."}
                     </p>
                   </div>
@@ -1051,7 +1047,7 @@ export default function UnifiedUploader({
                   </div>
 
                   {cropOn && (
-                    <div className="flex items-center justify-between text-[8px] text-app-text-muted px-6">
+                    <div className="flex items-center justify-between text-[11px] text-app-text-muted px-6">
                       <span className="flex items-center gap-1"><ZoomIn size={10} /> Zoom: {cropZoom.toFixed(1)}x</span>
                       <span className="flex items-center gap-1"><Move size={10} /> Drag to move</span>
                     </div>
@@ -1059,15 +1055,15 @@ export default function UnifiedUploader({
 
                   {/* Cropping: a must only for profile pictures, otherwise staff choose */}
                   {cropRequired ? (
-                    <p className="text-[8.5px] text-app-text-muted text-center px-2">
+                    <p className="text-[11px] text-app-text-muted text-center px-2">
                       Profile pictures are always shown as a {cropAspect === 1 ? "square" : "fixed shape"}, so this one is cropped.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2 py-2 border-t border-app-border/40 px-2">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <span className="font-extrabold text-app-text text-[10px] block">Crop picture</span>
-                          <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">
+                          <span className="font-semibold text-app-text text-[10px] block">Crop picture</span>
+                          <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
                             {cropOn ? "Only the part inside the frame is saved." : "Off: the whole picture is saved as it is."}
                           </span>
                         </div>
@@ -1088,7 +1084,7 @@ export default function UnifiedUploader({
                                 role="radio"
                                 aria-checked={picked}
                                 onClick={() => { setChosenAspect(choice.value); resetFrame(); }}
-                                className={`px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider transition cursor-pointer ${picked ? "bg-brand-500 text-app-bg border-brand-500" : "bg-app-bg border-app-border hover:bg-app-card"}`}
+                                className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${picked ? "bg-brand-500 text-app-bg border-brand-500" : "bg-app-bg border-app-border hover:bg-app-card"}`}
                               >
                                 {choice.label}
                               </button>
@@ -1104,8 +1100,8 @@ export default function UnifiedUploader({
                     <div className="flex flex-col gap-2 py-2 border-t border-app-border/40 px-2">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <span className="font-extrabold text-app-text text-[10px] block">Remove background</span>
-                          <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">
+                          <span className="font-semibold text-app-text text-[10px] block">Remove background</span>
+                          <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
                             {bgOriginalSrc
                               ? "Done. The product now sits on a clear background."
                               : bgModelReady
@@ -1117,7 +1113,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={handleUndoBackground}
-                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[11px] font-semibold rounded-lg transition cursor-pointer"
                           >
                             <Undo2 size={11} /> Undo
                           </button>
@@ -1125,7 +1121,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={cancelBackground}
-                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-app-bg border border-app-border hover:bg-app-card text-[11px] font-semibold rounded-lg transition cursor-pointer"
                           >
                             <X size={11} /> Cancel
                           </button>
@@ -1133,7 +1129,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={handleRemoveBackground}
-                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 text-[9px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer"
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 text-[11px] font-semibold rounded-lg transition cursor-pointer"
                           >
                             <Eraser size={11} /> Remove
                           </button>
@@ -1154,8 +1150,8 @@ export default function UnifiedUploader({
                   {/* Compression Options */}
                   <div className="flex items-center justify-between gap-4 py-2 border-t border-app-border/40 px-2">
                     <div>
-                      <span className="font-extrabold text-app-text text-[10px] block">WebP Lossless Compression</span>
-                      <span className="text-[8px] text-app-text-muted font-medium block mt-0.5">Optimizes loading speed & storage size</span>
+                      <span className="font-semibold text-app-text text-[10px] block">WebP Lossless Compression</span>
+                      <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">Optimizes loading speed & storage size</span>
                     </div>
                     <Switch checked={compressToggle} onChange={setCompressToggle} ariaLabel="WebP lossless compression" />
                   </div>
@@ -1169,7 +1165,7 @@ export default function UnifiedUploader({
                         setBgOriginalSrc(null);
                         setIsEditing(false);
                       }}
-                      className="flex-1 py-2 bg-app-bg border border-app-border hover:bg-app-card text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                      className="flex-1 py-2 bg-app-bg border border-app-border hover:bg-app-card text-[10px] font-semibold rounded-xl transition cursor-pointer"
                     >
                       Back
                     </button>
@@ -1177,7 +1173,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={handleCropSave}
                       disabled={Boolean(bgProgress)}
-                      className="flex-1 py-2 disabled:opacity-50 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                      className="flex-1 py-2 disabled:opacity-50 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-semibold rounded-xl transition cursor-pointer"
                     >
                       {cropOn ? "Crop & Save" : "Save"}
                     </button>
@@ -1209,7 +1205,7 @@ export default function UnifiedUploader({
                       </div>
                       <div className="flex items-center gap-1.5 text-success">
                         <Check size={18} />
-                        <h4 className="text-[11px] font-black uppercase tracking-wider">Upload complete</h4>
+                        <h4 className="text-[11px] font-semibold">Upload complete</h4>
                       </div>
                     </>
                   )}
@@ -1220,15 +1216,15 @@ export default function UnifiedUploader({
                         <Check size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-brand-500">Stashed Offline</h4>
-                        <p className="text-[9px] text-app-text-muted mt-1.5 font-medium px-4">
-                          File cached successfully. It will automatically upload to Supabase when returning online.
+                        <h4 className="text-[11px] font-semibold text-brand-500">Stashed Offline</h4>
+                        <p className="text-[11px] text-app-text-muted mt-1.5 font-medium px-4">
+                          Saved on this device. It uploads when you are back online.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={closeUploader}
-                        className="py-2 px-4 bg-brand-500 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
+                        className="py-2 px-4 bg-brand-500 text-app-bg text-[10px] font-semibold rounded-xl cursor-pointer"
                       >
                         Got It
                       </button>
@@ -1241,21 +1237,21 @@ export default function UnifiedUploader({
                         <AlertCircle size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-black uppercase tracking-wider text-error">Upload Failed</h4>
-                        <p className="text-[9px] text-error font-mono mt-1 px-4 leading-tight">{errorMessage}</p>
+                        <h4 className="text-[11px] font-semibold text-error">Upload Failed</h4>
+                        <p className="text-[11px] text-error font-mono mt-1 px-4 leading-tight">{errorMessage}</p>
                       </div>
                       <div className="flex gap-2 w-full px-8 mt-2">
                         <button
                           type="button"
                           onClick={resetState}
-                          className="flex-1 py-2 bg-app-bg border border-app-border text-[9px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                          className="flex-1 py-2 bg-app-bg border border-app-border text-[11px] font-semibold rounded-xl transition cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
                           onClick={handleRetry}
-                          className="flex-1 py-2 bg-brand-500 text-app-bg text-[9px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                          className="flex-1 py-2 bg-brand-500 text-app-bg text-[11px] font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           <RetryIcon size={10} />
                           <span>Retry</span>
@@ -1268,12 +1264,12 @@ export default function UnifiedUploader({
                 /* MAIN INPUT SOURCE TABS */
                 <div className="space-y-4">
                   {/* Tab list header */}
-                  <div className="flex bg-app-bg p-1 rounded-xl border border-app-border/40 gap-1 text-[9.5px] font-black uppercase tracking-wider">
+                  <div className="flex bg-app-bg p-1 rounded-xl border border-app-border/40 gap-1 text-[11px] font-semibold">
                     <button
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("device"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "device" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "device" ? "bg-brand-500 text-app-bg font-semibold" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       File Drive
@@ -1282,7 +1278,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { startCamera(); setActiveTab("camera"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "camera" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "camera" ? "bg-brand-500 text-app-bg font-semibold" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       {cameraWord()}
@@ -1291,7 +1287,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("url"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "url" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "url" ? "bg-brand-500 text-app-bg font-semibold" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       Link
@@ -1300,7 +1296,7 @@ export default function UnifiedUploader({
                       type="button"
                       onClick={() => { stopCamera(); setActiveTab("unsplash"); }}
                       className={`flex-1 py-1.5 rounded-lg text-center transition cursor-pointer ${
-                        activeTab === "unsplash" ? "bg-brand-500 text-app-bg font-black" : "text-app-text-muted hover:text-app-text"
+                        activeTab === "unsplash" ? "bg-brand-500 text-app-bg font-semibold" : "text-app-text-muted hover:text-app-text"
                       }`}
                     >
                       Unsplash
@@ -1308,7 +1304,7 @@ export default function UnifiedUploader({
                   </div>
 
                   {errorMessage && (
-                    <div className="p-2.5 bg-error/5 border border-error/10 rounded-xl text-error text-[9px] font-semibold text-center leading-tight">
+                    <div className="p-2.5 bg-error/5 border border-error/10 rounded-xl text-error text-[11px] font-semibold text-center leading-tight">
                       {errorMessage}
                     </div>
                   )}
@@ -1327,15 +1323,15 @@ export default function UnifiedUploader({
                         <Upload size={22} />
                       </div>
                       <div>
-                        <span className="text-xs font-extrabold text-app-text block">Drag & Drop files here</span>
-                        <span className="text-[8.5px] text-app-text-muted font-medium block mt-1">
+                        <span className="text-xs font-semibold text-app-text block">Drag & Drop files here</span>
+                        <span className="text-[11px] text-app-text-muted font-medium block mt-1">
                           {allowedTypes.length === 1 && allowedTypes[0] === "image" ? "PNG, JPG or WebP photos" : "PNG, JPG, PDF, CSV, Excel or Word"} up to {maxSizeMb}MB
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="py-1.5 px-3.5 bg-app-border hover:bg-app-border/80 text-app-text text-[9px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                        className="py-1.5 px-3.5 bg-app-border hover:bg-app-border/80 text-app-text text-[11px] font-semibold rounded-xl transition cursor-pointer"
                       >
                         Browse Files
                       </button>
@@ -1382,7 +1378,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={capturePhoto}
-                            className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                            className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-app-bg text-[10px] font-semibold rounded-xl transition cursor-pointer"
                           >
                             Capture Frame
                           </button>
@@ -1396,7 +1392,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={() => startCamera()}
-                            className="py-1.5 px-4 bg-brand-500 text-app-bg text-[9px] font-black uppercase tracking-wider rounded-xl cursor-pointer"
+                            className="py-1.5 px-4 bg-brand-500 text-app-bg text-[11px] font-semibold rounded-xl cursor-pointer"
                           >
                             Activate Camera Feed
                           </button>
@@ -1409,7 +1405,7 @@ export default function UnifiedUploader({
                   {activeTab === "url" && (
                     <div className="space-y-3">
                       <div className="flex flex-col gap-1">
-                        <label className="text-[8.5px] font-black text-app-text-muted uppercase tracking-wider block">Paste Media / Document URL</label>
+                        <label className="text-[11px] font-semibold text-app-text-muted block">Paste Media / Document URL</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -1421,14 +1417,14 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={handleUrlLoad}
-                            className="py-2 px-3 bg-brand-500 hover:bg-brand-600 text-app-bg font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0"
+                            className="py-2 px-3 bg-brand-500 hover:bg-brand-600 text-app-bg font-semibold rounded-xl text-[11px] transition cursor-pointer shrink-0"
                           >
                             Load URL
                           </button>
                         </div>
                       </div>
-                      <p className="text-[8px] text-app-text-muted leading-normal">
-                        Import documents directly by feeding remote HTTPS locations. Note: CORS restrictions might redirect uploads as external links.
+                      <p className="text-[11px] text-app-text-muted leading-normal">
+                        Paste a link to a picture.
                       </p>
                     </div>
                   )}
@@ -1448,14 +1444,14 @@ export default function UnifiedUploader({
                               handleUnsplashSearch();
                             }
                           }}
-                          placeholder="Search milk shop assets..."
+                          placeholder="Search free photos, e.g. milk, bread"
                           className="flex-1 bg-app-bg text-app-text px-3 py-1.5 rounded-xl border border-app-border focus:border-brand-500 focus:outline-none text-[11px]"
                         />
                         <button
                           type="button"
                           onClick={handleUnsplashSearch}
                           disabled={unsplashLoading}
-                          className="py-1.5 px-3 bg-app-border hover:bg-brand-500/10 disabled:opacity-50 text-app-text font-black rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer shrink-0 flex items-center gap-1"
+                          className="py-1.5 px-3 bg-app-border hover:bg-brand-500/10 disabled:opacity-50 text-app-text font-semibold rounded-xl text-[11px] transition cursor-pointer shrink-0 flex items-center gap-1"
                         >
                           <span>{unsplashLoading ? "Finding…" : "Find"}</span>
                         </button>
@@ -1480,7 +1476,7 @@ export default function UnifiedUploader({
                           <button
                             type="button"
                             onClick={handleUnsplashSearch}
-                            className="py-1 px-3 bg-app-border text-app-text rounded-lg text-[9px] uppercase font-bold transition hover:bg-app-border/80"
+                            className="py-1 px-3 bg-app-border text-app-text rounded-lg text-[11px] font-bold transition hover:bg-app-border/80"
                           >
                             Retry
                           </button>
@@ -1490,7 +1486,7 @@ export default function UnifiedUploader({
                         <div className="py-8 text-center space-y-1">
                           <ImageIcon size={22} className="mx-auto text-app-text-muted/45" />
                           <p className="text-[10px] text-app-text-muted font-semibold">No results found</p>
-                          <p className="text-[8.5px] text-app-text-muted/80">Try another keyword like &quot;milk&quot; or &quot;cheese&quot;</p>
+                          <p className="text-[11px] text-app-text-muted/80">Try another keyword like &quot;milk&quot; or &quot;cheese&quot;</p>
                         </div>
                       ) : (
                         /* RESULTS GRID */
@@ -1510,7 +1506,7 @@ export default function UnifiedUploader({
                                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 loading="lazy"
                               />
-                              <div className="absolute inset-0 bg-app-text/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[7px] text-app-bg text-center font-bold px-1 transition-opacity">
+                              <div className="absolute inset-0 bg-app-text/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[11px] text-app-bg text-center font-bold px-1 transition-opacity">
                                 Select image
                               </div>
                             </div>

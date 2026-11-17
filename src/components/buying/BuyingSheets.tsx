@@ -126,7 +126,7 @@ export function ReceiveSheet({
     <FormSheet
       wide
       title={`Receive ${purchase.reference || 'purchase'} · ${purchase.supplierName}`}
-      subtitle="Count what came. Good goods go into stock; damaged ones are noted and stay owed by the supplier. What hasn't come stays open."
+      subtitle="Count what came. Damaged goods stay owed."
       onClose={onClose}
       footer={
         <>
@@ -169,7 +169,7 @@ export function ReceiveSheet({
           </li>
         ))}
       </ul>
-      {short && !nothing && <p className="text-[11px] text-app-text-muted">Some items are short: the purchase stays open as part received until the rest comes or you close it.</p>}
+      {short && !nothing && <p className="text-[11px] text-app-text-muted">Some items are short. The purchase stays open.</p>}
       <Field label="Note (optional)">
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Driver Otieno, delivery note 4471" className={fieldClass} />
       </Field>
@@ -415,7 +415,7 @@ export function ReturnSheet({
     <FormSheet
       wide
       title="Return goods to a supplier"
-      subtitle="Stock goes down now, and what you owe the supplier goes down by their cost."
+      subtitle="Stock and what you owe both go down."
       onClose={onClose}
       footer={
         <>

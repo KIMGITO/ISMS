@@ -328,7 +328,7 @@ export default function StockTransfersView() {
             <div className="p-8 text-center space-y-1">
               <Truck size={28} className="mx-auto text-app-text-muted" />
               <p className="text-sm text-app-text">{tab === 'open' ? 'Nothing to do.' : 'No transfers yet.'}</p>
-              {tab === 'open' && canSend && <p className="text-xs text-app-text-muted">Tap Send stock to supply another branch, or Ask for stock when you run low.</p>}
+              {tab === 'open' && canSend && <p className="text-xs text-app-text-muted">No transfers yet.</p>}
             </div>
           ) : (
             <ul className="divide-y divide-app-border">
@@ -912,7 +912,7 @@ function DetailSheet({
             )}
             {mode === 'answer' && (
               <p className="text-xs rounded-xl bg-sky-500/10 text-sky-800 dark:text-sky-300 p-3">
-                {t.toName} asked for this. Change an amount to send less, or 0 to leave it out. It comes off {t.fromName}'s stock when you send.
+                {t.toName} asked for this. Change an amount to send less.
               </p>
             )}
             {mode === 'draft' && (

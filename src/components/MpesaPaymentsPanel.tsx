@@ -213,7 +213,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
             <Send size={16} className="text-emerald-600" /> Ask a customer to pay
           </h3>
           <p className="text-xs text-app-text-muted mb-4">
-            Sends an M-Pesa prompt to their phone. For a faster screen that follows each prompt live (and Airtel Money), use{' '}
+            Sends an M-Pesa prompt to their phone. Or use{' '}
             <button type="button" onClick={() => useUiStore.getState().setActiveTab('prompt')} className="font-semibold text-emerald-600 hover:underline cursor-pointer">Payment Prompts</button> (G then M).</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 sm:col-span-2">
@@ -281,12 +281,11 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
         <h3 className="text-sm font-bold text-app-text flex items-center gap-2 mb-1">
           <Inbox size={16} className="text-amber-500" /> Paid to the till
           {unclaimed.length > 0 && (
-            <span className="ml-1 text-xs font-black bg-amber-500 text-slate-950 rounded-full px-2 py-0.5">{unclaimed.length}</span>
+            <span className="ml-1 text-xs font-semibold bg-amber-500 text-slate-950 rounded-full px-2 py-0.5">{unclaimed.length}</span>
           )}
         </h3>
         <p className="text-xs text-app-text-muted mb-4">
-          A till payment doesn't say who it's for, so each one waits here until someone assigns it.
-          Payments that quote a customer's account number are recorded by themselves.
+          Till payments wait here until you assign them.
         </p>
 
         {unclaimed.length === 0 ? (
@@ -300,7 +299,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
                 <li key={p.id} className="border border-amber-500/40 bg-amber-500/5 rounded-xl p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-base font-black text-app-text">{formatCurrency(p.amount)}</div>
+                      <div className="text-base font-semibold text-app-text">{formatCurrency(p.amount)}</div>
                       <div className="text-sm text-app-text truncate">{p.payerName || 'Unknown sender'}</div>
                       <div className="text-xs text-app-text-muted font-mono">{[p.msisdn, p.transId, when(p.transTime)].filter(Boolean).join(' · ')}</div>
                       {p.billRef && <div className="text-xs text-app-text-muted">Reference: {p.billRef}</div>}
@@ -419,7 +418,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
               ))}
             </ul>
             <p className="text-xs text-app-text-muted mt-2 flex items-center gap-1">
-              <AlertTriangle size={12} /> To undo a recorded one, void its payment on the Payments tab. It comes back here.
+              <AlertTriangle size={12} /> To undo one, void it on the Payments tab.
             </p>
           </details>
         )}

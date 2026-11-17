@@ -263,14 +263,14 @@ export default function ReceiptSettingsPanel() {
               <Field title="Website">
                 <input className={input} value={settings.website} onChange={(e) => update({ website: e.target.value })} />
               </Field>
-              <Field title="KRA PIN" hint="Printed as text. A KRA-verified section appears only when KRA eTIMS signs the sale.">
+              <Field title="KRA PIN" hint="Printed as text.">
                 <input className={`${input} uppercase font-mono`} value={settings.pinNumber} onChange={(e) => update({ pinNumber: e.target.value.toUpperCase() })} placeholder="P051234567X" />
               </Field>
               <Field title="Business registration no.">
                 <input className={input} value={settings.registrationNumber} onChange={(e) => update({ registrationNumber: e.target.value })} />
               </Field>
               <p className="sm:col-span-2 text-xs text-app-text-muted">
-                Phone, address and email come from Business settings and are used on receipts and invoices alike. Change them there. Empty fields are left off the receipt.
+                Phone, address and email come from Business settings.
               </p>
             </div>
           )}
@@ -443,7 +443,7 @@ function PrintersTab({ settings, update }: { settings: BusinessReceiptSettings; 
           <Pick value={String(prefs.copies)} onChange={(v) => printerService.savePrefs({ copies: Number(v) })} options={[1, 2, 3].map((n) => ({ id: String(n), label: String(n) }))} />
         </Field>
       </div>
-      <Switch checked={prefs.autoCut} onChange={(v) => printerService.savePrefs({ autoCut: v })} label="Cut the paper after printing" description="Turn off for printers without a cutter if they print a stray character." />
+      <Switch checked={prefs.autoCut} onChange={(v) => printerService.savePrefs({ autoCut: v })} label="Cut the paper after printing" description="Turn off if your printer has no cutter." />
 
       <div className="border-t border-app-border/60 pt-4 space-y-4">
         <p className="text-xs text-app-text-muted">These two apply to every till in the business (save below):</p>
@@ -510,7 +510,7 @@ function KraTab({ businessId, canConnect }: { businessId: string; canConnect: bo
     setBusy('disconnect');
     try {
       await kraService.disconnect(businessId);
-      showToast('KRA eTIMS', 'Disconnected. Receipts no longer show a KRA section.', undefined, 'success');
+      showToast('KRA eTIMS', 'Disconnected.', undefined, 'success');
     } catch (err) {
       showToast('KRA eTIMS', toUserMessage(err, 'Could not disconnect.'), undefined, 'error');
     } finally {
@@ -554,7 +554,7 @@ function KraTab({ businessId, canConnect }: { businessId: string; canConnect: bo
       </div>
 
       <p className="text-xs text-app-text-muted">
-        Register for eTIMS (OSCU) on the KRA portal first. KRA gives you a device serial number for this system. Try the test system before going live.
+        Register for eTIMS (OSCU) on the KRA portal to get a device serial number.
       </p>
 
       <fieldset disabled={!canConnect || busy !== null} className="grid sm:grid-cols-2 gap-3 disabled:opacity-70">

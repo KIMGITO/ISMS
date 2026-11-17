@@ -401,11 +401,11 @@ export default function QuickSaleView() {
           <div className="p-2 md:p-3 border-t border-app-border/60 space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-app-text-muted">Total{taxRate > 0 ? ' incl. tax' : ''}</span>
-              <span className="text-2xl font-black text-app-text">{formatCurrency(total)}</span>
+              <span className="text-2xl font-bold text-app-text">{formatCurrency(total)}</span>
             </div>
             <div className={`grid gap-2 ${payOptions.length >= 4 ? 'grid-cols-2' : payOptions.length === 3 ? 'grid-cols-3' : payOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {payOptions.length === 0 && (
-                <p className="text-xs text-app-text-muted py-2 text-center">Cash, M-Pesa, Airtel Money and Card are all switched off. Use POS for bank or credit sales.</p>
+                <p className="text-xs text-app-text-muted py-2 text-center">No payment methods are on. Use POS.</p>
               )}
               {payOptions.map(({ method, label, key, icon: Icon, style }) => (
                 <button

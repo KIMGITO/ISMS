@@ -277,7 +277,7 @@ export default function CardChargeSheet({ open, amount, purpose, customer, payer
               {via === 'machine' && (
                 <div className="space-y-3">
                   <p className="text-sm text-app-text-muted">
-                    Charge {formatCurrency(amountRounded)} on your card machine. When it's approved, type the approval code from the slip.
+                    Charge {formatCurrency(amountRounded)} on your card machine. Then type the approval code.
                   </p>
                   <label className="block text-xs font-semibold text-app-text-muted">
                     Approval code
@@ -291,19 +291,19 @@ export default function CardChargeSheet({ open, amount, purpose, customer, payer
                     Card was approved
                   </button>
                   {!hasOnline && !hasReader && (
-                    <p className="text-xs text-app-text-muted">To charge cards online or with a Paystack card reader, set up Paystack under Money → Cards.</p>
+                    <p className="text-xs text-app-text-muted">Set up Paystack in Money → Cards to charge online.</p>
                   )}
                 </div>
               )}
 
               {via !== 'machine' && !online && !payment && (
-                <p className="text-sm text-red-600 dark:text-red-400">You're offline. Online and card reader payments need internet; use the card machine instead.</p>
+                <p className="text-sm text-red-600 dark:text-red-400">Offline. Use the card machine.</p>
               )}
 
               {via === 'online' && !payment && online && (
                 <div className="space-y-3">
                   <p className="text-sm text-app-text-muted">
-                    Paystack opens a secure card page. Open it here for the customer, or let them scan the code with their own phone.
+                    Open the card page here, or let them scan the code.
                   </p>
                   <label className="block text-xs font-semibold text-app-text-muted">
                     Email for the receipt {customer?.email ? '' : '(optional, the shop email is used if empty)'}
@@ -369,7 +369,7 @@ export default function CardChargeSheet({ open, amount, purpose, customer, payer
 
               {confirmStop && (
                 <div className="rounded-xl ring-1 ring-app-border p-3 space-y-2">
-                  <p className="text-sm">Stop waiting for this card payment? If the customer already paid, it is still kept.</p>
+                  <p className="text-sm">Stop waiting for this card payment?</p>
                   <div className="flex gap-2 justify-end">
                     <button type="button" onClick={() => setConfirmStop(false)} className="px-3 py-2 rounded-lg text-sm bg-app-bg cursor-pointer">Keep waiting</button>
                     <button type="button" disabled={busy} onClick={() => void stopWaiting()} className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white disabled:opacity-60 cursor-pointer">Stop</button>

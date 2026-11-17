@@ -76,7 +76,7 @@ export default function SalesView() {
     if (!businessId) return;
     const ok = await appDialog.confirm({
       title: `Delete sale ${formatReceiptNumber(tx.id)}?`,
-      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. Gone for everyone, for good. Stock, payments and debts stay as they are.`,
+      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. Deleted for good. Stock and payments stay.`,
       confirmLabel: "Delete",
       destructive: true,
     });
@@ -183,7 +183,7 @@ export default function SalesView() {
         <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 max-w-sm flex flex-col items-center gap-2.5 shadow">
           <ShieldAlert size={36} />
           <div>
-            <h4 className="font-extrabold text-sm uppercase tracking-wider">No access</h4>
+            <h4 className="font-semibold text-sm">No access</h4>
             <p className="text-[11px] text-app-text-muted mt-1 leading-relaxed">
               Your role ({currentEmployee?.role || "Guest"}) can't see sales.
             </p>
@@ -257,7 +257,7 @@ export default function SalesView() {
               {formatReceiptNumber(tx.id)}
             </span>
             <span
-              className={`text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 ${
+              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 ${
                 isSynced
                   ? 'bg-emerald-500/15 text-emerald-500'
                   : 'bg-rose-600/15 text-rose-600 dark:text-rose-300' // saved on this phone, not yet on the server
@@ -270,20 +270,20 @@ export default function SalesView() {
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setEditsOf(tx); }}
-                className="text-[9px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 flex items-center gap-1 cursor-pointer"
                 title="This sale was changed after it was made. See what changed."
               >
                 <History size={10} /> Edited {edits.get(tx.id)!.length}×
               </button>
             ) : null}
             {refunds.get(tx.id)?.length ? (
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300" title={refunds.get(tx.id)!.map((r) => `${r.number} ${formatCurrency(r.total)}`).join(', ')}>
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300" title={refunds.get(tx.id)!.map((r) => `${r.number} ${formatCurrency(r.total)}`).join(', ')}>
                 Refunded {formatCurrency(refunds.get(tx.id)!.reduce((s, r) => s + r.total, 0))} · {refunds.get(tx.id)![0].number}
               </span>
             ) : null}
           </div>
 
-          <h3 className="text-xs font-black text-amber-500 mt-1.5">
+          <h3 className="text-xs font-semibold text-amber-500 mt-1.5">
             {formatCurrency(tx.finalTotal)}
           </h3>
           <div className="flex items-center gap-2 text-[10px] text-app-text-muted mt-0.5 font-semibold">
@@ -302,13 +302,13 @@ export default function SalesView() {
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0 text-right">
-          <span className="text-[9px] font-mono text-app-text-muted font-bold text-slate-400">
+          <span className="text-[11px] font-mono text-app-text-muted font-bold text-slate-400">
             {new Date(tx.timestamp).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
             })}
           </span>
-          <span className="text-[8.5px] font-mono text-app-text-muted block font-medium">
+          <span className="text-[11px] font-mono text-app-text-muted block font-medium">
             By {titleCase(tx.staffName)}
           </span>
           <button className="p-1 text-app-text-muted bg-app-bg border border-app-border rounded-lg mt-1 hover:bg-app-card transition">
@@ -326,7 +326,7 @@ export default function SalesView() {
       {/* HEADER CONTROLS BAR */}
       <div className="bg-app-card border-b border-app-border p-3.5 flex items-center justify-between shrink-0 shadow-xs">
         <div>
-          <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wide">
+          <h2 className="text-sm font-semibold font-display text-app-text">
             Sales Log
           </h2>
           <p className="text-[10px] text-app-text-muted font-medium">

@@ -54,7 +54,7 @@ function checksFor(s: AlarmStatus): Check[] {
     {
       id: 'fullscreen', ok: s.fullScreen, required: false,
       label: 'Alarm screen over the lock screen', okText: 'Allowed',
-      problem: 'Not allowed, so you\'ll get a ringing notification instead of the full alarm screen.',
+      problem: 'Not allowed. Alarms show as a notification.',
       fix: 'fullScreen', fixLabel: 'Allow',
     },
     {

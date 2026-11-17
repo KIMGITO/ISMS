@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { usePendingActionStore } from '../stores/pendingActionStore';
 import { useCustomerStore } from '../stores/customerStore';
-import { Send, ChevronDown, ChevronUp, Sparkles, Brain } from 'lucide-react';
+import { Send, ChevronDown, ChevronUp, MessageSquareText } from 'lucide-react';
 import { getDynamicRoles, ALL_PERMISSIONS } from '../utils/permissions';
 import { useAuthStore } from '../stores/authStore';
 import { SupabaseService } from '../services/supabaseService';
@@ -50,68 +50,69 @@ export default function WorkspaceAssistantView() {
 
     switch (role) {
       case 'Owner':
+      case 'Admin':
         return [
-          'Explain Owner operational privileges?',
-          'How to audit registered staff credentials?',
-          'Review distribution center analytics?',
-          'Offline system synchronization rules?',
+          'How did sales go this week?',
+          'Which products are running low?',
+          'Who owes us the most money?',
+          'How do I invite a new worker?',
         ];
       case 'Manager':
       case 'Store Supervisor':
         return [
-          'How do I manage worker shifts?',
-          'Verify inventory restock threshold alerts?',
-          'Generate daily operations summary?',
-          'Review active worker permissions matrix?',
+          'Which products are running low?',
+          'How were sales today?',
+          'Who is clocked in right now?',
+          'How do I change what a role can do?',
         ];
       case 'Cashier':
         return [
-          'How to process POS milk checkouts?',
-          'How to assign customer loyalty profiles?',
-          'What is my cashier offline cash-limit?',
-          'How do loyalty reward points calculate?',
+          'How do I sell on credit?',
+          'How do I add a customer to a sale?',
+          'How do I take an M-Pesa payment?',
+          'How do loyalty points work?',
         ];
       case 'Rider':
         return [
-          'Check active milk delivery dispatches?',
-          'How do I record dispatch logistics?',
-          'Offline mode delivery sync guidelines?',
-          'Update delivery route and travel status?',
+          'Which deliveries are waiting for me?',
+          'How do I mark a delivery as done?',
+          'How do I give back a delivery?',
+          'What did I earn this week?',
         ];
       case 'Inventory Clerk':
         return [
-          'Check critical low-stock alerts?',
-          'How to reconcile truck inventory levels?',
-          'Report milk batch spoilage & wastage?',
-          'Check upcoming batch expiry warnings?',
+          'Which products are running low?',
+          'How do I record damaged stock?',
+          'How do I send stock to another branch?',
+          'How do I receive a supplier delivery?',
         ];
       case 'Accountant':
         return [
-          'Explain daily sales margin calculations?',
-          'How to record system operational expenses?',
-          'Generate tax & sales revenue reports?',
-          'Review cash flow and credit accounts?',
+          'What was our profit this month?',
+          'How do I record an expense?',
+          'Which supplier bills are due?',
+          'Who owes us money?',
         ];
       case 'Marketing Officer':
         return [
-          'Generate milk sale SMS template?',
-          'How to target high-tier loyalty members?',
-          'Draft weekend promotional notification?',
-          'Suggest dynamic discounts on surplus stock?',
+          'Write an SMS about this week\'s offer',
+          'Which customers have not bought in a while?',
+          'How do I make a promotion code?',
+          'Which products sell best?',
         ];
       case 'Receptionist':
         return [
-          'How to register a customer loyalty profile?',
-          'Log customer feedback and complaints?',
-          'Check incoming store notifications?',
-          'Explain customer tier list rewards?',
+          'How do I add a new customer?',
+          'How do I reply to customer feedback?',
+          'How do loyalty points work?',
+          'What do the customer tiers mean?',
         ];
       default:
         return [
-          'POS workflow check?',
-          'Check inventory alerts?',
-          'Generate milk sale SMS template?',
-          'Offline limit rule details?',
+          'How do I make a sale?',
+          'Which products are running low?',
+          'How do I clock in and out?',
+          'How do loyalty points work?',
         ];
     }
   };
@@ -326,7 +327,7 @@ export default function WorkspaceAssistantView() {
       abortController.abort();
       setAbortController(null);
       setAiIsLoading(false);
-      showToast('Prompt Cancelled', 'Your query was cancelled.');
+      showToast('Stopped', 'The question was cancelled.');
     }
   };
 
@@ -345,10 +346,10 @@ export default function WorkspaceAssistantView() {
       {/* Header */}
       <div className="bg-app-card border-b border-app-border px-4 py-3 flex items-center gap-2.5 shrink-0 shadow-xs z-10">
         <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
-          <Brain size={18} />
+          <MessageSquareText size={18} />
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold font-display text-app-text">{aiName}</h2>
+          <h2 className="text-sm font-semibold font-display text-app-text">{aiName}</h2>
           <span className="text-[10px] text-app-text-muted font-medium">
             Ask anything, or ask {aiName} to do a task. You confirm every change.
           </span>
@@ -362,7 +363,7 @@ export default function WorkspaceAssistantView() {
             <div key={section.id} className="flex flex-col gap-3">
               <div className="flex items-center gap-2.5 my-1">
                 <div className="h-px flex-1 bg-app-border" />
-                <span className="text-[9px] font-black uppercase text-app-text-muted tracking-widest">{section.label}</span>
+                <span className="text-[11px] font-semibold text-app-text-muted">{section.label}</span>
                 <div className="h-px flex-1 bg-app-border" />
               </div>
 
@@ -400,7 +401,7 @@ export default function WorkspaceAssistantView() {
                       />
                     ))}
 
-                    <span className="text-[9px] text-app-text-muted px-1">
+                    <span className="text-[11px] text-app-text-muted px-1">
                       {isUser ? currentEmployee?.name || 'You' : aiName}
                       {msg.timestamp ? ` · ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                     </span>
@@ -440,7 +441,7 @@ export default function WorkspaceAssistantView() {
               aria-expanded={showStarters}
               className="flex items-center gap-1 text-[10px] font-bold text-app-text-muted hover:text-app-text cursor-pointer"
             >
-              <Sparkles size={11} className="text-amber-500" /> Ideas
+              Ideas
               {showStarters ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
             </button>
           </div>

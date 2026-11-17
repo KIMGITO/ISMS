@@ -44,7 +44,7 @@ export default function AlarmTimePicker({ value, onChange, onQuickPick, disabled
             placeholder="Hour"
           />
         </div>
-        <span className="text-lg font-black text-app-text">:</span>
+        <span className="text-lg font-bold text-app-text">:</span>
         <div className="w-20" aria-label="Minute">
           <SearchableDropdown
             items={MINUTES.map((m) => ({ id: String(m), label: String(m).padStart(2, '0') }))}
@@ -65,7 +65,7 @@ export default function AlarmTimePicker({ value, onChange, onQuickPick, disabled
                 aria-checked={active}
                 disabled={disabled}
                 onClick={() => onChange(toClock(hour12, parts.minute, p === 'PM'))}
-                className={`px-2.5 py-2 text-xs font-black transition cursor-pointer ${active ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text-muted hover:text-app-text'}`}
+                className={`px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${active ? 'bg-amber-500 text-slate-950' : 'bg-app-bg text-app-text-muted hover:text-app-text'}`}
               >
                 {p}
               </button>

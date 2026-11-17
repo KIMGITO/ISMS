@@ -35,7 +35,6 @@ import {
   Database,
   Download,
   Cloud,
-  Brain,
   Lock,
   Unlock,
   Cpu,
@@ -90,7 +89,6 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
   { id: 'records', group: 'Data', label: 'Old records', description: 'Delete old logs (owners and admins)', icon: Archive, keywords: 'logs history clear delete stock points audit space' },
-  { id: 'database', group: 'Data', label: 'Database', description: 'Supabase connection (developers)', icon: Database, keywords: 'supabase', permission: 'settings.integrations' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
   { id: 'notifications', group: 'Account', label: 'Notifications', description: 'Choose what you get notified about', icon: Bell, keywords: 'alerts mute pause push' },
   { id: 'help', group: 'Account', label: 'Help & tour', description: 'Restart the guided walkthrough', icon: HelpCircle, keywords: 'onboarding guide' },
@@ -112,23 +110,6 @@ export default function SettingsView({
   const currentRole = currentEmployee?.role || 'Staff';
   const isAdminOrOwner = currentRole === 'Admin' || currentRole === 'Owner';
   const isOwner = currentRole === 'Owner';
-  const [devClicks, setDevClicks] = useState(0);
-
-  const handleSettingsTitleClick = () => {
-    setDevClicks((c) => {
-      const next = c + 1;
-      if (next >= 5) {
-        configManager.setEnvironment('Developer Mode');
-        showToast(
-          'Developer Mode',
-          'Developer Mode Activated: Advanced Supabase connection parameters unlocked!',
-        );
-        return 0;
-      }
-      return next;
-    });
-  };
-
   // Centralized Device Permission Manager states
   const {
     statuses: permissionStatuses,
@@ -321,7 +302,7 @@ export default function SettingsView({
 
       showToast(
         'Backup Settings Saved',
-        'Google Sheets configuration stored securely.',
+        'Your Google Sheets backup settings are saved.',
         undefined,
         'success',
       );
@@ -329,7 +310,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Save Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -341,8 +322,8 @@ export default function SettingsView({
   const handleRunBackup = async () => {
     setRunningBackup(true);
     showToast(
-      'Backup Initiated',
-      'Fetching and exporting all data to Google Sheets — this may take a moment...',
+      'Backing up',
+      'Copying your data to Google Sheets. This can take a minute.',
       undefined,
       'info',
     );
@@ -359,9 +340,9 @@ export default function SettingsView({
 
       if (data?.success) {
         showToast(
-          'Backup Complete ✓',
+          'Backup done',
           data.message ||
-            'All data tables written to Google Sheets successfully!',
+            'Your data is in Google Sheets.',
           undefined,
           'success',
         );
@@ -369,7 +350,7 @@ export default function SettingsView({
       } else {
         showToast(
           'Backup Failed',
-          data?.error || 'Failed to run backup.',
+          toUserMessage(data?.error, 'Failed to run backup.'),
           undefined,
           'error',
         );
@@ -390,7 +371,7 @@ export default function SettingsView({
       } else {
         showToast(
           'Backup Failed',
-          toUserMessage(err, 'Network Error'),
+          toUserMessage(err, 'Could not reach the server. Check your connection.'),
           undefined,
           'error',
         );
@@ -403,8 +384,8 @@ export default function SettingsView({
   const handleRunImport = async () => {
     setRunningImport(true);
     showToast(
-      'Import Initiated',
-      'Reading products and customers data from Google Sheets...',
+      'Importing',
+      'Reading products and customers from Google Sheets.',
       undefined,
       'info',
     );
@@ -417,8 +398,8 @@ export default function SettingsView({
 
       if (data?.success) {
         showToast(
-          'Import Success',
-          'Successfully synchronized database tables with Google Sheets!',
+          'Import done',
+          'Products and customers were brought in from Google Sheets.',
           undefined,
           'success',
         );
@@ -426,7 +407,7 @@ export default function SettingsView({
       } else {
         showToast(
           'Import Failed',
-          data?.error || 'Failed to run import.',
+          toUserMessage(data?.error, 'Failed to run import.'),
           undefined,
           'error',
         );
@@ -435,7 +416,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Import Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -447,8 +428,8 @@ export default function SettingsView({
   const handleRetryBackup = async (logId: string) => {
     setRetryingLogId(logId);
     showToast(
-      'Retry Triggered',
-      'Attempting to re-execute failed backup...',
+      'Trying again',
+      'Running the backup again.',
       undefined,
       'info',
     );
@@ -462,8 +443,8 @@ export default function SettingsView({
 
       if (data?.success) {
         showToast(
-          'Retry Success',
-          'Backup succeeded on retry!',
+          'Backup done',
+          'The backup worked this time.',
           undefined,
           'success',
         );
@@ -471,7 +452,7 @@ export default function SettingsView({
       } else {
         showToast(
           'Retry Failed',
-          data?.error || 'Retry attempt failed.',
+          toUserMessage(data?.error, 'Retry attempt failed.'),
           undefined,
           'error',
         );
@@ -480,7 +461,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Retry Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -554,14 +535,14 @@ export default function SettingsView({
 
       showToast(
         'SMS Settings Saved',
-        'Twilio configuration stored securely in database.',
+        'Your SMS settings are saved.',
         undefined,
         'success',
       );
     } catch (err: any) {
       showToast(
         'SMS Save Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -586,7 +567,7 @@ export default function SettingsView({
         setSmsTestResult({ success: true, message: data.message });
         showToast(
           'Test SMS Sent',
-          'Verification message dispatched successfully!',
+          'A test message was sent. Check the phone.',
           undefined,
           'success',
         );
@@ -597,7 +578,7 @@ export default function SettingsView({
         });
         showToast(
           'Test SMS Failed',
-          data?.error || 'Twilio SMS test failed.',
+          toUserMessage(data?.error, 'The test message was not sent.'),
           undefined,
           'error',
         );
@@ -605,11 +586,11 @@ export default function SettingsView({
     } catch (err: any) {
       setSmsTestResult({
         success: false,
-        message: toUserMessage(err, 'Network Error'),
+        message: toUserMessage(err, 'Could not reach the server. Check your connection.'),
       });
       showToast(
         'Test SMS Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -665,8 +646,8 @@ export default function SettingsView({
         setAiConfig(data.config);
         setSavedAiKey({ provider: getAIProvider(data.config.provider).id, masked: data.config.api_key || '' });
         showToast(
-          'AI Config Saved',
-          'AI configuration saved securely.',
+          'Assistant settings saved',
+          'Your assistant settings are saved.',
           undefined,
           'success',
         );
@@ -676,7 +657,7 @@ export default function SettingsView({
     } catch (err: any) {
       showToast(
         'Save Failed',
-        toUserMessage(err, 'Failed to save AI config'),
+        toUserMessage(err, 'Could not save. Try again.'),
         undefined,
         'error',
       );
@@ -733,8 +714,8 @@ export default function SettingsView({
       if (data?.success) {
         setAiTestResult({ success: true, message: data.message });
         showToast(
-          'Connection Success',
-          'AI Connection verified successfully!',
+          'Assistant works',
+          'The assistant answered the test.',
           undefined,
           'success',
         );
@@ -745,7 +726,7 @@ export default function SettingsView({
         });
         showToast(
           'Connection Failed',
-          data?.error || 'AI Connection test failed.',
+          toUserMessage(data?.error, 'The assistant did not answer the test.'),
           undefined,
           'error',
         );
@@ -753,11 +734,11 @@ export default function SettingsView({
     } catch (err: any) {
       setAiTestResult({
         success: false,
-        message: toUserMessage(err, 'Network Error'),
+        message: toUserMessage(err, 'Could not reach the server. Check your connection.'),
       });
       showToast(
         'Connection Failed',
-        toUserMessage(err, 'Network Error'),
+        toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
       );
@@ -790,39 +771,6 @@ export default function SettingsView({
     () => localStorage.getItem('kkm_device_account_id') || 'emp-1',
   );
 
-  // Database & Supabase settings states
-  const [supabaseUrl, setSupabaseUrl] = useState(
-    () =>
-      localStorage.getItem('kkm_supabase_url') ||
-      'https://bvyzujgqyvaxqfzhwqnd.supabase.co',
-  );
-  const [supabaseKey, setSupabaseKey] = useState(
-    () =>
-      localStorage.getItem('kkm_supabase_key') ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  );
-  const [dbHost, setDbHost] = useState(
-    () =>
-      localStorage.getItem('kkm_db_host') ||
-      'aws-0-eu-central-1.pooler.supabase.com',
-  );
-  const [dbPort, setDbPort] = useState(
-    () => localStorage.getItem('kkm_db_port') || '5432',
-  );
-  const [dbName, setDbName] = useState(
-    () => localStorage.getItem('kkm_db_name') || 'postgres',
-  );
-  const [dbUser, setDbUser] = useState(
-    () =>
-      localStorage.getItem('kkm_db_user') || 'postgres.bvyzujgqyvaxqfzhwqnd',
-  );
-  const [dbPass, setDbPass] = useState(
-    () => localStorage.getItem('kkm_db_pass') || 'kkm_milk_secure_2026',
-  );
-  const [dbSyncEnabled, setDbSyncEnabled] = useState(
-    () => localStorage.getItem('kkm_db_sync_enabled') !== 'false',
-  );
-
   const playChimeTone = (tone: string) => {
     /* Audio implementation */
   };
@@ -833,7 +781,6 @@ export default function SettingsView({
   const allowedSections = SETTINGS_SECTIONS.filter(
     (section) =>
       (!section.permission || hasRolePermission(currentRole, section.permission)) &&
-      (section.id !== 'database' || configManager.getActiveEnvironment() === 'Developer Mode') &&
       (section.id !== 'records' || isAdminRole(currentRole)),
   );
   const [selectedSection, setActiveSection] = useState<SectionId | null>(null);
@@ -850,11 +797,8 @@ export default function SettingsView({
           <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
             <Settings size={18} />
           </div>
-          <div
-            onClick={handleSettingsTitleClick}
-            className="cursor-pointer select-none"
-          >
-            <h2 className="text-sm font-extrabold font-display text-app-text flex items-center gap-1.5">
+          <div className="select-none">
+            <h2 className="text-sm font-semibold font-display text-app-text flex items-center gap-1.5">
               <span>Settings</span>
             </h2>
             <span className="text-[10px] text-app-text-muted font-medium">
@@ -871,42 +815,40 @@ export default function SettingsView({
             <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mb-4 border border-red-500/15 ">
               <Shield size={28} />
             </div>
-            <h3 className="text-sm font-black font-display text-app-text uppercase tracking-wider">
-              Access Policy Violation
+            <h3 className="text-sm font-semibold font-display text-app-text">
+              You can't open these settings
             </h3>
             <p className="text-[10.5px] text-app-text-muted mt-2 max-w-xs leading-relaxed font-medium">
-              Your operator account (<strong>{currentRole}</strong>) does not
-              have clearance to adjust device preferences. The terminal
-              administrator has disabled personal settings customization for
-              staff on this device.
+              The owner has turned off settings for staff on this device.
+              Your role is <strong>{currentRole}</strong>.
             </p>
 
             {/* Always allow logging out and restarting tour, even if settings are locked */}
             <div className="mt-6 w-full max-w-xs p-4 bg-app-card border border-app-border rounded-2xl flex flex-col gap-3">
-              <span className="text-[9px] font-extrabold text-app-text-muted uppercase tracking-wider block text-left">
+              <span className="text-[11px] font-semibold text-app-text-muted block text-left">
                 Session & Help
               </span>
               <button
                 onClick={() => {
                   onRestartTour?.();
                 }}
-                className="w-full py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 font-bold rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 font-bold rounded-xl text-[10px] transition cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <HelpCircle size={13} />
-                <span>Restart Onboarding Tour</span>
+                <span>Restart the tour</span>
               </button>
               <button
                 onClick={() => {
                   logout();
                   showToast(
                     'Logged Out',
-                    'Operator session closed successfully.',
+                    'You are signed out.',
                   );
                 }}
-                className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-[10px] transition cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <LogOut size={13} />
-                <span>Log Out of Account</span>
+                <span>Sign out</span>
               </button>
             </div>
           </div>
@@ -927,7 +869,7 @@ export default function SettingsView({
                   size={16}
                 />
                 <div className="text-[10.5px]">
-                  <span className="font-extrabold text-amber-500 block">
+                  <span className="font-semibold text-amber-500 block">
                     Some settings are locked
                   </span>
                   <p className="text-app-text-muted mt-0.5 leading-relaxed font-medium">
@@ -959,28 +901,26 @@ export default function SettingsView({
                       />
                       <h3
                         className="text-xs font-bold text-app-text font-display truncate"
-                        title="Device Permissions Manager"
+                        title="Device permissions"
                       >
                         Device Permissions
-                        <span className="hidden xl:inline"> Manager</span>
+                        
                       </h3>
                     </div>
                     <button
                       type="button"
                       onClick={checkAllDevicePermissions}
-                      title="Scan Sensors"
+                      title="Check again"
                       className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 flex items-center gap-1 cursor-pointer transition shrink-0"
                     >
                       <RefreshCw size={11} className="shrink-0" />
-                      <span className="lg:hidden xl:inline">Scan Sensors</span>
+                      <span className="lg:hidden xl:inline">Check again</span>
                     </button>
                   </div>
 
                   {/* Description */}
                   <p className="text-[10px] text-app-text-muted font-medium leading-relaxed">
-                    Centralized dashboard managing hardware permissions for
-                    cameras, location sensors, push notifications, and local
-                    offline database persistent caches.
+                    What this device allows the app to use.
                   </p>
 
                   {/* Responsive Permissions Grid */}
@@ -1032,7 +972,7 @@ export default function SettingsView({
                               <span className="font-bold text-[11px] text-app-text block leading-tight truncate">
                                 {meta.label}
                               </span>
-                              <span className="text-[9px] text-app-text-muted font-medium block leading-tight truncate mt-0.5">
+                              <span className="text-[11px] text-app-text-muted font-medium block leading-tight truncate mt-0.5">
                                 {meta.description}
                               </span>
                             </div>
@@ -1041,7 +981,7 @@ export default function SettingsView({
                           {/* Right: Status Action/Badge */}
                           <div className="shrink-0 flex items-center">
                             {status === 'granted' && (
-                              <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-lg text-[9.5px] font-bold">
+                              <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-lg text-[11px] font-bold">
                                 <Check size={11} className="shrink-0" />
                                 <span>Granted</span>
                               </div>
@@ -1051,7 +991,7 @@ export default function SettingsView({
                               <button
                                 type="button"
                                 onClick={() => setExplainingPermission(type)}
-                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-[9.5px] font-bold transition cursor-pointer flex items-center gap-1 shadow-xs whitespace-nowrap"
+                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 shadow-xs whitespace-nowrap"
                               >
                                 <span>Request</span>
                               </button>
@@ -1067,14 +1007,14 @@ export default function SettingsView({
                                     setShowWebSettingsGuide(true);
                                   }
                                 }}
-                                className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 rounded-lg text-[9.5px] font-bold transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                                className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
                               >
                                 <span>Blocked</span>
                               </button>
                             )}
 
                             {status === 'unsupported' && (
-                              <div className="bg-app-border/60 text-app-text-muted px-2 py-0.5 rounded-lg text-[9px] font-bold whitespace-nowrap">
+                              <div className="bg-app-border/60 text-app-text-muted px-2 py-0.5 rounded-lg text-[11px] font-bold whitespace-nowrap">
                                 N/A
                               </div>
                             )}
@@ -1093,33 +1033,26 @@ export default function SettingsView({
                   <div className="flex items-center justify-between gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
                     {/* Left: Icon & Title */}
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <Brain size={16} className="text-amber-500 shrink-0" />
+                      <MessageSquareText size={16} className="text-amber-500 shrink-0" />
                       <h3
                         className="text-xs font-bold text-app-text font-display truncate"
-                        title="Workspace Assistant Platform"
+                        title="AI assistant"
                       >
-                        Workspace Assistant
-                        <span className="hidden xl:inline"> Platform</span>
+                        AI assistant
                       </h3>
                     </div>
 
-                    {/* Right: Status Badge */}
-                    <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500 shrink-0 whitespace-nowrap">
-                      Authorized
-                      <span className="hidden xl:inline"> Access</span>
-                    </span>
                   </div>
 
                   <div className="flex flex-col gap-4">
                     {/* Enabled global toggle */}
                     <div className="flex items-center justify-between gap-4 py-1">
                       <div>
-                        <span className="font-extrabold text-app-text text-[11px] block">
-                          Enable Smart Assistant Features
+                        <span className="font-semibold text-app-text text-[11px] block">
+                          Turn on the assistant
                         </span>
-                        <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                          Toggle assistant chat, automated reply, and customer
-                          complaints analyzer
+                        <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
+                          Chat help, reply drafts and feedback summaries
                         </span>
                       </div>
                       <Switch
@@ -1135,12 +1068,11 @@ export default function SettingsView({
 
                     {/* Provider selection */}
                     <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
                         Assistant Provider
                       </label>
-                      <p className="text-[9px] text-app-text-muted font-medium leading-relaxed mb-1">
-                        Select the vendor to power this business's custom CRM
-                        and operations assistant.
+                      <p className="text-[11px] text-app-text-muted font-medium leading-relaxed mb-1">
+                        Which AI service to use.
                       </p>
 
                       <SearchableDropdown
@@ -1163,30 +1095,30 @@ export default function SettingsView({
 
                     {/* API key: optional for Hugging Face (server rotation), required for the rest */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
                         API Key {aiProviderInfo.needsKey ? '*' : '(optional override)'}
                       </label>
                       <PasswordInput variant="app" label="" required={aiProviderInfo.needsKey} autoComplete="off" value={aiConfig.api_key} onChange={(api_key) => setAiConfig({ ...aiConfig, api_key: api_key.trim() })} placeholder={aiProviderInfo.needsKey ? `Paste your ${aiProviderInfo.label} key` : 'Leave empty to use the server keys'} />
-                      <span className="text-[8.5px] text-app-text-muted leading-tight">
+                      <span className="text-[11px] text-app-text-muted leading-tight">
                         {aiProviderInfo.keyHelp}
                         {isMaskedKey(aiConfig.api_key) ? ' A key is saved; type a new one only to replace it.' : ''}
                       </span>
                       {aiKeyWarning(aiConfig) && (
-                        <span className="text-[8.5px] text-amber-500 font-bold leading-tight">{aiKeyWarning(aiConfig)}</span>
+                        <span className="text-[11px] text-amber-500 font-bold leading-tight">{aiKeyWarning(aiConfig)}</span>
                       )}
                     </div>
 
                     {/* Model: chosen from the provider's own list so an invalid name can't be sent */}
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                        <label className="text-[11px] font-semibold text-app-text-muted block">
                           Model
                         </label>
                         <button
                           type="button"
                           onClick={handleLoadAiModels}
                           disabled={loadingAiModels || (aiProviderInfo.needsKey && !aiConfig.api_key)}
-                          className="text-[9px] font-bold text-amber-500 hover:underline disabled:opacity-40 disabled:no-underline flex items-center gap-1"
+                          className="text-[11px] font-bold text-amber-500 hover:underline disabled:opacity-40 disabled:no-underline flex items-center gap-1"
                         >
                           <RefreshCw size={10} className={loadingAiModels ? 'animate-spin' : ''} />
                           {aiLiveModels.length ? `Live list (${aiLiveModels.length})` : 'Load live list'}
@@ -1216,132 +1148,19 @@ export default function SettingsView({
                         />
                       )}
                       {aiLiveModels.length > 0 && aiConfig.model && !aiLiveModels.includes(aiConfig.model) && (
-                        <span className="text-[8.5px] text-amber-500 font-bold leading-tight">
+                        <span className="text-[11px] text-amber-500 font-bold leading-tight">
                           {aiProviderInfo.label.replace(/ \(.*\)$/, '')} does not list "{aiConfig.model}" right now. Pick another model or run Test first.
                         </span>
                       )}
                       {aiModelsError && (
-                        <span className="text-[8.5px] text-red-500 font-bold leading-tight">{aiModelsError}</span>
+                        <span className="text-[11px] text-red-500 font-bold leading-tight">{aiModelsError}</span>
                       )}
-                    </div>
-
-                    {/* Advanced hyper-parameters row */}
-                    <div className="grid grid-cols-2 gap-3.5 border-t border-app-border/30 pt-3">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                          Temperature ({aiConfig.temperature})
-                        </label>
-                        <input
-                          type="range"
-                          min="0.0"
-                          max="2.0"
-                          step="0.1"
-                          value={aiConfig.temperature}
-                          onChange={(e) =>
-                            setAiConfig({
-                              ...aiConfig,
-                              temperature: parseFloat(e.target.value),
-                            })
-                          }
-                          className="w-full accent-amber-500 bg-app-bg h-1.5 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <span className="text-[8px] text-app-text-muted leading-tight block mt-0.5">
-                          Controls response randomness. Lower values (e.g. 0.2)
-                          are precise and factual; higher values (e.g. 1.0+)
-                          increase creativity and vocabulary diversity.
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                          Max Tokens
-                        </label>
-                        <input
-                          type="number"
-                          value={aiConfig.max_tokens}
-                          onChange={(e) =>
-                            setAiConfig({
-                              ...aiConfig,
-                              max_tokens: parseInt(e.target.value) || 1024,
-                            })
-                          }
-                          className="w-full bg-app-bg text-app-text px-2.5 py-1 rounded-xl border border-app-border text-[11px]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* More cognitive settings (thinking mode, structured output) */}
-                    <div className="grid grid-cols-2 gap-3 pb-2.5 border-b border-app-border/30">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="font-bold text-app-text text-[10px] block">
-                            Thinking Mode
-                          </span>
-                          <span className="text-[8.5px] text-app-text-muted font-medium">
-                            For reasoning models
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAiConfig({
-                              ...aiConfig,
-                              thinking_enabled: !aiConfig.thinking_enabled,
-                            })
-                          }
-                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                            aiConfig.thinking_enabled
-                              ? 'bg-amber-500'
-                              : 'bg-app-border'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out ${
-                              aiConfig.thinking_enabled
-                                ? 'translate-x-4'
-                                : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="font-bold text-app-text text-[10px] block">
-                            Structured JSON
-                          </span>
-                          <span className="text-[8.5px] text-app-text-muted font-medium">
-                            Force JSON schema
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAiConfig({
-                              ...aiConfig,
-                              structured_output: !aiConfig.structured_output,
-                            })
-                          }
-                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                            aiConfig.structured_output
-                              ? 'bg-amber-500'
-                              : 'bg-app-border'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out ${
-                              aiConfig.structured_output
-                                ? 'translate-x-4'
-                                : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
                     </div>
 
                     {/* System Prompt Instructions */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                        Global System Directives
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
+                        Extra instructions for the assistant
                       </label>
                       <textarea
                         rows={2}
@@ -1352,7 +1171,7 @@ export default function SettingsView({
                             system_prompt: e.target.value,
                           })
                         }
-                        placeholder="Inject custom system instructions here to shape the assistant's personality..."
+                        placeholder="e.g. Answer briefly and in simple English. Our shop opens at 7 am."
                         className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-sans leading-relaxed"
                       />
                     </div>
@@ -1366,7 +1185,7 @@ export default function SettingsView({
                             : 'bg-red-500/10 border-red-500/25 text-red-500'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 mb-1 text-[10.5px] uppercase">
+                        <div className="flex items-center gap-1.5 mb-1 text-[10.5px]">
                           {aiTestResult.success ? (
                             <CheckCircle2 size={13} />
                           ) : (
@@ -1401,7 +1220,7 @@ export default function SettingsView({
                               className="animate-spin text-amber-500 shrink-0"
                             />
                             <span className="truncate whitespace-nowrap md:hidden">
-                              Pinging...
+                              Sending...
                             </span>
                           </>
                         ) : (
@@ -1468,27 +1287,20 @@ export default function SettingsView({
                       </h3>
                     </div>
 
-                    {/* Right: Status Badge */}
-                    <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500 shrink-0 whitespace-nowrap">
-                      Authorized
-                      <span className="hidden xl:inline"> Access</span>
-                    </span>
                   </div>
 
                   <div className="flex flex-col gap-4">
                     <p className="text-[10px] text-app-text-muted font-medium leading-relaxed">
-                      Automatically or manually replicate and append products,
-                      inventory adjustments, transactions, customers, suppliers,
-                      debts, and employee lists to your Google Sheet.
+                      Copies your data to your Google Sheet.
                     </p>
 
                     <div className="flex items-center justify-between gap-4 py-1">
                       <div>
-                        <span className="font-extrabold text-app-text text-[11px] block">
-                          Enable Sheets Replication
+                        <span className="font-semibold text-app-text text-[11px] block">
+                          Back up every night
                         </span>
-                        <span className="text-[9px] text-app-text-muted font-medium block mt-0.5">
-                          Toggle live nightly schedule execution
+                        <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
+                          Runs on its own at the time you pick below
                         </span>
                       </div>
                       <Switch
@@ -1504,7 +1316,7 @@ export default function SettingsView({
 
                     {/* Google Sheets URL */}
                     <div className="flex flex-col gap-1 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
                         Google Sheet URL
                       </label>
                       <input
@@ -1519,15 +1331,14 @@ export default function SettingsView({
                         placeholder="https://docs.google.com/spreadsheets/d/your-spreadsheet-id/edit"
                         className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
                       />
-                      <p className="text-[8px] text-app-text-muted leading-tight mt-1">
-                        Provide Editor permissions to the Service Account email
-                        address in Google Sheets.
+                      <p className="text-[11px] text-app-text-muted leading-tight mt-1">
+                        Share the sheet with the service account email as Editor.
                       </p>
                     </div>
 
                     {/* Google Service Account JSON */}
                     <div className="flex flex-col gap-1 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider flex justify-between">
+                      <label className="text-[11px] font-semibold text-app-text-muted flex justify-between">
                         <span>Google Service Account JSON</span>
                         <button
                           type="button"
@@ -1559,7 +1370,7 @@ export default function SettingsView({
                     {/* Backup Schedule & Status Info */}
                     <div className="grid  grid-cols-2 md:grid-cols-1 gap-3 border-t border-app-border/30 pt-3">
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                        <label className="text-[11px] font-semibold text-app-text-muted block">
                           Backup Schedule
                         </label>
                         <SearchableDropdown
@@ -1758,19 +1569,15 @@ export default function SettingsView({
                     {/* Row 2: Status Badges */}
                     <div className="flex items-center justify-between gap-1.5 w-full">
                       {smsConfig.enabled ? (
-                        <span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 animate-fade-in shrink-0">
+                        <span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 animate-fade-in shrink-0">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           Connected
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-500/10 border border-slate-500/20 text-app-text-muted shrink-0">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-500/10 border border-slate-500/20 text-app-text-muted shrink-0">
                           Offline
                         </span>
                       )}
-
-                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500 shrink-0">
-                        Authorized Access
-                      </span>
                     </div>
                   </div>
 
@@ -1778,12 +1585,11 @@ export default function SettingsView({
                     {/* Enabled global toggle */}
                     <div className="flex items-center justify-between gap-4 py-1">
                       <div>
-                        <span className="font-extrabold text-app-text text-[11px] block">
+                        <span className="font-semibold text-app-text text-[11px] block">
                           Enable Twilio SMS Dispatches
                         </span>
-                        <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                          Automate messaging, dispatch receipts, and emergency
-                          alerts to staff and owner
+                        <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
+                          Receipts and alerts by SMS
                         </span>
                       </div>
                       <Switch
@@ -1797,33 +1603,9 @@ export default function SettingsView({
                       />
                     </div>
 
-                    {/* Provider selection */}
-                    <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                        SMS Provider
-                      </label>
-                      <SearchableDropdown
-                        items={[
-                          { id: 'twilio', label: 'Twilio SMS Platform' },
-                          {
-                            id: 'future_mock',
-                            label: 'Local Offline Simulator',
-                          },
-                        ]}
-                        selectedValue={smsConfig.provider || 'twilio'}
-                        onChange={(val) =>
-                          setSmsConfig({
-                            ...smsConfig,
-                            provider: val as any,
-                          })
-                        }
-                        placeholder="SMS Provider"
-                      />
-                    </div>
-
                     {/* Default Country Prefix Selector */}
                     <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
                         Default Country Prefix
                       </label>
                       <div className="flex flex-col items-center gap-2">
@@ -1842,18 +1624,17 @@ export default function SettingsView({
                           placeholder="Country prefix"
                           className="w-56 shrink-0"
                         />
-                        <span className="text-[9.5px] text-app-text-muted font-medium">
-                          Used to normalize numbers that lack country prefix
-                          automatically.
+                        <span className="text-[11px] text-app-text-muted font-medium">
+                          Added to phone numbers typed without a country code.
                         </span>
                       </div>
                     </div>
 
-                    {smsConfig.provider === 'twilio' ? (
+                    {(
                       <>
                         {/* Account SID */}
                         <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                          <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                          <label className="text-[11px] font-semibold text-app-text-muted block">
                             Twilio Account SID
                           </label>
                           <input
@@ -1873,7 +1654,7 @@ export default function SettingsView({
                         {/* Auth Token */}
                         <div className="flex flex-col gap-1.5">
                           <div className="flex justify-between items-center">
-                            <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
+                            <label className="text-[11px] font-semibold text-app-text-muted block">
                               Twilio Auth Token
                             </label>
                             </div>
@@ -1882,18 +1663,16 @@ export default function SettingsView({
 
                         {/* Messaging SID or Sender Phone Number Selection */}
                         <div className="flex flex-col gap-2.5 border-t border-app-border/30 pt-3">
-                          <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                            Sender Identifier Configuration
+                          <label className="text-[11px] font-semibold text-app-text-muted block">
+                            Who the message comes from
                           </label>
-                          <p className="text-[9px] text-app-text-muted font-medium leading-relaxed mb-1">
-                            Configure how Twilio maps sender identities.
-                            Messaging Service SID is recommended for high
-                            volume.
+                          <p className="text-[11px] text-app-text-muted font-medium leading-relaxed mb-1">
+                            Fill in one, from your Twilio account.
                           </p>
 
                           <div className="grid grid-cols-1  gap-3.5">
                             <div className="flex flex-col gap-1.5">
-                              <span className="text-[8.5px] font-extrabold text-app-text uppercase tracking-wider">
+                              <span className="text-[11px] font-semibold text-app-text">
                                 Option A: Messaging Service SID
                               </span>
                               <input
@@ -1912,7 +1691,7 @@ export default function SettingsView({
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                              <span className="text-[8.5px] font-extrabold text-app-text uppercase tracking-wider">
+                              <span className="text-[11px] font-semibold text-app-text">
                                 Option B: Twilio Phone Number
                               </span>
                               <div className="grid  grid-cols-5 gap-1.5">
@@ -1964,25 +1743,15 @@ export default function SettingsView({
                           </div>
                         </div>
                       </>
-                    ) : (
-                      <div className="p-3 bg-app-bg border border-app-border rounded-2xl text-[10.5px] text-app-text-muted font-medium leading-relaxed border-dashed">
-                        Using the{' '}
-                        <strong className="text-app-text">
-                          Future Extensible Mock Provider
-                        </strong>
-                        . It mock-sends SMS messages to the system logs. No
-                        credentials or Twilio setups are required!
-                      </div>
                     )}
 
                     {/* Emergency Owner Phone Number Input with Auto Normalization */}
                     <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                      <label className="text-[9.5px] font-black text-app-text-muted uppercase tracking-wider block">
-                        Default Owner Emergency Contact
+                      <label className="text-[11px] font-semibold text-app-text-muted block">
+                        Owner's phone for urgent alerts
                       </label>
-                      <p className="text-[9px] text-app-text-muted font-medium leading-relaxed mb-1">
-                        This number is saved in E.164 format and receives
-                        instant system alerts and daily offline summary logs.
+                      <p className="text-[11px] text-app-text-muted font-medium leading-relaxed mb-1">
+                        Gets urgent alerts by SMS.
                       </p>
                       <div className="grid grid-cols-5 gap-1.5">
                         <SearchableDropdown
@@ -2033,8 +1802,8 @@ export default function SettingsView({
                         />
                       </div>
                       {smsConfig.owner_phone_number && (
-                        <span className="text-[8.5px] text-emerald-500 font-mono font-bold mt-1 block">
-                          Saved normalized E.164 format:{' '}
+                        <span className="text-[11px] text-emerald-500 font-mono font-bold mt-1 block">
+                          Saved as{' '}
                           {smsConfig.owner_phone_number}
                         </span>
                       )}
@@ -2049,7 +1818,7 @@ export default function SettingsView({
                             : 'bg-red-500/10 border-red-500/25 text-red-500'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 mb-1 text-[10.5px] uppercase">
+                        <div className="flex items-center gap-1.5 mb-1 text-[10.5px]">
                           {smsTestResult.success ? (
                             <CheckCircle2 size={13} />
                           ) : (
@@ -2058,7 +1827,7 @@ export default function SettingsView({
                           <span>
                             {smsTestResult.success
                               ? 'SMS Dispatched'
-                              : 'Dispatch Failed'}
+                              : 'Not sent'}
                           </span>
                         </div>
                         <p className="font-medium font-mono">
@@ -2084,7 +1853,7 @@ export default function SettingsView({
                               className="animate-spin text-amber-500 shrink-0"
                             />
                             <span className="truncate whitespace-nowrap lg:hidden">
-                              Pinging...
+                              Sending...
                             </span>
                           </>
                         ) : (
@@ -2136,138 +1905,6 @@ export default function SettingsView({
 
               {activeSection === 'records' && isAdminRole(currentRole) && <LogCleanupPanel />}
 
-              {/* Supabase & Cloud Database Integrations (Admins & Owners only) */}
-              {activeSection === 'database' && hasRolePermission(currentRole, 'settings.integrations') &&
-                configManager.getActiveEnvironment() === 'Developer Mode' && (
-                  <div
-                    id="database-integrations-card"
-                    className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in"
-                  >
-                    <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
-                      <Database size={16} className="text-amber-500" />
-                      <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">
-                        Supabase Integration
-                      </h3>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between gap-4 py-1">
-                        <div>
-                          <span className="font-extrabold text-app-text text-[11px] block">
-                            Live Supabase Sync
-                          </span>
-                          <span className="text-[9px] text-app-text-muted font-medium block mt-0.5">
-                            Toggle live background replication and auth syncing
-                          </span>
-                        </div>
-                        <Switch
-                          checked={dbSyncEnabled}
-                          onChange={() => {
-                            const newVal = !dbSyncEnabled;
-                            setDbSyncEnabled(newVal);
-                            localStorage.setItem(
-                              'kkm_db_sync_enabled',
-                              String(newVal),
-                            );
-                            showToast(
-                              'Supabase Sync',
-                              `Live database sync has been ${
-                                newVal ? 'enabled' : 'disabled'
-                              }.`,
-                            );
-                          }}
-                          ariaLabel="Live database sync"
-                        />
-                      </div>
-
-                      {/* Supabase URL */}
-                      <div className="flex flex-col gap-1 border-t border-app-border/30 pt-3">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                          Supabase API URL
-                        </label>
-                        <input
-                          type="text"
-                          value={supabaseUrl}
-                          onChange={(e) => setSupabaseUrl(e.target.value)}
-                          placeholder="https://your-project.supabase.co"
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                        />
-                      </div>
-
-                      {/* Supabase Anon Key */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider flex justify-between">
-                          <span>Supabase Anon Key</span>
-                          </label>
-                        <PasswordInput variant="app" label="" required={false} autoComplete="off" value={supabaseKey} onChange={setSupabaseKey} placeholder="eyJhbGciOiJIUzI1NiIsIn..." />
-                      </div>
-
-                      {/* DB Host */}
-                      <div className="flex flex-col gap-1 border-t border-app-border/30 pt-3">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                          Postgres DB Host
-                        </label>
-                        <input
-                          type="text"
-                          value={dbHost}
-                          onChange={(e) => setDbHost(e.target.value)}
-                          placeholder="db.your-project.supabase.co"
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                        />
-                      </div>
-
-                      {/* DB Port & Name */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-1 flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                            DB Port
-                          </label>
-                          <input
-                            type="text"
-                            value={dbPort}
-                            onChange={(e) => setDbPort(e.target.value)}
-                            placeholder="5432"
-                            className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                          />
-                        </div>
-                        <div className="col-span-2 flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                            DB Name
-                          </label>
-                          <input
-                            type="text"
-                            value={dbName}
-                            onChange={(e) => setDbName(e.target.value)}
-                            placeholder="postgres"
-                            className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* DB User */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider">
-                          DB Username
-                        </label>
-                        <input
-                          type="text"
-                          value={dbUser}
-                          onChange={(e) => setDbUser(e.target.value)}
-                          placeholder="postgres.your-project"
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                        />
-                      </div>
-
-                      {/* DB Password */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase tracking-wider flex justify-between">
-                          <span>DB Password</span>
-                          </label>
-                        <PasswordInput variant="app" label="" required={false} autoComplete="off" value={dbPass} onChange={setDbPass} placeholder="Your Database Password" />
-                      </div>
-                    </div>
-                  </div>
-                )}
             </div>
             {activeSection === 'notifications' && (
               <div className="bg-app-card border border-app-border rounded-3xl p-4 sm:p-5 shadow-sm min-w-0">
@@ -2281,18 +1918,17 @@ export default function SettingsView({
             <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm animate-fade-in">
               <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
                 <HelpCircle size={16} className="text-amber-500" />
-                <h3 className="text-xs font-extrabold text-app-text uppercase tracking-wider font-display">
-                  Interactive Guided Tour
+                <h3 className="text-xs font-semibold text-app-text font-display">
+                  Guided tour
                 </h3>
               </div>
               <div className="flex flex-col gap-3.5">
                 <div>
-                  <span className="font-extrabold text-app-text text-[11px] block">
-                    First-Time Onboarding Walkthrough
+                  <span className="font-semibold text-app-text text-[11px] block">
+                    Show me around again
                   </span>
-                  <span className="text-[9.5px] text-app-text-muted font-medium block mt-0.5">
-                    Need a refresher? Restart the step-by-step interactive
-                    onboarding tour anytime.
+                  <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
+                    Take the tour again.
                   </span>
                 </div>
                 <button
@@ -2300,13 +1936,13 @@ export default function SettingsView({
                     onRestartTour?.();
                     showToast(
                       'Tour Started',
-                      'Guided onboarding walkthrough started.',
+                      'The tour has started.',
                     );
                   }}
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-[10px] transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Play size={12} />
-                  <span>Restart Walkthrough Tour</span>
+                  <span>Restart the tour</span>
                 </button>
               </div>
             </div>
@@ -2316,12 +1952,12 @@ export default function SettingsView({
             <div className="bg-red-500/5 border border-red-500/10 rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
               <div className="flex items-center gap-2 border-b border-red-500/10 pb-2.5">
                 <LogOut size={16} className="text-red-500" />
-                <h3 className="text-xs font-extrabold text-red-500 uppercase tracking-wider font-display">
-                  Operator Session
+                <h3 className="text-xs font-semibold text-red-500 font-display">
+                  Sign out
                 </h3>
               </div>
               <p className="text-[10px] text-app-text-muted font-medium leading-relaxed">
-                Sign out of your active online account session securely.
+                Sign out of your account on this device.
               </p>
 
               <div>
@@ -2331,13 +1967,13 @@ export default function SettingsView({
                     logout();
                     showToast(
                       'Logged Out',
-                      'Operator session closed successfully.',
+                      'You are signed out.',
                     );
                   }}
-                  className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider text-[10px]"
+                  className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 text-[10px]"
                 >
                   <LogOut size={13} />
-                  <span>Log Out of Account</span>
+                  <span>Sign out</span>
                 </button>
               </div>
             </div>)}
@@ -2392,7 +2028,7 @@ export default function SettingsView({
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-black text-app-text uppercase tracking-wider font-display">
+                    <h3 className="text-sm font-semibold text-app-text font-display">
                       {meta.label} Request
                     </h3>
                     <p className="text-[11px] text-app-text-muted leading-relaxed mt-2.5 font-medium px-2">
@@ -2405,10 +2041,8 @@ export default function SettingsView({
                       size={14}
                       className="text-amber-500 shrink-0 mt-0.5"
                     />
-                    <p className="text-[9px] text-app-text-muted leading-relaxed font-medium">
-                      Privacy Guard: We only request hardware access when
-                      required for checkout transactions or rider routing. You
-                      can revoke this permission anytime in settings.
+                    <p className="text-[11px] text-app-text-muted leading-relaxed font-medium">
+                      You can turn this off any time.
                     </p>
                   </div>
 
@@ -2416,9 +2050,9 @@ export default function SettingsView({
                     <button
                       type="button"
                       onClick={() => setExplainingPermission(null)}
-                      className="py-2.5 bg-app-bg border border-app-border hover:bg-app-border text-app-text font-black rounded-xl transition cursor-pointer text-[10px] uppercase tracking-wider"
+                      className="py-2.5 bg-app-bg border border-app-border hover:bg-app-border text-app-text font-semibold rounded-xl transition cursor-pointer text-[10px]"
                     >
-                      Maybe Later
+                      Not now
                     </button>
                     <button
                       type="button"
@@ -2430,7 +2064,7 @@ export default function SettingsView({
                           setShowWebSettingsGuide(true);
                         }
                       }}
-                      className="py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition cursor-pointer text-[10px] uppercase tracking-wider shadow-md"
+                      className="py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition cursor-pointer text-[10px] shadow-md"
                     >
                       Allow Access
                     </button>
@@ -2456,36 +2090,34 @@ export default function SettingsView({
               </div>
 
               <div>
-                <h3 className="text-sm font-black text-app-text uppercase tracking-wider font-display">
-                  Unblock Permission Guide
+                <h3 className="text-sm font-semibold text-app-text font-display">
+                  How to allow it again
                 </h3>
                 <p className="text-[10px] text-app-text-muted leading-relaxed mt-2 font-medium px-4">
-                  Your web browser has blocked this site from requesting
-                  permission. Follow these simple steps to enable access:
+                  Your browser blocked this. To allow it:
                 </p>
               </div>
 
               <div className="flex flex-col gap-2.5 text-left bg-app-bg/60 p-4 border border-app-border rounded-2xl text-[10px] font-medium text-app-text-muted">
                 <div className="flex gap-2">
-                  <span className="font-extrabold text-amber-500">1.</span>
+                  <span className="font-semibold text-amber-500">1.</span>
                   <span>
-                    Click the <strong>Lock (🔒)</strong> or{' '}
+                    Click the <strong>lock</strong> or{' '}
                     <strong>Tune</strong> settings icon in your browser's
                     address bar (top left of the screen, next to the web URL).
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="font-extrabold text-amber-500">2.</span>
+                  <span className="font-semibold text-amber-500">2.</span>
                   <span>
                     Locate the blocked permission and change its dropdown status
                     toggle to <strong>Allow</strong>.
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="font-extrabold text-amber-500">3.</span>
+                  <span className="font-semibold text-amber-500">3.</span>
                   <span>
-                    Reload this page to synchronize your browser's updated
-                    device permissions.
+                    Reload the page.
                   </span>
                 </div>
               </div>
@@ -2497,9 +2129,9 @@ export default function SettingsView({
                     openDeviceSettings();
                     setShowWebSettingsGuide(false);
                   }}
-                  className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 font-black rounded-xl text-[10px] uppercase tracking-wider transition cursor-pointer"
+                  className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 font-semibold rounded-xl text-[10px] transition cursor-pointer"
                 >
-                  Open Device System Settings
+                  Open phone settings
                 </button>
               )}
 
@@ -2509,9 +2141,9 @@ export default function SettingsView({
                   setShowWebSettingsGuide(false);
                   checkAllDevicePermissions();
                 }}
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition cursor-pointer text-[10px] uppercase tracking-wider shadow-md"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition cursor-pointer text-[10px] shadow-md"
               >
-                I've Updated Site Permissions
+                Done, check again
               </button>
             </motion.div>
           </div>
@@ -2520,7 +2152,7 @@ export default function SettingsView({
 
       {/* Floating Success Banner */}
       {saveSuccess && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2.5 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-[10px] font-black uppercase tracking-wider animate-bounce">
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2.5 rounded-full flex items-center gap-1.5 shadow-lg z-50 text-[10px] font-semibold animate-bounce">
           <CheckCircle2 size={13} />
           <span>Settings saved</span>
         </div>

@@ -77,7 +77,7 @@ export default function AirtelPaymentsPanel() {
       await AirtelRepository.remove();
       setConfirmRemove(false);
       await load();
-      showToast('Airtel Money disconnected', 'Prompts can no longer be sent until it is set up again.', undefined, 'success');
+      showToast('Airtel Money disconnected', 'Prompts are off until it is set up again.', undefined, 'success');
     } catch (err) {
       showToast('Airtel Money', toUserMessage(err, "Couldn't remove it. Please try again."), undefined, 'error');
     } finally {
@@ -114,7 +114,7 @@ export default function AirtelPaymentsPanel() {
         {status && !status.enabled && (
           <p className="text-xs rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 p-2.5 mb-3 flex items-start gap-1.5">
             <AlertTriangle size={14} className="shrink-0 mt-px" />
-            Airtel Money is switched off for this business. Switch it on under Payments → Methods so staff can use it.
+            Airtel Money is off. Turn it on in Payments → Methods.
           </p>
         )}
 
@@ -169,8 +169,7 @@ export default function AirtelPaymentsPanel() {
             onSubmit={(e) => { e.preventDefault(); void save(); }}
           >
             <p className="text-xs text-app-text-muted">
-              Create an app at developers.airtel.africa with the Collection API, then paste its keys here.
-              Use test (staging) keys first; switch to live when Airtel approves the app.
+              Paste your keys from developers.airtel.africa.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label>
@@ -221,10 +220,10 @@ export default function AirtelPaymentsPanel() {
         </h3>
         <ul className="text-sm text-app-text-muted flex flex-col gap-2">
           <li className="flex gap-2"><Send size={14} className="shrink-0 mt-0.5 text-app-text" />
-            <span><strong className="text-app-text">Send a prompt:</strong> the customer gets a request on their Airtel phone and enters their PIN. It is recorded by itself once Airtel confirms.</span>
+            <span><strong className="text-app-text">Send a prompt:</strong> the customer enters their PIN on their phone.</span>
           </li>
           <li className="flex gap-2"><CheckCircle2 size={14} className="shrink-0 mt-0.5 text-app-text" />
-            <span><strong className="text-app-text">They paid on their own{status?.merchantCode ? ` to ${status.merchantCode}` : ''}:</strong> record it on the Payments tab with method Airtel Money and the transaction ID from their SMS. Airtel doesn't tell the app about these.</span>
+            <span><strong className="text-app-text">They paid on their own{status?.merchantCode ? ` to ${status.merchantCode}` : ''}:</strong> record it on the Payments tab with the transaction ID.</span>
           </li>
         </ul>
         {canOpenScreen(role, 'prompt') && (

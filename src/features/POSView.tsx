@@ -859,7 +859,7 @@ export default function POSView() {
                 {/* Payment on its own row (the methods switched on, plus Credit), then the note */}
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-app-text-muted uppercase">
+                    <label className="text-[11px] font-semibold text-app-text-muted">
                       Payment
                     </label>
                     <div
@@ -879,7 +879,7 @@ export default function POSView() {
                             setPaymentMethod(method.value);
                             if (method.value !== 'Card') setPaidCard(null);
                           }}
-                          className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer lg:pb-3 ${
+                          className={`rounded-lg text-[10px] font-semibold transition cursor-pointer lg:pb-3 ${
                             paymentMethod === method.value
                               ? 'bg-amber-500 text-slate-950 shadow'
                               : 'text-app-text-muted hover:bg-app-bg'
@@ -892,7 +892,7 @@ export default function POSView() {
                   </div>
 
                   <div data-shortcut="pos-note" className="flex flex-col gap-1.5">
-                    <label htmlFor="pos-note" className="text-[9px] font-black text-app-text-muted uppercase">
+                    <label htmlFor="pos-note" className="text-[11px] font-semibold text-app-text-muted">
                       Note
                     </label>
                     <input
@@ -931,7 +931,7 @@ export default function POSView() {
                   {isDelivery && (
                     <div className="space-y-3 pt-2 border-t border-app-border/40 animate-fade-in">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-app-text-muted uppercase">How delivery is paid</span>
+                        <span className="text-[11px] font-semibold text-app-text-muted">How delivery is paid</span>
                         <div className="grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border" role="radiogroup" aria-label="How delivery is paid">
                           {DELIVERY_MODES.map((o) => (
                             <button
@@ -954,7 +954,7 @@ export default function POSView() {
                       </div>
                       {deliveryZones.length > 0 && (
                         <div className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-app-text-muted uppercase">Area</span>
+                          <span className="text-[11px] font-semibold text-app-text-muted">Area</span>
                           <div className="flex flex-wrap gap-1.5">
                             {deliveryZones.map((zone) => {
                               const chosen = deliveryFee === Number(zone.fee) && deliveryLocation.trim() === zone.name;
@@ -984,7 +984,7 @@ export default function POSView() {
                       )}
                       <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
+                          <label className="text-[11px] font-semibold text-app-text-muted">
                             {deliveryMode === 'charged' ? 'Fee (KSh)' : 'Rider gets (KSh)'}
                           </label>
                           <NumberInput
@@ -1000,7 +1000,7 @@ export default function POSView() {
                         </div>
 
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-app-text-muted uppercase">
+                          <label className="text-[11px] font-semibold text-app-text-muted">
                             Quick fee
                           </label>
                           <div className="h-10 grid grid-cols-3 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
@@ -1009,7 +1009,7 @@ export default function POSView() {
                                 key={fee}
                                 type="button"
                                 onClick={() => setDeliveryFee(fee)}
-                                className={`rounded-lg text-[10px] font-black transition cursor-pointer ${
+                                className={`rounded-lg text-[10px] font-semibold transition cursor-pointer ${
                                   deliveryFee === fee
                                     ? 'bg-amber-500 text-slate-950 shadow'
                                     : 'text-app-text-muted hover:bg-app-bg'
@@ -1022,7 +1022,7 @@ export default function POSView() {
                         </div>
                       </div>
 
-                      <label className="flex flex-col gap-1 text-[9px] font-black text-app-text-muted uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] font-semibold text-app-text-muted">
                         Location
                         <input
                           value={deliveryLocation}
@@ -1033,7 +1033,7 @@ export default function POSView() {
                       </label>
 
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-app-text-muted uppercase">
+                        <label className="text-[11px] font-semibold text-app-text-muted">
                           Rider
                         </label>
                         <div className="space-y-2">
@@ -1063,7 +1063,7 @@ export default function POSView() {
                           />
                           {!riderName.trim() && (
                             <p className="text-[10px] text-app-text-muted">
-                              With no rider chosen, every rider gets a delivery request and the first to accept takes it.
+                              No rider: the first to accept takes it.
                             </p>
                           )}
 
@@ -1104,14 +1104,14 @@ export default function POSView() {
                   {/* Tax Rate Setting: only when VAT is allowed (eTIMS connected) */}
                   {businessTaxRate > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-app-text-muted uppercase">
+                    <label className="text-[11px] font-semibold text-app-text-muted">
                       Tax
                     </label>
                     <div className="h-10 grid grid-cols-2 gap-1 bg-app-bg p-1 rounded-xl border border-app-border">
                       <button
                         type="button"
                         onClick={() => setTaxRate(businessTaxRate)}
-                        className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
+                        className={`rounded-lg text-[10px] font-semibold transition cursor-pointer ${
                           taxRate === businessTaxRate
                             ? 'bg-amber-500 text-slate-950 shadow'
                             : 'text-app-text-muted hover:bg-app-bg'
@@ -1122,7 +1122,7 @@ export default function POSView() {
                       <button
                         type="button"
                         onClick={() => setTaxRate(0.0)}
-                        className={`rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
+                        className={`rounded-lg text-[10px] font-semibold transition cursor-pointer ${
                           taxRate === 0.0
                             ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 font-bold shadow-xs'
                             : 'text-app-text-muted hover:bg-app-bg'
@@ -1136,7 +1136,7 @@ export default function POSView() {
 
                   {/* Checkout Discount Setting */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-app-text-muted uppercase">
+                    <label className="text-[11px] font-semibold text-app-text-muted">
                       Discount
                     </label>
                     <div className="flex gap-1.5 min-w-0">
@@ -1147,7 +1147,7 @@ export default function POSView() {
                             setCartDiscountType('percent');
                             setCartDiscountValue(0);
                           }}
-                          className={`px-3 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                          className={`px-3 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
                             cartDiscountType === 'percent'
                               ? 'bg-amber-500 text-slate-950'
                               : 'text-app-text-muted'
@@ -1161,7 +1161,7 @@ export default function POSView() {
                             setCartDiscountType('amount');
                             setCartDiscountValue(0);
                           }}
-                          className={`px-2.5 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                          className={`px-2.5 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
                             cartDiscountType === 'amount'
                               ? 'bg-amber-500 text-slate-950'
                               : 'text-app-text-muted'
@@ -1312,7 +1312,7 @@ export default function POSView() {
                     </div>
                   ))}
                   <div className="h-[1px] bg-app-border my-1" />
-                  <div className="flex justify-between text-xs font-black">
+                  <div className="flex justify-between text-xs font-semibold">
                     <span className="text-app-text">Final Total</span>
                     <span className="text-amber-500 font-mono text-sm">
                       KSh {finalTotal.toFixed(2)}
@@ -1343,7 +1343,7 @@ export default function POSView() {
                   onClick={() => void handleCheckout()}
                   disabled={isCheckingOut || cart.length === 0}
                   title="Complete sale (F9 or Ctrl+Enter)"
-                  className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs hover:bg-amber-600 disabled:opacity-55 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs hover:bg-amber-600 disabled:opacity-55 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {isCheckingOut ? (
                     <>
@@ -1448,15 +1448,15 @@ export default function POSView() {
           <div className="flex items-center gap-2.5 select-none pointer-events-none">
             <div className="relative p-1.5 bg-amber-500 text-slate-950 rounded-lg shrink-0">
               <ShoppingCart size={11} />
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[7.5px] font-black px-1 rounded-full shadow-sm">
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[11px] font-semibold px-1 rounded-full shadow-sm">
                 {cartCount}
               </span>
             </div>
             <div>
-              <span className="text-[7px] text-app-text-muted block font-black leading-none uppercase">
+              <span className="text-[11px] text-app-text-muted block font-semibold leading-none">
                 Total
               </span>
-              <span className="font-mono text-[10.5px] font-black text-amber-500 leading-none">
+              <span className="font-mono text-[10.5px] font-semibold text-amber-500 leading-none">
                 KSh {finalTotal.toFixed(0)}
               </span>
             </div>
@@ -1466,7 +1466,7 @@ export default function POSView() {
               setCheckoutError(null);
               setIsCartOpen(true);
             }}
-            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-[9px] uppercase transition cursor-pointer shrink-0"
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-lg text-[11px] transition cursor-pointer shrink-0"
           >
             Review
           </button>
@@ -1520,7 +1520,7 @@ export default function POSView() {
               <div className="p-3.5 bg-emerald-500/15 text-emerald-500 rounded-full mb-3.5">
                 <CheckCircle2 size={32} />
               </div>
-              <h3 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wide">
+              <h3 className="text-sm font-semibold font-display text-app-text">
                 Sale saved
               </h3>
               <p className="text-[11px] text-app-text-muted mt-1 max-w-xs leading-relaxed font-medium">
@@ -1632,17 +1632,17 @@ const ProductCard = memo(function ProductCard({
           referrerPolicy="no-referrer"
         />
         {isOutOfStock ? (
-          <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-extrabold text-[10px] uppercase tracking-wider">
+          <div className="absolute inset-0 bg-black/75 flex items-center justify-center text-red-400 font-semibold text-[10px]">
             Out of Stock
           </div>
         ) : isLowStock ? (
-          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-wider shadow">
+          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-red-500 text-white rounded text-[11px] font-semibold shadow">
             Low Stock
           </div>
         ) : null}
 
         {cartQty > 0 && (
-          <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-black text-[11px] shadow">
+          <div className="absolute top-2 right-2 w-5.5 h-5.5 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center font-semibold text-[11px] shadow">
             {cartQty}
           </div>
         )}
@@ -1650,14 +1650,14 @@ const ProductCard = memo(function ProductCard({
 
       <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
         <div>
-          <span className="text-[9px] font-mono font-bold text-app-text-muted block">
+          <span className="text-[11px] font-mono font-bold text-app-text-muted block">
             {titleCase(product.unit)} · {product.sku}
           </span>
           <h3 className="text-[11px] font-bold font-display text-app-text mt-0.5 line-clamp-2 leading-tight">
             {titleCase(product.name)}
           </h3>
         </div>
-        <div className="text-[8.5px] text-app-text-muted leading-tight">
+        <div className="text-[11px] text-app-text-muted leading-tight">
           {product.description?.trim() ? (
             sentenceCase(product.description)
           ) : (
@@ -1668,11 +1668,11 @@ const ProductCard = memo(function ProductCard({
         </div>
 
         <div className="flex items-center justify-between mt-1 gap-1">
-          <span className="text-xs font-black text-amber-500 whitespace-nowrap">
+          <span className="text-xs font-semibold text-amber-500 whitespace-nowrap">
             KSh {Math.round(product.price)}
           </span>
           <span
-            className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+            className={`text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
               isOutOfStock
                 ? 'bg-red-500/10 text-red-500'
                 : isLowStock

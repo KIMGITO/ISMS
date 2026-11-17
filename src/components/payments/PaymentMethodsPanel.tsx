@@ -16,9 +16,9 @@ import type { MoneyMethod } from '../../types';
 
 const ABOUT: Record<MoneyMethod, { icon: React.ReactNode; text: string }> = {
   Cash: { icon: <Banknote size={18} className="text-amber-500" />, text: 'Notes and coins at the till.' },
-  'M-Pesa': { icon: <Smartphone size={18} className="text-emerald-600" />, text: 'Till payments, M-Pesa codes typed in, and prompts sent to Safaricom numbers.' },
-  'Airtel Money': { icon: <Smartphone size={18} className="text-red-500" />, text: 'Airtel Money transaction IDs typed in, and prompts sent to Airtel numbers once Airtel is set up.' },
-  Card: { icon: <CreditCard size={18} className="text-blue-500" />, text: 'Card machine (approval code typed in) and Paystack card payments, in the shop and on the website.' },
+  'M-Pesa': { icon: <Smartphone size={18} className="text-emerald-600" />, text: 'M-Pesa till payments and prompts.' },
+  'Airtel Money': { icon: <Smartphone size={18} className="text-red-500" />, text: 'Airtel Money payments and prompts.' },
+  Card: { icon: <CreditCard size={18} className="text-blue-500" />, text: 'Card machine and Paystack.' },
   Bank: { icon: <Landmark size={18} className="text-violet-500" />, text: 'Bank transfers, recorded with the bank reference.' },
 };
 
@@ -41,7 +41,7 @@ export default function PaymentMethodsPanel() {
       await setPaymentMethods(next);
       showToast(
         on ? `${methodLabel(method)} on` : `${methodLabel(method)} off`,
-        on ? 'Staff can take it at the till and on payment forms now.' : 'It no longer shows at the till or on payment forms.',
+        on ? 'Shown at the till.' : 'Hidden at the till.',
         undefined,
         'success',
       );
@@ -56,13 +56,12 @@ export default function PaymentMethodsPanel() {
     <section className="bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in duration-200">
       <h3 className="text-sm font-bold text-app-text mb-1">Ways customers can pay</h3>
       <p className="text-xs text-app-text-muted mb-4">
-        A method that's off is hidden at the till and on payment forms, and can't be used for new prompts or card charges.
-        Money that still arrives with it is recorded, and past payments keep their method.
+        Off: hidden at the till.
       </p>
 
       {!canConfigure && (
         <p className="text-xs text-app-text-muted mb-3 flex items-center gap-1.5">
-          <Lock size={12} /> Only the owner, admins, or a role given "Switch payment methods" can change these.
+          <Lock size={12} /> Only the owner or admins can change these.
         </p>
       )}
 

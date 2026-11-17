@@ -345,7 +345,7 @@ export default function WorkersView() {
       {/* Title block */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
-          <h2 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wider flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold font-display text-app-text flex items-center gap-1.5">
             <Shield size={16} className="text-amber-500" /> Staff & invitations
           </h2>
           <p className="text-[11px] text-app-text-muted mt-0.5">
@@ -365,7 +365,7 @@ export default function WorkersView() {
           {canInviteStaff || canUpdateStaff || handlesSuppliers ? (
             <>
               <div className="flex items-center justify-between mb-3 border-b border-app-border/40 pb-2">
-                <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5 uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5">
                   <UserPlus size={14} className="text-amber-500" />
                   {editingEmployeeId
                     ? 'Edit team member'
@@ -385,7 +385,7 @@ export default function WorkersView() {
               <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
                 {/* Full Name */}
                 <div className="space-y-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
+                  <label className="text-[10px] text-app-text-muted font-bold block">
                     Full Name *
                   </label>
                   <div className="relative">
@@ -406,7 +406,7 @@ export default function WorkersView() {
 
                 {/* Email Address */}
                 <div className="space-y-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
+                  <label className="text-[10px] text-app-text-muted font-bold block">
                     {isSupplier ? 'Email (to sign in; leave empty to only add them)' : 'Email Address *'}
                   </label>
                   <div className="relative">
@@ -426,7 +426,7 @@ export default function WorkersView() {
 
                 {/* Phone Number */}
                 <div className="space-y-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
+                  <label className="text-[10px] text-app-text-muted font-bold block">
                     Phone Number *
                   </label>
                   <div className="grid grid-cols-5 gap-2">
@@ -454,14 +454,14 @@ export default function WorkersView() {
                       />
                     </div>
                   </div>
-                  <span className="text-[8.5px] text-app-text-muted block mt-1">
+                  <span className="text-[11px] text-app-text-muted block mt-1">
                     Stored E.164: {normalizePhone(phone, selectedCountryCode)}
                   </span>
                 </div>
 
                 {/* System Role Selection */}
                 <div className="space-y-1">
-                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
+                  <label className="text-[10px] text-app-text-muted font-bold block">
                     Role *
                   </label>
                   <SearchableDropdown
@@ -478,7 +478,7 @@ export default function WorkersView() {
                 {isSupplier && (
                   <div className="space-y-3 p-3 rounded-xl bg-app-bg border border-app-border">
                     <div className="space-y-1">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">Supplier *</label>
+                      <label className="text-[10px] text-app-text-muted font-bold block">Supplier *</label>
                       <SearchableDropdown
                         items={[{ id: 'new', label: '+ A new supplier' }, ...suppliers.map((x) => ({ id: x.id, label: x.company ? `${x.company} (${x.name})` : x.name }))]}
                         selectedValue={supplierId}
@@ -489,12 +489,12 @@ export default function WorkersView() {
                     {supplierId === 'new' && (
                       <>
                         <div className="space-y-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">Company (optional)</label>
+                          <label className="text-[10px] text-app-text-muted font-bold block">Company (optional)</label>
                           <input value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} placeholder="e.g. Brookside Dairy" maxLength={80}
                             className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">What they supply *</label>
+                          <label className="text-[10px] text-app-text-muted font-bold block">What they supply *</label>
                           <input value={supplierSupplies} onChange={(e) => setSupplierSupplies(e.target.value)} placeholder="e.g. Milk, Packaging, Sugar" maxLength={80}
                             className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
                         </div>
@@ -511,7 +511,7 @@ export default function WorkersView() {
                   <>
                     {/* Custom Profile Image Upload */}
                     <div className="space-y-2 pt-2 border-t border-app-border/40">
-                      <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider block">
+                      <label className="text-[10px] text-app-text-muted font-bold block">
                         Custom Profile Image
                       </label>
                       <div className="flex items-center gap-3 bg-app-bg p-2 rounded-xl border border-app-border">
@@ -528,7 +528,7 @@ export default function WorkersView() {
                           cropRequired
                           buttonText="Upload Picture"
                           bucketName="employee-avatars"
-                          className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600  font-black text-[9px] rounded-lg transition uppercase tracking-wider text-center w-full select-none cursor-pointer"
+                          className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 font-semibold text-[11px] rounded-lg transition text-center w-full select-none cursor-pointer"
                         />
                       </div>
                     </div>
@@ -554,7 +554,7 @@ export default function WorkersView() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-4 uppercase tracking-wider"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-4"
                 >
                   {isSubmitting ? (
                     <>
@@ -581,7 +581,7 @@ export default function WorkersView() {
           ) : (
             <div className="p-4 bg-amber-500/5 border border-amber-500/15 rounded-2xl space-y-2.5">
               <Shield className="text-amber-500 " size={18} />
-              <h4 className="text-xs font-bold text-app-text uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-app-text">
                 You can't invite people
               </h4>
               <p className="text-[11px] text-app-text-muted leading-relaxed">
@@ -597,7 +597,7 @@ export default function WorkersView() {
           {/* ACTIVE TEAM */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border/40 pb-3">
-              <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5">
+              <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5">
                 <Shield size={14} className="text-amber-500" /> Team ({employees.length})
               </h3>
 
@@ -671,15 +671,15 @@ export default function WorkersView() {
                           referrerPolicy="no-referrer"
                         />
                         <div>
-                          <h4 className="text-xs font-extrabold text-app-text flex items-center gap-1.5 leading-snug">
+                          <h4 className="text-xs font-semibold text-app-text flex items-center gap-1.5 leading-snug">
                             {titleCase(emp.name)}
                             {isSelf && (
-                              <span className="text-[8px] bg-slate-200 dark:bg-slate-800 text-app-text px-1 py-0.2 rounded uppercase font-bold tracking-wider">
+                              <span className="text-[11px] bg-slate-200 dark:bg-slate-800 text-app-text px-1 py-0.2 rounded font-bold">
                                 You
                               </span>
                             )}
                             <span
-                              className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-wider ${
+                              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
                                 isOwner
                                   ? 'bg-amber-500/10 text-amber-500'
                                   : emp.role === 'Manager'
@@ -693,7 +693,7 @@ export default function WorkersView() {
                             </span>
                           </h4>
 
-                          <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-app-text-muted font-semibold">
+                          <div className="flex flex-col gap-0.5 mt-1 text-[11px] text-app-text-muted font-semibold">
                             <span className="flex items-center gap-1">
                               <Mail size={8} /> {emp.email}
                             </span>
@@ -738,7 +738,7 @@ export default function WorkersView() {
           {/* PENDING INVITATIONS */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans">
             <div className="border-b border-app-border/40 pb-2.5">
-              <h3 className="text-xs font-bold text-app-text uppercase tracking-wider flex items-center gap-1.5">
+              <h3 className="text-xs font-bold text-app-text flex items-center gap-1.5">
                 <Clock size={14} className="text-amber-500 " /> Invitations ({filteredInvitations.length})
               </h3>
             </div>
@@ -781,14 +781,14 @@ export default function WorkersView() {
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-extrabold text-app-text truncate">
+                          <h4 className="text-xs font-semibold text-app-text truncate">
                             {titleCase(inv.name)}
                           </h4>
-                          <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-500/10 px-1.5 rounded">
+                          <span className="text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 rounded">
                             {inv.role}
                           </span>
                           <span
-                            className={`text-[7px] font-black uppercase px-1.5 rounded ${
+                            className={`text-[11px] font-semibold px-1.5 rounded ${
                               displayStatus === 'Accepted'
                                 ? 'bg-emerald-500/10 text-emerald-500'
                                 : displayStatus === 'Revoked'
@@ -801,10 +801,10 @@ export default function WorkersView() {
                             {displayStatus}
                           </span>
                         </div>
-                        <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-app-text-muted font-semibold">
+                        <div className="flex flex-col gap-0.5 mt-1 text-[11px] text-app-text-muted font-semibold">
                           <span>Email: {inv.email}</span>
                           <span>Phone: {inv.phone}</span>
-                          <span className="font-mono text-[8px] bg-slate-100 dark:bg-slate-800 p-0.5 rounded px-1 text-slate-500 select-all flex items-center gap-1 w-max mt-1">
+                          <span className="font-mono text-[11px] bg-slate-100 dark:bg-slate-800 p-0.5 rounded px-1 text-slate-500 select-all flex items-center gap-1 w-max mt-1">
                             Code: {inv.invitationToken}
                             <button
                               type="button"
@@ -824,7 +824,7 @@ export default function WorkersView() {
                               <button
                                 disabled={isRevokingInvite}
                                 onClick={() => cancelInvite(inv)}
-                                className="px-2 py-1 text-[9px] font-bold text-red-500 hover:bg-red-500/5 border border-red-500/10 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
+                                className="px-2 py-1 text-[11px] font-bold text-red-500 hover:bg-red-500/5 border border-red-500/10 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition"
                               >
                                 Revoke
                               </button>

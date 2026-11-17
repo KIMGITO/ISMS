@@ -283,17 +283,17 @@ export default function AccountingView() {
                 </Note>
               )}
               {bs.difference !== 0 ? (
-                <Note>The balance sheet is off by {exact(bs.difference)}. Rebuild the books from Lock & rebuild.</Note>
+                <Note>Off by {exact(bs.difference)}. Use Lock & rebuild.</Note>
               ) : (
-                <Note tone="ok">The books balance: what the business owns equals what it owes plus the owner's share.</Note>
+                <Note tone="ok">The books balance.</Note>
               )}
               {closingOf('inventory') < 0 && (
                 <Note>
-                  Stock in the books is below zero: stock was added without a purchase (opening stock, or products added with stock).{' '}
+                  Stock in the books is below zero.{' '}
                   <button className="underline font-semibold cursor-pointer" onClick={() => setTab('checks')}>Match it to stock on hand</button>
                 </Note>
               )}
-              {report.lockDate && <Note tone="info">Books are locked up to {day(report.lockDate)}. Changes to older records are booked after that date.</Note>}
+              {report.lockDate && <Note tone="info">Books locked up to {day(report.lockDate)}.</Note>}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -325,37 +325,37 @@ export default function AccountingView() {
 
         {report && tab === 'pnl' && (
           <Card title={`Profit & loss · ${periodWord}`} subtitle={`${day(start)} to ${day(end)}. Tap a line to see what is in it.`}>
-            <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide mt-1">Income</h3>
+            <h3 className="text-xs font-semibold text-app-text-muted mt-1">Income</h3>
             <Statement rows={pnl.income} onOpen={setLedgerFor} />
             <Row label="Total income" value={pnl.totalIncome} strong />
-            <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide mt-4">Cost of sales</h3>
+            <h3 className="text-xs font-semibold text-app-text-muted mt-4">Cost of sales</h3>
             <Statement rows={pnl.costOfSales} onOpen={setLedgerFor} />
             <Row label="Gross profit" value={pnl.grossProfit} strong />
-            <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide mt-4">Expenses</h3>
+            <h3 className="text-xs font-semibold text-app-text-muted mt-4">Expenses</h3>
             <Statement rows={pnl.expenses} onOpen={setLedgerFor} />
             <Row label="Total expenses" value={pnl.totalExpenses} strong />
             <div className="mt-3 rounded-xl bg-app-bg px-3">
               <Row label={pnl.netProfit < 0 ? 'Net loss' : 'Net profit'} value={pnl.netProfit} strong />
             </div>
             <p className="text-[11px] text-app-text-muted mt-3">
-              Sales are after discounts and without VAT. Cost of sales uses each product's cost at the time of the sale.
+              Sales after discounts, without VAT.
             </p>
           </Card>
         )}
 
         {report && tab === 'balance' && (
-          <Card title={`Balance sheet · ${day(end)}`} subtitle="What the business owns and owes on this day. Tap a line to see what is in it.">
+          <Card title={`Balance sheet · ${day(end)}`} subtitle="What the business owns and owes.">
             <div className="grid gap-6 lg:grid-cols-2">
               <div>
-                <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide">What we own</h3>
+                <h3 className="text-xs font-semibold text-app-text-muted">What we own</h3>
                 <Statement rows={bs.assets} onOpen={setLedgerFor} />
                 <Row label="Total assets" value={bs.totalAssets} strong />
               </div>
               <div>
-                <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide">What we owe</h3>
+                <h3 className="text-xs font-semibold text-app-text-muted">What we owe</h3>
                 <Statement rows={bs.liabilities} onOpen={setLedgerFor} />
                 <Row label="Total liabilities" value={bs.totalLiabilities} strong />
-                <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide mt-4">Owner's share</h3>
+                <h3 className="text-xs font-semibold text-app-text-muted mt-4">Owner's share</h3>
                 <Statement rows={bs.equity} onOpen={setLedgerFor} />
                 <Row label="Profit so far" value={bs.profitToDate} sub />
                 <Row label="Total owner's share" value={bs.totalEquity} strong />
@@ -369,7 +369,7 @@ export default function AccountingView() {
         )}
 
         {report && tab === 'trial' && (
-          <Card title={`Trial balance · ${day(end)}`} subtitle="Every account's balance as a debit or a credit. The two totals must match.">
+          <Card title={`Trial balance · ${day(end)}`} subtitle="The two totals must match.">
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] tabular-nums">
                 <thead className="text-app-text-muted text-xs">
@@ -407,14 +407,14 @@ export default function AccountingView() {
         {report && tab === 'accounts' && (
           <Card
             title="Chart of accounts"
-            subtitle="Balances today. The app posts to the accounts marked Auto; expense categories get their own account the first time they are used."
+            subtitle="Balances today."
             action={canManage ? <button data-shortcut="new" onClick={() => setAccountForm({ type: 'expense', active: true })} className={primaryBtn}><Plus size={15} /> Account</button> : undefined}
           >
             {TYPES.map((t) => {
               const list = accounts.filter((a) => a.type === t);
               return (
                 <div key={t} className="mb-4">
-                  <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wide">{TYPE_LABELS[t]}</h3>
+                  <h3 className="text-xs font-semibold text-app-text-muted">{TYPE_LABELS[t]}</h3>
                   {list.map((a) => (
                     <div key={a.id} role="button" tabIndex={0} onClick={() => setLedgerFor(a.id)} onKeyDown={(e) => { if (e.key === 'Enter') setLedgerFor(a.id); }}
                       className={`flex items-center gap-2 py-2 border-b border-app-border/60 cursor-pointer hover:bg-app-bg -mx-2 px-2 rounded-lg ${a.active ? '' : 'opacity-50'}`}>
@@ -874,7 +874,7 @@ function EntryForm({ businessId, accounts, template, editing, lockDate, onClose,
             </span>
           </div>
           <p className="text-[11px] text-app-text-muted">
-            Debit = money or value coming into an account you own, or an expense. Credit = where it came from: income, a loan, the owner, or money leaving an account.
+            Debit: money in or an expense. Credit: where it came from.
           </p>
         </div>
       )}
@@ -882,7 +882,7 @@ function EntryForm({ businessId, accounts, template, editing, lockDate, onClose,
       <Field label="What is it for?">
         <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={t.title} className={fieldClass} maxLength={200} />
       </Field>
-      {(usesMoney || custom) && <p className="text-[11px] text-app-text-muted">Lines on cash, M-Pesa, Airtel, bank or card also change the balances on the Payments screen.</p>}
+      {(usesMoney || custom) && <p className="text-[11px] text-app-text-muted">Money lines also change Payments balances.</p>}
       {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
     </FormSheet>
   );
@@ -975,7 +975,7 @@ function ReceivablesTab({ businessId, version }: { businessId: string; version: 
   const mismatched = (rows || []).filter((r) => Math.round(r.owes) !== Math.round(r.appDebt) || Math.round(r.holds) !== Math.round(r.appWallet)).length;
 
   return (
-    <Card title="What customers owe" subtitle="From the books, per customer, today. Wallet money is money we hold for them.">
+    <Card title="What customers owe" subtitle="Per customer, today.">
       {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
       {!rows && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
       {rows && (
@@ -984,7 +984,7 @@ function ReceivablesTab({ businessId, version }: { businessId: string; version: 
             <Tile label="Customers owe" value={money(owed)} />
             <Tile label="Wallet money we hold" value={money(held)} />
           </div>
-          {mismatched > 0 && <div className="mb-3"><Note>{mismatched} customer{mismatched === 1 ? '\'s' : 's\''} balance differs from the customer screen. That usually means a record failed to post; check Lock & rebuild.</Note></div>}
+          {mismatched > 0 && <div className="mb-3"><Note>{mismatched} customer{mismatched === 1 ? '\'s' : 's\''} balance differs from the customer screen. Check Lock & rebuild.</Note></div>}
           <div className="relative mb-2">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customers" className={`${fieldClass} pl-9`} />
@@ -1046,7 +1046,7 @@ function PayablesTab({ businessId, version, onPay, onChanged }: {
 
   return (
     <div className="space-y-4">
-      <Card title="What we owe suppliers" subtitle="Supplier bills (and purchases received before bills) less returns and what was paid. Pay a bill, or any amount on account. Goods received without a bill yet are shown apart.">
+      <Card title="What we owe suppliers" subtitle="What you owe suppliers.">
         {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
         {!data && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
         {data && (
@@ -1193,7 +1193,7 @@ function ChecksTab({ businessId, version, canManage, onCount, onChanged }: {
     if (!data) return;
     const ok = await appDialog.confirm({
       title: 'Match the books to stock on hand?',
-      message: `Stock on hand is worth ${money(data.stock.actual)} (stock × cost). The books say ${money(data.stock.books)}. The difference of ${money(data.stock.difference)} is booked as a stock difference today.`,
+      message: `On hand ${money(data.stock.actual)}, books ${money(data.stock.books)}. The difference is booked today.`,
       confirmLabel: 'Match',
     });
     if (!ok) return;
@@ -1210,7 +1210,7 @@ function ChecksTab({ businessId, version, canManage, onCount, onChanged }: {
 
   return (
     <div className="space-y-4">
-      <Card title="Money accounts" subtitle="What the books say, next to the balance on the Payments screen. Count the money to set both to what is really there.">
+      <Card title="Money accounts" subtitle="Books next to Payments. Count to correct both.">
         {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
         {!data && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
         {data && (
@@ -1246,9 +1246,7 @@ function ChecksTab({ businessId, version, canManage, onCount, onChanged }: {
             <Tile label="On hand" value={money(data.stock.actual)} />
             <Tile label="Difference" value={money(data.stock.difference)} tone={Math.abs(data.stock.difference) >= 1 ? 'bad' : 'good'} />
           </div>
-          <p className="text-[11px] text-app-text-muted mt-2">
-            They drift apart when stock is added without a purchase, counted, moved between branches, used in production, or when a product's cost changes.
-          </p>
+          
           {canManage && Math.abs(data.stock.difference) >= 1 && (
             <button onClick={() => void match()} disabled={busy} className={`${primaryBtn} mt-3`}><Scale size={15} /> Match stock</button>
           )}
@@ -1350,7 +1348,7 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
       {!data && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
       {data && (
         <>
-          {!data.taxOn && <div className="mb-3"><Note tone="info">VAT is switched off for this branch (Business Management → tax), so sales charge none.</Note></div>}
+          {!data.taxOn && <div className="mb-3"><Note tone="info">VAT is off for this branch.</Note></div>}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             <Tile label="Charged in period" value={money(charged)} />
             <Tile label="On purchases in period" value={money(onPurchases)} />
@@ -1479,7 +1477,7 @@ function SettingsTab({ businessId, report, onChanged }: { businessId: string; re
         )}
       </Card>
 
-      <Card title="Rebuild the books" subtitle="Works out every automatic entry again from the records. Use it if the books look wrong.">
+      <Card title="Rebuild the books" subtitle="Redo all automatic entries. Use if the books look wrong.">
         <button onClick={() => void rebuild()} disabled={!!busy} className={secondaryBtn}>
           <BookOpen size={15} /> {busy && busy !== 'lock' && busy !== 'retry' ? busy : 'Rebuild'}
         </button>

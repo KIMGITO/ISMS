@@ -17,7 +17,6 @@ import {
   User,
   CalendarRange,
   MapPin,
-  Zap,
   AlertCircle,
   Copy,
   HelpCircle,
@@ -39,6 +38,7 @@ import {
   Loader2,
   Check,
   X,
+  Play,
 } from 'lucide-react';
 import AlarmTimePicker from '../components/AlarmTimePicker';
 import { SwipeRow } from '../components/shared/SwipeRow';
@@ -711,7 +711,7 @@ export default function DashboardView() {
                 <CalendarRange size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-app-text font-display">
+                <h3 className="text-sm font-semibold text-app-text font-display">
                   {monthNames[month]} {year}
                 </h3>
                 <p className="text-[10px] text-app-text-muted font-medium">
@@ -725,7 +725,7 @@ export default function DashboardView() {
                 onClick={toggleCalendarCollapsed}
                 data-shortcut="toggle-month"
                 title={isCalendarCollapsed ? 'Show the month (M)' : 'Show one week (M)'}
-                className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1 shrink-0 mr-1 text-[9px] font-black uppercase tracking-wider"
+                className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1 shrink-0 mr-1 text-[11px] font-semibold"
               >
                 {isCalendarCollapsed ? (
                   <>
@@ -768,7 +768,7 @@ export default function DashboardView() {
           {isCalendarCollapsed ? (
             /* COLLAPSED CALENDAR VIEW: WEEKLY STRIP GRID */
             <div className="flex flex-col gap-1 bg-app-bg/50 p-2 border border-app-border/45 rounded-2xl">
-              <div className="text-[9px] text-app-text-muted font-black uppercase tracking-wider px-1">
+              <div className="text-[11px] text-app-text-muted font-semibold px-1">
                 Weekly Operation View
               </div>
               <div className="grid grid-cols-7 gap-1.5 py-1">
@@ -786,7 +786,7 @@ export default function DashboardView() {
                           : 'bg-app-bg border-app-border/40 hover:border-app-border text-app-text-muted'
                       }`}
                     >
-                      <span className="text-[8px] font-bold uppercase tracking-wide opacity-60">
+                      <span className="text-[11px] font-bold opacity-60">
                         {
                           ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][
                             day.getDay()
@@ -794,7 +794,7 @@ export default function DashboardView() {
                         }
                       </span>
                       <span
-                        className={`text-xs font-mono font-black ${
+                        className={`text-xs font-mono font-semibold ${
                           matchesToday
                             ? 'bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded-full text-[10px]'
                             : 'text-app-text'
@@ -814,7 +814,7 @@ export default function DashboardView() {
             /* FULL MONTH CALENDAR VIEW GRID */
             <>
               {/* Day of Week Labels */}
-              <div className="grid grid-cols-7 gap-1 text-center font-mono text-[9px] font-black text-app-text-muted uppercase tracking-widest border-b border-app-border pb-1">
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-app-text-muted border-b border-app-border pb-1">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
                   (day) => (
                     <span key={day} className="py-1">
@@ -866,14 +866,14 @@ export default function DashboardView() {
                         {dateEvents.slice(0, 2).map((ev) => (
                           <div
                             key={ev.id}
-                            className="text-[7.5px] px-1 rounded truncate text-white leading-tight font-medium"
+                            className="text-[11px] px-1 rounded truncate text-white leading-tight font-medium"
                             style={{ backgroundColor: ev.color }}
                           >
                             {ev.title}
                           </div>
                         ))}
                         {dateEvents.length > 2 && (
-                          <div className="text-[7px] text-app-text-muted font-black text-right pr-0.5">
+                          <div className="text-[11px] text-app-text-muted font-semibold text-right pr-0.5">
                             +{dateEvents.length - 2} more
                           </div>
                         )}
@@ -902,15 +902,15 @@ export default function DashboardView() {
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-[11px] font-black text-app-text truncate">
+                  <span className="text-[11px] font-semibold text-app-text truncate">
                     {currentEmployee.name}
                   </span>
-                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded-full text-[7px] font-black uppercase tracking-wider shrink-0">
+                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded-full text-[11px] font-semibold shrink-0">
                     {currentEmployee.role}
                   </span>
                 </div>
-                <p className="text-[8.5px] text-app-text-muted truncate mt-0.5">
-                  Terminal Active
+                <p className="text-[11px] text-app-text-muted truncate mt-0.5">
+                  Signed in
                 </p>
               </div>
             </div>
@@ -920,7 +920,7 @@ export default function DashboardView() {
                 <button
                   onClick={() => setIsEndShiftModalOpen(true)}
                   data-shortcut="clock"
-                  className="px-2 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[8.5px] font-black uppercase tracking-wider  flex items-center gap-1 transition cursor-pointer"
+                  className="px-2 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
                   title="Punch Out"
                 >
                   <Clock size={9} /> Stop
@@ -929,10 +929,10 @@ export default function DashboardView() {
                 <button
                   onClick={punchIn}
                   data-shortcut="clock"
-                  className="px-2 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer"
+                  className="px-2 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
                   title="Punch In"
                 >
-                  <Zap size={9} /> Start
+                  <Play size={9} /> Start
                 </button>
               )}
 
@@ -952,7 +952,7 @@ export default function DashboardView() {
           {/* Schedule Assignment Creator */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-app-border/45 pb-2">
-              <h3 className="text-xs font-black text-app-text uppercase tracking-wider flex items-center gap-1.5">
+              <h3 className="text-xs font-semibold text-app-text flex items-center gap-1.5">
                 <AlarmClock size={14} className="text-amber-500 -ml-1" />
                 {editingScheduleId
                   ? 'Edit Reminder'
@@ -966,7 +966,7 @@ export default function DashboardView() {
                   onClick={openCreateForm}
                   data-shortcut="new"
                   title="Set a reminder (N)"
-                  className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-lg transition hover:bg-amber-600 cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-1 bg-amber-500 text-slate-950 text-[10px] font-semibold rounded-lg transition hover:bg-amber-600 cursor-pointer flex items-center gap-1"
                 >
                   <Plus size={11} /> New
                 </button>
@@ -992,7 +992,7 @@ export default function DashboardView() {
                 aria-busy={saving}
               >
                 <div className="space-y-1">
-                  <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                  <label className="text-[11px] text-app-text-muted font-bold block">
                     Ring at
                   </label>
                   <AlarmTimePicker
@@ -1023,7 +1023,7 @@ export default function DashboardView() {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                  <label className="text-[11px] text-app-text-muted font-bold block">
                     Reminder name
                   </label>
                   <input
@@ -1040,12 +1040,11 @@ export default function DashboardView() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                  <label className="text-[11px] text-app-text-muted font-bold block">
                     Who it rings for
                   </label>
-                  <p className="text-[9px] text-app-text-muted/80 font-normal leading-tight mb-1.5">
-                    It rings on each person's phone until they tap Accept. You can't set
-                    one for a more senior role unless the name contains the word "reminder".
+                  <p className="text-[11px] text-app-text-muted/80 font-normal leading-tight mb-1.5">
+                    Rings until they tap Accept.
                   </p>
                   <div className="flex flex-col gap-1 bg-app-bg border border-app-border p-2 rounded-xl max-h-[120px] overflow-y-auto">
                     {employees.map((emp) => {
@@ -1095,12 +1094,12 @@ export default function DashboardView() {
                             <span className="font-bold truncate max-w-[120px]">
                               {emp.name}
                             </span>
-                            <span className="text-[8.5px] font-medium opacity-60">
+                            <span className="text-[11px] font-medium opacity-60">
                               ({emp.role})
                             </span>
                           </div>
                           {isSenior && (
-                            <span className="text-[7.5px] font-black text-red-500 uppercase tracking-wider bg-red-500/10 px-1 rounded shrink-0">
+                            <span className="text-[11px] font-semibold text-red-500 bg-red-500/10 px-1 rounded shrink-0">
                               Senior {isReminder ? '(Remind Ok)' : '(Locked)'}
                             </span>
                           )}
@@ -1111,7 +1110,7 @@ export default function DashboardView() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                    <label className="text-[11px] text-app-text-muted font-bold block">
                         Repeat
                     </label>
                     <SearchableDropdown
@@ -1130,7 +1129,7 @@ export default function DashboardView() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                    <label className="text-[11px] text-app-text-muted font-bold block">
                       Color category
                     </label>
                     <div className="flex flex-wrap gap-1.5 mt-1.5 max-w-[180px]">
@@ -1168,7 +1167,7 @@ export default function DashboardView() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] text-app-text-muted font-bold uppercase block">
+                  <label className="text-[11px] text-app-text-muted font-bold block">
                     Note (optional)
                   </label>
                   <textarea
@@ -1199,7 +1198,7 @@ export default function DashboardView() {
                     type="submit"
                     disabled={saving}
                     title="Save (Ctrl+Enter)"
-                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition cursor-pointer text-center flex items-center justify-center gap-1.5 disabled:opacity-70 disabled:cursor-wait"
+                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition cursor-pointer text-center flex items-center justify-center gap-1.5 disabled:opacity-70 disabled:cursor-wait"
                   >
                     {saving ? (
                       <>
@@ -1212,14 +1211,14 @@ export default function DashboardView() {
                     )}
                   </button>
                 </div>
-                <p className="text-[9px] text-app-text-muted text-center">Esc to cancel · Ctrl+Enter to save</p>
+                <p className="text-[11px] text-app-text-muted text-center">Esc to cancel · Ctrl+Enter to save</p>
               </form>
             ) : (
               <div className="text-center py-4 bg-app-bg border border-app-border/45 rounded-xl border-dashed">
                 <p className="text-[10px] text-app-text-muted font-medium">
                   Press New (or N) to set a reminder for:
                 </p>
-                <span className="text-xs font-black text-amber-500 block mt-1">
+                <span className="text-xs font-semibold text-amber-500 block mt-1">
                   {formatDay(selectedDate)}
                 </span>
               </div>
@@ -1240,7 +1239,7 @@ export default function DashboardView() {
                 >
                   <ChevronLeft size={12} />
                 </button>
-                <h3 className="text-xs font-black text-app-text tracking-wide flex items-center gap-1 px-1">
+                <h3 className="text-xs font-semibold text-app-text tracking-wide flex items-center gap-1 px-1">
                   <CalendarIcon size={13} className="text-amber-500" />
                   {formatDay(selectedDate)}
                 </h3>
@@ -1260,7 +1259,7 @@ export default function DashboardView() {
                     onClick={goToday}
                     data-shortcut="today"
                     title="Go to today (T)"
-                    className="ml-1 px-2 py-0.5 text-[9px] font-bold bg-app-bg hover:bg-app-card text-app-text rounded-lg border border-app-border transition cursor-pointer"
+                    className="ml-1 px-2 py-0.5 text-[11px] font-bold bg-app-bg hover:bg-app-card text-app-text rounded-lg border border-app-border transition cursor-pointer"
                   >
                     Today
                   </button>
@@ -1329,7 +1328,7 @@ export default function DashboardView() {
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: ev.color }}
                           />
-                          <span className="text-sm font-black text-app-text font-mono shrink-0">
+                          <span className="text-sm font-semibold text-app-text font-mono shrink-0">
                             {formatClock(ev.startTime)}
                           </span>
                           <h4 className="text-xs font-bold text-app-text truncate">
@@ -1340,7 +1339,7 @@ export default function DashboardView() {
                         <div className="flex items-center gap-1.5 absolute right-2.5 top-2.5 opacity-80 hover:opacity-100 transition-opacity">
                           {canEdit && confirming ? (
                             <>
-                              <span className="text-[9px] font-bold text-red-500">Remove?</span>
+                              <span className="text-[11px] font-bold text-red-500">Remove?</span>
                               <button
                                 onClick={() => handleDeleteSchedule(ev.id, ev.title)}
                                 disabled={deleting}
@@ -1385,7 +1384,7 @@ export default function DashboardView() {
 
                       <div className="grid grid-cols-2 gap-2 text-[10px] text-app-text-muted font-medium border-t border-app-border/30 pt-1.5 mt-0.5">
                         <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold text-amber-500/80">
+                          <span className="text-[11px] font-semibold text-amber-500/80">
                             Rings for
                           </span>
                           <div className="flex flex-wrap gap-1">
@@ -1396,11 +1395,11 @@ export default function DashboardView() {
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex items-center gap-1 bg-app-card px-1.5 py-0.5 rounded border border-app-border text-[9px] text-app-text font-bold"
+                                  className="inline-flex items-center gap-1 bg-app-card px-1.5 py-0.5 rounded border border-app-border text-[11px] text-app-text font-bold"
                                 >
                                   <span>{emp.name.split(' ')[0]}</span>
                                   {isSelf && (
-                                    <span className="text-[7.5px] font-black text-emerald-500 bg-emerald-500/10 px-0.5 rounded">
+                                    <span className="text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-0.5 rounded">
                                       Me
                                     </span>
                                   )}
@@ -1411,7 +1410,7 @@ export default function DashboardView() {
                         </div>
                         <div className="flex items-center gap-1 justify-end col-span-2 sm:col-span-1 self-end">
                           <span
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold ${
                               status.tone === 'soon'
                                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                                 : status.tone === 'later'
@@ -1426,13 +1425,13 @@ export default function DashboardView() {
                       </div>
 
                       {ev.notes && (
-                        <p className="text-[9.5px] leading-relaxed text-app-text-muted bg-app-card border border-app-border/35 p-1.5 rounded-lg mt-0.5 font-sans font-medium">
+                        <p className="text-[11px] leading-relaxed text-app-text-muted bg-app-card border border-app-border/35 p-1.5 rounded-lg mt-0.5 font-sans font-medium">
                           {ev.notes}
                         </p>
                       )}
 
                       {ev.repeat !== 'None' && (
-                        <span className="text-[8px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded self-start uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded self-start">
                           {REPEAT_LABEL[ev.repeat]}
                         </span>
                       )}

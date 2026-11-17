@@ -43,7 +43,7 @@ export function SupplierAccessSheet({ supplier, businessName, canManage, onClose
     `${businessName} invites you to see your orders and payments in the KayKay's app. Sign up with your email, choose "Join team" and enter the code ${code}.`;
 
   return (
-    <FormSheet title={`App access · ${supplier.company || supplier.name}`} subtitle="People at this supplier sign in to see only their own orders, price requests, deliveries and statement. Choose what they see in Roles → Supplier." onClose={onClose}>
+    <FormSheet title={`App access · ${supplier.company || supplier.name}`} subtitle="They see only their own orders and payments." onClose={onClose}>
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       {!access ? <p className="text-sm text-app-text-muted">Loading…</p> : (
         <>

@@ -103,7 +103,7 @@ export function QuoteFromCartSheet({ deliveryFee, onClose }: { deliveryFee: numb
         footer={<button type="button" className={primaryBtn} onClick={onClose}><Check size={15} /> Done</button>}
       >
         <p className="text-sm text-app-text-muted">
-          Send it to the customer now. When they come back to buy, open Sales Log → Quotes and tap Sell in POS: the cart fills at these prices.
+          To sell later: Sales Log → Quotes → Sell in POS.
         </p>
         <div className="flex gap-2 flex-wrap">
           <button type="button" className={secondaryBtn} onClick={() => void pdf()}><Share2 size={15} /> PDF</button>

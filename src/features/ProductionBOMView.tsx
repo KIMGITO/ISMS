@@ -262,7 +262,7 @@ export default function ProductionBOMView() {
     const batch = extra.productionBatches.find((b) => b.id === id);
     const ok = await appDialog.confirm({
       title: batch ? `Delete the ${batch.recipeName} batch?` : 'Delete this batch?',
-      message: 'The batch record is removed for good. Stock already added or used is not changed.',
+      message: 'Deleted for good. Stock stays.',
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -306,11 +306,11 @@ export default function ProductionBOMView() {
   // Submit BOM
   const handleCreateBom = async () => {
     if (!bomName.trim() || !bomProductId || !activeBusinessId) {
-      showToast?.('Validation Error', 'Please fill in all required fields.', undefined, 'error');
+      showToast?.('Check the form', 'Please fill in all required fields.', undefined, 'error');
       return;
     }
     if (bomIngredients.length === 0) {
-      showToast?.('Validation Error', 'Add at least one ingredient.', undefined, 'error');
+      showToast?.('Check the form', 'Add at least one ingredient.', undefined, 'error');
       return;
     }
 
@@ -348,7 +348,7 @@ export default function ProductionBOMView() {
     const bom = extra.billOfMaterials.find((b) => b.id === id);
     const ok = await appDialog.confirm({
       title: bom ? `Delete ${bom.name}?` : 'Delete this BOM?',
-      message: 'The recipe and its ingredient list are removed for good. Past batches stay.',
+      message: 'Deleted for good. Past batches stay.',
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -365,7 +365,7 @@ export default function ProductionBOMView() {
   // Submit Production Batch (Immediate Consumption)
   const handleCreateBatch = async () => {
     if (!batchBomId || !activeBusinessId) {
-      showToast?.('Validation Error', 'Please select a BOM and fill in all fields.', undefined, 'error');
+      showToast?.('Check the form', 'Pick a recipe and fill in every box.', undefined, 'error');
       return;
     }
 
@@ -426,12 +426,12 @@ export default function ProductionBOMView() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Completed': return <span className="flex items-center gap-1 text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20"><CheckCircle2 size={10} /> Completed</span>;
+      case 'Completed': return <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20"><CheckCircle2 size={10} /> Completed</span>;
       case 'In_Progress':
-      case 'In Progress': return <span className="flex items-center gap-1 text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"><Loader2 size={10} className="animate-spin" /> In Progress</span>;
-      case 'Pending': return <span className="flex items-center gap-1 text-[10px] font-black text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full border border-slate-500/20"><Clock size={10} /> Pending</span>;
-      case 'Cancelled': return <span className="flex items-center gap-1 text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20"><Ban size={10} /> Cancelled</span>;
-      default: return <span className="text-[10px] font-black text-slate-400">{status}</span>;
+      case 'In Progress': return <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"><Loader2 size={10} className="animate-spin" /> In Progress</span>;
+      case 'Pending': return <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full border border-slate-500/20"><Clock size={10} /> Pending</span>;
+      case 'Cancelled': return <span className="flex items-center gap-1 text-[10px] font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20"><Ban size={10} /> Cancelled</span>;
+      default: return <span className="text-[10px] font-semibold text-slate-400">{status}</span>;
     }
   };
 
@@ -440,7 +440,7 @@ export default function ProductionBOMView() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center space-y-3">
           <Ban size={40} className="text-slate-600 mx-auto" />
-          <h3 className="text-sm font-black text-slate-400">Access Denied</h3>
+          <h3 className="text-sm font-semibold text-slate-400">Access Denied</h3>
           <p className="text-xs text-slate-500">You don't have permission to view Production & BOM.</p>
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function ProductionBOMView() {
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <FileText size={14} className="text-amber-500" />
-                <h3 className="text-xs font-black text-app-text uppercase tracking-wider">Bill of Materials</h3>
+                <h3 className="text-xs font-semibold text-app-text">Bill of Materials</h3>
                 <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-full">{filteredBoms.length}</span>
               </div>
               {filteredBoms.length === 0 ? (
@@ -561,7 +561,7 @@ export default function ProductionBOMView() {
                           <p className="text-[10px] text-app-text-muted mt-0.5">
                             {bom.productName || 'No product linked'} · Yield: {bom.yieldQuantity} {bom.yieldUnit}
                           </p>
-                          <p className="text-[9px] text-slate-500 mt-1">
+                          <p className="text-[11px] text-slate-500 mt-1">
                             {bom.ingredients?.length || 0} ingredient{bom.ingredients?.length !== 1 ? 's' : ''}
                           </p>
                         </div>
@@ -585,7 +585,7 @@ export default function ProductionBOMView() {
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <Factory size={14} className="text-emerald-500" />
-                <h3 className="text-xs font-black text-app-text uppercase tracking-wider">Production Batches</h3>
+                <h3 className="text-xs font-semibold text-app-text">Production Batches</h3>
                 <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-full">{filteredBatches.length}</span>
               </div>
               {filteredBatches.length === 0 ? (
@@ -629,7 +629,7 @@ export default function ProductionBOMView() {
                           <p className="text-[10px] text-app-text-muted mt-0.5">
                             Yield Target: <span className="font-bold text-app-text">{batch.quantityProduced} {batch.unit}</span> · Operator: {batch.staffName}
                           </p>
-                          <p className="text-[9px] text-slate-500 mt-0.5">
+                          <p className="text-[11px] text-slate-500 mt-0.5">
                             {new Date(batch.date).toLocaleString()}
                           </p>
                         </div>
@@ -640,7 +640,7 @@ export default function ProductionBOMView() {
                                 {(batch.status === 'Pending' || batch.status === 'In_Progress' || batch.status === 'In Progress') && (
                                   <button
                                     onClick={() => handleUpdateBatchStatus(batch.id, 'Completed')}
-                                    className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
+                                    className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-semibold transition cursor-pointer flex items-center gap-1"
                                     title="Mark as Completed (Adds Finished Goods to Stock)"
                                   >
                                     <CheckCircle2 size={11} /> Complete Batch
@@ -648,7 +648,7 @@ export default function ProductionBOMView() {
                                 )}
                                 <button
                                   onClick={() => openCancelModal(batch)}
-                                  className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
+                                  className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-semibold transition cursor-pointer flex items-center gap-1"
                                   title="Cancel Batch & Launch Restock Workflow"
                                 >
                                   <Ban size={11} /> Cancel
@@ -682,13 +682,13 @@ export default function ProductionBOMView() {
             className="max-w-2xl mx-auto space-y-4 pb-20"
           >
             <div className="bg-app-card border border-app-border rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-black text-app-text flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-app-text flex items-center gap-2">
                 <Layers size={14} className="text-amber-500" /> New Bill of Materials
               </h3>
 
               {/* BOM Name */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">BOM Name *</label>
+                <label className="text-[10px] text-slate-400 font-bold">BOM Name *</label>
                 <input
                   type="text"
                   value={bomName}
@@ -700,7 +700,7 @@ export default function ProductionBOMView() {
 
               {/* Finished Good Product */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Finished Good Product *</label>
+                <label className="text-[10px] text-slate-400 font-bold">Finished Good Product *</label>
                 <SearchableDropdown
                   items={products.map(p => ({
                     id: p.id,
@@ -717,17 +717,17 @@ export default function ProductionBOMView() {
               {/* Yield */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Yield Quantity</label>
+                  <label className="text-[10px] text-slate-400 font-bold">Yield Quantity</label>
                   <NumberInput
                     value={bomYieldQty}
                     onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBomYieldQty, 0.001)}
                     min={0.001}
                     step={0.001}
-                    className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
+                    size="sm" className="w-full"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Yield Unit</label>
+                  <label className="text-[10px] text-slate-400 font-bold">Yield Unit</label>
                   <input
                     type="text"
                     value={bomYieldUnit}
@@ -741,10 +741,10 @@ export default function ProductionBOMView() {
               {/* Ingredients */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ingredients (Raw Materials)</label>
+                  <label className="text-[10px] text-slate-400 font-bold">Ingredients (Raw Materials)</label>
                   <button
                     onClick={addIngredient}
-                    className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black hover:bg-amber-500/20 transition cursor-pointer"
+                    className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[11px] font-semibold hover:bg-amber-500/20 transition cursor-pointer"
                   >
                     <Plus size={10} /> Add Ingredient
                   </button>
@@ -757,7 +757,7 @@ export default function ProductionBOMView() {
                 {bomIngredients.map((ing, idx) => (
                   <div key={idx} className="bg-app-bg border border-app-border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-black text-slate-400 uppercase">Ingredient #{idx + 1}</span>
+                      <span className="text-[11px] font-semibold text-slate-400">Ingredient #{idx + 1}</span>
                       <button
                         onClick={() => removeIngredient(idx)}
                         className="p-1 hover:bg-red-500/10 text-slate-500 hover:text-red-500 rounded transition cursor-pointer"
@@ -767,7 +767,7 @@ export default function ProductionBOMView() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[8px] text-slate-500 font-bold uppercase">Product *</label>
+                        <label className="text-[11px] text-slate-500 font-bold">Product *</label>
                         <SearchableDropdown
                           items={products.map(p => ({
                             id: p.id,
@@ -782,19 +782,19 @@ export default function ProductionBOMView() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[8px] text-slate-500 font-bold uppercase">Qty Required *</label>
+                        <label className="text-[11px] text-slate-500 font-bold">Qty Required *</label>
                         <NumberInput
                           value={ing.quantityRequired}
                           onChange={(v) => handleNumberInput((v == null ? '' : String(v)), (val) => updateIngredient(idx, 'quantityRequired', val), 0.001)}
                           min={0.001}
                           step={0.001}
-                          className="w-full bg-app-card border border-app-border text-app-text px-2 py-1.5 rounded text-[10px] focus:outline-none focus:border-amber-500/50"
+                          size="sm" className="w-full"
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[8px] text-slate-500 font-bold uppercase">Unit</label>
+                        <label className="text-[11px] text-slate-500 font-bold">Unit</label>
                         <input
                           type="text"
                           value={ing.unit}
@@ -803,14 +803,14 @@ export default function ProductionBOMView() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[8px] text-slate-500 font-bold uppercase">Waste %</label>
+                        <label className="text-[11px] text-slate-500 font-bold">Waste %</label>
                         <NumberInput
                           value={ing.wastePercentage}
                           onChange={(v) => updateIngredient(idx, 'wastePercentage', (v ?? 0))}
                           min={0}
                           max={100}
                           step={0.1}
-                          className="w-full bg-app-card border border-app-border text-app-text px-2 py-1.5 rounded text-[10px] focus:outline-none focus:border-amber-500/50"
+                          size="sm" className="w-full"
                         />
                       </div>
                     </div>
@@ -822,7 +822,7 @@ export default function ProductionBOMView() {
               <button
                 onClick={handleCreateBom}
                 disabled={isSubmitting}
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-semibold rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {isSubmitting ? 'Creating...' : 'Create Bill of Materials'}
@@ -839,7 +839,7 @@ export default function ProductionBOMView() {
             className="max-w-2xl mx-auto space-y-4 pb-20"
           >
             <div className="bg-app-card border border-app-border rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-black text-app-text flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-app-text flex items-center gap-2">
                 <Factory size={14} className="text-emerald-500" /> New Production Batch
               </h3>
 
@@ -847,13 +847,13 @@ export default function ProductionBOMView() {
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
                 <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-[10.5px] text-amber-400 font-medium leading-relaxed">
-                  <strong className="font-bold text-amber-300">Immediate Stock Deduction:</strong> Required raw materials will be instantly deducted from inventory upon batch creation.
+                  <strong className="font-bold text-amber-300">Immediate Stock Deduction:</strong> Ingredients come off stock when the batch starts.
                 </p>
               </div>
 
               {/* Select BOM */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bill of Materials *</label>
+                <label className="text-[10px] text-slate-400 font-bold">Bill of Materials *</label>
                 <SearchableDropdown
                   items={extra.billOfMaterials.map(bom => ({
                     id: bom.id,
@@ -877,7 +877,7 @@ export default function ProductionBOMView() {
 
               {/* Recipe Name */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Recipe / Product Name</label>
+                <label className="text-[10px] text-slate-400 font-bold">Recipe / Product Name</label>
                 <input
                   type="text"
                   value={batchRecipeName}
@@ -890,17 +890,17 @@ export default function ProductionBOMView() {
               {/* Quantity & Unit */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quantity Produced *</label>
+                  <label className="text-[10px] text-slate-400 font-bold">Quantity Produced *</label>
                   <NumberInput
                     value={batchQty}
                     onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBatchQty, 0.001)}
                     min={0.001}
                     step={0.001}
-                    className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
+                    size="sm" className="w-full"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Unit</label>
+                  <label className="text-[10px] text-slate-400 font-bold">Unit</label>
                   <input
                     type="text"
                     value={batchUnit}
@@ -914,15 +914,15 @@ export default function ProductionBOMView() {
               {selectedBomForBatch && ingredientAvailability.length > 0 && (
                 <div className="space-y-2 border-t border-app-border/60 pt-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5">
                       <Beaker size={12} className="text-amber-500" /> Raw Material Inventory Pre-Check
                     </label>
                     {hasInsufficientIngredients ? (
-                      <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                      <span className="text-[11px] font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                         Insufficient Stock
                       </span>
                     ) : (
-                      <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                         Stock Available
                       </span>
                     )}
@@ -938,17 +938,17 @@ export default function ProductionBOMView() {
                       >
                         <div className="min-w-0 flex-1">
                           <span className="font-bold text-app-text block truncate">{ing.productName}</span>
-                          <span className="text-[9.5px] text-app-text-muted">
+                          <span className="text-[11px] text-app-text-muted">
                             Need: <strong className="text-app-text">{ing.requiredQty} {ing.unit}</strong> · Stock: <strong className={ing.isSufficient ? 'text-emerald-400' : 'text-red-400'}>{ing.currentStock} {ing.unit}</strong>
                           </span>
                         </div>
                         <div className="shrink-0 text-right">
                           {ing.isSufficient ? (
-                            <span className="text-[9px] font-black text-emerald-500 flex items-center gap-1">
+                            <span className="text-[11px] font-semibold text-emerald-500 flex items-center gap-1">
                               <CheckCircle2 size={11} /> OK
                             </span>
                           ) : (
-                            <span className="text-[9px] font-black text-red-500 flex items-center gap-1">
+                            <span className="text-[11px] font-semibold text-red-500 flex items-center gap-1">
                               <AlertCircle size={11} /> Shortage (-{ing.shortage} {ing.unit})
                             </span>
                           )}
@@ -961,7 +961,7 @@ export default function ProductionBOMView() {
 
               {/* Status */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Initial Batch Status</label>
+                <label className="text-[10px] text-slate-400 font-bold">Initial Batch Status</label>
                 <SearchableDropdown
                   items={[
                     { id: 'In Progress', label: 'In Progress (Deducts raw materials now)' },
@@ -976,7 +976,7 @@ export default function ProductionBOMView() {
 
               {/* Staff Name */}
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Staff / Operator</label>
+                <label className="text-[10px] text-slate-400 font-bold">Staff / Operator</label>
                 <input
                   type="text"
                   value={batchStaffName}
@@ -990,7 +990,7 @@ export default function ProductionBOMView() {
               <button
                 onClick={handleCreateBatch}
                 disabled={isSubmitting || hasInsufficientIngredients}
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-lg text-xs transition cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {isSubmitting
@@ -1013,7 +1013,7 @@ export default function ProductionBOMView() {
             <div className="bg-app-card border border-app-border rounded-xl p-4 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-app-text">{selectedBom.name}</h3>
+                  <h3 className="text-sm font-semibold text-app-text">{selectedBom.name}</h3>
                   <p className="text-[10px] text-app-text-muted mt-1">
                     {selectedBom.productName && <>Finished Good: <span className="text-amber-500 font-bold">{selectedBom.productName}</span> · </>}
                     Yield: {selectedBom.yieldQuantity} {selectedBom.yieldUnit}
@@ -1029,7 +1029,7 @@ export default function ProductionBOMView() {
 
               {/* Ingredients List */}
               <div>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Ingredients</h4>
+                <h4 className="text-[10px] font-semibold text-slate-400 mb-2">Ingredients</h4>
                 {selectedBom.ingredients.length === 0 ? (
                   <p className="text-[10px] text-slate-500">No ingredients defined.</p>
                 ) : (
@@ -1038,12 +1038,12 @@ export default function ProductionBOMView() {
                       <div key={ing.id || idx} className="flex items-center justify-between bg-app-bg border border-app-border rounded-lg px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <span className="text-xs font-bold text-app-text">{ing.productName || 'Unknown Product'}</span>
-                          <span className="text-[9px] text-slate-500 ml-2">per unit of finished good</span>
+                          <span className="text-[11px] text-slate-500 ml-2">per unit of finished good</span>
                         </div>
                         <div className="text-right shrink-0 ml-3">
-                          <span className="text-xs font-black text-amber-500">{ing.quantityRequired} {ing.unit}</span>
+                          <span className="text-xs font-semibold text-amber-500">{ing.quantityRequired} {ing.unit}</span>
                           {ing.wastePercentage > 0 && (
-                            <span className="text-[9px] text-slate-500 ml-1">(+{ing.wastePercentage}% waste)</span>
+                            <span className="text-[11px] text-slate-500 ml-1">(+{ing.wastePercentage}% waste)</span>
                           )}
                         </div>
                       </div>
@@ -1062,7 +1062,7 @@ export default function ProductionBOMView() {
                     setBatchProductId(selectedBom.productId);
                     setViewMode('create-batch');
                   }}
-                  className="w-full py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-black hover:bg-emerald-500/20 transition cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[10px] font-semibold hover:bg-emerald-500/20 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Plus size={12} /> Start Production Batch from this BOM
                 </button>
@@ -1084,7 +1084,7 @@ export default function ProductionBOMView() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-app-text flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-app-text flex items-center gap-2">
                     <RotateCcw size={16} className="text-amber-500" /> Cancel Production Batch Workflow
                   </h3>
                   <p className="text-[10.5px] text-app-text-muted mt-0.5 font-mono">
@@ -1105,7 +1105,7 @@ export default function ProductionBOMView() {
                 <div>
                   <h4 className="text-xs font-bold text-amber-300">Do you want to return any raw materials to stock?</h4>
                   <p className="text-[10px] text-amber-400/90 mt-0.5 leading-relaxed">
-                    Raw materials were deducted when this batch started. Select which ingredients to restore to stock, or write off damaged quantities.
+                    Pick what goes back into stock.
                   </p>
                 </div>
               </div>
@@ -1113,13 +1113,13 @@ export default function ProductionBOMView() {
               {/* Ingredients Restock Table */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Consumed Ingredients</span>
+                  <span className="text-[10px] font-semibold text-slate-400">Consumed Ingredients</span>
                   <button
                     onClick={() => {
                       setCancellationItems(prev => prev.map(item => ({ ...item, returnQty: item.consumedQty, isDamaged: false })));
                     }}
                     title="Return all ingredients"
-                    className="shrink-0 whitespace-nowrap text-[9.5px] font-black text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                    className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer"
                   >
                     Return all
                   </button>
@@ -1137,7 +1137,7 @@ export default function ProductionBOMView() {
 
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div className="space-y-1">
-                          <label className="text-[8px] text-slate-400 font-bold uppercase">Qty to Return to Stock</label>
+                          <label className="text-[11px] text-slate-400 font-bold">Qty to Return to Stock</label>
                           <NumberInput
                             value={item.isDamaged ? 0 : item.returnQty}
                             disabled={item.isDamaged}
@@ -1152,7 +1152,7 @@ export default function ProductionBOMView() {
                             min={0}
                             max={item.consumedQty}
                             step={0.001}
-                            className="w-full bg-app-card border border-app-border text-app-text px-2 py-1 rounded text-xs focus:outline-none focus:border-amber-500/50 disabled:opacity-40"
+                            size="sm" className="w-full"
                           />
                         </div>
 
@@ -1175,7 +1175,7 @@ export default function ProductionBOMView() {
 
                       {item.isDamaged && (
                         <div className="space-y-1 pt-1">
-                          <label className="text-[8px] text-slate-400 font-bold uppercase">Damage / Waste Reason</label>
+                          <label className="text-[11px] text-slate-400 font-bold">Damage / Waste Reason</label>
                           <input
                             type="text"
                             value={item.wasteReason}
@@ -1208,7 +1208,7 @@ export default function ProductionBOMView() {
                 <button
                   onClick={handleConfirmCancellation}
                   disabled={isSubmitting}
-                  className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-slate-800 text-white font-black rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:bg-slate-800 text-white font-semibold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />}
                   <span className="whitespace-nowrap">{isSubmitting ? 'Cancelling…' : 'Cancel & restock'}</span>

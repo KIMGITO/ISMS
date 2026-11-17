@@ -94,7 +94,7 @@ function StatusPill({ p }: { p: PaymentPrompt }) {
 
 function ProviderBadge({ provider }: { provider: PromptProvider }) {
   return (
-    <span className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${provider === 'airtel' ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-700'}`}>
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${provider === 'airtel' ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-700'}`}>
       {provider === 'airtel' ? 'Airtel' : 'M-Pesa'}
     </span>
   );
@@ -172,7 +172,7 @@ function Tracker({ prompt, customerName, onAgain, onNew }: {
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1"><ProviderBadge provider={prompt.provider} /><span className="text-xs text-app-text-muted">{when(prompt.createdAt)}</span></div>
-          <div className="text-2xl font-black text-app-text tabular-nums">{formatCurrency(prompt.amount)}</div>
+          <div className="text-2xl font-bold text-app-text tabular-nums">{formatCurrency(prompt.amount)}</div>
           <div className="text-sm text-app-text truncate">{customerName} · {prettyPhone(prompt.phone)}</div>
           {prompt.description && <div className="text-xs text-app-text-muted truncate">{prompt.description}</div>}
         </div>
@@ -386,7 +386,7 @@ export default function PaymentPromptView() {
                   disabled={!available}
                   data-shortcut={PROVIDERS[p].shortcut}
                   onClick={() => chooseProvider(p)}
-                  className={`min-h-12 rounded-xl text-sm font-black transition flex flex-col items-center justify-center cursor-pointer disabled:cursor-not-allowed ${on ? PROVIDERS[p].on + ' shadow' : 'text-app-text hover:bg-app-card'} ${!available ? 'opacity-40' : ''}`}
+                  className={`min-h-12 rounded-xl text-sm font-semibold transition flex flex-col items-center justify-center cursor-pointer disabled:cursor-not-allowed ${on ? PROVIDERS[p].on + ' shadow' : 'text-app-text hover:bg-app-card'} ${!available ? 'opacity-40' : ''}`}
                 >
                   <span>{PROVIDERS[p].name}</span>
                   {!available && <span className="text-[10px] font-semibold">Off or not set up</span>}
@@ -457,7 +457,7 @@ export default function PaymentPromptView() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
                   placeholder="500"
-                  className="w-full bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-3 text-2xl font-black tabular-nums focus:outline-none focus:border-amber-500"
+                  className="w-full bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-3 text-2xl font-bold tabular-nums focus:outline-none focus:border-amber-500"
                 />
                 {debt > 0 && (
                   <button type="button" onClick={() => setAmount(String(Math.ceil(debt)))} className="self-start text-xs font-semibold text-amber-600 hover:underline cursor-pointer">
@@ -474,7 +474,7 @@ export default function PaymentPromptView() {
               <button
                 type="submit"
                 disabled={!canSend}
-                className={`min-h-12 rounded-xl text-base font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 ${PROVIDERS[provider].on}`}
+                className={`min-h-12 rounded-xl text-base font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 ${PROVIDERS[provider].on}`}
               >
                 {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 {sending ? 'Sending…' : `Send ${PROVIDERS[provider].name} prompt${amountNum > 0 ? ` · ${formatCurrency(amountNum)}` : ''}`}
@@ -491,12 +491,12 @@ export default function PaymentPromptView() {
         <aside className="flex flex-col gap-3 min-w-0">
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-app-card border border-app-border rounded-2xl p-3">
-              <div className="text-[10px] font-bold uppercase text-app-text-muted">Paid today</div>
-              <div className="text-lg font-black text-app-text tabular-nums">{formatCurrency(paidToday)}</div>
+              <div className="text-[10px] font-bold text-app-text-muted">Paid today</div>
+              <div className="text-lg font-bold text-app-text tabular-nums">{formatCurrency(paidToday)}</div>
             </div>
             <div className="bg-app-card border border-app-border rounded-2xl p-3">
-              <div className="text-[10px] font-bold uppercase text-app-text-muted">Waiting now</div>
-              <div className={`text-lg font-black tabular-nums ${waiting > 0 ? 'text-amber-600' : 'text-app-text'}`}>{waiting}</div>
+              <div className="text-[10px] font-bold text-app-text-muted">Waiting now</div>
+              <div className={`text-lg font-bold tabular-nums ${waiting > 0 ? 'text-amber-600' : 'text-app-text'}`}>{waiting}</div>
             </div>
           </div>
 

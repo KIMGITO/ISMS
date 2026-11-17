@@ -5,6 +5,7 @@ import { useBusinessStore } from '../stores/businessStore';
 import { useUiStore } from '../stores/uiStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
 import { PointsReport } from '../components/loyalty/PointsReport';
+import { FloatingButton } from '../components/shared/FloatingButton';
 import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
@@ -14,11 +15,38 @@ import { formatInvoiceDate } from '../services/invoice/invoiceDraft';
 import React, { useState, useEffect } from "react";
 import { useOverlay } from "../hooks/useOverlay";
 import { useAppStore } from "../stores/appStore";
-import { 
-  UserPlus, Search, Phone, Mail, Award, CheckCircle2, Star, ShieldAlert, 
-  X, ChevronRight, Trash2, Send, Share2, Check, ArrowLeft,
-  Brain, RefreshCw, Sparkles, MessageSquareText,
-  Coins, ShoppingBag, CreditCard, Wallet, ChevronDown, ChevronUp, Filter, FileText, Gift, PanelLeftClose, PanelLeftOpen, Archive, ArchiveRestore
+import {
+  UserPlus,
+  Search,
+  Phone,
+  Mail,
+  Award,
+  CheckCircle2,
+  Star,
+  ShieldAlert,
+  X,
+  ChevronRight,
+  Trash2,
+  Send,
+  Share2,
+  Check,
+  ArrowLeft,
+  RefreshCw,
+  MessageSquareText,
+  Coins,
+  ShoppingBag,
+  CreditCard,
+  Wallet,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  FileText,
+  Gift,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Archive,
+  ArchiveRestore,
+  PenLine,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "../hooks/useForm";
@@ -45,6 +73,7 @@ import { GroupPicker } from '../components/messaging/GroupPicker';
 import { BulkMessageComposer } from '../components/messaging/BulkMessageComposer';
 import { groupMatcher, describeGroups } from '../services/messaging/customerGroups';
 import { useMessageContext } from '../hooks/useMessageContext';
+import { NumberInput } from '../components/shared/Input';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -342,7 +371,7 @@ export default function CustomersView() {
         setTimeout(() => setSuccessBanner(false), 2000);
         showToast("Customer Added", `"${vals.name}" successfully created.`, undefined, "success");
       } catch (err: any) {
-        showToast("Database Error", toUserMessage(err, "Could not add the customer."), undefined, "error");
+        showToast("Not added", toUserMessage(err, "Could not add the customer."), undefined, "error");
       }
     },
   });
@@ -629,9 +658,9 @@ export default function CustomersView() {
     try {
       await deleteCustomer(cust.id);
       if (selectedCustomerId === cust.id) setSelectedCustomerId(null);
-      showToast('Customer Deleted', `"${cust.name}" successfully deleted from database.`, undefined, 'success');
+      showToast('Customer Deleted', `${cust.name} was deleted.`, undefined, 'success');
     } catch (err: any) {
-      showToast('Database Error', toUserMessage(err, "Could not delete the customer."), undefined, 'error');
+      showToast('Not deleted', toUserMessage(err, "Could not delete the customer."), undefined, 'error');
     } finally {
       setIsDeletingCustomer(false);
     }
@@ -653,7 +682,7 @@ export default function CustomersView() {
   const removeInvoice = async (inv: IssuedInvoice) => {
     const ok = await appDialog.confirm({
       title: `Delete invoice ${inv.invoiceNo}?`,
-      message: 'It is removed for good. What the customer owes does not change, and the number is not used again. Archive it instead to keep a copy.',
+      message: 'Deleted for good. The debt stays.',
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -743,9 +772,9 @@ export default function CustomersView() {
         <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 max-w-sm flex flex-col items-center gap-2.5 shadow">
           <ShieldAlert size={36} />
           <div>
-            <h4 className="font-extrabold text-sm uppercase tracking-wider">No access</h4>
+            <h4 className="font-semibold text-sm">No access</h4>
             <p className="text-[11px] text-app-text-muted mt-1 leading-relaxed">
-              Your operator account role (<strong>{currentEmployee?.role || "Guest"}</strong>) does not hold the necessary clearances to access the customer loyalty database.
+              Your operator account role (<strong>{currentEmployee?.role || "Guest"}</strong>) can't open customers.
             </p>
           </div>
         </div>
@@ -1239,15 +1268,13 @@ export default function CustomersView() {
                     <div className="flex flex-col gap-3">
                       <div className="rounded-2xl bg-app-bg p-4">
                         <label htmlFor="money-amount" className="block text-xs font-medium text-app-text-muted mb-1">Amount (KSh)</label>
-                        <input
+                        <NumberInput
                           id="money-amount"
-                          type="number"
-                          inputMode="decimal"
                           min={0}
                           placeholder="0"
                           value={amount === 0 ? '' : amount}
-                          onChange={(e) => setAdjustAmt(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-app-card rounded-xl px-3 py-3 text-2xl font-semibold tabular-nums text-app-text focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          onChange={(v) => setAdjustAmt(Math.max(0, (v ?? NaN) || 0))}
+                          className="w-full" inputClassName="font-semibold tabular-nums"
                         />
                         <label htmlFor="money-note" className="block text-xs font-medium text-app-text-muted mt-3 mb-1">Note (optional)</label>
                         <input
@@ -1356,7 +1383,7 @@ export default function CustomersView() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <h4 className="text-sm font-semibold">Add to their debt</h4>
-                            <p className="text-xs text-app-text-muted mt-0.5">For money owed outside a sale, such as an old balance. Credit sales are added automatically.</p>
+                            <p className="text-xs text-app-text-muted mt-0.5">For an old balance owed outside a sale.</p>
                           </div>
                           <button
                             type="button"
@@ -1435,14 +1462,13 @@ export default function CustomersView() {
                           <label className="text-xs font-medium text-app-text-muted">
                             Points
                           </label>
-                          <input
-                            type="number"
+                          <NumberInput
                             value={editPoints}
                             disabled={!canAdjustPoints}
-                            onChange={(e) =>
-                              setEditPoints(parseInt(e.target.value) || 0)
+                            onChange={(v) =>
+                              setEditPoints((v == null ? NaN : Math.trunc(v)) || 0)
                             }
-                            className="bg-app-card border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500 tabular-nums"
+                            className="" inputClassName="tabular-nums"
                           />
                         </div>
 
@@ -1539,7 +1565,7 @@ export default function CustomersView() {
                             );
                           } catch (err: any) {
                             showToast(
-                              'Database Error',
+                              'Not saved',
                               toUserMessage(err, "Could not save the customer."),
                               undefined,
                               'error',
@@ -1565,20 +1591,18 @@ export default function CustomersView() {
                     {canDeleteCustomers && (
                       <div className="bg-red-500/5 p-4 border border-red-500/15 rounded-2xl flex flex-col gap-2 mt-2">
                         <div>
-                          <h4 className="text-[10px] font-extrabold text-red-500 uppercase tracking-wider font-display">
+                          <h4 className="text-[10px] font-semibold text-red-500 font-display">
                             Delete customer
                           </h4>
-                          <p className="text-[9px] text-app-text-muted mt-0.5 font-bold">
-                            Delete this customer loyalty account permanently.
-                            All accumulated perks, wallet credits, and history
-                            will be lost.
+                          <p className="text-[11px] text-app-text-muted mt-0.5 font-bold">
+                            Points, wallet and history are lost.
                           </p>
                         </div>
                         <button
                           type="button"
                           disabled={isDeletingCustomer}
                           onClick={() => removeCustomer(selectedCustomer)}
-                          className="w-full py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 transition cursor-pointer"
+                          className="w-full py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1 transition cursor-pointer"
                         >
                           {isDeletingCustomer ? (
                             <>
@@ -1617,7 +1641,7 @@ export default function CustomersView() {
                             setLoadingLedger(false);
                           }
                         }}
-                        className="text-[9px] font-black text-amber-500 hover:underline uppercase transition cursor-pointer"
+                        className="text-[11px] font-semibold text-amber-500 hover:underline transition cursor-pointer"
                       >
                         Refresh
                       </button>
@@ -1690,10 +1714,10 @@ export default function CustomersView() {
                               className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1 shadow-xs"
                             >
                               <div className="flex justify-between items-center text-[10.5px]">
-                                <span className={`font-black ${typeColor}`}>
+                                <span className={`font-semibold ${typeColor}`}>
                                   {typeLabel}
                                 </span>
-                                <span className="text-app-text-muted text-[9px] font-bold">
+                                <span className="text-app-text-muted text-[11px] font-bold">
                                   {entry.created_at
                                     ? new Date(
                                         entry.created_at,
@@ -1707,7 +1731,7 @@ export default function CustomersView() {
                                   Amount:
                                 </span>
                                 <span
-                                  className={`font-mono font-black ${typeColor}`}
+                                  className={`font-mono font-semibold ${typeColor}`}
                                 >
                                   {amountSign}KSh{' '}
                                   {entry.amount.toLocaleString()}
@@ -1730,7 +1754,7 @@ export default function CustomersView() {
                                 </div>
                               )}
                               {entry.recordedBy && (
-                                <div className="text-[8px] text-app-text-muted text-right font-bold mt-0.5">
+                                <div className="text-[11px] text-app-text-muted text-right font-bold mt-0.5">
                                   Recorded By: {entry.recordedBy}
                                 </div>
                               )}
@@ -1749,27 +1773,27 @@ export default function CustomersView() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
                         <span className="text-xs text-app-text-muted">Total Sales Done</span>
-                        <span className="text-sm font-black font-mono text-amber-500">{formatCurrency(historyStats.totalSalesAmt)}</span>
-                        <span className="text-[9px] font-semibold text-app-text-muted">{historyStats.salesCount} transaction{historyStats.salesCount === 1 ? '' : 's'}</span>
+                        <span className="text-sm font-semibold font-mono text-amber-500">{formatCurrency(historyStats.totalSalesAmt)}</span>
+                        <span className="text-[11px] font-semibold text-app-text-muted">{historyStats.salesCount} transaction{historyStats.salesCount === 1 ? '' : 's'}</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
                         <span className="text-xs text-app-text-muted">Credit Sales (Unpaid)</span>
-                        <span className="text-sm font-black font-mono text-red-500">{formatCurrency(historyStats.creditSalesAmt)}</span>
-                        <span className="text-[9px] font-semibold text-app-text-muted">Purchases on Credit</span>
+                        <span className="text-sm font-semibold font-mono text-red-500">{formatCurrency(historyStats.creditSalesAmt)}</span>
+                        <span className="text-[11px] font-semibold text-app-text-muted">Purchases on Credit</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
                         <span className="text-xs text-app-text-muted">Credit Repayments</span>
-                        <span className="text-sm font-black font-mono text-emerald-500">{formatCurrency(historyStats.totalRepaymentsAmt)}</span>
-                        <span className="text-[9px] font-semibold text-app-text-muted">Paid for Debt</span>
+                        <span className="text-sm font-semibold font-mono text-emerald-500">{formatCurrency(historyStats.totalRepaymentsAmt)}</span>
+                        <span className="text-[11px] font-semibold text-app-text-muted">Paid for Debt</span>
                       </div>
                       <div className="bg-app-bg p-3 border border-app-border rounded-2xl flex flex-col gap-1">
                         <span className="text-xs text-app-text-muted">Current Debt / Wallet</span>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-black font-mono text-red-500">D: {formatCurrency(selectedCustomer.debtBalance || 0)}</span>
+                          <span className="text-xs font-semibold font-mono text-red-500">D: {formatCurrency(selectedCustomer.debtBalance || 0)}</span>
                           <span className="text-[10px] text-app-text-muted">|</span>
-                          <span className="text-xs font-black font-mono text-emerald-500">W: {formatCurrency(selectedCustomer.walletBalance || 0)}</span>
+                          <span className="text-xs font-semibold font-mono text-emerald-500">W: {formatCurrency(selectedCustomer.walletBalance || 0)}</span>
                         </div>
-                        <span className="text-[9px] font-semibold text-app-text-muted">Live Account Balances</span>
+                        <span className="text-[11px] font-semibold text-app-text-muted">Live Account Balances</span>
                       </div>
                     </div>
 
@@ -1786,9 +1810,9 @@ export default function CustomersView() {
                           <button
                             key={f.id}
                             onClick={() => setHistoryFilter(f.id as any)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition cursor-pointer border shrink-0 ${
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-semibold transition cursor-pointer border shrink-0 ${
                               historyFilter === f.id
-                                ? 'bg-amber-500 text-black border-amber-500 font-black'
+                                ? 'bg-amber-500 text-black border-amber-500 font-semibold'
                                 : 'bg-app-card border-app-border/60 text-app-text-muted hover:text-app-text'
                             }`}
                           >
@@ -1873,8 +1897,8 @@ export default function CustomersView() {
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${ev.paymentStatusStyle}`}>
+                                        <span className="font-semibold text-app-text text-xs">{ev.title}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${ev.paymentStatusStyle}`}>
                                           {ev.paymentStatusLabel}
                                         </span>
                                       </div>
@@ -1887,7 +1911,7 @@ export default function CustomersView() {
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-black font-mono text-amber-500">
+                                    <span className="text-sm font-semibold font-mono text-amber-500">
                                       {formatCurrency(tx.finalTotal)}
                                     </span>
                                     <button
@@ -1902,7 +1926,7 @@ export default function CustomersView() {
 
                                 {/* Products Itemized Table */}
                                 <div className="bg-app-card border border-app-border/60 rounded-xl p-3 flex flex-col gap-2">
-                                  <div className="text-[9.5px] font-black uppercase text-app-text-muted tracking-wider border-b border-app-border/40 pb-1 flex justify-between">
+                                  <div className="text-[11px] font-semibold text-app-text-muted border-b border-app-border/40 pb-1 flex justify-between">
                                     <span>Products Purchased ({tx.items?.length || 0})</span>
                                     <span>Amount</span>
                                   </div>
@@ -1914,7 +1938,7 @@ export default function CustomersView() {
                                         <div key={idx} className="flex justify-between items-center text-[11px]">
                                           <div className="flex items-center gap-1.5">
                                             <span className="font-bold text-app-text">{item.product?.name || 'Item'}</span>
-                                            <span className="text-[10px] font-extrabold text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded-md">
+                                            <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.2 rounded-md">
                                               x{item.quantity}
                                             </span>
                                             <span className="text-[10px] text-app-text-muted font-mono">
@@ -1939,14 +1963,14 @@ export default function CustomersView() {
                                 {/* Footer details: Payment Status & Staff & Receipt Share */}
                                 <div className="flex flex-wrap justify-between items-center text-[10px] text-app-text-muted font-semibold pt-0.5">
                                   <div className="flex items-center gap-3">
-                                    <span>Method: <strong className="text-app-text font-extrabold">{tx.paymentMethod}</strong></span>
-                                    <span>Staff: <strong className="text-app-text font-extrabold">{tx.staffName || 'Cashier'}</strong></span>
-                                    {tx.riderName && <span>Rider: <strong className="text-blue-400 font-extrabold">{tx.riderName}</strong></span>}
+                                    <span>Method: <strong className="text-app-text font-semibold">{tx.paymentMethod}</strong></span>
+                                    <span>Staff: <strong className="text-app-text font-semibold">{tx.staffName || 'Cashier'}</strong></span>
+                                    {tx.riderName && <span>Rider: <strong className="text-blue-400 font-semibold">{tx.riderName}</strong></span>}
                                   </div>
 
                                   <button
                                     onClick={() => setReceiptTx(tx)}
-                                    className="flex items-center gap-1 text-[10px] font-extrabold text-amber-500 hover:text-amber-400 transition cursor-pointer"
+                                    className="flex items-center gap-1 text-[10px] font-semibold text-amber-500 hover:text-amber-400 transition cursor-pointer"
                                   >
                                     <Share2 className="w-3 h-3" />
                                     <span>Receipt</span>
@@ -1971,8 +1995,8 @@ export default function CustomersView() {
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
-                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                                        <span className="font-semibold text-app-text text-xs">{ev.title}</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
                                           Credit Payment
                                         </span>
                                       </div>
@@ -1983,10 +2007,10 @@ export default function CustomersView() {
                                   </div>
 
                                   <div className="text-right">
-                                    <span className="text-sm font-black font-mono text-emerald-500">
+                                    <span className="text-sm font-semibold font-mono text-emerald-500">
                                       + {formatCurrency(dp.amountPaid)}
                                     </span>
-                                    <div className="text-[9.5px] font-bold text-app-text-muted font-mono">
+                                    <div className="text-[11px] font-bold text-app-text-muted font-mono">
                                       Remaining Debt: {formatCurrency(dp.remainingDebt)}
                                     </div>
                                   </div>
@@ -2024,8 +2048,8 @@ export default function CustomersView() {
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-extrabold text-app-text text-xs">{ev.title}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${ev.paymentStatusStyle}`}>
+                                        <span className="font-semibold text-app-text text-xs">{ev.title}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${ev.paymentStatusStyle}`}>
                                           {ev.paymentStatusLabel}
                                         </span>
                                       </div>
@@ -2036,10 +2060,10 @@ export default function CustomersView() {
                                   </div>
 
                                   <div className="text-right">
-                                    <span className={`text-sm font-black font-mono ${isDeposit ? 'text-emerald-500' : isSpent ? 'text-purple-400' : 'text-blue-400'}`}>
+                                    <span className={`text-sm font-semibold font-mono ${isDeposit ? 'text-emerald-500' : isSpent ? 'text-purple-400' : 'text-blue-400'}`}>
                                       {isDeposit ? '+' : isSpent ? '-' : ''} {formatCurrency(entry.amount)}
                                     </span>
-                                    <div className="text-[9.5px] font-bold text-app-text-muted font-mono">
+                                    <div className="text-[11px] font-bold text-app-text-muted font-mono">
                                       Wallet: {formatCurrency(entry.walletBalance)} | Debt: {formatCurrency(entry.debtBalance)}
                                     </div>
                                   </div>
@@ -2284,7 +2308,7 @@ export default function CustomersView() {
               </div>
               <h3 className="text-base font-semibold text-app-text">Pick a customer</h3>
               <p className="text-sm leading-relaxed">
-                See what they owe, take payments, make invoices, and look through their purchases.
+                Debt, payments, invoices and purchases.
               </p>
             </div>
           </div>
@@ -2337,10 +2361,10 @@ export default function CustomersView() {
             >
               <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
 
-              <h3 className="text-sm font-black font-display text-app-text uppercase tracking-wide">
+              <h3 className="text-sm font-semibold font-display text-app-text">
                 Enroll Loyalty Member
               </h3>
-              <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider mt-0.5">
+              <p className="text-[10px] text-app-text-muted font-bold mt-0.5">
                 Add them to your customer list
               </p>
 
@@ -2351,7 +2375,7 @@ export default function CustomersView() {
                 className="flex-1 overflow-y-auto flex flex-col gap-3.5 pb-20 text-xs font-semibold"
               >
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Name *
                   </label>
                   <input
@@ -2365,14 +2389,14 @@ export default function CustomersView() {
                     } rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500`}
                   />
                   {errors.name && (
-                    <span className="text-[9px] text-red-500 font-bold">
+                    <span className="text-[11px] text-red-500 font-bold">
                       {errors.name}
                     </span>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Phone *
                   </label>
                   <div className="grid grid-cols-4 gap-2">
@@ -2398,13 +2422,13 @@ export default function CustomersView() {
                       } rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500`}
                     />
                   </div>
-                  <span className="text-[8.5px] text-app-text-muted">
+                  <span className="text-[11px] text-app-text-muted">
                     Stored E.164:{' '}
                     {normalizePhone(values.phone, selectedCountryCode)}
                   </span>
                   {samePhoneCustomer && (
                     <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-app-text">
-                      <span>{titleCase(samePhoneCustomer.name)} already has this number. Open their record, or continue if this is someone else.</span>
+                      <span>{titleCase(samePhoneCustomer.name)} already has this number.</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -2418,14 +2442,14 @@ export default function CustomersView() {
                     </div>
                   )}
                   {errors.phone && (
-                    <span className="text-[9px] text-red-500 font-bold">
+                    <span className="text-[11px] text-red-500 font-bold">
                       {errors.phone}
                     </span>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Email Address
                   </label>
                   <input
@@ -2440,7 +2464,7 @@ export default function CustomersView() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                    <label className="text-[10px] font-bold text-app-text-muted">
                       Starting Tier
                     </label>
                     <SearchableDropdown
@@ -2466,7 +2490,7 @@ export default function CustomersView() {
                 />
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-app-text-muted uppercase">
+                  <label className="text-[10px] font-bold text-app-text-muted">
                     Notes
                   </label>
                   <textarea
@@ -2493,7 +2517,7 @@ export default function CustomersView() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs shadow hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer uppercase tracking-wider flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs shadow hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     {isSubmitting ? (
                       <>
@@ -2524,15 +2548,7 @@ export default function CustomersView() {
 
       {/* Floating: write a message to many customers with the assistant (it can pick who, too) */}
       {canMessage && !selecting && !selectedCustomerId && !showPoints && (
-        <button
-          onClick={() => startMessaging(true)}
-          style={{ bottom: 'calc(var(--mobile-nav-space) + 0.25rem)' }}
-          className="fixed right-4 md:!bottom-6 md:right-6 z-40 h-12 pl-4 pr-5 rounded-full bg-violet-600 text-white shadow-lg flex items-center gap-2 text-sm font-semibold hover:bg-violet-500 active:scale-95 transition cursor-pointer"
-          title="Write one message to many customers with the assistant"
-        >
-          <Sparkles size={17} />
-          Write with AI
-        </button>
+        <FloatingButton id="customers-write-ai" icon={<PenLine />} label="Write with AI" onClick={() => startMessaging(true)} />
       )}
       <ReceiptSheet transaction={receiptTx} onClose={() => setReceiptTx(null)} />
     </div>

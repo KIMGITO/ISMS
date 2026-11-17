@@ -108,7 +108,7 @@ export function SectionNav<T extends string>({
         <div className={`flex flex-col ${c ? 'gap-4 md:gap-2' : 'gap-4'}`}>
           {groups.map((group, gi) => (
             <div key={group} className={c && gi > 0 ? 'md:border-t md:border-app-border/60 md:pt-2' : ''}>
-              <h3 className={`mb-1.5 px-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted ${c ? 'md:sr-only' : ''}`}>{group}</h3>
+              <h3 className={`mb-1.5 px-3 text-[10px] font-semibold text-app-text-muted ${c ? 'md:sr-only' : ''}`}>{group}</h3>
               <ul className="flex flex-col gap-0.5">
                 {visible.filter((s) => s.group === group).map((section) => {
                   const Icon = section.icon;

@@ -89,7 +89,6 @@ import {
   WifiOff,
   Sun,
   Bell,
-  Sparkles,
   Moon,
   Lock,
   Delete,
@@ -127,7 +126,6 @@ import {
   Mail,
   Phone,
   RefreshCw,
-  Brain,
   FlaskConical,
   Edit3,
   Truck,
@@ -141,6 +139,7 @@ import {
   BookOpen,
   ClipboardList,
   Send,
+  MessageSquareText,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, type ScreenId } from './utils/screens';
@@ -811,8 +810,8 @@ export default function App() {
         localStorage.setItem('kkm_supabase_key', setupDbKey);
         setSupabaseConfiguredState(true);
         showToast(
-          'Database Connected',
-          'Supabase sync credentials successfully configured.',
+          'Connected',
+          'The app is connected.',
           undefined,
           'success',
         );
@@ -836,8 +835,8 @@ export default function App() {
     );
     setTermsAccepted(true);
     showToast(
-      'System Agreement',
-      'Terms accepted. Initialized digital terminal workspace.',
+      'Welcome',
+      'Thanks for accepting the terms.',
       undefined,
       'success',
     );
@@ -1648,13 +1647,13 @@ export default function App() {
             >
               <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
-                  <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-black text-lg shadow-xl shadow-amber-500/10">
+                  <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-bold text-lg">
                     <Database size={22} />
                   </div>
-                  <h1 className="text-xl font-black font-display tracking-tight text-amber-500 uppercase tracking-widest">
+                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-500">
                     Database Sync setup
                   </h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <p className="text-[10px] text-slate-400 font-bold">
                     First Launch Configuration
                   </p>
                 </div>
@@ -1666,7 +1665,7 @@ export default function App() {
 
                 <div className="space-y-3.5">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">
+                    <label className="text-[11px] text-slate-400 font-semibold block">
                       Supabase Project URL
                     </label>
                     <input
@@ -1679,7 +1678,7 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[8.5px] text-slate-400 font-black uppercase tracking-wider block">
+                    <label className="text-[11px] text-slate-400 font-semibold block">
                       Supabase Anon Key
                     </label>
                     <input
@@ -1701,7 +1700,7 @@ export default function App() {
                     type="button"
                     onClick={handleConnectDatabase}
                     disabled={dbConnecting}
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wide cursor-pointer transition flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold rounded-xl text-xs cursor-pointer transition flex items-center justify-center gap-1.5"
                   >
                     {dbConnecting ? (
                       <RefreshCw size={12} className="animate-spin" />
@@ -1726,84 +1725,60 @@ export default function App() {
             >
               <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
-                  <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-black text-lg shadow-xl shadow-amber-500/10">
+                  <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-bold text-lg">
                     <ShieldCheck size={22} />
                   </div>
-                  <h1 className="text-xl font-black font-display tracking-tight text-amber-500 uppercase tracking-widest">
+                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-500">
                     Terms & Agreement
                   </h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    Accept User Agreement to Continue
+                  <p className="text-[10px] text-slate-400 font-bold">
+                    Please read and accept to continue
                   </p>
                 </div>
 
                 <div className="max-h-[220px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-4 text-[10px] text-slate-400 font-medium leading-relaxed space-y-3 text-left">
                   <div>
-                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
-                      1. Authorized Access & Terminal Security
+                    <p className="font-bold text-slate-200 mb-1">
+                      1. Who can use the app
                     </p>
                     <p>
-                      This terminal portal is strictly for authorized staff and
-                      This terminal portal is strictly for authorized staff and
-                      logistics agents of KayKay's and partner businesses.
-                      Unauthorized access, sharing of staff PINs, or spoofing
-                      biometric/login credentials is prohibited. All terminal
-                      activity and transactions are logged for security and
-                      auditing purposes.
+                      Only invited staff may use the app. Keep your password and PIN to yourself. Every change is recorded with your name.
                     </p>
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
-                      2. Client Data Collection & Usage
+                    <p className="font-bold text-slate-200 mb-1">
+                      2. Customer information
                     </p>
                     <p>
-                      Customer information (including names, contact details,
-                      purchase history, and payment metadata) collected at POS
-                      terminals is stored securely for transaction processing,
-                      digital receipt dispatch, loyalty accounting, and business
-                      analytics. Personal customer data will not be sold or
-                      shared with unauthorized third parties.
+                      Customer details are used for sales, receipts and points. They are never sold or shared.
                     </p>
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
-                      3. Transaction Integrity & Pricing
+                    <p className="font-bold text-slate-200 mb-1">
+                      3. Checking sales
                     </p>
                     <p>
-                      Operators must verify item counts, applied discounts, and
-                      payment totals before finalizing a sale. Completed
-                      transactions are recorded permanently in the store ledger.
-                      Tax calculations, promotional prices, and inventory
-                      deductions are processed according to active terminal
-                      rules at the time of checkout.
+                      Check items and the total before finishing a sale.
                     </p>
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
-                      4. Offline Queue & Sync Policy
+                    <p className="font-bold text-slate-200 mb-1">
+                      4. Working without internet
                     </p>
                     <p>
-                      Transactions processed while offline will queue locally on
-                      this device and sync automatically once network
-                      connectivity is restored. Terminal operators remain
-                      responsible for verifying that offline queues sync
-                      successfully before ending shifts.
+                      Offline sales send when the internet is back. Check before ending your shift.
                     </p>
                   </div>
 
                   <div>
-                    <p className="font-bold text-slate-200 uppercase tracking-wider mb-1">
-                      5. Kim AI Reports & Consultations
+                    <p className="font-bold text-slate-200 mb-1">
+                      5. The AI assistant
                     </p>
                     <p>
-                      The "Kim AI Assistant" uses automated AI models to analyze
-                      store metrics and offer consultative feedback. AI outputs
-                      are strictly advisory; all financial figures, payroll, and
-                      tax filings must be manually audited prior to submission.
-                      AI systems may produce mistakes or errors.
+                      The assistant can make mistakes. Check figures before relying on them.
                     </p>
                   </div>
                 </div>
@@ -1814,8 +1789,7 @@ export default function App() {
                   onChange={setAgreeChecked}
                   label={
                     <span className="text-[10.5px] text-slate-300 leading-normal font-semibold">
-                      I agree to the terms, conditions, and offline caching
-                      security policies of KayKay's Staff Portal.
+                      I agree to these terms.
                     </span>
                   }
                 />
@@ -1824,7 +1798,7 @@ export default function App() {
                   type="button"
                   onClick={handleAcceptTerms}
                   disabled={!agreeChecked}
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wide cursor-pointer transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs cursor-pointer transition flex items-center justify-center gap-1.5"
                 >
                   <span>Continue </span>
                   <ArrowRight size={12} />
@@ -1849,15 +1823,13 @@ export default function App() {
                 className="w-full max-w-md bg-slate-900/80 border border-red-500/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 text-center relative overflow-hidden"
               >
                 {/* Decorative glow */}
-                <div className="absolute -top-12 -left-12 w-24 h-24 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
                 <div className="mx-auto w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-500 shadow-xl">
-                  <WifiOff size={28} className="animate-pulse" />
+                  <WifiOff size={28} />
                 </div>
 
                 <div className="space-y-2">
-                  <h2 className="text-lg font-bold font-display tracking-tight text-red-400 uppercase tracking-wider">
+                  <h2 className="text-lg font-bold font-display tracking-tight text-red-400">
                     Connection Check Failed
                   </h2>
                   <p className="text-xs text-slate-350 leading-relaxed font-semibold">
@@ -1868,7 +1840,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => performInitialization()}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-black rounded-2xl text-xs uppercase tracking-wider cursor-pointer transition-all duration-200 shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-semibold rounded-2xl text-xs cursor-pointer transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={14} />
                   <span>Retry Connection</span>
@@ -1906,14 +1878,14 @@ export default function App() {
               <div className="w-full max-w-lg bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 animate-fade-in relative">
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
-                  <div className="mx-auto w-14 h-14 bg-slate-900 border border-amber-500/30 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-500/10 overflow-hidden">
+                  <div className="mx-auto w-14 h-14 bg-slate-900 border border-amber-500/30 rounded-2xl flex items-center justify-center overflow-hidden">
                     <img src="/icon.png" alt="KayKay's" className="w-full h-full object-cover" />
                   </div>
-                  <h1 className="text-xl font-black font-display tracking-tight text-amber-500 uppercase tracking-widest">
+                  <h1 className="text-xl font-bold font-display tracking-tight text-amber-500">
                     KayKay's
                   </h1>
-                  <p className="text-[10.5px] text-slate-400 font-bold tracking-wider uppercase">
-                    Business & Fresh Milk Management Portal
+                  <p className="text-[10.5px] text-slate-400 font-bold">
+                    Sales, stock and money for your shop
                   </p>
                 </div>
 
@@ -1921,12 +1893,11 @@ export default function App() {
                 {showWorkspaceSwitcher && currentUser ? (
                   <div className="space-y-4 animate-fade-in">
                     <div className="text-center space-y-1">
-                      <h2 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                        Select Business Workspace
+                      <h2 className="text-xs font-semibold text-amber-500">
+                        Choose a business
                       </h2>
                       <p className="text-[10px] text-slate-400">
-                        Your account is registered across multiple milk retail
-                        businesses.
+                        Your account belongs to more than one business. Pick one.
                       </p>
                     </div>
 
@@ -1942,7 +1913,7 @@ export default function App() {
                             (b) => b.id === m.businessId,
                           ) || {
                             id: m.businessId,
-                            name: 'Unnamed Workspace Branch',
+                            name: 'New branch',
                             logoUrl:
                               "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
                           };
@@ -1961,10 +1932,10 @@ export default function App() {
                                   name={biz.name}
                                 />
                                 <div>
-                                  <h4 className="text-xs font-black text-slate-100 group-hover:text-amber-500 transition-colors">
+                                  <h4 className="text-xs font-semibold text-slate-100 group-hover:text-amber-500 transition-colors">
                                     {biz.name}
                                   </h4>
-                                  <span className="text-[9px] font-black uppercase text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded tracking-wider">
+                                  <span className="text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
                                     {m.role}
                                   </span>
                                 </div>
@@ -2014,7 +1985,7 @@ export default function App() {
                               setAuthError('');
                               setAuthSuccess('');
                             }}
-                            className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
+                            className={`py-2 text-[10px] font-semibold rounded-xl transition ${
                               authViewTab === 'login'
                                 ? 'bg-amber-500 text-slate-950 shadow-md'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
@@ -2029,7 +2000,7 @@ export default function App() {
                               setAuthError('');
                               setAuthSuccess('');
                             }}
-                            className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition ${
+                            className={`py-2 text-[10px] font-semibold rounded-xl transition ${
                               authViewTab === 'accept-invite'
                                 ? 'bg-amber-500 text-slate-950 shadow-md'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
@@ -2076,7 +2047,7 @@ export default function App() {
                               setVerifyEmail(loginEmail);
                               setAuthViewTab('verify');
                               setAuthSuccess(
-                                'Your email is not confirmed yet. Verification screen loaded.',
+                                'Your email is not confirmed yet. Enter the code we sent you.',
                               );
 
                               // Attempt automatic resend of confirmation OTP
@@ -2100,7 +2071,7 @@ export default function App() {
                         className="space-y-4 text-xs"
                       >
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[10px] text-slate-400 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -2129,7 +2100,7 @@ export default function App() {
                                 setForgotEmail(loginEmail);
                                 setAuthViewTab('forgot-password');
                               }}
-                              className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer bg-transparent border-none outline-none"
+                              className="text-[10px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer bg-transparent border-none outline-none"
                             >
                               Forgot Password?
                             </button>
@@ -2142,7 +2113,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg shadow-amber-500/5 mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer mt-2"
                         >
                           {authLoading
                             ? 'Authenticating Session...'
@@ -2170,7 +2141,7 @@ export default function App() {
                               setVerifyEmail(loginEmail);
                               setAuthViewTab('verify');
                             }}
-                            className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer bg-transparent border-none outline-none"
+                            className="text-[10px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer bg-transparent border-none outline-none"
                           >
                             Have an unverified account? Verify here
                           </button>
@@ -2225,33 +2196,27 @@ export default function App() {
                         className="space-y-4 text-xs"
                       >
                         <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1.5">
-                          <h4 className="text-[10.5px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <Building size={12} /> Primary Owner & Manager Setup
+                          <h4 className="text-[10.5px] font-semibold text-amber-500 flex items-center gap-1.5">
+                            <Building size={12} /> You will be the owner
                           </h4>
-                          <p className="text-[9.5px] text-slate-400 leading-normal">
-                            The individual registering this initial account will
-                            be designated as the primary{' '}
+                          <p className="text-[11px] text-slate-400 leading-normal">
+                            The person who creates the account becomes the{' '}
                             <strong className="text-slate-300 font-semibold">
-                              Business Owner
+                              owner
                             </strong>{' '}
-                            and{' '}
-                            <strong className="text-slate-300 font-semibold">
-                              Overall Manager
-                            </strong>{' '}
-                            with root administrative control. Business
-                            provisioning completes instantly upon email
-                            verification.
+                            and can do everything. Your business is ready as
+                            soon as you confirm your email.
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[10px] text-slate-400 font-bold block">
                             Full Name *
                           </label>
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="e.g. Dennis Kimanthi"
+                              placeholder="e.g. Jane Wanjiku"
                               value={regName}
                               onChange={(e) => setRegName(e.target.value)}
                               className="w-full bg-slate-950 text-slate-100 pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:border-amber-500 focus:outline-none"
@@ -2264,7 +2229,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[10px] text-slate-400 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -2283,7 +2248,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[10px] text-slate-400 font-bold block">
                             Phone Number *
                           </label>
                           <div className="relative">
@@ -2311,7 +2276,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                         >
                           {authLoading
                             ? 'Creating Profile...'
@@ -2341,7 +2306,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest">
+                          <h3 className="text-xs font-semibold text-amber-500">
                             Confirm Your Email
                           </h3>
 
@@ -2436,12 +2401,12 @@ export default function App() {
                               className="w-full max-w-sm mx-auto space-y-3 bg-slate-950 p-3.5 border border-slate-800 rounded-2xl animate-fade-in"
                             >
                               <div className="text-left space-y-1">
-                                <label className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider block">
+                                <label className="text-[11px] text-slate-400 font-bold block">
                                   Update Email Address
                                 </label>
                                 <input
                                   type="email"
-                                  placeholder="e.g. codensons@gmail.com"
+                                  placeholder="e.g. you@example.com"
                                   value={newEmailInput}
                                   onChange={(e) =>
                                     setNewEmailInput(e.target.value)
@@ -2453,7 +2418,7 @@ export default function App() {
                                 <button
                                   type="submit"
                                   disabled={authLoading}
-                                  className="flex-1 py-2 bg-amber-500 text-slate-950 font-black rounded-lg transition hover:bg-amber-600 disabled:opacity-50 uppercase tracking-wide cursor-pointer"
+                                  className="flex-1 py-2 bg-amber-500 text-slate-950 font-semibold rounded-lg transition hover:bg-amber-600 disabled:opacity-50 cursor-pointer"
                                 >
                                   {authLoading ? 'Saving...' : 'Save & Resend'}
                                 </button>
@@ -2496,7 +2461,7 @@ export default function App() {
                                   type="button"
                                   onClick={handleResendCode}
                                   disabled={isResending}
-                                  className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer"
+                                  className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer"
                                 >
                                   {isResending
                                     ? 'Resending Code...'
@@ -2510,7 +2475,7 @@ export default function App() {
                                 disabled={
                                   authLoading || verifyCode.length !== 6
                                 }
-                                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                                className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
                               >
                                 {authLoading ? 'Verifying...' : 'Verify Code'}
                               </button>
@@ -2524,7 +2489,7 @@ export default function App() {
                                       setAuthError('');
                                       setAuthSuccess('');
                                     }}
-                                    className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer font-bold bg-transparent border-none outline-none"
+                                    className="text-[10px] text-slate-400 hover:text-slate-300 transition cursor-pointer font-bold bg-transparent border-none outline-none"
                                   >
                                     Return to Login
                                   </button>
@@ -2534,7 +2499,7 @@ export default function App() {
                                 <button
                                   type="button"
                                   onClick={() => logout()}
-                                  className="text-[10px] text-red-400 hover:text-red-300 transition uppercase tracking-wider cursor-pointer mt-1 font-bold bg-transparent border-none outline-none"
+                                  className="text-[10px] text-red-400 hover:text-red-300 transition cursor-pointer mt-1 font-bold bg-transparent border-none outline-none"
                                 >
                                   Cancel & Sign Out
                                 </button>
@@ -2549,12 +2514,11 @@ export default function App() {
                     {authViewTab === 'create-biz' && (
                       <div className="space-y-5 text-xs animate-fade-in">
                         <div className="text-center space-y-1">
-                          <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                          <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
                             <Building size={16} /> Register Business Hub
                           </h3>
                           <p className="text-[10.5px] text-slate-400">
-                            Configure your initial business workspace and branch
-                            metadata.
+                            Tell us about your business and first branch.
                           </p>
                         </div>
 
@@ -2586,13 +2550,13 @@ export default function App() {
                           className="space-y-4"
                         >
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            <label className="text-[10px] text-slate-400 font-bold block">
                               Business / Outlet Name *
                             </label>
                             <div className="relative">
                               <input
                                 type="text"
-                                placeholder="e.g. My Shop Nairobi  Branch"
+                                placeholder="e.g. My Shop, Nairobi"
                                 value={bizNameField}
                                 onChange={(e) =>
                                   setBizNameField(e.target.value)
@@ -2608,7 +2572,7 @@ export default function App() {
 
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              <label className="text-[10px] text-slate-400 font-bold block">
                                 Business Type *
                               </label>
 
@@ -2646,7 +2610,7 @@ export default function App() {
                               )}
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              <label className="text-[10px] text-slate-400 font-bold block">
                                 Country *
                               </label>
                               <div className="relative">
@@ -2667,7 +2631,7 @@ export default function App() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            <label className="text-[10px] text-slate-400 font-bold block">
                               Base Operating Currency *
                             </label>
                             <div className="relative">
@@ -2695,11 +2659,11 @@ export default function App() {
                           <button
                             type="submit"
                             disabled={authLoading}
-                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider font-sans"
+                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition font-sans"
                           >
                             {authLoading
-                              ? 'Initializing Core Hub...'
-                              : 'Construct Business Workspace'}
+                              ? 'Setting up...'
+                              : 'Create my business'}
                           </button>
                         </form>
                       </div>
@@ -2709,13 +2673,11 @@ export default function App() {
                     {authViewTab === 'accept-invite' && (
                       <div className="space-y-4 text-xs animate-fade-in">
                         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1">
-                          <h4 className="text-[10.5px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                          <h4 className="text-[10.5px] font-semibold text-amber-500 flex items-center gap-1.5">
                             <Key size={12} /> Invitation Verification Portal
                           </h4>
-                          <p className="text-[9.5px] text-slate-400 leading-normal">
-                            Please verify your secure single-use invitation
-                            token sent by your Business Owner or Manager to
-                            register and attach membership.
+                          <p className="text-[11px] text-slate-400 leading-normal">
+                            Enter the invitation code the owner or manager sent you.
                           </p>
                         </div>
 
@@ -2729,7 +2691,7 @@ export default function App() {
                               }
                               if (code.length !== 6) {
                                 setAuthError(
-                                  'Invitation Code must be exactly 6 characters.',
+                                  'The invitation code has 6 letters and numbers.',
                                 );
                                 return;
                               }
@@ -2750,14 +2712,14 @@ export default function App() {
                                 );
                               } else {
                                 setAuthError(
-                                  res.error || 'Invalid invitation token.',
+                                  res.error || 'That invitation code is not valid.',
                                 );
                               }
                             }}
                             className="space-y-4"
                           >
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block text-center mb-2">
+                              <label className="text-[10px] text-slate-400 font-bold block text-center mb-2">
                                 Enter 6-Digit Invitation Code *
                               </label>
                               <div className="flex justify-center py-2">
@@ -2797,14 +2759,14 @@ export default function App() {
                                     } else {
                                       setAuthError(
                                         res.error ||
-                                          'Invalid invitation token.',
+                                          'That invitation code is not valid.',
                                       );
                                     }
                                   }}
                                 />
                               </div>
-                              <span className="text-[9px] text-slate-500 block text-center mt-1 font-mono uppercase">
-                                Format: 6-Character Code (e.g. A1B2C3)
+                              <span className="text-[11px] text-slate-500 block text-center mt-1">
+                                6 letters and numbers, e.g. A1B2C3
                               </span>
                             </div>
 
@@ -2818,7 +2780,7 @@ export default function App() {
                                   ? inviteTokenInput.length !== 10
                                   : inviteTokenInput.length !== 6)
                               }
-                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer"
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer"
                             >
                               {authLoading
                                 ? 'Validating Token...'
@@ -2898,24 +2860,24 @@ export default function App() {
                             className="space-y-4"
                           >
                             <div className="p-3 bg-slate-950 border border-slate-850 rounded-2xl space-y-1 font-sans">
-                              <span className="text-[8px] font-black uppercase text-amber-500 tracking-wider">
-                                Target Workspace:
+                              <span className="text-[11px] font-semibold text-amber-500">
+                                You are joining
                               </span>
                               <h5 className="text-[11px] font-bold text-slate-200">
                                 {validatedInvite.businessName ||
                                   businesses.find(
                                     (b) => b.id === validatedInvite.businessId,
                                   )?.name ||
-                                  "KayKay's Retail Outlet"}
+                                  "the business"}
                               </h5>
-                              <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
-                                Assigned Role: {validatedInvite.role}
+                              <span className="text-[11px] font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded inline-block mt-1">
+                                As: {validatedInvite.role}
                               </span>
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                                Confirm Pre-registered Email *
+                              <label className="text-[10px] text-slate-400 font-bold block">
+                                Your email (the one invited) *
                               </label>
                               <div className="relative">
                                 <input
@@ -2935,7 +2897,7 @@ export default function App() {
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              <label className="text-[10px] text-slate-400 font-bold block">
                                 Full Name *
                               </label>
                               <div className="relative">
@@ -2956,7 +2918,7 @@ export default function App() {
                             </div>
 
                             <div className="space-y-1">
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                              <label className="text-[10px] text-slate-400 font-bold block">
                                 Phone Number *
                               </label>
                               <div className="relative">
@@ -2991,12 +2953,12 @@ export default function App() {
                                 }}
                                 className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold rounded-xl transition"
                               >
-                                Re-verify Token
+                                Check another code
                               </button>
                               <button
                                 type="submit"
                                 disabled={authLoading}
-                                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-black rounded-xl transition uppercase tracking-wider"
+                                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 font-semibold rounded-xl transition"
                               >
                                 {authLoading ? 'Joining...' : 'Accept & Join'}
                               </button>
@@ -3047,17 +3009,16 @@ export default function App() {
                         className="space-y-4 text-xs animate-fade-in"
                       >
                         <div className="text-center space-y-1">
-                          <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                          <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
                             <Key size={16} /> Recover Password
                           </h3>
                           <p className="text-[10.5px] text-slate-400">
-                            Enter your email address below to receive a 6-digit
-                            secure password reset code.
+                            We'll email you a 6-digit code.
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[10px] text-slate-400 font-bold block">
                             Email Address *
                           </label>
                           <div className="relative">
@@ -3078,7 +3039,7 @@ export default function App() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                         >
                           {authLoading
                             ? 'Sending Recovery Code...'
@@ -3108,7 +3069,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest">
+                          <h3 className="text-xs font-semibold text-amber-500">
                             Verify Recovery Code
                           </h3>
                           <p className="text-[10.5px] text-slate-300 leading-relaxed">
@@ -3179,7 +3140,7 @@ export default function App() {
                                   );
                                 }
                               }}
-                              className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold uppercase tracking-wider transition cursor-pointer"
+                              className="text-[10.5px] text-amber-500 hover:text-amber-400 font-bold transition cursor-pointer"
                             >
                               Resend Code
                             </button>
@@ -3215,7 +3176,7 @@ export default function App() {
                               }
                             }}
                             disabled={authLoading || resetOtpCode.length !== 6}
-                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition cursor-pointer shadow-lg mt-2"
                           >
                             {authLoading ? 'Verifying...' : 'Verify Code'}
                           </button>
@@ -3227,7 +3188,7 @@ export default function App() {
                               setAuthError('');
                               setAuthSuccess('');
                             }}
-                            className="text-[10px] text-slate-400 hover:text-slate-300 transition uppercase tracking-wider cursor-pointer mt-1"
+                            className="text-[10px] text-slate-400 hover:text-slate-300 transition cursor-pointer mt-1"
                           >
                             Return to Login
                           </button>
@@ -3309,11 +3270,11 @@ export default function App() {
                             className="space-y-4 text-xs animate-fade-in"
                           >
                             <div className="text-center space-y-1">
-                              <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                              <h3 className="text-xs font-semibold text-amber-500 flex items-center justify-center gap-1.5">
                                 <Lock size={16} /> Choose New Password
                               </h3>
                               <p className="text-[10.5px] text-slate-400">
-                                Establish a strong, encrypted password
+                                Choose a strong password
                                 credentials for your profile.
                               </p>
                             </div>
@@ -3328,7 +3289,7 @@ export default function App() {
                                     Password Strength:
                                   </span>
                                   <span
-                                    className={`font-black uppercase tracking-wider ${
+                                    className={`font-semibold ${
                                       strengthScore >= 3
                                         ? 'text-emerald-400'
                                         : 'text-red-400'
@@ -3346,7 +3307,7 @@ export default function App() {
                                   />
                                 </div>
 
-                                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] text-slate-400 font-medium">
+                                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-400 font-medium">
                                   <li className="flex items-center gap-1">
                                     <div
                                       className={`w-1.5 h-1.5 rounded-full ${
@@ -3385,7 +3346,7 @@ export default function App() {
                                           : 'bg-slate-700'
                                       }`}
                                     />
-                                    <span>Number digit</span>
+                                    <span>A number</span>
                                   </li>
                                   <li className="flex items-center gap-2 col-span-2">
                                     <div
@@ -3406,7 +3367,7 @@ export default function App() {
                             <button
                               type="submit"
                               disabled={authLoading || strengthScore < 3}
-                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg mt-2"
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
                             >
                               {authLoading
                                 ? 'Updating Password...'
@@ -3423,12 +3384,11 @@ export default function App() {
                           <Clock size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">
+                          <h3 className="text-xs font-semibold text-red-500">
                             Session Expired
                           </h3>
                           <p className="text-[10.5px] text-slate-400 leading-normal">
-                            Your secure authenticated session has expired.
-                            Please re-authenticate your operator profile.
+                            You were signed out. Please sign in again.
                           </p>
                         </div>
                         <button
@@ -3438,7 +3398,7 @@ export default function App() {
                             setAuthError('');
                             setAuthSuccess('');
                           }}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition uppercase tracking-wider mt-2 cursor-pointer"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition mt-2 cursor-pointer"
                         >
                           Return to Login
                         </button>
@@ -3452,12 +3412,11 @@ export default function App() {
                           <ShieldCheck size={24} />
                         </div>
                         <div className="space-y-1">
-                          <h3 className="text-xs font-black text-red-500 uppercase tracking-wider">
-                            Unauthorized Access
+                          <h3 className="text-xs font-semibold text-red-500">
+                            No access
                           </h3>
                           <p className="text-[10.5px] text-slate-400 leading-normal">
-                            You do not have the required permissions to view
-                            this business workspace.
+                            Your account is not allowed to open this business.
                           </p>
                         </div>
                         <button
@@ -3468,7 +3427,7 @@ export default function App() {
                             setAuthError('');
                             setAuthSuccess('');
                           }}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition uppercase tracking-wider mt-2 cursor-pointer"
+                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition mt-2 cursor-pointer"
                         >
                           Return to Login / Sign Out
                         </button>
@@ -3531,7 +3490,7 @@ export default function App() {
                             referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border border-amber-500/20 transition-colors duration-300">
+                          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-slate-800 flex items-center justify-center border border-amber-500/20 transition-colors duration-300">
                             <Building size={18} className="text-amber-500" />
                           </div>
                         )}
@@ -3547,7 +3506,7 @@ export default function App() {
                   ) : (
                     <div className="flex flex-col w-full h-full relative">
                       {/* Cover Photo Banner Area */}
-                      <div className="relative h-20 w-full shrink-0 bg-gradient-to-r from-amber-500/10 to-amber-600/10 dark:from-amber-500/5 dark:to-amber-600/5">
+                      <div className="relative h-20 w-full shrink-0 bg-amber-500/10 dark:bg-amber-500/5">
                         {(activeBusiness as any).coverImageUrl && (
                           <img
                             src={(activeBusiness as any).coverImageUrl}
@@ -3592,7 +3551,7 @@ export default function App() {
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center border border-app-border/50 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-slate-800 dark:to-slate-900">
+                              <div className="w-full h-full flex items-center justify-center border border-app-border/50 rounded-full bg-amber-100 dark:bg-slate-800">
                                 <Building
                                   size={20}
                                   className="text-amber-500"
@@ -3609,7 +3568,7 @@ export default function App() {
                               onClick={() =>
                                 setShowBusinessDropdown(!showBusinessDropdown)
                               }
-                              className="px-2.5 py-0.5 text-[9px] bg-app-bg border border-app-border hover:border-amber-500/50 text-app-text font-bold rounded-full uppercase tracking-wider transition cursor-pointer"
+                              className="px-2.5 py-0.5 text-[11px] bg-app-bg border border-app-border hover:border-amber-500/50 text-app-text font-bold rounded-full transition cursor-pointer"
                             >
                               Switch ▾
                             </button>
@@ -3630,11 +3589,11 @@ export default function App() {
                               : 'cursor-default'
                           }`}
                         >
-                          <span className="font-display font-black text-[14px] text-app-text whitespace-nowrap leading-tight truncate">
+                          <span className="font-display font-semibold text-[14px] text-app-text whitespace-nowrap leading-tight truncate">
                             {activeBusiness.name}
                           </span>
                           <span className="text-[10px] text-app-text-muted font-medium mt-0.5 truncate">
-                            {activeBusiness.address || 'Main Workspace'}
+                            {activeBusiness.address || 'Main branch'}
                           </span>
                         </div>
                       </div>
@@ -3665,11 +3624,11 @@ export default function App() {
 
                     {/* User Details */}
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-[12px] font-black text-app-text truncate group-hover:text-amber-500 transition-colors">
+                      <h4 className="text-[12px] font-semibold text-app-text truncate group-hover:text-amber-500 transition-colors">
                         {currentEmployee.name}
                       </h4>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[8.5px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded font-black uppercase tracking-widest truncate">
+                        <span className="text-[11px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded font-semibold truncate">
                           {currentEmployee.role}
                         </span>
                       </div>
@@ -3800,8 +3759,8 @@ export default function App() {
                     {
                       id: 'ai',
                       label: `${aiName}`,
-                      icon: Brain,
-                      desc: 'Workspace Assistant',
+                      icon: MessageSquareText,
+                      desc: 'AI assistant',
                       permission: 'ai.use' as const,
                     },
                     {
@@ -3897,7 +3856,7 @@ export default function App() {
                         {startsGroup && group && (
                           isSidebarCollapsed
                             ? index > 0 && <div className="my-1 mx-2 border-t border-app-border/60" aria-hidden="true" />
-                            : <div className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted ${index > 0 ? 'pt-3' : ''}`}>{group}</div>
+                            : <div className={`px-3 pb-1 text-[10px] font-bold text-app-text-muted ${index > 0 ? 'pt-3' : ''}`}>{group}</div>
                         )}
                         <button
                           id={`sidebar-tab-${tab.id}`}
@@ -3936,7 +3895,7 @@ export default function App() {
                                 <span className="text-xs block font-bold text-app-text">
                                   {tab.label}
                                 </span>
-                                <span className="text-[9px] text-app-text-muted block font-medium mt-0.5 truncate">
+                                <span className="text-[11px] text-app-text-muted block font-medium mt-0.5 truncate">
                                   {tab.desc}
                                 </span>
                               </div>
@@ -3945,7 +3904,7 @@ export default function App() {
                                 !(tab.id === 'pos' && cartItemsCount > 0) &&
                                 !(tab.id === 'notifications' && unreadNotificationsCount > 0) && (
                                 <kbd
-                                  className="shrink-0 font-mono text-[9px] font-semibold text-app-text-muted/70 tracking-wider"
+                                  className="shrink-0 font-mono text-[11px] font-semibold text-app-text-muted/70 tracking-wider"
                                   title={`Press ${goToLabel(tab.id as ScreenId)}`}
                                   aria-label={`Shortcut ${goToLabel(tab.id as ScreenId)}`}
                                 >
@@ -3955,16 +3914,16 @@ export default function App() {
                             </>
                           ) : (
                             /* Compact Hover Tooltip */
-                            <div className="absolute left-16 bg-slate-950 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap shadow-xl border border-slate-800 z-50">
+                            <div className="absolute left-16 bg-slate-950 text-white text-[10px] font-semibold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap shadow-xl border border-slate-800 z-50">
                               {tab.label}
                             </div>
                           )}
 
                           {tab.id === 'pos' && cartItemsCount > 0 && (
                             <span
-                              className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
+                              className={`absolute bg-amber-500 text-slate-950 font-semibold rounded-full flex items-center justify-center shadow-xs ${
                                 isSidebarCollapsed
-                                  ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]'
+                                  ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[11px]'
                                   : 'right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]'
                               }`}
                             >
@@ -3975,9 +3934,9 @@ export default function App() {
                           {tab.id === 'notifications' &&
                             unreadNotificationsCount > 0 && (
                               <span
-                                className={`absolute bg-amber-500 text-slate-950 font-black rounded-full flex items-center justify-center shadow-xs  ${
+                                className={`absolute bg-amber-500 text-slate-950 font-semibold rounded-full flex items-center justify-center shadow-xs ${
                                   isSidebarCollapsed
-                                    ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[8.5px]'
+                                    ? 'top-1.5 right-1.5 w-4.5 h-4.5 text-[11px]'
                                     : 'right-3.5 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px]'
                                 }`}
                               >
@@ -4102,11 +4061,11 @@ export default function App() {
                           className="w-7 h-7 rounded-lg object-cover shrink-0 shadow-xs border border-amber-500/20"
                           referrerPolicy="no-referrer"
                         />
-                        <span className="font-display font-black text-xs text-app-text hidden md:hidden lg:inline-block">
+                        <span className="font-display font-semibold text-xs text-app-text hidden md:hidden lg:inline-block">
                           {activeBusiness.name}
                         </span>
                         {assignableBranchesCount > 1 && (
-                          <span className="text-[9px] text-amber-500">▼</span>
+                          <span className="text-[11px] text-amber-500">▼</span>
                         )}
                       </div>
 
@@ -4198,7 +4157,7 @@ export default function App() {
                             }
                           />
                           {unreadNotificationsCount > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center  shadow-sm">
+                            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-semibold rounded-full w-3.5 h-3.5 text-[11px] flex items-center justify-center shadow-sm">
                               {unreadNotificationsCount}
                             </span>
                           )}
@@ -4661,12 +4620,12 @@ export default function App() {
                                 )}
 
                                 {id === 'pos' && cartItemsCount > 0 && (
-                                  <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-black rounded-full w-3.5 h-3.5 text-[7.5px] flex items-center justify-center shadow-xs ">
+                                  <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-semibold rounded-full w-3.5 h-3.5 text-[11px] flex items-center justify-center shadow-xs ">
                                     {cartItemsCount}
                                   </span>
                                 )}
                               </div>
-                              <span className="nav-label text-[9px] mt-0.5 tracking-tight truncate max-w-full">
+                              <span className="nav-label text-[11px] mt-0.5 tracking-tight truncate max-w-full">
                                 {tab.label}
                               </span>
                               {isActive && !isCenterSell && (
@@ -4802,7 +4761,7 @@ export default function App() {
                                     if (inGroup.length === 0) return null;
                                     return (
                                       <section key={group} className="mb-3">
-                                        <h3 className="px-2 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-app-text-muted">
+                                        <h3 className="px-2 pt-2 pb-1 text-[11px] font-bold text-app-text-muted">
                                           {group}
                                         </h3>
                                         <ul className="bg-app-bg/60 border border-app-border/60 rounded-2xl overflow-hidden divide-y divide-app-border/50">
@@ -4889,10 +4848,10 @@ export default function App() {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3.5 shrink-0">
                   <div>
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                      Select Active Workspace
+                    <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                      Choose a branch
                     </h3>
-                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">
                       Switch or configure your branches (Max 5)
                     </p>
                   </div>
@@ -4940,8 +4899,8 @@ export default function App() {
                         };
                         const removeBranch = async () => {
                           const confirmed = await nativeUiService.confirm(
-                            'Delete Workspace',
-                            `Are you sure you want to permanently close and delete "${biz.name}"? This will hide all its associated transaction data.`,
+                            'Delete branch',
+                            `Are you sure you want to permanently close and delete "${biz.name}"? Its sales and records will be hidden.`,
                           );
                           if (confirmed) {
                             deleteBusiness(biz.id);
@@ -4980,14 +4939,14 @@ export default function App() {
                                 name={biz.name}
                               />
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-xs font-black text-slate-900 dark:text-slate-50 truncate">
+                                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-50 truncate">
                                   {biz.name}
                                 </h4>
-                                <p className="text-[9.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                                   {biz.description || 'Dairy Branch'}
                                 </p>
                                 {biz.address && (
-                                  <span className="text-[8px] font-mono text-amber-500 uppercase font-black block mt-1">
+                                  <span className="text-[11px] text-amber-500 font-semibold block mt-1">
                                     {biz.address}
                                   </span>
                                 )}
@@ -5037,7 +4996,7 @@ export default function App() {
                             setNewBizDesc('');
                             setNewBizAddr('');
                           }}
-                          className="mt-2 py-2.5 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/5 transition cursor-pointer flex items-center justify-center gap-1.5"
+                          className="mt-2 py-2.5 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl text-[10px] font-semibold text-amber-500 hover:bg-amber-500/5 transition cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           ➕ Create Branch ({businesses.length}/5)
                         </button>
@@ -5050,7 +5009,7 @@ export default function App() {
                       e.preventDefault();
                       if (!newBizName.trim()) {
                         showToast(
-                          'Validation Error',
+                          'Check the form',
                           'Branch/Business Name is required.',
                           undefined,
                           'error',
@@ -5064,7 +5023,7 @@ export default function App() {
                         )
                       ) {
                         showToast(
-                          'Validation Error',
+                          'Check the form',
                           'Please provide a valid contact email address.',
                           undefined,
                           'error',
@@ -5076,7 +5035,7 @@ export default function App() {
                         !/^\+[1-9]\d{1,14}$/.test(newBizPhone)
                       ) {
                         showToast(
-                          'Validation Error',
+                          'Check the form',
                           'Contact Phone must be in E.164 format (e.g. +254712345678).',
                           undefined,
                           'error',
@@ -5120,12 +5079,12 @@ export default function App() {
                     <div className="flex-1 overflow-y-auto max-h-[360px] pr-1.5 space-y-3">
                       {/* Name */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Branch / Business Name *
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. KayKay's - Syokimau Hub"
+                          placeholder="e.g. Syokimau branch"
                           value={newBizName}
                           onChange={(e) => setNewBizName(e.target.value)}
                           className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-bold"
@@ -5135,12 +5094,12 @@ export default function App() {
 
                       {/* Description */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Description
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. Cold room distribution & delivery spot"
+                          placeholder="e.g. Next to the bus stage"
                           value={newBizDesc}
                           onChange={(e) => setNewBizDesc(e.target.value)}
                           className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500"
@@ -5149,7 +5108,7 @@ export default function App() {
 
                       {/* Address */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Location Address
                         </label>
                         <input
@@ -5164,7 +5123,7 @@ export default function App() {
                       {/* Row: Type & Currency */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             Business Type
                           </label>
                           <SearchableDropdown
@@ -5185,7 +5144,7 @@ export default function App() {
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             Currency
                           </label>
                           <input
@@ -5200,7 +5159,7 @@ export default function App() {
 
                       {/* Timezone */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Time Zone
                         </label>
                         <SearchableDropdown
@@ -5232,7 +5191,7 @@ export default function App() {
                       {/* Row: Contact Phone & Email */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             Contact Phone
                           </label>
                           <input
@@ -5244,7 +5203,7 @@ export default function App() {
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             Contact Email
                           </label>
                           <input
@@ -5259,7 +5218,7 @@ export default function App() {
 
                       {/* Default Payment Methods */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Default Payment Methods
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -5284,14 +5243,14 @@ export default function App() {
                                     ]);
                                   }
                                 }}
-                                className={`py-1.5 px-3 rounded-lg border text-[10px] font-bold uppercase transition flex items-center justify-between cursor-pointer ${
+                                className={`py-1.5 px-3 rounded-lg border text-[10px] font-bold transition flex items-center justify-between cursor-pointer ${
                                   isChecked
                                     ? 'bg-amber-500/10 border-amber-500 text-amber-500'
                                     : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-400 dark:text-slate-500'
                                 }`}
                               >
                                 <span>{method}</span>
-                                <span>{isChecked ? '✓' : ''}</span>
+                                {isChecked && <Check size={12} />}
                               </button>
                             );
                           })}
@@ -5300,7 +5259,7 @@ export default function App() {
 
                       {/* Logo Image Upload */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Branch Logo Picture
                         </label>
                         <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
@@ -5322,14 +5281,14 @@ export default function App() {
                             cropAspect={1}
                             buttonText="Upload Logo"
                             bucketName="business-logos"
-                            className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[9px] rounded-lg transition uppercase tracking-wider select-none text-center w-full cursor-pointer"
+                            className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-[11px] rounded-lg transition select-none text-center w-full cursor-pointer"
                           />
                         </div>
                       </div>
 
                       {/* Cover Image Upload */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                        <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           Branch Cover Image
                         </label>
                         <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
@@ -5351,7 +5310,7 @@ export default function App() {
                             cropAspect={1.6}
                             buttonText="Upload Cover"
                             bucketName="business-logos"
-                            className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[9px] rounded-lg transition uppercase tracking-wider select-none text-center w-full cursor-pointer"
+                            className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-[11px] rounded-lg transition select-none text-center w-full cursor-pointer"
                           />
                         </div>
                       </div>
@@ -5374,15 +5333,15 @@ export default function App() {
                           setNewBizType('Retail');
                           setNewBizPaymentMethods(['Cash', 'M-Pesa']);
                         }}
-                        className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold uppercase text-[9.5px] text-slate-400 dark:text-slate-500 cursor-pointer"
+                        className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-[11px] text-slate-400 dark:text-slate-500 cursor-pointer"
                       >
                         Back
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl uppercase text-[9.5px] cursor-pointer"
+                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl text-[11px] cursor-pointer"
                       >
-                        Establish Branch
+                        Add branch
                       </button>
                     </div>
                   </form>
@@ -5393,7 +5352,7 @@ export default function App() {
                       e.preventDefault();
                       if (!editBizName.trim()) {
                         showToast(
-                          'Validation Error',
+                          'Check the form',
                           'Branch/Business Name is required.',
                           undefined,
                           'error',
@@ -5419,7 +5378,7 @@ export default function App() {
                     className="flex flex-col gap-3.5 text-xs font-semibold animate-fade-in"
                   >
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                      <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         Branch / Business Name *
                       </label>
                       <input
@@ -5430,7 +5389,7 @@ export default function App() {
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                      <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         Description
                       </label>
                       <input
@@ -5441,7 +5400,7 @@ export default function App() {
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                      <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         Location Address
                       </label>
                       <input
@@ -5454,7 +5413,7 @@ export default function App() {
 
                     {/* Logo Image Upload / Edit */}
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
+                      <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         Update Logo Picture
                       </label>
                       <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5">
@@ -5476,7 +5435,7 @@ export default function App() {
                           cropAspect={1}
                           buttonText="Change Logo"
                           bucketName="business-logos"
-                          className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[9px] rounded-lg transition uppercase tracking-wider select-none text-center w-full cursor-pointer"
+                          className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-[11px] rounded-lg transition select-none text-center w-full cursor-pointer"
                         />
                       </div>
                     </div>
@@ -5488,13 +5447,13 @@ export default function App() {
                           setEditingBizId(null);
                           setEditBizLogo('');
                         }}
-                        className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold uppercase text-[9.5px] text-slate-400 dark:text-slate-500"
+                        className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-[11px] text-slate-400 dark:text-slate-500"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl uppercase text-[9.5px]"
+                        className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl text-[11px]"
                       >
                         Save Details
                       </button>

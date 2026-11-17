@@ -181,7 +181,7 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
       {card.kind === 'poster' && (
         <div>
           <p className="text-sm font-medium text-app-text">Picture <span className="font-normal text-app-text-muted">(optional, sits on the right)</span></p>
-          <p className="text-xs text-app-text-muted">A product with the background removed looks best. When uploading, tap "Remove" on the crop screen.</p>
+          <p className="text-xs text-app-text-muted">Photos without a background look best.</p>
           {card.image && (
             <div className="mt-2 flex items-center gap-3">
               <img src={card.image} alt="" className="size-16 rounded-lg border border-app-border object-contain p-1" style={{ background: 'repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 0 0 / 12px 12px' }} />
@@ -302,7 +302,7 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
       <section className={`${cardClass} space-y-3`}>
         <h3 className="font-bold text-app-text">Adverts</h3>
         <p className="text-sm text-app-text-muted">
-          {loadError} Check your connection. If this keeps happening, the database update for adverts (20261114006) may not be installed yet.
+          {loadError} Check your connection and try again.
         </p>
         <button type="button" onClick={load} className={secondaryClass}>Try again</button>
       </section>

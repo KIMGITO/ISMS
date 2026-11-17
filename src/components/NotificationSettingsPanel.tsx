@@ -2,7 +2,7 @@
 // The switches for what this person gets notified about, used by the Notifications page and Settings.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bell, BellOff, BellRing, Bike, ClipboardList, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
+import { Bell, BellOff, BellRing, Bike, ClipboardList, CalendarClock, CircleDollarSign, Megaphone, PackageSearch, ShieldCheck, ShoppingBag, Wallet, Lightbulb } from 'lucide-react';
 import { NotificationPreferences, NotificationSettings } from '../services/notifications/notificationPreferences';
 import { NotificationRepository } from '../services/notifications/notificationRepository';
 import { useBusinessStore } from '../stores/businessStore';
@@ -12,17 +12,17 @@ import RingToneSetting from './RingToneSetting';
 import AlarmHealthCard from './AlarmHealthCard';
 
 const CATEGORY_DETAILS: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
-  stock: { label: 'Stock alerts', description: 'Low stock, products running out, and stock between branches', icon: <PackageSearch size={15} /> },
-  buying: { label: 'Buying', description: 'What to reorder each morning, and supplier bills coming due', icon: <ClipboardList size={15} /> },
-  approvals: { label: 'Approvals', description: 'Purchases, transfers and supplier bills waiting for someone to approve them', icon: <ShieldCheck size={15} /> },
+  stock: { label: 'Stock alerts', description: 'Low stock and branch transfers', icon: <PackageSearch size={15} /> },
+  buying: { label: 'Buying', description: 'What to reorder, and bills due', icon: <ClipboardList size={15} /> },
+  approvals: { label: 'Approvals', description: 'Purchases, transfers and bills to approve', icon: <ShieldCheck size={15} /> },
   sales: { label: 'Sales reports', description: 'Daily, weekly and monthly summaries', icon: <Wallet size={15} /> },
   debts: { label: 'Debt reminders', description: 'Customer debts that are due', icon: <CircleDollarSign size={15} /> },
   deliveries: { label: 'Deliveries', description: 'Assigned and completed deliveries', icon: <Bike size={15} /> },
   payments: { label: 'Payments', description: 'M-Pesa results and low cash balance', icon: <CircleDollarSign size={15} /> },
-  online_store: { label: 'Online store', description: 'New website orders and possible duplicate customers', icon: <ShoppingBag size={15} /> },
-  schedules: { label: 'Schedule reminders', description: 'Your reminders and shift reminders. They ring at the set time until you accept them', icon: <CalendarClock size={15} /> },
-  unaccepted: { label: 'Alerts not accepted', description: 'When a reminder or urgent alert rings for 15 minutes and nobody accepts it', icon: <BellRing size={15} /> },
-  ai: { label: 'AI insights', description: 'Business suggestions and risk alerts', icon: <Sparkles size={15} /> },
+  online_store: { label: 'Online store', description: 'New website orders', icon: <ShoppingBag size={15} /> },
+  schedules: { label: 'Schedule reminders', description: 'Your reminders and shift reminders', icon: <CalendarClock size={15} /> },
+  unaccepted: { label: 'Alerts not accepted', description: 'Alerts nobody accepted in 15 minutes', icon: <BellRing size={15} /> },
+  ai: { label: 'AI insights', description: 'Business suggestions and risk alerts', icon: <Lightbulb size={15} /> },
   announcements: { label: 'Announcements', description: 'Shift updates and messages from your business', icon: <Megaphone size={15} /> },
   account: { label: 'Account and security', description: 'Role invitations and account activity', icon: <ShieldCheck size={15} /> },
 };

@@ -287,7 +287,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
   const useSuggested = async () => {
     const ok = await appDialog.confirm({
       title: `Set ${withSuggestion.length} reorder levels from sales?`,
-      message: 'Each level becomes what sold per day over the last 30 days, times (lead time + safety days). Products that did not sell keep their level.',
+      message: 'Set from the last 30 days of sales.',
       confirmLabel: 'Set levels',
     });
     if (!ok) return;
@@ -306,7 +306,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
     <div className="space-y-3">
       <Card
         title={low.length ? `${low.length} ${low.length === 1 ? 'product is' : 'products are'} at or below the reorder level` : 'Nothing is below its reorder level'}
-        subtitle="The level is the reorder level, else the low-stock level. What is already ordered or on the way is taken off. A branch with plenty is suggested before buying."
+        subtitle="Below reorder level and not on order."
         action={
           <div className="flex gap-2 flex-wrap">
             {canAsk && toAsk.length > 0 && (
@@ -569,7 +569,7 @@ function ApprovalsTab({ overview, canApprove, canBill, onChanged, onToast }: {
         )}
       </Card>
 
-      <Card title="Supplier bills to check" subtitle="The bill differs from the goods received by more than allowed. It counts and can be paid once checked.">
+      <Card title="Supplier bills to check" subtitle="Bill and goods differ. Check before paying.">
         {bills.length === 0 ? <p className="text-sm text-app-text-muted">None.</p> : (
           <ul className="divide-y divide-app-border/60">
             {bills.map((b) => (
@@ -826,7 +826,7 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
     <div className="space-y-3">
       <Card
         title="Approval limits"
-        subtitle="Per role. A purchase or transfer above the limit of the person who places it waits for someone whose limit covers it. Empty means no limit. The owner and admins never need approval."
+        subtitle="Above the limit needs approval. Empty: no limit."
       >
         <div className="grid gap-3 sm:grid-cols-2">
           {LIMIT_ROLES.map((role) => (
@@ -850,7 +850,7 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {ro ? (
-            <p className="text-xs text-app-text-muted">Only the owner or an admin can change these, so nobody raises their own limit.</p>
+            <p className="text-xs text-app-text-muted">Only the owner or an admin can change these.</p>
           ) : (
             <button className={primaryBtn} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
           )}

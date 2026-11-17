@@ -783,7 +783,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
         <label className="block text-sm font-medium text-app-text">
           Website name
-          <span className="block font-normal text-app-text-muted">Your website stays hidden while this is empty. It must match the name the website was built with.</span>
+          <span className="block font-normal text-app-text-muted">The website stays hidden until this is set.</span>
           <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="kaykays" className={`${inputClass} mt-1`} />
         </label>
         <Switch

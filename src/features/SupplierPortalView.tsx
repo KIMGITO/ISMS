@@ -232,13 +232,13 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
 
         {data && tab === 'requests' && (
           requests.filter((r) => match([r.productName, r.note])).length === 0
-            ? <Empty>No requests yet. When {account.businessName} needs stock from you, it rings on your phone and shows here.</Empty>
+            ? <Empty>No requests yet.</Empty>
             : <div className="space-y-2">{requests.filter((r) => match([r.productName, r.note])).map((r) => <RequestCard key={r.id} request={r} businessName={account.businessName} onDone={load} />)}</div>
         )}
 
         {data && tab === 'orders' && (
           data.orders.filter((o) => match([o.number, ...o.lines.map((l) => l.name)])).length === 0
-            ? <Empty>No orders yet. When {account.businessName} orders from you, it shows here.</Empty>
+            ? <Empty>No orders yet.</Empty>
             : <div className="space-y-2">{data.orders.filter((o) => match([o.number, ...o.lines.map((l) => l.name)])).map((o) => <OrderCard key={o.id} order={o} onDone={load} />)}</div>
         )}
 

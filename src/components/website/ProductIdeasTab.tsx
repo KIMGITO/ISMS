@@ -3,7 +3,7 @@
 // planned or available. Votes come only from customers (vote_product_idea); the database
 // ignores any vote count written here.
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, EyeOff, Lightbulb, PackageCheck, Plus, Sparkles, ThumbsUp, Trash2 } from 'lucide-react';
+import { CheckCircle2, EyeOff, Lightbulb, PackageCheck, Plus, ThumbsUp, Trash2 } from 'lucide-react';
 import SearchableDropdown from '../SearchableDropdown';
 import { getSupabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
@@ -84,7 +84,7 @@ export default function ProductIdeasTab({ businessId }: { businessId: string }) 
       setIdeas([]);
       setLoadError(
         (err as { code?: string }).code === '42P01'
-          ? 'Product ideas need the database update 20261114005_product_ideas.sql. Apply it, then reopen this tab.'
+          ? 'Product ideas are not available right now. Try again later.'
           : toUserMessage(err, 'Could not load product ideas. Check your connection and try again.'),
       );
     });
@@ -229,7 +229,7 @@ export default function ProductIdeasTab({ businessId }: { businessId: string }) 
                     )}
                     {(idea.status === 'open' || idea.status === 'pending') && (
                       <button disabled={busy} className={secondaryClass} onClick={() => update(idea, { status: 'planned', staff_note: note.trim() || null }, `"${idea.title}" marked as planned.`)}>
-                        <Sparkles size={16} /> We'll make it
+                        <PackageCheck size={16} /> We'll make it
                       </button>
                     )}
                     {(idea.status === 'open' || idea.status === 'planned') && linking[idea.id] && (

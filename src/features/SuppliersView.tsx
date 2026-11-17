@@ -377,7 +377,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
   const choose = async (p: PurchaseOrder, q: SupplierQuote) => {
     const ok = await appDialog.confirm({
       title: `Order from ${q.supplier}?`,
-      message: `Their prices become the order (${formatCurrency(q.total)}). Items they can't supply are taken off. The other suppliers are marked as not chosen.`,
+      message: `Their prices become the order (${formatCurrency(q.total)}).`,
       confirmLabel: 'Order from them',
     });
     if (!ok) return;
@@ -409,7 +409,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
   const removePurchase = async (p: PurchaseOrder) => {
     const ok = await appDialog.confirm({
       title: `Delete ${purchaseRef(p)}?`,
-      message: 'It is removed for good. Only drafts and cancelled purchases can be deleted.',
+      message: 'Deleted for good.',
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -997,7 +997,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
       {reasonFor && (
         <ReasonSheet
           title={reasonFor.kind === 'reject' ? `Don't approve ${purchaseRef(reasonFor.purchase)}?` : `Close ${purchaseRef(reasonFor.purchase)}?`}
-          message={reasonFor.kind === 'reject' ? 'It goes back to a draft and the person who placed it is told why.' : 'What has arrived stays; the rest is no longer expected.'}
+          message={reasonFor.kind === 'reject' ? 'It goes back to a draft.' : 'What has arrived stays.'}
           placeholder={reasonFor.kind === 'reject' ? 'e.g. Buy half this week' : 'e.g. Supplier out of stock'}
           confirmLabel={reasonFor.kind === 'reject' ? 'Not approved' : 'Close purchase'}
           destructive={reasonFor.kind === 'reject'}
@@ -1064,7 +1064,7 @@ function AskPricesSheet({ purchase, suppliers, already, onClose, onDone }: {
   return (
     <FormSheet
       title={`Ask for prices · ${purchaseRef(purchase)}`}
-      subtitle="Choose who to ask. You then send each one the list by WhatsApp, SMS or email from the purchase."
+      subtitle="Choose who to ask."
       onClose={onClose}
       footer={<button className={primaryBtn} disabled={!picked.size || busy} onClick={() => void save()}>{busy ? 'Saving…' : `Ask ${picked.size || ''} ${picked.size === 1 ? 'supplier' : 'suppliers'}`}</button>}
     >
