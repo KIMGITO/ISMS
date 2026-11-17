@@ -15,6 +15,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { toUserMessage } from '../utils/userError';
 import { GroupedTabs, type TabGroup } from '../components/TabOptions';
 import FinanceView from './FinanceView';
+import AreaAdvisor from '../components/assistant/AreaAdvisor';
 import SearchableDropdown from '../components/SearchableDropdown';
 import { Checkbox } from '../components/shared/Checkbox';
 import { useAuthStore } from '../stores/authStore';
@@ -222,6 +223,7 @@ export default function AccountingView() {
         <div className="flex items-center gap-2 flex-wrap">
           <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} className="w-full" />
         </div>
+        {(seesBooks || seesSummary) && <AreaAdvisor area="finance" />}
 
         {tab !== 'accounts' && tab !== 'receivables' && tab !== 'payables' && tab !== 'checks' && tab !== 'settings' && (
           <div className="flex items-center gap-2 flex-wrap">

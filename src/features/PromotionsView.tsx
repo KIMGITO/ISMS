@@ -1,5 +1,5 @@
 // src/features/PromotionsView.tsx
-// Promotions & Referrals: one place for promotion codes (till and website) and the referral
+// Promotions & Points: one place for loyalty points, promotion codes (till and website) and the referral
 // programme. Overview shows how codes did; Promotions lists and edits codes; Referrals runs the
 // programme, its review queue and costs. Every figure and rule comes from the database
 // (services/promotions.ts); this screen never works out a discount itself.
@@ -19,6 +19,10 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { FormSheet } from '../components/shared/FormSheet';
 import { Switch } from '../components/shared/Switch';
+import AreaAdvisor from '../components/assistant/AreaAdvisor';
+import { PointsReport } from '../components/loyalty/PointsReport';
+import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
+import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listBranches, type Branch } from '../services/buying';
 import {
   listPromotions, savePromotion, setPromotionStatus, generatePromoCode, listPromotionUses, promotionDashboard,
@@ -28,7 +32,7 @@ import {
   type ReferralCampaignDraft, type PromoType, type RewardKind, type ProductScope, type ReferralRow,
 } from '../services/promotions';
 
-type Tab = 'overview' | 'promotions' | 'referrals';
+type Tab = 'overview' | 'promotions' | 'referrals' | 'points';
 
 // ─────────────────────────────────────────────── small helpers
 const ksh = (n: number | null | undefined) => `KSh ${Math.round(Number(n) || 0).toLocaleString('en-KE')}`;
@@ -207,6 +211,34 @@ function Table({ head, rows, empty }: { head: string[]; rows: React.ReactNode[][
   );
 }
 
+// ─────────────────────────────────────────────── points (moved here from Loyalty)
+function PointsTab({ businessId, canConfigure }: { businessId: string; canConfigure: boolean }) {
+  const on = usePointsEnabled(businessId);
+  const customers = useCustomerStore((st) => st.customers);
+  const [key, setKey] = useState(0);
+  const openCustomer = (id: string) => {
+    useUiStore.getState().setSelectedCustomerId(id);
+    useUiStore.getState().setActiveTab('customers');
+  };
+  if (!on) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-app-text">Loyalty points are off</p>
+        {canConfigure ? <PointsSettings businessId={businessId} /> : <p className="text-sm text-app-text-muted">Ask a manager to switch them on.</p>}
+      </div>
+    );
+  }
+  return (
+    <PointsReport
+      key={key}
+      businessId={businessId}
+      customers={customers}
+      onOpenCustomer={openCustomer}
+      settings={canConfigure ? <PointsSettings businessId={businessId} onSaved={() => setKey((k) => k + 1)} /> : undefined}
+    />
+  );
+}
+
 // ─────────────────────────────────────────────── the screen
 export default function PromotionsView() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
@@ -215,15 +247,18 @@ export default function PromotionsView() {
   const seesPromos = can('promotions.view') || can('promotions.manage');
   const seesReferrals = can('referrals.view') || can('referrals.manage');
   const section = useUiStore((s) => s.screenSection);
-  const [tab, setTab] = useState<Tab>(seesPromos ? 'overview' : 'referrals');
+  const seesPoints = can('loyalty.view') || can('loyalty.configure') || can('customers.loyalty') || can('customers.view');
+  const [tab, setTab] = useState<Tab>(seesPromos ? 'overview' : seesReferrals ? 'referrals' : 'points');
   useEffect(() => {
     if (section === 'referrals' && seesReferrals) setTab('referrals');
-  }, [section, seesReferrals]);
+    if (section === 'points' && seesPoints) setTab('points');
+  }, [section, seesReferrals, seesPoints]);
 
   const tabs: { id: Tab; label: string; ok: boolean; shortcut?: string }[] = [
     { id: 'overview', label: 'Overview', ok: seesPromos },
     { id: 'promotions', label: 'Promotions', ok: seesPromos },
     { id: 'referrals', label: 'Referrals', ok: seesReferrals, shortcut: 'referrals' },
+    { id: 'points', label: 'Points', ok: seesPoints, shortcut: 'points' },
   ];
 
   if (!businessId) return null;
@@ -235,11 +270,12 @@ export default function PromotionsView() {
             <BadgePercent size={18} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-app-text">Promotions & Referrals</h2>
-            <p className="text-xs text-app-text-muted">Codes are checked and worked out by the server at every sale.</p>
+            <h2 className="text-sm font-semibold text-app-text truncate">Promotions & Points</h2>
+            <p className="text-xs text-app-text-muted line-clamp-2">Points, codes and referrals in one place.</p>
           </div>
         </div>
-        <div role="tablist" className="flex bg-app-card rounded-xl p-1 shadow-xs">
+        <AreaAdvisor area="rewards" />
+        <div role="tablist" className="flex bg-app-card rounded-xl p-1 shadow-xs overflow-x-auto scrollbar-none">
           {tabs.filter((t) => t.ok).map(({ id, label, shortcut }) => (
             <button
               key={id}
@@ -247,7 +283,7 @@ export default function PromotionsView() {
               aria-selected={tab === id}
               data-shortcut={shortcut}
               onClick={() => setTab(id)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer ${tab === id ? 'bg-amber-500 text-slate-950' : 'text-app-text-muted'}`}
+              className={`flex-1 shrink-0 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap ${tab === id ? 'bg-amber-500 text-slate-950' : 'text-app-text-muted'}`}
             >
               {label}
             </button>
@@ -256,6 +292,7 @@ export default function PromotionsView() {
         {tab === 'overview' && <OverviewTab businessId={businessId} />}
         {tab === 'promotions' && <PromotionsTab businessId={businessId} canManage={can('promotions.manage')} />}
         {tab === 'referrals' && <ReferralsTab businessId={businessId} canManage={can('referrals.manage')} />}
+        {tab === 'points' && <PointsTab businessId={businessId} canConfigure={canConfigurePoints(role)} />}
       </div>
     </div>
   );

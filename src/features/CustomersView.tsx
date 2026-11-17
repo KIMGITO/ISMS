@@ -832,8 +832,9 @@ export default function CustomersView() {
                 data-shortcut="points"
                 title={canConfigurePointsHere ? 'Points report and points settings' : 'Points report'}
                 onClick={() => {
-                  setSelectedCustomerId(null);
-                  setShowPoints(true);
+                  // Points now live with Promotions on one screen.
+                  useUiStore.getState().setScreenSection('points');
+                  useUiStore.getState().setActiveTab('promotions');
                 }}
                 aria-pressed={showPoints}
                 className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${showPoints ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}

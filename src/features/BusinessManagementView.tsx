@@ -13,6 +13,7 @@ import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
 import AirtelPaymentsPanel from "../components/payments/AirtelPaymentsPanel";
 import PaymentMethodsPanel from "../components/payments/PaymentMethodsPanel";
 import ExpensesPanel from "../components/payments/ExpensesPanel";
+import AreaAdvisor from "../components/assistant/AreaAdvisor";
 import { usePaymentMethods } from "../hooks/usePaymentMethods";
 import CardChargeSheet, { type CardChargeResult, describeCard } from "../components/payments/CardChargeSheet";
 import { MONEY_METHODS, methodLabel, normalizeReference, referenceHint } from "../utils/paymentMethods";
@@ -859,7 +860,8 @@ export default function BusinessManagementView({ section = "business" }: { secti
               </div>
             </form>
           ) : activeBiz ? (
-            <div className="space-y-5">
+            <div className="space-y-5 min-w-0">
+              {isMoney && (hasRolePermission(role, "payments.view") || hasRolePermission(role, "expenses.view")) && <AreaAdvisor area="money" />}
               {isMoney && moneyTabs.length > 1 && (
                 <Tabs<typeof activeSubTab>
                   tabs={moneyTabs.map(({ id, label, icon, shortcut }) => ({ id, label, icon, shortcut }))}
