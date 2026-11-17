@@ -58,8 +58,12 @@ export default function SearchableDropdown({
     const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
     const gap = 6;
     const margin = 8;
-    const below = viewportHeight - rect.bottom;
-    const above = rect.top;
+    // Keep clear of the status bar / notch at the top and the phone's bar at the bottom.
+    const css = getComputedStyle(document.documentElement);
+    const insetTop = parseFloat(css.getPropertyValue("--inset-top")) || 0;
+    const insetBottom = parseFloat(css.getPropertyValue("--inset-bottom")) || 0;
+    const below = viewportHeight - rect.bottom - insetBottom;
+    const above = rect.top - insetTop;
     const up = below < 280 && above > below;
     setOpenUp(up);
     const width = Math.min(rect.width, viewportWidth - margin * 2);
@@ -140,13 +144,13 @@ export default function SearchableDropdown({
             close();
           }
         }}
-        className={`w-full flex items-center justify-between bg-app-bg border border-app-border p-2.5 rounded-xl text-xs text-app-text transition focus:outline-none focus:ring-1 focus:ring-amber-500 text-left ${
+        className={`w-full flex items-center justify-between bg-app-bg border border-app-border h-11 sm:h-10 px-3 gap-2 rounded-xl text-sm text-app-text transition focus:outline-none focus:ring-1 focus:ring-amber-500 text-left ${
           disabled 
             ? "opacity-50 cursor-not-allowed border-app-border/40" 
             : "hover:border-amber-500/50 cursor-pointer"
         }`}
       >
-        <span className={selectedItem ? "text-app-text font-bold truncate" : "text-app-text-muted font-medium "}>
+        <span className={selectedItem ? "text-app-text font-medium truncate" : "text-app-text-muted truncate"}>
           {selectedItem ? selectedItem.label : placeholder}
         </span>
         <ChevronDown size={14} className={`text-app-text-muted transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />

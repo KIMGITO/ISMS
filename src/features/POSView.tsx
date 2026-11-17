@@ -49,6 +49,7 @@ import { markQuoteSold } from '../services/salesDocs';
 import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
 import { useVatPercent } from '../services/kra/kraService';
 import { promoCheck, promoReserve, promoRelease, type PromoResult } from '../services/promotions';
+import { NumberInput } from '../components/shared/Input';
 
 
 // The three ways a delivery is paid at the till (see DeliveryMode in types.ts).
@@ -986,16 +987,15 @@ export default function POSView() {
                           <label className="text-[9px] font-black text-app-text-muted uppercase">
                             {deliveryMode === 'charged' ? 'Fee (KSh)' : 'Rider gets (KSh)'}
                           </label>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumberInput
+                            min={0}
                             placeholder="0"
                             value={deliveryFee || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
+                            onChange={(v) => {
+                              const val = (v ?? NaN);
                               setDeliveryFee(isNaN(val) ? 0 : val);
                             }}
-                            className="h-10 w-full min-w-0 bg-app-bg border border-app-border rounded-xl px-3 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-right"
+                            size="sm" className="w-full min-w-0" inputClassName="font-mono text-right"
                           />
                         </div>
 
@@ -1088,15 +1088,13 @@ export default function POSView() {
                 {pointsOn && selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
                   <label className="flex flex-col gap-1 p-3 bg-app-bg/50 border border-app-border rounded-2xl text-xs font-medium text-app-text">
                     Use points ({selectedCustomer.loyaltyPoints.toLocaleString()} available)
-                    <input
-                      type="number"
-                      min="0"
+                    <NumberInput decimals={0}
+                      min={0}
                       max={selectedCustomer.loyaltyPoints}
-                      inputMode="numeric"
                       value={pointsToUse}
-                      onChange={(e) => setPointsToUse(e.target.value)}
+                      onChange={(v) => setPointsToUse((v == null ? '' : String(v)))}
                       placeholder="Points to take off this sale"
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      size="sm"
                     />
                   </label>
                 )}
@@ -1172,17 +1170,16 @@ export default function POSView() {
                           KSh
                         </button>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberInput
+                        min={0}
                         placeholder="0"
                         aria-label={cartDiscountType === 'percent' ? 'Discount in percent' : 'Discount in KSh'}
                         value={cartDiscountValue || ''}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
+                        onChange={(v) => {
+                          const val = (v ?? NaN);
                           setCartDiscountValue(isNaN(val) ? 0 : val);
                         }}
-                        className="h-10 flex-1 w-full min-w-0 bg-app-bg border border-app-border rounded-xl px-3 text-xs text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500 text-right font-mono"
+                        size="sm" className="flex-1 w-full min-w-0" inputClassName="text-right font-mono"
                       />
                     </div>
                   </div>
@@ -1524,14 +1521,12 @@ export default function POSView() {
                 <CheckCircle2 size={32} />
               </div>
               <h3 className="text-sm font-extrabold font-display text-app-text uppercase tracking-wide">
-                Transaction Recorded!
+                Sale saved
               </h3>
               <p className="text-[11px] text-app-text-muted mt-1 max-w-xs leading-relaxed font-medium">
-                The order was logged successfully. Sync status:{' '}
                 <span className="text-emerald-500 font-bold">
-                  {isOnline ? 'Cloud Synced' : 'Offline Queued'}
+                  {isOnline ? 'Saved online.' : 'Saved on this device. It goes online when the internet is back.'}
                 </span>
-                .
               </p>
 
               <div className="w-full bg-app-bg border border-app-border rounded-2xl p-3 my-4 text-[10.5px] text-left font-mono space-y-0.5">

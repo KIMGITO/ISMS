@@ -14,6 +14,7 @@ import {
 } from '../../services/buying';
 import type { PurchaseOrder, Supplier } from '../../services/operations';
 import type { Product } from '../../types';
+import { NumberInput } from '../shared/Input';
 
 const METHODS = ['Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
@@ -151,20 +152,16 @@ export function ReceiveSheet({
             </p>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Field label="Good, into stock">
-                <input
-                  type="number" inputMode="decimal" min="0" step="any"
+                <NumberInput min={0}
                   value={got[l.id!]?.good ?? ''}
-                  onChange={(e) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], good: e.target.value } }))}
-                  className={fieldClass}
+                  onChange={(v) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], good: (v == null ? '' : String(v)) } }))}
                 />
               </Field>
               <Field label="Damaged">
-                <input
-                  type="number" inputMode="decimal" min="0" step="any"
+                <NumberInput min={0}
                   value={got[l.id!]?.damaged ?? ''}
                   placeholder="0"
-                  onChange={(e) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], damaged: e.target.value } }))}
-                  className={fieldClass}
+                  onChange={(v) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], damaged: (v == null ? '' : String(v)) } }))}
                 />
               </Field>
             </div>
@@ -267,10 +264,10 @@ export function BillSheet({
           <input type="date" value={billDate} max={today()} onChange={(e) => setBillDate(e.target.value)} className={fieldClass} />
         </Field>
         <Field label="Amount before VAT (KSh)" hint={`Goods received at the order price: ${formatCurrency(goods)}`}>
-          <input type="number" inputMode="decimal" min="0" step="0.01" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} className={fieldClass} />
+          <NumberInput min={0} value={subtotal} onChange={(v) => setSubtotal((v == null ? '' : String(v)))} />
         </Field>
         <Field label="VAT on the bill (KSh)" hint="Claimed back from KRA; shown on the VAT page">
-          <input type="number" inputMode="decimal" min="0" step="0.01" value={vat} onChange={(e) => setVat(e.target.value)} className={fieldClass} />
+          <NumberInput min={0} value={vat} onChange={(v) => setVat((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Pay by">
           <input type="date" value={dueDate} min={billDate} onChange={(e) => setDueDate(e.target.value)} className={fieldClass} />
@@ -329,7 +326,7 @@ export function PayBillSheet({ bill, onClose, onDone }: { bill: SupplierBill; on
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Amount (KSh)">
-          <input type="number" inputMode="decimal" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className={fieldClass} />
+          <NumberInput min={0} value={value} onChange={(v) => setValue((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Paid from">
           <SearchableDropdown items={METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={setMethod} placeholder="Choose how" />
@@ -462,11 +459,10 @@ export function ReturnSheet({
               <p className="text-[11px] text-app-text-muted">{q3(r.p?.stock || 0)} {r.p?.unit} in stock · {formatCurrency(priceOf(r.productId))} each</p>
               {r.problem && <p className="text-[11px] text-red-600 dark:text-red-400">{r.problem}</p>}
             </div>
-            <input
-              type="number" inputMode="decimal" min="0" step="any" value={r.qty}
-              onChange={(e) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: e.target.value } : l)))}
+            <NumberInput min={0} value={r.qty}
+              onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
               aria-label="How much goes back"
-              className="w-24 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums"
+              size="sm" className="w-24" inputClassName="text-right tabular-nums"
             />
             <button onClick={() => setLines((ls) => ls.filter((l) => l.productId !== r.productId))} aria-label="Remove" className="p-1.5 rounded-lg text-app-text-muted hover:text-red-500 cursor-pointer">
               <Trash2 size={15} />

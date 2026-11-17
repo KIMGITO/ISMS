@@ -20,6 +20,7 @@ import { fetchOpenCredit, issueInvoice, nextInvoiceNumber } from '../../services
 import { InvoiceShareService } from '../../services/invoice/InvoiceShareService';
 import { InvoicePaper } from './InvoicePaper';
 import { InvoiceLookControls } from './InvoiceLookControls';
+import { NumberInput } from '../shared/Input';
 
 interface Props {
   /** Make a new invoice for this customer. */
@@ -513,7 +514,7 @@ export function InvoiceSheet({ customer, issued, onClose, onIssued }: Props) {
                           <div className="grid grid-cols-2 gap-3">
                             <Field label="Thank-you line" hint={doc.texts.closingFromReceipt !== false && doc.closing?.thankYou ? 'The receipt\'s is used while "Close like the receipt" is on.' : undefined}><input className={field} value={doc.texts.thankYou} onChange={(e) => setTexts({ thankYou: e.target.value })} /></Field>
                             <Field label="Days to pay">
-                              <input type="number" min={0} max={365} className={field} value={doc.texts.dueDays} onChange={(e) => setTexts({ dueDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) })} />
+                              <NumberInput min={0} max={365} value={doc.texts.dueDays} onChange={(v) => setTexts({ dueDays: Math.max(0, Math.min(365, (v ?? 0) || 0)) })} />
                             </Field>
                           </div>
                           <InvoiceLookControls texts={doc.texts} set={setTexts} receipt={{ closing: doc.closing, qr: doc.qr }} hasLogo={!!doc.logoUrl} />

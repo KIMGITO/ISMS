@@ -1,13 +1,17 @@
 // src/features/PromotionsView.tsx
 // Promotions & Points: one place for loyalty points, promotion codes (till and website) and the referral
-// programme. Overview shows how codes did; Promotions lists and edits codes; Referrals runs the
+// programme. Overview shows how codes did; Codes lists and edits codes; Referrals runs the
 // programme, its review queue and costs. Every figure and rule comes from the database
 // (services/promotions.ts); this screen never works out a discount itself.
+// Built from the shared parts (Input, Choice, StatTile, FormSheet, GroupedTabs) so it matches the
+// rest of the app; lists instead of tables so nothing scrolls sideways on a phone.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
-  BadgePercent, Plus, RefreshCw, Search, Gift, AlertTriangle, Check, X, Archive, Power, Pencil,
-  Ban, PauseCircle, PlayCircle, Sparkles,
+  BadgePercent, Plus, RefreshCw, Gift, AlertTriangle, Check, X, Archive, Power, Pencil, Ban, PauseCircle,
+  PlayCircle, Sparkles, Percent, Banknote, ShoppingCart, PackagePlus, Users, UserPlus, Ticket, TrendingUp,
+  Receipt, Coins, Wallet, LayoutGrid, Store, Globe, CalendarDays, Hourglass, ShieldCheck, Package, Tags,
+  UserRound, ArrowRight, Infinity as InfinityIcon, Layers, Clock, Info, Undo2,
 } from 'lucide-react';
 import { useBusinessStore } from '../stores/businessStore';
 import { useInventoryStore } from '../stores/inventoryStore';
@@ -17,8 +21,14 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useUiStore } from '../stores/uiStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
-import { FormSheet } from '../components/shared/FormSheet';
+import { FormSheet, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import { Switch } from '../components/shared/Switch';
+import { Checkbox } from '../components/shared/Checkbox';
+import { Field, TextInput, NumberInput, SearchInput, DateTimeInput } from '../components/shared/Input';
+import { Segmented, ChoiceGrid, FilterChips, type ChoiceOption } from '../components/shared/Choice';
+import { StatTile, StatGrid } from '../components/shared/StatTile';
+import { GroupedTabs, type TabGroup } from '../components/TabOptions';
+import SearchableDropdown from '../components/SearchableDropdown';
 import AreaAdvisor from '../components/assistant/AreaAdvisor';
 import { PointsReport } from '../components/loyalty/PointsReport';
 import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
@@ -27,7 +37,7 @@ import { listBranches, type Branch } from '../services/buying';
 import {
   listPromotions, savePromotion, setPromotionStatus, generatePromoCode, listPromotionUses, promotionDashboard,
   referralDashboard, saveReferralCampaign, endReferralCampaign, decideReferral, setReferralCodeStatus,
-  PROMO_TYPES, PROMO_STATUS_LABEL, REWARD_KINDS, REFERRAL_STATUS_LABEL, REFERRAL_FLAG_LABEL,
+  PROMO_TYPES, PROMO_STATUS_LABEL, REFERRAL_STATUS_LABEL, REFERRAL_FLAG_LABEL,
   type Promotion, type PromotionDraft, type PromotionUse, type PromotionDashboard, type ReferralDashboard,
   type ReferralCampaignDraft, type PromoType, type RewardKind, type ProductScope, type ReferralRow,
 } from '../services/promotions';
@@ -38,24 +48,43 @@ type Tab = 'overview' | 'promotions' | 'referrals' | 'points';
 const ksh = (n: number | null | undefined) => `KSh ${Math.round(Number(n) || 0).toLocaleString('en-KE')}`;
 const ksh2 = (n: number | null | undefined) =>
   `KSh ${(Number(n) || 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const num = (n: number | null | undefined) => (Number(n) || 0).toLocaleString('en-KE');
 const day = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const dayShort = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : '';
 const dayTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-/** ISO time -> the value a datetime-local input shows (local time). */
-const toLocalInput = (iso: string | null) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-};
-const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null);
-const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 
-const INPUT = 'h-10 w-full bg-app-bg border border-app-border rounded-xl px-3 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500';
-const LABEL = 'text-[11px] font-semibold text-app-text-muted';
-const BTN_PRIMARY = 'inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-4 py-2.5 cursor-pointer disabled:opacity-50';
-const BTN_QUIET = 'inline-flex items-center gap-1.5 bg-app-bg ring-1 ring-app-border text-app-text font-medium text-sm rounded-xl px-3 py-2 cursor-pointer disabled:opacity-50';
+// Colour = meaning, the same everywhere on this screen.
+const TONE = {
+  amber: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  emerald: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  sky: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  violet: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  rose: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  slate: 'bg-app-bg text-app-text-muted ring-1 ring-app-border',
+};
+
+/** One picture and colour per kind of promotion, used in the list, the detail and the editor. */
+const TYPE_LOOK: Record<PromoType, { icon: React.ReactNode; tone: string; short: string }> = {
+  percentage: { icon: <Percent />, tone: TONE.amber, short: '% off' },
+  fixed: { icon: <Banknote />, tone: TONE.emerald, short: 'KSh off' },
+  min_spend: { icon: <ShoppingCart />, tone: TONE.sky, short: 'Spend & save' },
+  buy_x_get_y: { icon: <PackagePlus />, tone: TONE.violet, short: 'Buy X get Y' },
+  free_product: { icon: <Gift />, tone: TONE.rose, short: 'Free item' },
+  customer: { icon: <Users />, tone: TONE.sky, short: 'Chosen people' },
+  first_purchase: { icon: <UserPlus />, tone: TONE.emerald, short: 'First buy' },
+};
+
+const REWARD_LOOK: ChoiceOption<RewardKind>[] = [
+  { id: 'amount', label: 'KSh off', icon: <Banknote />, tone: TONE.emerald },
+  { id: 'percent', label: '% off', icon: <Percent />, tone: TONE.amber },
+  { id: 'wallet', label: 'Wallet', icon: <Wallet />, tone: TONE.sky },
+  { id: 'free_product', label: 'Free item', icon: <Gift />, tone: TONE.rose },
+  { id: 'points', label: 'Points', icon: <Coins />, tone: TONE.violet },
+];
 
 const STATUS_TONE: Record<string, string> = {
   active: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
@@ -66,32 +95,43 @@ const STATUS_TONE: Record<string, string> = {
   pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   reserved: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   partially_refunded: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  suspended: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  revoked: 'bg-red-500/12 text-red-700 dark:text-red-300',
+  rejected: 'bg-red-500/12 text-red-700 dark:text-red-300',
 };
 function Chip({ status, label }: { status: string; label?: string }) {
   return (
-    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${STATUS_TONE[status] ?? 'bg-app-bg text-app-text-muted ring-1 ring-app-border'}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${STATUS_TONE[status] ?? 'bg-app-bg text-app-text-muted ring-1 ring-app-border'}`}>
+      <span className="size-1.5 rounded-full bg-current opacity-70" />
       {label ?? status.replace(/_/g, ' ')}
     </span>
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
+/** A small round icon in a colour. */
+function Dot({ icon, tone, size = 'md' }: { icon: React.ReactNode; tone: string; size?: 'sm' | 'md' }) {
   return (
-    <div className="rounded-xl bg-app-bg p-3 min-w-0">
-      <p className="text-[11px] text-app-text-muted truncate">{label}</p>
-      <p className="text-lg font-bold text-app-text tabular-nums truncate">{value}</p>
-      {sub != null && <p className="text-[11px] text-app-text-muted truncate">{sub}</p>}
-    </div>
+    <span className={`grid place-items-center shrink-0 rounded-xl ${size === 'sm' ? 'size-8 [&>svg]:size-4' : 'size-10 [&>svg]:size-[18px]'} ${tone}`}>{icon}</span>
   );
 }
 
-const PERIODS = [
+/** A small grey fact with an icon: "Min KSh 300", "3-day wait". */
+function Fact({ icon, children, tone }: { icon: React.ReactNode; children: React.ReactNode; tone?: 'warn' }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium whitespace-nowrap [&>svg]:size-3 ${tone === 'warn' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-app-bg text-app-text-muted'}`}>
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+const PERIODS: ChoiceOption<'7' | '30' | '90' | 'month'>[] = [
   { id: '7', label: '7 days' },
   { id: '30', label: '30 days' },
   { id: '90', label: '90 days' },
-  { id: 'month', label: 'This month' },
-] as const;
-type PeriodId = (typeof PERIODS)[number]['id'];
+  { id: 'month', label: 'Month' },
+];
+type PeriodId = '7' | '30' | '90' | 'month';
 function periodRange(p: PeriodId): { from: string; to: string } {
   const today = new Date();
   if (p === 'month') return { from: ymd(new Date(today.getFullYear(), today.getMonth(), 1)), to: ymd(today) };
@@ -99,21 +139,100 @@ function periodRange(p: PeriodId): { from: string; to: string } {
   from.setDate(from.getDate() - (Number(p) - 1));
   return { from: ymd(from), to: ymd(today) };
 }
-function PeriodPicker({ value, onChange }: { value: PeriodId; onChange: (p: PeriodId) => void }) {
+
+/** Period choice and a refresh button: the first row of Overview and Referrals. */
+function PeriodBar({ value, onChange, onRefresh, loading }: { value: PeriodId; onChange: (p: PeriodId) => void; onRefresh: () => void; loading: boolean }) {
   return (
-    <div role="radiogroup" aria-label="Period" className="flex bg-app-bg rounded-xl p-1 ring-1 ring-app-border">
-      {PERIODS.map((p) => (
-        <button
-          key={p.id}
-          role="radio"
-          aria-checked={value === p.id}
-          onClick={() => onChange(p.id)}
-          className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer ${value === p.id ? 'bg-app-card text-app-text shadow-xs' : 'text-app-text-muted'}`}
-        >
-          {p.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2">
+      <Segmented options={PERIODS} value={value} onChange={onChange} ariaLabel="Period" className="flex-1 bg-app-card" />
+      <button type="button" onClick={onRefresh} aria-label="Refresh" className="grid place-items-center size-11 sm:size-10 shrink-0 rounded-xl bg-app-card ring-1 ring-app-border text-app-text-muted hover:text-app-text cursor-pointer">
+        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+      </button>
     </div>
+  );
+}
+
+/** A white card with a title row. */
+function Card({ title, icon, action, children, className = '' }: { title?: string; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`bg-app-card rounded-2xl shadow-xs min-w-0 overflow-hidden ${className}`}>
+      {(title || action) && (
+        <div className="flex items-center gap-2 px-4 pt-3.5 pb-2 min-w-0">
+          {icon && <span className="shrink-0 text-app-text-muted [&>svg]:size-4">{icon}</span>}
+          {title && <h3 className="text-sm font-semibold text-app-text truncate flex-1">{title}</h3>}
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/** One line of a ranked list: name on the left, the figure on the right, an optional share bar. */
+function MetricRow({ lead, title, sub, value, valueSub, share, onClick }: {
+  lead?: React.ReactNode; title: React.ReactNode; sub?: React.ReactNode; value: React.ReactNode; valueSub?: React.ReactNode;
+  /** 0–1: how big this row is next to the biggest. */
+  share?: number; onClick?: () => void;
+}) {
+  const Comp: React.ElementType = onClick ? 'button' : 'div';
+  return (
+    <Comp onClick={onClick} className={`w-full text-left flex items-center gap-3 px-4 py-2.5 min-w-0 ${onClick ? 'hover:bg-app-bg cursor-pointer' : ''}`}>
+      {lead}
+      <div className="min-w-0 flex-1">
+        <div className="text-sm text-app-text truncate">{title}</div>
+        {sub && <div className="text-[11px] text-app-text-muted truncate">{sub}</div>}
+        {share != null && (
+          <div className="mt-1.5 h-1 rounded-full bg-app-bg overflow-hidden">
+            <div className="h-full rounded-full bg-amber-500/70" style={{ width: `${Math.max(3, Math.min(100, share * 100))}%` }} />
+          </div>
+        )}
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-sm font-semibold text-app-text tabular-nums">{value}</div>
+        {valueSub && <div className="text-[11px] text-app-text-muted tabular-nums">{valueSub}</div>}
+      </div>
+    </Comp>
+  );
+}
+
+function Empty({ icon, text, children }: { icon: React.ReactNode; text: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center text-center gap-2 px-4 py-6">
+      <span className="grid place-items-center size-11 rounded-full bg-app-bg text-app-text-muted [&>svg]:size-5">{icon}</span>
+      <p className="text-sm text-app-text-muted max-w-xs">{text}</p>
+      {children}
+    </div>
+  );
+}
+
+function ErrorNote({ text }: { text: string }) {
+  return (
+    <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3 py-2.5">
+      <AlertTriangle size={15} className="shrink-0 mt-0.5" /> {text}
+    </p>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="space-y-3 animate-pulse" aria-label="Loading">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[92px] rounded-2xl bg-app-card" />)}
+      </div>
+      <div className="h-40 rounded-2xl bg-app-card" />
+    </div>
+  );
+}
+
+/** A heading inside a form sheet that splits it into short steps. */
+function Group({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <fieldset className="space-y-3 min-w-0 pt-1">
+      <legend className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-app-text-muted mb-2 [&>svg]:size-3.5">
+        {icon} {title}
+      </legend>
+      {children}
+    </fieldset>
   );
 }
 
@@ -132,82 +251,29 @@ function MultiPicker({ label, options, value, onChange, placeholder }: {
     .slice(0, 40);
   const toggle = (id: string) => onChange(chosen.has(id) ? value.filter((v) => v !== id) : [...value, id]);
   return (
-    <div className="space-y-1.5">
-      <p className={LABEL}>{label}</p>
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {value.map((id) => (
-            <button key={id} type="button" onClick={() => toggle(id)} className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-200 px-2 py-0.5 text-xs cursor-pointer">
-              {options.find((o) => o.id === id)?.name ?? 'Removed'} <X size={11} />
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} className={`${INPUT} pl-8`} />
-      </div>
-      <ul className="max-h-40 overflow-y-auto rounded-xl ring-1 ring-app-border divide-y divide-app-border/60">
-        {shown.length === 0 && <li className="px-3 py-2 text-xs text-app-text-muted">Nothing matches.</li>}
-        {shown.map((o) => (
-          <li key={o.id}>
-            <label className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-app-bg">
-              <input type="checkbox" checked={chosen.has(o.id)} onChange={() => toggle(o.id)} className="accent-amber-500" />
-              <span className="truncate text-app-text">{o.name}</span>
-              {o.sub && <span className="ml-auto text-[11px] text-app-text-muted truncate">{o.sub}</span>}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <label className="flex flex-col gap-1 min-w-0">
-      <span className={LABEL}>{label}</span>
-      {children}
-      {hint && <span className="text-[11px] text-app-text-muted">{hint}</span>}
-    </label>
-  );
-}
-
-function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <section className="bg-app-card rounded-2xl shadow-xs overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-        <h3 className="text-sm font-semibold text-app-text">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Table({ head, rows, empty }: { head: string[]; rows: React.ReactNode[][]; empty: string }) {
-  if (rows.length === 0) return <p className="px-4 pb-4 text-sm text-app-text-muted">{empty}</p>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[11px] text-app-text-muted text-left">
-            {head.map((h, i) => (
-              <th key={h} className={`px-4 py-1.5 font-medium whitespace-nowrap ${i > 0 ? 'text-right' : ''}`}>{h}</th>
+    <Field label={<>{label}{value.length > 0 && <span className="ml-1 text-amber-600 dark:text-amber-400">· {value.length}</span>}</>} group>
+      <div className="space-y-2">
+        {value.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {value.map((id) => (
+              <button key={id} type="button" onClick={() => toggle(id)} className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 pl-2.5 pr-1.5 py-1 text-xs font-medium cursor-pointer">
+                {options.find((o) => o.id === id)?.name ?? 'Removed'} <X size={12} />
+              </button>
             ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-app-border/60">
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {r.map((c, j) => (
-                <td key={j} className={`px-4 py-2 ${j > 0 ? 'text-right tabular-nums whitespace-nowrap' : 'text-app-text'}`}>{c}</td>
-              ))}
-            </tr>
+          </div>
+        )}
+        <SearchInput value={q} onChange={setQ} placeholder={placeholder} />
+        <ul className="max-h-48 overflow-y-auto overscroll-contain rounded-xl ring-1 ring-app-border divide-y divide-app-border/60">
+          {shown.length === 0 && <li className="px-3 py-3 text-xs text-app-text-muted">Nothing matches.</li>}
+          {shown.map((o) => (
+            <li key={o.id} className="px-3 py-2.5 flex items-center gap-2 hover:bg-app-bg">
+              <Checkbox checked={chosen.has(o.id)} onChange={() => toggle(o.id)} label={o.name} className="flex-1 min-w-0" />
+              {o.sub && <span className="text-[11px] text-app-text-muted truncate max-w-[40%]">{o.sub}</span>}
+            </li>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </ul>
+      </div>
+    </Field>
   );
 }
 
@@ -223,8 +289,9 @@ function PointsTab({ businessId, canConfigure }: { businessId: string; canConfig
   if (!on) {
     return (
       <div className="space-y-3">
-        <p className="text-sm font-semibold text-app-text">Loyalty points are off</p>
-        {canConfigure ? <PointsSettings businessId={businessId} /> : <p className="text-sm text-app-text-muted">Ask a manager to switch them on.</p>}
+        {canConfigure ? <PointsSettings businessId={businessId} /> : (
+          <Card><Empty icon={<Coins />} text="Loyalty points are off. Ask a manager to switch them on." /></Card>
+        )}
       </div>
     );
   }
@@ -254,41 +321,24 @@ export default function PromotionsView() {
     if (section === 'points' && seesPoints) setTab('points');
   }, [section, seesReferrals, seesPoints]);
 
-  const tabs: { id: Tab; label: string; ok: boolean; shortcut?: string }[] = [
-    { id: 'overview', label: 'Overview', ok: seesPromos },
-    { id: 'promotions', label: 'Promotions', ok: seesPromos },
-    { id: 'referrals', label: 'Referrals', ok: seesReferrals, shortcut: 'referrals' },
-    { id: 'points', label: 'Points', ok: seesPoints, shortcut: 'points' },
+  // One tab per group: the app's segmented top row, equal parts that fit a 360px phone.
+  const groups: TabGroup<Tab>[] = [
+    { id: 'overview', label: 'Overview', icon: <LayoutGrid size={14} />, tabs: seesPromos ? [{ id: 'overview', label: 'Overview' }] : [] },
+    { id: 'promotions', label: 'Codes', icon: <Ticket size={14} />, tabs: seesPromos ? [{ id: 'promotions', label: 'Codes' }] : [] },
+    { id: 'referrals', label: 'Referrals', icon: <Users size={14} />, shortcut: 'referrals', tabs: seesReferrals ? [{ id: 'referrals', label: 'Referrals' }] : [] },
+    { id: 'points', label: 'Points', icon: <Coins size={14} />, shortcut: 'points', tabs: seesPoints ? [{ id: 'points', label: 'Points' }] : [] },
   ];
 
   if (!businessId) return null;
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
       <div className="max-w-4xl mx-auto px-3 pt-3 sm:px-5 sm:pt-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="grid place-items-center size-9 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
-            <BadgePercent size={18} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-app-text truncate">Promotions & Points</h2>
-            <p className="text-xs text-app-text-muted line-clamp-2">Points, codes and referrals in one place.</p>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <Dot icon={<BadgePercent />} tone={TONE.amber} size="sm" />
+          <h2 className="text-base font-semibold text-app-text truncate">Promotions & Points</h2>
         </div>
+        <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} />
         <AreaAdvisor area="rewards" />
-        <div role="tablist" className="flex bg-app-card rounded-xl p-1 shadow-xs overflow-x-auto scrollbar-none">
-          {tabs.filter((t) => t.ok).map(({ id, label, shortcut }) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={tab === id}
-              data-shortcut={shortcut}
-              onClick={() => setTab(id)}
-              className={`flex-1 shrink-0 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap ${tab === id ? 'bg-amber-500 text-slate-950' : 'text-app-text-muted'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         {tab === 'overview' && <OverviewTab businessId={businessId} />}
         {tab === 'promotions' && <PromotionsTab businessId={businessId} canManage={can('promotions.manage')} />}
         {tab === 'referrals' && <ReferralsTab businessId={businessId} canManage={can('referrals.manage')} />}
@@ -302,14 +352,18 @@ export default function PromotionsView() {
 function OverviewTab({ businessId }: { businessId: string }) {
   const [period, setPeriod] = useState<PeriodId>('30');
   const [data, setData] = useState<PromotionDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       const { from, to } = periodRange(period);
       setData(await promotionDashboard(businessId, from, to));
     } catch (e) {
-      setError(toUserMessage(e, 'Could not load the figures. Has the promotions database update been applied?'));
+      setError(toUserMessage(e, 'Could not load the figures. Try again.'));
+    } finally {
+      setLoading(false);
     }
   }, [businessId, period]);
   useEffect(() => {
@@ -319,91 +373,131 @@ function OverviewTab({ businessId }: { businessId: string }) {
 
   const t = data?.totals;
   const lift = data && data.withoutPromotion.avgNet > 0 && t && t.redemptions > 0 ? (t.avgNet / data.withoutPromotion.avgNet - 1) * 100 : null;
+  const topUses = Math.max(1, ...(data?.byPromotion ?? []).map((p) => p.uses));
+  const topDay = Math.max(1, ...(data?.byDay ?? []).map((d) => d.netSales));
+  const best = useMemo(
+    () => [...(data?.byPromotion ?? [])].filter((p) => p.netPerShilling != null).sort((a, b) => Number(b.netPerShilling) - Number(a.netPerShilling)).slice(0, 5),
+    [data],
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <PeriodPicker value={period} onChange={setPeriod} />
-        <button onClick={() => void load()} className={BTN_QUIET} aria-label="Refresh"><RefreshCw size={14} /></button>
-      </div>
-      {error && <p role="alert" className="rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3 py-2">{error}</p>}
-      {!data && !error && <p className="text-sm text-app-text-muted px-1">Loading…</p>}
+      <PeriodBar value={period} onChange={setPeriod} onRefresh={() => void load()} loading={loading} />
+      {error && <ErrorNote text={error} />}
+      {!data && !error && <Skeleton />}
       {data && t && (
         <>
-          <section className="bg-app-card rounded-2xl p-3 shadow-xs space-y-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Stat label="Times used" value={t.redemptions} sub={`${t.customers} customers`} />
-              <Stat label="Given in discounts" value={ksh(t.discount)} sub={t.grossSales > 0 ? `${((t.discount / t.grossSales) * 100).toFixed(1)}% of gross` : undefined} />
-              <Stat label="Gross on those sales" value={ksh(t.grossSales)} sub="before any discount" />
-              <Stat label="Net on those sales" value={ksh(t.netSales)} sub="after discounts, no VAT" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Stat label="Active" value={data.counts.active} />
-              <Stat label="Scheduled" value={data.counts.scheduled} />
-              <Stat label="Ended or used up" value={data.counts.expired} />
-              <Stat label="All promotions" value={data.counts.total} sub={`${data.counts.off} off · ${data.counts.archived} archived`} />
-            </div>
-            <p className="text-[11px] text-app-text-muted leading-snug px-1">
-              These are sales where a code was used, not extra sales the code caused. Average sale with a code {ksh(t.avgNet)}
-              {' '}vs {ksh(data.withoutPromotion.avgNet)} without ({data.withoutPromotion.sales} sales)
-              {lift != null && <> · {lift >= 0 ? '+' : ''}{lift.toFixed(0)}%</>}.
-              {data.refunds.count + data.refunds.partial > 0 && <> Refunds: {data.refunds.count} full, {data.refunds.partial} part ({ksh(data.refunds.amount)}), left out above.</>}
-            </p>
-          </section>
+          <StatGrid>
+            <StatTile icon={<Ticket />} tone="amber" label="Codes used" value={num(t.redemptions)} note={`${num(t.customers)} customers`} />
+            <StatTile icon={<BadgePercent />} tone="rose" label="Given off" value={ksh(t.discount)} note={t.grossSales > 0 ? `${((t.discount / t.grossSales) * 100).toFixed(1)}% of gross` : undefined} />
+            <StatTile icon={<TrendingUp />} tone="emerald" label="Net sales" value={ksh(t.netSales)} note={`${ksh(t.grossSales)} gross`} />
+            <StatTile
+              icon={<Receipt />}
+              tone="sky"
+              label="Avg sale with code"
+              value={ksh(t.avgNet)}
+              note={lift != null ? `${lift >= 0 ? '+' : ''}${lift.toFixed(0)}% vs ${ksh(data.withoutPromotion.avgNet)}` : `${ksh(data.withoutPromotion.avgNet)} without`}
+              trend={lift == null ? undefined : lift >= 0 ? 'up' : 'down'}
+            />
+          </StatGrid>
 
-          <Section title="Most used codes">
-            <Table
-              head={['Code', 'Uses', 'Discount', 'Net sales', 'Net per KSh 1 off']}
-              empty="No code was used in this period."
-              rows={data.byPromotion.slice(0, 10).map((p) => [
-                <span key="c"><span className="font-mono font-semibold">{p.code}</span> <span className="text-app-text-muted text-xs">{p.name}</span></span>,
-                p.uses, ksh(p.discount), ksh(p.netSales), p.netPerShilling != null ? `KSh ${Number(p.netPerShilling).toFixed(1)}` : '–',
-              ])}
-            />
-          </Section>
-          <Section title="Best return on discount">
-            <Table
-              head={['Code', 'Net per KSh 1 off', 'Discount share', 'Uses']}
-              empty="Nothing yet."
-              rows={[...data.byPromotion].filter((p) => p.netPerShilling != null)
-                .sort((a, b) => Number(b.netPerShilling) - Number(a.netPerShilling)).slice(0, 5)
-                .map((p) => [<span key="c" className="font-mono font-semibold">{p.code}</span>, `KSh ${Number(p.netPerShilling).toFixed(1)}`, `${p.discountShare ?? 0}%`, p.uses])}
-            />
-          </Section>
-          <Section title="By product (till sales)">
-            <Table
-              head={['Product', 'Qty', 'Sold for', 'Discount']}
-              empty="No product had a code discount in this period."
-              rows={data.byProduct.slice(0, 15).map((p) => [
-                <span key="n">{p.name} <span className="text-app-text-muted text-xs">{p.category}</span></span>,
-                Number(p.quantity).toLocaleString('en-KE'), ksh(p.net), ksh2(p.discount),
-              ])}
-            />
-          </Section>
-          <Section title="By day">
-            <Table
-              head={['Day', 'Uses', 'Discount', 'Net sales']}
-              empty="Nothing in this period."
-              rows={[...data.byDay].reverse().map((d) => [day(d.date), d.uses, ksh(d.discount), ksh(d.netSales)])}
-            />
-          </Section>
+          <div className="flex flex-wrap gap-1.5">
+            <Fact icon={<PlayCircle />}><b className="text-emerald-600 dark:text-emerald-400">{data.counts.active}</b> active</Fact>
+            <Fact icon={<Clock />}><b className="text-sky-600 dark:text-sky-400">{data.counts.scheduled}</b> scheduled</Fact>
+            <Fact icon={<Hourglass />}><b className="text-app-text">{data.counts.expired}</b> ended</Fact>
+            <Fact icon={<Power />}><b className="text-app-text">{data.counts.off}</b> off</Fact>
+            {data.refunds.count + data.refunds.partial > 0 && (
+              <Fact icon={<Undo2 />} tone="warn">{data.refunds.count + data.refunds.partial} refunded · {ksh(data.refunds.amount)}</Fact>
+            )}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card title="Most used" icon={<Ticket />}>
+              {data.byPromotion.length === 0 ? <Empty icon={<Ticket />} text="No code used in this period." /> : (
+                <div className="divide-y divide-app-border/60 pb-1">
+                  {data.byPromotion.slice(0, 10).map((p) => (
+                    <MetricRow
+                      key={p.promotionId ?? p.code}
+                      title={<><span className="font-mono font-semibold">{p.code}</span> <span className="text-app-text-muted text-xs">{p.name}</span></>}
+                      sub={`${num(p.uses)} uses · ${ksh(p.discount)} off`}
+                      share={p.uses / topUses}
+                      value={ksh(p.netSales)}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="Best return" icon={<TrendingUp />} action={<span className="text-[11px] text-app-text-muted">sales per KSh 1 off</span>}>
+              {best.length === 0 ? <Empty icon={<TrendingUp />} text="Nothing yet." /> : (
+                <div className="divide-y divide-app-border/60 pb-1">
+                  {best.map((p, i) => (
+                    <MetricRow
+                      key={p.promotionId ?? p.code}
+                      lead={<span className={`grid place-items-center size-7 shrink-0 rounded-full text-xs font-bold ${i === 0 ? TONE.emerald : TONE.slate}`}>{i + 1}</span>}
+                      title={<span className="font-mono font-semibold">{p.code}</span>}
+                      sub={`${num(p.uses)} uses · ${p.discountShare ?? 0}% of discounts`}
+                      value={<span className="text-emerald-600 dark:text-emerald-400">KSh {Number(p.netPerShilling).toFixed(1)}</span>}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="By product" icon={<Package />} action={<span className="text-[11px] text-app-text-muted">till</span>}>
+              {data.byProduct.length === 0 ? <Empty icon={<Package />} text="No product had a code discount." /> : (
+                <div className="divide-y divide-app-border/60 pb-1">
+                  {data.byProduct.slice(0, 15).map((p) => (
+                    <MetricRow
+                      key={p.productId ?? p.name}
+                      title={p.name}
+                      sub={`${num(p.quantity)} sold${p.category ? ` · ${p.category}` : ''}`}
+                      value={ksh(p.net)}
+                      valueSub={<span className="text-rose-600 dark:text-rose-400">−{ksh2(p.discount)}</span>}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="By day" icon={<CalendarDays />}>
+              {data.byDay.length === 0 ? <Empty icon={<CalendarDays />} text="Nothing in this period." /> : (
+                <div className="divide-y divide-app-border/60 pb-1 max-h-96 overflow-y-auto">
+                  {[...data.byDay].reverse().map((d) => (
+                    <MetricRow
+                      key={d.date}
+                      title={day(d.date)}
+                      sub={`${num(d.uses)} uses · ${ksh(d.discount)} off`}
+                      share={d.netSales / topDay}
+                      value={ksh(d.netSales)}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+          <p className="flex items-start gap-1.5 text-[11px] text-app-text-muted px-1">
+            <Info size={12} className="shrink-0 mt-px" /> Sales that used a code, not extra sales it caused. Refunds left out.
+          </p>
         </>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────── promotions list
-const FILTERS = [
-  { id: 'live', label: 'Active & scheduled', match: (p: Promotion) => p.status === 'active' || p.status === 'scheduled' },
-  { id: 'ended', label: 'Ended & off', match: (p: Promotion) => ['expired', 'used_up', 'off'].includes(p.status) },
-  { id: 'archived', label: 'Archived', match: (p: Promotion) => p.status === 'archived' },
+// ─────────────────────────────────────────────── codes list
+type FilterId = 'live' | 'ended' | 'archived' | 'all';
+const FILTERS: { id: FilterId; label: string; match: (p: Promotion) => boolean }[] = [
+  { id: 'live', label: 'Live', match: (p) => p.status === 'active' || p.status === 'scheduled' },
+  { id: 'ended', label: 'Ended & off', match: (p) => ['expired', 'used_up', 'off'].includes(p.status) },
+  { id: 'archived', label: 'Archived', match: (p) => p.status === 'archived' },
   { id: 'all', label: 'All', match: () => true },
-] as const;
+];
 
 function PromotionsTab({ businessId, canManage }: { businessId: string; canManage: boolean }) {
   const [list, setList] = useState<Promotion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('live');
+  const [filter, setFilter] = useState<FilterId>('live');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Promotion | 'new' | null>(null);
   const [opened, setOpened] = useState<Promotion | null>(null);
@@ -412,7 +506,7 @@ function PromotionsTab({ businessId, canManage }: { businessId: string; canManag
     try {
       setList(await listPromotions(businessId));
     } catch (e) {
-      setError(toUserMessage(e, 'Could not load promotions. Has the promotions database update been applied?'));
+      setError(toUserMessage(e, 'Could not load promotions. Try again.'));
     }
   }, [businessId]);
   useEffect(() => {
@@ -430,59 +524,35 @@ function PromotionsTab({ businessId, canManage }: { businessId: string; canManag
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[10rem]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code or name" className={`${INPUT} pl-8 bg-app-card`} />
-        </div>
+      <div className="flex items-center gap-2">
+        <SearchInput value={q} onChange={setQ} placeholder="Search codes" className="flex-1 bg-app-card" />
         {canManage && (
-          <button data-shortcut="new" onClick={() => setEditing('new')} className={BTN_PRIMARY}>
-            <Plus size={15} /> New promotion
+          <button data-shortcut="new" onClick={() => setEditing('new')} className={`${primaryBtn} h-11 sm:h-10 shrink-0`} aria-label="New promotion">
+            <Plus size={16} /> <span>New</span>
           </button>
         )}
       </div>
-      <div className="flex gap-1.5 overflow-x-auto">
-        {FILTERS.map((x) => (
-          <button key={x.id} onClick={() => setFilter(x.id)}
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium cursor-pointer ${filter === x.id ? 'bg-app-text text-app-bg' : 'bg-app-card text-app-text-muted ring-1 ring-app-border'}`}>
-            {x.label} ({(list ?? []).filter(x.match).length})
-          </button>
-        ))}
-      </div>
-      {error && <p role="alert" className="rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3 py-2">{error}</p>}
-      <section className="bg-app-card rounded-2xl shadow-xs overflow-hidden">
-        {!list && !error && <p className="p-4 text-sm text-app-text-muted">Loading…</p>}
-        {list && shown.length === 0 && (
-          <p className="p-4 text-sm text-app-text-muted">
-            {list.length === 0 ? 'No promotions yet. Create one and give the code to customers.' : 'None here.'}
-          </p>
-        )}
-        <ul className="divide-y divide-app-border/60">
-          {shown.map((p) => (
-            <li key={p.id}>
-              <button onClick={() => setOpened(p)} className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-app-bg cursor-pointer">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-app-text">{p.code}</span>
-                    <Chip status={p.status} label={PROMO_STATUS_LABEL[p.status]} />
-                    {!p.ownBranch && <Chip status="shared" label="From another branch" />}
-                  </div>
-                  <p className="text-sm text-app-text truncate">{p.name} <span className="text-app-text-muted">· {p.summary}</span></p>
-                  <p className="text-[11px] text-app-text-muted">
-                    {[p.usePos && 'Till', p.useOnline && 'Online'].filter(Boolean).join(' & ')}
-                    {p.endsAt ? ` · until ${day(p.endsAt)}` : ''}
-                    {p.startsAt && p.status === 'scheduled' ? ` · starts ${day(p.startsAt)}` : ''}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-app-text tabular-nums">{p.uses}{p.maxUses ? ` / ${p.maxUses}` : ''}</p>
-                  <p className="text-[11px] text-app-text-muted tabular-nums">{ksh(p.discountGiven)} off</p>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <FilterChips<FilterId>
+        ariaLabel="Show"
+        options={FILTERS.map((x) => ({ id: x.id, label: x.label, count: (list ?? []).filter(x.match).length }))}
+        value={filter}
+        onChange={setFilter}
+      />
+      {error && <ErrorNote text={error} />}
+      {!list && !error && <div className="h-48 rounded-2xl bg-app-card animate-pulse" />}
+      {list && (
+        <Card>
+          {shown.length === 0 ? (
+            <Empty icon={<Ticket />} text={list.length === 0 ? 'No promotions yet. Make a code and give it to customers.' : 'None here.'}>
+              {list.length === 0 && canManage && <button onClick={() => setEditing('new')} className={primaryBtn}><Plus size={15} /> New promotion</button>}
+            </Empty>
+          ) : (
+            <ul className="divide-y divide-app-border/60">
+              {shown.map((p) => <PromotionRow key={p.id} p={p} onOpen={() => setOpened(p)} />)}
+            </ul>
+          )}
+        </Card>
+      )}
       {editing && (
         <PromotionEditor
           businessId={businessId}
@@ -501,6 +571,42 @@ function PromotionsTab({ businessId, canManage }: { businessId: string; canManag
         />
       )}
     </div>
+  );
+}
+
+function PromotionRow({ p, onOpen }: { p: Promotion; onOpen: () => void }) {
+  const look = TYPE_LOOK[p.promoType] ?? TYPE_LOOK.percentage;
+  const usedShare = p.maxUses ? Math.min(1, p.uses / p.maxUses) : null;
+  return (
+    <li>
+      <button onClick={onOpen} className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-app-bg cursor-pointer min-w-0">
+        <Dot icon={look.icon} tone={look.tone} />
+        <div className="min-w-0 flex-1">
+          <p className="font-mono font-bold text-app-text truncate">{p.code}</p>
+          <p className="text-[13px] text-app-text-muted truncate">{p.summary || p.name}</p>
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-app-text-muted whitespace-nowrap overflow-hidden [&>span]:shrink-0">
+            <Chip status={p.status} label={PROMO_STATUS_LABEL[p.status]} />
+            {p.usePos && <span className="inline-flex items-center gap-1"><Store size={11} /> Till</span>}
+            {p.useOnline && <span className="inline-flex items-center gap-1"><Globe size={11} /> Online</span>}
+            {p.status === 'scheduled' && p.startsAt ? (
+              <span className="inline-flex items-center gap-1"><Clock size={11} /> {dayShort(p.startsAt)}</span>
+            ) : p.endsAt ? (
+              <span className="inline-flex items-center gap-1"><CalendarDays size={11} /> {dayShort(p.endsAt)}</span>
+            ) : null}
+            {!p.ownBranch && <span className="inline-flex items-center" title="From another branch"><Layers size={11} /></span>}
+          </div>
+        </div>
+        <div className="text-right shrink-0 w-20">
+          <p className="text-sm font-semibold text-app-text tabular-nums">
+            {num(p.uses)}<span className="text-app-text-muted font-normal">{p.maxUses ? `/${num(p.maxUses)}` : ''}</span>
+          </p>
+          {usedShare != null && (
+            <div className="mt-1 h-1 rounded-full bg-app-bg overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${Math.max(4, usedShare * 100)}%` }} /></div>
+          )}
+          <p className="mt-0.5 text-[11px] text-rose-600 dark:text-rose-400 tabular-nums">−{ksh(p.discountGiven)}</p>
+        </div>
+      </button>
+    </li>
   );
 }
 
@@ -527,68 +633,83 @@ function PromotionDetail({ promotion: p, canManage, onClose, onEdit, onChanged }
     }
   };
   const archived = p.status === 'archived';
+  const look = TYPE_LOOK[p.promoType] ?? TYPE_LOOK.percentage;
+  const facts: { icon: React.ReactNode; label: string; value: string }[] = [
+    { icon: <CalendarDays />, label: 'When', value: `${p.startsAt ? day(p.startsAt) : 'Now'} – ${p.endsAt ? day(p.endsAt) : 'no end'}` },
+    { icon: <Users />, label: 'Who', value: `${p.audience === 'selected' ? `${p.customerIds.length} chosen customers` : p.audience === 'first_purchase' ? 'New customers' : 'Everyone'}${p.oncePerCustomer ? ', once each' : ''}` },
+    { icon: <Package />, label: 'Covers', value: p.productScope === 'all' ? 'All products' : p.productScope === 'products' ? `${p.productIds.length} products` : p.categories.join(', ') },
+    ...(p.minOrder > 0 ? [{ icon: <ShoppingCart />, label: 'Minimum', value: ksh(p.minOrder) }] : []),
+    ...(p.maxDiscount != null ? [{ icon: <BadgePercent />, label: 'Most off', value: ksh(p.maxDiscount) }] : []),
+    { icon: <Layers />, label: 'With other discounts', value: p.stackable ? 'Yes' : 'No' },
+  ];
   return (
     <FormSheet
-      title={`${p.code} · ${p.name}`}
-      subtitle={p.summary}
+      title={p.code}
+      subtitle={p.name}
       onClose={onClose}
       wide
       footer={canManage ? (
-        <div className="flex flex-wrap gap-2 justify-end">
-          {archived ? (
-            <button disabled={busy} onClick={() => void act('restore', 'Promotion restored (still off).')} className={BTN_QUIET}><Archive size={14} /> Restore</button>
-          ) : confirmArchive ? (
-            <>
-              <span className="text-xs text-app-text-muted self-center">The code stops working; its history is kept.</span>
-              <button onClick={() => setConfirmArchive(false)} className={BTN_QUIET}>Keep</button>
-              <button disabled={busy} onClick={() => void act('archive', 'Promotion archived.')} className={`${BTN_QUIET} text-red-600`}>Archive</button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setConfirmArchive(true)} className={BTN_QUIET}><Archive size={14} /> Archive</button>
-              {p.active ? (
-                <button disabled={busy} onClick={() => void act('deactivate', 'Promotion switched off.')} className={BTN_QUIET}><Power size={14} /> Switch off</button>
-              ) : (
-                <button disabled={busy} onClick={() => void act('activate', 'Promotion switched on.')} className={BTN_QUIET}><Power size={14} /> Switch on</button>
-              )}
-              <button onClick={onEdit} className={BTN_PRIMARY}><Pencil size={14} /> Edit</button>
-            </>
-          )}
-        </div>
+        archived ? (
+          <button disabled={busy} onClick={() => void act('restore', 'Promotion restored (still off).')} className={`${secondaryBtn} flex-1 sm:flex-none`}><Archive size={15} /> Restore</button>
+        ) : confirmArchive ? (
+          <>
+            <p className="w-full text-xs text-app-text-muted">The code stops working; its history is kept.</p>
+            <button onClick={() => setConfirmArchive(false)} className={`${secondaryBtn} flex-1 sm:flex-none`}>Keep</button>
+            <button disabled={busy} onClick={() => void act('archive', 'Promotion archived.')} className={`${secondaryBtn} flex-1 sm:flex-none text-red-600 dark:text-red-400`}><Archive size={15} /> Archive</button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => setConfirmArchive(true)} className={secondaryBtn} aria-label="Archive"><Archive size={15} /></button>
+            <button disabled={busy} onClick={() => void act(p.active ? 'deactivate' : 'activate', p.active ? 'Promotion switched off.' : 'Promotion switched on.')} className={`${secondaryBtn} flex-1 sm:flex-none whitespace-nowrap`}>
+              <Power size={15} /> {p.active ? 'Switch off' : 'Switch on'}
+            </button>
+            <button onClick={onEdit} className={`${primaryBtn} flex-1 sm:flex-none`}><Pencil size={15} /> Edit</button>
+          </>
+        )
       ) : undefined}
     >
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Stat label="Used" value={`${p.uses}${p.maxUses ? ` / ${p.maxUses}` : ''}`} sub={p.held ? `${p.held} held at a till` : undefined} />
-        <Stat label="Given" value={ksh(p.discountGiven)} />
-        <Stat label="Status" value={PROMO_STATUS_LABEL[p.status]} />
-        <Stat label="Where" value={[p.usePos && 'Till', p.useOnline && 'Online'].filter(Boolean).join(' & ')} />
+      <div className="flex items-center gap-3">
+        <Dot icon={look.icon} tone={look.tone} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-app-text">{p.summary}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Chip status={p.status} label={PROMO_STATUS_LABEL[p.status]} />
+            {p.usePos && <Fact icon={<Store />}>Till</Fact>}
+            {p.useOnline && <Fact icon={<Globe />}>Online</Fact>}
+          </div>
+        </div>
       </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        {p.description && (<><dt className="text-app-text-muted">About</dt><dd>{p.description}</dd></>)}
-        <dt className="text-app-text-muted">When</dt>
-        <dd>{p.startsAt ? day(p.startsAt) : 'Now'} – {p.endsAt ? day(p.endsAt) : 'no end'}</dd>
-        {p.minOrder > 0 && (<><dt className="text-app-text-muted">Minimum</dt><dd>{ksh(p.minOrder)}</dd></>)}
-        {p.maxDiscount != null && (<><dt className="text-app-text-muted">Most off</dt><dd>{ksh(p.maxDiscount)}</dd></>)}
-        <dt className="text-app-text-muted">Who</dt>
-        <dd>{p.audience === 'selected' ? `${p.customerIds.length} chosen customers` : p.audience === 'first_purchase' ? 'New customers, first purchase' : 'Everyone'}{p.oncePerCustomer ? ', once each' : ''}</dd>
-        <dt className="text-app-text-muted">Covers</dt>
-        <dd>{p.productScope === 'all' ? 'All products' : p.productScope === 'products' ? `${p.productIds.length} products` : p.categories.join(', ')}</dd>
-        <dt className="text-app-text-muted">With other discounts</dt><dd>{p.stackable ? 'Allowed' : 'Not allowed'}</dd>
-      </dl>
+      <div className="grid grid-cols-2 gap-2">
+        <StatTile inset icon={<Ticket />} tone="amber" label="Used" value={`${num(p.uses)}${p.maxUses ? ` / ${num(p.maxUses)}` : ''}`} note={p.held ? `${p.held} held at a till` : undefined} />
+        <StatTile inset icon={<BadgePercent />} tone="rose" label="Given off" value={ksh(p.discountGiven)} />
+      </div>
+      {p.description && <p className="text-sm text-app-text-muted">{p.description}</p>}
+      <ul className="rounded-xl ring-1 ring-app-border divide-y divide-app-border/60">
+        {facts.map((f) => (
+          <li key={f.label} className="flex items-center gap-3 px-3 py-2.5 text-sm min-w-0">
+            <span className="shrink-0 text-app-text-muted [&>svg]:size-4">{f.icon}</span>
+            <span className="text-app-text-muted shrink-0">{f.label}</span>
+            <span className="ml-auto text-right text-app-text font-medium truncate">{f.value}</span>
+          </li>
+        ))}
+      </ul>
       <div>
-        <p className="text-sm font-semibold mb-1">Uses</p>
-        {!uses && <p className="text-sm text-app-text-muted">Loading…</p>}
-        {uses && uses.length === 0 && <p className="text-sm text-app-text-muted">Not used yet.</p>}
+        <p className="text-xs font-semibold text-app-text-muted mb-1.5">Uses</p>
+        {!uses && <div className="h-16 rounded-xl bg-app-bg animate-pulse" />}
+        {uses && uses.length === 0 && <p className="text-sm text-app-text-muted rounded-xl bg-app-bg px-3 py-3">Not used yet.</p>}
         {uses && uses.length > 0 && (
           <ul className="divide-y divide-app-border/60 rounded-xl ring-1 ring-app-border">
             {uses.map((u) => (
-              <li key={u.id} className="px-3 py-2 flex items-start gap-2 text-sm">
+              <li key={u.id} className="px-3 py-2.5 flex items-center gap-3 text-sm min-w-0">
+                <Dot size="sm" icon={u.channel === 'pos' ? <Store /> : <Globe />} tone={u.channel === 'pos' ? TONE.amber : TONE.sky} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate">{u.customer ?? 'Walk-in'} <span className="text-app-text-muted text-xs">· {u.receipt ?? (u.order ? `Order ${u.order}` : '')}</span></p>
-                  <p className="text-[11px] text-app-text-muted">{dayTime(u.at)} · {u.channel === 'pos' ? `Till${u.staff ? `, ${u.staff}` : ''}` : 'Online'}{u.branch ? ` · ${u.branch}` : ''}</p>
+                  <p className="truncate text-app-text">{u.customer ?? 'Walk-in'}</p>
+                  <p className="text-[11px] text-app-text-muted truncate">
+                    {dayTime(u.at)}{u.staff ? ` · ${u.staff}` : ''}{u.receipt ? ` · ${u.receipt}` : u.order ? ` · Order ${u.order}` : ''}{u.branch ? ` · ${u.branch}` : ''}
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="tabular-nums">−{ksh2(u.discount)}</p>
+                  <p className="tabular-nums font-semibold text-rose-600 dark:text-rose-400">−{ksh2(u.discount)}</p>
                   <Chip status={u.status} />
                 </div>
               </li>
@@ -625,6 +746,17 @@ function useCatalog(businessId: string) {
   };
 }
 
+const SCOPE_OPTIONS = (allLabel: string): ChoiceOption<ProductScope>[] => [
+  { id: 'all', label: allLabel, icon: <LayoutGrid /> },
+  { id: 'products', label: 'Items', icon: <Package /> },
+  { id: 'categories', label: 'Groups', icon: <Tags /> },
+];
+const AUDIENCE_OPTIONS: ChoiceOption<'everyone' | 'selected' | 'first_purchase'>[] = [
+  { id: 'everyone', label: 'Anyone', icon: <Globe /> },
+  { id: 'selected', label: 'Chosen', icon: <Users /> },
+  { id: 'first_purchase', label: 'New', icon: <UserPlus /> },
+];
+
 function PromotionEditor({ businessId, promotion, onClose, onSaved }: {
   businessId: string; promotion: Promotion | null; onClose: () => void; onSaved: () => void;
 }) {
@@ -641,6 +773,7 @@ function PromotionEditor({ businessId, promotion, onClose, onSaved }: {
   const audienceFixed = t === 'customer' || t === 'first_purchase';
   const audience = t === 'customer' ? 'selected' : t === 'first_purchase' ? 'first_purchase' : d.audience;
   const onlineOk = (kind === 'percent' || kind === 'amount') && audience === 'everyone' && d.productScope === 'all';
+  const typeHint = PROMO_TYPES.find((x) => x.id === t)?.hint;
 
   const generate = async () => {
     try {
@@ -669,132 +802,141 @@ function PromotionEditor({ businessId, promotion, onClose, onSaved }: {
   return (
     <FormSheet
       title={promotion ? `Edit ${promotion.code}` : 'New promotion'}
-      subtitle="The server checks these rules again at every sale."
       onClose={onClose}
       wide
       footer={
-        <div className="flex items-center gap-2 justify-end">
-          {error && <p role="alert" className="mr-auto text-xs text-red-600 dark:text-red-400">{error}</p>}
-          <button onClick={onClose} className={BTN_QUIET}>Cancel</button>
-          <button disabled={saving} onClick={() => void save()} className={BTN_PRIMARY}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
+        <>
+          {error && <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={onClose} className={`${secondaryBtn} flex-1 sm:flex-none`}>Cancel</button>
+          <button disabled={saving} onClick={() => void save()} className={`${primaryBtn} flex-1 sm:flex-none`}><Check size={15} /> {saving ? 'Saving…' : 'Save'}</button>
+        </>
       }
     >
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="Name"><input value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="Milk week" className={INPUT} maxLength={80} /></Field>
-        <Field label="Code" hint="Letters, numbers, dashes. Customers can type it in any case.">
-          <div className="flex gap-1.5">
-            <input value={d.code} onChange={(e) => set({ code: e.target.value.toUpperCase().replace(/\s/g, '') })} placeholder="MILK10" className={`${INPUT} font-mono uppercase`} maxLength={24} />
-            <button type="button" onClick={() => void generate()} className={BTN_QUIET} title="Make a random code"><Sparkles size={14} /></button>
-          </div>
-        </Field>
-      </div>
-      <Field label="Description (optional)"><input value={d.description ?? ''} onChange={(e) => set({ description: e.target.value })} className={INPUT} maxLength={500} /></Field>
+      <Group title="Type" icon={<BadgePercent />}>
+        <ChoiceGrid
+          ariaLabel="Type"
+          columns="grid-cols-2 sm:grid-cols-4"
+          options={PROMO_TYPES.map((pt) => ({ id: pt.id, label: TYPE_LOOK[pt.id].short, icon: TYPE_LOOK[pt.id].icon, tone: TYPE_LOOK[pt.id].tone }))}
+          value={t}
+          onChange={(v) => set({ promoType: v })}
+        />
+        {typeHint && <p className="flex items-center gap-1.5 text-[11px] text-app-text-muted"><Info size={12} /> {typeHint}</p>}
+      </Group>
 
-      <div>
-        <p className={`${LABEL} mb-1`}>Type</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          {PROMO_TYPES.map((pt) => (
-            <button key={pt.id} type="button" onClick={() => set({ promoType: pt.id as PromoType })}
-              className={`text-left rounded-xl px-2.5 py-2 ring-1 cursor-pointer ${t === pt.id ? 'ring-amber-500 bg-amber-500/10' : 'ring-app-border bg-app-bg'}`}>
-              <p className="text-xs font-semibold text-app-text">{pt.label}</p>
-              <p className="text-[10px] text-app-text-muted leading-tight">{pt.hint}</p>
-            </button>
-          ))}
+      <Group title="Code" icon={<Ticket />}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Code">
+            <TextInput
+              value={d.code}
+              onChange={(e) => set({ code: e.target.value.toUpperCase().replace(/\s/g, '') })}
+              placeholder="MILK10"
+              maxLength={24}
+              inputClassName="font-mono uppercase font-semibold tracking-wide"
+              suffix={
+                <button type="button" onClick={() => void generate()} aria-label="Make a random code" title="Make a random code" className="grid place-items-center size-7 -mr-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer">
+                  <Sparkles size={15} />
+                </button>
+              }
+            />
+          </Field>
+          <Field label="Name"><TextInput value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="Milk week" maxLength={80} /></Field>
         </div>
-      </div>
+        <Field label="Note (optional)"><TextInput value={d.description ?? ''} onChange={(e) => set({ description: e.target.value })} maxLength={500} placeholder="Shown with the code" /></Field>
+      </Group>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Group title="Discount" icon={<Percent />}>
         {choosesKind && (
-          <Field label="Gives">
-            <select value={kind} onChange={(e) => set({ kind: e.target.value as PromotionDraft['kind'] })} className={INPUT}>
-              <option value="percent">Percentage off</option>
-              <option value="amount">Amount off</option>
-            </select>
-          </Field>
+          <Segmented
+            ariaLabel="Gives"
+            options={[{ id: 'percent', label: '% off', icon: <Percent /> }, { id: 'amount', label: 'KSh off', icon: <Banknote /> }]}
+            value={kind === 'amount' ? 'amount' : 'percent'}
+            onChange={(v) => set({ kind: v })}
+          />
         )}
-        {!freeItems && (
-          <Field label={kind === 'percent' ? 'Percent off' : 'KSh off'}>
-            <input type="number" min="0" value={d.value || ''} onChange={(e) => set({ value: Number(e.target.value) })} className={INPUT} />
+        <div className="grid grid-cols-2 gap-3">
+          {!freeItems && (
+            <Field label="Discount">
+              {kind === 'percent'
+                ? <NumberInput suffix="%" min={0} max={100} value={d.value || null} onChange={(v) => set({ value: v ?? 0 })} placeholder="10" />
+                : <NumberInput prefix="KSh" min={0} value={d.value || null} onChange={(v) => set({ value: v ?? 0 })} placeholder="100" />}
+            </Field>
+          )}
+          {t === 'buy_x_get_y' && (
+            <Field label="Buys">
+              <NumberInput suffix="items" min={1} decimals={0} value={d.buyQty} onChange={(v) => set({ buyQty: v })} placeholder="2" />
+            </Field>
+          )}
+          {freeItems && (
+            <Field label="Gets free">
+              <NumberInput suffix="free" min={1} decimals={0} value={d.rewardQty} onChange={(v) => set({ rewardQty: v })} placeholder="1" />
+            </Field>
+          )}
+          <Field label={t === 'min_spend' ? 'Spend at least' : 'Min. purchase'}>
+            <NumberInput prefix="KSh" min={0} value={d.minOrder || null} onChange={(v) => set({ minOrder: v ?? 0 })} placeholder="0" />
           </Field>
-        )}
-        {t === 'buy_x_get_y' && (
-          <Field label="Customer buys" hint="of the covered items">
-            <input type="number" min="1" value={d.buyQty ?? ''} onChange={(e) => set({ buyQty: numOrNull(e.target.value) })} className={INPUT} />
-          </Field>
-        )}
+          {kind === 'percent' && (
+            <Field label="Cap (optional)">
+              <NumberInput prefix="KSh" min={0} value={d.maxDiscount} onChange={(v) => set({ maxDiscount: v })} placeholder="No cap" />
+            </Field>
+          )}
+        </div>
         {freeItems && (
-          <>
-            <Field label="Free product">
-              <select value={d.rewardProductId ?? ''} onChange={(e) => set({ rewardProductId: e.target.value || null })} className={INPUT}>
-                <option value="">Choose…</option>
-                {cat.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </Field>
-            <Field label="How many free">
-              <input type="number" min="1" value={d.rewardQty ?? ''} onChange={(e) => set({ rewardQty: numOrNull(e.target.value) })} className={INPUT} />
-            </Field>
-          </>
-        )}
-        <Field label={t === 'min_spend' ? 'Spend at least (KSh)' : 'Minimum purchase (KSh)'}>
-          <input type="number" min="0" value={d.minOrder || ''} onChange={(e) => set({ minOrder: Number(e.target.value) || 0 })} className={INPUT} />
-        </Field>
-        {kind === 'percent' && (
-          <Field label="Most off (KSh)" hint="Optional cap">
-            <input type="number" min="0" value={d.maxDiscount ?? ''} onChange={(e) => set({ maxDiscount: numOrNull(e.target.value) })} className={INPUT} />
+          <Field label="Free product" group hint="Add it to the cart; the code takes its price off.">
+            <SearchableDropdown
+              items={cat.products.map((p) => ({ id: p.id, label: p.name, sublabel: p.sub }))}
+              selectedValue={d.rewardProductId ?? ''}
+              onChange={(v) => set({ rewardProductId: v || null })}
+              placeholder="Choose a product"
+              searchPlaceholder="Search products"
+            />
           </Field>
         )}
-      </div>
-      {freeItems && <p className="text-[11px] text-app-text-muted">The free item goes in the cart like any item; the code takes its price off. The till says when to add it.</p>}
+      </Group>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="Covers">
-          <select value={d.productScope} onChange={(e) => set({ productScope: e.target.value as ProductScope })} className={INPUT}>
-            <option value="all">All products</option>
-            <option value="products">Chosen products</option>
-            <option value="categories">Chosen categories</option>
-          </select>
+      <Group title="Who & what" icon={<Users />}>
+        <Field label="Covers" group>
+          <Segmented ariaLabel="Covers" options={SCOPE_OPTIONS('All')} value={d.productScope} onChange={(v) => set({ productScope: v })} />
         </Field>
+        {d.productScope === 'products' && (
+          <MultiPicker label={t === 'buy_x_get_y' ? 'Products to buy' : 'Products'} options={cat.products} value={d.productIds} onChange={(ids) => set({ productIds: ids })} placeholder="Search products" />
+        )}
+        {d.productScope === 'categories' && (
+          <MultiPicker label="Categories" options={cat.categories} value={d.categories} onChange={(ids) => set({ categories: ids })} placeholder="Search categories" />
+        )}
         {!audienceFixed && (
-          <Field label="Who can use it">
-            <select value={d.audience} onChange={(e) => set({ audience: e.target.value as PromotionDraft['audience'] })} className={INPUT}>
-              <option value="everyone">Anyone with the code</option>
-              <option value="selected">Chosen customers</option>
-              <option value="first_purchase">New customers, first purchase</option>
-            </select>
+          <Field label="Who can use it" group>
+            <Segmented ariaLabel="Who can use it" options={AUDIENCE_OPTIONS} value={d.audience} onChange={(v) => set({ audience: v })} />
           </Field>
         )}
-      </div>
-      {d.productScope === 'products' && (
-        <MultiPicker label={t === 'buy_x_get_y' ? 'Products to buy' : 'Products covered'} options={cat.products} value={d.productIds} onChange={(ids) => set({ productIds: ids })} placeholder="Search products" />
-      )}
-      {d.productScope === 'categories' && (
-        <MultiPicker label="Categories covered" options={cat.categories} value={d.categories} onChange={(ids) => set({ categories: ids })} placeholder="Search categories" />
-      )}
-      {audience === 'selected' && (
-        <MultiPicker label="Customers who can use it" options={cat.customers} value={d.customerIds} onChange={(ids) => set({ customerIds: ids })} placeholder="Search name or phone" />
-      )}
+        {audience === 'selected' && (
+          <MultiPicker label="Customers" options={cat.customers} value={d.customerIds} onChange={(ids) => set({ customerIds: ids })} placeholder="Search name or phone" />
+        )}
+      </Group>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Field label="Starts"><input type="datetime-local" value={toLocalInput(d.startsAt)} onChange={(e) => set({ startsAt: fromLocalInput(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Ends"><input type="datetime-local" value={toLocalInput(d.endsAt)} onChange={(e) => set({ endsAt: fromLocalInput(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Total uses" hint="Empty: no limit">
-          <input type="number" min="1" value={d.maxUses ?? ''} onChange={(e) => set({ maxUses: numOrNull(e.target.value) })} className={INPUT} />
-        </Field>
-      </div>
+      <Group title="When" icon={<CalendarDays />}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Field label="Starts"><DateTimeInput value={d.startsAt} onChange={(v) => set({ startsAt: v })} /></Field>
+          <Field label="Ends"><DateTimeInput value={d.endsAt} onChange={(v) => set({ endsAt: v })} /></Field>
+          <Field label="Total uses">
+            <NumberInput min={1} decimals={0} value={d.maxUses} onChange={(v) => set({ maxUses: v })} placeholder="No limit" suffix={d.maxUses ? 'uses' : <InfinityIcon size={14} />} />
+          </Field>
+        </div>
+      </Group>
 
-      <div className="rounded-xl bg-app-bg p-3 space-y-2.5">
-        <Switch checked={d.oncePerCustomer} onChange={(v) => set({ oncePerCustomer: v })} label="Once per customer" description="The cashier must choose the customer." />
-        <Switch checked={d.stackable} onChange={(v) => set({ stackable: v })} label="Can be combined with other discounts" description="Item %, cart discount and points." />
-        <Switch checked={d.usePos} onChange={(v) => set({ usePos: v })} label="Works at the till" />
-        <Switch checked={d.useOnline && onlineOk} disabled={!onlineOk} onChange={(v) => set({ useOnline: v })} label="Works in the online shop"
-          description={onlineOk ? undefined : 'Only percentage or amount codes for anyone, on all products.'} />
-        {d.useOnline && onlineOk && <Switch checked={d.showOnWebsite} onChange={(v) => set({ showOnWebsite: v })} label="Show it on the website" />}
-        {!promotion && <Switch checked={d.active} onChange={(v) => set({ active: v })} label="Switch on when saved" />}
-      </div>
-      {cat.branches.length > 0 && (
-        <MultiPicker label="Also works at these branches" options={cat.branches} value={d.branchIds} onChange={(ids) => set({ branchIds: ids })} placeholder="Search branches" />
-      )}
+      <Group title="Rules" icon={<ShieldCheck />}>
+        <div className="rounded-xl bg-app-bg p-3 space-y-3">
+          <Switch checked={d.usePos} onChange={(v) => set({ usePos: v })} label={<span className="inline-flex items-center gap-1.5"><Store size={13} /> At the till</span>} />
+          <Switch checked={d.useOnline && onlineOk} disabled={!onlineOk} onChange={(v) => set({ useOnline: v })} label={<span className="inline-flex items-center gap-1.5"><Globe size={13} /> Online shop</span>}
+            description={onlineOk ? undefined : 'Only % or KSh off, for anyone, on all products.'} />
+          {d.useOnline && onlineOk && <Switch checked={d.showOnWebsite} onChange={(v) => set({ showOnWebsite: v })} label="Show on the website" />}
+          <Switch checked={d.oncePerCustomer} onChange={(v) => set({ oncePerCustomer: v })} label="Once per customer" description="Cashier picks the customer." />
+          <Switch checked={d.stackable} onChange={(v) => set({ stackable: v })} label="Combine with other discounts" />
+          {!promotion && <Switch checked={d.active} onChange={(v) => set({ active: v })} label="Switch on when saved" />}
+        </div>
+        {cat.branches.length > 0 && (
+          <MultiPicker label="Also at branches" options={cat.branches} value={d.branchIds} onChange={(ids) => set({ branchIds: ids })} placeholder="Search branches" />
+        )}
+      </Group>
     </FormSheet>
   );
 }
@@ -804,6 +946,7 @@ function ReferralsTab({ businessId, canManage }: { businessId: string; canManage
   const showToast = useNotificationStore((s) => s.showToast);
   const [period, setPeriod] = useState<PeriodId>('30');
   const [data, setData] = useState<ReferralDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<'new' | 'edit' | null>(null);
   const [deciding, setDeciding] = useState<{ row: ReferralRow; approve: boolean } | null>(null);
@@ -811,11 +954,14 @@ function ReferralsTab({ businessId, canManage }: { businessId: string; canManage
   const [view, setView] = useState<'review' | 'all'>('review');
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       const { from, to } = periodRange(period);
       setData(await referralDashboard(businessId, from, to));
     } catch (e) {
-      setError(toUserMessage(e, 'Could not load referrals. Has the referrals database update been applied?'));
+      setError(toUserMessage(e, 'Could not load referrals. Try again.'));
+    } finally {
+      setLoading(false);
     }
   }, [businessId, period]);
   useEffect(() => {
@@ -837,132 +983,94 @@ function ReferralsTab({ businessId, canManage }: { businessId: string; canManage
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <PeriodPicker value={period} onChange={setPeriod} />
-        <button onClick={() => void load()} className={BTN_QUIET} aria-label="Refresh"><RefreshCw size={14} /></button>
-      </div>
-      {error && <p role="alert" className="rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3 py-2">{error}</p>}
-      {!data && !error && <p className="text-sm text-app-text-muted px-1">Loading…</p>}
+      {error && <ErrorNote text={error} />}
+      {!data && !error && <Skeleton />}
       {data && (
         <>
-          <section className="bg-app-card rounded-2xl p-4 shadow-xs space-y-2">
-            <div className="flex items-start gap-3 flex-wrap">
-              <span className="grid place-items-center size-9 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0"><Gift size={18} /></span>
-              <div className="min-w-0 flex-1">
-                {k ? (
-                  <>
-                    <p className="text-sm font-semibold text-app-text">{k.name} <Chip status="active" label="Running" /></p>
-                    <p className="text-xs text-app-text-muted">
-                      Referrer gets <b className="text-app-text">{k.referrerText}</b> · new customer gets <b className="text-app-text">{k.welcomeText}</b>
-                      {Number(k.welcome?.minPurchase) > 0 && <> on a first purchase of {ksh(k.welcome.minPurchase)} or more</>}
-                      {' '}· rewards after {k.hold_days} day{k.hold_days === 1 ? '' : 's'}{k.review_flagged ? ', flagged ones checked by a manager' : ''}
-                      {k.ends_at ? ` · ends ${day(k.ends_at)}` : ''}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold text-app-text">No referral programme running</p>
-                    <p className="text-xs text-app-text-muted">Start one: every customer gets a code to share, and both sides get a reward after the new customer's first purchase.</p>
-                  </>
-                )}
-              </div>
-              {canManage && (
-                <div className="flex gap-2">
-                  {k && <button onClick={() => setEditing('edit')} className={BTN_QUIET}><Pencil size={14} /> Change</button>}
-                  <button onClick={() => setEditing('new')} className={BTN_PRIMARY}><Plus size={15} /> {k ? 'New programme' : 'Start a programme'}</button>
-                </div>
-              )}
-            </div>
-          </section>
+          <ProgrammeCard campaign={k} canManage={canManage} onEdit={() => setEditing('edit')} onNew={() => setEditing('new')} />
 
-          <section className="bg-app-card rounded-2xl p-3 shadow-xs space-y-2">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Stat label="Referrals" value={data.counts.total} sub={`${data.counts.rewarded} rewarded`} />
-              <Stat label="Waiting" value={data.counts.qualified + data.counts.pending} sub={data.counts.flagged ? `${data.counts.flagged} flagged` : 'none flagged'} />
-              <Stat label="Rewards cost" value={ksh(data.costs.total)} sub={`${ksh(data.costs.wallet)} wallet · ${ksh(data.costs.welcomeDiscounts + data.costs.rewardCodesUsed)} discounts`} />
-              <Stat label="Referred customers bought" value={ksh(data.referredSales)} sub={`first purchases ${ksh(data.counts.firstPurchases)}`} />
-            </div>
-            <p className="text-[11px] text-app-text-muted px-1">
-              Wallet credit is booked as Referral rewards; discounts as Promotion discounts. {data.costs.points > 0 && <>{data.costs.points.toLocaleString('en-KE')} points given (they cost money only when spent). </>}
-              {data.costs.rewardCodesOpen > 0 && <>{data.costs.rewardCodesOpen} reward codes not used yet. </>}
-              {data.costs.takenBack > 0 && <>{ksh(data.costs.takenBack)} taken back after refunds. </>}
-              {data.counts.cancelled + data.counts.rejected > 0 && <>{data.counts.cancelled} cancelled, {data.counts.rejected} refused.</>}
-            </p>
-          </section>
+          <PeriodBar value={period} onChange={setPeriod} onRefresh={() => void load()} loading={loading} />
 
-          <Section
+          <StatGrid>
+            <StatTile icon={<Users />} tone="sky" label="Referrals" value={num(data.counts.total)} note={`${num(data.counts.rewarded)} rewarded`} />
+            <StatTile
+              icon={<Hourglass />}
+              tone={data.counts.flagged ? 'red' : 'amber'}
+              label="Waiting"
+              value={num(data.counts.qualified + data.counts.pending)}
+              note={data.counts.flagged ? `${data.counts.flagged} flagged` : 'none flagged'}
+              trend={data.counts.flagged ? 'down' : undefined}
+            />
+            <StatTile icon={<Wallet />} tone="rose" label="Rewards cost" value={ksh(data.costs.total)} note={`${ksh(data.costs.wallet)} wallet`} />
+            <StatTile icon={<TrendingUp />} tone="emerald" label="New customers bought" value={ksh(data.referredSales)} note={`${ksh(data.counts.firstPurchases)} first buys`} />
+          </StatGrid>
+
+          {(data.costs.points > 0 || data.costs.rewardCodesOpen > 0 || data.costs.takenBack > 0 || data.counts.cancelled + data.counts.rejected > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {data.costs.points > 0 && <Fact icon={<Coins />}>{num(data.costs.points)} pts given</Fact>}
+              {data.costs.rewardCodesOpen > 0 && <Fact icon={<Ticket />}>{data.costs.rewardCodesOpen} codes unused</Fact>}
+              {data.costs.takenBack > 0 && <Fact icon={<Undo2 />}>{ksh(data.costs.takenBack)} taken back</Fact>}
+              {data.counts.cancelled + data.counts.rejected > 0 && <Fact icon={<Ban />} tone="warn">{data.counts.cancelled} cancelled · {data.counts.rejected} refused</Fact>}
+            </div>
+          )}
+
+          <Card
             title="Referrals"
+            icon={<Users />}
             action={
-              <div className="flex bg-app-bg rounded-lg p-0.5 ring-1 ring-app-border">
-                {([['review', `To check (${review.length})`], ['all', 'All']] as const).map(([id, l]) => (
-                  <button key={id} onClick={() => setView(id)} className={`px-2 py-0.5 rounded-md text-xs cursor-pointer ${view === id ? 'bg-app-card text-app-text shadow-xs' : 'text-app-text-muted'}`}>{l}</button>
-                ))}
-              </div>
+              <Segmented<'review' | 'all'>
+                size="sm"
+                ariaLabel="Show"
+                className="w-44 shrink-0"
+                options={[{ id: 'review', label: 'To check', count: review.length }, { id: 'all', label: 'All' }]}
+                value={view}
+                onChange={setView}
+              />
             }
           >
             {rows.length === 0 ? (
-              <p className="px-4 pb-4 text-sm text-app-text-muted">{view === 'review' ? 'Nothing to check.' : 'No referrals in this period.'}</p>
+              <Empty icon={view === 'review' ? <Check /> : <Users />} text={view === 'review' ? 'Nothing to check.' : 'No referrals in this period.'} />
             ) : (
               <ul className="divide-y divide-app-border/60">
                 {rows.map((r) => (
-                  <li key={r.id} className="px-4 py-2.5 flex items-start gap-3">
+                  <ReferralItem key={r.id} r={r} canManage={canManage} onDecide={(approve) => setDeciding({ row: r, approve })} />
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Top referrers" icon={<TrendingUp />}>
+            {data.topReferrers.length === 0 ? <Empty icon={<UserRound />} text="No referrals in this period." /> : (
+              <ul className="divide-y divide-app-border/60">
+                {data.topReferrers.map((t, i) => (
+                  <li key={t.codeId ?? t.customerId} className="flex items-center gap-3 px-4 py-2.5 min-w-0">
+                    <span className={`grid place-items-center size-8 shrink-0 rounded-full text-xs font-bold ${i === 0 ? TONE.amber : TONE.slate}`}>{i + 1}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-app-text">
-                        <b>{r.referrer}</b> <span className="text-app-text-muted">→</span> <b>{r.referred}</b>{' '}
-                        <Chip status={r.status} label={REFERRAL_STATUS_LABEL[r.status]} />
+                      <p className="flex items-center gap-1.5 text-sm text-app-text min-w-0">
+                        <span className="truncate font-medium">{t.name}</span>
+                        {t.codeStatus !== 'active' && <Chip status={t.codeStatus} />}
+                        <span className="ml-auto pl-2 shrink-0 font-semibold tabular-nums">{ksh(t.cost)}</span>
                       </p>
-                      <p className="text-[11px] text-app-text-muted">
-                        {dayTime(r.at)} · <span className="font-mono">{r.code}</span>
-                        {r.receipt ? ` · ${r.receipt}` : ''}{r.purchase != null ? ` · bought ${ksh(r.purchase)}` : ''}
-                        {r.staff ? ` · ${r.staff}` : ''}
-                        {r.status === 'qualified' && r.rewardDueAt ? ` · rewards ${new Date(r.rewardDueAt) > new Date() ? `on ${day(r.rewardDueAt)}` : 'due'}` : ''}
-                        {r.endReason ? ` · ${r.endReason}` : ''}
+                      <p className="text-[11px] text-app-text-muted truncate">
+                        <span className="font-mono">{t.code}</span> · {t.referrals} in · {t.rewarded} paid
+                        {t.flagged ? <span className="text-red-600 dark:text-red-400"> · {t.flagged} flagged</span> : ''}
                       </p>
-                      {r.flags.length > 0 && (
-                        <p className="mt-0.5 flex flex-wrap gap-1">
-                          {r.flags.map((f) => (
-                            <span key={f} className="inline-flex items-center gap-1 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 px-1.5 py-0.5 text-[10px] font-semibold">
-                              <AlertTriangle size={10} /> {REFERRAL_FLAG_LABEL[f] ?? f}
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                      {r.rewards.length > 0 && (
-                        <p className="text-[11px] text-app-text-muted mt-0.5">{r.rewards.map((w) => `${w.side === 'referrer' ? 'Referrer' : 'New'}: ${w.what} (${w.status})`).join(' · ')}</p>
-                      )}
                     </div>
-                    {canManage && r.status === 'qualified' && (
-                      <div className="flex gap-1.5 shrink-0">
-                        <button onClick={() => setDeciding({ row: r, approve: false })} className={`${BTN_QUIET} px-2`} aria-label="Refuse rewards"><X size={14} /></button>
-                        <button onClick={() => setDeciding({ row: r, approve: true })} className={`${BTN_PRIMARY} px-2.5 py-2`} aria-label="Give rewards now"><Check size={14} /></button>
-                      </div>
+                    {canManage && t.codeId && (
+                      t.codeStatus === 'active' ? (
+                        <span className="inline-flex shrink-0 -mr-2">
+                          <button onClick={() => setHolding({ codeId: t.codeId, name: t.name, status: 'suspended' })} className="grid place-items-center size-9 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" title="Hold this code" aria-label={`Hold ${t.name}'s code`}><PauseCircle size={17} /></button>
+                          <button onClick={() => setHolding({ codeId: t.codeId, name: t.name, status: 'revoked' })} className="grid place-items-center size-9 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 cursor-pointer" title="Revoke this code" aria-label={`Revoke ${t.name}'s code`}><Ban size={17} /></button>
+                        </span>
+                      ) : t.codeStatus === 'suspended' ? (
+                        <button onClick={() => void restore(t.codeId)} className="grid place-items-center size-9 -mr-2 shrink-0 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer" title="Let this code work again" aria-label={`Let ${t.name}'s code work again`}><PlayCircle size={17} /></button>
+                      ) : null
                     )}
                   </li>
                 ))}
               </ul>
             )}
-          </Section>
-
-          <Section title="Top referrers">
-            <Table
-              head={['Customer', 'Referred', 'Rewarded', 'Flagged', 'Cost', '']}
-              empty="No referrals in this period."
-              rows={data.topReferrers.map((t) => [
-                <span key="n">{t.name} <span className="font-mono text-xs text-app-text-muted">{t.code}</span> {t.codeStatus !== 'active' && <Chip status={t.codeStatus} />}</span>,
-                t.referrals, t.rewarded, t.flagged || '', ksh(t.cost),
-                canManage && t.codeId ? (
-                  t.codeStatus === 'active' ? (
-                    <span key="a" className="inline-flex gap-1">
-                      <button onClick={() => setHolding({ codeId: t.codeId, name: t.name, status: 'suspended' })} className="p-1 rounded-lg hover:bg-app-bg cursor-pointer" title="Hold this code"><PauseCircle size={15} /></button>
-                      <button onClick={() => setHolding({ codeId: t.codeId, name: t.name, status: 'revoked' })} className="p-1 rounded-lg hover:bg-app-bg cursor-pointer text-red-600" title="Revoke this code"><Ban size={15} /></button>
-                    </span>
-                  ) : t.codeStatus === 'suspended' ? (
-                    <button key="r" onClick={() => void restore(t.codeId)} className="p-1 rounded-lg hover:bg-app-bg cursor-pointer" title="Let this code work again"><PlayCircle size={15} /></button>
-                  ) : ''
-                ) : '',
-              ])}
-            />
-          </Section>
+          </Card>
         </>
       )}
       {editing && data && (
@@ -976,6 +1084,94 @@ function ReferralsTab({ businessId, canManage }: { businessId: string; canManage
       {deciding && <DecideSheet {...deciding} onClose={() => setDeciding(null)} onDone={() => { setDeciding(null); void load(); }} />}
       {holding && <HoldCodeSheet {...holding} onClose={() => setHolding(null)} onDone={() => { setHolding(null); void load(); }} />}
     </div>
+  );
+}
+
+/** The running programme at a glance: who gets what, and its rules as small facts. */
+function ProgrammeCard({ campaign: k, canManage, onEdit, onNew }: {
+  campaign: ReferralDashboard['campaign']; canManage: boolean; onEdit: () => void; onNew: () => void;
+}) {
+  if (!k) {
+    return (
+      <Card>
+        <Empty icon={<Gift />} text="No referral programme. Customers share a code; both sides get a reward after the first purchase.">
+          {canManage && <button onClick={onNew} className={`${primaryBtn} mt-1`}><Plus size={15} /> Start a programme</button>}
+        </Empty>
+      </Card>
+    );
+  }
+  const minBuy = Number(k.welcome?.minPurchase) || 0;
+  return (
+    <Card>
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Dot icon={<Gift />} tone={TONE.emerald} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-app-text truncate">{k.name}</p>
+            <Chip status="active" label="Running" />
+          </div>
+          {canManage && (
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={onEdit} className={`${secondaryBtn} px-3`} aria-label="Change programme"><Pencil size={15} /><span className="hidden sm:inline">Change</span></button>
+              <button onClick={onNew} className={`${secondaryBtn} px-3`} aria-label="New programme"><Plus size={15} /><span className="hidden sm:inline">New</span></button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
+          <div className="rounded-xl bg-amber-500/10 p-3 min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"><UserRound size={12} /> Referrer gets</p>
+            <p className="mt-1 text-sm font-bold text-app-text break-words">{k.referrerText}</p>
+          </div>
+          <span className="self-center text-app-text-muted"><ArrowRight size={16} /></span>
+          <div className="rounded-xl bg-emerald-500/10 p-3 min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300"><UserPlus size={12} /> New customer gets</p>
+            <p className="mt-1 text-sm font-bold text-app-text break-words">{k.welcomeText}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {minBuy > 0 && <Fact icon={<ShoppingCart />}>First buy {ksh(minBuy)}+</Fact>}
+          <Fact icon={<Hourglass />}>{k.hold_days}-day wait</Fact>
+          {k.review_flagged && <Fact icon={<ShieldCheck />}>Flagged checked</Fact>}
+          {k.ends_at && <Fact icon={<CalendarDays />}>Ends {dayShort(k.ends_at)}</Fact>}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ReferralItem({ r, canManage, onDecide }: { r: ReferralRow; canManage: boolean; onDecide: (approve: boolean) => void }) {
+  const due = r.status === 'qualified' && r.rewardDueAt ? (new Date(r.rewardDueAt) > new Date() ? `Rewards ${dayShort(r.rewardDueAt)}` : 'Rewards due') : null;
+  return (
+    <li className="px-4 py-3 space-y-1.5 min-w-0">
+      <div className="flex items-start gap-2 min-w-0">
+        <p className="min-w-0 flex-1 flex items-center gap-1.5 text-sm text-app-text">
+          <span className="truncate font-semibold">{r.referrer}</span>
+          <ArrowRight size={13} className="shrink-0 text-app-text-muted" />
+          <span className="truncate font-semibold">{r.referred}</span>
+        </p>
+        <Chip status={r.status} label={REFERRAL_STATUS_LABEL[r.status]} />
+      </div>
+      <p className="text-[11px] text-app-text-muted truncate">
+        {dayTime(r.at)} · <span className="font-mono">{r.code}</span>
+        {r.purchase != null ? ` · bought ${ksh(r.purchase)}` : ''}{r.receipt ? ` · ${r.receipt}` : ''}{r.staff ? ` · ${r.staff}` : ''}
+        {r.endReason ? ` · ${r.endReason}` : ''}
+      </p>
+      {(r.flags.length > 0 || due || r.rewards.length > 0) && (
+        <div className="flex flex-wrap gap-1.5">
+          {r.flags.map((f) => <Fact key={f} icon={<AlertTriangle />} tone="warn">{REFERRAL_FLAG_LABEL[f] ?? f}</Fact>)}
+          {due && <Fact icon={<Clock />}>{due}</Fact>}
+          {r.rewards.map((w, i) => (
+            <Fact key={i} icon={w.side === 'referrer' ? <UserRound /> : <UserPlus />}>{w.what} · {w.status}</Fact>
+          ))}
+        </div>
+      )}
+      {canManage && r.status === 'qualified' && (
+        <div className="flex gap-2 pt-1">
+          <button onClick={() => onDecide(false)} className={`${secondaryBtn} flex-1 sm:flex-none py-2 text-red-600 dark:text-red-400`}><X size={15} /> Refuse</button>
+          <button onClick={() => onDecide(true)} className={`${primaryBtn} flex-1 sm:flex-none py-2`}><Check size={15} /> Give rewards</button>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -1003,22 +1199,22 @@ function DecideSheet({ row, approve, onClose, onDone }: { row: ReferralRow; appr
       subtitle={`${row.referrer} → ${row.referred}`}
       onClose={onClose}
       footer={
-        <div className="flex items-center gap-2 justify-end">
-          {error && <p role="alert" className="mr-auto text-xs text-red-600 dark:text-red-400">{error}</p>}
-          <button onClick={onClose} className={BTN_QUIET}>Back</button>
-          <button disabled={busy || (!approve && !reason.trim())} onClick={() => void go()} className={approve ? BTN_PRIMARY : `${BTN_QUIET} text-red-600`}>
-            {approve ? 'Give rewards' : 'Refuse'}
+        <>
+          {error && <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={onClose} className={`${secondaryBtn} flex-1 sm:flex-none`}>Back</button>
+          <button disabled={busy || (!approve && !reason.trim())} onClick={() => void go()} className={`${approve ? primaryBtn : `${secondaryBtn} text-red-600 dark:text-red-400`} flex-1 sm:flex-none`}>
+            {approve ? <><Check size={15} /> Give rewards</> : <><X size={15} /> Refuse</>}
           </button>
-        </div>
+        </>
       }
     >
-      {row.flags.length > 0 && <p className="text-sm">Flagged: {row.flags.map((f) => REFERRAL_FLAG_LABEL[f] ?? f).join(', ')}.</p>}
+      {row.flags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">{row.flags.map((f) => <Fact key={f} icon={<AlertTriangle />} tone="warn">{REFERRAL_FLAG_LABEL[f] ?? f}</Fact>)}</div>
+      )}
       <p className="text-sm text-app-text-muted">
-        {approve
-          ? 'Both sides get their rewards now, without waiting. This is recorded with your name.'
-          : 'Neither side gets a reward (a welcome discount already taken at the sale stays). Recorded with your name.'}
+        {approve ? 'Both sides get their rewards now. Recorded with your name.' : 'Neither side gets a reward. A welcome discount already taken stays. Recorded with your name.'}
       </p>
-      {!approve && <Field label="Why"><input value={reason} onChange={(e) => setReason(e.target.value)} className={INPUT} placeholder="e.g. Same household" /></Field>}
+      {!approve && <Field label="Why"><TextInput value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Same household" autoFocus /></Field>}
     </FormSheet>
   );
 }
@@ -1039,51 +1235,54 @@ function HoldCodeSheet({ codeId, name, status, onClose, onDone }: { codeId: stri
   return (
     <FormSheet
       title={status === 'suspended' ? `Hold ${name}'s code?` : `Revoke ${name}'s code?`}
-      subtitle={status === 'suspended' ? 'No new referrals and no rewards paid until it works again.' : 'For good. The customer can be given a new code later.'}
+      subtitle={status === 'suspended' ? 'No referrals or rewards until it works again.' : 'For good. A new code can be given later.'}
       onClose={onClose}
       footer={
-        <div className="flex items-center gap-2 justify-end">
-          {error && <p role="alert" className="mr-auto text-xs text-red-600 dark:text-red-400">{error}</p>}
-          <button onClick={onClose} className={BTN_QUIET}>Back</button>
-          <button disabled={!reason.trim()} onClick={() => void go()} className={`${BTN_QUIET} text-red-600`}>{status === 'suspended' ? 'Hold' : 'Revoke'}</button>
-        </div>
+        <>
+          {error && <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={onClose} className={`${secondaryBtn} flex-1 sm:flex-none`}>Back</button>
+          <button disabled={!reason.trim()} onClick={() => void go()} className={`${secondaryBtn} flex-1 sm:flex-none text-red-600 dark:text-red-400`}>
+            {status === 'suspended' ? <><PauseCircle size={15} /> Hold</> : <><Ban size={15} /> Revoke</>}
+          </button>
+        </>
       }
     >
-      <Field label="Why"><input value={reason} onChange={(e) => setReason(e.target.value)} className={INPUT} placeholder="e.g. Looks like fake accounts" /></Field>
+      <Field label="Why"><TextInput value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Looks like fake accounts" autoFocus /></Field>
     </FormSheet>
   );
 }
 
-function RewardFields({ who, kind, value, productId, qty, onChange, products }: {
-  who: string; kind: RewardKind; value: number | null; productId: string | null; qty: number | null;
+function RewardFields({ who, icon, tone, kind, value, productId, qty, onChange, products }: {
+  who: string; icon: React.ReactNode; tone: string; kind: RewardKind; value: number | null; productId: string | null; qty: number | null;
   onChange: (patch: { kind?: RewardKind; value?: number | null; productId?: string | null; qty?: number | null }) => void;
-  products: { id: string; name: string }[];
+  products: { id: string; name: string; sub?: string }[];
 }) {
   return (
-    <div className="rounded-xl bg-app-bg p-3 space-y-2">
-      <p className="text-sm font-semibold text-app-text">{who}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Reward">
-          <select value={kind} onChange={(e) => onChange({ kind: e.target.value as RewardKind })} className={INPUT}>
-            {REWARD_KINDS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
-        </Field>
-        {kind === 'free_product' ? (
-          <Field label="How many">
-            <input type="number" min="1" value={qty ?? ''} onChange={(e) => onChange({ qty: numOrNull(e.target.value) })} className={INPUT} />
+    <div className="rounded-2xl ring-1 ring-app-border p-3 space-y-3 min-w-0">
+      <p className="flex items-center gap-2 text-sm font-semibold text-app-text">
+        <span className={`grid place-items-center size-7 rounded-lg [&>svg]:size-4 ${tone}`}>{icon}</span> {who}
+      </p>
+      <ChoiceGrid ariaLabel={`${who}: reward`} compact columns="grid-cols-5" options={REWARD_LOOK} value={kind} onChange={(k) => onChange({ kind: k })} />
+      {kind === 'free_product' ? (
+        <div className="grid grid-cols-[1fr_6.5rem] gap-2">
+          <Field label="Product" group>
+            <SearchableDropdown
+              items={products.map((p) => ({ id: p.id, label: p.name, sublabel: p.sub }))}
+              selectedValue={productId ?? ''}
+              onChange={(v) => onChange({ productId: v || null })}
+              placeholder="Choose"
+              searchPlaceholder="Search products"
+            />
           </Field>
-        ) : (
-          <Field label={kind === 'percent' ? 'Percent' : kind === 'points' ? 'Points' : 'KSh'}>
-            <input type="number" min="0" value={value ?? ''} onChange={(e) => onChange({ value: numOrNull(e.target.value) })} className={INPUT} />
-          </Field>
-        )}
-      </div>
-      {kind === 'free_product' && (
-        <Field label="Free product">
-          <select value={productId ?? ''} onChange={(e) => onChange({ productId: e.target.value || null })} className={INPUT}>
-            <option value="">Choose…</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <Field label="How many"><NumberInput min={1} decimals={0} value={qty} onChange={(v) => onChange({ qty: v })} placeholder="1" /></Field>
+        </div>
+      ) : (
+        <Field label={kind === 'wallet' ? 'Wallet credit' : kind === 'points' ? 'Points' : 'Off'}>
+          {kind === 'percent'
+            ? <NumberInput suffix="%" min={0} max={100} value={value} onChange={(v) => onChange({ value: v })} placeholder="10" />
+            : kind === 'points'
+              ? <NumberInput suffix="pts" min={0} decimals={0} value={value} onChange={(v) => onChange({ value: v })} placeholder="500" />
+              : <NumberInput prefix="KSh" min={0} value={value} onChange={(v) => onChange({ value: v })} placeholder="100" />}
         </Field>
       )}
     </div>
@@ -1153,63 +1352,74 @@ function CampaignEditor({ businessId, campaign, onClose, onSaved }: {
       setError(toUserMessage(e, 'Could not end the programme.'));
     }
   };
+  const welcomePercent = d.welcomeKind === 'percent';
   return (
     <FormSheet
       title={campaign ? `Change ${campaign.name}` : 'New referral programme'}
-      subtitle="Starting a programme ends the one running at this branch."
+      subtitle={campaign ? undefined : 'Replaces the one running at this branch.'}
       onClose={onClose}
       wide
       footer={
-        <div className="flex items-center gap-2 justify-end flex-wrap">
-          {error && <p role="alert" className="mr-auto text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <>
+          {error && <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>}
           {campaign && (confirmEnd
-            ? <button onClick={() => void end()} className={`${BTN_QUIET} text-red-600`}>Yes, end it</button>
-            : <button onClick={() => setConfirmEnd(true)} className={BTN_QUIET}>End programme</button>)}
-          <button onClick={onClose} className={BTN_QUIET}>Cancel</button>
-          <button disabled={saving} onClick={() => void save()} className={BTN_PRIMARY}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
+            ? <button onClick={() => void end()} className={`${secondaryBtn} w-full sm:w-auto sm:mr-auto text-red-600 dark:text-red-400`}><Ban size={15} /> Yes, end it</button>
+            : <button onClick={() => setConfirmEnd(true)} className={`${secondaryBtn} w-full sm:w-auto sm:mr-auto text-red-600 dark:text-red-400`}><Ban size={15} /> End programme</button>)}
+          <button onClick={onClose} className={`${secondaryBtn} flex-1 sm:flex-none`}>Cancel</button>
+          <button disabled={saving} onClick={() => void save()} className={`${primaryBtn} flex-1 sm:flex-none`}><Check size={15} /> {saving ? 'Saving…' : 'Save'}</button>
+        </>
       }
     >
-      <Field label="Name"><input value={d.name} onChange={(e) => set({ name: e.target.value })} className={INPUT} maxLength={80} /></Field>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <RewardFields who="The customer who refers" kind={d.referrerKind} value={d.referrerValue} productId={d.referrerProductId} qty={d.referrerQty} products={cat.products}
-          onChange={(p) => set({ ...(p.kind ? { referrerKind: p.kind } : {}), ...('value' in p ? { referrerValue: p.value ?? null } : {}), ...('productId' in p ? { referrerProductId: p.productId ?? null } : {}), ...('qty' in p ? { referrerQty: p.qty ?? null } : {}) })} />
-        <RewardFields who="The new customer" kind={d.welcomeKind} value={d.welcomeValue} productId={d.welcomeProductId} qty={d.welcomeQty} products={cat.products}
-          onChange={(p) => set({ ...(p.kind ? { welcomeKind: p.kind } : {}), ...('value' in p ? { welcomeValue: p.value ?? null } : {}), ...('productId' in p ? { welcomeProductId: p.productId ?? null } : {}), ...('qty' in p ? { welcomeQty: p.qty ?? null } : {}) })} />
-      </div>
-      <p className="text-[11px] text-app-text-muted">
-        Discounts and free products for the new customer come off the first sale. Wallet credit and points are given after the wait.
-        The referrer's discount or free product becomes a personal code for their next visit.
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Field label="First purchase at least (KSh)"><input type="number" min="0" value={d.minPurchase || ''} onChange={(e) => set({ minPurchase: Number(e.target.value) || 0 })} className={INPUT} /></Field>
-        <Field label="Wait before rewards (days)" hint="Guards against refunds"><input type="number" min="0" max="60" value={d.holdDays} onChange={(e) => set({ holdDays: Number(e.target.value) || 0 })} className={INPUT} /></Field>
-        <Field label="Reward codes last (days)" hint="Empty: no end"><input type="number" min="1" value={d.rewardExpiryDays ?? ''} onChange={(e) => set({ rewardExpiryDays: numOrNull(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Most off (KSh)" hint="Welcome % cap"><input type="number" min="0" value={d.maxDiscount ?? ''} onChange={(e) => set({ maxDiscount: numOrNull(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Referrals per customer"><input type="number" min="1" value={d.maxPerReferrer ?? ''} onChange={(e) => set({ maxPerReferrer: numOrNull(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Referrals in total"><input type="number" min="1" value={d.maxTotal ?? ''} onChange={(e) => set({ maxTotal: numOrNull(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Rewards per customer, ever"><input type="number" min="1" value={d.maxRewardsPerCustomer ?? ''} onChange={(e) => set({ maxRewardsPerCustomer: numOrNull(e.target.value) })} className={INPUT} /></Field>
-        <Field label="'New' means added within (days)"><input type="number" min="1" value={d.newCustomerDays} onChange={(e) => set({ newCustomerDays: Number(e.target.value) || 30 })} className={INPUT} /></Field>
-        <Field label="Starts"><input type="datetime-local" value={toLocalInput(d.startsAt)} onChange={(e) => set({ startsAt: fromLocalInput(e.target.value) })} className={INPUT} /></Field>
-        <Field label="Ends"><input type="datetime-local" value={toLocalInput(d.endsAt)} onChange={(e) => set({ endsAt: fromLocalInput(e.target.value) })} className={INPUT} /></Field>
-        <Field label="First purchase must include">
-          <select value={d.productScope} onChange={(e) => set({ productScope: e.target.value as ProductScope })} className={INPUT}>
-            <option value="all">Anything</option>
-            <option value="products">Chosen products</option>
-            <option value="categories">Chosen categories</option>
-          </select>
+      <Field label="Name"><TextInput value={d.name} onChange={(e) => set({ name: e.target.value })} maxLength={80} /></Field>
+
+      <Group title="Rewards" icon={<Gift />}>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <RewardFields who="Referrer gets" icon={<UserRound />} tone={TONE.amber} kind={d.referrerKind} value={d.referrerValue} productId={d.referrerProductId} qty={d.referrerQty} products={cat.products}
+            onChange={(p) => set({ ...(p.kind ? { referrerKind: p.kind } : {}), ...('value' in p ? { referrerValue: p.value ?? null } : {}), ...('productId' in p ? { referrerProductId: p.productId ?? null } : {}), ...('qty' in p ? { referrerQty: p.qty ?? null } : {}) })} />
+          <RewardFields who="New customer gets" icon={<UserPlus />} tone={TONE.emerald} kind={d.welcomeKind} value={d.welcomeValue} productId={d.welcomeProductId} qty={d.welcomeQty} products={cat.products}
+            onChange={(p) => set({ ...(p.kind ? { welcomeKind: p.kind } : {}), ...('value' in p ? { welcomeValue: p.value ?? null } : {}), ...('productId' in p ? { welcomeProductId: p.productId ?? null } : {}), ...('qty' in p ? { welcomeQty: p.qty ?? null } : {}) })} />
+        </div>
+        <p className="flex items-start gap-1.5 text-[11px] text-app-text-muted">
+          <Info size={12} className="shrink-0 mt-px" /> New customer's discount comes off the first sale. Wallet and points arrive after the wait. The referrer's discount becomes a code for next time.
+        </p>
+      </Group>
+
+      <Group title="First purchase" icon={<ShoppingCart />}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="At least"><NumberInput prefix="KSh" min={0} value={d.minPurchase || null} onChange={(v) => set({ minPurchase: v ?? 0 })} placeholder="0" /></Field>
+          {welcomePercent && <Field label="Cap"><NumberInput prefix="KSh" min={0} value={d.maxDiscount} onChange={(v) => set({ maxDiscount: v })} placeholder="No cap" /></Field>}
+        </div>
+        <Field label="Must include" group>
+          <Segmented ariaLabel="Must include" options={SCOPE_OPTIONS('Anything')} value={d.productScope} onChange={(v) => set({ productScope: v })} />
         </Field>
-      </div>
-      {d.productScope === 'products' && <MultiPicker label="Products" options={cat.products} value={d.productIds} onChange={(ids) => set({ productIds: ids })} placeholder="Search products" />}
-      {d.productScope === 'categories' && <MultiPicker label="Categories" options={cat.categories} value={d.categories} onChange={(ids) => set({ categories: ids })} placeholder="Search categories" />}
-      {cat.branches.length > 0 && <MultiPicker label="Codes also work at these branches" options={cat.branches} value={d.branchIds} onChange={(ids) => set({ branchIds: ids })} placeholder="Search branches" />}
-      <div className="rounded-xl bg-app-bg p-3 space-y-2.5">
-        <Switch checked={d.excludeExisting} onChange={(v) => set({ excludeExisting: v })} label="Only customers added recently" description="Customers who have bought are always left out." />
-        <Switch checked={d.requirePhone} onChange={(v) => set({ requirePhone: v })} label="New customer needs a phone number" description="Checked against every other customer, so one person can't come twice." />
-        <Switch checked={d.reviewFlagged} onChange={(v) => set({ reviewFlagged: v })} label="A manager checks flagged referrals" description="Signs of a fake referral hold the rewards until someone approves." />
-        <Switch checked={d.stackable} onChange={(v) => set({ stackable: v })} label="Can be combined with other discounts" />
-      </div>
+        {d.productScope === 'products' && <MultiPicker label="Products" options={cat.products} value={d.productIds} onChange={(ids) => set({ productIds: ids })} placeholder="Search products" />}
+        {d.productScope === 'categories' && <MultiPicker label="Categories" options={cat.categories} value={d.categories} onChange={(ids) => set({ categories: ids })} placeholder="Search categories" />}
+      </Group>
+
+      <Group title="Timing" icon={<Clock />}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Wait before rewards" hint="Covers refunds"><NumberInput suffix="days" min={0} max={60} decimals={0} value={d.holdDays} onChange={(v) => set({ holdDays: v ?? 0 })} /></Field>
+          <Field label="Reward codes last"><NumberInput suffix={d.rewardExpiryDays ? 'days' : <InfinityIcon size={14} />} min={1} decimals={0} value={d.rewardExpiryDays} onChange={(v) => set({ rewardExpiryDays: v })} placeholder="No end" /></Field>
+          <Field label="Starts"><DateTimeInput value={d.startsAt} onChange={(v) => set({ startsAt: v })} /></Field>
+          <Field label="Ends"><DateTimeInput value={d.endsAt} onChange={(v) => set({ endsAt: v })} /></Field>
+        </div>
+      </Group>
+
+      <Group title="Limits" icon={<ShieldCheck />}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Per referrer"><NumberInput min={1} decimals={0} value={d.maxPerReferrer} onChange={(v) => set({ maxPerReferrer: v })} placeholder="No limit" suffix="people" /></Field>
+          <Field label="In total"><NumberInput min={1} decimals={0} value={d.maxTotal} onChange={(v) => set({ maxTotal: v })} placeholder="No limit" /></Field>
+          <Field label="Rewards per customer"><NumberInput min={1} decimals={0} value={d.maxRewardsPerCustomer} onChange={(v) => set({ maxRewardsPerCustomer: v })} placeholder="No limit" /></Field>
+          <Field label="'New' = added within"><NumberInput suffix="days" min={1} decimals={0} value={d.newCustomerDays} onChange={(v) => set({ newCustomerDays: v ?? 30 })} /></Field>
+        </div>
+        {cat.branches.length > 0 && <MultiPicker label="Codes also work at" options={cat.branches} value={d.branchIds} onChange={(ids) => set({ branchIds: ids })} placeholder="Search branches" />}
+        <div className="rounded-xl bg-app-bg p-3 space-y-3">
+          <Switch checked={d.excludeExisting} onChange={(v) => set({ excludeExisting: v })} label="Only recently added customers" description="Anyone who has bought is left out." />
+          <Switch checked={d.requirePhone} onChange={(v) => set({ requirePhone: v })} label="Phone number needed" description="Stops one person joining twice." />
+          <Switch checked={d.reviewFlagged} onChange={(v) => set({ reviewFlagged: v })} label="Manager checks flagged ones" />
+          <Switch checked={d.stackable} onChange={(v) => set({ stackable: v })} label="Combine with other discounts" />
+        </div>
+      </Group>
     </FormSheet>
   );
 }
-

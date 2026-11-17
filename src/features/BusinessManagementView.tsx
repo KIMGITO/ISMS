@@ -30,6 +30,7 @@ import type { MoneyMethod } from "../types";
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
 import { useKraStatus } from '../services/kra/kraService';
+import { NumberInput } from '../components/shared/Input';
 
 // Shown only until the business's own list has loaded.
 
@@ -1068,15 +1069,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">
                               Rate %
                             </label>
-                            <input
-                              type="number"
+                            <NumberInput
                               disabled={!kraConnected}
                               value={taxPercentage}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
+                              onChange={(v) => {
+                                const val = (v ?? NaN);
                                 setTaxPercentage(isNaN(val) ? 0 : val);
                               }}
-                              className="w-[120px] bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-xs font-bold disabled:opacity-50"
+                              size="sm" className="w-[120px]" inputClassName="font-bold"
                               placeholder="16"
                               max={100}
                               min={0}
@@ -1436,16 +1436,13 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <span className="absolute left-3 top-2.5 text-[11px] font-black text-app-text-muted">
                               KSh
                             </span>
-                            <input
-                              type="number"
+                            <NumberInput
                               required
-                              min="0.01"
-                              step="0.01"
-                              inputMode="decimal"
+                              min={0.01}
                               placeholder="0.00"
                               value={payAmount}
-                              onChange={(e) => setExpPayAmount(e.target.value)}
-                              className="w-full bg-app-bg text-app-text border border-app-border rounded-xl pl-11 pr-3 py-2.5 text-sm font-black font-mono focus:outline-none focus:border-amber-500"
+                              onChange={(v) => setExpPayAmount((v == null ? '' : String(v)))}
+                              className="w-full" inputClassName="font-mono"
                             />
                           </div>
                         </div>

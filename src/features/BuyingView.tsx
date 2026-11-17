@@ -31,6 +31,7 @@ import {
 } from '../services/buying';
 import { listPurchases, listSuppliers, type PurchaseOrder, type Supplier } from '../services/operations';
 import { getSupabase } from '../services/supabaseClient';
+import { NumberInput } from '../components/shared/Input';
 
 type Tab = 'suppliers' | 'purchases' | 'reorder' | 'approvals' | 'bills' | 'returns' | 'settings';
 
@@ -372,12 +373,11 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                   </button>
                   {p && (
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      <input
-                        type="number" inputMode="decimal" min="0" step="any"
+                      <NumberInput min={0}
                         value={p.qty}
                         aria-label={`How much ${displayName(r.name)}`}
-                        onChange={(e) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], qty: e.target.value } }))}
-                        className="w-24 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums"
+                        onChange={(v) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], qty: (v == null ? '' : String(v)) } }))}
+                        size="sm" className="w-24" inputClassName="text-right tabular-nums"
                       />
                       {r.transferFrom && canAsk && (
                         <div className="w-44 max-w-full">
@@ -456,14 +456,14 @@ function ReorderSheet({ businessId, row, suppliers, onClose, onSaved }: {
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={`Reorder when at or below (${row.unit})`} hint={row.suggestedLevel ? `From sales: ${q3(row.suggestedLevel)}` : 'Empty uses the low-stock level'}>
           <div className="flex gap-2">
-            <input type="number" inputMode="decimal" min="0" step="any" value={level} onChange={(e) => setLevel(e.target.value)} className={fieldClass} />
+            <NumberInput min={0} value={level} onChange={(v) => setLevel((v == null ? '' : String(v)))} />
             {row.suggestedLevel !== null && row.suggestedLevel > 0 && (
               <button type="button" className={`${secondaryBtn} !px-3`} onClick={() => setLevel(String(row.suggestedLevel))}>Use</button>
             )}
           </div>
         </Field>
         <Field label={`Order this much (${row.unit})`} hint="Empty orders up to twice the level">
-          <input type="number" inputMode="decimal" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} className={fieldClass} />
+          <NumberInput min={0} value={qty} onChange={(v) => setQty((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Usual supplier">
           <SearchableDropdown
@@ -475,10 +475,10 @@ function ReorderSheet({ businessId, row, suppliers, onClose, onSaved }: {
           />
         </Field>
         <Field label="Their price each (KSh)" hint={`Cost now ${formatCurrency(row.cost)}`}>
-          <input type="number" inputMode="decimal" min="0" step="any" value={price} onChange={(e) => setPrice(e.target.value)} className={fieldClass} />
+          <NumberInput min={0} value={price} onChange={(v) => setPrice((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Days they take to deliver">
-          <input type="number" inputMode="numeric" min="0" max="365" value={lead} onChange={(e) => setLead(e.target.value)} className={fieldClass} />
+          <NumberInput decimals={0} min={0} max={365} value={lead} onChange={(v) => setLead((v == null ? '' : String(v)))} />
         </Field>
       </div>
       {err && <p className="text-xs text-red-600 dark:text-red-400">{err}</p>}
@@ -831,11 +831,9 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
         <div className="grid gap-3 sm:grid-cols-2">
           {LIMIT_ROLES.map((role) => (
             <Field key={role} label={`${role} (KSh)`}>
-              <input
-                type="number" inputMode="numeric" min="0" step="100" disabled={ro} placeholder="No limit"
+              <NumberInput decimals={0} min={0} disabled={ro} placeholder="No limit"
                 value={limits[role]}
-                onChange={(e) => setLimits((m) => ({ ...m, [role]: e.target.value }))}
-                className={fieldClass}
+                onChange={(v) => setLimits((m) => ({ ...m, [role]: (v == null ? '' : String(v)) }))}
               />
             </Field>
           ))}
@@ -844,10 +842,10 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
       <Card title="Bills and reorder">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Allowed bill difference (%)" hint="A bill differing from the goods received by more waits for a check">
-            <input type="number" inputMode="decimal" min="0" max="50" step="0.5" disabled={ro} value={tol} onChange={(e) => setTol(e.target.value)} className={fieldClass} />
+            <NumberInput min={0} max={50} disabled={ro} value={tol} onChange={(v) => setTol((v == null ? '' : String(v)))} />
           </Field>
           <Field label="Safety days" hint="Added to the lead time when suggesting reorder levels from sales">
-            <input type="number" inputMode="numeric" min="0" max="90" disabled={ro} value={safety} onChange={(e) => setSafety(e.target.value)} className={fieldClass} />
+            <NumberInput decimals={0} min={0} max={90} disabled={ro} value={safety} onChange={(v) => setSafety((v == null ? '' : String(v)))} />
           </Field>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

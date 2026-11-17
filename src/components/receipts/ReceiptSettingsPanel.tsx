@@ -25,6 +25,7 @@ import { InvoiceLookControls } from '../invoices/InvoiceLookControls';
 import { nextInvoiceNumber } from '../../services/invoice/invoiceData';
 import { addDays, PERIOD_LABELS, periodFor, todayIso } from '../../services/invoice/invoiceDraft';
 import type { Product, Transaction } from '../../types';
+import { NumberInput } from '../shared/Input';
 
 type Tab = 'layout' | 'shop' | 'messages' | 'codes' | 'printers' | 'kra';
 
@@ -693,7 +694,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
             <input className={`${input} uppercase`} maxLength={8} value={texts.prefix} onChange={(e) => set({ prefix: e.target.value.toUpperCase() })} />
           </Field>
           <Field title="Note under the title"><input className={input} value={texts.note} onChange={(e) => set({ note: e.target.value })} /></Field>
-          <Field title="Days to pay"><input type="number" min={0} max={365} className={input} value={texts.dueDays} onChange={(e) => set({ dueDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) })} /></Field>
+          <Field title="Days to pay"><NumberInput min={0} max={365} value={texts.dueDays} onChange={(v) => set({ dueDays: Math.max(0, Math.min(365, (v ?? 0) || 0)) })} /></Field>
           <Field title="Start new invoices with">
             <Pick
               value={texts.defaultPeriod}

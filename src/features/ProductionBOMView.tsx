@@ -54,6 +54,7 @@ import { appDialog } from '../components/AppDialog';
 import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
 import { Checkbox } from '../components/shared/Checkbox';
+import { NumberInput } from '../components/shared/Input';
 
 type ViewMode = 'list' | 'create-bom' | 'create-batch' | 'bom-detail';
 
@@ -717,10 +718,9 @@ export default function ProductionBOMView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Yield Quantity</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={bomYieldQty}
-                    onChange={(e) => handleNumberInput(e.target.value, setBomYieldQty, 0.001)}
+                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBomYieldQty, 0.001)}
                     min={0.001}
                     step={0.001}
                     className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
@@ -783,10 +783,9 @@ export default function ProductionBOMView() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[8px] text-slate-500 font-bold uppercase">Qty Required *</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           value={ing.quantityRequired}
-                          onChange={(e) => handleNumberInput(e.target.value, (val) => updateIngredient(idx, 'quantityRequired', val), 0.001)}
+                          onChange={(v) => handleNumberInput((v == null ? '' : String(v)), (val) => updateIngredient(idx, 'quantityRequired', val), 0.001)}
                           min={0.001}
                           step={0.001}
                           className="w-full bg-app-card border border-app-border text-app-text px-2 py-1.5 rounded text-[10px] focus:outline-none focus:border-amber-500/50"
@@ -805,10 +804,9 @@ export default function ProductionBOMView() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[8px] text-slate-500 font-bold uppercase">Waste %</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           value={ing.wastePercentage}
-                          onChange={(e) => updateIngredient(idx, 'wastePercentage', Number(e.target.value))}
+                          onChange={(v) => updateIngredient(idx, 'wastePercentage', (v ?? 0))}
                           min={0}
                           max={100}
                           step={0.1}
@@ -893,10 +891,9 @@ export default function ProductionBOMView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quantity Produced *</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={batchQty}
-                    onChange={(e) => handleNumberInput(e.target.value, setBatchQty, 0.001)}
+                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBatchQty, 0.001)}
                     min={0.001}
                     step={0.001}
                     className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
@@ -1141,12 +1138,11 @@ export default function ProductionBOMView() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div className="space-y-1">
                           <label className="text-[8px] text-slate-400 font-bold uppercase">Qty to Return to Stock</label>
-                          <input
-                            type="number"
+                          <NumberInput
                             value={item.isDamaged ? 0 : item.returnQty}
                             disabled={item.isDamaged}
-                            onChange={(e) => {
-                              const val = Math.min(item.consumedQty, Math.max(0, Number(e.target.value)));
+                            onChange={(v) => {
+                              const val = Math.min(item.consumedQty, Math.max(0, (v ?? 0)));
                               setCancellationItems(prev => {
                                 const copy = [...prev];
                                 copy[idx].returnQty = val;

@@ -19,13 +19,16 @@ export function FormSheet({ title, subtitle, onClose, children, footer, wide }: 
   useOverlay(true, onClose, 'bottom-sheet');
   return (
     <SheetLayer>
-      <div className="fixed inset-0 z-[9000] flex items-end sm:items-center justify-center bg-black/40 sm:p-6" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-[9000] flex items-end sm:items-center justify-center bg-black/40 sm:p-6 pt-[calc(0.75rem+var(--inset-top))] pl-[var(--inset-left)] pr-[var(--inset-right)]"
+        onClick={onClose}
+      >
         <div
           role="dialog"
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} max-h-[92dvh] flex flex-col bg-app-card text-app-text rounded-t-3xl sm:rounded-3xl shadow-2xl ring-1 ring-app-border`}
+          className={`w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} max-h-[calc(100dvh-var(--inset-top)-0.75rem)] sm:max-h-[calc(100dvh-var(--inset-top)-var(--inset-bottom)-3rem)] flex flex-col bg-app-card text-app-text rounded-t-3xl sm:rounded-3xl shadow-2xl ring-1 ring-app-border`}
         >
           <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-app-border/70">
             <div className="min-w-0 flex-1">
@@ -36,7 +39,7 @@ export function FormSheet({ title, subtitle, onClose, children, footer, wide }: 
               <X size={18} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-3">{children}</div>
+          <div className={`flex-1 overflow-y-auto overscroll-contain px-5 pt-4 space-y-3 ${footer ? 'pb-4' : 'pb-[calc(1rem+var(--inset-bottom))] sm:pb-4'}`}>{children}</div>
           {footer && (
             <div className="px-5 pt-3 pb-[calc(0.75rem+var(--inset-bottom))] sm:pb-3 border-t border-app-border/70 flex flex-wrap gap-2 justify-end">
               {footer}

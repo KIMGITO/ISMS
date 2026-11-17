@@ -2,16 +2,15 @@
 // fewest points a customer can use. Shown on Loyalty → Points and on Online Store → Website,
 // only to roles with "loyalty.configure" (the database checks the same permission).
 import React, { FormEvent, useEffect, useState } from 'react';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Coins, Medal, Ban, Check } from 'lucide-react';
 import { getSupabase } from '../../services/supabaseClient';
 import { fetchPointSettings, pointsPerShilling, setPointsEnabled } from '../../services/loyalty/pointValue';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
 import { hasRolePermission } from '../../utils/permissions';
 import { Switch } from '../shared/Switch';
-
-const inputClass =
-  'w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none focus:border-brand-500 mt-1';
+import { Field, NumberInput } from '../shared/Input';
+import { primaryBtn } from '../shared/FormSheet';
 
 /** Whether this role may change the points settings. */
 export function canConfigurePoints(role: string | undefined): boolean {
@@ -87,51 +86,52 @@ export function PointsSettings({ businessId, onSaved }: { businessId: string; on
     }
   };
 
-  const row = (tier: 'bronze' | 'silver' | 'gold', label: string) => {
-    const n = Number(perKsh[tier]) || 0;
-    return (
-      <label className="block text-sm font-medium text-app-text">
-        {label}: points for Ksh 1
-        <input required type="number" min="1" step="1" value={perKsh[tier]} onChange={(e) => setPerKsh((p) => ({ ...p, [tier]: e.target.value }))} className={inputClass} />
-        <span className="block mt-1 text-xs font-normal text-app-text-muted">{n > 0 ? `${Math.round((2 / n) * 1000) / 10}% back on what they pay` : ''}</span>
-      </label>
-    );
-  };
+  const TIERS = [
+    { tier: 'bronze' as const, label: 'Bronze', tone: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+    { tier: 'silver' as const, label: 'Silver', tone: 'bg-slate-400/20 text-slate-600 dark:text-slate-300' },
+    { tier: 'gold' as const, label: 'Gold', tone: 'bg-yellow-400/25 text-yellow-700 dark:text-yellow-300' },
+  ];
 
   return (
-    <form id="points-settings" onSubmit={handleSave} className="rounded-2xl bg-app-card ring-1 ring-app-border p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2 min-w-0">
-          <Settings2 size={16} className="mt-0.5 shrink-0 text-app-text-muted" />
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-app-text">Points settings</h3>
-            <p className="text-xs text-app-text-muted">
-              {enabled ? 'On: customers earn and use points.' : 'Off: nobody earns or uses points. Balances are kept for when you switch back on.'}
-            </p>
-          </div>
+    <form id="points-settings" onSubmit={handleSave} className="rounded-2xl bg-app-card shadow-xs p-4 space-y-4">
+      <div className="flex items-center gap-3">
+        <span className="grid place-items-center size-9 shrink-0 rounded-xl bg-violet-500/15 text-violet-600 dark:text-violet-400"><Settings2 size={17} /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-app-text">Points settings</h3>
+          <p className="text-xs text-app-text-muted">{enabled ? 'On: customers earn and use points.' : 'Off. Balances are kept.'}</p>
         </div>
         <Switch checked={enabled} onChange={() => toggle()} disabled={switching} ariaLabel="Loyalty points on or off" />
       </div>
       {enabled && (
         <>
           {/* Fixed in the database (fn_sale_points, fn_debt_payment_points, calculate_customer_tier); the website says the same. */}
-          <ul className="rounded-xl bg-app-bg px-3 py-2 text-xs text-app-text-muted space-y-0.5 list-disc list-inside">
-            <li>Customers earn 2 points per KSh 1 they pay (not delivery), and 1 point per KSh 1 of debt they pay off. Credit sales earn when paid.</li>
-            <li>Silver from 20,000 points, Gold from 60,000. Tiers never go down.</li>
-            <li>Points come off a purchase or pay off debt. They never become cash, M-Pesa or wallet money.</li>
+          <ul className="grid gap-1.5 sm:grid-cols-3 text-xs">
+            <li className="flex items-start gap-2 rounded-xl bg-app-bg p-2.5"><Coins size={14} className="shrink-0 mt-px text-violet-600 dark:text-violet-400" /><span className="text-app-text-muted"><b className="text-app-text">2 pts</b> per KSh 1 paid, <b className="text-app-text">1 pt</b> per KSh 1 of debt paid off</span></li>
+            <li className="flex items-start gap-2 rounded-xl bg-app-bg p-2.5"><Medal size={14} className="shrink-0 mt-px text-yellow-600 dark:text-yellow-400" /><span className="text-app-text-muted">Silver from <b className="text-app-text">20,000</b>, Gold from <b className="text-app-text">60,000</b>. Never goes down.</span></li>
+            <li className="flex items-start gap-2 rounded-xl bg-app-bg p-2.5"><Ban size={14} className="shrink-0 mt-px text-red-600 dark:text-red-400" /><span className="text-app-text-muted">Off a purchase or debt only. Never cash.</span></li>
           </ul>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {row('bronze', 'Bronze')}
-            {row('silver', 'Silver')}
-            {row('gold', 'Gold')}
+          <Field label="Points worth KSh 1" group>
+            <div className="grid grid-cols-3 gap-2">
+              {TIERS.map(({ tier, label, tone }) => {
+                const n = Number(perKsh[tier]) || 0;
+                return (
+                  <div key={tier} className="min-w-0 space-y-1">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}><Medal size={11} /> {label}</span>
+                    <NumberInput aria-label={`${label}: points for KSh 1`} min={1} decimals={0} value={perKsh[tier]} onChange={(v) => setPerKsh((p) => ({ ...p, [tier]: v == null ? '' : String(v) }))} suffix="pts" />
+                    <span className="block text-[11px] text-app-text-muted">{n > 0 ? `${Math.round((2 / n) * 1000) / 10}% back` : '\u00a0'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Field>
+          <div className="flex items-end gap-3">
+            <Field label="Fewest points to use" className="flex-1">
+              <NumberInput min={1} decimals={0} value={minRedeem} onChange={(v) => setMinRedeem(v == null ? '' : String(v))} suffix="pts" />
+            </Field>
+            <button type="submit" disabled={saving} className={`${primaryBtn} h-11 sm:h-10`}>
+              <Check size={15} /> {saving ? 'Saving…' : 'Save'}
+            </button>
           </div>
-          <label className="block text-sm font-medium text-app-text">
-            Fewest points that can be used
-            <input required type="number" min="1" value={minRedeem} onChange={(e) => setMinRedeem(e.target.value)} className={inputClass} />
-          </label>
-          <button type="submit" disabled={saving} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50 cursor-pointer">
-            {saving ? 'Saving…' : 'Save'}
-          </button>
         </>
       )}
     </form>

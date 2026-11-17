@@ -15,6 +15,7 @@ import {
   createCreditNote, loadSaleRefund, refundPreview, MONEY_METHODS,
   type MoneyMethod, type SaleRefundInfo, type Settlement,
 } from '../../services/salesDocs';
+import { NumberInput } from '../shared/Input';
 
 interface Props {
   transactionId: string;
@@ -125,17 +126,13 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
                     {l.left < l.quantity ? `${l.left} of ${l.quantity} left` : `${l.quantity} sold`} · {formatCurrency(l.unitNet * (1 + l.vatRate / 100))} each
                   </p>
                 </div>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
+                <NumberInput
+                  min={0}
                   max={l.left}
-                  step="any"
                   aria-label={`How many ${l.name} came back`}
                   value={qty[l.id] ?? ''}
                   disabled={l.left <= 0}
-                  onChange={(e) => setQty((q) => ({ ...q, [l.id]: Math.max(0, Math.min(l.left, Number(e.target.value) || 0)) }))}
-                  className={`${fieldClass} w-20 text-right`}
+                  onChange={(v) => setQty((q) => ({ ...q, [l.id]: Math.max(0, Math.min(l.left, (v ?? 0) || 0)) }))} className="w-20" inputClassName="text-right"
                 />
               </div>
             ))}

@@ -28,6 +28,7 @@ import {
   settleTransferShortage, type ShortAction,
 } from '../services/buying';
 import type { Product } from '../types';
+import { NumberInput } from '../components/shared/Input';
 
 const TZ = 'Africa/Nairobi';
 
@@ -582,15 +583,12 @@ function PickSheet({
                           </p>
                         )}
                       </div>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="any"
+                      <NumberInput
+                        min={0}
                         value={r.qty}
-                        onChange={(e) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: e.target.value } : l)))}
+                        onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
                         aria-label={`How much ${r.product ? displayName(r.product.name) : ''}`}
-                        className="w-24 bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        size="sm" className="w-24" inputClassName="text-right tabular-nums"
                       />
                       <button
                         onClick={() => setLines((ls) => ls.filter((l) => l.productId !== r.productId))}
@@ -982,14 +980,11 @@ function DetailSheet({
                       {editsQty && (
                         <label className="shrink-0 text-[11px] text-app-text-muted text-right">
                           {mode === 'receive' ? 'Arrived' : 'Send'}
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="any"
+                          <NumberInput
+                            min={0}
                             value={got[i.id]}
-                            onChange={(e) => setGot((g) => ({ ...g, [i.id]: e.target.value }))}
-                            className="mt-0.5 block w-24 bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            onChange={(v) => setGot((g) => ({ ...g, [i.id]: (v == null ? '' : String(v)) }))}
+                            size="sm" className="mt-0.5 block w-24" inputClassName="text-right tabular-nums"
                           />
                         </label>
                       )}
@@ -1007,15 +1002,12 @@ function DetailSheet({
                           </button>
                         ))}
                         {s.action && (
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="any"
+                          <NumberInput
+                            min={0}
                             value={s.qty}
-                            onChange={(e) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: e.target.value } }))}
+                            onChange={(v) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: (v == null ? '' : String(v)) } }))}
                             aria-label="How much"
-                            className="w-20 ml-auto bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums text-app-text"
+                            size="sm" className="w-20 ml-auto" inputClassName="text-right tabular-nums"
                           />
                         )}
                       </div>

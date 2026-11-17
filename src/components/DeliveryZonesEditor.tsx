@@ -11,6 +11,7 @@ import { formatCurrency } from '../utils/helpers';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { Switch } from './shared/Switch';
+import { NumberInput } from './shared/Input';
 
 export interface DeliveryZone {
   id: string;
@@ -180,7 +181,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
                     className="flex flex-col gap-2 sm:flex-row"
                   >
                     <input required maxLength={80} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} aria-label="Area name" className={inputClass} />
-                    <input required type="number" min="0" step="any" inputMode="decimal" value={editing.fee} onChange={(e) => setEditing({ ...editing, fee: e.target.value })} aria-label="Price in Ksh" className={`${inputClass} sm:w-32`} />
+                    <NumberInput required min={0} value={editing.fee} onChange={(v) => setEditing({ ...editing, fee: (v == null ? '' : String(v)) })} aria-label="Price in Ksh" className="sm:w-32" />
                     <div className="flex gap-2">
                       <button type="submit" disabled={busy} className={`${primaryClass} flex-1`}>Save</button>
                       <button type="button" onClick={() => setEditing(null)} className={secondaryClass}>Cancel</button>
@@ -243,7 +244,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
           className="flex flex-col gap-2 sm:flex-row"
         >
           <input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Area name, e.g. Kahawa West" aria-label="Area name" className={inputClass} />
-          <input required type="number" min="0" step="any" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="Price (Ksh)" aria-label="Price in Ksh" className={`${inputClass} sm:w-32`} />
+          <NumberInput required min={0} value={fee} onChange={(v) => setFee((v == null ? '' : String(v)))} placeholder="Price (Ksh)" aria-label="Price in Ksh" className="sm:w-32" />
           <button type="submit" disabled={busy} className={primaryClass}>Add area</button>
         </form>
       ) : (

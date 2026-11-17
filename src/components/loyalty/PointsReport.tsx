@@ -2,7 +2,9 @@
 // period, and who used points where. Points used to pay off debt cost the business on top of
 // sales, so that figure is also taken off profit on the Home screen.
 import React, { useEffect, useMemo, useState } from 'react';
-import { Gift, RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe, Trash2 } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe, Trash2, Medal } from 'lucide-react';
+import { Segmented } from '../shared/Choice';
+import { StatTile, StatGrid } from '../shared/StatTile';
 import { getSupabase } from '../../services/supabaseClient';
 import { toUuid } from '../../utils/idUtils';
 import { formatCurrency } from '../../utils/helpers';
@@ -16,10 +18,10 @@ import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, pointsPerShi
 
 type Range = 'this_month' | 'last_month' | 'this_year' | 'all';
 const RANGES: { id: Range; label: string }[] = [
-  { id: 'this_month', label: 'This month' },
-  { id: 'last_month', label: 'Last month' },
-  { id: 'this_year', label: 'This year' },
-  { id: 'all', label: 'All time' },
+  { id: 'this_month', label: 'Month' },
+  { id: 'last_month', label: 'Last' },
+  { id: 'this_year', label: 'Year' },
+  { id: 'all', label: 'All' },
 ];
 
 function rangeDates(r: Range): { from?: string; to?: string } {
@@ -178,114 +180,75 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
     return { all: sum(), till: sum('till'), online: sum('online'), account: sum('account') };
   }, [used]);
 
-  const tile = 'rounded-xl bg-app-bg p-3 min-w-0';
+  const TIER_TONE: Record<string, string> = {
+    Bronze: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+    Silver: 'bg-slate-400/20 text-slate-600 dark:text-slate-300',
+    Gold: 'bg-yellow-400/25 text-yellow-700 dark:text-yellow-300',
+  };
+  const maxTier = Math.max(1, ...held.tiers.map((t) => t.points));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        {onBack && (
+    <div className="flex flex-col gap-3">
+      {onBack && (
+        <div className="flex items-center gap-2">
           <button onClick={onBack} aria-label="Back" className="p-2 -ml-2 rounded-xl hover:bg-app-card cursor-pointer lg:hidden">
             <ArrowLeft size={20} />
           </button>
-        )}
-        <div className="size-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 grid place-items-center shrink-0">
-          <Gift size={18} />
+          <h2 className="text-base font-semibold flex-1">Loyalty points</h2>
         </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold">Loyalty points</h2>
-          <p className="text-xs text-app-text-muted">A reward inside the app, worth money.</p>
-        </div>
-        <button onClick={load} aria-label="Refresh" className="p-2 rounded-xl hover:bg-app-card text-app-text-muted cursor-pointer">
+      )}
+
+      {settingsPanel}
+
+      <div className="flex items-center gap-2">
+        <Segmented<Range> options={RANGES} value={range} onChange={setRange} ariaLabel="Period" className="flex-1 bg-app-card" />
+        <button onClick={load} aria-label="Refresh" className="grid place-items-center size-11 sm:size-10 shrink-0 rounded-xl bg-app-card ring-1 ring-app-border text-app-text-muted hover:text-app-text cursor-pointer">
           <RefreshCw size={16} className={state === 'loading' ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {settingsPanel}
-
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-none" role="radiogroup" aria-label="Period">
-        {RANGES.map((r) => (
-          <button
-            key={r.id}
-            role="radio"
-            aria-checked={range === r.id}
-            onClick={() => setRange(r.id)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-[13px] font-medium cursor-pointer ${range === r.id ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-app-card ring-1 ring-app-border'}`}
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
-
       {state === 'error' && <p className="p-3 rounded-xl bg-red-500/10 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <div className={tile}>
-          <div className="text-xs text-app-text-muted flex items-center gap-1"><Coins size={12} /> Held by customers now</div>
-          <div className="text-lg font-semibold tabular-nums">{held.points.toLocaleString()}</div>
-          <div className="text-xs text-app-text-muted">worth {formatCurrency(held.worth)}</div>
-        </div>
-        <div className={tile}>
-          <div className="text-xs text-app-text-muted flex items-center gap-1"><TrendingUp size={12} /> Earned</div>
-          <div className="text-lg font-semibold tabular-nums">{(earned.sale + earned.debt).toLocaleString()}</div>
-          <div className="text-xs text-app-text-muted">{earned.sale.toLocaleString()} on sales · {earned.debt.toLocaleString()} on debt paid</div>
-        </div>
-        <div className={tile}>
-          <div className="text-xs text-app-text-muted flex items-center gap-1"><ShoppingBag size={12} /> Used</div>
-          <div className="text-lg font-semibold tabular-nums">{usedTotals.all.points.toLocaleString()}</div>
-          <div className="text-xs text-app-text-muted">worth {formatCurrency(usedTotals.all.value)}</div>
-        </div>
-        <div className={`${tile} ${usedTotals.account.value > 0 ? 'bg-red-500/10' : ''}`}>
-          <div className="text-xs text-app-text-muted flex items-center gap-1"><CreditCard size={12} /> Taken off profit</div>
-          <div className="text-lg font-semibold tabular-nums text-red-600 dark:text-red-400">{formatCurrency(usedTotals.account.value)}</div>
-          <div className="text-xs text-app-text-muted">debt paid with points</div>
-        </div>
-      </div>
-      <p className="text-xs text-app-text-muted -mt-2">
-        Points used at the till ({formatCurrency(usedTotals.till.value)}) and online ({formatCurrency(usedTotals.online.value)}) are already off those sales' totals, so profit counts them there.
-      </p>
+      <StatGrid>
+        <StatTile icon={<Coins />} tone="violet" label="Held now" value={held.points.toLocaleString()} note={`worth ${formatCurrency(held.worth)}`} />
+        <StatTile icon={<TrendingUp />} tone="emerald" label="Earned" value={(earned.sale + earned.debt).toLocaleString()} note={`${earned.debt.toLocaleString()} on debt paid`} />
+        <StatTile icon={<ShoppingBag />} tone="amber" label="Used" value={usedTotals.all.points.toLocaleString()} note={`worth ${formatCurrency(usedTotals.all.value)}`} />
+        <StatTile icon={<CreditCard />} tone={usedTotals.account.value > 0 ? 'red' : 'slate'} label="Off profit" value={formatCurrency(usedTotals.account.value)} note="debt paid with points" />
+      </StatGrid>
 
-      <section>
-        <h3 className="text-sm font-semibold mb-2">By tier</h3>
-        <div className="overflow-x-auto rounded-xl ring-1 ring-app-border">
-          <table className="w-full text-sm min-w-[24rem] [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:[word-break:normal] [&_td]:[word-break:normal]">
-            <thead className="text-xs text-app-text-muted bg-app-bg">
-              <tr>
-                <th className="text-left font-medium px-3 py-2">Tier</th>
-                <th className="text-right font-medium px-3 py-2">Pts per KSh 1</th>
-                <th className="text-right font-medium px-3 py-2">Customers</th>
-                <th className="text-right font-medium px-3 py-2">Held</th>
-                <th className="text-right font-medium px-3 py-2">Worth</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-border/60">
-              {held.tiers.map((t) => (
-                <tr key={t.tier}>
-                  <td className="px-3 py-2 font-medium">{t.tier}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{pointsPerShilling(t.value)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{t.customers}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{t.points.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(t.worth)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <section className="rounded-2xl bg-app-card shadow-xs overflow-hidden">
+        <h3 className="flex items-center gap-2 px-4 pt-3.5 pb-2 text-sm font-semibold"><Medal size={15} className="text-app-text-muted" /> By tier</h3>
+        <ul className="divide-y divide-app-border/60">
+          {held.tiers.map((t) => (
+            <li key={t.tier} className="flex items-center gap-3 px-4 py-2.5 min-w-0">
+              <span className={`inline-flex items-center gap-1 shrink-0 w-[4.75rem] justify-center rounded-full px-2 py-1 text-[11px] font-semibold ${TIER_TONE[t.tier]}`}><Medal size={11} /> {t.tier}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-app-text-muted truncate">{t.customers} customers · {pointsPerShilling(t.value)} pts/KSh</p>
+                <div className="mt-1 h-1 rounded-full bg-app-bg overflow-hidden"><div className="h-full rounded-full bg-violet-500/70" style={{ width: `${Math.max(3, (t.points / maxTier) * 100)}%` }} /></div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-semibold tabular-nums">{t.points.toLocaleString()}</p>
+                <p className="text-[11px] text-app-text-muted tabular-nums">{formatCurrency(t.worth)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section>
-        <h3 className="text-sm font-semibold mb-2">Who used points</h3>
+      <section className="rounded-2xl bg-app-card shadow-xs overflow-hidden">
+        <h3 className="flex items-center gap-2 px-4 pt-3.5 pb-2 text-sm font-semibold"><ShoppingBag size={15} className="text-app-text-muted" /> Who used points</h3>
         {state === 'loading' ? (
           <div className="py-6 flex justify-center text-app-text-muted"><RefreshCw size={16} className="animate-spin" /></div>
         ) : used.length === 0 ? (
-          <p className="p-3 rounded-xl bg-app-bg text-sm text-app-text-muted">No points were used in this period.</p>
+          <p className="px-4 pb-4 text-sm text-app-text-muted">No points were used in this period.</p>
         ) : (
-          <ul className="rounded-xl ring-1 ring-app-border divide-y divide-app-border/60 overflow-hidden">
+          <ul className="divide-y divide-app-border/60">
             {used.map((r) => {
               const c = byId.get(r.customerId);
               const Icon = r.kind === 'account' ? CreditCard : r.kind === 'online' ? Globe : ShoppingBag;
               return (
                 <li key={r.id} className="flex items-center">
-                  <button type="button" onClick={() => c && onOpenCustomer(c.id)} className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left hover:bg-app-bg cursor-pointer">
+                  <button type="button" onClick={() => c && onOpenCustomer(c.id)} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-2.5 text-left hover:bg-app-bg cursor-pointer">
                     <span className={`size-8 rounded-lg grid place-items-center shrink-0 ${r.kind === 'account' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                       <Icon size={15} />
                     </span>
@@ -319,15 +282,15 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
         )}
       </section>
 
-      <section>
-        <h3 className="text-sm font-semibold mb-2">Most points held</h3>
+      <section className="rounded-2xl bg-app-card shadow-xs overflow-hidden">
+        <h3 className="flex items-center gap-2 px-4 pt-3.5 pb-2 text-sm font-semibold"><Coins size={15} className="text-app-text-muted" /> Most points held</h3>
         {topHolders.length === 0 ? (
-          <p className="p-3 rounded-xl bg-app-bg text-sm text-app-text-muted">No customer has points yet.</p>
+          <p className="px-4 pb-4 text-sm text-app-text-muted">No customer has points yet.</p>
         ) : (
-          <ul className="rounded-xl ring-1 ring-app-border divide-y divide-app-border/60 overflow-hidden">
+          <ul className="divide-y divide-app-border/60">
             {topHolders.map((c) => (
               <li key={c.id}>
-                <button type="button" onClick={() => onOpenCustomer(c.id)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-app-bg cursor-pointer">
+                <button type="button" onClick={() => onOpenCustomer(c.id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-app-bg cursor-pointer">
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{customerName(c.name)}</span>
                     <span className="block text-xs text-app-text-muted">{c.tier || 'Bronze'}</span>

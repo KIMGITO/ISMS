@@ -9,6 +9,8 @@ import { useBusinessStore } from '../../stores/businessStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { canOpenScreen } from '../../utils/screens';
+import { Segmented } from '../shared/Choice';
+import { TextInput } from '../shared/Input';
 
 export type AdvisorArea = 'rewards' | 'money' | 'finance';
 
@@ -112,31 +114,30 @@ export default function AreaAdvisor({ area }: { area: AdvisorArea }) {
       {open && (
         <div className="px-3 pb-3 space-y-3 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <div role="radiogroup" aria-label="Period" className="flex bg-app-bg rounded-xl p-1 ring-1 ring-app-border">
-              {PERIODS.map((p) => (
-                <button key={p.id} role="radio" aria-checked={days === p.id} onClick={() => setDays(p.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer ${days === p.id ? 'bg-app-card text-app-text shadow-xs' : 'text-app-text-muted'}`}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              ariaLabel="Period"
+              className="flex-1 min-w-[12rem]"
+              options={PERIODS.map((p) => ({ id: String(p.id), label: p.label }))}
+              value={String(days)}
+              onChange={(v) => setDays(Number(v))}
+            />
             <button onClick={() => ask('')} disabled={busy}
-              className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-3 py-2 cursor-pointer disabled:opacity-50">
+              className="inline-flex items-center gap-1.5 h-11 sm:h-10 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-sm rounded-xl px-3 cursor-pointer disabled:opacity-50">
               <Sparkles size={14} /> {advice ? 'Refresh advice' : 'Get advice'}
             </button>
           </div>
 
           <form onSubmit={(e) => { e.preventDefault(); if (question.trim()) ask(question); }} className="flex gap-2 min-w-0">
-            <input
+            <TextInput
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={500}
               placeholder="Ask a question…"
               aria-label="Ask the advisor"
-              className="h-10 min-w-0 flex-1 bg-app-bg border border-app-border rounded-xl px-3 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="flex-1"
             />
             <button type="submit" disabled={busy || !question.trim()} aria-label="Ask"
-              className="grid place-items-center size-10 shrink-0 rounded-xl bg-amber-500 text-slate-950 cursor-pointer disabled:opacity-50">
+              className="grid place-items-center size-11 sm:size-10 shrink-0 rounded-xl bg-amber-500 text-slate-950 cursor-pointer disabled:opacity-50">
               <Send size={16} />
             </button>
           </form>

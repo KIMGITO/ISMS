@@ -17,6 +17,7 @@ import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import { methodLabel } from '../../utils/paymentMethods';
 import SearchableDropdown from '../SearchableDropdown';
 import type { PendingAction, PendingActionType } from '../../types';
+import { NumberInput } from '../shared/Input';
 
 type FieldKind = 'text' | 'number' | 'tel' | 'email' | 'date' | 'time' | 'textarea' | 'customer' | 'product' | 'employee' | 'method' | 'radio';
 
@@ -280,15 +281,12 @@ export default function ActionCard({ action }: { action: PendingAction }) {
               </div>
               <div className="w-20 shrink-0">
                 {i === 0 && <span className="block text-[10px] font-bold text-app-text-muted mb-1">Qty</span>}
-                <input
-                  type="number"
-                  inputMode="decimal"
+                <NumberInput
                   min={0}
                   value={item.quantity ?? 1}
                   disabled={disabled}
                   aria-label="Quantity"
-                  onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, quantity: e.target.value === '' ? '' : Number(e.target.value) } : it)))}
-                  className={inputCls}
+                  onChange={(v) => setItems(items.map((it, j) => (j === i ? { ...it, quantity: (v == null ? '' : String(v)) === '' ? '' : (v ?? 0) } : it)))}
                 />
               </div>
               <button

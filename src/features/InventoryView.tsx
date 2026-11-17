@@ -42,6 +42,7 @@ import { useUiStore } from '../stores/uiStore';
 import UnifiedUploader from '../components/shared/UnifiedUploader';
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
+import { NumberInput } from '../components/shared/Input';
 
 export default function InventoryView() {
   const {
@@ -683,19 +684,17 @@ export default function InventoryView() {
                     >
                       -
                     </button>
-                    <input
-                      type="number"
-                      step="any"
+                    <NumberInput
                       value={adjustQty === 0 ? '' : adjustQty}
                       placeholder="0.0"
-                      onChange={(e) => {
-                        const val = e.target.value;
+                      onChange={(v) => {
+                        const val = (v == null ? '' : String(v));
                         setAdjustQty(val === '' ? 0 : parseFloat(val) || 0);
                       }}
                       onBlur={() => {
                         if (adjustQty <= 0) setAdjustQty(0.5);
                       }}
-                      className="text-center font-black text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none"
+                      className="font-black text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none" inputClassName="text-center"
                     />
                     <button
                       type="button"
@@ -887,24 +886,22 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Price (KSh) *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       name="price"
                       value={values.price === 0 ? '' : values.price}
-                      onChange={handleChange}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      onChange={(v) => handleCustomChange('price', v ?? '')}
+                      size="sm"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Cost (KSh) *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       name="cost"
                       value={values.cost === 0 ? '' : values.cost}
-                      onChange={handleChange}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      onChange={(v) => handleCustomChange('cost', v ?? '')}
+                      size="sm"
                     />
                   </div>
                 </div>
@@ -913,24 +910,22 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Initial Stock Level *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       name="stock"
                       value={values.stock === 0 ? '' : values.stock}
-                      onChange={handleChange}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      onChange={(v) => handleCustomChange('stock', v ?? '')}
+                      size="sm"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Min Safety Alert *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       name="minStock"
                       value={values.minStock === 0 ? '' : values.minStock}
-                      onChange={handleChange}
-                      className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
+                      onChange={(v) => handleCustomChange('minStock', v ?? '')}
+                      size="sm"
                     />
                   </div>
                 </div>
@@ -960,12 +955,11 @@ export default function InventoryView() {
                       <label className="text-[10px] font-bold text-app-text-muted uppercase">
                         Shelf Life (Days) *
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         name="expiryDays"
                         value={values.expiryDays === 0 ? '' : values.expiryDays}
-                        onChange={handleChange}
-                        className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"
+                        onChange={(v) => handleCustomChange('expiryDays', v ?? '')}
+                        size="sm"
                       />
                     </div>
                   )}
@@ -1243,13 +1237,12 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Price (KSh) *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={editValues.price === 0 ? '' : editValues.price}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setEditValues({
                           ...editValues,
-                          price: Number(e.target.value),
+                          price: (v ?? 0),
                         })
                       }
                       className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
@@ -1259,13 +1252,12 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Cost (KSh) *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={editValues.cost === 0 ? '' : editValues.cost}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setEditValues({
                           ...editValues,
-                          cost: Number(e.target.value),
+                          cost: (v ?? 0),
                         })
                       }
                       className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
@@ -1304,15 +1296,14 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted uppercase">
                       Min Safety Alert *
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={
                         editValues.minStock === 0 ? '' : editValues.minStock
                       }
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setEditValues({
                           ...editValues,
-                          minStock: Number(e.target.value),
+                          minStock: (v ?? 0),
                         })
                       }
                       className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text"
@@ -1352,18 +1343,17 @@ export default function InventoryView() {
                       <label className="text-[10px] font-bold text-app-text-muted uppercase">
                         Shelf Life (Days) *
                       </label>
-                      <input
-                        type="number"
+                      <NumberInput
                         name="edit-expiryDays"
                         value={
                           editValues.expiryDays === 0
                             ? ''
                             : editValues.expiryDays
                         }
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setEditValues({
                             ...editValues,
-                            expiryDays: Number(e.target.value),
+                            expiryDays: (v ?? 0),
                           })
                         }
                         className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs text-app-text focus:outline-none focus:border-amber-500"

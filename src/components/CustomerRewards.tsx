@@ -10,6 +10,7 @@ import { useAppStore } from '../stores/appStore';
 import { useCustomerStore } from '../stores/customerStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
+import { NumberInput } from './shared/Input';
 
 interface Props {
   customer: Customer;
@@ -70,16 +71,14 @@ export default function CustomerRewards({ customer, formatCurrency }: Props) {
       </p>
       {canRedeem && debt > 0 && usable >= settings.minRedeem && (
         <div className="flex gap-2">
-          <input
-            type="number"
+          <NumberInput decimals={0}
             min={settings.minRedeem}
             max={usable}
-            inputMode="numeric"
             value={points}
-            onChange={(e) => setPoints(e.target.value)}
+            onChange={(v) => setPoints((v == null ? '' : String(v)))}
             placeholder={`Points for debt (max ${usable.toLocaleString()})`}
             aria-label="Points to use for debt"
-            className="flex-1 min-w-0 bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-xs text-app-text"
+            size="sm" className="flex-1 min-w-0"
           />
           <button
             type="button"

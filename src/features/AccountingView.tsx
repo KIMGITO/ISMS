@@ -34,6 +34,7 @@ import {
   type MoneyCheck, type CheckHistory,
 } from '../services/accounting';
 import { recordBillPayment } from '../services/buying';
+import { NumberInput } from '../components/shared/Input';
 
 type Tab = 'summary' | 'overview' | 'pnl' | 'balance' | 'trial' | 'journal' | 'accounts' | 'receivables' | 'payables' | 'checks' | 'vat' | 'settings';
 
@@ -824,7 +825,7 @@ function EntryForm({ businessId, accounts, template, editing, lockDate, onClose,
         </Field>
         {!custom && (
           <Field label="Amount (KSh)">
-            <input type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={fieldClass} autoFocus />
+            <NumberInput min={0} value={amount} onChange={(v) => setAmount((v == null ? '' : String(v)))} autoFocus />
           </Field>
         )}
       </div>
@@ -856,12 +857,10 @@ function EntryForm({ businessId, accounts, template, editing, lockDate, onClose,
               <div className="col-span-2 sm:col-span-1">
                 <AccountSelect accounts={accounts} value={l.accountId} onChange={(v) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, accountId: v } : x)))} />
               </div>
-              <input aria-label="Debit" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Debit" value={l.debit || ''}
-                onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, debit: Number(e.target.value) || 0, credit: Number(e.target.value) ? 0 : x.credit } : x)))}
-                className={`${fieldClass} text-right`} />
-              <input aria-label="Credit" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Credit" value={l.credit || ''}
-                onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, credit: Number(e.target.value) || 0, debit: Number(e.target.value) ? 0 : x.debit } : x)))}
-                className={`${fieldClass} text-right`} />
+              <NumberInput aria-label="Debit" min={0} placeholder="Debit" value={l.debit || ''}
+                onChange={(v) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, debit: (v ?? 0) || 0, credit: (v ?? 0) ? 0 : x.credit } : x)))} inputClassName="text-right" />
+              <NumberInput aria-label="Credit" min={0} placeholder="Credit" value={l.credit || ''}
+                onChange={(v) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, credit: (v ?? 0) || 0, debit: (v ?? 0) ? 0 : x.debit } : x)))} inputClassName="text-right" />
               <button type="button" aria-label="Remove line" disabled={lines.length <= 2} onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}
                 className="p-1.5 rounded-lg text-app-text-muted hover:bg-app-bg disabled:opacity-30 cursor-pointer justify-self-end col-span-2 sm:col-span-1">
                 <Trash2 size={15} />
@@ -1158,7 +1157,7 @@ function PaySupplierForm({ businessId, supplier, purchaseId, amount, billId, loc
       footer={<button onClick={() => void save()} disabled={busy} className={primaryBtn}>{busy ? 'Saving…' : 'Record payment'}</button>}
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Amount (KSh)"><input type="number" inputMode="decimal" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className={fieldClass} /></Field>
+        <Field label="Amount (KSh)"><NumberInput min={0} value={value} onChange={(v) => setValue((v == null ? '' : String(v)))} /></Field>
         <Field label="Paid from">
           <SearchableDropdown items={METHODS.map((m) => ({ id: m, label: m }))} selectedValue={method} onChange={setMethod} placeholder="Choose how" />
         </Field>
@@ -1311,7 +1310,7 @@ function CountMoneyForm({ businessId, check, onClose, onSaved }: { businessId: s
         <Tile label="Payments screen" value={check.app === null ? '—' : exact(check.app)} />
       </div>
       <Field label="What is really there (KSh)">
-        <input type="number" inputMode="decimal" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} className={fieldClass} autoFocus />
+        <NumberInput value={value} onChange={(v) => setValue((v == null ? '' : String(v)))} autoFocus />
       </Field>
       {diff !== null && !isNaN(diff) && (
         <Note tone={diff === 0 ? 'ok' : 'warn'}>

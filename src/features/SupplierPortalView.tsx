@@ -21,6 +21,7 @@ import {
   answerStockRequest, confirmOrder, loadPortalData, loadPortalStockRequests, loadSupplierAccounts, sendPrices, updateMyDetails,
   type PortalData, type PortalOrder, type PortalPriceRequest, type PortalStockRequest, type SupplierAccount,
 } from '../services/supplierPortal';
+import { NumberInput } from '../components/shared/Input';
 
 type Tab = 'requests' | 'orders' | 'deliveries' | 'stock' | 'prices' | 'statement' | 'details';
 
@@ -477,10 +478,9 @@ function PriceCard({ request: q, onDone }: { request: PortalPriceRequest; onDone
               )}
             </div>
             {q.open && avail[l.itemId] && (
-              <input
-                type="number" inputMode="decimal" min="0" step="any" value={prices[l.itemId]}
-                onChange={(e) => setPrices((p) => ({ ...p, [l.itemId]: e.target.value }))}
-                placeholder="Your price each (KSh)" aria-label={`Your price for ${displayName(l.name)}`} className={`${fieldClass} mt-2`}
+              <NumberInput min={0} value={prices[l.itemId]}
+                onChange={(v) => setPrices((p) => ({ ...p, [l.itemId]: (v == null ? '' : String(v)) }))}
+                placeholder="Your price each (KSh)" aria-label={`Your price for ${displayName(l.name)}`} className="mt-2"
               />
             )}
           </li>
@@ -489,7 +489,7 @@ function PriceCard({ request: q, onDone }: { request: PortalPriceRequest; onDone
       {q.open && (
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Field label="Days to deliver (optional)"><input type="number" inputMode="numeric" min="0" max="365" value={days} onChange={(e) => setDays(e.target.value)} className={fieldClass} /></Field>
+            <Field label="Days to deliver (optional)"><NumberInput decimals={0} min={0} max={365} value={days} onChange={(v) => setDays((v == null ? '' : String(v)))} /></Field>
             <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="e.g. Price holds for 7 days" className={fieldClass} /></Field>
           </div>
           {err && <p className="text-xs text-red-600 dark:text-red-400">{err}</p>}

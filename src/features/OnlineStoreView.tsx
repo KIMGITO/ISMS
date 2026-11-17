@@ -1,4 +1,4 @@
-import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { useOverlay } from '../hooks/useOverlay';
 import {
@@ -34,6 +34,7 @@ import PageEditor from '../components/website/PageEditor';
 import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
 import AdCardsEditor from '../components/website/AdCardsEditor';
 import ProductIdeasTab from '../components/website/ProductIdeasTab';
+import { NumberInput } from '../components/shared/Input';
 
 type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'ideas' | 'guides' | 'pages' | 'banner' | 'adverts' | 'settings';
 
@@ -754,6 +755,8 @@ function SettingsTab({ businessId }: { businessId: string }) {
   };
 
   /** Saves the "was" price when the box loses focus. Empty, or not above the price, clears it. */
+  // What was typed in a "was" price box, saved when the box is left.
+  const wasDraft = useRef<Record<string, number | null>>({});
   const saveWasPrice = async (product: WebsiteProductRow, text: string) => {
     const value = Number(text);
     const next = text.trim() && Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : null;
@@ -791,11 +794,11 @@ function SettingsTab({ businessId }: { businessId: string }) {
         />
         <label className="block text-sm font-medium text-app-text">
           Delivery fee (Ksh)
-          <input type="number" min="0" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} className={`${inputClass} mt-1`} />
+          <NumberInput min={0} value={deliveryFee} onChange={(v) => setDeliveryFee((v == null ? '' : String(v)))} className="mt-1" />
         </label>
         <label className="block text-sm font-medium text-app-text">
           Minimum order (Ksh)
-          <input type="number" min="0" value={minOrder} onChange={(e) => setMinOrder(e.target.value)} className={`${inputClass} mt-1`} />
+          <NumberInput min={0} value={minOrder} onChange={(v) => setMinOrder((v == null ? '' : String(v)))} className="mt-1" />
         </label>
         <Switch
           className="min-h-10"
@@ -827,18 +830,20 @@ function SettingsTab({ businessId }: { businessId: string }) {
                 {hasWasPrice && (
                   <label className="flex items-center gap-1.5 text-xs text-app-text-muted">
                     Was
-                    <input
+                    <NumberInput
                       key={`${product.id}-${product.website_was_price ?? ''}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      defaultValue={product.website_was_price ?? ''}
-                      onBlur={(e) => saveWasPrice(product, e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      min={0}
+                      value={product.website_was_price ?? null}
+                      onChange={(v) => { wasDraft.current[product.id] = v; }}
+                      onBlur={() => {
+                        if (!(product.id in wasDraft.current)) return;
+                        const v = wasDraft.current[product.id];
+                        delete wasDraft.current[product.id];
+                        void saveWasPrice(product, v == null ? '' : String(v));
+                      }}
                       aria-label={`Old price for ${product.name}`}
                       placeholder="-"
-                      className="w-20 rounded-lg border border-app-border bg-app-bg px-2 py-1 text-sm text-app-text outline-none focus:border-brand-500"
+                      size="sm" className="w-20"
                     />
                   </label>
                 )}
@@ -894,7 +899,7 @@ function ReviewsTab({ businessId }: { businessId: string }) {
 
   useEffect(() => {
     setItems(null);
-    load().catch((err) => reportError(err, 'Could not load reviews. Has the reviews database update been applied?'));
+    load().catch((err) => reportError(err, 'Could not load reviews. Try again.'));
   }, [load, reportError]);
 
   const update = async (id: string, fields: Partial<WebsiteReview> & { replied_by?: string; replied_at?: string }, done: string) => {

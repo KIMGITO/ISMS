@@ -14,6 +14,7 @@ import SheetLayer from '../components/shared/SheetLayer';
 import { SwipeRow } from '../components/shared/SwipeRow';
 import { appDialog } from '../components/AppDialog';
 import { isAdminRole } from '../services/logCleanup';
+import { NumberInput } from '../components/shared/Input';
 
 const TZ = 'Africa/Nairobi';
 /** Used until the business's own list loads, or if it can't be loaded. Admins edit the list. */
@@ -255,15 +256,11 @@ export default function PettyCashView() {
 
           <label className="block text-xs font-medium text-app-text-muted">
             Amount (KSh)
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
+            <NumberInput
+              min={0}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className={`${input} mt-1 text-lg font-semibold tabular-nums`}
+              onChange={(v) => setAmount((v == null ? '' : String(v)))}
+              placeholder="0" prefix="KSh" className="mt-1" inputClassName="text-lg font-semibold tabular-nums"
             />
           </label>
 

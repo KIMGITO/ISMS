@@ -40,6 +40,7 @@ import { SupplierAccessSheet } from '../components/buying/SupplierAccessSheet';
 import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
 import { useUiStore } from '../stores/uiStore';
 import { canOpenScreen } from '../utils/screens';
+import { NumberInput } from '../components/shared/Input';
 
 type Tab = 'suppliers' | 'purchases';
 type StatusFilter = 'open' | 'received' | 'cancelled' | 'all';
@@ -726,9 +727,9 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
                     aria-label="Item name"
                     className={`${fieldClass} col-span-2 sm:col-span-1`}
                   />
-                  <input type="number" inputMode="decimal" min="0" step="any" value={l.quantity || ''} onChange={(e) => setLine(i, { quantity: Number(e.target.value) })} placeholder="Qty" aria-label="Quantity" className={fieldClass} />
+                  <NumberInput min={0} value={l.quantity || ''} onChange={(v) => setLine(i, { quantity: (v ?? 0) })} placeholder="Qty" aria-label="Quantity" />
                   <input value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} placeholder="Unit" aria-label="Unit" maxLength={16} className={fieldClass} />
-                  <input type="number" inputMode="decimal" min="0" step="any" value={l.price || ''} onChange={(e) => setLine(i, { price: Number(e.target.value) })} placeholder="Price each" aria-label="Price per unit" className={`${fieldClass} col-span-2 sm:col-span-1`} />
+                  <NumberInput min={0} value={l.price || ''} onChange={(v) => setLine(i, { price: (v ?? 0) })} placeholder="Price each" aria-label="Price per unit" className="col-span-2 sm:col-span-1" />
                 </div>
                 {branches.length > 0 && l.productId && (
                   <div className="flex items-center gap-2 text-[11px] text-app-text-muted">
@@ -1136,19 +1137,18 @@ function QuotePricesSheet({ purchase, quote, onClose, onDone }: {
               <span className="block text-sm break-words">{r.line.name}</span>
               <span className="block text-[11px] text-app-text-muted">{r.line.quantity} {r.line.unit} · we paid {formatCurrency(r.line.price)} each</span>
             </span>
-            <input
-              type="number" inputMode="decimal" min="0" step="any" placeholder="Price each"
+            <NumberInput min={0} placeholder="Price each"
               disabled={!r.available}
               value={r.price}
-              onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, price: e.target.value } : y)))}
-              className="w-28 bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums disabled:opacity-40"
+              onChange={(v) => setRows((x) => x.map((y, j) => (j === i ? { ...y, price: (v == null ? '' : String(v)) } : y)))}
+              size="sm" className="w-28" inputClassName="text-right tabular-nums"
             />
           </li>
         ))}
       </ul>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Delivers in (days, optional)">
-          <input type="number" inputMode="numeric" min="0" value={days} onChange={(e) => setDays(e.target.value)} className={fieldClass} />
+          <NumberInput decimals={0} min={0} value={days} onChange={(v) => setDays((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Note (optional)">
           <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Price holds until Friday" className={fieldClass} />

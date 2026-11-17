@@ -16,6 +16,7 @@ import {
 } from '../../services/supplierStockRequests';
 import { displayName } from '../../utils/stringUtils';
 import { toUserMessage } from '../../utils/userError';
+import { NumberInput } from '../shared/Input';
 
 export interface AskSupplierTarget {
   businessId: string;
@@ -178,11 +179,9 @@ export default function AskSupplierSheet({ target, onClose, onSent }: {
         )}
       </Field>
       <Field label={`How much${target.unit ? ` (${target.unit})` : ''}`}>
-        <input
-          type="number" inputMode="decimal" min="0" step="any" autoFocus
-          value={qty} onChange={(e) => setQty(e.target.value)}
-          placeholder="e.g. 200"
-          className={`${fieldClass} tabular-nums`}
+        <NumberInput min={0} autoFocus
+          value={qty} onChange={(v) => setQty((v == null ? '' : String(v)))}
+          placeholder="e.g. 200" inputClassName="tabular-nums"
         />
       </Field>
       <div>
