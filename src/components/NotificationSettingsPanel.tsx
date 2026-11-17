@@ -82,8 +82,6 @@ export default function NotificationSettingsPanel() {
 
   return (
     <div className="flex flex-col gap-1">
-      <AlarmHealthCard />
-      <RingToneSetting />
       <button
         role="switch"
         aria-checked={!settings.paused}
