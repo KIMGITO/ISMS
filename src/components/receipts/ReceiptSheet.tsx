@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, MessageCircle, Mail, FileDown, Copy, X, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Printer, MessageCircle, Mail, FileDown, Copy, X, RefreshCw, ShieldCheck, ShieldAlert, Undo2 } from 'lucide-react';
 import { Transaction } from '../../types';
 import { useCustomerStore } from '../../stores/customerStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -23,6 +23,8 @@ interface Props {
   onClose: () => void;
   /** Open the printer choice straight away (the "print after sale" setting). */
   startPrinting?: boolean;
+  /** Shown as a Refund button when the person may refund this sale. */
+  onRefund?: () => void;
 }
 
 type Busy = null | 'whatsapp' | 'email' | 'pdf' | 'copy';
@@ -34,7 +36,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="hidden md:inline-block ml-auto px-1.5 rounded border border-current/25 text-[10px] font-mono opacity-60">{children}</kbd>;
 }
 
-export function ReceiptSheet({ transaction: given, onClose, startPrinting }: Props) {
+export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRefund }: Props) {
   // A customer added from this sheet shows on the receipt straight away.
   const [attached, setAttached] = useState<Transaction | null>(null);
   const transaction = given && attached?.id === given.id ? attached : given;
@@ -390,6 +392,16 @@ export function ReceiptSheet({ transaction: given, onClose, startPrinting }: Pro
                     <Kbd>C</Kbd>
                   </button>
                 </div>
+
+                {onRefund && (
+                  <button
+                    type="button"
+                    onClick={onRefund}
+                    className={`${actionClass} border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10`}
+                  >
+                    <Undo2 size={16} /> Refund or reverse this sale
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

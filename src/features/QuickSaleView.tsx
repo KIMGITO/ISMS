@@ -15,6 +15,7 @@ import { formatCurrency } from '../utils/helpers';
 import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
 import { useVatPercent } from '../services/kra/kraService';
+import { useKeyboardVisible } from '../hooks/useKeyboardVisible';
 
 const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; icon: typeof Banknote; style: string }> = [
   // Same numbers as POS: Alt+1 Cash, Alt+2 M-Pesa, Alt+4 Card, Alt+6 Airtel Money.
@@ -30,21 +31,19 @@ const formatQty = (n: number) => String(roundQty(n));
 
 /**
  * Quantity box: type any amount (decimals allowed, "," or "."), or use − / +.
- * The typed value applies on Enter or when leaving the box; 0 removes the item.
+ * The screen holds what is being typed (so the phone panel can show it); it applies
+ * on Enter or when leaving the box; 0 removes the item.
  */
-function QtyInput({ value, unit, label, onCommit }: {
+function QtyInput({ value, unit, label, draft, onStart, onDraft, onCommit, onCancel }: {
   value: number;
   unit?: string;
   label: string;
-  onCommit: (qty: number) => void;
+  draft: string | null;
+  onStart: (input: HTMLInputElement) => void;
+  onDraft: (next: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const commit = () => {
-    if (draft === null) return;
-    const parsed = parseFloat(draft.replace(',', '.'));
-    setDraft(null);
-    if (!Number.isNaN(parsed) && roundQty(parsed) !== value) onCommit(roundQty(parsed));
-  };
   return (
     <label className="relative flex flex-col items-center">
       <span className="sr-only">{label}</span>
@@ -58,16 +57,16 @@ function QtyInput({ value, unit, label, onCommit }: {
         enterKeyHint="done"
         autoComplete="off"
         value={draft ?? formatQty(value)}
-        onFocus={(e) => { setDraft(formatQty(value)); requestAnimationFrame(() => e.target.select()); }}
+        onFocus={(e) => { onStart(e.target); requestAnimationFrame(() => e.target.select()); }}
         onChange={(e) => {
           const next = e.target.value;
-          if (/^\d*([.,]\d{0,3})?$/.test(next)) setDraft(next);
+          if (/^\d*([.,]\d{0,3})?$/.test(next)) onDraft(next);
         }}
-        onBlur={commit}
+        onBlur={onCommit}
         onKeyDown={(e) => {
           e.stopPropagation(); // keep the screen's + / − / Enter shortcuts out of the box
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          if (e.key === 'Escape') { setDraft(null); (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') onCancel();
         }}
         className="w-14 h-10 rounded-md bg-app-bg text-center text-sm font-bold text-app-text tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
       />
@@ -75,6 +74,35 @@ function QtyInput({ value, unit, label, onCommit }: {
     </label>
   );
 }
+
+/** The part of the screen the phone keyboard leaves visible, kept up to date while it moves. */
+function useVisibleArea(active: boolean) {
+  const read = () => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    return { top: vv?.offsetTop ?? 0, height: vv?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 0) };
+  };
+  const [area, setArea] = useState(read);
+  useEffect(() => {
+    if (!active) return;
+    const vv = window.visualViewport;
+    const update = () => setArea(read());
+    update();
+    vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    return () => {
+      vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [active]);
+  return area;
+}
+
+const parseQty = (draft: string) => {
+  const n = parseFloat(draft.replace(',', '.'));
+  return Number.isNaN(n) ? null : roundQty(n);
+};
 
 // Only desktop gets auto-focus: on a phone it would pop the keyboard over the product grid.
 const hasPhysicalKeyboard = () =>
@@ -94,6 +122,18 @@ export default function QuickSaleView() {
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
   const [receiptAutoPrint, setReceiptAutoPrint] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // The quantity being typed. A ref too, so a blur straight after Cancel sees the cancel.
+  const [editing, setEditingState] = useState<{ id: string; draft: string } | null>(null);
+  const editingRef = useRef<{ id: string; draft: string } | null>(null);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+  const setEditing = (next: { id: string; draft: string } | null) => {
+    editingRef.current = next;
+    setEditingState(next);
+  };
+  // On a phone, typing a quantity brings a panel above the keyboard (the cart sits under it).
+  const keyboardOpen = useKeyboardVisible();
+  const showQtyPanel = !!editing && keyboardOpen;
+  const visibleArea = useVisibleArea(showQtyPanel);
   // Only the methods this business has switched on.
   const enabled = usePaymentMethods();
   const payOptions = PAY_OPTIONS.filter((o) => enabled.includes(o.method as MoneyMethod));
@@ -170,6 +210,28 @@ export default function QuickSaleView() {
       qty = product.stock;
     }
     updateCartQty(product.id, roundQty(qty));
+  };
+
+  const commitEdit = () => {
+    const current = editingRef.current;
+    if (!current) return;
+    setEditing(null);
+    const item = cart.find((i) => i.product.id === current.id);
+    const qty = parseQty(current.draft);
+    if (item && qty !== null && qty !== item.quantity) setQty(item.product, qty);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    editInputRef.current?.blur();
+  };
+
+  /** − / + in the phone panel change the typed number, keeping the keyboard open. */
+  const stepDraft = (step: number) => {
+    const current = editingRef.current;
+    if (!current) return;
+    const next = Math.max(0, roundQty((parseQty(current.draft) ?? 0) + step));
+    setEditing({ ...current, draft: formatQty(next) });
   };
 
   const pay = async (method: PaymentMethod) => {
@@ -379,7 +441,14 @@ export default function QuickSaleView() {
                 value={item.quantity}
                 unit={item.product.unit}
                 label={`Quantity of ${item.product.name}`}
-                onCommit={(qty) => setQty(item.product, qty)}
+                draft={editing?.id === item.product.id ? editing.draft : null}
+                onStart={(input) => {
+                  editInputRef.current = input;
+                  setEditing({ id: item.product.id, draft: formatQty(item.quantity) });
+                }}
+                onDraft={(draft) => setEditing({ id: item.product.id, draft })}
+                onCommit={commitEdit}
+                onCancel={cancelEdit}
               />
               <button
                 type="button"
@@ -432,6 +501,193 @@ export default function QuickSaleView() {
         )}
       </section>
     </div>
+    {showQtyPanel && editing && (() => {
+      const item = cart.find((i) => i.product.id === editing.id);
+      if (!item) return null;
+      const price = item.product.price * (1 - item.discountPercentage / 100);
+      const typed = parseQty(editing.draft) ?? 0;
+      const qty = Math.min(typed, item.product.stock);
+      const line = price * qty;
+      const newTotal = (subtotal - price * item.quantity + line) * (1 + taxRate);
+      const unit = item.product.unit || '';
+      // Buttons here must not take focus from the box, or the keyboard would close.
+      const keepFocus = (e: React.PointerEvent | React.MouseEvent) => e.preventDefault();
+      return (
+        <div
+          className="md:hidden fixed inset-x-0 z-[70] flex flex-col justify-end bg-black/50"
+          style={{ top: visibleArea.top, height: visibleArea.height }}
+          onPointerDown={keepFocus}
+          onMouseDown={keepFocus}
+          onClick={() => editInputRef.current?.blur()}
+        >
+          <motion.div
+            role="dialog"
+            aria-label={`Quantity of ${item.product.name}`}
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            onClick={(e) => e.stopPropagation()}
+            className="m-2 p-4 rounded-xl bg-app-card shadow-2xl space-y-3"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-base font-semibold text-app-text truncate">{displayName(item.product.name)}</p>
+              <p className="shrink-0 text-sm text-app-text-muted">{formatCurrency(price)}{unit ? ` / ${unit}` : ' each'}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="One less"
+                onPointerDown={keepFocus}
+                onMouseDown={keepFocus}
+                onClick={() => stepDraft(-1)}
+                className="w-14 h-14 shrink-0 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
+              >
+                <Minus size={22} />
+              </button>
+              <div className="flex-1 min-w-0 h-14 flex items-center justify-center gap-1.5 rounded-lg bg-app-bg ring-2 ring-amber-500">
+                <span className="text-3xl font-bold text-app-text tabular-nums truncate">{editing.draft || '0'}</span>
+                <span className="w-0.5 h-7 bg-amber-500 animate-pulse" aria-hidden="true" />
+                {unit && <span className="text-sm text-app-text-muted">{unit}</span>}
+              </div>
+              <button
+                type="button"
+                aria-label="One more"
+                onPointerDown={keepFocus}
+                onMouseDown={keepFocus}
+                onClick={() => stepDraft(1)}
+                className="w-14 h-14 shrink-0 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
+              >
+                <Plus size={22} />
+              </button>
+            </div>
+
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between text-app-text-muted tabular-nums">
+                <span>{formatCurrency(price)} × {formatQty(qty)}</span>
+                <span className="font-semibold text-app-text">{formatCurrency(line)}</span>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span className="text-app-text-muted">Sale total{taxRate > 0 ? ' incl. tax' : ''}</span>
+                <span className="text-xl font-bold text-app-text tabular-nums">{formatCurrency(newTotal)}</span>
+              </div>
+              {typed > item.product.stock && (
+                <p className="text-amber-600 text-xs">Only {formatQty(item.product.stock)} {unit} left.</p>
+              )}
+              {typed === 0 && <p className="text-red-600 text-xs">0 removes this item.</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onPointerDown={keepFocus}
+                onMouseDown={keepFocus}
+                onClick={cancelEdit}
+                className="h-12 rounded-lg bg-app-bg text-app-text font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onPointerDown={keepFocus}
+                onMouseDown={keepFocus}
+                onClick={() => editInputRef.current?.blur()}
+                className="h-12 rounded-lg bg-amber-500 text-slate-950 font-bold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      );
+    })()}
+    {showQtyPanel && editing && (() => {
+      const item = cart.find((i) => i.product.id === editing.id);
+      if (!item) return null;
+      const qty = parseQty(editing.draft) ?? 0;
+      const each = item.product.price * (1 - item.discountPercentage / 100);
+      const line = each * qty;
+      const newTotal = (subtotal - each * item.quantity + line) * (1 + taxRate);
+      const overStock = qty > item.product.stock;
+      const unit = item.product.unit || '';
+      // Buttons keep the focus in the quantity box, so the keyboard stays open.
+      const keepFocus = (e: React.PointerEvent | React.MouseEvent) => e.preventDefault();
+      return (
+        <div
+          className="fixed inset-x-0 z-50 flex flex-col md:hidden"
+          style={{ top: visibleArea.top, height: visibleArea.height }}
+        >
+          <div className="flex-1 bg-black/50" onPointerDown={keepFocus} onClick={() => editInputRef.current?.blur()} />
+          <motion.div
+            role="dialog"
+            aria-label={`Quantity of ${item.product.name}`}
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            className="bg-app-card border-t border-app-border px-4 pt-3 pb-3 space-y-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.45)]"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-base font-semibold text-app-text truncate">{displayName(item.product.name)}</p>
+              <p className="shrink-0 text-sm text-app-text-muted">{formatCurrency(each)}{unit ? ` / ${unit}` : ' each'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="One less"
+                onPointerDown={keepFocus}
+                onClick={() => stepDraft(-1)}
+                className="w-14 h-14 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
+              >
+                <Minus size={20} />
+              </button>
+              <p className="flex-1 h-14 flex items-center justify-center gap-1.5 rounded-lg bg-app-bg ring-2 ring-amber-500 text-3xl font-bold text-app-text tabular-nums" aria-live="polite">
+                {editing.draft || '0'}
+                {unit && <span className="text-base font-medium text-app-text-muted">{unit}</span>}
+              </p>
+              <button
+                type="button"
+                aria-label="One more"
+                onPointerDown={keepFocus}
+                onClick={() => stepDraft(1)}
+                className="w-14 h-14 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-app-text-muted tabular-nums">{formatCurrency(each)} × {formatQty(qty)}</span>
+              <span className="text-lg font-bold text-app-text">{formatCurrency(line)}</span>
+            </div>
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-app-text-muted">Sale total{taxRate > 0 ? ' incl. tax' : ''}</span>
+              <span className="text-xl font-bold text-amber-600">{formatCurrency(newTotal)}</span>
+            </div>
+            {overStock && (
+              <p className="text-xs text-red-600">Only {formatQty(item.product.stock)} {unit} left. The quantity will be capped.</p>
+            )}
+            {qty === 0 && <p className="text-xs text-app-text-muted">0 removes this item.</p>}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onPointerDown={keepFocus}
+                onClick={cancelEdit}
+                className="h-11 rounded-lg bg-app-bg text-app-text text-sm font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onPointerDown={keepFocus}
+                onClick={() => editInputRef.current?.blur()}
+                className="h-11 rounded-lg bg-amber-500 text-slate-950 text-sm font-bold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      );
+    })()}
     <ReceiptSheet
       transaction={receiptTx}
       startPrinting={receiptAutoPrint}

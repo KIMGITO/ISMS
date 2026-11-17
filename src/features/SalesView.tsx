@@ -400,7 +400,11 @@ export default function SalesView() {
         )}
       </div>
 
-      <ReceiptSheet transaction={selectedTx} onClose={() => setSelectedTx(null)} />
+      <ReceiptSheet
+        transaction={selectedTx}
+        onClose={() => setSelectedTx(null)}
+        onRefund={selectedTx && canRefund(selectedTx) ? () => { setRefunding(selectedTx); setSelectedTx(null); } : undefined}
+      />
       {refunding && <RefundSheet transactionId={refunding.id} onClose={() => setRefunding(null)} onDone={() => loadRefunds()} />}
       {editsOf && (
         <SaleEditsSheet sale={editsOf} entries={edits.get(editsOf.id) ?? []} onClose={() => setEditsOf(null)} />
