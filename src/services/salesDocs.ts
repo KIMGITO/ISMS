@@ -494,6 +494,17 @@ export async function loadSaleCreditNotes(businessId: string): Promise<Map<strin
   return map;
 }
 
+/** Refunds (credit notes) made on one till sale, oldest first, for its receipt. */
+export async function loadRefundsForSale(transactionId: string): Promise<{ number: string; total: number }[]> {
+  const { data, error } = await getSupabase()
+    .from('credit_notes')
+    .select('number, total')
+    .eq('transaction_id', toUuid(transactionId))
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((r) => ({ number: r.number, total: n(r.total) }));
+}
+
 /** A refund of a till sale, as the dashboards and shift report count it. */
 export interface TillRefund {
   id: string;

@@ -17,6 +17,7 @@ import { ReceiptPaper } from './ReceiptPaper';
 import { PrinterPicker } from './PrinterPicker';
 import { Switch } from '../shared/Switch';
 import { SaleCustomerPicker } from '../SaleCustomerPicker';
+import { REFUND_EVENT } from '../../services/salesDocs';
 
 interface Props {
   transaction: Transaction | null;
@@ -68,6 +69,14 @@ export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRef
 
   const customer = transaction?.customerId ? customers.find((c) => c.id === transaction.customerId) : undefined;
 
+  // A refund made while this is open rebuilds the receipt, so it shows REFUNDED at once.
+  const [refundTick, setRefundTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setRefundTick((t) => t + 1);
+    window.addEventListener(REFUND_EVENT, bump);
+    return () => window.removeEventListener(REFUND_EVENT, bump);
+  }, []);
+
   // Build the receipt and default the contact fields to the sale's customer.
   useEffect(() => {
     if (!transaction || !businessId) {
@@ -86,7 +95,7 @@ export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRef
     return () => {
       live = false;
     };
-  }, [transaction?.id, transaction?.customerId, businessId, customer?.id, customer?.loyaltyPoints]);
+  }, [transaction?.id, transaction?.customerId, businessId, customer?.id, customer?.loyaltyPoints, refundTick]);
 
   // When KRA is connected and this sale has no signature yet, ask KRA for one.
   const signWithKra = useCallback(async () => {

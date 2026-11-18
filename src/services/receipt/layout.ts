@@ -9,7 +9,7 @@ import { moneyNumber, formatQty } from "../../utils/money";
 export type Align = "left" | "center" | "right";
 
 export type ReceiptLine =
-  | { t: "text"; text: string; align: Align; bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" }
+  | { t: "text"; text: string; align: Align; bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" | "red" }
   | { t: "rule"; ch: "-" | "=" }
   | { t: "blank" }
   | { t: "qr"; data: string; caption?: string }
@@ -76,7 +76,7 @@ function grouped(code: string): string {
 export function buildReceiptLines(content: ReceiptContent, settings: BusinessReceiptSettings): ReceiptLine[] {
   const w = columnsFor(settings);
   const lines: ReceiptLine[] = [];
-  const text = (value: string, align: Align = "left", extra: { bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" } = {}) => {
+  const text = (value: string, align: Align = "left", extra: { bold?: boolean; big?: boolean; italic?: boolean; tone?: "green" | "red" } = {}) => {
     // Large print is double width, so it holds half as many characters.
     const width = extra.big ? Math.floor(w / 2) : w;
     for (const l of wrap(value, width)) lines.push({ t: "text", text: l, align, ...extra });
@@ -97,6 +97,13 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   if (settings.pinNumber) text(`PIN: ${settings.pinNumber}`, "center");
   if (settings.registrationNumber) text(`Reg No: ${settings.registrationNumber}`, "center");
   rule("=");
+
+  // Refunded: a big stamp before anything else, so nobody takes it for a paid sale.
+  const refund = content.refund;
+  if (refund && refund.total > 0) {
+    text(refund.full ? "REFUNDED" : "PART REFUNDED", "center", { bold: true, big: true, tone: "red" });
+    rule("=");
+  }
 
   // Sale details
   row("Receipt:", content.receiptNumber, true);
@@ -142,6 +149,11 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   }
   // Delivery paid straight to the rider: not ours, but the customer must know to pay it.
   if ((content.payRiderOnDelivery || 0) > 0) row("Delivery: pay the rider", `${cur} ${formatMoney(content.payRiderOnDelivery!)}`);
+  if (refund && refund.total > 0) {
+    rule();
+    for (const l of pair("REFUNDED", `-${cur} ${formatMoney(refund.total)}`, w)) lines.push({ t: "text", text: l, align: "left", bold: true, tone: "red" });
+    if (refund.numbers.length) text(`Credit note ${refund.numbers.join(", ")}`, "left", { tone: "red" });
+  }
   rule("=");
 
   // Loyalty points

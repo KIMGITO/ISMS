@@ -100,4 +100,6 @@ export interface ReceiptContent {
   loyalty?: { pointsUsed: number; pointsValue: number; pointsEarned: number; balance?: number };
   kra?: KraSignature;
   extraQr?: { url: string; caption: string };
+  /** Refunds made on this sale (its credit notes): stamped REFUNDED on the receipt. */
+  refund?: { total: number; numbers: string[]; full: boolean };
 }

@@ -13,6 +13,8 @@ import { ReceiptShareService } from "./ReceiptShareService";
 import { kraService } from "../kra/kraService";
 import { getTillPoints } from "../loyalty/tillPoints";
 import { loadPointsEnabled } from "../loyalty/pointValue";
+import { loadRefundsForSale } from "../salesDocs";
+import { roundMoney } from "../../utils/money";
 
 export class ReceiptService {
   public static getSettings(businessId: string): BusinessReceiptSettings {
@@ -30,15 +32,19 @@ export class ReceiptService {
     extras: Omit<ReceiptExtras, "kra"> = {},
   ): Promise<{ content: ReceiptContent; settings: BusinessReceiptSettings }> {
     const settings = this.getSettings(businessId);
-    const [kra, pointsUsed, pointsOn] = await Promise.all([
+    const [kra, pointsUsed, pointsOn, refunds] = await Promise.all([
       kraService.getSignature(tx.id).catch(() => null),
       tx.customerId ? getTillPoints(tx.id) : Promise.resolve(null),
       tx.customerId ? loadPointsEnabled(businessId).catch(() => true) : Promise.resolve(true),
+      // A sale not saved online yet has no refunds; a failed lookup just leaves the stamp off.
+      loadRefundsForSale(tx.id).catch((): { number: string; total: number }[] => []),
     ]);
-    return {
-      content: buildReceiptContent(tx, settings, { ...extras, pointsUsed, pointsOff: !pointsOn, kra: kra ?? undefined }),
-      settings,
-    };
+    const content = buildReceiptContent(tx, settings, { ...extras, pointsUsed, pointsOff: !pointsOn, kra: kra ?? undefined });
+    const refunded = roundMoney(refunds.reduce((sum, r) => sum + r.total, 0));
+    if (refunded > 0) {
+      content.refund = { total: refunded, numbers: refunds.map((r) => r.number), full: refunded >= roundMoney(content.grandTotal) };
+    }
+    return { content, settings };
   }
 
   public static lines(content: ReceiptContent, settings: BusinessReceiptSettings): ReceiptLine[] {
