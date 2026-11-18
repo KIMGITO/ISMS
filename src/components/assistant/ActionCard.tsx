@@ -2,7 +2,7 @@
 // changes any of them with normal fields (no JSON) and taps Confirm. The same checks as
 // before run on every change: their own role's permission, stock, amounts, names.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -34,12 +34,15 @@ import { useNotificationStore } from '../../stores/notificationStore';
 import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import { methodLabel } from '../../utils/paymentMethods';
 import SearchableDropdown from '../SearchableDropdown';
+import { getSupabase } from '../../services/supabaseClient';
+import { useBusinessStore } from '../../stores/businessStore';
+import { toUuid } from '../../utils/idUtils';
 import type { PendingAction, PendingActionType } from '../../types';
 import { NumberInput } from '../shared/Input';
 import { QTY_DECIMALS, formatMoney } from '../../utils/money';
 import { formatCurrency } from '../../utils/helpers';
 
-type FieldKind = 'text' | 'number' | 'tel' | 'email' | 'date' | 'time' | 'textarea' | 'customer' | 'product' | 'employee' | 'method' | 'radio';
+type FieldKind = 'branch' | 'text' | 'number' | 'tel' | 'email' | 'date' | 'time' | 'textarea' | 'customer' | 'product' | 'employee' | 'method' | 'radio';
 
 interface Field {
   key: string;
@@ -109,6 +112,10 @@ const FIELDS: Partial<Record<PendingActionType, Field[]>> = {
     { key: 'endTime', label: 'Ends', kind: 'time' },
     { key: 'notes', label: 'Notes', kind: 'text', placeholder: 'Optional' },
   ],
+  transfer_stock: [
+    { key: 'toBranch', label: 'Send to', kind: 'branch', aliases: ['toBranchId'] },
+    { key: 'note', label: 'Note', kind: 'text', placeholder: 'Optional' },
+  ],
   create_feedback_reply: [{ key: 'message', label: 'Reply', kind: 'textarea' }],
   clock_in: [],
   clock_out: [],
@@ -116,7 +123,7 @@ const FIELDS: Partial<Record<PendingActionType, Field[]>> = {
 
 const ICONS: Partial<Record<PendingActionType, React.ComponentType<{ size?: number; className?: string }>>> = {
   create_checkout: ShoppingBag, create_customer: UserPlus, update_customer: UserCog, settle_debt: HandCoins,
-  adjust_wallet: Wallet, create_product: PackagePlus, update_product: Package, adjust_stock: ArrowRightLeft,
+  adjust_wallet: Wallet, create_product: PackagePlus, update_product: Package, adjust_stock: ArrowRightLeft, transfer_stock: ArrowRightLeft,
   create_expense: Receipt, create_shift: CalendarClock, clock_in: Clock, clock_out: Clock,
 };
 
@@ -143,6 +150,7 @@ export default function ActionCard({ action }: { action: PendingAction }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(true);
+  const branches = useTransferBranches(action.type === 'transfer_stock');
 
   const isOpen = action.status === 'pending_review' || action.status === 'verified';
   const isDone = action.status === 'executed';
@@ -191,6 +199,22 @@ export default function ActionCard({ action }: { action: PendingAction }) {
       <label htmlFor={id} className="block text-[10px] font-bold text-app-text-muted mb-1">{f.label}</label>
     );
     switch (f.kind) {
+      case 'branch': {
+        const list = (branches || []).map((b) => ({ id: b.id, name: b.name }));
+        return (
+          <div key={f.key} className="sm:col-span-2">
+            {label}
+            <SearchableDropdown
+              items={list.map((x) => ({ id: x.id, label: x.name }))}
+              selectedValue={pickedId(list, f)}
+              onChange={(bid) => setParam(f, list.find((x) => x.id === bid)?.name || '')}
+              placeholder={branches === null ? 'Loading branches…' : valueOf(f) ? `${valueOf(f)} (not found, pick one)` : 'Pick a branch'}
+              searchPlaceholder="Search…"
+              disabled={disabled}
+            />
+          </div>
+        );
+      }
       case 'customer':
       case 'product':
       case 'employee': {
@@ -335,7 +359,8 @@ export default function ActionCard({ action }: { action: PendingAction }) {
     );
   };
 
-  const hasFields = action.type === 'create_checkout' || fields.length > 0;
+  const hasItems = action.type === 'create_checkout' || action.type === 'transfer_stock';
+  const hasFields = hasItems || fields.length > 0;
 
   return (
     <div
@@ -380,7 +405,10 @@ export default function ActionCard({ action }: { action: PendingAction }) {
           {action.type === 'create_checkout' ? (
             renderItems()
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">{fields.map(renderField)}</div>
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">{fields.map(renderField)}</div>
+              {hasItems && renderItems()}
+            </div>
           )}
         </div>
       )}
@@ -423,4 +451,21 @@ export default function ActionCard({ action }: { action: PendingAction }) {
       )}
     </div>
   );
+}
+
+/** The branches this one can send stock to (null while loading). */
+function useTransferBranches(enabled: boolean): { id: string; name: string }[] | null {
+  const businessId = useBusinessStore((s) => s.activeBusinessId);
+  const [branches, setBranches] = useState<{ id: string; name: string }[] | null>(null);
+  useEffect(() => {
+    if (!enabled || !businessId) return;
+    let live = true;
+    void getSupabase()
+      .rpc('list_transfer_branches', { p_business_id: toUuid(businessId) })
+      .then(({ data }) => {
+        if (live) setBranches(((data as any[]) || []).map((b) => ({ id: String(b.id), name: String(b.name) })));
+      });
+    return () => { live = false; };
+  }, [enabled, businessId]);
+  return branches;
 }

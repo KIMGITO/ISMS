@@ -3,7 +3,6 @@ import { useAppStore } from '../stores/appStore';
 import { usePendingActionStore } from '../stores/pendingActionStore';
 import { useCustomerStore } from '../stores/customerStore';
 import { Send, ChevronDown, ChevronUp, Bot } from 'lucide-react';
-import { getDynamicRoles, ALL_PERMISSIONS } from '../utils/permissions';
 import { useAuthStore } from '../stores/authStore';
 import { SupabaseService } from '../services/supabaseService';
 import type { ChatMessage } from '../stores/uiStore';
@@ -212,7 +211,6 @@ export default function WorkspaceAssistantView() {
       const rawRole = currentEmployee?.role || 'Owner';
       const isOwner = rawRole.toLowerCase() === 'owner' || !currentEmployee;
       const currentRole = isOwner ? 'Owner' : rawRole;
-      const rolePermissions = isOwner ? ALL_PERMISSIONS : (getDynamicRoles()[currentRole]?.permissions || []);
 
       // 3. Use the latestHistory variable we just created
       // The model only sees text, so tell it what its cards were and what became of them.
@@ -231,7 +229,6 @@ export default function WorkspaceAssistantView() {
       const response = await SupabaseService.callEdgeFunction('chat', {
         messages: apiMessages,
         activeRole: currentRole,
-        permissions: rolePermissions,
         employeeName: loggedInUser,
         businessId: activeBusinessId,
         clientProducts: products.map((p) => ({

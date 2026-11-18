@@ -1,5 +1,6 @@
 // supabase/functions/customer-assistant/index.ts
-// Public shop assistant. See logic.ts for how its answers are restricted.
+// Public shop assistant. Runs on the AI the owner chose in the app (Settings → AI); see
+// logic.ts for which answers stay rule-based and how the AI's replies are checked.
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -18,7 +19,7 @@ Deno.serve(async (req) => {
   if (corsResp) return corsResp;
 
   try {
-    const { slug, message, pendingProductId } = await req.json().catch(() => ({}));
+    const { slug, message, pendingProductId, history } = await req.json().catch(() => ({}));
     const text = typeof message === "string" ? message.trim() : "";
     if (!text || text.length > 500) {
       return errorResponse("Please keep your question under 500 characters.", 400);
@@ -101,20 +102,29 @@ Deno.serve(async (req) => {
     const { needsModel, ...decided } = decide(text, typeof pendingProductId === "string" ? pendingProductId : null, ctx);
     if (!needsModel) return jsonResponse(decided);
 
-    // The model gets the prompt and the customer's text, and nothing from the stock query.
-    // If it is down, refuses, or says something we won't pass on, the customer gets the
-    // relevant fallback `decide` prepared instead of an error.
+    // The model gets the shop's public facts (prices and availability, never stock counts)
+    // and the last few turns of this chat. If it is down, refuses, or says something we
+    // won't pass on, the customer gets the answer `decide` prepared instead of an error.
     const ai = await runAI(await loadAISettings(business.id), {
-      systemInstruction: buildModelPrompt(ctx),
-      messages: [{ role: "user", content: text }],
+      systemInstruction: buildModelPrompt(ctx, decided.reply),
+      messages: [...recentTurns(history), { role: "user", content: text }],
       responseMimeType: "application/json",
     }).catch(() => null);
-    const modelReply = ai?.success ? acceptModelReply(ai.text) : null;
+    const modelReply = ai?.success ? acceptModelReply(ai.text, ctx) : null;
     if (!ai?.success) console.warn("[customer-assistant] model unavailable:", ai?.code ?? "error");
 
-    return jsonResponse(modelReply ? { reply: modelReply, pendingProductId: null } : decided);
+    return jsonResponse(modelReply ? { ...decided, reply: modelReply } : decided);
   } catch (err: any) {
     console.error("[customer-assistant]", err);
     return errorResponse("The assistant is having trouble. Please try again.", 500);
   }
 });
+
+/** The chat so far, as the page sent it: the last 8 turns, each cut short. Text only. */
+function recentTurns(history: unknown): { role: "user" | "assistant"; content: string }[] {
+  if (!Array.isArray(history)) return [];
+  return history
+    .slice(-8)
+    .filter((m: any) => (m?.from === "customer" || m?.from === "assistant") && typeof m?.text === "string" && m.text.trim())
+    .map((m: any) => ({ role: m.from === "customer" ? "user" as const : "assistant" as const, content: m.text.slice(0, 500) }));
+}

@@ -13,6 +13,8 @@ import { useExtraModulesStore } from './extraModulesStore';
 import { useNotificationStore } from './notificationStore';
 import { ProductRepository, CustomerRepository, ExpenseRepository } from '../services/repositories';
 import { SupabaseService } from '../services/supabaseService';
+import { getSupabase } from '../services/supabaseClient';
+import { toUuid } from '../utils/idUtils';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import { useCartStore } from './cartStore';
 import { useUiStore } from './uiStore';
@@ -74,6 +76,7 @@ export const ASSISTANT_ACTIONS: Partial<Record<PendingActionType, { permission: 
   create_product: { permission: 'products.create', label: 'add products' },
   update_product: { permission: 'products.update', label: 'change product prices and details' },
   adjust_stock: { permission: 'inventory.adjust_stock', label: 'adjust stock' },
+  transfer_stock: { permission: 'inventory.transfer_stock', label: 'send stock to other branches' },
   create_expense: { permission: 'expenses.create', label: 'record expenses' },
   create_recipe_bom: { permission: 'bom.create', label: 'create recipes' },
   create_shift: { permission: 'staff.schedule', label: 'schedule shifts' },
@@ -92,7 +95,8 @@ export function normalizeActionType(raw: string): PendingActionType {
     record_debt_payment: 'settle_debt', pay_debt: 'settle_debt', debt_payment: 'settle_debt',
     wallet_deposit: 'adjust_wallet', top_up_wallet: 'adjust_wallet', deposit_wallet: 'adjust_wallet',
     add_customer: 'create_customer', add_product: 'create_product', add_expense: 'create_expense',
-    record_expense: 'create_expense', stock_adjustment: 'adjust_stock', clockin: 'clock_in', clockout: 'clock_out',
+    record_expense: 'create_expense', stock_adjustment: 'adjust_stock',
+    send_stock: 'transfer_stock', stock_transfer: 'transfer_stock', send_stock_transfer: 'transfer_stock', transfer: 'transfer_stock', clockin: 'clock_in', clockout: 'clock_out',
   };
   return (aliases[t] || t) as PendingActionType;
 }
@@ -153,6 +157,19 @@ export const evaluateValidation = (
         hasStock = false;
         warnings.push(`Only ${prod.stock} ${prod.name} in stock (sale asks for ${qty}).`);
       }
+    }
+  }
+
+  if (type === 'transfer_stock') {
+    const items = Array.isArray(params.items) ? params.items : [];
+    if (!norm(params.toBranch)) errors.push('Choose the branch the stock is going to.');
+    if (items.length === 0) errors.push('Add what to send.');
+    for (const item of items) {
+      const prod = findProduct(item.productId, item.productName);
+      const qty = parseFloat(item.quantity) || 0;
+      if (!prod) errors.push(`"${item.productName || item.productId || 'That product'}" isn't in your products.`);
+      else if (qty <= 0) errors.push(`Enter how much ${prod.name} to send.`);
+      else if (qty > Number(prod.stock || 0)) errors.push(`Only ${prod.stock} ${prod.name} here (sending ${qty}).`);
     }
   }
 
@@ -401,6 +418,33 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
               params.reason || 'Through the assistant'
             );
             doneMessage = `${prod.name}: ${adjType === 'Damage' ? 'removed' : 'added'} ${qty}.`;
+            break;
+          }
+
+          case 'transfer_stock': {
+            // Same database call as Stock Transfers → Send. The action's id is the reference,
+            // so confirming twice (or a retry after a dropped connection) sends once.
+            const sb = getSupabase();
+            const { data: list, error: branchErr } = await sb.rpc('list_transfer_branches', { p_business_id: toUuid(activeBizId) });
+            if (branchErr) throw branchErr;
+            const branch = findByName(((list as any[]) || []).map((b) => ({ id: String(b.id), name: String(b.name) })), params.toBranchId, params.toBranch);
+            if (!branch) throw new Error(`Couldn't find the branch "${params.toBranch || ''}". Pick it from the list.`);
+            const items = (params.items || []).map((item: any) => ({
+              product_id: toUuid(findProduct(item.productId, item.productName)!.id),
+              quantity: parseFloat(item.quantity) || 0,
+            }));
+            const { data, error } = await sb.rpc('send_stock_transfer', {
+              p_from_business_id: toUuid(activeBizId),
+              p_to_business_id: branch.id,
+              p_items: items,
+              p_note: norm(params.note) ? String(params.note).trim() : 'Through the assistant',
+              p_reference_id: `ai-${action.id}`,
+            });
+            if (error) throw error;
+            const ref = (data as any)?.reference || 'Transfer';
+            doneMessage = (data as any)?.status === 'awaiting_approval'
+              ? `${ref} is above your limit, so it waits for approval. Nothing has left yet.`
+              : `${ref} is on the way to ${branch.name}. It is off this branch's stock now.`;
             break;
           }
 

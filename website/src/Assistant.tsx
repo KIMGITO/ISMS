@@ -53,7 +53,9 @@ export default function Assistant() {
     setBusy(true);
     setMessages((m) => [...m, { id: m.length, from: 'customer', text: question }]);
     try {
-      const reply = await askAssistant(question, pendingProductId);
+      // The greeting (id 0) is the page's own, not part of the conversation.
+      const history = messages.filter((m) => m.id !== 0).map((m) => ({ from: m.from, text: m.text }));
+      const reply = await askAssistant(question, pendingProductId, history);
       setPendingProductId(reply.pendingProductId ?? null);
       setMessages((m) => [...m, { id: m.length, from: 'assistant', text: reply.reply, reply }]);
     } catch (err) {

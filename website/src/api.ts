@@ -430,8 +430,9 @@ export const submitFeedback = (input: FeedbackInput) =>
     p_product_id: input.productId,
   });
 
-export const askAssistant = (message: string, pendingProductId: string | null) =>
-  callFunction<AssistantReply>('customer-assistant', { slug: storeSlug(), message, pendingProductId });
+/** `history` is the chat so far, so the assistant can follow the conversation. */
+export const askAssistant = (message: string, pendingProductId: string | null, history: { from: string; text: string }[] = []) =>
+  callFunction<AssistantReply>('customer-assistant', { slug: storeSlug(), message, pendingProductId, history: history.slice(-8) });
 
 export interface DeliveryZone {
   id: string;

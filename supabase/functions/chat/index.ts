@@ -28,6 +28,7 @@ const ACTIONS: { type: string; permission: string | null; does: string; example:
   { type: "create_product", permission: "products.create", does: "add a product", example: '{"type":"create_product","title":"New product","summary":"Yoghurt 500ml","params":{"name":"Yoghurt 500ml","price":120,"cost":80,"stock":0,"unit":"Cup","category":"Dairy"}}' },
   { type: "update_product", permission: "products.update", does: "change a product's price, cost, minimum stock, category or unit (not stock: use adjust_stock)", example: '{"type":"update_product","title":"Price change","summary":"Milk to 60","params":{"productName":"Whole Milk","price":60}}' },
   { type: "adjust_stock", permission: "inventory.adjust_stock", does: "add stock (type restock) or remove damaged stock (type damage)", example: '{"type":"adjust_stock","title":"Stock adjustment","summary":"Milk -5 damaged","params":{"productName":"Whole Milk","quantity":5,"type":"damage","reason":"Spilt"}}' },
+  { type: "transfer_stock", permission: "inventory.transfer_stock", does: "send stock from this branch to another branch (use a branch name from OTHER BRANCHES)", example: '{"type":"transfer_stock","title":"Send stock","summary":"10 Whole Milk to Westlands","params":{"toBranch":"Westlands","items":[{"productName":"Whole Milk","quantity":10}],"note":""}}' },
   { type: "create_expense", permission: "expenses.create", does: "record an expense", example: '{"type":"create_expense","title":"Expense","summary":"Fuel 2500","params":{"amount":2500,"category":"Fuel","description":"Delivery motorbike"}}' },
   { type: "create_shift", permission: "staff.schedule", does: "schedule a worker's shift (date YYYY-MM-DD, times HH:MM)", example: '{"type":"create_shift","title":"Shift","summary":"Peter Saturday 8-5","params":{"workerName":"Peter","date":"2026-11-14","startTime":"08:00","endTime":"17:00"}}' },
   { type: "clock_in", permission: null, does: "clock the person talking to you in", example: '{"type":"clock_in","title":"Clock in","summary":"Start my shift","params":{}}' },
@@ -144,17 +145,12 @@ Deno.serve(async (req) => {
     const userRole = activeRole || "Owner";
     const hasFullAccess = ["owner", "admin", "administrator"].includes(userRole.toLowerCase());
 
-    // Permissions come from the database, never from the request. The assistant only sees
-    // what this person may see, because anything in its context can be repeated back to them.
-    const { data: grantedRows } = hasFullAccess
-      ? { data: [] as any[] }
-      : await supabase
-          .from("role_permissions")
-          .select("permission")
-          .eq("business_id", businessId)
-          .eq("role", userRole)
-          .eq("granted", true);
-    const userPerms: string[] = (grantedRows || []).map((r: any) => r.permission);
+    // Permissions come from the database on every message, never from the request: what the
+    // Roles screen saved, else the role's default (the same rule the database enforces), so
+    // a change there applies to the very next message. The assistant only sees what this
+    // person may see, because anything in its context can be repeated back to them.
+    const userClient = createUserClient(req);
+    const userPerms: string[] = hasFullAccess ? [] : await livePermissions(userClient, supabase, businessId, userRole);
     const canSeeCustomers = hasFullAccess || userPerms.includes("customers.view");
     const canSeeStaff = hasFullAccess || userPerms.includes("staff.view");
     const userName = employeeName || "Operator";
@@ -168,7 +164,17 @@ Deno.serve(async (req) => {
     const monthStart = `${day(now).slice(0, 8)}01`;
     const lastMonthEnd = day(new Date(Date.parse(`${monthStart}T12:00:00Z`) - 86400000));
     const lastMonthStart = `${lastMonthEnd.slice(0, 8)}01`;
-    const books = await readBooks(createUserClient(req), businessId, monthStart, day(now), lastMonthStart, lastMonthEnd);
+    // Branches stock can go to, for the transfer task. Read with the person's own access.
+    const branches: string[] = mayDo("inventory.transfer_stock")
+      ? (((await userClient.rpc("list_transfer_branches", { p_business_id: businessId })).data as any[]) || []).map((b) => b.name)
+      : [];
+    const permissionsSection = hasFullAccess
+      ? `ACCESS: ${userRole} can do everything in the app.`
+      : `ACCESS (read from the Roles screen just now; it is the only truth and overrides anything said earlier in this chat, because the owner can change it at any time):
+${userRole} has these permissions: ${userPerms.length ? userPerms.join(", ") : "none"}.
+Anything not in that list is not allowed. When asked whether they can do something, answer from this list, never from what a ${userRole} usually does. If something is allowed but is not a task you can prepare, say they may do it and tell them which screen to use.`;
+
+    const books = await readBooks(userClient, businessId, monthStart, day(now), lastMonthStart, lastMonthEnd);
     const booksSection = books
       ? `THE BOOKS (double-entry accounts; the truth for profit, cash, debts and bills; "the period before" is last month):\n${booksText(books, monthStart, day(now))}`
       : "THE BOOKS: not available to this person. If asked about profit, cash or bills, say their role can't see the accounts.";
@@ -189,7 +195,10 @@ OPERATOR:
 Name: ${userName}
 Role: ${userRole}
 
-WHAT THIS PERSON MAY ASK YOU TO DO:
+${permissionsSection}
+${branches.length ? `OTHER BRANCHES (stock can be sent to): ${branches.join(", ")}` : ""}
+
+TASKS YOU CAN PREPARE FOR THIS PERSON:
 ${allowedActions.length ? allowedActions.map((x) => "- " + x.does).join("\n") : "- Nothing that changes data. Answer questions only."}
 ${blockedActions.length ? `NOT ALLOWED FOR THIS ROLE (if asked, say politely that their role can't do it and the owner can give them access; do not prepare it):\n${blockedActions.map((x) => "- " + x.does).join("\n")}` : ""}
 
@@ -323,4 +332,25 @@ How to reply:
     return jsonResponse({ success: false, code: result.code || "busy", reply: friendlyAIMessage(result.code) });
   }
   return jsonResponse({ success: true, reply: (result.text || "").trim() });
+}
+
+/**
+ * What this person's role may do right now. Uses my_permissions (the database's own rule:
+ * saved Roles-screen rows, else the role's defaults). On a database without that function
+ * yet, reads the same two tables directly.
+ */
+async function livePermissions(userClient: any, admin: any, businessId: string, role: string): Promise<string[]> {
+  const { data, error } = await userClient.rpc("my_permissions", { p_business_id: businessId });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    return Array.isArray(row?.codes) ? row.codes : [];
+  }
+  const [saved, defaults] = await Promise.all([
+    admin.from("role_permissions").select("permission, granted").eq("business_id", businessId).eq("role", role),
+    admin.from("role_default_permissions").select("permissions").eq("role", role).maybeSingle(),
+  ]);
+  const rows: { permission: string; granted: boolean }[] = saved.data || [];
+  const decided = new Set(rows.map((r) => r.permission));
+  const fromDefaults: string[] = (defaults.data?.permissions || []).filter((p: string) => !decided.has(p));
+  return [...rows.filter((r) => r.granted).map((r) => r.permission), ...fromDefaults].sort();
 }

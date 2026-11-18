@@ -88,6 +88,17 @@ export async function loadAISettings(businessId: string): Promise<AISettings> {
 
   if (aiData) return aiData as AISettings;
 
+  // A branch with no settings of its own uses the AI the owner set on another branch.
+  const { data: sourceId } = await supabase.rpc("fn_ai_settings_business", { p_business_id: businessId });
+  if (sourceId && sourceId !== businessId) {
+    const { data: shared } = await supabase
+      .from("ai_settings")
+      .select("provider, api_key, model, temperature, max_tokens, top_p, top_k, system_prompt, enabled")
+      .eq("business_id", sourceId)
+      .maybeSingle();
+    if (shared) return shared as AISettings;
+  }
+
   const { data: intData } = await supabase
     .from("integration_configurations")
     .select("payload")
