@@ -41,7 +41,15 @@ export const useCart = create<CartState>()(
 
 export const useSite = create<{ site: Storefront | null; setSite: (site: Storefront) => void }>((set) => ({
   site: null,
-  setSite: (site) => set({ site }),
+  setSite: (site) => {
+    // A saved cart can name products this shop no longer has (another branch, or products added
+    // again since). They can't be shown or ordered, so they leave the cart.
+    const ids = new Set(site.products.map((p) => p.id));
+    const { lines } = useCart.getState();
+    const kept = lines.filter((l) => ids.has(l.productId));
+    if (kept.length !== lines.length) useCart.setState({ lines: kept });
+    set({ site });
+  },
 }));
 
 /** The storefront is loaded before any page renders. */

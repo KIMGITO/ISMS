@@ -245,7 +245,6 @@ export function CheckoutPage() {
   const site = useStorefront();
   const { business, settings, deliveryZones } = site;
   const rows = useCartRows();
-  const lines = useCart((s) => s.lines);
   const clear = useCart((s) => s.clear);
   const ready = useAuth((s) => s.ready);
   const session = useAuth((s) => s.session);
@@ -334,7 +333,8 @@ export function CheckoutPage() {
     setBusy(true);
     try {
       const address = formatLocation({ ...location, zoneName: null });
-      const orderId = await placeOrder(lines, fulfilment, address, notes, zoneId || null, pointsUsed, promo ? promoCode : null);
+      // Only the lines shown here: the saved cart can still hold products this shop doesn't sell.
+      const orderId = await placeOrder(rows.map((r) => r.line), fulfilment, address, notes, zoneId || null, pointsUsed, promo ? promoCode : null);
       if (fulfilment === 'delivery' && saveLocation && locationChanged) {
         // The order is placed; a failed save only means typing it again next time.
         await updateProfile(account.name, account.phone, { ...location, notes: savedLocation.notes }).catch(() => undefined);
