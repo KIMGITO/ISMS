@@ -4,6 +4,7 @@
  */
 import { BusinessReceiptSettings, ReceiptContent, PaperWidth } from "./types";
 import { getShortId } from "../../utils/idUtils";
+import { moneyNumber, formatQty } from "../../utils/money";
 
 export type Align = "left" | "center" | "right";
 
@@ -26,12 +27,10 @@ export function dotsFor(paper: PaperWidth): number {
 }
 
 export function formatMoney(value: number): string {
-  return (Number(value) || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return moneyNumber(value);
 }
 
-export function formatQty(value: number): string {
-  return String(Math.round((Number(value) || 0) * 1000) / 1000);
-}
+export { formatQty };
 
 /** Word-wraps to width, breaking words that are longer than a line. */
 export function wrap(text: string, width: number): string[] {

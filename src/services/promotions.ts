@@ -5,6 +5,7 @@
 // -> the sale is saved with the hold's id -> or promoRelease if the sale fails.
 import { getSupabase } from './supabaseClient';
 import type { CartItem } from '../types';
+import { formatCurrency } from '../utils/helpers';
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await getSupabase().rpc(name, args);
@@ -294,7 +295,7 @@ export const customerReferral = (customerId: string) =>
 /** The words a customer sends with their code. */
 export function referralShareText(businessName: string, r: CustomerReferral): string {
   const c = r.campaign;
-  const min = c && Number(c.minPurchase) > 0 ? ` on your first purchase of KSh ${Number(c.minPurchase).toLocaleString('en-KE')} or more` : ' on your first purchase';
+  const min = c && Number(c.minPurchase) > 0 ? ` on your first purchase of ${formatCurrency(Number(c.minPurchase))} or more` : ' on your first purchase';
   return `Shop at ${businessName} and give my code ${r.code} at the counter: you get ${c?.friendGets ?? 'a welcome reward'}${min}.`;
 }
 

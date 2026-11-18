@@ -17,7 +17,7 @@ rm -f "$BASE"
 grep -v 'pg_cron' "$M/20261120001_schema.sql" | p -d promo_test 2>&1 >/dev/null \
   | grep ERROR | grep -v 'supabase_realtime\|vault\|fn_can_write\|fn_storage_folder\|handle_new_user' || true
 p -d promo_test -c "ALTER SCHEMA public OWNER TO postgres" >/dev/null
-for f in "$M"/2026112[0-9]*.sql; do
+for f in "$M"/202611[2-9][0-9]*.sql; do
   [[ $f == *20261120001* ]] && continue
   who=postgres; [[ $f == *20261120002* ]] && who=supabase_admin
   out=$(grep -v "cron.schedule('[a-z-]*', '[^']*', \$job" "$f" | docker exec -i $C psql -U $who -q -d promo_test -v ON_ERROR_STOP=1 -1 2>&1 | grep ERROR || true)

@@ -21,6 +21,7 @@ import {
   type MoneyMethod, type SaleRefundInfo, type Settlement,
 } from '../../services/salesDocs';
 import { NumberInput } from '../shared/Input';
+import { QTY_DECIMALS } from '../../utils/money';
 
 interface Props {
   transactionId: string;
@@ -168,7 +169,7 @@ export function RefundSheet({ transactionId, onClose, onDone, mode = 'refund' }:
                 </div>
                 {editing ? (
                   <span className="text-sm tabular-nums">× {l.left}</span>
-                ) : <NumberInput
+                ) : <NumberInput decimals={QTY_DECIMALS}
                   min={0}
                   max={l.left}
                   aria-label={`How many ${l.name} came back`}

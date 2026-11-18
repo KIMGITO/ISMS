@@ -69,11 +69,11 @@ export default function WorkersView() {
   const canDeleteInvite = currentEmployee ? hasRolePermission(currentEmployee.role, "invitations.delete") : false;
   // The roles this app has: built-in ones plus custom roles made on the Roles page.
   // Only Owners and Admins can make someone an Owner or Admin.
-  const callerIsTop = ['Owner', 'Admin'].includes(currentEmployee?.role || '');
+  const callerIsTop = ['Owner', 'Admin', 'Administrator'].includes(currentEmployee?.role || '');
   const roleOptions = Object.values(getDynamicRoles())
     // Supplier: someone at a company you buy from. Not for changing a staff member's role.
     .filter((r) => (r.name === 'Supplier' ? handlesSuppliers && !editingEmployeeId : canInviteStaff || !!editingEmployeeId))
-    .filter((r) => callerIsTop || !['Owner', 'Admin'].includes(r.name))
+    .filter((r) => callerIsTop || !['Owner', 'Admin', 'Administrator'].includes(r.name))
     .map((r) => ({ id: r.name, label: r.name === 'Supplier' ? 'Supplier' : r.name }));
   const isSupplier = role === ('Supplier' as EmployeeRole);
 
@@ -635,7 +635,11 @@ export default function WorkersView() {
                   const isOwner = emp.role === 'Owner';
                   const isSelf = emp.id === currentEmployee?.id;
 
-                  const canRemoveThis = !isOwner && !isSelf && canRemoveStaff;
+                  // Only the Owner or an Admin removes or changes an Admin (the database refuses others).
+                  const isTopMember = ['Owner', 'Admin', 'Administrator'].includes(emp.role);
+                  const guarded = isOwner || (isTopMember && !callerIsTop);
+                  const canRemoveThis = !guarded && !isSelf && canRemoveStaff;
+                  const canEditThis = canUpdateStaff && (isSelf || !isTopMember || callerIsTop);
                   return (
                     <SwipeRow
                       key={emp.id}
@@ -647,7 +651,7 @@ export default function WorkersView() {
                         { label: 'Remove', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveThis, disabled: isDeletingWorker, onClick: () => removeWorker(emp) },
                       ]}
                       more={[
-                        { label: 'Edit role and details', icon: <Edit size={16} />, hidden: !canUpdateStaff, onClick: () => handleStartEdit(emp) },
+                        { label: 'Edit role and details', icon: <Edit size={16} />, hidden: !canEditThis, onClick: () => handleStartEdit(emp) },
                         { label: 'Copy phone number', icon: <Phone size={16} />, hidden: !emp.phone, onClick: () => copyToClipboard(emp.phone) },
                         { label: 'Copy email', icon: <Mail size={16} />, hidden: !emp.email, onClick: () => copyToClipboard(emp.email) },
                         { label: 'Remove from business', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveThis, disabled: isDeletingWorker, onClick: () => removeWorker(emp) },
@@ -704,6 +708,7 @@ export default function WorkersView() {
                       {(canUpdateStaff || canRemoveStaff) && (
                         <div className="flex items-center gap-1 border-t sm:border-t-0 border-app-border/40 pt-2 sm:pt-0 shrink-0 w-full sm:w-auto justify-end">
                           {/* Edit Button */}
+                          {canEditThis && (
                           <button
                             onClick={() => handleStartEdit(emp)}
                             className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg transition cursor-pointer"
@@ -711,9 +716,10 @@ export default function WorkersView() {
                           >
                             <Edit size={11} />
                           </button>
+                          )}
 
                           {/* Delete Button (cannot delete self or owners) */}
-                          {!isOwner && !isSelf && canRemoveStaff && (
+                          {canRemoveThis && (
                             <button
                               disabled={isDeletingWorker}
                               onClick={() => removeWorker(emp)}

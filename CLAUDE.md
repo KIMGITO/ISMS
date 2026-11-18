@@ -25,3 +25,20 @@ owed (books: Rider pay / We owe riders, source `rider_pay`). Paying later is one
 with `rider_payment = true` (moves money, clears the debt, never counted as spending again).
 Profit figures read `fn_spending()` (server) or `spendingWithRiderPay()` (app); cash figures
 (shift report, petty cash, Payments balances) read the raw expenses.
+
+## Number rules (set by the owner, 2026-11-18)
+
+- **Money always has 2 decimal places**, stored and shown: `KSh 1,250.50`, `KSh 100.00`. Use
+  `formatMoney` / `formatCurrency` / `roundMoney` from `src/utils/money.ts` (website:
+  `website/src/numbers.ts`), never `toFixed`, `Math.round` or `toLocaleString` on an amount.
+  Money columns are `numeric(14,2)`. Rates that are not amounts (percent, KSh per point) are exempt.
+- **Quantities have at most 1 decimal place**: `2`, `1.5`. Quantity boxes use
+  `<NumberInput decimals={QTY_DECIMALS} />`; quantity columns are `numeric(p,1)`
+  (`20261130007_quantity_one_decimal.sql`). Recipes state amounts per batch (yield), not per item.
+
+## Permission rules (2026-11-18)
+
+Every permission the app checks is also enforced by the database (`has_permission` in RLS or the
+function), and edge functions use `requirePermission`, never a role name. A new table with a
+policy needs the matching GRANT to `authenticated`, or nobody can read it (the invoices bug).
+`supabase/tests/permissions/permissions_test.sh` checks both.

@@ -6,6 +6,7 @@
 import { getSupabase } from './supabaseClient';
 import { toUuid } from '../utils/idUtils';
 import { methodLabel } from '../utils/paymentMethods';
+import { formatMoney } from '../utils/money';
 
 export const REPORT_TZ = 'Africa/Nairobi';
 
@@ -319,7 +320,7 @@ export async function fetchStockReport(businessId: string, from: Date, to: Date)
 // ---------------------------------------------------------------------------
 
 const q = (n: number) => String(r3(n));
-const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString('en-KE')}`;
+const ksh = (n: number) => formatMoney(n);
 
 export function stockReportText(report: StockReport, meta: { title: string; branch: string; period: string; notes?: string }): string {
   const lines: string[] = [`*${meta.title} · ${meta.period}*`, meta.branch, ''];

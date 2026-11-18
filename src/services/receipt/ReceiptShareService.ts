@@ -8,6 +8,7 @@ import { nativePlatformService } from "../../core/native/NativePlatformService";
 import { ReceiptMail } from "../../core/native/BluetoothService";
 import { normalizePhone } from "../../utils/phoneUtils";
 import { getFirstName } from "../../utils/stringUtils";
+import { moneyNumber } from '../../utils/money';
 
 /** Phone chat bubbles fit about this many monospaced characters without wrapping. */
 const CHAT_COLUMNS = 32;
@@ -166,7 +167,7 @@ export class ReceiptShareService {
 
     if (nativePlatformService.isAndroid()) {
       const path = await this.writeNativePdf(content, settings);
-      const body = `${greeting}\n\nYour receipt ${content.receiptNumber} for ${settings.currencyFormat} ${content.grandTotal.toFixed(2)} is attached.${sign}`;
+      const body = `${greeting}\n\nYour receipt ${content.receiptNumber} for ${settings.currencyFormat} ${moneyNumber(content.grandTotal)} is attached.${sign}`;
       await ReceiptMail.compose({ to, subject, body, path });
       return "attached";
     }

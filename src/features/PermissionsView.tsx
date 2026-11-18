@@ -20,6 +20,21 @@ export default function PermissionsView() {
 
   // Helper validation rule to guard root account hierarchies
   const isRootRole = selectedRole === "Owner" || selectedRole === "Admin" || selectedRole === "Administrator";
+  // Only the Owner or an Admin changes their own role's permissions (the database refuses others).
+  const myRole = useAuthStore(state => state.currentEmployee?.role);
+  const callerIsTop = myRole === "Owner" || myRole === "Admin" || myRole === "Administrator";
+  const isOwnRole = !callerIsTop && selectedRole === myRole;
+  const blocked = () => {
+    if (isRootRole) {
+      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
+      return true;
+    }
+    if (isOwnRole) {
+      showToast("Can't change your own role", "Ask the Owner or an Admin to change what your role can do.", undefined, "error" as any);
+      return true;
+    }
+    return false;
+  };
   // Suppliers have their own short list (what they see when they sign in); staff roles never get it.
   const pool = ALL_PERMISSIONS.filter((p) => (selectedRole === "Supplier") === (p.category === SUPPLIER_PORTAL_CATEGORY));
   useEffect(() => {
@@ -75,10 +90,7 @@ export default function PermissionsView() {
   }, []);
 
   const handleTogglePermission = (code: PermissionCode) => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     if (editedPermissions.includes(code)) {
       setEditedPermissions(editedPermissions.filter(p => p !== code));
     } else {
@@ -87,39 +99,27 @@ export default function PermissionsView() {
   };
 
   const handleGrantAll = () => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     const allCodes = pool.map(p => p.code);
     setEditedPermissions(allCodes);
     showToast("All allowed", `${selectedRole} can now do everything. Tap Save to keep it.`, undefined, "info" as any);
   };
 
   const handleRevokeAll = () => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     setEditedPermissions([]);
     showToast("All removed", `${selectedRole} can no longer do anything. Tap Save to keep it.`, undefined, "warning" as any);
   };
 
   const handleGrantViewOnly = () => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     const viewCodes = pool.filter(p => p.code.endsWith(".view") || p.code.includes("view_all") || p.code === "ai.use").map(p => p.code);
     setEditedPermissions(viewCodes);
     showToast("View only", `${selectedRole} can now only look, not change. Tap Save to keep it.`, undefined, "info" as any);
   };
 
   const handleToggleModule = (category: string) => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     const modulePerms = pool.filter(p => p.category === category).map(p => p.code);
     const hasAll = modulePerms.every(p => editedPermissions.includes(p));
 
@@ -135,6 +135,7 @@ export default function PermissionsView() {
   };
 
   const handleSave = async () => {
+    if (blocked()) return;
     // Save to local storage for backwards compatibility
     const currentRoles = getDynamicRoles();
     const updatedRoles = {
@@ -152,10 +153,7 @@ export default function PermissionsView() {
   };
 
   const handleReset = () => {
-    if (isRootRole) {
-      showToast("Can't change this role", "The Owner and Admin roles always have every permission. They can't be changed.", undefined, "error" as any);
-      return;
-    }
+    if (blocked()) return;
     const defaultPerms = SYSTEM_ROLES[selectedRole]?.permissions || [];
     setEditedPermissions(defaultPerms);
     showToast(
@@ -222,6 +220,11 @@ export default function PermissionsView() {
                 This role always has every permission, so it can't be changed here.
               </span>
             )}
+            {isOwnRole && (
+              <span className="text-amber-500 block font-semibold mt-1 ">
+                This is your own role. Only the Owner or an Admin can change it.
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -253,13 +256,13 @@ export default function PermissionsView() {
         </div>
 
         <div className="flex gap-2 w-full md:w-auto shrink-0 overflow-x-auto pb-1 md:pb-0">
-          <button onClick={handleGrantAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleGrantAll} disabled={isRootRole || isOwnRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
             <CheckSquare size={10} /><span>Allow all</span>
           </button>
-          <button onClick={handleGrantViewOnly} disabled={isRootRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleGrantViewOnly} disabled={isRootRole || isOwnRole} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
             <ShieldAlert size={10} /><span>View Only</span>
           </button>
-          <button onClick={handleRevokeAll} disabled={isRootRole} className="px-2.5 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 border border-red-500/15 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleRevokeAll} disabled={isRootRole || isOwnRole} className="px-2.5 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 border border-red-500/15 text-[11px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
             <X size={10} /><span>Remove all</span>
           </button>
         </div>
@@ -292,7 +295,7 @@ export default function PermissionsView() {
                 </div>
                 
                 <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => handleToggleModule(category)} disabled={isRootRole} className={`px-2 py-0.5 rounded text-[11px] font-semibold border disabled:opacity-40 disabled:cursor-not-allowed ${hasAllInModule ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-app-bg text-app-text-muted border-app-border"}`}>
+                  <button onClick={() => handleToggleModule(category)} disabled={isRootRole || isOwnRole} className={`px-2 py-0.5 rounded text-[11px] font-semibold border disabled:opacity-40 disabled:cursor-not-allowed ${hasAllInModule ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-app-bg text-app-text-muted border-app-border"}`}>
                     {hasAllInModule ? "Deselect All" : "Select All"}
                   </button>
                   <span className="text-[10px] text-app-text-muted">{isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={12} />}</span>
@@ -324,7 +327,7 @@ export default function PermissionsView() {
                           </code>
                           <p className="text-[11px] text-app-text-muted mt-0.5 leading-normal font-medium">{perm.description}</p>
                         </div>
-                        <button className="shrink-0 text-app-text-muted transition-colors" disabled={isRootRole}>
+                        <button className="shrink-0 text-app-text-muted transition-colors" disabled={isRootRole || isOwnRole}>
                           {isRootRole ? (
                             <Lock size={16} className="text-amber-500/70 mr-1" />
                           ) : isEnabled ? (
@@ -353,7 +356,7 @@ export default function PermissionsView() {
         </div>
         
         <div className="flex gap-2">
-          <button onClick={handleReset} disabled={isRootRole} className="px-3 py-2 bg-slate-800 border border-slate-700 text-[10px] font-semibold text-slate-300 rounded-xl transition flex items-center gap-1.5 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleReset} disabled={isRootRole || isOwnRole} className="px-3 py-2 bg-slate-800 border border-slate-700 text-[10px] font-semibold text-slate-300 rounded-xl transition flex items-center gap-1.5 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
             <RefreshCw size={11} /><span>Use standard</span>
           </button>
           <button onClick={handleSave} className="px-4 py-2 bg-amber-500 text-slate-950 text-[10px] font-semibold rounded-xl transition flex items-center gap-1.5 shadow-md hover:bg-amber-600">

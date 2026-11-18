@@ -17,6 +17,7 @@ import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import { useCartStore } from './cartStore';
 import { useUiStore } from './uiStore';
 import { isMoneyMethod } from '../utils/paymentMethods';
+import { formatCurrency } from '../utils/helpers';
 
 interface PendingActionInput {
   type: PendingActionType;
@@ -174,7 +175,7 @@ export const evaluateValidation = (
     } else if (type === 'settle_debt') {
       const amt = amountOf(params.amount);
       if (amt <= 0) errors.push('Enter the amount paid.');
-      else if (amt > Number(cust.debtBalance || 0)) errors.push(`${cust.name} owes KSh ${Number(cust.debtBalance || 0).toLocaleString()}, less than KSh ${amt.toLocaleString()}.`);
+      else if (amt > Number(cust.debtBalance || 0)) errors.push(`${cust.name} owes ${formatCurrency(Number(cust.debtBalance || 0))}, less than ${formatCurrency(amt)}.`);
     } else if (type === 'adjust_wallet' && amountOf(params.amount) <= 0) {
       errors.push('Enter the amount to add to the wallet.');
     }
@@ -330,7 +331,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
             const method = isMoneyMethod(rawMethod) ? rawMethod : norm(rawMethod).includes('airtel') ? 'Airtel Money' : norm(rawMethod).includes('pesa') ? 'M-Pesa' : 'Cash';
             await useCustomerStore.getState().payCustomerDebt(cust.id, amount, method, staffName, params.note || 'Recorded through the assistant');
             await useCustomerStore.getState().refreshCustomer(cust.id).catch(() => {});
-            doneMessage = `KSh ${amount.toLocaleString()} ${method} payment recorded for ${cust.name}.`;
+            doneMessage = `${formatCurrency(amount)} ${method} payment recorded for ${cust.name}.`;
             break;
           }
 
@@ -339,7 +340,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
             const amount = amountOf(params.amount);
             await useCustomerStore.getState().depositCustomerWallet(cust.id, amount, staffName, params.note || 'Top-up through the assistant');
             await useCustomerStore.getState().refreshCustomer(cust.id).catch(() => {});
-            doneMessage = `KSh ${amount.toLocaleString()} added to ${cust.name}'s wallet.`;
+            doneMessage = `${formatCurrency(amount)} added to ${cust.name}'s wallet.`;
             break;
           }
 
@@ -412,7 +413,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
               staffName,
               businessId: activeBizId,
             });
-            doneMessage = `Expense of KSh ${amountOf(params.amount).toLocaleString()} recorded.`;
+            doneMessage = `Expense of ${formatCurrency(amountOf(params.amount))} recorded.`;
             break;
           }
 

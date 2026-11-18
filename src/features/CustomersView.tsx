@@ -66,11 +66,13 @@ import DuplicateCustomers from "../components/DuplicateCustomers";
 import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
 import CustomerReferralCard from "../components/loyalty/CustomerReferralCard";
+import CustomerRegularOrders from "../components/regular/CustomerRegularOrders";
 import { appDialog } from '../components/AppDialog';
 import { GroupPicker } from '../components/messaging/GroupPicker';
 import { groupMatcher } from '../services/messaging/customerGroups';
 import { useMessageContext } from '../hooks/useMessageContext';
 import { Field, NumberInput } from '../components/shared/Input';
+import { moneyNumber } from '../utils/money';
 
 // Dynamically synthesize retro-modern digital workspace sounds using Web Audio API
 const playSfx = (type: "send" | "receive" | "save") => {
@@ -670,21 +672,21 @@ export default function CustomersView() {
     });
 
     itemMap.forEach((val) => {
-      itemSummary += `• ${val.name} x ${val.qty} (KSh ${(val.price * val.qty).toFixed(0)})\n`;
+      itemSummary += `• ${val.name} x ${val.qty} (${formatCurrency(val.price * val.qty)})\n`;
     });
 
     let msg = `Hi *${getFirstName(cust.name)}*,\n\n`;
-    msg += `This is a friendly statement regarding your outstanding balance of *KSh ${(
+    msg += `This is a friendly statement regarding your outstanding balance of *${formatCurrency(
       cust.debtBalance || 0
-    ).toFixed(0)}* at ${shopName}.\n\n`;
+    )}* at ${shopName}.\n\n`;
     if (itemSummary) {
       msg += `*Included Products:*\n${itemSummary}\n`;
     }
     if (totalDelivery > 0) {
-      msg += `*Delivery Fees:* KSh ${totalDelivery.toFixed(0)}\n`;
+      msg += `*Delivery Fees:* ${formatCurrency(totalDelivery)}\n`;
     }
     if (totalTax > 0) {
-      msg += `*VAT:* KSh ${totalTax.toFixed(0)}\n`;
+      msg += `*VAT:* ${formatCurrency(totalTax)}\n`;
     }
     msg += `\nPlease settle this balance at your earliest convenience. Thank you!`;
     return msg;
@@ -1060,6 +1062,7 @@ export default function CustomersView() {
               <div className="mt-2 lg:mt-0">
                 <CustomerRewards customer={selectedCustomer} formatCurrency={formatCurrency} />
                 <CustomerReferralCard customer={selectedCustomer} />
+                <CustomerRegularOrders customer={selectedCustomer} />
               </div>
             </aside>
 
@@ -1487,17 +1490,17 @@ export default function CustomersView() {
                                   className={`font-mono font-semibold ${typeColor}`}
                                 >
                                   {amountSign}KSh{' '}
-                                  {entry.amount.toLocaleString()}
+                                  {moneyNumber(entry.amount)}
                                 </span>
                               </div>
 
                               <div className="grid grid-cols-2 gap-2 text-[10px] text-app-text-muted border-t border-app-border/40 pt-1.5 mt-1 font-bold">
                                 <div>
                                   Wallet: KSh{' '}
-                                  {entry.walletBalance.toLocaleString()}
+                                  {moneyNumber(entry.walletBalance)}
                                 </div>
                                 <div className="text-right">
-                                  Debt: KSh {entry.debtBalance.toLocaleString()}
+                                  Debt: {formatCurrency(entry.debtBalance)}
                                 </div>
                               </div>
 

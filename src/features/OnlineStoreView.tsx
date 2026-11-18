@@ -35,6 +35,7 @@ import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
 import AdCardsEditor from '../components/website/AdCardsEditor';
 import ProductIdeasTab from '../components/website/ProductIdeasTab';
 import { NumberInput } from '../components/shared/Input';
+import { formatCurrency } from '../utils/helpers';
 
 type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'ideas' | 'guides' | 'pages' | 'banner' | 'adverts' | 'settings';
 
@@ -249,7 +250,7 @@ function OrdersTab({ businessId }: { businessId: string }) {
                 </div>
               )}
               {order.points_used > 0 && (
-                <p className="mt-2 text-sm text-app-text-muted">Paid {order.points_used} points (Ksh {order.points_value}) towards this order.</p>
+                <p className="mt-2 text-sm text-app-text-muted">Paid {order.points_used} points ({formatCurrency(order.points_value)}) towards this order.</p>
               )}
               <p className="mt-1 text-xs text-app-text-muted">{formatWhen(order.created_at)}</p>
               <p className="mt-2 text-sm text-app-text">
@@ -265,7 +266,7 @@ function OrdersTab({ businessId }: { businessId: string }) {
               </p>
               {order.notes && <p className="mt-1 text-sm text-app-text-muted">Note: {order.notes}</p>}
               <p className="mt-2 text-sm font-bold text-app-text">
-                Ksh {Number(order.total).toLocaleString()}
+                {formatCurrency(Number(order.total))}
                 {order.mpesa_receipt && <span className="font-normal text-app-text-muted"> · M-Pesa {order.mpesa_receipt}</span>}
                 {order.payment_method === 'Card' && order.payment_reference && <span className="font-normal text-app-text-muted"> · Card {order.payment_reference}</span>}
                 {order.payment_method === 'Airtel Money' && order.payment_reference && <span className="font-normal text-app-text-muted"> · Airtel Money {order.payment_reference}</span>}
@@ -824,7 +825,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
               <li key={product.id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 text-sm text-app-text">
                 <span className="min-w-0 flex-1 truncate">
                   {product.name}
-                  <span className="ml-1.5 text-xs text-app-text-muted">Ksh {Number(product.price).toLocaleString()}</span>
+                  <span className="ml-1.5 text-xs text-app-text-muted">{formatCurrency(Number(product.price))}</span>
                   {off > 0 && <span className="ml-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600">{off}% off</span>}
                 </span>
                 {hasWasPrice && (

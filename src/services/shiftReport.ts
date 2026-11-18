@@ -6,6 +6,7 @@ import { NotificationService } from './notifications/notificationService';
 import { toUserMessage } from '../utils/userError';
 import type { BillOfMaterials, Customer, DebtPayment, Expense, Product, Shift, Transaction } from '../types';
 import type { ProductionBatch } from '../stores/extraModulesStore';
+import { formatMoney } from '../utils/money';
 
 const TZ = 'Africa/Nairobi';
 
@@ -262,7 +263,7 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
   return report;
 }
 
-export const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString('en-KE')}`;
+export const ksh = (n: number) => formatMoney(n);
 export const shiftClock = (ms: number) => new Date(ms).toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
 export function shiftLength(r: Pick<ShiftReport, 'start' | 'end'>): string {
   const mins = Math.max(0, Math.round((r.end - r.start) / 60000));

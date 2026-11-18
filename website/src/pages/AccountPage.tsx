@@ -16,7 +16,7 @@ import ContactPreferences from './ContactPreferences';
 
 const TABS = [
   { id: 'orders', label: 'Orders', icon: Package },
-  { id: 'schedules', label: 'Schedules', icon: CalendarClock },
+  { id: 'schedules', label: 'Regular orders', icon: CalendarClock },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'rewards', label: 'Rewards', icon: Gift },
   { id: 'profile', label: 'Profile', icon: UserRound },

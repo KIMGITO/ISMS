@@ -7,6 +7,7 @@ import { CUSTOMER_TYPE_LABELS } from "../../types";
 import { getFirstName, customerName } from "../../utils/stringUtils";
 import { getSupabase } from "../supabaseClient";
 import { pointValueFor, type PointSettings } from "../loyalty/pointValue";
+import { formatMoney } from "../../utils/money";
 
 export interface CustomVariable {
   id?: string;
@@ -45,11 +46,9 @@ export interface VariableDef {
   empty?: (c: Customer, ctx: MessageContext) => boolean;
 }
 
-/** "KSh 1,250" or "KSh 1,250.50": whole shillings drop the cents. */
+/** "KSh 1,250.00": money always shows two decimal places. */
 export function money(amount: number | null | undefined, currency = "KSh"): string {
-  const n = Math.round((Number(amount) || 0) * 100) / 100;
-  const whole = Number.isInteger(n);
-  return `${currency} ${n.toLocaleString("en-KE", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(amount, currency);
 }
 
 const shortDate = (iso: string) => {

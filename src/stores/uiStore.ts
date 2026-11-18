@@ -42,8 +42,8 @@ interface UiState {
   setSelectedCustomerId: (id: string | null) => void;
   activeInvoiceData: any | null;
   setActiveInvoiceData: (data: any | null) => void;
-  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "stock-report" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying" | "promotions";
-  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "stock-report" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying" | "promotions") => void;
+  activeTab: "home" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "money" | "stock-history" | "stock-transfers" | "stock-report" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying" | "promotions" | "regular-orders";
+  setActiveTab: (tab: "home" | "pos" | "inventory" | "sales" | "customers" | "feedback" | "online-store" | "deliveries" | "dashboard" | "ai" | "workers" | "permissions" | "profile" | "settings" | "notifications" | "business-management" | "production" | "about" | "sell" | "money" | "stock-history" | "stock-transfers" | "stock-report" | "petty-cash" | "finance" | "prompt" | "suppliers" | "audit" | "accounting" | "buying" | "promotions" | "regular-orders") => void;
   /**
    * The part of a merged screen to open, e.g. "books" on Finance or "suppliers" on Buying.
    * Set when an old screen id (accounting, suppliers) is opened; the screen reads it once.

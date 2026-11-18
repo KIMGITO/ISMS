@@ -9,6 +9,8 @@ import { checkPermissionGate } from "../utils/permissions";
 import { SupabaseService } from "../services/supabaseService";
 import { getSupabase } from "../services/supabaseClient";
 import { NotificationService } from "../services/notifications/notificationService";
+import { formatCurrency } from '../utils/helpers';
+import { moneyNumber } from '../utils/money';
 
 interface CustomerState {
   customers: Customer[];
@@ -176,9 +178,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       NotificationService.createNotification(
         "Payment Received",
         {
-          amount: amount.toLocaleString(),
+          amount: moneyNumber(amount),
           paymentMethod: method,
-          fromCustomer: ` from ${cust.name} towards their debt. Still owed: KSh ${Math.max(0, newDebt).toLocaleString()}`,
+          fromCustomer: ` from ${cust.name} towards their debt. Still owed: ${formatCurrency(Math.max(0, newDebt))}`,
         },
         {
           title: `Debt payment from ${cust.name}`,

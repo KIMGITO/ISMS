@@ -17,6 +17,7 @@ import {
 import { displayName } from '../../utils/stringUtils';
 import { toUserMessage } from '../../utils/userError';
 import { NumberInput } from '../shared/Input';
+import { QTY_DECIMALS, formatQty } from '../../utils/money';
 
 export interface AskSupplierTarget {
   businessId: string;
@@ -31,7 +32,7 @@ export interface AskSupplierTarget {
   supplierInApp?: boolean | null;
 }
 
-const q3 = (n: number) => String(Math.round(n * 1000) / 1000);
+const q3 = (n: number) => formatQty(n);
 
 export default function AskSupplierSheet({ target, onClose, onSent }: {
   target: AskSupplierTarget;
@@ -179,7 +180,7 @@ export default function AskSupplierSheet({ target, onClose, onSent }: {
         )}
       </Field>
       <Field label={`How much${target.unit ? ` (${target.unit})` : ''}`}>
-        <NumberInput min={0} autoFocus
+        <NumberInput decimals={QTY_DECIMALS} min={0} autoFocus
           value={qty} onChange={(v) => setQty((v == null ? '' : String(v)))}
           placeholder="e.g. 200" inputClassName="tabular-nums"
         />

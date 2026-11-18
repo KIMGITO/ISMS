@@ -24,9 +24,10 @@ import {
   addDays, buildStockReport, fetchStockReport, kenyaDateKey, periodRange, periodTitle, stockReportText,
   type PeriodKind, type RawStockReport, type StockReportProduct,
 } from '../services/stockReport';
+import { formatMoney } from '../utils/money';
 
 const q = (n: number) => String(Math.round(n * 1000) / 1000);
-const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString('en-KE')}`;
+const ksh = (n: number) => formatMoney(n);
 
 function load<T>(key: string, fallback: T): T {
   try {

@@ -12,6 +12,7 @@ import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
+import { QTY_DECIMALS, roundQty, formatQty } from '../utils/money';
 import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
 import { useVatPercent } from '../services/kra/kraService';
@@ -26,9 +27,8 @@ const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; ic
   { method: 'Airtel Money', label: 'Airtel', key: 'Alt+6', icon: Smartphone, style: 'bg-red-600 hover:bg-red-700' },
 ];
 
-// Sale quantities are stored with up to 3 decimals (e.g. 0.25 kg).
-const roundQty = (n: number) => Math.round(n * 1000) / 1000;
-const formatQty = (n: number) => String(roundQty(n));
+// Sale quantities have at most one decimal place (e.g. 1.5 kg). Plain digits while typing.
+const qtyText = (n: number) => String(roundQty(n));
 
 /**
  * Quantity box: type any amount (decimals allowed, "," or "."), or use − / +.
@@ -56,9 +56,9 @@ function QtyInput({ value, unit, label, draft, onStart, onDraft, onCommit, onCan
         <NumberInput
           aria-label={label}
           value={draft ?? value}
-          onChange={(n) => onDraft(n == null ? '' : formatQty(n))}
+          onChange={(n) => onDraft(n == null ? '' : qtyText(n))}
           min={0}
-          decimals={3}
+          decimals={QTY_DECIMALS}
           grouping={false}
           onFocus={(e) => onStart(e.target)}
           onBlur={onCommit}
@@ -231,7 +231,7 @@ export default function QuickSaleView() {
     const current = editingRef.current;
     if (!current) return;
     const next = Math.max(0, roundQty((parseQty(current.draft) ?? 0) + step));
-    setEditing({ ...current, draft: formatQty(next) });
+    setEditing({ ...current, draft: qtyText(next) });
   };
 
   const pay = async (method: PaymentMethod) => {
@@ -444,7 +444,7 @@ export default function QuickSaleView() {
                 draft={editing?.id === item.product.id ? editing.draft : null}
                 onStart={(input) => {
                   editInputRef.current = input;
-                  setEditing({ id: item.product.id, draft: formatQty(item.quantity) });
+                  setEditing({ id: item.product.id, draft: qtyText(item.quantity) });
                 }}
                 onDraft={(draft) => setEditing({ id: item.product.id, draft })}
                 onCommit={commitEdit}

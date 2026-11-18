@@ -11,6 +11,7 @@ import { searchMatch } from '../../utils/stringUtils';
 import { FilterChips, Segmented } from '../shared/Choice';
 import { SearchInput } from '../shared/Input';
 import { addDays, kenyaDateKey, kenyaDayStart, periodRange, REPORT_TZ } from '../../services/stockReport';
+import { formatMoney } from '../../utils/money';
 
 export interface TransferLine {
   transferId: string;
@@ -29,7 +30,7 @@ export interface TransferLine {
 type Span = 'week' | 'month' | 'custom';
 
 const q = (n: number) => String(Math.round(n * 1000) / 1000);
-const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString('en-KE')}`;
+const ksh = (n: number) => formatMoney(n);
 const dayLabel = (iso: string) =>
   new Date(iso).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: REPORT_TZ });
 

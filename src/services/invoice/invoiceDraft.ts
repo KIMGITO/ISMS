@@ -1,7 +1,8 @@
 // Builds an invoice from a customer's open credit. Pure functions, so they can be tested.
 import { InvoiceDocument, InvoiceLine, InvoiceParty, InvoicePeriod, InvoicePeriodPreset, InvoiceTexts, InvoiceTotals, OpenCredit } from "./types";
+import { formatMoney, formatQty, roundMoney } from "../../utils/money";
 
-const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+const round2 = roundMoney;
 const day = (iso: string) => (iso || "").slice(0, 10);
 
 let seq = 0;
@@ -152,8 +153,7 @@ export function buildInvoiceDocument(args: {
 }
 
 export function formatInvoiceMoney(value: number, currency: string): string {
-  const n = (Number(value) || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${currency} ${n}`.trim();
+  return formatMoney(value, currency.trim());
 }
 
 export function formatInvoiceDate(isoDay: string): string {
@@ -162,9 +162,7 @@ export function formatInvoiceDate(isoDay: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export function formatQty(q: number): string {
-  return String(Math.round((Number(q) || 0) * 1000) / 1000);
-}
+export { formatQty };
 
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

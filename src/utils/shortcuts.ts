@@ -41,6 +41,7 @@ export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   "online-store": "o",
   promotions: "%", // % off
   deliveries: "d",
+  "regular-orders": "7", // 7 days a week (every letter is taken)
   inventory: "i",
   "stock-history": "y", // histor-Y
   "stock-transfers": "t",

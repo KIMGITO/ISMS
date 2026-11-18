@@ -7,7 +7,7 @@ import { navigate } from '../router';
 import { productPaths } from '../seo';
 import { useAuth, useCart, usePanels, usePromo, useStorefront } from '../store';
 import { hasStorePicker } from '../stores';
-import { cardClass, ErrorText, fieldClass, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, promotionLabel, TrustStrip } from '../ui';
+import { cardClass, ErrorText, fieldClass, formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, promotionLabel, roundQty, TrustStrip } from '../ui';
 import { AuthForms, FinishAccountForm } from './AuthForms';
 
 /** Where to send the shopper after a sign-in that leaves the page (Google returns to /account). */
@@ -202,7 +202,7 @@ export default function CartPage() {
                         step="0.5"
                         value={line.quantity}
                         onChange={(e) => {
-                          const value = Number(e.target.value);
+                          const value = roundQty(Number(e.target.value));
                           if (value > 0 && value <= 1000) setQuantity(product.id, value);
                         }}
                         className="h-11 w-14 bg-transparent text-center text-base font-semibold"

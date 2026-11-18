@@ -41,6 +41,7 @@ import { ReceiptShareService } from '../services/receipt/ReceiptShareService';
 import { useUiStore } from '../stores/uiStore';
 import { canOpenScreen } from '../utils/screens';
 import { NumberInput } from '../components/shared/Input';
+import { QTY_DECIMALS } from '../utils/money';
 
 type Tab = 'suppliers' | 'purchases';
 type StatusFilter = 'open' | 'received' | 'cancelled' | 'all';
@@ -728,7 +729,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
                     aria-label="Item name"
                     className={`${fieldClass} col-span-2 sm:col-span-1`}
                   />
-                  <NumberInput min={0} value={l.quantity || ''} onChange={(v) => setLine(i, { quantity: (v ?? 0) })} placeholder="Qty" aria-label="Quantity" />
+                  <NumberInput decimals={QTY_DECIMALS} min={0} value={l.quantity || ''} onChange={(v) => setLine(i, { quantity: (v ?? 0) })} placeholder="Qty" aria-label="Quantity" />
                   <input value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} placeholder="Unit" aria-label="Unit" maxLength={16} className={fieldClass} />
                   <NumberInput min={0} value={l.price || ''} onChange={(v) => setLine(i, { price: (v ?? 0) })} placeholder="Price each" aria-label="Price per unit" className="col-span-2 sm:col-span-1" />
                 </div>

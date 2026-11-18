@@ -43,6 +43,7 @@ import UnifiedUploader from '../components/shared/UnifiedUploader';
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
 import { NumberInput } from '../components/shared/Input';
+import { QTY_DECIMALS } from '../utils/money';
 
 export default function InventoryView() {
   const {
@@ -684,7 +685,7 @@ export default function InventoryView() {
                     >
                       -
                     </button>
-                    <NumberInput
+                    <NumberInput decimals={QTY_DECIMALS}
                       value={adjustQty === 0 ? '' : adjustQty}
                       placeholder="0.0"
                       onChange={(v) => {
@@ -910,7 +911,7 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted">
                       Initial Stock Level *
                     </label>
-                    <NumberInput
+                    <NumberInput decimals={QTY_DECIMALS}
                       name="stock"
                       value={values.stock === 0 ? '' : values.stock}
                       onChange={(v) => handleCustomChange('stock', v ?? '')}
@@ -921,7 +922,7 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted">
                       Min Safety Alert *
                     </label>
-                    <NumberInput
+                    <NumberInput decimals={QTY_DECIMALS}
                       name="minStock"
                       value={values.minStock === 0 ? '' : values.minStock}
                       onChange={(v) => handleCustomChange('minStock', v ?? '')}
@@ -1296,7 +1297,7 @@ export default function InventoryView() {
                     <label className="text-[10px] font-bold text-app-text-muted">
                       Min Safety Alert *
                     </label>
-                    <NumberInput
+                    <NumberInput decimals={QTY_DECIMALS}
                       value={
                         editValues.minStock === 0 ? '' : editValues.minStock
                       }

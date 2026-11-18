@@ -8,7 +8,7 @@ export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
   | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers" | "stock-report"
-  | "suppliers" | "audit" | "accounting" | "buying" | "promotions";
+  | "suppliers" | "audit" | "accounting" | "buying" | "promotions" | "regular-orders";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
 
@@ -44,6 +44,7 @@ export const SCREENS: AppScreen[] = [
   { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "promotions", group: "Selling", title: "Promotions & Points", description: "Points, codes and referrals", keywords: ["points", "loyalty points", "point value", "tier", "points report", "ai", "advisor", "promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage", "loyalty.view", "loyalty.configure", "customers.loyalty"] },
   { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
+  { id: "regular-orders", group: "Selling", title: "Regular Orders", description: "Customers we supply on fixed days", keywords: ["schedule", "schedules", "subscription", "standing order", "regular", "weekly", "daily", "every day", "milk round", "deliver every", "tomorrow", "recurring", "repeat order"], permissions: ["customers.view", "customers.schedules", "pos.create_sale"] },
   { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
   { id: "workers", group: "Team", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },
   { id: "permissions", group: "Team", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },

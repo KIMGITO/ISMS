@@ -33,10 +33,11 @@ import {
 import { listPurchases, listSuppliers, type PurchaseOrder, type Supplier } from '../services/operations';
 import { getSupabase } from '../services/supabaseClient';
 import { NumberInput } from '../components/shared/Input';
+import { QTY_DECIMALS, formatQty } from '../utils/money';
 
 type Tab = 'suppliers' | 'purchases' | 'reorder' | 'approvals' | 'bills' | 'returns' | 'settings';
 
-const q3 = (n: number) => String(Math.round(n * 1000) / 1000);
+const q3 = (n: number) => formatQty(n);
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00+03:00` : iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
 
@@ -360,7 +361,7 @@ function ReorderTab({ businessId, rows, suppliers, canCreate, canAsk, canSetLeve
                   </button>
                   {p && (
                     <div className="shrink-0 flex flex-col items-end gap-1 w-24 sm:w-44">
-                      <NumberInput min={0}
+                      <NumberInput decimals={QTY_DECIMALS} min={0}
                         value={p.qty}
                         aria-label={`How much ${displayName(r.name)}`}
                         onChange={(v) => setPlan((m) => ({ ...m, [r.productId]: { ...m[r.productId], qty: (v == null ? '' : String(v)) } }))}
@@ -456,14 +457,14 @@ function ReorderSheet({ businessId, row, suppliers, onClose, onSaved }: {
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={`Reorder when at or below (${row.unit})`} hint={row.suggestedLevel ? `From sales: ${q3(row.suggestedLevel)}` : 'Empty uses the low-stock level'}>
           <div className="flex gap-2">
-            <NumberInput min={0} value={level} onChange={(v) => setLevel((v == null ? '' : String(v)))} />
+            <NumberInput decimals={QTY_DECIMALS} min={0} value={level} onChange={(v) => setLevel((v == null ? '' : String(v)))} />
             {row.suggestedLevel !== null && row.suggestedLevel > 0 && (
               <button type="button" className={`${secondaryBtn} !px-3`} onClick={() => setLevel(String(row.suggestedLevel))}>Use</button>
             )}
           </div>
         </Field>
         <Field label={`Order this much (${row.unit})`} hint="Empty orders up to twice the level">
-          <NumberInput min={0} value={qty} onChange={(v) => setQty((v == null ? '' : String(v)))} />
+          <NumberInput decimals={QTY_DECIMALS} min={0} value={qty} onChange={(v) => setQty((v == null ? '' : String(v)))} />
         </Field>
         <Field label="Usual supplier">
           <SearchableDropdown

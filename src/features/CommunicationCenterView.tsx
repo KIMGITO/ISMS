@@ -15,6 +15,7 @@ import { GroupPicker } from '../components/messaging/GroupPicker';
 import { BulkMessageComposer } from '../components/messaging/BulkMessageComposer';
 import { groupMatcher, describeGroups } from '../services/messaging/customerGroups';
 import { useMessageContext } from '../hooks/useMessageContext';
+import { moneyNumber } from '../utils/money';
 
 const TIER_CHIP: Record<string, string> = {
   Gold: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
@@ -161,7 +162,7 @@ export default function CommunicationCenterView() {
                         <span className="block text-sm font-medium truncate">{customerName(c.name)}</span>
                         <span className="block text-xs text-app-text-muted tabular-nums truncate">
                           {c.phone || 'No phone number'}
-                          {(c.debtBalance || 0) > 0 ? ` · owes ${ctx.currency} ${(c.debtBalance || 0).toLocaleString('en-KE')}` : ''}
+                          {(c.debtBalance || 0) > 0 ? ` · owes ${ctx.currency} ${moneyNumber(c.debtBalance || 0)}` : ''}
                         </span>
                       </span>
                       {c.tier && (

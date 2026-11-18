@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const { action, businessId, config, to, body, purpose } = await req.json().catch(() => ({}));
     if (!businessId) return errorResponse("businessId is required.", 400);
 
-    const { userId, role, errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
     const admin = createClient(
@@ -64,9 +64,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === "get" || action === "save") {
-      if (role !== "Owner" && role !== "Admin") {
-        return errorResponse("Only the Owner or an Admin can manage WhatsApp settings.", 403);
-      }
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
     }
 
     if (action === "get") {

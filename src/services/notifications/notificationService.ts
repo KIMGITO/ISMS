@@ -3,6 +3,7 @@ import { NotificationTemplates } from "./notificationTemplates";
 import { pushNotificationService } from "./pushNotificationService";
 import { NotificationPreferences } from "./notificationPreferences";
 import { AppNotification, NotificationType, NotificationPriority, NotificationActionTarget } from "../../types";
+import { moneyNumber } from '../../utils/money';
 
 export class NotificationService {
   /**
@@ -169,7 +170,7 @@ export class NotificationService {
       return this.createNotification("Delivery Assigned", {
         customerName,
         address: order?.address ? ` at ${order.address}` : "",
-        finalTotal: (order?.finalTotal ?? 0).toLocaleString(),
+        finalTotal: moneyNumber(order?.finalTotal ?? 0),
       }, {
         title: `New delivery for ${riderName}`,
         role: "Rider",

@@ -10,6 +10,7 @@ import {
   jsonResponse,
   errorResponse,
   verifyUserMembership,
+  requirePermission,
 } from "../shared/cors.ts";
 
 import {
@@ -27,6 +28,9 @@ import {
 } from "../shared/ai-runner.ts";
 
 /** Masks an API key: first 4 chars + •••••••• + last 4 chars */
+// The Settings → AI assistant section: settings.integrations, or the AI permissions.
+const AI_MANAGE = ["settings.integrations", "ai.configure", "ai.manage"];
+
 function maskKey(key: string): string {
   if (!key) return "";
   if (key.length <= 8) return "••••••••";
@@ -68,7 +72,7 @@ Deno.serve(async (req) => {
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     // Verify tenant membership
-    const { role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
     if (!action) return errorResponse("action is required.", 400);
@@ -96,9 +100,10 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: true, config: defaultConfig(businessId) });
       }
 
-      const isOwner = activeRole === "Owner";
+      // Who may change AI settings sees the key's last characters; everyone else only dots.
+      const canManage = (await requirePermission(req, businessId, ...AI_MANAGE)) === null;
       const maskedKey = data.api_key
-        ? isOwner ? maskKey(data.api_key) : "••••••••"
+        ? canManage ? maskKey(data.api_key) : "••••••••"
         : "";
 
       const provider = (data.provider || "huggingface").toLowerCase();
@@ -114,12 +119,8 @@ Deno.serve(async (req) => {
 
     // ── SAVE ─────────────────────────────────────────────────────────────
     } else if (action === "save") {
-      if (activeRole !== "Owner") {
-        return errorResponse(
-          "Access Denied: Only Owners can modify AI credentials.",
-          403
-        );
-      }
+      const denied = await requirePermission(req, businessId, ...AI_MANAGE);
+      if (denied) return denied;
       if (!config) return errorResponse("config payload is required.", 400);
 
       const rawProvider = String(config.provider || "huggingface").toLowerCase();
@@ -193,9 +194,8 @@ Deno.serve(async (req) => {
 
     // ── TEST ─────────────────────────────────────────────────────────────
     } else if (action === "test" || action === "ping") {
-      if (activeRole !== "Owner" && activeRole !== "Admin") {
-        return errorResponse("Only Owners and Admins can test the AI connection.", 403);
-      }
+      const denied = await requirePermission(req, businessId, ...AI_MANAGE);
+      if (denied) return denied;
       const testConfig = { ...defaultConfig(businessId), ...(config || {}) };
       const provider = normalizeProvider(testConfig.provider);
       const model = String(testConfig.model || "").trim() || DEFAULT_MODELS[provider];
@@ -246,9 +246,8 @@ Deno.serve(async (req) => {
       const provider = normalizeProvider(config?.provider);
       let key = "";
       if (provider !== "huggingface" && provider !== "openrouter") {
-        if (activeRole !== "Owner" && activeRole !== "Admin") {
-          return errorResponse("Only Owners and Admins can load the model list.", 403);
-        }
+        const denied = await requirePermission(req, businessId, ...AI_MANAGE);
+        if (denied) return denied;
         if (isMaskedKey(config?.api_key) || !String(config?.api_key || "").trim()) {
           const { data: stored } = await supabase
             .from("ai_settings").select("api_key, provider").eq("business_id", businessId).maybeSingle();

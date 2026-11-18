@@ -16,6 +16,7 @@ import { appDialog } from '../components/AppDialog';
 import { isAdminRole } from '../services/logCleanup';
 import { NumberInput } from '../components/shared/Input';
 import { PayRiderButton } from '../components/RidersToPay';
+import { formatMoney } from '../utils/money';
 
 const TZ = 'Africa/Nairobi';
 /** Used until the business's own list loads, or if it can't be loaded. Admins edit the list. */
@@ -53,7 +54,7 @@ function kenyaStartOfDay(daysBack = 0): Date {
   return new Date(`${key}T00:00:00+03:00`);
 }
 
-const ksh = (n: number) => `KSh ${(Math.round(n * 100) / 100).toLocaleString()}`;
+const ksh = (n: number) => formatMoney(n);
 const dayLabel = (iso: string) => {
   const key = new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ });
   if (key === new Date().toLocaleDateString('en-CA', { timeZone: TZ })) return 'Today';

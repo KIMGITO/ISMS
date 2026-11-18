@@ -215,15 +215,32 @@ export interface CartLine {
   quantity: number;
 }
 
-export interface Schedule {
+/** A regular order: one product with an amount for each day, Sunday first (20261130005). */
+export interface RegularOrder {
   id: string;
-  items: CartLine[];
-  days_of_week: number[];
+  productId: string;
+  productName: string;
+  unit: string;
+  price: number;
+  dayQty: number[];
+  status: 'requested' | 'active' | 'paused' | 'declined' | 'ended';
   fulfilment: 'delivery' | 'pickup';
-  delivery_address: string | null;
-  notes: string | null;
-  active: boolean;
-  next_run_date: string;
+  address: string | null;
+  note: string | null;
+  /** A change you asked for that the shop hasn't confirmed yet. */
+  pendingDayQty: number[] | null;
+  pendingFulfilment: 'delivery' | 'pickup' | null;
+  pendingAddress: string | null;
+  pendingNote: string | null;
+  decisionNote: string | null;
+}
+
+export interface RegularDay {
+  orderId: string;
+  day: string;
+  state: 'due' | 'changed' | 'skipped' | 'delivered';
+  quantity: number;
+  message: string | null;
 }
 
 export interface Message {
@@ -608,30 +625,32 @@ export async function acceptsAirtel(): Promise<boolean> {
   }
 }
 
-export async function fetchSchedules(): Promise<Schedule[]> {
-  const uid = await myUserId();
-  if (!uid) return [];
-  const { data, error } = await supabase
-    .from('customer_order_schedules')
-    .select('id, items, days_of_week, fulfilment, delivery_address, notes, active, next_run_date')
-    .eq('account_id', uid)
-    .order('created_at');
-  if (error) throw error;
-  return (data ?? []) as Schedule[];
+export async function fetchRegularOrders(): Promise<{ today: string; orders: RegularOrder[]; days: RegularDay[] }> {
+  await switchMyStore(storeSlug());
+  const data = await rpc<any>('get_my_regular_orders', {});
+  const week = (v: unknown) => (Array.isArray(v) ? v.map((n) => Number(n) || 0) : [0, 0, 0, 0, 0, 0, 0]);
+  return {
+    today: data?.today ?? '',
+    orders: (data?.orders ?? []).map((o: any) => ({ ...o, price: Number(o.price) || 0, dayQty: week(o.dayQty), pendingDayQty: o.pendingDayQty ? week(o.pendingDayQty) : null })),
+    days: (data?.days ?? []).map((d: any) => ({ ...d, quantity: Number(d.quantity) || 0 })),
+  };
 }
 
-export const saveSchedule = async (schedule: Omit<Schedule, 'id' | 'next_run_date'> & { id: string | null }) =>
-  switchMyStore(storeSlug()).then(() => rpc<string>('save_order_schedule', {
-    p_id: schedule.id,
-    p_items: schedule.items,
-    p_days: schedule.days_of_week,
-    p_fulfilment: schedule.fulfilment,
-    p_address: schedule.delivery_address,
-    p_notes: schedule.notes,
-    p_active: schedule.active,
+/** Asks for a new regular order or a change to one. The shop confirms it; all zeros asks to stop. */
+export const requestRegularOrder = (r: {
+  id: string | null; productId: string | null; dayQty: number[]; fulfilment: 'delivery' | 'pickup'; address: string; note: string;
+}) =>
+  switchMyStore(storeSlug()).then(() => rpc<string>('request_regular_order', {
+    p_id: r.id,
+    p_product_id: r.productId,
+    p_day_qty: r.dayQty,
+    p_fulfilment: r.fulfilment,
+    p_address: r.address,
+    p_note: r.note,
   }));
 
-export const deleteSchedule = (id: string) => rpc('delete_order_schedule', { p_id: id });
+/** Takes back a change not yet confirmed, or a request not yet approved. */
+export const withdrawRegularOrderRequest = (id: string) => rpc('withdraw_my_regular_order_request', { p_id: id });
 
 export async function fetchMessages(): Promise<Message[]> {
   const uid = await myUserId();

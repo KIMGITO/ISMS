@@ -31,6 +31,7 @@ import HomeView from './features/HomeView';
 import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
+import RegularOrdersView from './features/RegularOrdersView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
 import AccountingView from './features/AccountingView';
@@ -142,6 +143,7 @@ import {
   Send,
   MessageSquareText,
   FileBarChart,
+  CalendarClock,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, type ScreenId } from './utils/screens';
@@ -168,6 +170,7 @@ const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 const STOCK_REPORT_PERMISSIONS = SCREEN_BY_ID.get('stock-report')!.permissions;
 const PROMOTION_PERMISSIONS = SCREEN_BY_ID.get('promotions')!.permissions;
+const REGULAR_ORDER_PERMISSIONS = SCREEN_BY_ID.get('regular-orders')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
 const SCREEN_MOTION = {
@@ -194,6 +197,7 @@ const MOBILE_TABS = [
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
   { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
   { id: 'promotions', label: 'Promotions', icon: BadgePercent, permission: PROMOTION_PERMISSIONS },
+  { id: 'regular-orders', label: 'Regular Orders', icon: CalendarClock, permission: REGULAR_ORDER_PERMISSIONS },
   { id: 'deliveries', label: 'Deliveries', icon: Truck, permission: 'deliveries.view' },
   { id: 'workers', label: 'Workers', icon: Users, permission: 'staff.view' },
   { id: 'permissions', label: 'Roles', icon: Key, permission: 'staff.roles' },
@@ -3771,6 +3775,13 @@ export default function App() {
                       permission: 'customers.view' as const,
                     },
                     {
+                      id: 'regular-orders',
+                      label: 'Regular Orders',
+                      icon: CalendarClock,
+                      desc: 'Fixed-day customers, today and tomorrow',
+                      permission: REGULAR_ORDER_PERMISSIONS,
+                    },
+                    {
                       id: 'deliveries',
                       label: 'My Deliveries',
                       icon: Truck,
@@ -4395,6 +4406,17 @@ export default function App() {
                       >
                         <SecurityGuard permission={PROMOTION_PERMISSIONS as any}>
                           <PromotionsView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'regular-orders' && (
+                      <motion.div
+                        key="regular-orders-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={REGULAR_ORDER_PERMISSIONS as any}>
+                          <RegularOrdersView />
                         </SecurityGuard>
                       </motion.div>
                     )}

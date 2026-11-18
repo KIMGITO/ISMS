@@ -21,6 +21,8 @@ function paymentMethodName(method: string): string {
   return names[method] || method.replace(/_/g, " ");
 }
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
+import { formatCurrency } from '../utils/helpers';
+import { moneyNumber, roundQty, roundMoney } from '../utils/money';
 
 interface CartState {
   cart: CartItem[];
@@ -87,7 +89,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     const item = currentCart.find((i) => i.product.id === productId);
     if (!item) return;
 
-    const safeQty = Math.max(0, Math.min(quantity, item.product.stock));
+    const safeQty = roundQty(Math.max(0, Math.min(quantity, item.product.stock)));
     set({
       cart: currentCart.map((i) =>
         i.product.id === productId ? { ...i, quantity: safeQty } : i
@@ -193,12 +195,14 @@ export const useCartStore = create<CartState>((set, get) => ({
           cartDiscount = cartDiscountValue;
         }
       }
-      cartDiscount = Math.min(cartDiscount, subtotalBeforeCartDiscount);
+      cartDiscount = roundMoney(Math.min(cartDiscount, subtotalBeforeCartDiscount));
 
-      const subtotal = subtotalBeforeCartDiscount - cartDiscount;
-      const tax = subtotal * taxRate;
-      const finalTotal = subtotal + tax + (isDelivery ? deliveryFee : 0);
-      const totalDiscount = itemDiscountSum + cartDiscount;
+      // Money is stored to the cent, so the sale is worked out to the cent too.
+      const subtotal = roundMoney(subtotalBeforeCartDiscount - cartDiscount);
+      const tax = roundMoney(subtotal * taxRate);
+      const finalTotal = roundMoney(subtotal + tax + (isDelivery ? deliveryFee : 0));
+      const totalDiscount = roundMoney(itemDiscountSum + cartDiscount);
+      total = roundMoney(total);
 
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
       const referenceId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -235,7 +239,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         set({ cart: [], selectedCustomer: null, quote: null });
         useNotificationStore.getState().showToast(
           "Sale saved offline",
-          `KSh ${finalTotal.toLocaleString()} by ${paymentMethod.replace("_", " ")}. It syncs when you're back online.`,
+          `${formatCurrency(finalTotal)} by ${paymentMethod.replace("_", " ")}. It syncs when you're back online.`,
           undefined,
           "offline",
         );
@@ -339,22 +343,22 @@ export const useCartStore = create<CartState>((set, get) => ({
           "Credit Sale",
           {
             customerName: selectedCustomer.name,
-            amount: onCredit.toLocaleString(),
-            debtBalance: (owes ?? (selectedCustomer.debtBalance || 0) + onCredit).toLocaleString(),
+            amount: moneyNumber(onCredit),
+            debtBalance: moneyNumber(owes ?? (selectedCustomer.debtBalance || 0) + onCredit),
           },
           { role: "Owner", priority: "medium", payloadExtra: { customerId: selectedCustomer.id } }
         );
       } else if (isCredit && selectedCustomer) {
         NotificationService.createNotification(
           "Payment Received",
-          { amount: fromWallet.toLocaleString(), paymentMethod: "wallet", fromCustomer: ` from ${selectedCustomer.name}` },
+          { amount: moneyNumber(fromWallet), paymentMethod: "wallet", fromCustomer: ` from ${selectedCustomer.name}` },
           { role: "Owner", priority: "medium" }
         );
       } else {
         NotificationService.createNotification(
           "Payment Received",
           {
-            amount: finalTotal.toLocaleString(),
+            amount: moneyNumber(finalTotal),
             paymentMethod: paymentMethodName(paymentMethod),
             fromCustomer: selectedCustomer ? ` from ${selectedCustomer.name}` : "",
           },
@@ -370,7 +374,7 @@ export const useCartStore = create<CartState>((set, get) => ({
 
         useNotificationStore.getState().showToast(
           "Rider assigned",
-          `${riderName} will deliver ${selectedCustomer ? `to ${selectedCustomer.name}` : "this order"} (KSh ${finalTotal.toLocaleString()}).`,
+          `${riderName} will deliver ${selectedCustomer ? `to ${selectedCustomer.name}` : "this order"} (${formatCurrency(finalTotal)}).`,
           undefined,
           "info"
         );

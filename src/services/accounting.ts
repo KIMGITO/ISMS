@@ -4,6 +4,7 @@
 // turns account balances into the trial balance, profit & loss and balance sheet.
 import { getSupabase } from './supabaseClient';
 import { toUuid } from '../utils/idUtils';
+import { moneyNumber } from '../utils/money';
 
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense';
 
@@ -590,7 +591,7 @@ export function checkDraft(lines: DraftLine[]): { debit: number; credit: number;
   if (used.some((l) => !l.accountId)) error = 'Choose an account for every line with an amount.';
   else if (used.some((l) => (l.debit || 0) > 0 && (l.credit || 0) > 0)) error = 'A line is a debit or a credit, not both.';
   else if (used.length < 2) error = 'An entry needs at least two lines.';
-  else if (debit !== credit) error = `Debits and credits differ by ${Math.abs(round2(debit - credit)).toLocaleString()}.`;
+  else if (debit !== credit) error = `Debits and credits differ by ${moneyNumber(Math.abs(debit - credit))}.`;
   return { debit, credit, error };
 }
 

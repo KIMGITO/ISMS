@@ -9,6 +9,7 @@ import type { Storefront } from './api';
  * the ISMS app imports this file and must not load the website's API client.) */
 const phonePay = (site: Storefront) => ((site.business.paymentMethods ?? []).includes('Airtel Money') ? 'M-Pesa or Airtel Money' : 'M-Pesa');
 import { pointsOn } from './points';
+import { formatPrice } from './numbers';
 
 export type InfoPageId = 'about' | 'help' | 'delivery' | 'payments' | 'returns' | 'terms' | 'privacy' | 'cookies';
 
@@ -42,7 +43,7 @@ export { plainText } from './richFormat';
 export const infoPage = (id: string) => INFO_PAGES.find((p) => p.id === id || p.path === `/${id}`);
 
 const money = (site: Storefront, amount: number) =>
-  `${site.business.currency} ${Number(amount).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
+  formatPrice(site.business.currency, amount);
 
 /** "Silver: 100 points = KSh 1" style lines from the live points settings. */
 function pointsLines(site: Storefront): string[] {

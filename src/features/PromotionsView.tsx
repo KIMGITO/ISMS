@@ -77,13 +77,13 @@ import {
   type Promotion, type PromotionDraft, type PromotionUse, type PromotionDashboard, type ReferralDashboard,
   type ReferralCampaignDraft, type PromoType, type RewardKind, type ProductScope, type ReferralRow,
 } from '../services/promotions';
+import { formatMoney } from '../utils/money';
 
 type Tab = 'overview' | 'promotions' | 'referrals' | 'points';
 
 // ─────────────────────────────────────────────── small helpers
-const ksh = (n: number | null | undefined) => `KSh ${Math.round(Number(n) || 0).toLocaleString('en-KE')}`;
-const ksh2 = (n: number | null | undefined) =>
-  `KSh ${(Number(n) || 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const ksh = (n: number | null | undefined) => formatMoney(n);
+const ksh2 = (n: number | null | undefined) => formatMoney(n);
 const num = (n: number | null | undefined) => (Number(n) || 0).toLocaleString('en-KE');
 const day = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchRewards, friendlyError, redeemPoints, Rewards } from '../api';
-import { ErrorText, fieldClass, Loading, primaryButton } from '../ui';
+import { ErrorText, fieldClass, formatPrice, Loading, primaryButton } from '../ui';
 import { useStorefront } from '../store';
 import ReferralPanel from './ReferralPanel';
 
@@ -42,7 +42,7 @@ export default function RewardsTab() {
       setPoints('');
       setMessage(
         res && typeof res.value === 'number'
-          ? `${res.pointsUsed.toLocaleString('en-KE')} points took Ksh ${res.value.toLocaleString('en-KE')} off what you owe.`
+          ? `${res.pointsUsed.toLocaleString('en-KE')} points took ${formatPrice('Ksh', res.value)} off what you owe.`
           : 'Your points were used to pay off what you owe.',
       );
       await load();

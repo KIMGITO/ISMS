@@ -51,6 +51,8 @@ import QuoteFromCartSheet from '../components/sales/QuoteFromCartSheet';
 import { useVatPercent } from '../services/kra/kraService';
 import { promoCheck, promoReserve, promoRelease, type PromoResult } from '../services/promotions';
 import { NumberInput } from '../components/shared/Input';
+import { formatCurrency } from '../utils/helpers';
+import { formatMoney, roundMoney } from '../utils/money';
 
 
 // The three ways a delivery is paid at the till (see DeliveryMode in types.ts).
@@ -303,6 +305,8 @@ export default function POSView() {
     totalOriginal += itemTotal;
     totalItemDiscount += itemTotal * (item.discountPercentage / 100);
   });
+  totalOriginal = roundMoney(totalOriginal);
+  totalItemDiscount = roundMoney(totalItemDiscount);
 
   const subtotalBeforeCartDiscount = totalOriginal - totalItemDiscount;
   let cartDiscount = 0;
@@ -314,7 +318,7 @@ export default function POSView() {
     }
   }
   // Cap cartDiscount
-  cartDiscount = Math.min(cartDiscount, subtotalBeforeCartDiscount);
+  cartDiscount = roundMoney(Math.min(cartDiscount, subtotalBeforeCartDiscount));
 
   // Points the customer is using, at the business's value per point (the till checks again)
   const pointsNum = pointsOn && selectedCustomer ? Math.min(Math.max(0, Math.floor(Number(pointsToUse) || 0)), selectedCustomer.loyaltyPoints || 0) : 0;
@@ -326,10 +330,11 @@ export default function POSView() {
   const promoDiscount = promoCode && promo?.ok
     ? Math.min(Number(promo.discount) || 0, Math.max(0, subtotalBeforeCartDiscount - otherDiscount))
     : 0;
-  const subtotal = subtotalBeforeCartDiscount - cartDiscount - pointsDiscount - promoDiscount;
-  const totalDiscount = totalItemDiscount + cartDiscount;
-  const tax = subtotal * taxRate;
-  const finalTotal = subtotal + tax + (customerPaysDelivery ? deliveryFee : 0);
+  const subtotal = roundMoney(subtotalBeforeCartDiscount - cartDiscount - pointsDiscount - promoDiscount);
+  const totalDiscount = roundMoney(totalItemDiscount + cartDiscount);
+  // Money is stored to the cent, so the till works to the cent: what it shows is what is saved.
+  const tax = roundMoney(subtotal * taxRate);
+  const finalTotal = roundMoney(subtotal + tax + (customerPaysDelivery ? deliveryFee : 0));
   // On credit, the customer's wallet pays first (the server does the same).
   const walletCovers = selectedCustomer ? Math.min(Math.max(0, selectedCustomer.walletBalance || 0), Math.round(finalTotal * 100) / 100) : 0;
 
@@ -422,7 +427,7 @@ export default function POSView() {
         return;
       }
       if (Math.abs(card.amountPaid - Math.round(finalTotal * 100) / 100) > 0.009) {
-        failCheckout(`The card paid KSh ${card.amountPaid.toLocaleString()} (ref ${card.reference}) but the sale is now KSh ${finalTotal.toFixed(2)}. Put the cart back to that amount, or refund the card in Paystack and start again.`);
+        failCheckout(`The card paid ${formatCurrency(card.amountPaid)} (ref ${card.reference}) but the sale is now ${formatCurrency(finalTotal)}. Put the cart back to that amount, or refund the card in Paystack and start again.`);
         return;
       }
     }
@@ -457,7 +462,7 @@ export default function POSView() {
           setPromo(held);
           await promoRelease(promoHold.redemptionId);
           await refundPoints(redemptionId);
-          failCheckout(cardFailNote(card, `The code now takes off KSh ${promoHold.discount.toFixed(2)}, not KSh ${promoDiscount.toFixed(2)}. Check the total and press again.`));
+          failCheckout(cardFailNote(card, `The code now takes off ${formatCurrency(promoHold.discount)}, not ${formatCurrency(promoDiscount)}. Check the total and press again.`));
           return;
         }
         discountType = 'amount';
@@ -530,9 +535,7 @@ export default function POSView() {
         // Send a professional toast popup notification on completed checkout action
         showToast(
           'Order Processed',
-          `Sale of KSh ${finalTotal.toFixed(
-            0,
-          )} successfully logged via ${paymentMethod.replace('_', ' ')}.`,
+          `Sale of ${formatMoney(finalTotal)} successfully logged via ${paymentMethod.replace('_', ' ')}.`,
           undefined,
           'success',
         );
@@ -720,7 +723,7 @@ export default function POSView() {
                       <SwipeRow
                         key={item.product.id}
                         title={titleCase(item.product.name)}
-                        subtitle={`${item.quantity} × KSh ${item.product.price.toFixed(0)}`}
+                        subtitle={`${item.quantity} × ${formatCurrency(item.product.price)}`}
                         surfaceClassName="bg-app-bg"
                         // Taking a line out of the cart is undone by adding it again, so the
                         // paused swipe's Remove button is the only check.
@@ -742,7 +745,7 @@ export default function POSView() {
                             {titleCase(item.product.name)}
                           </h4>
                           <span className="text-[10px] text-app-text-muted block mt-0.5">
-                            KSh {item.product.price.toFixed(0)} each ·{' '}
+                            {formatCurrency(item.product.price)} each ·{' '}
                             {item.product.sku}
                           </span>
                         </div>
@@ -831,24 +834,24 @@ export default function POSView() {
                         )}
                         <div className="rounded-lg bg-app-bg px-2 py-1">
                           <div className="text-[10px] text-app-text-muted">Wallet</div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">KSh {(selectedCustomer.walletBalance || 0).toLocaleString()}</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(selectedCustomer.walletBalance || 0)}</div>
                         </div>
                         <div className="rounded-lg bg-app-bg px-2 py-1">
                           <div className="text-[10px] text-app-text-muted">Owes</div>
-                          <div className={`font-bold tabular-nums ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-500' : 'text-app-text'}`}>KSh {(selectedCustomer.debtBalance || 0).toLocaleString()}</div>
+                          <div className={`font-bold tabular-nums ${(selectedCustomer.debtBalance || 0) > 0 ? 'text-red-500' : 'text-app-text'}`}>{formatCurrency(selectedCustomer.debtBalance || 0)}</div>
                         </div>
                       </div>
                       {paymentMethod === 'Credit_Debt' && finalTotal > 0 && (
                         <p className="mt-1.5 text-[11px] text-app-text">
                           {walletCovers > 0 ? (
                             <>
-                              KSh {walletCovers.toLocaleString()} comes from the wallet
+                              {formatCurrency(walletCovers)} comes from the wallet
                               {finalTotal - walletCovers > 0
-                                ? `, KSh ${(Math.round((finalTotal - walletCovers) * 100) / 100).toLocaleString()} goes on credit.`
+                                ? `, ${formatCurrency(finalTotal - walletCovers)} goes on credit.`
                                 : '. Nothing goes on credit.'}
                             </>
                           ) : (
-                            <>The whole KSh {Math.round(finalTotal).toLocaleString()} goes on credit.</>
+                            <>The whole {formatCurrency(finalTotal)} goes on credit.</>
                           )}
                         </p>
                       )}
@@ -863,8 +866,8 @@ export default function POSView() {
                           cust.phone,
                           `${cust.tier}`,
                           pointsOn ? `${(cust.loyaltyPoints || 0).toLocaleString()} pts` : '',
-                          (cust.walletBalance || 0) > 0 ? `Wallet KSh ${(cust.walletBalance || 0).toLocaleString()}` : '',
-                          (cust.debtBalance || 0) > 0 ? `Owes KSh ${(cust.debtBalance || 0).toLocaleString()}` : '',
+                          (cust.walletBalance || 0) > 0 ? `Wallet ${formatCurrency(cust.walletBalance || 0)}` : '',
+                          (cust.debtBalance || 0) > 0 ? `Owes ${formatCurrency(cust.debtBalance || 0)}` : '',
                         ].filter(Boolean).join(' · '),
                       }))}
                       selectedValue=""
@@ -1272,7 +1275,7 @@ export default function POSView() {
                       Subtotal
                     </span>
                     <span className="text-app-text font-bold font-mono">
-                      KSh {totalOriginal.toFixed(2)}
+                      {formatCurrency(totalOriginal)}
                     </span>
                   </div>
                   {totalDiscount > 0 && (
@@ -1281,7 +1284,7 @@ export default function POSView() {
                         Discount
                       </span>
                       <span className="text-amber-500 font-bold font-mono">
-                        -KSh {totalDiscount.toFixed(2)}
+                        -{formatCurrency(totalDiscount)}
                       </span>
                     </div>
                   )}
@@ -1291,7 +1294,7 @@ export default function POSView() {
                         {promo?.referral ? 'Referral' : 'Promotion'} {promoCode}
                       </span>
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono shrink-0">
-                        -KSh {promoDiscount.toFixed(2)}
+                        -{formatCurrency(promoDiscount)}
                       </span>
                     </div>
                   )}
@@ -1301,7 +1304,7 @@ export default function POSView() {
                         Paid with {pointsNum} points
                       </span>
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono">
-                        -KSh {pointsDiscount.toFixed(2)}
+                        -{formatCurrency(pointsDiscount)}
                       </span>
                     </div>
                   )}
@@ -1311,7 +1314,7 @@ export default function POSView() {
                       VAT ({(taxRate * 100).toFixed(0)}%)
                     </span>
                     <span className="text-app-text font-bold font-mono">
-                      KSh {tax.toFixed(2)}
+                      {formatCurrency(tax)}
                     </span>
                   </div>
                   )}
@@ -1321,15 +1324,15 @@ export default function POSView() {
                         Delivery
                       </span>
                       <span className="text-blue-500 font-bold font-mono">
-                        KSh {deliveryFee.toFixed(2)}
+                        {formatCurrency(deliveryFee)}
                       </span>
                     </div>
                   ) : (
                     <div className="flex justify-between gap-2">
                       <span className="text-app-text-muted">
                         {deliveryMode === 'free'
-                          ? `Delivery: free (we pay the rider KSh ${deliveryFee.toFixed(0)})`
-                          : `Delivery: customer pays the rider KSh ${deliveryFee.toFixed(0)} in cash`}
+                          ? `Delivery: free (we pay the rider ${formatCurrency(deliveryFee)})`
+                          : `Delivery: customer pays the rider ${formatCurrency(deliveryFee)} in cash`}
                       </span>
                       <span className="text-app-text-muted font-mono shrink-0">not on bill</span>
                     </div>
@@ -1338,7 +1341,7 @@ export default function POSView() {
                   <div className="flex justify-between text-xs font-semibold">
                     <span className="text-app-text">Final Total</span>
                     <span className="text-amber-500 font-mono text-sm">
-                      KSh {finalTotal.toFixed(2)}
+                      {formatCurrency(finalTotal)}
                     </span>
                   </div>
                 </div>
@@ -1375,7 +1378,7 @@ export default function POSView() {
                     </>
                   ) : (
                     <span className="flex items-center gap-2">
-                      {paymentMethod === 'Card' && !paidCard ? 'Charge card' : 'Complete sale'} · KSh {finalTotal.toFixed(0)}
+                      {paymentMethod === 'Card' && !paidCard ? 'Charge card' : 'Complete sale'} · {formatCurrency(finalTotal)}
                       {isWide && <kbd className="px-1.5 py-0.5 rounded bg-slate-950/15 text-[10px] font-mono">F9</kbd>}
                     </span>
                   )}
@@ -1480,7 +1483,7 @@ export default function POSView() {
                 Total
               </span>
               <span className="font-mono text-[10.5px] font-semibold text-amber-500 leading-none">
-                KSh {finalTotal.toFixed(0)}
+                {formatCurrency(finalTotal)}
               </span>
             </div>
           </div>
@@ -1560,7 +1563,7 @@ export default function POSView() {
                   DATE: {new Date().toLocaleDateString()}
                 </span>
                 <span className="text-app-text block font-bold text-amber-500 text-xs border-t border-app-border/40 pt-1 mt-1.5">
-                  Total: KSh {finalTotal.toFixed(2)}
+                  Total: {formatCurrency(finalTotal)}
                 </span>
               </div>
 
@@ -1692,7 +1695,7 @@ const ProductCard = memo(function ProductCard({
 
         <div className="flex items-center justify-between mt-1 gap-1">
           <span className="text-xs font-semibold text-amber-500 whitespace-nowrap">
-            KSh {Math.round(product.price)}
+            {formatCurrency(product.price)}
           </span>
           <span
             className={`text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${

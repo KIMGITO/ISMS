@@ -36,6 +36,8 @@ import { methodLabel } from '../../utils/paymentMethods';
 import SearchableDropdown from '../SearchableDropdown';
 import type { PendingAction, PendingActionType } from '../../types';
 import { NumberInput } from '../shared/Input';
+import { QTY_DECIMALS, formatMoney } from '../../utils/money';
+import { formatCurrency } from '../../utils/helpers';
 
 type FieldKind = 'text' | 'number' | 'tel' | 'email' | 'date' | 'time' | 'textarea' | 'customer' | 'product' | 'employee' | 'method' | 'radio';
 
@@ -194,7 +196,7 @@ export default function ActionCard({ action }: { action: PendingAction }) {
       case 'employee': {
         const list: { id: string; name: string; sub?: string }[] =
           f.kind === 'customer'
-            ? customers.map((c) => ({ id: c.id, name: c.name, sub: [c.phone, Number(c.debtBalance) > 0 ? `owes ${Number(c.debtBalance).toLocaleString()}` : ''].filter(Boolean).join(' · ') }))
+            ? customers.map((c) => ({ id: c.id, name: c.name, sub: [c.phone, Number(c.debtBalance) > 0 ? `owes ${formatMoney(Number(c.debtBalance))}` : ''].filter(Boolean).join(' · ') }))
             : f.kind === 'product'
             ? products.map((p) => ({ id: p.id, name: p.name, sub: `${p.stock} ${p.unit || ''} in stock` }))
             : employees.map((e) => ({ id: e.id, name: e.name, sub: e.role }));
@@ -276,7 +278,7 @@ export default function ActionCard({ action }: { action: PendingAction }) {
     const items: any[] = Array.isArray(params.items) ? params.items : [];
     const disabled = !isOpen || running;
     const setItems = (next: any[]) => { setError(null); updatePendingParams(action.id, { ...params, items: next }); };
-    const productItems = products.map((p) => ({ id: p.id, label: p.name, sublabel: `KSh ${Number(p.price).toLocaleString()} · ${p.stock} left` }));
+    const productItems = products.map((p) => ({ id: p.id, label: p.name, sublabel: `${formatCurrency(Number(p.price))} · ${p.stock} left` }));
     return (
       <div className="space-y-2">
         {items.map((item, i) => {
@@ -299,7 +301,7 @@ export default function ActionCard({ action }: { action: PendingAction }) {
               </div>
               <div className="w-20 shrink-0">
                 {i === 0 && <span className="block text-[10px] font-bold text-app-text-muted mb-1">Qty</span>}
-                <NumberInput
+                <NumberInput decimals={QTY_DECIMALS}
                   min={0}
                   value={item.quantity ?? 1}
                   disabled={disabled}

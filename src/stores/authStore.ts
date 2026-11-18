@@ -149,12 +149,10 @@ function startPresenceHeartbeat(businessId: string | null, userId: string): () =
 
   const supabase = getSupabase();
 
+  // touch_my_presence works for every role; staff records themselves need staff.update.
   const sendBeat = () => {
     supabase
-      .from("employees")
-      .update({ last_seen_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("business_id", businessId)
+      .rpc("touch_my_presence", { p_business_id: toUuid(businessId) })
       .then(({ error }) => {
         if (error) {
           console.warn("[Presence] Heartbeat failed:", error.message);

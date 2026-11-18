@@ -5,7 +5,7 @@ import { productPaths } from '../seo';
 import { navigate } from '../router';
 import { usePanels, useRecent, useStorefront } from '../store';
 import { hasStorePicker } from '../stores';
-import { formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, TrustStrip } from '../ui';
+import { formatPrice, Notice, pageClass, perUnit, primaryButton, ProductImage, roundQty, TrustStrip } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import { OfferRibbon, PriceLine, SaveButton, useAddToCart } from './ProductCard';
 import ProductCarousel from './ProductCarousel';
@@ -39,7 +39,7 @@ function QuantityPicker({ value, onChange, unit }: { value: number; onChange: (v
           step="0.5"
           value={value}
           onChange={(e) => {
-            const next = Number(e.target.value);
+            const next = roundQty(Number(e.target.value));
             if (next > 0 && next <= 1000) onChange(next);
           }}
           className="h-full w-14 bg-transparent text-center text-base font-semibold"

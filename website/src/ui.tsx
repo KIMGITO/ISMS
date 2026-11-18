@@ -3,6 +3,7 @@ import { ArrowRight, BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'luc
 import { Order, OrderStatus, Product, Storefront, takesAirtel } from './api';
 import { photoUrl, productPhoto } from './images';
 import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle } from './heroSlides';
+import { formatPrice, qtyNumber, roundQty } from './numbers';
 
 export const primaryButton = 'btn btn-primary';
 export const secondaryButton = 'btn btn-secondary';
@@ -10,14 +11,14 @@ export const fieldClass = 'field';
 export const pageClass = 'site-gutter py-6 sm:py-10';
 export const cardClass = 'card';
 
-export const formatPrice = (currency: string, price: number) =>
-  `${currency} ${Number(price).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
+
+export { formatPrice, qtyNumber, roundQty };
 
 /** "Litres" reads wrong after "per", so a per-unit label uses the singular. */
 export const perUnit = (unit: string) => unit.replace(/s$/i, '').toLowerCase();
 
 export const formatQuantity = (quantity: number, unit: string) =>
-  `${Number(quantity)} ${Number(quantity) === 1 ? unit.replace(/s$/i, '') : unit}`;
+  `${qtyNumber(quantity)} ${roundQty(quantity) === 1 ? unit.replace(/s$/i, '') : unit}`;
 
 export const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });

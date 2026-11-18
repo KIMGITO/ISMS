@@ -8,6 +8,7 @@ import {
   errorResponse,
   verifyUserMembership,
   createUserClient,
+  requirePermission,
 } from "../shared/cors.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,16 +232,16 @@ Deno.serve(async (req) => {
     if (!action) return errorResponse("action is required.", 400);
 
     // ── AUTH: verify user session & business membership ──────────────────
-    const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(
+    const { userId, errorResponse: authError } = await verifyUserMembership(
       req,
       businessId
     );
     if (authError) return authError;
 
-    // Backup settings hold a Google private key, and a run exports all business data.
-    if (activeRole !== "Owner" && activeRole !== "Admin") {
-      return errorResponse("Only the Owner or an Admin can manage backups.", 403);
-    }
+    // Backup settings hold a Google private key, and a run exports all business data:
+    // the Backups screen's permission (settings.storage), which only Owner/Admin have by default.
+    const denied = await requirePermission(req, businessId, "settings.storage");
+    if (denied) return denied;
 
     // Create an authenticated Supabase client using user JWT + anon key (RLS)
     const supabase = createUserClient(req);
@@ -293,12 +294,6 @@ Deno.serve(async (req) => {
 
       // ── SAVE CONFIG ───────────────────────────────────────────────────
       case "save": {
-        if (activeRole !== "Owner") {
-          return errorResponse(
-            "Access Denied: Only business Owners can configure backups.",
-            403
-          );
-        }
         if (!config) return errorResponse("config payload is required.", 400);
 
         // Re-use existing service account if the user didn't change it (masked)

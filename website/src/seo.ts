@@ -2,6 +2,7 @@
 // scripts/prerender.ts, so everything here is plain data with no browser or Vite APIs.
 import type { Article, Product, Storefront } from './api';
 import { infoPage, InfoPageDef, plainText } from './infoPages';
+import { formatPrice } from './numbers';
 
 export interface PageMeta {
   title: string;
@@ -112,7 +113,7 @@ export function productMeta(product: Product, path: string, site: Storefront, si
     title: `${product.name} | ${business}`,
     description: clip(
       product.description ||
-        `Order ${product.name} from ${business} at ${currency} ${Number(product.price).toLocaleString('en-KE')} per ${product.unit.replace(/s$/i, '').toLowerCase()}. Pay with M-Pesa.`,
+        `Order ${product.name} from ${business} at ${formatPrice(currency, Number(product.price))} per ${product.unit.replace(/s$/i, '').toLowerCase()}. Pay with M-Pesa.`,
     ),
     path,
     image: product.image,

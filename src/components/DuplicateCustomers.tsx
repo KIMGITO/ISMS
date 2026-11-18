@@ -18,6 +18,7 @@ import { CustomerRepository } from '../services/repositories';
 import { useAppStore } from '../stores/appStore';
 import { useCustomerStore } from '../stores/customerStore';
 import { toUserMessage } from '../utils/userError';
+import { formatMoney } from '../utils/money';
 
 interface Props {
   businessId: string;
@@ -26,7 +27,7 @@ interface Props {
   onMerged: (keepId: string) => void;
 }
 
-const money = (amount: number) => `KSh ${amount.toLocaleString()}`;
+const money = (amount: number) => formatMoney(amount);
 const purchases = (count: number) => `${count} ${count === 1 ? 'purchase' : 'purchases'}`;
 
 function Choice({ label, name, options, value, onChange }: {

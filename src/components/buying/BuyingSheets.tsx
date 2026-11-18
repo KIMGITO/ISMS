@@ -15,6 +15,7 @@ import {
 import type { PurchaseOrder, Supplier } from '../../services/operations';
 import type { Product } from '../../types';
 import { NumberInput } from '../shared/Input';
+import { QTY_DECIMALS, formatQty } from '../../utils/money';
 
 const METHODS = ['Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'];
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
@@ -23,7 +24,7 @@ const addDays = (iso: string, days: number) => {
   d.setDate(d.getDate() + days);
   return d.toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
 };
-const q3 = (n: number) => String(Math.round(n * 1000) / 1000);
+const q3 = (n: number) => formatQty(n);
 
 // ---------------------------------------------------------------- reason
 
@@ -152,13 +153,13 @@ export function ReceiveSheet({
             </p>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Field label="Good, into stock">
-                <NumberInput min={0}
+                <NumberInput decimals={QTY_DECIMALS} min={0}
                   value={got[l.id!]?.good ?? ''}
                   onChange={(v) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], good: (v == null ? '' : String(v)) } }))}
                 />
               </Field>
               <Field label="Damaged">
-                <NumberInput min={0}
+                <NumberInput decimals={QTY_DECIMALS} min={0}
                   value={got[l.id!]?.damaged ?? ''}
                   placeholder="0"
                   onChange={(v) => setGot((m) => ({ ...m, [l.id!]: { ...m[l.id!], damaged: (v == null ? '' : String(v)) } }))}
@@ -459,7 +460,7 @@ export function ReturnSheet({
               <p className="text-[11px] text-app-text-muted">{q3(r.p?.stock || 0)} {r.p?.unit} in stock · {formatCurrency(priceOf(r.productId))} each</p>
               {r.problem && <p className="text-[11px] text-red-600 dark:text-red-400">{r.problem}</p>}
             </div>
-            <NumberInput min={0} value={r.qty}
+            <NumberInput decimals={QTY_DECIMALS} min={0} value={r.qty}
               onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
               aria-label="How much goes back"
               size="sm" className="w-24" inputClassName="text-right tabular-nums"

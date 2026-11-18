@@ -25,6 +25,7 @@ import { ReceiptService } from "../services/receipt/ReceiptService";
 import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
 import { spotlight } from "../utils/searchSpotlight";
 import { listPurchases, listAudit, purchaseRef, describeAction, type PurchaseOrder, type AuditEntry } from "../services/operations";
+import { formatCurrency } from '../utils/helpers';
 
 interface SearchResult {
   id: string;
@@ -406,7 +407,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `prod-${p.id}`,
           title: p.name,
-          subtitle: `${p.category} · Stock: ${p.stock} ${p.unit} · SKU: ${p.sku} · Cost: KSh ${p.cost} · Price: KSh ${p.price}`,
+          subtitle: `${p.category} · Stock: ${p.stock} ${p.unit} · SKU: ${p.sku} · Cost: ${formatCurrency(p.cost)} · Price: ${formatCurrency(p.price)}`,
           category: "Products",
           businessName: activeBizName,
           relevance: score + (matchSku > 0 ? 15 : 0),
@@ -526,7 +527,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `cust-${c.id}`,
           title: c.name,
-          subtitle: `${c.accountNumber ? `Account ${c.accountNumber} · ` : ""}${c.tier} Tier · Points: ${c.loyaltyPoints} · Phone: ${c.phone} · Owes: KSh ${c.debtBalance || 0}`,
+          subtitle: `${c.accountNumber ? `Account ${c.accountNumber} · ` : ""}${c.tier} Tier · Points: ${c.loyaltyPoints} · Phone: ${c.phone} · Owes: ${formatCurrency(c.debtBalance || 0)}`,
           category: "Customers",
           businessName: activeBizName,
           relevance: score + 10,
@@ -576,7 +577,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `sale-${t.id}`,
           title: `Receipt ${printed}${t.customerName ? ` · ${t.customerName}` : ""}`,
-          subtitle: `${new Date(t.timestamp).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })} · KSh ${t.finalTotal.toFixed(2)} · ${t.paymentMethod} · By ${t.staffName}${printed !== receipt ? ` · Logs: ${receipt}` : ""}`,
+          subtitle: `${new Date(t.timestamp).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })} · ${formatCurrency(t.finalTotal)} · ${t.paymentMethod} · By ${t.staffName}${printed !== receipt ? ` · Logs: ${receipt}` : ""}`,
           category: "Sales",
           businessName: activeBizName,
           status: t.status,
@@ -599,7 +600,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           matched.push({
             id: `sale-item-${t.id}-${index}`,
             title: `Item: ${item.product.name} (receipt ${formatReceiptNumber(t.id)})`,
-            subtitle: `Sold: ${item.quantity} · Discount: ${item.discountPercentage}% · Total: KSh ${(item.product.price * item.quantity).toFixed(2)}`,
+            subtitle: `Sold: ${item.quantity} · Discount: ${item.discountPercentage}% · Total: ${formatCurrency(item.product.price * item.quantity)}`,
             category: "Sale Items",
             businessName: activeBizName,
             relevance: score,
@@ -622,7 +623,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `pur-${p.id}`,
           title: `Purchase ${ref} · ${p.supplierName}`,
-          subtitle: `${new Date(p.date).toLocaleDateString()} · KSh ${p.total.toFixed(2)} · ${p.status === "Pending" ? "Draft" : p.status} · ${p.lines.length} items`,
+          subtitle: `${new Date(p.date).toLocaleDateString()} · ${formatCurrency(p.total)} · ${p.status === "Pending" ? "Draft" : p.status} · ${p.lines.length} items`,
           category: "Purchases",
           businessName: activeBizName,
           status: p.status,
@@ -645,7 +646,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           matched.push({
             id: `pur-item-${p.id}-${idx}`,
             title: `Item: ${item.name} (purchase ${purchaseRef(p)} from ${p.supplierName})`,
-            subtitle: `Ordered: ${item.quantity} ${item.unit} · KSh ${item.price} each · KSh ${(item.quantity * item.price).toFixed(2)}`,
+            subtitle: `Ordered: ${item.quantity} ${item.unit} · ${formatCurrency(item.price)} each · ${formatCurrency(item.quantity * item.price)}`,
             category: "Purchase Items",
             businessName: activeBizName,
             relevance: score,
@@ -694,7 +695,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         matched.push({
           id: `exp-${e.id}`,
           title: `Expense: ${e.category}`,
-          subtitle: `Amount: KSh ${e.amount.toFixed(2)} · Note: ${e.description} · Date: ${new Date(e.date).toLocaleDateString()}`,
+          subtitle: `Amount: ${formatCurrency(e.amount)} · Note: ${e.description} · Date: ${new Date(e.date).toLocaleDateString()}`,
           category: "Expenses",
           businessName: activeBizName,
           relevance: score,
@@ -914,7 +915,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           id: `shift-${s.id}`,
           title: `${empName}'s Shift Log`,
           spot: { text: empName },
-          subtitle: `Status: ${s.status} · Started: ${new Date(s.startTime).toLocaleTimeString()} · Sales Total: KSh ${(s.salesTotal || 0).toFixed(2)}`,
+          subtitle: `Status: ${s.status} · Started: ${new Date(s.startTime).toLocaleTimeString()} · Sales Total: ${formatCurrency(s.salesTotal || 0)}`,
           category: "Shifts",
           businessName: activeBizName,
           status: s.status,
@@ -1004,7 +1005,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
             id: `wallet-${c.id}`,
             spot: { id: `cust-${c.id}`, text: c.name },
             title: `${c.name}'s Wallet`,
-            subtitle: `Current Balance: KSh ${c.walletBalance}`,
+            subtitle: `Current Balance: ${formatCurrency(c.walletBalance)}`,
             category: "Wallets",
             businessName: activeBizName,
             relevance: 50 + getRelevance(c.name, lower),
@@ -1018,7 +1019,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
             id: `debt-${c.id}`,
             spot: { id: `cust-${c.id}`, text: c.name },
             title: `${c.name}'s Debt`,
-            subtitle: `Outstanding Debt: KSh ${c.debtBalance}`,
+            subtitle: `Outstanding Debt: ${formatCurrency(c.debtBalance)}`,
             category: "Debts",
             businessName: activeBizName,
             status: "Unpaid",

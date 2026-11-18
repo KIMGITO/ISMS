@@ -2,6 +2,7 @@
 // The numbers behind the Home screen. Pure functions only, so they can be tested.
 
 import type { Transaction, Expense, DebtPayment, Payment, Product } from "../../types";
+import { formatMoney } from "../../utils/money";
 
 export type RangeKey = "today" | "yesterday" | "last7" | "last30" | "month" | "quarter" | "year" | "custom";
 export type Granularity = "hour" | "day" | "week" | "month";
@@ -570,7 +571,7 @@ export function formatKsh(n: number, compact = false): string {
   const a = Math.abs(n);
   if (compact && a >= 1_000_000) return `${sign}KSh ${(a / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2)}M`;
   if (compact && a >= 100_000) return `${sign}KSh ${(a / 1000).toFixed(0)}K`;
-  return `${sign}KSh ${Math.round(a).toLocaleString()}`;
+  return formatMoney(n);
 }
 
 /** Short axis ticks: 1.2M, 450K, 900. */

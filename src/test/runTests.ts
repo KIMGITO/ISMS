@@ -38,6 +38,7 @@ import { contactsLine, defaultInvoiceTexts, receiptClosing } from "../services/i
 import { closingOf } from "../services/invoice/invoicePdf";
 import { matchesReceipt, mentionsReceipt, receiptCode, receiptCodeIn } from "../utils/references";
 import { mergeDuplicateCredits } from "../services/invoice/invoiceData";
+import { weekText, planStock, customersForDay, addDays, dayLabel, needsDecision, stockAdvice, type RegularBoard } from "../services/regularOrders";
 import { tidyNotification } from "../services/notifications/notificationText";
 import { NotificationTemplates } from "../services/notifications/notificationTemplates";
 // @ts-ignore plain JS module shared with the release workflow
@@ -1029,13 +1030,13 @@ runTest("End-of-shift report figures and text", () => {
   eq(r.expectedCash, 120 + 50 - 30, "cash expected = cash sales + cash debt repaid - cash expenses");
   eq(r.products.map((p) => [p.sold, p.earned, p.salesCount, p.cash, p.till, p.credit, p.left]), [[8, 460, 5, 120, 180, 60, 40]], "products sold, split by how they were paid, adding up to the sales total");
   const text = shiftReportText(r, { countedCash: 130, notes: "All good" });
-  if (!text.includes("short by KSh 10")) throw new Error("counted cash difference missing:\n" + text);
+  if (!text.includes("short by KSh 10.00")) throw new Error("counted cash difference missing:\n" + text);
   if (text.includes("```")) throw new Error("report should be plain text");
   if (!text.includes("8:00 – 17:00")) throw new Error("times should be Kenya time:\n" + text);
   eq(r.moneyIn.map((m) => [m.method, m.total]), [["Cash", 170], ["M-Pesa", 180], ["Card", 60], ["Bank", 40]], "money in per method, credit left out, debt repaid added");
   eq(r.moneyInTotal, 450, "money taken in = sales not on credit + debt repaid");
   eq(r.timeline.map((x) => x.kind), ["sale", "sale", "sale", "sale", "sale", "debt", "expense"], "timeline in time order");
-  const order = ["*Summary*", "\nMilk\n- Sales: KSh 460 from 5 sales", "*Amount made today*", "*Needs attention*", "*Closing balances*", "- Milk: 40 L left", "*Notes from Jane*"].map((h) => text.indexOf(h));
+  const order = ["*Summary*", "\nMilk\n- Sales: KSh 460.00 from 5 sales", "*Amount made today*", "*Needs attention*", "*Closing balances*", "- Milk: 40 L left", "*Notes from Jane*"].map((h) => text.indexOf(h));
   if (order.some((i) => i < 0) || order.some((i, n) => n && i < order[n - 1])) throw new Error("sections missing or out of order:\n" + text);
   const low = buildShiftReport({ shift: { startTime: t(5), endTime: t(14) }, employee: { id: "e1", name: "Jane" }, transactions: [sale("a", "Cash", 120, 2)], debtPayments: [], expenses: [], products: [{ ...milk, stock: 0 }], customers: [], productionBatches: [], billOfMaterials: [] });
   eq(shiftAttention(low, null), ["Cash in the drawer was not counted", "Milk is out of stock"], "uncounted cash and empty stock are flagged");
@@ -1206,7 +1207,7 @@ runTest("Messages fill each customer's own values and catch unknown variables", 
   const ctx = { businessName: "Mama Mboga", businessPhone: "0700 111222", currency: "KSh", points: DEFAULT_POINT_SETTINGS, custom: [{ key: "offer_ends", label: "Offer ends", value: "Sunday" }] };
   const jane = { id: "c1", name: "jane wanjiku", phone: "0712", email: "", loyaltyPoints: 1000, joinDate: "2026-01-01", tier: "Bronze" as const, purchasesCount: 3, debtBalance: 1250.5, walletBalance: 0, accountNumber: "C77" };
   const out = fillMessage("Hi {first_name}, you owe {debt} at {store_name} ({business_name}). Points: {points} worth {points_value}. Ends {offer_ends}. {nope}", jane, ctx);
-  const want = "Hi Jane, you owe KSh 1,250.50 at Mama Mboga (Mama Mboga). Points: 1,000 worth KSh 20. Ends Sunday. {nope}";
+  const want = "Hi Jane, you owe KSh 1,250.50 at Mama Mboga (Mama Mboga). Points: 1,000 worth KSh 20.00. Ends Sunday. {nope}";
   if (out !== want) throw new Error(out);
   if (fillMessage("{ First_Name }", jane, ctx) !== "Jane") throw new Error("variables ignore case and spaces");
   if (unknownVariables("{first_name} {nope} {debt}", ctx).join() !== "nope") throw new Error("unknown variables not found");
@@ -1509,6 +1510,42 @@ runTest("Daily stock report: opening, where it went, closed, paid and not paid",
   eq([month.from.toISOString(), month.to.toISOString()], ["2026-11-30T21:00:00.000Z", "2026-12-31T21:00:00.000Z"], "December ends at the new year");
   const custom = stockPeriodRange("custom", { from: "2026-11-20", to: "2026-11-18" });
   eq([custom.from.toISOString(), custom.to.toISOString()], ["2026-11-17T21:00:00.000Z", "2026-11-20T21:00:00.000Z"], "custom dates in either order, both days included");
+});
+
+runTest("Regular orders: week words, a day's customers, stock outlook", () => {
+  const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
+  //               Sun Mon Tue Wed Thu Fri Sat
+  eq(weekText([0, 0, 0, 0, 0, 0, 10], "L"), "Sat 10 L", "weekly on Saturday");
+  eq(weekText([0, 10, 10, 10, 10, 10, 0]), "Mon–Fri 10", "each weekday");
+  eq(weekText([0, 20, 0, 0, 0, 0, 0]), "Mon 20", "Mondays");
+  eq(weekText([0, 20, 20, 23, 23, 19, 0]), "Mon–Tue 20 · Wed–Thu 23 · Fri 19", "different amounts on different days");
+  eq(weekText([5, 5, 5, 5, 5, 5, 5]), "Every day 5", "every day");
+  eq(weekText([0, 0, 0, 0, 0, 0, 0]), "No days", "nothing");
+  eq(weekText([3, 1, 0, 0, 0, 0, 3]), "Mon 1 · Sat–Sun 3", "Sunday ends the week");
+  eq([addDays("2026-11-30", 1), addDays("2026-12-31", 1), addDays("2026-03-01", -1)], ["2026-12-01", "2027-01-01", "2026-02-28"], "dates roll over months and years");
+  eq([dayLabel("2026-11-18", "2026-11-18"), dayLabel("2026-11-19", "2026-11-18"), dayLabel("2026-11-17", "2026-11-18")], ["Today", "Tomorrow", "Yesterday"], "near days by name");
+  eq([needsDecision({ status: "requested", pendingDayQty: null }), needsDecision({ status: "active", pendingDayQty: [0, 1, 0, 0, 0, 0, 0] }), needsDecision({ status: "active", pendingDayQty: null })], [true, true, false], "customer requests and changes wait for the owner");
+
+  const order = (id: string, customerName: string, productId: string, price: number): any => ({ id, customerId: `c-${customerName}`, customerName, customerPhone: null, productId, productName: productId, unit: "L", price, dayQty: [0, 0, 0, 0, 0, 0, 0] });
+  const line = (orderId: string, customerName: string, productId: string, day: string, state: string, quantity: number): any => ({ orderId, customerId: `c-${customerName}`, productId, day, planned: quantity, state, quantity, transactionId: null, message: null, by: null });
+  const board: RegularBoard = {
+    today: "2026-11-18", ringAt: "16:00",
+    orders: [order("o1", "Ann", "milk", 100), order("o2", "Ben", "milk", 100), order("o3", "Ann", "bread", 50), order("o4", "Cy", "milk", 100)],
+    lines: [
+      line("o1", "Ann", "milk", "2026-11-18", "due", 20), line("o3", "Ann", "bread", "2026-11-18", "skipped", 0),
+      line("o2", "Ben", "milk", "2026-11-18", "delivered", 10), line("o4", "Cy", "milk", "2026-11-18", "skipped", 0),
+      line("o1", "Ann", "milk", "2026-11-19", "due", 20), line("o2", "Ben", "milk", "2026-11-19", "changed", 30),
+    ],
+    stock: [{ productId: "milk", name: "Milk", unit: "L", price: 100, stock: 70, avgOther: 15, soldTodayOther: 5 }, { productId: "bread", name: "Bread", unit: "", price: 50, stock: 3, avgOther: 0, soldTodayOther: 0 }],
+  };
+  const today = customersForDay(board, "2026-11-18");
+  eq(today.map((c) => [c.name, c.state, c.value]), [["Ann", "open", 2000], ["Ben", "done", 0], ["Cy", "skipped", 0]], "still to deliver first, then done, then skipped");
+  const plan = planStock(board, ["2026-11-18", "2026-11-19"]);
+  eq(plan.map((p) => p.name), ["Milk"], "only products with regular orders in the days shown");
+  // today: 70 - 20 open - (15 - 5) usual left = 40; tomorrow: 40 - 50 - 15 = -25
+  eq(plan[0].days.map((d) => [d.regular, d.other, d.closing]), [[20, 10, 40], [50, 15, -25]], "delivered lines are already out of stock");
+  eq([plan[0].level, plan[0].shortOn, plan[0].orderMore], ["short", "2026-11-19", 25], "short tomorrow by 25");
+  eq(stockAdvice(plan[0], "2026-11-18"), "Runs out tomorrow. Order about 25 L more.", "what to order");
 });
 
 (async () => {

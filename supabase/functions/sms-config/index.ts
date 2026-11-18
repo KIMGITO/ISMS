@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     if (!businessId) return errorResponse("businessId is required.", 400);
 
     // Verify tenant membership
-    const { userId, role: activeRole, errorResponse: authError } = await verifyUserMembership(req, businessId);
+    const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
     if (authError) return authError;
 
     if (!action) return errorResponse("action is required.", 400);
@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: true, config: defaultSmsConfig(businessId) });
       }
 
-      const isOwner = activeRole === "Owner";
+      // Who may change SMS settings sees the token's last characters; everyone else only dots.
+      const canManage = (await requirePermission(req, businessId, "settings.integrations")) === null;
       const maskedToken = data.auth_token
-        ? isOwner ? maskToken(data.auth_token) : "••••••••"
+        ? canManage ? maskToken(data.auth_token) : "••••••••"
         : "";
 
       return jsonResponse({
@@ -154,12 +155,8 @@ Deno.serve(async (req) => {
 
     // ── SAVE ─────────────────────────────────────────────────────────────
     } else if (action === "save") {
-      if (activeRole !== "Owner") {
-        return errorResponse(
-          "Access Denied: Only Owners can modify Twilio credentials.",
-          403
-        );
-      }
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
       if (!config) return errorResponse("config payload is required.", 400);
 
       // Fetch existing token to avoid overwriting with masked placeholder
@@ -210,12 +207,8 @@ Deno.serve(async (req) => {
 
     // ── TEST ─────────────────────────────────────────────────────────────
     } else if (action === "test") {
-      if (activeRole !== "Owner") {
-        return errorResponse(
-          "Access Denied: Only Owners can test Twilio connections.",
-          403
-        );
-      }
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
       if (!config?.account_sid) {
         return errorResponse("Account SID is required to test.", 400);
       }

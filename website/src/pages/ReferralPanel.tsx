@@ -2,7 +2,7 @@
 // Only shown while the shop runs a referral programme (or the customer has referred before).
 import { useEffect, useState } from 'react';
 import { fetchMyReferral, MyReferral } from '../api';
-import { primaryButton, secondaryButton } from '../ui';
+import { formatPrice, primaryButton, secondaryButton } from '../ui';
 
 const STATUS: Record<string, string> = {
   pending: 'waiting', qualified: 'bought, reward coming', rewarded: 'rewarded', rejected: 'not counted', expired: 'not finished',
@@ -17,7 +17,7 @@ export default function ReferralPanel({ shopName }: { shopName: string }) {
   if (!r || !r.linked || !r.code || (!r.running && !r.invited)) return null;
 
   const c = r.campaign;
-  const min = c && Number(c.minPurchase) > 0 ? ` on a first purchase of Ksh ${Number(c.minPurchase).toLocaleString('en-KE')} or more` : '';
+  const min = c && Number(c.minPurchase) > 0 ? ` on a first purchase of ${formatPrice('Ksh', Number(c.minPurchase))} or more` : '';
   const text = `Shop at ${shopName} and give my code ${r.code} at the counter: you get ${c?.friendGets ?? 'a welcome reward'}${min}.`;
   const active = r.codeStatus === 'active' && !!c;
 
@@ -69,7 +69,7 @@ export default function ReferralPanel({ shopName }: { shopName: string }) {
         <div className="text-sm">
           <p className="font-medium">
             Rewards earned: {r.rewardsEarned}
-            {(r.walletEarned ?? 0) > 0 && <> · Ksh {Number(r.walletEarned).toLocaleString('en-KE')} added to your wallet</>}
+            {(r.walletEarned ?? 0) > 0 && <> · {formatPrice('Ksh', Number(r.walletEarned))} added to your wallet</>}
             {(r.pointsEarned ?? 0) > 0 && <> · {Number(r.pointsEarned).toLocaleString('en-KE')} points</>}
             {' '}· used {r.rewardsUsed ?? 0}
           </p>

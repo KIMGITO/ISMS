@@ -30,6 +30,7 @@ import {
 import type { Product } from '../types';
 import { NumberInput } from '../components/shared/Input';
 import TransfersByProduct, { type TransferLine } from '../components/transfers/TransfersByProduct';
+import { QTY_DECIMALS, formatMoney } from '../utils/money';
 
 const TZ = 'Africa/Nairobi';
 
@@ -84,7 +85,7 @@ interface Branch {
   name: string;
 }
 
-const ksh = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
+const ksh = (n: number) => formatMoney(n);
 const qty = (n: number) => String(Math.round(n * 1000) / 1000);
 const when = (iso: string | null) => {
   if (!iso) return '';
@@ -611,7 +612,7 @@ function PickSheet({
                         )}
                       </div>
                       <div className="w-24 shrink-0">
-                        <NumberInput
+                        <NumberInput decimals={QTY_DECIMALS}
                           min={0}
                           value={r.qty}
                           onChange={(v) => setLines((ls) => ls.map((l) => (l.productId === r.productId ? { ...l, qty: (v == null ? '' : String(v)) } : l)))}
@@ -1009,7 +1010,7 @@ function DetailSheet({
                       {editsQty && (
                         <label className="w-24 shrink-0 text-[11px] text-app-text-muted text-right">
                           {mode === 'receive' ? 'Arrived' : 'Send'}
-                          <NumberInput
+                          <NumberInput decimals={QTY_DECIMALS}
                             min={0}
                             value={got[i.id]}
                             onChange={(v) => setGot((g) => ({ ...g, [i.id]: (v == null ? '' : String(v)) }))}
@@ -1032,7 +1033,7 @@ function DetailSheet({
                         ))}
                         {s.action && (
                           <div className="w-20 shrink-0 ml-auto">
-                            <NumberInput
+                            <NumberInput decimals={QTY_DECIMALS}
                               min={0}
                               value={s.qty}
                               onChange={(v) => setSettle((m) => ({ ...m, [i.id]: { ...m[i.id], qty: (v == null ? '' : String(v)) } }))}

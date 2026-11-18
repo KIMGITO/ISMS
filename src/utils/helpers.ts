@@ -1,4 +1,5 @@
 import { CartItem } from "../types";
+import { formatMoney } from "./money";
 
 
 export function handleNumberInput(
@@ -24,19 +25,9 @@ export function handleNumberInput(
   }
 }
 
-/**
- * Formats a numeric value as Kenyan Shillings (KSh)
- */
+/** "KSh 1,250.50": money always shows two decimal places (see utils/money.ts). */
 export function formatCurrency(amount: number | null | undefined): string {
-  const val = amount ?? 0;
-  try {
-    return `KSh ${val.toLocaleString("en-KE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  } catch {
-    return `KSh ${val.toFixed(2)}`;
-  }
+  return formatMoney(amount);
 }
 
 /**

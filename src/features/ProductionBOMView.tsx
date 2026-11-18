@@ -55,6 +55,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useOverlay } from '../hooks/useOverlay';
 import { Checkbox } from '../components/shared/Checkbox';
 import { NumberInput } from '../components/shared/Input';
+import { QTY_DECIMALS, roundQty } from '../utils/money';
 
 type ViewMode = 'list' | 'create-bom' | 'create-batch' | 'bom-detail';
 
@@ -160,7 +161,7 @@ export default function ProductionBOMView() {
     if (!selectedBomForBatch || !selectedBomForBatch.ingredients) return [];
     return selectedBomForBatch.ingredients.map(ing => {
       const prod = products.find(p => p.id === ing.productId);
-      const requiredQty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batchQty).toFixed(3));
+      const requiredQty = roundQty(ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batchQty);
       const currentStock = prod ? Number(prod.stock) : 0;
       const isSufficient = currentStock >= requiredQty;
       return {
@@ -170,7 +171,7 @@ export default function ProductionBOMView() {
         requiredQty,
         currentStock,
         isSufficient,
-        shortage: Math.max(0, Number((requiredQty - currentStock).toFixed(3))),
+        shortage: Math.max(0, roundQty(requiredQty - currentStock)),
       };
     });
   }, [selectedBomForBatch, batchQty, products]);
@@ -215,7 +216,7 @@ export default function ProductionBOMView() {
     if (bom && bom.ingredients) {
       bom.ingredients.forEach(ing => {
         const prod = products.find(p => p.id === ing.productId);
-        const consumedQty = Number((ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced).toFixed(3));
+        const consumedQty = roundQty(ing.quantityRequired * (1 + (ing.wastePercentage || 0) / 100) * batch.quantityProduced);
         items.push({
           productId: ing.productId,
           productName: ing.productName || prod?.name || 'Raw Material',
@@ -718,9 +719,9 @@ export default function ProductionBOMView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 font-bold">Yield Quantity</label>
-                  <NumberInput
+                  <NumberInput decimals={QTY_DECIMALS}
                     value={bomYieldQty}
-                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBomYieldQty, 0.001)}
+                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBomYieldQty, 0.1)}
                     min={0.001}
                     step={0.001}
                     size="sm" className="w-full"
@@ -783,9 +784,9 @@ export default function ProductionBOMView() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[11px] text-slate-500 font-bold">Qty Required *</label>
-                        <NumberInput
+                        <NumberInput decimals={QTY_DECIMALS}
                           value={ing.quantityRequired}
-                          onChange={(v) => handleNumberInput((v == null ? '' : String(v)), (val) => updateIngredient(idx, 'quantityRequired', val), 0.001)}
+                          onChange={(v) => handleNumberInput((v == null ? '' : String(v)), (val) => updateIngredient(idx, 'quantityRequired', val), 0.1)}
                           min={0.001}
                           step={0.001}
                           size="sm" className="w-full"
@@ -891,9 +892,9 @@ export default function ProductionBOMView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 font-bold">Quantity Produced *</label>
-                  <NumberInput
+                  <NumberInput decimals={QTY_DECIMALS}
                     value={batchQty}
-                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBatchQty, 0.001)}
+                    onChange={(v) => handleNumberInput((v == null ? '' : String(v)), setBatchQty, 0.1)}
                     min={0.001}
                     step={0.001}
                     size="sm" className="w-full"
@@ -1138,7 +1139,7 @@ export default function ProductionBOMView() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div className="space-y-1">
                           <label className="text-[11px] text-slate-400 font-bold">Qty to Return to Stock</label>
-                          <NumberInput
+                          <NumberInput decimals={QTY_DECIMALS}
                             value={item.isDamaged ? 0 : item.returnQty}
                             disabled={item.isDamaged}
                             onChange={(v) => {

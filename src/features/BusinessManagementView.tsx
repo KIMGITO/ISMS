@@ -31,6 +31,7 @@ import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
 import { useKraStatus } from '../services/kra/kraService';
 import { NumberInput } from '../components/shared/Input';
+import { formatCurrency } from '../utils/helpers';
 
 // Shown only until the business's own list has loaded.
 
@@ -215,7 +216,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       const ref = normalizeReference(payMethod, payRef).toLowerCase();
       const dup = localPayments.find((p) => p.status !== "Voided" && String(p.referenceCode || "").toLowerCase() === ref);
       if (dup) {
-        return `${payRef.trim()} was already recorded on ${new Date(dup.date).toLocaleDateString()} for KSh ${Number(dup.amount).toLocaleString()}${dup.senderName ? ` from ${dup.senderName}` : ""}. Void that one first if it was wrong.`;
+        return `${payRef.trim()} was already recorded on ${new Date(dup.date).toLocaleDateString()} for ${formatCurrency(Number(dup.amount))}${dup.senderName ? ` from ${dup.senderName}` : ""}. Void that one first if it was wrong.`;
       }
     }
     return null;
@@ -254,7 +255,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
       // Same reference already recorded (e.g. on another device just now): the server returns that one.
       if (knownIds.has(saved.id) || Math.abs(Number(saved.amount) - amountNum) > 0.001) {
-        showToast("Already recorded", `This reference was already recorded for KSh ${Number(saved.amount).toLocaleString()}. Nothing was added.`, undefined, "error");
+        showToast("Already recorded", `This reference was already recorded for ${formatCurrency(Number(saved.amount))}. Nothing was added.`, undefined, "error");
         return;
       }
 
@@ -264,7 +265,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
         ? ` Saved as ${payStatus.toLowerCase()}, so no balances changed.`
         : selectedCustomer && debt > 0
           ? amountNum > debt
-            ? ` KSh ${debt.toLocaleString()} cleared their debt and KSh ${(Math.round((amountNum - debt) * 100) / 100).toLocaleString()} went to their wallet.`
+            ? ` ${formatCurrency(debt)} cleared their debt and ${formatCurrency(amountNum - debt)} went to their wallet.`
             : " It paid down their debt."
           : selectedCustomer
             ? " It went to their wallet."
@@ -272,7 +273,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
       showToast(
         "Payment Recorded",
-        `KSh ${amountNum.toLocaleString()} by ${methodLabel(payMethod)}${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
+        `${formatCurrency(amountNum)} by ${methodLabel(payMethod)}${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
         undefined,
         "success"
       );
@@ -306,7 +307,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
     }
     showToast(
       "Card payment received",
-      `KSh ${result.amountPaid.toLocaleString()} ${describeCard(result.brand, result.last4)} was recorded.`.replace(/\s+\./, "."),
+      `${formatCurrency(result.amountPaid)} ${describeCard(result.brand, result.last4)} was recorded.`.replace(/\s+\./, "."),
       undefined,
       "success",
     );
@@ -1248,7 +1249,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </span>
                         </div>
                         <span className="text-sm font-semibold font-mono text-emerald-500">
-                          KSh {Number(asset.balance || 0).toLocaleString()}
+                          {formatCurrency(Number(asset.balance || 0))}
                         </span>
                         {asset.lastPaymentAt && (
                           <span className="text-[11px] text-app-text-muted font-semibold">
@@ -1378,12 +1379,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                                 {c.phone && <span>{c.phone}</span>}
                                                 {Number(c.debtBalance || 0) > 0 && (
                                                   <span className="text-red-500 font-semibold">
-                                                    Debt: KSh {Number(c.debtBalance).toLocaleString()}
+                                                    Debt: {formatCurrency(Number(c.debtBalance))}
                                                   </span>
                                                 )}
                                                 {Number(c.walletBalance || 0) > 0 && (
                                                   <span className="text-emerald-500 font-semibold">
-                                                    Wallet: KSh {Number(c.walletBalance).toLocaleString()}
+                                                    Wallet: {formatCurrency(Number(c.walletBalance))}
                                                   </span>
                                                 )}
                                               </div>
@@ -1480,7 +1481,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                   onClick={startCardCharge}
                                   className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
-                                  <CreditCard size={13} /> Charge card{Number(payAmount) > 0 ? ` KSh ${Number(payAmount).toLocaleString()}` : ''}
+                                  <CreditCard size={13} /> Charge card{Number(payAmount) > 0 ? ` ${formatCurrency(Number(payAmount))}` : ''}
                                 </button>
                               )}
                             </div>
@@ -1600,18 +1601,18 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                   <div className="flex items-center justify-between text-[11px]">
                                     <span className="text-app-text-muted font-semibold">Outstanding Debt</span>
                                     <span className={`font-semibold font-mono ${debt > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      KSh {debt.toLocaleString()}
+                                      {formatCurrency(debt)}
                                     </span>
                                   </div>
                                   {amt > 0 && (
                                     <>
                                       <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-app-text-muted font-semibold">→ Applied to debt</span>
-                                        <span className="font-semibold font-mono text-red-500">-KSh {debtApplied.toLocaleString()}</span>
+                                        <span className="font-semibold font-mono text-red-500">-{formatCurrency(debtApplied)}</span>
                                       </div>
                                       <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-app-text-muted font-semibold">→ Credited to wallet</span>
-                                        <span className="font-semibold font-mono text-emerald-500">+KSh {walletApplied.toLocaleString()}</span>
+                                        <span className="font-semibold font-mono text-emerald-500">+{formatCurrency(walletApplied)}</span>
                                       </div>
                                     </>
                                   )}
@@ -1752,12 +1753,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                           </span>
                                           {Number(pay.debtApplied || 0) > 0 && (
                                             <span className="text-[11px] font-mono text-red-500">
-                                              Debt: KSh {Number(pay.debtApplied).toLocaleString()}
+                                              Debt: {formatCurrency(Number(pay.debtApplied))}
                                             </span>
                                           )}
                                           {Number(pay.walletApplied || 0) > 0 && (
                                             <span className="text-[11px] font-mono text-emerald-500">
-                                              Wallet: KSh {Number(pay.walletApplied).toLocaleString()}
+                                              Wallet: {formatCurrency(Number(pay.walletApplied))}
                                             </span>
                                           )}
                                         </div>
@@ -1767,7 +1768,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                     </td>
                                     <td className="py-2.5 text-right">
                                       <span className={`font-semibold font-mono ${pay.status === 'Failed' ? 'text-red-500' : pay.status === 'Voided' ? 'text-app-text-muted line-through' : 'text-emerald-500'}`}>
-                                        KSh {Number(pay.amount).toLocaleString()}
+                                        {formatCurrency(Number(pay.amount))}
                                       </span>
                                       <span className={`block text-[11px] font-bold mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : pay.status === 'Voided' ? 'text-app-text-muted' : 'text-red-500'}`}>
                                         {pay.status}
@@ -1800,9 +1801,9 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                     <tr className="bg-red-500/5">
                                       <td colSpan={7} className="p-3">
                                         <p className="text-[11px] text-app-text mb-2">
-                                          Voiding takes KSh {Number(pay.amount).toLocaleString()} back out of the {pay.method} balance
-                                          {Number(pay.debtApplied || 0) > 0 && ` and puts KSh ${Number(pay.debtApplied).toLocaleString()} back on the customer's debt`}
-                                          {Number(pay.walletApplied || 0) > 0 && ` and removes KSh ${Number(pay.walletApplied).toLocaleString()} from their wallet`}.
+                                          Voiding takes {formatCurrency(Number(pay.amount))} back out of the {pay.method} balance
+                                          {Number(pay.debtApplied || 0) > 0 && ` and puts ${formatCurrency(Number(pay.debtApplied))} back on the customer's debt`}
+                                          {Number(pay.walletApplied || 0) > 0 && ` and removes ${formatCurrency(Number(pay.walletApplied))} from their wallet`}.
                                           The record stays, marked Voided.
                                         </p>
                                         <div className="flex flex-wrap gap-2">

@@ -10,6 +10,7 @@ import { SupabaseService } from "../../services/supabaseService";
 import { useUiStore } from "../../stores/uiStore";
 import { canOpenScreen } from "../../utils/screens";
 import { useAuthStore } from "../../stores/authStore";
+import { formatMoney } from '../../utils/money';
 
 export interface AdviceAction { title: string; why: string; screen: string; amount: number }
 export interface Advice {
@@ -32,7 +33,7 @@ const HEALTH = {
   act: { label: "Act this week", cls: "bg-red-500/15 text-red-700 dark:text-red-300" },
 };
 
-const ksh = (v: number) => `KSh ${Math.round(v).toLocaleString("en-KE")}`;
+const ksh = (v: number) => formatMoney(v);
 
 export default function AiAdvisory({ businessId, metrics, period, fallback }: {
   businessId: string | null;
