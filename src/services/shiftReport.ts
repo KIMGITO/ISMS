@@ -23,10 +23,13 @@ export interface ShiftReport {
   credit: number;
   deliveries: number;
   expensesTotal: number;
-  /** Cash sales + cash debt repaid − cash expenses */
+  /** Cash sales + cash debt repaid − cash expenses − cash given back on refunds */
   expectedCash: number;
   cashDebtRepaid: number;
   cashExpenses: number;
+  /** Refunds this person made during the shift (edits not counted), and all cash given back (out of the drawer). */
+  refundsTotal: number;
+  cashRefunds: number;
   /** Per product: what it sold and how it was paid. Money is the product's share of each sale's total, so the products add up to the shift totals. */
   products: ProductLine[];
   production: { name: string; produced: number; unit: string; used: string }[];
@@ -71,6 +74,8 @@ export interface ShiftReportInput {
   customers: Customer[];
   productionBatches: ProductionBatch[];
   billOfMaterials: BillOfMaterials[];
+  /** Refunds of till sales (any sale, any day); only this person's, made in the shift, count. */
+  refunds?: { transactionId: string; date: string; total: number; settlement: string; method: string | null; createdBy: string; edit?: boolean }[];
   now?: number;
 }
 
@@ -86,7 +91,11 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
   const end = shift.endTime ? time(shift.endTime) : input.now ?? Date.now();
   const during = (t: number) => t >= start && t <= end;
 
-  const sales = input.transactions.filter((t) => t.staffId === employee.id && during(time(t.timestamp)));
+  // An edited sale was redone in the till: the redone sale stands, the original and its
+  // take-back are left out, so the report reads as if it was right the first time.
+  const edited = new Set((input.refunds || []).filter((r) => r.edit).map((r) => r.transactionId));
+  const sales = input.transactions.filter((t) => t.staffId === employee.id && during(time(t.timestamp)) && !edited.has(t.id));
+  const leftOut = new Set(input.transactions.filter((t) => edited.has(t.id) && t.staffId === employee.id && during(time(t.timestamp))).map((t) => t.id));
   const report: ShiftReport = {
     employeeName: employee.name,
     start,
@@ -104,6 +113,8 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     expectedCash: 0,
     cashDebtRepaid: 0,
     cashExpenses: 0,
+    refundsTotal: 0,
+    cashRefunds: 0,
     products: [],
     production: [],
     creditTaken: [],
@@ -222,6 +233,19 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
     report.timeline.push({ at: time(e.created_at || e.date), kind: 'expense', text: `Expense: ${e.category}${e.description ? ` (${e.description})` : ''} · ${method}`, amount: e.amount });
   }
 
+  // Refunds this person gave: money paid back comes out of what they took in.
+  for (const r of input.refunds || []) {
+    if (r.createdBy !== employee.name || !during(time(r.date)) || leftOut.has(r.transactionId)) continue;
+    // An edit of a sale from an earlier shift: cash still left the drawer, but it is not a refund.
+    if (!r.edit) report.refundsTotal += r.total;
+    const how = r.settlement === 'refund' ? r.method || 'Cash' : r.settlement === 'wallet' ? 'into wallet' : 'off debt';
+    if (r.settlement === 'refund') {
+      if (how === 'Cash') report.cashRefunds += r.total;
+      addMoney(how, 'sales', -r.total);
+    }
+    if (!r.edit) report.timeline.push({ at: time(r.date), kind: 'expense', text: `Refund · ${methodLabel(how)}`, amount: r.total });
+  }
+
   // Cash and M-Pesa always show, even at zero, so the owner sees they were checked.
   for (const m of ['Cash', 'M-Pesa']) if (!methods.has(m)) methods.set(m, { method: m, sales: 0, debt: 0, total: 0 });
   report.moneyIn = [...methods.values()]
@@ -231,10 +255,10 @@ export function buildShiftReport(input: ShiftReportInput): ShiftReport {
   report.moneyInTotal = round(report.moneyIn.reduce((n, m) => n + m.total, 0));
   report.timeline.sort((a, b) => a.at - b.at);
 
-  for (const key of ['salesTotal', 'cash', 'mpesa', 'airtel', 'card', 'bank', 'credit', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses', 'debtRepaidTotal'] as const) {
+  for (const key of ['salesTotal', 'cash', 'mpesa', 'airtel', 'card', 'bank', 'credit', 'expensesTotal', 'cashDebtRepaid', 'cashExpenses', 'debtRepaidTotal', 'refundsTotal', 'cashRefunds'] as const) {
     report[key] = round(report[key]);
   }
-  report.expectedCash = round(report.cash + report.cashDebtRepaid - report.cashExpenses);
+  report.expectedCash = round(report.cash + report.cashDebtRepaid - report.cashExpenses - report.cashRefunds);
   return report;
 }
 
@@ -294,6 +318,7 @@ export function shiftReportText(r: ShiftReport, extra: { countedCash?: number | 
   r.moneyIn.forEach((m) => lines.push(`- ${methodLabel(m.method)}: ${ksh(m.total)}${m.debt ? ` (incl. ${ksh(m.debt)} debt repaid)` : ''}`));
   lines.push(`- Total: ${ksh(r.moneyInTotal)}${r.credit ? `, plus ${ksh(r.credit)} on credit` : ''}`);
   if (r.cashExpenses) lines.push(`- Cash spent: ${ksh(r.cashExpenses)}`);
+  if (r.refundsTotal) lines.push(`- Refunds given: ${ksh(r.refundsTotal)}${r.cashRefunds ? ` (${ksh(r.cashRefunds)} in cash)` : ''}`);
   lines.push(`- Cash to hand over: ${ksh(r.expectedCash)}${counted !== null ? `, counted ${ksh(counted)}${diffText}` : ''}`);
 
   const attention = shiftAttention(r, counted);

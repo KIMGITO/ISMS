@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { NumberInput } from './shared/Input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, LogOut, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { useInventoryStore } from '../stores/inventoryStore';
@@ -13,6 +14,7 @@ import type { Expense } from '../types';
 import { useBusinessStore } from '../stores/businessStore';
 import { getSupabase } from '../services/supabaseClient';
 import { toUuid } from '../utils/idUtils';
+import { loadTillRefunds, type TillRefund } from '../services/salesDocs';
 import { buildShiftReport, finishShift, ksh, methodLabel, shiftAttention, shiftClock, shiftLength, shiftReportText } from '../services/shiftReport';
 
 interface EndShiftModalProps {
@@ -38,6 +40,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [refunds, setRefunds] = useState<TillRefund[]>([]);
   const [now, setNow] = useState(() => Date.now());
 
   // Expenses aren't kept in a store, so they're loaded when the report opens.
@@ -49,6 +52,7 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
     // entries, plus expenses they recorded themselves (cashiers can't read other expenses).
     const businessId = useBusinessStore.getState().activeBusinessId;
     const from = activeShift?.startTime || new Date(Date.now() - 864e5).toISOString();
+    if (businessId) loadTillRefunds(businessId, from).then(setRefunds).catch(() => setRefunds([]));
     const name = currentEmployee?.name;
     const petty: Promise<Expense[]> = businessId
       ? Promise.resolve(getSupabase()
@@ -95,9 +99,10 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
       customers,
       productionBatches,
       billOfMaterials,
+      refunds,
       now,
     });
-  }, [activeShift, currentEmployee, transactions, debtPayments, expenses, products, customers, productionBatches, billOfMaterials, now]);
+  }, [activeShift, currentEmployee, transactions, debtPayments, expenses, products, customers, productionBatches, billOfMaterials, refunds, now]);
 
   const countedCash = counted.trim() === '' ? null : Number(counted);
   const countedValid = countedCash === null || (Number.isFinite(countedCash) && countedCash >= 0);
@@ -236,19 +241,21 @@ export default function EndShiftModal({ isOpen, onClose, onDone }: EndShiftModal
                   <Line label="Cash sales" value={ksh(report.cash)} />
                   {report.cashDebtRepaid > 0 && <Line label="+ Debt repaid in cash" value={ksh(report.cashDebtRepaid)} />}
                   {report.cashExpenses > 0 && <Line label="− Cash spent" value={ksh(report.cashExpenses)} />}
+                  {report.cashRefunds > 0 && <Line label="− Cash given back" value={ksh(report.cashRefunds)} />}
                   <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-app-border">
                     <span className="text-sm font-medium text-app-text">Cash to hand over</span>
                     <span className="text-sm font-semibold text-app-text tabular-nums">{ksh(report.expectedCash)}</span>
                   </div>
                   <label className="flex items-center justify-between gap-3">
                     <span className="text-xs text-app-text-muted">Cash counted</span>
-                    <input
-                      inputMode="decimal"
+                    <NumberInput
                       value={counted}
-                      onChange={(e) => setCounted(e.target.value.replace(/[^\d.]/g, ''))}
+                      onChange={(n) => setCounted(n == null ? '' : String(n))}
+                      min={0}
                       placeholder="Count the drawer"
-                      aria-invalid={!countedValid}
-                      className="w-36 text-right bg-app-card text-app-text text-sm px-3 py-2 rounded-lg focus:outline-none tabular-nums"
+                      invalid={!countedValid}
+                      className="w-36 bg-app-card"
+                      inputClassName="text-right tabular-nums"
                     />
                   </label>
                   {diff !== null && (

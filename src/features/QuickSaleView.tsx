@@ -16,6 +16,7 @@ import { displayName, searchMatch } from '../utils/stringUtils';
 import { toUserMessage } from '../utils/userError';
 import { useVatPercent } from '../services/kra/kraService';
 import { useKeyboardVisible } from '../hooks/useKeyboardVisible';
+import { NumberInput } from '../components/shared/Input';
 
 const PAY_OPTIONS: Array<{ method: PaymentMethod; label: string; key: string; icon: typeof Banknote; style: string }> = [
   // Same numbers as POS: Alt+1 Cash, Alt+2 M-Pesa, Alt+4 Card, Alt+6 Airtel Money.
@@ -45,33 +46,32 @@ function QtyInput({ value, unit, label, draft, onStart, onDraft, onCommit, onCan
   onCancel: () => void;
 }) {
   return (
-    <label className="relative flex flex-col items-center">
-      <span className="sr-only">{label}</span>
-      <motion.input
+    <div className="relative flex flex-col items-center">
+      <motion.div
         key={value}
         initial={{ scale: 1.18 }}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-        type="text"
-        inputMode="decimal"
-        enterKeyHint="done"
-        autoComplete="off"
-        value={draft ?? formatQty(value)}
-        onFocus={(e) => { onStart(e.target); requestAnimationFrame(() => e.target.select()); }}
-        onChange={(e) => {
-          const next = e.target.value;
-          if (/^\d*([.,]\d{0,3})?$/.test(next)) onDraft(next);
-        }}
-        onBlur={onCommit}
-        onKeyDown={(e) => {
-          e.stopPropagation(); // keep the screen's + / − / Enter shortcuts out of the box
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          if (e.key === 'Escape') onCancel();
-        }}
-        className="w-14 h-10 rounded-md bg-app-bg text-center text-sm font-bold text-app-text tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
-      />
+      >
+        <NumberInput
+          aria-label={label}
+          value={draft ?? value}
+          onChange={(n) => onDraft(n == null ? '' : formatQty(n))}
+          min={0}
+          decimals={3}
+          grouping={false}
+          onFocus={(e) => onStart(e.target)}
+          onBlur={onCommit}
+          onKeyDown={(e) => {
+            e.stopPropagation(); // keep the screen's + / − / Enter shortcuts out of the box
+            if (e.key === 'Escape') onCancel();
+          }}
+          className="w-14 !h-10 !px-1"
+          inputClassName="text-center font-bold tabular-nums"
+        />
+      </motion.div>
       {unit && <span className="text-[10px] leading-none mt-0.5 text-app-text-muted">{unit}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -593,93 +593,6 @@ export default function QuickSaleView() {
                 onMouseDown={keepFocus}
                 onClick={() => editInputRef.current?.blur()}
                 className="h-12 rounded-lg bg-amber-500 text-slate-950 font-bold cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      );
-    })()}
-    {showQtyPanel && editing && (() => {
-      const item = cart.find((i) => i.product.id === editing.id);
-      if (!item) return null;
-      const qty = parseQty(editing.draft) ?? 0;
-      const each = item.product.price * (1 - item.discountPercentage / 100);
-      const line = each * qty;
-      const newTotal = (subtotal - each * item.quantity + line) * (1 + taxRate);
-      const overStock = qty > item.product.stock;
-      const unit = item.product.unit || '';
-      // Buttons keep the focus in the quantity box, so the keyboard stays open.
-      const keepFocus = (e: React.PointerEvent | React.MouseEvent) => e.preventDefault();
-      return (
-        <div
-          className="fixed inset-x-0 z-50 flex flex-col md:hidden"
-          style={{ top: visibleArea.top, height: visibleArea.height }}
-        >
-          <div className="flex-1 bg-black/50" onPointerDown={keepFocus} onClick={() => editInputRef.current?.blur()} />
-          <motion.div
-            role="dialog"
-            aria-label={`Quantity of ${item.product.name}`}
-            initial={{ y: 24, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            className="bg-app-card border-t border-app-border px-4 pt-3 pb-3 space-y-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.45)]"
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-base font-semibold text-app-text truncate">{displayName(item.product.name)}</p>
-              <p className="shrink-0 text-sm text-app-text-muted">{formatCurrency(each)}{unit ? ` / ${unit}` : ' each'}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="One less"
-                onPointerDown={keepFocus}
-                onClick={() => stepDraft(-1)}
-                className="w-14 h-14 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
-              >
-                <Minus size={20} />
-              </button>
-              <p className="flex-1 h-14 flex items-center justify-center gap-1.5 rounded-lg bg-app-bg ring-2 ring-amber-500 text-3xl font-bold text-app-text tabular-nums" aria-live="polite">
-                {editing.draft || '0'}
-                {unit && <span className="text-base font-medium text-app-text-muted">{unit}</span>}
-              </p>
-              <button
-                type="button"
-                aria-label="One more"
-                onPointerDown={keepFocus}
-                onClick={() => stepDraft(1)}
-                className="w-14 h-14 flex items-center justify-center rounded-lg bg-app-bg text-app-text cursor-pointer"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-app-text-muted tabular-nums">{formatCurrency(each)} × {formatQty(qty)}</span>
-              <span className="text-lg font-bold text-app-text">{formatCurrency(line)}</span>
-            </div>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-app-text-muted">Sale total{taxRate > 0 ? ' incl. tax' : ''}</span>
-              <span className="text-xl font-bold text-amber-600">{formatCurrency(newTotal)}</span>
-            </div>
-            {overStock && (
-              <p className="text-xs text-red-600">Only {formatQty(item.product.stock)} {unit} left. The quantity will be capped.</p>
-            )}
-            {qty === 0 && <p className="text-xs text-app-text-muted">0 removes this item.</p>}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onPointerDown={keepFocus}
-                onClick={cancelEdit}
-                className="h-11 rounded-lg bg-app-bg text-app-text text-sm font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepFocus}
-                onClick={() => editInputRef.current?.blur()}
-                className="h-11 rounded-lg bg-amber-500 text-slate-950 text-sm font-bold cursor-pointer"
               >
                 Done
               </button>

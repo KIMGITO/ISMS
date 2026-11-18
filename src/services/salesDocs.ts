@@ -476,22 +476,76 @@ export async function loadSaleRefund(transactionId: string): Promise<SaleRefundI
 }
 
 /** Credit notes made from till sales, keyed by sale, for the Sales Log. */
-export async function loadSaleCreditNotes(businessId: string): Promise<Map<string, { number: string; total: number }[]>> {
+export async function loadSaleCreditNotes(businessId: string): Promise<Map<string, { number: string; total: number; edit: boolean }[]>> {
   const { data, error } = await getSupabase()
     .from('credit_notes')
-    .select('number, total, transaction_id')
+    .select('number, total, transaction_id, reason')
     .eq('business_id', toUuid(businessId))
     .not('transaction_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error) throw error;
-  const map = new Map<string, { number: string; total: number }[]>();
+  const map = new Map<string, { number: string; total: number; edit: boolean }[]>();
   for (const r of data || []) {
     const list = map.get(r.transaction_id) || [];
-    list.push({ number: r.number, total: n(r.total) });
+    list.push({ number: r.number, total: n(r.total), edit: r.reason === EDIT_REFUND_REASON });
     map.set(r.transaction_id, list);
   }
   return map;
+}
+
+/** A refund of a till sale, as the dashboards and shift report count it. */
+export interface TillRefund {
+  id: string;
+  transactionId: string;
+  businessId: string;
+  /** When the refund was made (not when the sale was). */
+  date: string;
+  total: number;
+  /** Cost of goods that went back on the shelf (0 when they were thrown away). */
+  cost: number;
+  settlement: 'refund' | 'wallet' | 'debt' | string;
+  /** How money was paid back, for settlement 'refund'. */
+  method: string | null;
+  createdBy: string;
+  /** The take-back of an edited sale: balances the figures but is not shown as a refund. */
+  edit: boolean;
+  lines: { productId: string | null; name: string; quantity: number; total: number }[];
+}
+
+/** The reason saved on the take-back of an edited sale (Sales Log → Edit sale). */
+export const EDIT_REFUND_REASON = 'Sale corrected (redone in the till)';
+
+/** Fired after a refund is saved, so open screens reload their refunds. */
+export const REFUND_EVENT = 'isms:refund-recorded';
+
+/** Refunds of till sales for these branches, made on or after `sinceIso`. */
+export async function loadTillRefunds(businessIds: string | string[], sinceIso?: string): Promise<TillRefund[]> {
+  const ids = (Array.isArray(businessIds) ? businessIds : [businessIds]).filter(Boolean).map((id) => toUuid(id));
+  if (ids.length === 0) return [];
+  let q = getSupabase()
+    .from('credit_notes')
+    .select('id, business_id, transaction_id, created_at, total, cost_total, return_stock, settlement, refund_method, created_by, reason, credit_note_lines(product_id, name, quantity, line_total)')
+    .in('business_id', ids)
+    .not('transaction_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (sinceIso) q = q.gte('created_at', sinceIso);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    transactionId: r.transaction_id,
+    businessId: r.business_id,
+    date: r.created_at,
+    total: n(r.total),
+    cost: r.return_stock ? n(r.cost_total) : 0,
+    settlement: s(r.settlement),
+    method: r.refund_method ?? null,
+    createdBy: s(r.created_by),
+    edit: r.reason === EDIT_REFUND_REASON,
+    lines: (r.credit_note_lines || []).map((l: any) => ({ productId: l.product_id ?? null, name: s(l.name), quantity: n(l.quantity), total: n(l.line_total) })),
+  }));
 }
 
 // ---------------------------------------------------------------- changing

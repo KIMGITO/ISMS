@@ -20,6 +20,8 @@ import {
   pickGranularity, previousRange, stockSummary, toDateInput, kenyaNow, kenyaTime, METHODS, type RangeKey, type BranchSale, type MethodKey,
 } from "./metrics";
 import { fetchBranchSales } from "./branchSales";
+import { loadTillRefunds, REFUND_EVENT, type TillRefund } from "../../services/salesDocs";
+import { loadRiderPayOwed, spendingWithRiderPay } from "../../services/riderPay";
 import {
   TrendChart, BranchTrendChart, HoursChart, RankedBars, ShareBar, SeriesToggle, EmptyChart, GrowthBars, Sparkline,
   CATEGORY_COLORS, type SeriesKey,
@@ -55,6 +57,20 @@ export default function HomeDashboard() {
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  // Rider pay counts as spending on the day it's owed, not when the rider is paid
+  // (20261130004): reloaded whenever sales or expenses change.
+  const [riderOwed, setRiderOwed] = useState<Expense[]>([]);
+  const txCount = Array.isArray(transactions) ? transactions.length : 0;
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    let live = true;
+    loadRiderPayOwed(activeBusinessId)
+      .then((rows) => { if (live) setRiderOwed(rows); })
+      .catch((err) => console.error("Home could not load rider pay", err));
+    return () => { live = false; };
+  }, [activeBusinessId, txCount, expenses]);
+  const spendingRows = useMemo(() => spendingWithRiderPay(expenses, riderOwed), [expenses, riderOwed]);
+
   useEffect(() => {
     if (!activeBusinessId) return;
     let unsubExp: (() => void) | undefined;
@@ -101,6 +117,23 @@ export default function HomeDashboard() {
     };
   }, [activeBusinessId]);
 
+  // Refunds of till sales: they come off sales, cost and money in on the day they are made.
+  const [refunds, setRefunds] = useState<TillRefund[]>([]);
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    let live = true;
+    const load = () =>
+      loadTillRefunds(activeBusinessId)
+        .then((r) => live && setRefunds(r))
+        .catch(() => {});
+    load();
+    window.addEventListener(REFUND_EVENT, load);
+    return () => {
+      live = false;
+      window.removeEventListener(REFUND_EVENT, load);
+    };
+  }, [activeBusinessId, transactions.length]);
+
   // Re-evaluated each minute so "today" rolls over without a reload.
   const [now, setNow] = useState(() => kenyaNow());
   useEffect(() => {
@@ -117,8 +150,8 @@ export default function HomeDashboard() {
   const playback = usePlayback(buckets, range.start);
 
   const data = useMemo(
-    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments, pointsToDebt, pointsDiscounts }, range, buckets),
-    [transactions, expenses, debtPayments, payments, pointsToDebt, pointsDiscounts, range, buckets],
+    () => analyse({ transactions: Array.isArray(transactions) ? transactions : [], expenses: spendingRows, debtPayments: Array.isArray(debtPayments) ? debtPayments : [], payments, pointsToDebt, pointsDiscounts, refunds }, range, buckets),
+    [transactions, spendingRows, debtPayments, payments, pointsToDebt, pointsDiscounts, refunds, range, buckets],
   );
   const { total, previous, series, cumulative } = data;
   const at = (frame: number | null) => (frame === null ? total : cumulative[frame] || total);
@@ -140,6 +173,8 @@ export default function HomeDashboard() {
   }, [branchList, prev.start.getTime(), range.end.getTime()]);
   useEffect(() => {
     loadBranches();
+    window.addEventListener(REFUND_EVENT, loadBranches);
+    return () => window.removeEventListener(REFUND_EVENT, loadBranches);
   }, [loadBranches]);
   const branches = useMemo(
     () => analyseBranches(branchList, branchSales, range, buckets).map((b, i) => ({ ...b, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] })),
@@ -171,7 +206,7 @@ export default function HomeDashboard() {
 
   // ---------- Chart definitions (shared by the page and the full-screen viewer) ----------
   const productRows = (frame: number | null) =>
-    [...at(frame).products.entries()].map(([k, v]) => ({ key: k, label: v.name, value: v.revenue, note: `${+v.qty.toFixed(2)} sold` }));
+    [...at(frame).products.entries()].filter(([, v]) => v.revenue > 0).map(([k, v]) => ({ key: k, label: v.name, value: v.revenue, note: `${+v.qty.toFixed(2)} sold` }));
   const productScale = Math.max(0, ...[...total.products.values()].map((p) => p.revenue));
   const expenseRows = (frame: number | null) => {
     const s = at(frame);
@@ -180,9 +215,10 @@ export default function HomeDashboard() {
       ...[...s.expenseCategories.entries()].map(([k, v]) => ({ key: k, label: k, value: v })),
       ...(s.pointsCost > 0 ? [{ key: "points-debt", label: "Points: debt paid off", value: s.pointsCost }] : []),
       ...(s.pointsDiscounts > 0 ? [{ key: "points-discounts", label: "Points: discounts", value: s.pointsDiscounts, note: "already off sales" }] : []),
+      ...(s.refunds > 0 ? [{ key: "refunds", label: "Refunds", value: s.refunds, note: "already off sales" }] : []),
     ];
   };
-  const expenseScale = Math.max(total.cost, total.pointsCost, total.pointsDiscounts, ...total.expenseCategories.values(), 0);
+  const expenseScale = Math.max(total.cost, total.pointsCost, total.pointsDiscounts, total.refunds, ...total.expenseCategories.values(), 0);
   const methodParts = (frame: number | null) => {
     const r = at(frame).received;
     return METHODS.map((m, i) => ({ key: m, label: METHOD_LABEL[m], value: r[m], color: m === "Credit" ? "var(--viz-muted)" : CATEGORY_COLORS[i] }));

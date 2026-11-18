@@ -58,6 +58,7 @@ import { useInventoryStore } from '../stores/inventoryStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { hasRolePermission, PermissionCode } from '../utils/permissions';
 import EndShiftModal from '../components/EndShiftModal';
+import WorkedHoursPanel from '../components/WorkedHoursPanel';
 import NotificationService from '../services/notifications/notificationService';
 import { useAuthStore } from '../stores/authStore';
 import { Checkbox } from '../components/shared/Checkbox';
@@ -1441,6 +1442,10 @@ export default function DashboardView() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="lg:col-span-3">
+          <WorkedHoursPanel />
         </div>
       </div>
       {/* Modals & Forms */}

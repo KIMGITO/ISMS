@@ -58,6 +58,7 @@ import { buildStockReport, normalizeRaw, periodRange as stockPeriodRange, stockR
 import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
 import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
 import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
+import { formatHours, minutesWithin, periodRange } from "../utils/workedHours";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -899,6 +900,22 @@ runTest("Home figures: ranges, slots, growth and money received", () => {
   // Points used at the till are already off the sale, so profit is not cut twice.
   const discounted = analyse({ transactions: [], expenses: [], debtPayments: [], payments: [], pointsDiscounts: [{ date: at(3), value: 40 }] }, week, buckets);
   eq(discounted.total.pointsDiscounts, 40, "points discounts are shown as spent");
+  // A refund comes off sales, cost (goods back on the shelf) and the money it was paid back in.
+  const refunded = analyse(
+    { transactions: [tx(2, 200, "Cash", 2)], expenses: [], debtPayments: [], payments: [],
+      refunds: [{ date: at(3), total: 100, cost: 60, settlement: "refund", method: "Cash", lines: [{ productId: "p1", name: "Milk", quantity: 1, total: 100 }] }] },
+    week, buckets,
+  );
+  eq([refunded.total.sales, refunded.total.cost, refunded.total.received.Cash, refunded.total.refunds, refunded.total.orders], [100, 60, 100, 100, 1], "refund balances sales, cost and cash");
+  eq(refunded.total.products.get("p1")?.qty, 1, "refunded units come off units sold");
+  eq(refunded.total.profit, 40, "profit after a refund");
+  // An edit: the sale taken back and redone shows only the corrected sale, no refund line.
+  const edited = analyse(
+    { transactions: [tx(2, 200, "Cash", 2), tx(2.5, 100, "Cash", 1)], expenses: [], debtPayments: [], payments: [],
+      refunds: [{ date: at(2, 11), total: 200, cost: 120, settlement: "refund", method: "Cash", edit: true, lines: [{ productId: "p1", name: "Milk", quantity: 2, total: 200 }] }] },
+    week, buckets,
+  );
+  eq([edited.total.sales, edited.total.cost, edited.total.received.Cash, edited.total.refunds, edited.total.orders], [100, 60, 100, 0, 1], "edit nets out to the redone sale");
   eq(discounted.total.profit, 0, "points discounts do not come off profit twice");
 
   const rows = analyseBranches(
@@ -1022,6 +1039,12 @@ runTest("End-of-shift report figures and text", () => {
   if (order.some((i) => i < 0) || order.some((i, n) => n && i < order[n - 1])) throw new Error("sections missing or out of order:\n" + text);
   const low = buildShiftReport({ shift: { startTime: t(5), endTime: t(14) }, employee: { id: "e1", name: "Jane" }, transactions: [sale("a", "Cash", 120, 2)], debtPayments: [], expenses: [], products: [{ ...milk, stock: 0 }], customers: [], productionBatches: [], billOfMaterials: [] });
   eq(shiftAttention(low, null), ["Cash in the drawer was not counted", "Milk is out of stock"], "uncounted cash and empty stock are flagged");
+  // A cash refund comes out of the drawer; an edit leaves only the redone sale in the report.
+  const base = { shift: { startTime: t(5), endTime: t(14) }, employee: { id: "e1", name: "Jane" }, debtPayments: [], expenses: [], products: [milk], customers: [], productionBatches: [], billOfMaterials: [] };
+  const withRefund = buildShiftReport({ ...base, transactions: [sale("a", "Cash", 120, 2)], refunds: [{ transactionId: "a", date: t(9), total: 60, settlement: "refund", method: "Cash", createdBy: "Jane" }] });
+  eq([withRefund.expectedCash, withRefund.refundsTotal, withRefund.cashRefunds], [60, 60, 60], "cash refund leaves the drawer");
+  const withEdit = buildShiftReport({ ...base, transactions: [sale("a", "Cash", 120, 2), sale("b", "Cash", 60, 1, 10)], refunds: [{ transactionId: "a", date: t(10), total: 120, settlement: "refund", method: "Cash", createdBy: "Jane", edit: true }] });
+  eq([withEdit.salesCount, withEdit.salesTotal, withEdit.expectedCash, withEdit.refundsTotal, withEdit.products[0].sold], [1, 60, 60, 0, 1], "edited sale shows only the redone sale");
 });
 
 
@@ -1427,6 +1450,22 @@ runTest("Card amounts and Paystack answers are read correctly", () => {
   const card = cardDetails({ authorization: { last4: "4081", brand: "visa " } });
   if (card.last4 !== "4081" || card.brand !== "visa") throw new Error("card details");
   if (cardDetails({ authorization: { last4: "40x1" } }).last4 !== null) throw new Error("bad last4 is dropped");
+});
+
+
+runTest("Worked hours: periods start on Monday / the 1st, and shifts are cut to the period", () => {
+  const wk = periodRange("week", new Date(2026, 10, 18, 15)); // Wed 18 Nov 2026
+  if (wk.from.getDate() !== 16 || wk.from.getDay() !== 1 || wk.to.getDate() !== 23) throw new Error(`week ${wk.from} – ${wk.to}`);
+  const mo = periodRange("month", new Date(2026, 10, 18));
+  if (mo.from.getDate() !== 1 || mo.to.getMonth() !== 11) throw new Error("month");
+  const day = periodRange("day", new Date(2026, 10, 18, 9));
+  // Night shift 22:00 on the 17th to 06:00 on the 18th: 6 h fall on the 18th.
+  const night = { startTime: new Date(2026, 10, 17, 22).toISOString(), endTime: new Date(2026, 10, 18, 6).toISOString() };
+  if (minutesWithin(night, day.from, day.to) !== 360) throw new Error("night shift cut to the day");
+  // Still clocked in since 08:00, now 10:30: 2h 30m.
+  const open = { startTime: new Date(2026, 10, 18, 8).toISOString(), endTime: null };
+  const m = minutesWithin(open, day.from, day.to, new Date(2026, 10, 18, 10, 30).getTime());
+  if (m !== 150 || formatHours(m) !== "2h 30m" || formatHours(45) !== "45m") throw new Error(`open shift ${m}`);
 });
 
 runTest("Daily stock report: opening, where it went, closed, paid and not paid", () => {

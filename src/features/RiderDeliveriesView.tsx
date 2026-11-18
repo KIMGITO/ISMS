@@ -5,7 +5,8 @@
 
 import { Tabs } from '../components/TabOptions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, MapPin, Navigation, Phone, Truck, Wallet } from 'lucide-react';
+import { Clock, MapPin, Navigation, Phone, Route, Truck, Wallet } from 'lucide-react';
+import DeliveryTripsBoard from '../components/DeliveryTripsBoard';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import { getSupabase } from '../services/supabaseClient';
 import { useAppStore } from '../stores/appStore';
@@ -15,7 +16,7 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 
 type DeliveryStatus = 'assigned' | 'out_for_delivery' | 'delivered' | 'failed';
-type TabId = 'requests' | 'mine' | 'history' | 'zones';
+type TabId = 'requests' | 'mine' | 'history' | 'trips' | 'zones';
 
 interface Delivery {
   source: 'online' | 'sale';
@@ -30,8 +31,12 @@ interface Delivery {
   delivery_fee: number;
   /** How the delivery is paid (20261125001): on the shop's bill, to the rider in cash, or free. */
   delivery_mode?: 'charged' | 'rider_collects' | 'free';
-  /** What the rider earns for it. */
+  /** What the rider earns for it: their share of the trip pay when it is in a trip. */
   rider_pay?: number;
+  /** One round for several deliveries, paid once (20261130001). */
+  trip_id?: string | null;
+  trip_pay?: number | null;
+  trip_size?: number | null;
   status: DeliveryStatus;
   assigned_at: string;
   delivered_at: string | null;
@@ -64,6 +69,19 @@ function waitingFor(iso: string) {
   return hours < 24 ? `Waiting ${hours} h ${minutes % 60} min` : `Waiting ${Math.floor(hours / 24)} d`;
 }
 
+/** Trip members next to each other, in the order the first of each appears. */
+function tripsTogether(list: Delivery[]): Delivery[] {
+  const out: Delivery[] = [];
+  const done = new Set<string>();
+  for (const d of list) {
+    if (!d.trip_id) { out.push(d); continue; }
+    if (done.has(d.trip_id)) continue;
+    done.add(d.trip_id);
+    out.push(...list.filter((x) => x.trip_id === d.trip_id));
+  }
+  return out;
+}
+
 const isMissingFunction = (err: unknown) => (err as { code?: string } | null)?.code === 'PGRST202';
 
 export default function RiderDeliveriesView() {
@@ -80,6 +98,7 @@ export default function RiderDeliveriesView() {
   const isRider = role === 'Rider';
   const canComplete = hasRolePermission(role, 'deliveries.complete');
   const canCancel = hasRolePermission(role, 'deliveries.cancel');
+  const canGroup = hasRolePermission(role, 'deliveries.assign');
 
   const load = useCallback(async () => {
     if (!activeBusinessId) return;
@@ -165,6 +184,12 @@ export default function RiderDeliveriesView() {
     const place = [d.area, d.address].filter(Boolean).join(', ');
     return (
       <>
+        {d.trip_id && (
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+            <Route size={12} /> One trip with {Math.max(0, (d.trip_size ?? 1) - 1)} other{(d.trip_size ?? 1) - 1 === 1 ? '' : 's'}
+            {Number(d.trip_pay) > 0 && ` · ${formatCurrency(Number(d.trip_pay))} for the whole trip`}
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold">{d.customer_name}</h3>
           <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold">
@@ -213,7 +238,7 @@ export default function RiderDeliveriesView() {
   const renderList = (list: Delivery[] | null, empty: string, render: (d: Delivery) => React.ReactNode) => {
     if (list === null) return <p className="text-sm text-app-text-muted">Loading deliveries…</p>;
     if (list.length === 0) return <p className="text-sm text-app-text-muted">{empty}</p>;
-    return list.map((d) => (
+    return tripsTogether(list).map((d) => (
       <article key={keyOf(d)} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
         {render(d)}
       </article>
@@ -258,6 +283,7 @@ export default function RiderDeliveriesView() {
                   { id: 'history' as const, label: 'History', badge: history.length },
                 ]
               : []),
+            ...(canGroup ? [{ id: 'trips' as const, label: 'Trips' }] : []),
             { id: 'zones' as const, label: 'Areas & prices' },
           ]}
           activeTab={currentTab}
@@ -281,7 +307,7 @@ export default function RiderDeliveriesView() {
                 {renderDetails(d, false)}
                 {isRider && canComplete && (
                   <button type="button" disabled={busyKey === keyOf(d)} onClick={() => accept(d)} className={primaryClass}>
-                    Accept delivery
+                    {d.trip_id ? `Accept trip (${d.trip_size ?? 2} deliveries)` : 'Accept delivery'}
                   </button>
                 )}
               </>
@@ -332,7 +358,7 @@ export default function RiderDeliveriesView() {
                     )}
                     {canComplete && d.status === 'assigned' && !requestsMissing && (
                       <button type="button" disabled={busy} onClick={() => giveBack(d)} className={secondaryClass}>
-                        Give back
+                        {d.trip_id ? 'Give back trip' : 'Give back'}
                       </button>
                     )}
                     {canCancel && (
@@ -347,6 +373,10 @@ export default function RiderDeliveriesView() {
           })}
 
         {currentTab === 'history' && renderList(history, 'No past deliveries yet.', (d) => renderDetails(d, true))}
+
+        {currentTab === 'trips' && canGroup && activeBusinessId && (
+          <DeliveryTripsBoard businessId={activeBusinessId} onChanged={() => load().catch(() => undefined)} />
+        )}
 
         {currentTab === 'zones' && activeBusinessId && <DeliveryZonesEditor businessId={activeBusinessId} />}
       </div>

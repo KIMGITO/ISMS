@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2, History, X } from "lucide-react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2, History, X, Pencil } from "lucide-react";
 import { SheetLayer } from "../components/shared/SheetLayer";
 import { listSaleEdits, describeChanges, describeAction, type AuditEntry } from "../services/operations";
 import { hasRolePermission } from "../utils/permissions";
@@ -20,7 +20,7 @@ import { useBusinessStore } from "../stores/businessStore";
 import { useTransactionStore } from "../stores/transactionStore";
 import { toUserMessage } from "../utils/userError";
 import { RefundSheet } from "../components/sales/RefundSheet";
-import { loadSaleCreditNotes } from "../services/salesDocs";
+import { loadSaleCreditNotes, REFUND_EVENT } from "../services/salesDocs";
 import { Tabs } from "../components/TabOptions";
 import QuotesPanel from "../components/sales/QuotesPanel";
 
@@ -104,12 +104,19 @@ export default function SalesView() {
     return hasRolePermission(role, "pos.cancel_sale") && kenyaDay(new Date(tx.timestamp)) === kenyaDay(new Date());
   };
   const [refunding, setRefunding] = useState<Transaction | null>(null);
-  const [refunds, setRefunds] = useState<Map<string, { number: string; total: number }[]>>(new Map());
+  // Edit = take the whole sale back, then redo it in the till (RefundSheet in edit mode).
+  const [refundMode, setRefundMode] = useState<'refund' | 'edit'>('refund');
+  const startRefund = (tx: Transaction, mode: 'refund' | 'edit') => { setRefundMode(mode); setRefunding(tx); };
+  const [refunds, setRefunds] = useState<Map<string, { number: string; total: number; edit: boolean }[]>>(new Map());
   const loadRefunds = React.useCallback(() => {
     if (!businessId) return;
     loadSaleCreditNotes(businessId).then(setRefunds).catch(() => undefined);
   }, [businessId]);
-  useEffect(() => { loadRefunds(); }, [loadRefunds, transactions.length]);
+  useEffect(() => {
+    loadRefunds();
+    window.addEventListener(REFUND_EVENT, loadRefunds);
+    return () => window.removeEventListener(REFUND_EVENT, loadRefunds);
+  }, [loadRefunds, transactions.length]);
 
   // Every change to a sale after it was made is logged by the database; people who can see
   // the audit log see it here, on the sale.
@@ -163,11 +170,12 @@ export default function SalesView() {
         byDay.set(k, sec);
       }
       sec.txs.push(tx);
-      sec.total += tx.finalTotal || 0;
+      // A day's total is what was kept: refunds on its sales come off.
+      sec.total += (tx.finalTotal || 0) - (refunds.get(tx.id) || []).reduce((n, r) => n + r.total, 0);
     }
     // Map keeps insertion order: today first, then days in the order of the newest-first sales.
     return Array.from(byDay.values());
-  }, [transactions]);
+  }, [transactions, refunds]);
 
   // No sales yet today: open the latest day that has some (once, so a tap to close sticks).
   const autoOpened = React.useRef(false);
@@ -239,12 +247,14 @@ export default function SalesView() {
           </div>
         }
         actions={[
-          { label: 'Refund', icon: <Undo2 size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => setRefunding(tx) },
+          { label: 'Edit', icon: <Pencil size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => startRefund(tx, 'edit') },
+          { label: 'Refund', icon: <Undo2 size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => startRefund(tx, 'refund') },
           { label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
         more={[
           { label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) },
-          { label: 'Refund (credit note)', icon: <Undo2 size={16} />, hidden: !canRefund(tx), onClick: () => setRefunding(tx) },
+          { label: 'Edit sale (redo in the till)', icon: <Pencil size={16} />, hidden: !canRefund(tx), onClick: () => startRefund(tx, 'edit') },
+          { label: 'Refund (credit note)', icon: <Undo2 size={16} />, hidden: !canRefund(tx), onClick: () => startRefund(tx, 'refund') },
           { label: `Changes made to this sale (${edits.get(tx.id)?.length ?? 0})`, icon: <History size={16} />, hidden: !edits.get(tx.id)?.length, onClick: () => setEditsOf(tx) },
           { label: 'Delete sale', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
@@ -278,7 +288,7 @@ export default function SalesView() {
             ) : null}
             {refunds.get(tx.id)?.length ? (
               <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300" title={refunds.get(tx.id)!.map((r) => `${r.number} ${formatCurrency(r.total)}`).join(', ')}>
-                Refunded {formatCurrency(refunds.get(tx.id)!.reduce((s, r) => s + r.total, 0))} · {refunds.get(tx.id)![0].number}
+                {refunds.get(tx.id)!.some((r) => r.edit) ? 'Edited, redone in the till' : <>Refunded {formatCurrency(refunds.get(tx.id)!.reduce((s, r) => s + r.total, 0))} · {refunds.get(tx.id)![0].number}</>}
               </span>
             ) : null}
           </div>
@@ -403,9 +413,10 @@ export default function SalesView() {
       <ReceiptSheet
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
-        onRefund={selectedTx && canRefund(selectedTx) ? () => { setRefunding(selectedTx); setSelectedTx(null); } : undefined}
+        onRefund={selectedTx && canRefund(selectedTx) ? () => { startRefund(selectedTx, 'refund'); setSelectedTx(null); } : undefined}
+        onEdit={selectedTx && canRefund(selectedTx) ? () => { startRefund(selectedTx, 'edit'); setSelectedTx(null); } : undefined}
       />
-      {refunding && <RefundSheet transactionId={refunding.id} onClose={() => setRefunding(null)} onDone={() => loadRefunds()} />}
+      {refunding && <RefundSheet transactionId={refunding.id} mode={refundMode} onClose={() => setRefunding(null)} onDone={() => loadRefunds()} />}
       {editsOf && (
         <SaleEditsSheet sale={editsOf} entries={edits.get(editsOf.id) ?? []} onClose={() => setEditsOf(null)} />
       )}

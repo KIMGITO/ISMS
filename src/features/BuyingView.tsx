@@ -24,6 +24,7 @@ import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../compo
 import { appDialog } from '../components/AppDialog';
 import { BillSheet, PayBillSheet, ReasonSheet, ReturnSheet } from '../components/buying/BuyingSheets';
 import AskSupplierSheet from '../components/buying/AskSupplierSheet';
+import { BillFilters, RidersToPayList, periodStart, type BillPeriod, type BillStatusFilter } from '../components/RidersToPay';
 import {
   approvePurchase, approveStockTransfer, approveSupplierBill, createSuggestedPurchases, loadBuyingOverview, loadReorder,
   rejectPurchase, requestStockTransfer, saveBuyingSettings, saveReorderSettings, voidSupplierBill, LIMIT_ROLES,
@@ -190,7 +191,7 @@ export default function BuyingView() {
           <ApprovalsTab overview={overview} canApprove={canApprove} canBill={canBill} onChanged={() => void load()} onToast={showToast} />
         )}
         {overview && tab === 'bills' && businessId && (
-          <BillsTab businessId={businessId} overview={overview} canBill={canBill} canPay={canPay} onChanged={() => void load()} onToast={showToast} />
+          <BillsTab businessId={businessId} overview={overview} canBill={canBill} canPay={canPay} canPettyCash={can('pettycash.record')} canExpense={can('expenses.create')} canRemove={can('expenses.delete')} onChanged={() => void load()} onToast={showToast} />
         )}
         {overview && tab === 'returns' && businessId && (
           <ReturnsTab
@@ -622,14 +623,19 @@ function ApprovalsTab({ overview, canApprove, canBill, onChanged, onToast }: {
 
 // ---------------------------------------------------------------- Bills
 
-function BillsTab({ businessId, overview, canBill, canPay, onChanged, onToast }: {
-  businessId: string; overview: BuyingOverview; canBill: boolean; canPay: boolean; onChanged: () => void; onToast: Toast;
+function BillsTab({ businessId, overview, canBill, canPay, canPettyCash, canExpense, canRemove, onChanged, onToast }: {
+  businessId: string; overview: BuyingOverview; canBill: boolean; canPay: boolean; canPettyCash: boolean; canExpense: boolean; canRemove: boolean; onChanged: () => void; onToast: Toast;
 }) {
   const [entering, setEntering] = useState<ToBill | null>(null);
   const [paying, setPaying] = useState<SupplierBill | null>(null);
   const [voiding, setVoiding] = useState<SupplierBill | null>(null);
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
-  const bills = overview.bills.filter((b) => filter === 'all' || b.status === 'open' || b.status === 'needs_check');
+  const [status, setStatus] = useState<BillStatusFilter>('unpaid');
+  const [period, setPeriod] = useState<BillPeriod>('all');
+  const from = periodStart(period);
+  const fromKey = from ? from.toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }) : null;
+  const bills = overview.bills
+    .filter((b) => status === 'all' || (status === 'paid' ? b.status === 'paid' : b.status === 'open' || b.status === 'needs_check'))
+    .filter((b) => !fromKey || b.billDate.slice(0, 10) >= fromKey);
   const owed = overview.bills.filter((b) => b.status === 'open').reduce((s, b) => s + b.balance, 0);
   const notBilled = overview.toBill.reduce((s, t) => s + t.value, 0);
 
@@ -666,19 +672,12 @@ function BillsTab({ businessId, overview, canBill, canPay, onChanged, onToast }:
         )}
       </Card>
 
-      <Card
-        title="Supplier bills"
-        action={
-          <div className="flex bg-app-bg rounded-xl p-1 ring-1 ring-app-border">
-            {(['open', 'all'] as const).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f} className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer ${filter === f ? 'bg-amber-500 text-slate-950' : 'text-app-text-muted'}`}>
-                {f === 'open' ? 'To pay' : 'All'}
-              </button>
-            ))}
-          </div>
-        }
-      >
-        {bills.length === 0 ? <p className="text-sm text-app-text-muted">{filter === 'open' ? 'No bills to pay.' : 'No bills yet.'}</p> : (
+      <section className="bg-app-card rounded-2xl ring-1 ring-app-border/70 p-3">
+        <BillFilters status={status} period={period} onStatus={setStatus} onPeriod={setPeriod} />
+      </section>
+
+      <Card title="Supplier bills">
+        {bills.length === 0 ? <p className="text-sm text-app-text-muted">{status === 'unpaid' ? 'No bills to pay.' : status === 'paid' ? 'No paid bills.' : 'No bills.'}</p> : (
           <ul className="divide-y divide-app-border/60">
             {bills.map((b) => {
               const late = b.status === 'open' && b.dueDate < todayIso();
@@ -709,6 +708,19 @@ function BillsTab({ businessId, overview, canBill, canPay, onChanged, onToast }:
             })}
           </ul>
         )}
+      </Card>
+
+      <Card title="Riders to pay" subtitle="Deliveries the shop pays the rider for. Riders without an account show by the name typed at the sale.">
+        <RidersToPayList
+          businessId={businessId}
+          canPettyCash={canPettyCash}
+          canAccount={canExpense}
+          canRemove={canRemove}
+          defaultFrom="account"
+          onToast={onToast}
+          status={status}
+          period={period}
+        />
       </Card>
 
       {entering && (

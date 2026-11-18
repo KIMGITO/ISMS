@@ -4,6 +4,7 @@
 // A till payment carries no account number, so it can't be matched automatically.
 
 import { useEffect, useMemo, useState } from 'react';
+import { NumberInput } from './shared/Input';
 import {
   Smartphone, Send, RefreshCw, CheckCircle2, XCircle, Clock, AlertTriangle, User as UserIcon,
   Store, ShoppingCart, EyeOff, Undo2, Settings2, Inbox,
@@ -239,7 +240,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
             </label>
             <label className="flex flex-col gap-1">
               <span className={label}>Amount (KSh, whole shillings)</span>
-              <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} placeholder="500" className={input} />
+              <NumberInput value={amount} onChange={(n) => setAmount(n == null ? '' : String(n))} min={0} decimals={0} placeholder="500" />
             </label>
             <label className="flex flex-col gap-1 sm:col-span-2">
               <span className={label}>Note (optional)</span>

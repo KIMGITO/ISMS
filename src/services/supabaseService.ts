@@ -7,6 +7,20 @@ import { enabledMethods } from "../utils/paymentMethods";
 import { Product, Transaction, Customer, Employee, Shift, DbSchedule, CustomerLedgerEntry, DebtPayment } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 
+function mapShiftRow(data: any): Shift {
+  return {
+    id: data.id,
+    employeeId: data.employee_id,
+    startTime: data.start_time,
+    endTime: data.end_time,
+    salesCount: Number(data.sales_count),
+    salesTotal: Number(data.sales_total),
+    status: data.status,
+    stillOnAskedAt: data.still_on_asked_at ?? null,
+    closedAutomatically: Boolean(data.closed_automatically),
+  };
+}
+
 export class SupabaseService {
   // ==========================================
   // PRODUCT / INVENTORY OPERATIONS (CRUD)
@@ -1195,16 +1209,56 @@ export class SupabaseService {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return null;
-    return {
-      id: data.id,
-      employeeId: data.employee_id,
-      startTime: data.start_time,
-      endTime: data.end_time,
-      salesCount: Number(data.sales_count),
-      salesTotal: Number(data.sales_total),
-      status: data.status,
-    };
+    return data ? mapShiftRow(data) : null;
+  }
+
+  /** The person's most recent closed shift, to tell them if it was closed automatically. */
+  static async fetchLastClosedShift(businessId: string, employeeId: string): Promise<Shift | null> {
+    const { data, error } = await getSupabase()
+      .from('shifts')
+      .select('*')
+      .eq('business_id', toUuid(businessId))
+      .eq('employee_id', employeeId)
+      .not('end_time', 'is', null)
+      .is('deleted_at', null)
+      .order('end_time', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapShiftRow(data) : null;
+  }
+
+  /**
+   * Shifts that overlap [from, to): clock-ins before the end whose clock-out is after the
+   * start or still open. The database shows a worker only their own unless they have
+   * staff.view, so the same call serves both. Optional employeeId narrows it to one person.
+   */
+  static async fetchShiftsOverlapping(businessId: string, from: Date, to: Date, employeeId?: string): Promise<Shift[]> {
+    const rows: any[] = [];
+    // Page through: a busy month for a big team can pass the 1000-row cap.
+    for (let page = 0; page < 20; page++) {
+      let q = getSupabase()
+        .from('shifts')
+        .select('*')
+        .eq('business_id', toUuid(businessId))
+        .is('deleted_at', null)
+        .lt('start_time', to.toISOString())
+        .or(`end_time.is.null,end_time.gt.${from.toISOString()}`)
+        .order('start_time', { ascending: true })
+        .range(page * 1000, page * 1000 + 999);
+      if (employeeId) q = q.eq('employee_id', employeeId);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    return rows.map(mapShiftRow);
+  }
+
+  /** "Still working": keeps the shift open; the next question comes 2 hours later. */
+  static async confirmStillOnShift(shiftId: string): Promise<void> {
+    const { error } = await getSupabase().rpc('confirm_still_on_shift', { p_shift_id: shiftId });
+    if (error) throw error;
   }
 
   static async createShift(payload: { id?: string; businessId: string; employeeId: string; startTime: string; title?: string; notes?: string; color?: string; }): Promise<Shift> {

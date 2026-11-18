@@ -64,7 +64,7 @@ export interface JournalEntry {
 export type SourceType = 'sale' | 'expense' | 'cledger' | 'payment' | 'purchase' | 'supplier_payment' | 'stock_adj'
   | 'sales_delivery' | 'sales_invoice' | 'invoice_payment' | 'credit_note'
   | 'purchase_receipt' | 'supplier_bill' | 'supplier_return' | 'transfer_out' | 'transfer_close' | 'transfer_in'
-  | 'referral_reward';
+  | 'referral_reward' | 'rider_pay';
 
 export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   sale: 'Sale',
@@ -85,6 +85,7 @@ export const SOURCE_LABELS: Record<SourceType | 'manual', string> = {
   transfer_close: 'Transfer received (sender)',
   transfer_in: 'Transfer received',
   referral_reward: 'Referral reward',
+  rider_pay: 'Rider pay owed',
   manual: 'Typed entry',
 };
 

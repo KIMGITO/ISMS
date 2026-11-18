@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { tidyNumberText } from "./Input";
 
 /**
  * POS cart quantity: − / + or type. Tapping the number selects it, so typing replaces it
@@ -74,7 +75,7 @@ export function QuantityInput({ item, updateCartQty, removeFromCart }) {
         }}
         onChange={(e) => {
           keepSelection.current = false;
-          const val = e.target.value;
+          const val = tidyNumberText(e.target.value);
 
           // Allow digits and a single optional decimal point
           if (/^\d*([.,]\d*)?$/.test(val)) {

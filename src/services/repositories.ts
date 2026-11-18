@@ -628,6 +628,7 @@ export class ExpenseRepository {
       paymentMethod: e.payment_method,
       categoryId: e.category_id || undefined,
       created_at: e.created_at,
+      riderPayment: !!e.rider_payment,
       sync_status: "synced"
     }));
   }

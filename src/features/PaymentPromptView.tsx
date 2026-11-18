@@ -8,6 +8,7 @@
 // or use the prompt for debts and deposits.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { NumberInput } from '../components/shared/Input';
 import {
   CheckCircle2, Clock, Loader2, RefreshCw, RotateCcw, Send, Smartphone, XCircle, Plus, AlertTriangle, Settings2,
 } from 'lucide-react';
@@ -452,12 +453,14 @@ export default function PaymentPromptView() {
 
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-app-text-muted">Amount (KSh, whole shillings)</span>
-                <input
-                  inputMode="numeric"
+                <NumberInput
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
+                  onChange={(n) => setAmount(n == null ? '' : String(n))}
+                  min={0}
+                  decimals={0}
                   placeholder="500"
-                  className="w-full bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-3 text-2xl font-bold tabular-nums focus:outline-none focus:border-amber-500"
+                  className="!h-14"
+                  inputClassName="!text-2xl font-bold tabular-nums"
                 />
                 {debt > 0 && (
                   <button type="button" onClick={() => setAmount(String(Math.ceil(debt)))} className="self-start text-xs font-semibold text-amber-600 hover:underline cursor-pointer">

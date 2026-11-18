@@ -199,6 +199,10 @@ export interface Shift {
   salesCount: number;
   salesTotal: number;
   status: 'Active' | 'Closed';
+  /** "Still working?" asked and not yet answered (20261130002). Closed automatically 3 minutes later. */
+  stillOnAskedAt?: string | null;
+  /** Closed by the database because nobody answered "Still working?". */
+  closedAutomatically?: boolean;
 }
 
 /** Represents a planned schedule row from the `schedules` table */
@@ -344,6 +348,10 @@ export interface Expense {
   paymentMethod?: PaymentMethod;
   categoryId?: string;
   created_at?: string;
+  /** Money paid to a rider for deliveries already counted as spending (20261130004). Moves cash, not profit. */
+  riderPayment?: boolean;
+  /** Rider pay owed for a delivery, counted as spending on that day (not a stored expense). */
+  riderOwed?: boolean;
 }
 
 export interface Supplier {

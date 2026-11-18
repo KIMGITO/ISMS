@@ -5,6 +5,7 @@
 import { getSupabase } from "../../services/supabaseClient";
 import { toUuid } from "../../utils/idUtils";
 import { kenyaTime, kenyaToIso, type BranchSale, type DateRange } from "./metrics";
+import { loadTillRefunds } from "../../services/salesDocs";
 
 const PAGE = 1000;
 const MAX_PAGES = 50;
@@ -33,6 +34,12 @@ export async function fetchBranchSales(branchIds: string[], range: DateRange): P
       });
     }
     if (!data || data.length < PAGE) break;
+  }
+  // Refunds come off the branch's sales on the day they were made.
+  const refunds = await loadTillRefunds(ids, kenyaToIso(range.start)).catch(() => []);
+  for (const r of refunds) {
+    const ts = kenyaTime(r.date);
+    if (ts <= range.end.getTime()) out.push({ businessId: r.businessId, amount: -r.total, ts, refund: true });
   }
   return out;
 }

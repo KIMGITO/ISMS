@@ -7,7 +7,10 @@
 //
 // NumberInput is a text box with the number keyboard, not <input type="number">: no spinner
 // arrows, the mouse wheel doesn't change it, a comma works as the decimal point, tapping it
-// selects the number so typing replaces it, and money shows with thousands separators.
+// selects the number so typing replaces it, money shows with thousands separators, and
+// extra leading zeros go as you type ("01.5" becomes "1.5", ".5" becomes "0.5").
+//
+// RULE: every number box in the app is a NumberInput (or uses tidyNumberText). Never a bare <input>.
 
 import React, { forwardRef, useEffect, useId, useRef, useState } from 'react';
 import { Search, X, CalendarDays } from 'lucide-react';
@@ -62,6 +65,20 @@ const parse = (raw: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/**
+ * Cleans what is being typed in a number box: drops extra leading zeros ("01.5" -> "1.5",
+ * "007" -> "7", "00" -> "0") and puts a zero before a bare decimal point (".5" -> "0.5").
+ * Keeps a half-typed number as it is ("1." stays "1.").
+ */
+export const tidyNumberText = (raw: string): string => {
+  const m = /^(-?)(\d*)([.,].*)?$/.exec(raw);
+  if (!m) return raw;
+  const [, sign, whole, rest = ''] = m;
+  let w = whole.replace(/^0+(?=\d)/, '');
+  if (w === '' && rest) w = '0';
+  return sign + w + rest;
+};
+
 const show = (v: number | null | undefined, grouping: boolean, decimals: number) => {
   if (v == null || !Number.isFinite(v)) return '';
   if (!grouping) return String(v);
@@ -88,9 +105,11 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
   const [focused, setFocused] = useState(false);
   const keepSelection = useRef(false);
 
-  // Follow the value from outside while the person isn't typing in this box.
+  // Follow the value from outside: always while the person isn't typing in this box, and while
+  // they are only when it really changed (e.g. a + button next to it), so "1." isn't cut to "1".
   useEffect(() => {
     if (!focused) setText(show(num, grouping, decimals));
+    else setText((t) => (parse(t) === num ? t : num == null ? '' : String(num)));
   }, [num, focused, grouping, decimals]);
 
   const allowNeg = min == null || min < 0;
@@ -121,7 +140,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       }}
       onChange={(e) => {
         keepSelection.current = false;
-        const v = e.target.value.replace(/\s/g, '');
+        const v = tidyNumberText(e.target.value.replace(/\s/g, ''));
         if (!pattern.test(v)) return;
         setText(v);
         onChange(parse(v));

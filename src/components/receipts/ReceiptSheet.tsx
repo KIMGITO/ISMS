@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Printer, MessageCircle, Mail, FileDown, Copy, X, RefreshCw, ShieldCheck, ShieldAlert, Undo2 } from 'lucide-react';
+import { Printer, MessageCircle, Mail, FileDown, Copy, X, RefreshCw, ShieldCheck, ShieldAlert, Undo2, Pencil } from 'lucide-react';
 import { Transaction } from '../../types';
 import { useCustomerStore } from '../../stores/customerStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -25,6 +25,8 @@ interface Props {
   startPrinting?: boolean;
   /** Shown as a Refund button when the person may refund this sale. */
   onRefund?: () => void;
+  /** Shown as an Edit button: take the sale back and redo it in the till. */
+  onEdit?: () => void;
 }
 
 type Busy = null | 'whatsapp' | 'email' | 'pdf' | 'copy';
@@ -36,7 +38,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="hidden md:inline-block ml-auto px-1.5 rounded border border-current/25 text-[10px] font-mono opacity-60">{children}</kbd>;
 }
 
-export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRefund }: Props) {
+export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRefund, onEdit }: Props) {
   // A customer added from this sheet shows on the receipt straight away.
   const [attached, setAttached] = useState<Transaction | null>(null);
   const transaction = given && attached?.id === given.id ? attached : given;
@@ -393,14 +395,19 @@ export function ReceiptSheet({ transaction: given, onClose, startPrinting, onRef
                   </button>
                 </div>
 
-                {onRefund && (
-                  <button
-                    type="button"
-                    onClick={onRefund}
-                    className={`${actionClass} border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10`}
-                  >
-                    <Undo2 size={16} /> Refund or reverse this sale
-                  </button>
+                {(onEdit || onRefund) && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {onEdit && (
+                      <button type="button" onClick={onEdit} className={`${actionClass} border border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10`}>
+                        <Pencil size={16} /> Edit sale
+                      </button>
+                    )}
+                    {onRefund && (
+                      <button type="button" onClick={onRefund} className={`${actionClass} border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10`}>
+                        <Undo2 size={16} /> Refund
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

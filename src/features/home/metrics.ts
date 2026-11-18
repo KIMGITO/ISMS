@@ -240,6 +240,8 @@ export interface Snapshot {
   pointsCost: number;
   /** Points taken off the price at the till or online. Already off sales, so not off profit again. */
   pointsDiscounts: number;
+  /** Refunds made in the slot (not edits). Already taken off sales, cost and money in. */
+  refunds: number;
   profit: number;
   creditSales: number;
   received: Record<MethodKey, number>;
@@ -256,6 +258,7 @@ function emptySnapshot(): Snapshot {
     expenses: 0,
     pointsCost: 0,
     pointsDiscounts: 0,
+    refunds: 0,
     profit: 0,
     creditSales: 0,
     received: { "M-Pesa": 0, "Airtel Money": 0, Cash: 0, Card: 0, Bank: 0, Credit: 0 },
@@ -289,6 +292,21 @@ export interface DashboardInput {
   pointsToDebt?: { date: string; value: number }[];
   /** Points used as a discount at the till or online. Shown as money spent, not taken off profit again. */
   pointsDiscounts?: { date: string; value: number }[];
+  /** Refunds of till sales, counted on the day they were made (as the books do). */
+  refunds?: DashboardRefund[];
+}
+
+/** A till refund as the dashboard needs it (see TillRefund in services/salesDocs). */
+export interface DashboardRefund {
+  date: string;
+  total: number;
+  /** Cost of goods back on the shelf; 0 when thrown away (that cost stays a loss). */
+  cost: number;
+  settlement: string;
+  method: string | null;
+  /** An edited sale's take-back: figures balance, but it is not listed as a refund and the redone sale is not an extra order. */
+  edit?: boolean;
+  lines: { productId: string | null; name: string; quantity: number; total: number }[];
 }
 
 /**
@@ -396,6 +414,41 @@ export function analyse(input: DashboardInput, range: DateRange, buckets: Bucket
     } else if (inRange(ts, prev)) previous.pointsDiscounts += r.value || 0;
   }
 
+  // A refund takes the sale back on the day it is made: off sales and cost (goods back on
+  // the shelf), off money in when money was given back, off credit when taken off debt.
+  // Money put in the wallet stays received: the shop still holds it.
+  const takeBack = (s: Snapshot, r: DashboardRefund, ts: number, withDetail: boolean) => {
+    s.sales -= r.total;
+    s.cost -= r.cost;
+    if (r.edit) s.orders -= 1;
+    else s.refunds += r.total;
+    if (r.settlement === "refund") s.received[methodOf(r.method || "Cash")] -= r.total;
+    else if (r.settlement === "debt") {
+      s.received.Credit -= r.total;
+      s.creditSales -= r.total;
+    }
+    if (!withDetail) return;
+    s.hours[new Date(ts).getHours()] -= r.total;
+    for (const l of r.lines) {
+      const row = [...s.products.entries()].find(([id, v]) => id === l.productId || v.name === l.name);
+      const key = row?.[0] ?? (l.productId || l.name);
+      const cur = row?.[1] ?? { name: l.name, qty: 0, revenue: 0 };
+      s.products.set(key, { ...cur, qty: cur.qty - l.quantity, revenue: cur.revenue - l.total });
+    }
+  };
+  for (const r of input.refunds || []) {
+    const ts = kenyaTime(r.date);
+    if (!Number.isFinite(ts)) continue;
+    if (inRange(ts, range)) {
+      const i = bucketIndex(ts, buckets);
+      if (i >= 0) takeBack(perSlot[i], r, ts, true);
+    } else if (inRange(ts, prev)) {
+      takeBack(previous, r, ts, false);
+      const j = bucketIndex(ts, prevBuckets);
+      if (j >= 0) prevSlotSales[j] -= r.total;
+    }
+  }
+
   for (const s of [...perSlot, previous]) s.profit = s.sales - s.cost - s.expenses - s.pointsCost;
 
   const series: SeriesPoint[] = buckets.map((b, i) => ({
@@ -426,6 +479,7 @@ function mergeSnapshots(a: Snapshot, b: Snapshot): Snapshot {
   out.expenses = a.expenses + b.expenses;
   out.pointsCost = a.pointsCost + b.pointsCost;
   out.pointsDiscounts = a.pointsDiscounts + b.pointsDiscounts;
+  out.refunds = a.refunds + b.refunds;
   out.profit = a.profit + b.profit;
   out.creditSales = a.creditSales + b.creditSales;
   for (const m of METHODS) out.received[m] = a.received[m] + b.received[m];
@@ -449,8 +503,11 @@ export function moneyReceived(s: Snapshot) {
 /** A lightweight sale row, enough for branch comparisons. */
 export interface BranchSale {
   businessId: string;
+  /** Negative for a refund. */
   amount: number;
   ts: number;
+  /** A refund: comes off sales but is not an order. */
+  refund?: boolean;
 }
 
 export interface BranchRow {
@@ -477,7 +534,7 @@ export function analyseBranches(branches: { id: string; name: string }[], sales:
       const i = bucketIndex(s.ts, buckets);
       if (i < 0) continue;
       row.sales += s.amount;
-      row.orders += 1;
+      if (!s.refund) row.orders += 1;
       row.perSlot[i] += s.amount;
     } else if (inRange(s.ts, prev)) row.prevSales += s.amount;
   }

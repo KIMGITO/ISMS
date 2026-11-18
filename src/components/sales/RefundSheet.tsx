@@ -5,14 +5,19 @@ import SearchableDropdown from '../SearchableDropdown';
 import { Checkbox } from '../shared/Checkbox';
 import { displayName } from '../../utils/stringUtils';
 import React, { useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Undo2 } from 'lucide-react';
+import { RotateCcw, Undo2, Pencil } from 'lucide-react';
+import { useCartStore } from '../../stores/cartStore';
+import { useInventoryStore } from '../../stores/inventoryStore';
+import { useCustomerStore } from '../../stores/customerStore';
+import { useUiStore } from '../../stores/uiStore';
+import type { CartItem } from '../../types';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../shared/FormSheet';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useBusinessStore } from '../../stores/businessStore';
 import { toUserMessage } from '../../utils/userError';
 import { formatCurrency } from '../../utils/helpers';
 import {
-  createCreditNote, loadSaleRefund, refundPreview, MONEY_METHODS,
+  createCreditNote, loadSaleRefund, REFUND_EVENT, EDIT_REFUND_REASON, refundPreview, MONEY_METHODS,
   type MoneyMethod, type SaleRefundInfo, type Settlement,
 } from '../../services/salesDocs';
 import { NumberInput } from '../shared/Input';
@@ -21,17 +26,22 @@ interface Props {
   transactionId: string;
   onClose: () => void;
   onDone?: (creditNoteId: string) => void;
+  /** 'edit': take the whole sale back, then open its items in the till to fix and charge again. */
+  mode?: 'refund' | 'edit';
 }
+
+const EDIT_REASON = EDIT_REFUND_REASON;
 
 const REASONS = ['Returned', 'Damaged or spoilt', 'Wrong item', 'Wrong price', 'Customer changed their mind'];
 
-export function RefundSheet({ transactionId, onClose, onDone }: Props) {
+export function RefundSheet({ transactionId, onClose, onDone, mode = 'refund' }: Props) {
+  const editing = mode === 'edit';
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const showToast = useNotificationStore((s) => s.showToast);
   const [info, setInfo] = useState<SaleRefundInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [qty, setQty] = useState<Record<string, number>>({});
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState(editing ? EDIT_REASON : REASONS[0]);
   const [settlement, setSettlement] = useState<Settlement>('refund');
   const [method, setMethod] = useState<MoneyMethod>('Cash');
   const [returnStock, setReturnStock] = useState(true);
@@ -69,16 +79,42 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
     setBusy(true);
     try {
       const id = await createCreditNote(businessId, {
-        transactionId, quantities: qty, reason, settlement, method, returnStock,
+        transactionId, quantities: qty, reason, settlement, method, returnStock: editing ? true : returnStock,
       });
-      showToast('Refund recorded', `${info.receipt} · ${formatCurrency(preview.total)}`, undefined, 'success');
+      window.dispatchEvent(new Event(REFUND_EVENT));
       onDone?.(id);
+      if (editing) openInTill(info);
+      else showToast('Refund recorded', `${info.receipt} · ${formatCurrency(preview.total)}`, undefined, 'success');
       onClose();
     } catch (err) {
       setError(toUserMessage(err, 'Could not record the refund.'));
     } finally {
       setBusy(false);
     }
+  };
+
+  // After the sale is taken back: its items go into the till at the prices they sold for,
+  // for the same customer, so the person fixes what was wrong and charges again.
+  const openInTill = (sale: SaleRefundInfo) => {
+    const products = useInventoryStore.getState().products;
+    const items: CartItem[] = [];
+    const skipped: string[] = [];
+    for (const l of sale.lines) {
+      const n = qty[l.id] || 0;
+      if (n <= 0) continue;
+      const product = l.productId ? products.find((p) => p.id === l.productId) : undefined;
+      if (!product) { skipped.push(displayName(l.name)); continue; }
+      items.push({ product: { ...product, price: Math.round(l.unitNet * 100) / 100 }, quantity: n, discountPercentage: 0 });
+    }
+    const customer = sale.customerId ? useCustomerStore.getState().customers.find((c) => c.id === sale.customerId) ?? null : null;
+    useCartStore.setState({ cart: items, selectedCustomer: customer, quote: null });
+    useUiStore.getState().setActiveTab('pos');
+    showToast(
+      'Sale taken back',
+      skipped.length ? `Fix it in the till and charge again. Not found: ${skipped.join(', ')}` : 'Fix it in the till and charge again.',
+      undefined,
+      skipped.length ? 'info' : 'success',
+    );
   };
 
   const choices: { id: Settlement; label: string; hint: string; hidden?: boolean }[] = [
@@ -90,7 +126,7 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
   return (
     <FormSheet
       wide
-      title={info ? `Refund ${info.receipt}` : 'Refund'}
+      title={info ? `${editing ? 'Edit' : 'Refund'} ${info.receipt}` : editing ? 'Edit sale' : 'Refund'}
       subtitle={info ? `${info.customerName || 'Walk-in'} · paid ${formatCurrency(info.finalTotal)}${info.refunded ? ` · ${formatCurrency(info.refunded)} refunded before` : ''}` : undefined}
       onClose={onClose}
       footer={
@@ -98,7 +134,7 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
           <span className="mr-auto self-center text-sm">Back to customer <b className="tabular-nums">{formatCurrency(preview.total)}</b></span>
           <button className={secondaryBtn} onClick={onClose}>Cancel</button>
           <button className={primaryBtn} disabled={busy || !info || !!blocked || !!nothingLeft} onClick={() => void submit()}>
-            <Undo2 size={15} /> {busy ? 'Saving…' : 'Refund'}
+            {editing ? <Pencil size={15} /> : <Undo2 size={15} />} {busy ? 'Saving…' : editing ? 'Take back and fix in till' : 'Refund'}
           </button>
         </>
       }
@@ -114,31 +150,37 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
         <>
           {blocked && <p className="text-xs rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 p-3">You can refund only today's sales. Ask a manager to refund this one.</p>}
           {nothingLeft && <p className="text-xs rounded-xl bg-app-bg p-3 text-app-text-muted">Everything on this sale was already refunded.</p>}
-          <p className="text-[11px] text-app-text-muted">A credit note is made.</p>
+          <p className="text-[11px] text-app-text-muted">
+            {editing
+              ? 'The whole sale comes back (a credit note is made and stock returns), then its items open in the till so you fix them and charge again. Anything already in the till is replaced.'
+              : 'A credit note is made.'}
+          </p>
 
           <div className="rounded-2xl ring-1 ring-app-border divide-y divide-app-border/60">
             {info.lines.map((l) => (
               <div key={l.id} className="flex items-center gap-3 px-3 py-2">
-                <Checkbox checked={(qty[l.id] || 0) > 0} onChange={(on) => setQty((q) => ({ ...q, [l.id]: on ? l.left : 0 }))} disabled={l.left <= 0} ariaLabel={`Refund ${displayName(l.name)}`} />
+                {!editing && <Checkbox checked={(qty[l.id] || 0) > 0} onChange={(on) => setQty((q) => ({ ...q, [l.id]: on ? l.left : 0 }))} disabled={l.left <= 0} ariaLabel={`Refund ${displayName(l.name)}`} />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{displayName(l.name)}</p>
                   <p className="text-[11px] text-app-text-muted">
                     {l.left < l.quantity ? `${l.left} of ${l.quantity} left` : `${l.quantity} sold`} · {formatCurrency(l.unitNet * (1 + l.vatRate / 100))} each
                   </p>
                 </div>
-                <NumberInput
+                {editing ? (
+                  <span className="text-sm tabular-nums">× {l.left}</span>
+                ) : <NumberInput
                   min={0}
                   max={l.left}
                   aria-label={`How many ${l.name} came back`}
                   value={qty[l.id] ?? ''}
                   disabled={l.left <= 0}
                   onChange={(v) => setQty((q) => ({ ...q, [l.id]: Math.max(0, Math.min(l.left, (v ?? 0) || 0)) }))} className="w-20" inputClassName="text-right"
-                />
+                />}
               </div>
             ))}
           </div>
 
-          <Field label="Why">
+          {!editing && <Field label="Why">
             <SearchableDropdown
               items={[...REASONS.map((r) => ({ id: r, label: r })), { id: '__other', label: 'Something else…' }]}
               selectedValue={REASONS.includes(reason) ? reason : '__other'}
@@ -148,7 +190,7 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
             {!REASONS.includes(reason) && (
               <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Say why" className={`${fieldClass} mt-2`} />
             )}
-          </Field>
+          </Field>}
 
           <div className="space-y-2">
             <p className="text-xs font-medium text-app-text-muted">How they get it back</p>
@@ -173,13 +215,13 @@ export function RefundSheet({ transactionId, onClose, onDone }: Props) {
             )}
           </div>
 
-          <label className="flex items-start gap-2 text-sm cursor-pointer">
+          {!editing && <label className="flex items-start gap-2 text-sm cursor-pointer">
             <Checkbox checked={returnStock} onChange={(on) => setReturnStock(on)} />
             <span>
               Put the items back in stock
               <span className="block text-[11px] text-app-text-muted">Leave it off for spoilt goods that are thrown away.</span>
             </span>
-          </label>
+          </label>}
           {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
         </>
       )}

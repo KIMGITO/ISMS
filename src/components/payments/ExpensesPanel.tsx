@@ -2,6 +2,7 @@
 // this week and this month and where most of it went. "Record expense" (N) opens a short
 // form; the person signed in is recorded as who spent it. Owners delete (swipe or hold).
 import React, { useEffect, useMemo, useState } from 'react';
+import { NumberInput } from '../shared/Input';
 import { Plus, Receipt, Search, Trash2, X } from 'lucide-react';
 import { useAppStore } from '../../stores/appStore';
 import { useBusinessStore } from '../../stores/businessStore';
@@ -15,6 +16,8 @@ import { SwipeRow } from '../shared/SwipeRow';
 import SearchableDropdown from '../SearchableDropdown';
 import { appDialog } from '../AppDialog';
 import type { Expense, ExpenseCategory, MoneyMethod } from '../../types';
+import { PayRiderButton } from '../RidersToPay';
+import { loadRiderPayOwed, spendingWithRiderPay } from '../../services/riderPay';
 
 const DEFAULT_CATEGORIES = ['Rent', 'Wages', 'Transport', 'Utilities', 'Maintenance', 'Marketing', 'Supplies', 'Other'];
 type Period = 'month' | 'last-month' | 'all';
@@ -41,7 +44,13 @@ export default function ExpensesPanel() {
   const canDelete = role === 'Owner';
   const methods = usePaymentMethods();
 
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  // Stored expenses (rider payments included, as the money that left).
+  const [stored, setStored] = useState<Expense[]>([]);
+  // Rider pay owed, counted on the delivery's day (20261130004).
+  const [riderOwed, setRiderOwed] = useState<Expense[]>([]);
+  const [owedTick, setOwedTick] = useState(0);
+  // Spending as the books count it: rider pay on the day it's owed, not when paid.
+  const expenses = useMemo(() => spendingWithRiderPay(stored, riderOwed), [stored, riderOwed]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [period, setPeriod] = useState<Period>('month');
   const [category, setCategory] = useState<string>('all');
@@ -53,11 +62,18 @@ export default function ExpensesPanel() {
     let unsubExp: (() => void) | undefined;
     let unsubCat: (() => void) | undefined;
     import('../../services/repositories').then((mod) => {
-      unsubExp = mod.ExpenseRepository.subscribe((rows: Expense[]) => setExpenses(rows));
+      unsubExp = mod.ExpenseRepository.subscribe((rows: Expense[]) => { setStored(rows); setOwedTick((t) => t + 1); });
       unsubCat = mod.ExpenseCategoryRepository.subscribe((rows: ExpenseCategory[]) => setCategories(rows));
     }).catch((err) => console.error('Could not load expenses', err));
     return () => { unsubExp?.(); unsubCat?.(); };
   }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    let live = true;
+    loadRiderPayOwed(businessId).then((rows) => { if (live) setRiderOwed(rows); }).catch((err) => console.error('Could not load rider pay', err));
+    return () => { live = false; };
+  }, [businessId, owedTick]);
 
   const categoryNames = useMemo(
     () => (categories.length ? categories.filter((c) => c.status === 'Enabled').map((c) => c.name) : DEFAULT_CATEGORIES),
@@ -185,6 +201,17 @@ export default function ExpensesPanel() {
             placeholder="All categories"
           />
         </div>
+        {canRecord && businessId && (
+          <PayRiderButton
+            businessId={businessId}
+            canPettyCash={hasRolePermission(role, 'pettycash.record' as any)}
+            canAccount
+            canRemove={hasRolePermission(role, 'expenses.delete' as any)}
+            onPaid={() => setOwedTick((t) => t + 1)}
+            defaultFrom="account"
+            onToast={showToast}
+          />
+        )}
         {canRecord && (
           <button type="button" data-shortcut="new" onClick={() => setFormOpen(true)} className={`${primaryBtn} shrink-0`}>
             <Plus size={15} /> Record expense
@@ -214,9 +241,9 @@ export default function ExpensesPanel() {
                     searchId={`exp-${e.id}`}
                     title={`${e.category} · ${formatCurrency(e.amount)}`}
                     subtitle={e.description || undefined}
-                    disabled={!canDelete}
+                    disabled={!canDelete || e.riderOwed}
                     actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', onClick: () => void remove(e) }]}
-                    more={[{ label: 'Delete expense', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete, onClick: () => void remove(e) }]}
+                    more={[{ label: 'Delete expense', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete || !!e.riderOwed, onClick: () => void remove(e) }]}
                     contentClassName="flex items-center gap-3 px-3.5 py-3"
                   >
                     <span className="shrink-0 w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 grid place-items-center text-xs font-bold">
@@ -229,7 +256,7 @@ export default function ExpensesPanel() {
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">{formatCurrency(e.amount)}</span>
-                    {canDelete && (
+                    {canDelete && !e.riderOwed && (
                       <button type="button" onClick={(ev) => { ev.stopPropagation(); void remove(e); }} aria-label="Delete expense" className="hidden md:inline-flex p-1.5 rounded-lg text-app-text-muted hover:text-red-500 hover:bg-red-500/10 cursor-pointer">
                         <Trash2 size={14} />
                       </button>
@@ -332,14 +359,14 @@ function ExpenseForm({ categories, methods, canAddCategory, onAddCategory, onSav
       }
     >
       <Field label="Amount (KSh)">
-        <input
+        <NumberInput
           autoFocus
-          inputMode="decimal"
           value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+          onChange={(n) => setAmount(n == null ? '' : String(n))}
+          min={0}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save(false); } }}
           placeholder="0"
-          className={`${fieldClass} text-lg font-semibold tabular-nums`}
+          inputClassName="text-lg font-semibold tabular-nums"
         />
       </Field>
       <Field label="Category">

@@ -15,6 +15,7 @@ import { SwipeRow } from '../components/shared/SwipeRow';
 import { appDialog } from '../components/AppDialog';
 import { isAdminRole } from '../services/logCleanup';
 import { NumberInput } from '../components/shared/Input';
+import { PayRiderButton } from '../components/RidersToPay';
 
 const TZ = 'Africa/Nairobi';
 /** Used until the business's own list loads, or if it can't be loaded. Admins edit the list. */
@@ -417,6 +418,18 @@ export default function PettyCashView() {
           >
             <Plus size={16} /> {saving ? 'Saving…' : 'Record spending'}
           </button>
+          {businessId && (
+            <PayRiderButton
+              businessId={businessId}
+              canPettyCash
+              canAccount={hasRolePermission(role, 'expenses.create')}
+              canRemove={canRemoveAny}
+              defaultFrom="petty_cash"
+              onPaid={() => void load()}
+              onToast={showToast}
+              className="w-full flex items-center justify-center gap-2 bg-app-bg ring-1 ring-app-border text-app-text font-medium text-sm rounded-xl py-2.5 cursor-pointer"
+            />
+          )}
         </form>
 
         {/* Book */}
