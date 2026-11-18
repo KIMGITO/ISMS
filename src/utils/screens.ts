@@ -7,7 +7,7 @@ import { hasRolePermission } from "./permissions";
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
   | "online-store" | "deliveries" | "workers" | "permissions" | "ai" | "profile"
-  | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers"
+  | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers" | "stock-report"
   | "suppliers" | "audit" | "accounting" | "buying" | "promotions";
 
 export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
@@ -32,6 +32,7 @@ export const SCREENS: AppScreen[] = [
   { id: "pos", group: "Selling", title: "POS", description: "Full checkout", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products and stock", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
+  { id: "stock-report", group: "Stock", title: "Stock Report", description: "Daily and monthly report per product", keywords: ["report", "daily report", "monthly report", "opening", "closing", "closed", "milk report", "till", "not paid", "pending bills", "boss", "owner", "whatsapp report", "end of day"], permissions: ["reports.inventory", "reports.view", "reports.sales", "inventory.stock_history", "finance.view"] },
   { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Stock between branches", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way", "ask for stock", "request stock", "shortage"], permissions: ["inventory.transfer_stock", "inventory.receive_stock", "inventory.request_transfer"] },
   { id: "buying", group: "Stock", title: "Buying", description: "Suppliers, purchases and bills", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },

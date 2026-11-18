@@ -13,6 +13,7 @@ import AboutView from './features/AboutView';
 import { updateService } from './core/native/UpdateService';
 import InventoryView from './features/InventoryView';
 import StockHistoryView from './features/StockHistoryView';
+import StockReportView from './features/StockReportView';
 import StockTransfersView from './features/StockTransfersView';
 import SalesView from './features/SalesView';
 import CustomersView from './features/CustomersView';
@@ -140,6 +141,7 @@ import {
   ClipboardList,
   Send,
   MessageSquareText,
+  FileBarChart,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
 import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, type ScreenId } from './utils/screens';
@@ -164,6 +166,7 @@ const BUYING_PERMISSIONS = SCREEN_BY_ID.get('buying')!.permissions;
 const FINANCE_PERMISSIONS = SCREEN_BY_ID.get('finance')!.permissions;
 const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
+const STOCK_REPORT_PERMISSIONS = SCREEN_BY_ID.get('stock-report')!.permissions;
 const PROMOTION_PERMISSIONS = SCREEN_BY_ID.get('promotions')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
@@ -183,6 +186,7 @@ const MOBILE_TABS = [
   { id: 'pos', label: 'POS', icon: ShoppingCart, permission: 'pos.create_sale' },
   { id: 'inventory', label: 'Inventory', icon: Boxes, permission: 'inventory.view' },
   { id: 'stock-history', label: 'Stock History', icon: History, permission: 'inventory.stock_history' },
+  { id: 'stock-report', label: 'Stock Report', icon: FileBarChart, permission: STOCK_REPORT_PERMISSIONS },
   { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
   { id: 'buying', label: 'Buying', icon: ClipboardList, permission: BUYING_PERMISSIONS },
@@ -3732,6 +3736,13 @@ export default function App() {
                       permission: 'inventory.stock_history' as const,
                     },
                     {
+                      id: 'stock-report',
+                      label: 'Stock Report',
+                      icon: FileBarChart,
+                      desc: 'Daily and monthly report',
+                      permission: STOCK_REPORT_PERMISSIONS,
+                    },
+                    {
                       id: 'stock-transfers',
                       label: 'Stock Transfers',
                       icon: ArrowRightLeft,
@@ -4285,6 +4296,17 @@ export default function App() {
                       >
                         <SecurityGuard permission="inventory.stock_history">
                           <StockHistoryView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'stock-report' && (
+                      <motion.div
+                        key="stock-report-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={STOCK_REPORT_PERMISSIONS as any}>
+                          <StockReportView />
                         </SecurityGuard>
                       </motion.div>
                     )}

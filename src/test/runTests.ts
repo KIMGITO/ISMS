@@ -54,6 +54,7 @@ import { parseDocument, serializeDocument, plainText as pagePlainText, parseInli
 import { defaultInfoPageText, INFO_PAGES } from "../../website/src/infoPages";
 import { analyse, analyseBranches, bucketIndex, getRange, growth, kenyaNow, kenyaTime, makeBuckets, pickGranularity, previousRange } from "../features/home/metrics";
 import { buildShiftReport, shiftAttention, shiftReportText } from "../services/shiftReport";
+import { buildStockReport, normalizeRaw, periodRange as stockPeriodRange, stockReportText } from "../services/stockReport";
 import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction } from "../services/operations";
 import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
 import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
@@ -1426,6 +1427,49 @@ runTest("Card amounts and Paystack answers are read correctly", () => {
   const card = cardDetails({ authorization: { last4: "4081", brand: "visa " } });
   if (card.last4 !== "4081" || card.brand !== "visa") throw new Error("card details");
   if (cardDetails({ authorization: { last4: "40x1" } }).last4 !== null) throw new Error("bad last4 is dropped");
+});
+
+runTest("Daily stock report: opening, where it went, closed, paid and not paid", () => {
+  const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
+  // The owner's own example: opening 34.5, added 250, sold 71 at the counter (12 of it not paid),
+  // Colors 10, Millfield 20, Zimmer 75, closed 107.
+  const raw = normalizeRaw({
+    products: [
+      { id: "milk", name: "Milk", unit: "L", opening: 34.5, closing: 107, received: 250, changes: 9 },
+      { id: "eggs", name: "Eggs", unit: "", opening: 18, closing: 3, changes: 1 },
+      { id: "idle", name: "Butter", unit: "", opening: 5, closing: 5, changes: 0 },
+    ],
+    sales: [
+      { productId: "milk", method: "M-Pesa", qty: 59, value: 4130 },
+      { productId: "milk", customerName: "Yier", customerType: "individual", method: "Credit", qty: 7, value: 490 },
+      { productId: "milk", customerName: "Ruth", customerType: "individual", method: "Credit_Debt", qty: 5, value: 350 },
+      { productId: "milk", customerName: "Colors", customerType: "institution", method: "Credit", qty: 10, value: 600 },
+      { productId: "milk", customerName: "Millfield", customerType: "institution", method: "Bank", qty: 20, value: 1200 },
+      { productId: "milk", customerName: "Zimmer", customerType: "business", method: "M-Pesa", qty: 75, value: 4500 },
+      { productId: "eggs", method: "Cash", qty: 15, value: 375 },
+    ],
+    debts: [{ name: "Yier", owes: 8500 }, { name: "Paid up", owes: 0 }],
+  });
+  const r = buildStockReport(raw);
+  eq(r.products.map((p) => p.name), ["Milk", "Eggs"], "products that did not move are left out");
+  const milk = r.products[0];
+  eq(milk.out.map((l) => [l.label, l.qty]), [["Sales", 71], ["Zimmer", 75], ["Millfield", 20], ["Colors", 10]], "counter sales first, then each big buyer");
+  eq([milk.expected, milk.difference], [108.5, -1.5], "expected from the records, 1.5 short at closing");
+  eq(milk.notPaid.map((l) => [l.label, l.qty]), [["Colors", 10], ["Yier", 7], ["Ruth", 5]], "credit sales per customer");
+  eq(milk.paid.map((l) => [l.label, l.value]), [["M-Pesa", 8630], ["Bank", 1200]], "paid per method");
+  eq(r.debts, [{ name: "Yier", owes: 8500 }], "pending bills leave out people who owe nothing");
+  const byType = buildStockReport(raw, { groupBuyersByType: true }).products[0];
+  eq(byType.out.map((l) => [l.label, l.qty]), [["Sales", 71], ["Businesses", 75], ["Institutions", 30]], "a month can group buyers by type");
+  const text = stockReportText(r, { title: "Stock report", branch: "Westlands", period: "Tue 18 Nov 2026", notes: "Token Mng 20 Evg 12" });
+  for (const part of ["*Milk (L)*", "Opening: 34.5", "+ Received: 250", "- Zimmer: 75", "Closed: 107 (1.5 short of 108.5 expected)", "1. Colors 10", "*Pending bills (owed now)*", "Token Mng 20 Evg 12"]) {
+    if (!text.includes(part)) throw new Error(`report text is missing "${part}":\n${text}`);
+  }
+  const day = stockPeriodRange("day", { day: "2026-11-18" });
+  eq([day.from.toISOString(), day.to.toISOString()], ["2026-11-17T21:00:00.000Z", "2026-11-18T21:00:00.000Z"], "a day runs midnight to midnight Kenya time");
+  const month = stockPeriodRange("month", { month: "2026-12" });
+  eq([month.from.toISOString(), month.to.toISOString()], ["2026-11-30T21:00:00.000Z", "2026-12-31T21:00:00.000Z"], "December ends at the new year");
+  const custom = stockPeriodRange("custom", { from: "2026-11-20", to: "2026-11-18" });
+  eq([custom.from.toISOString(), custom.to.toISOString()], ["2026-11-17T21:00:00.000Z", "2026-11-20T21:00:00.000Z"], "custom dates in either order, both days included");
 });
 
 (async () => {

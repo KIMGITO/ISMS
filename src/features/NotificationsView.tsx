@@ -1023,7 +1023,7 @@ function NotificationRow({
                   {notif.action_target && notif.action_target !== "none" && (
                     <button
                       onClick={() => window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: notif.action_target } }))}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-medium rounded-full transition cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[13px] font-semibold rounded-full transition cursor-pointer"
                     >
                       Open {labelForTarget(notif.action_target)}
                       <ArrowRight size={14} />
@@ -1031,10 +1031,10 @@ function NotificationRow({
                   )}
 
                   {payload.reportText && (
-                    <div className="bg-slate-950 rounded-2xl p-3.5 max-h-80 overflow-y-auto">
-                      <div className="text-[11px] font-semibold text-amber-400 mb-1.5 flex items-center justify-between border-b border-slate-800 pb-1.5">
-                        <span>Shift summary</span>
-                        {payload.employeeName && <span className="text-slate-400 font-normal">{payload.employeeName}</span>}
+                    <div className="bg-app-bg ring-1 ring-app-border rounded-2xl p-3.5 max-h-96 overflow-y-auto text-app-text">
+                      <div className="text-xs font-semibold text-app-text mb-2 flex items-center justify-between gap-2 border-b border-app-border pb-2">
+                        <span className="min-w-0 truncate">{payload.reportTitle ? String(payload.reportTitle) : "Shift summary"}</span>
+                        {payload.employeeName && <span className="text-app-text-muted font-normal shrink-0">{payload.employeeName}</span>}
                       </div>
                       <MarkdownBlock text={String(payload.reportText)} />
                     </div>
@@ -1108,14 +1108,6 @@ function labelForTarget(target: string): string {
 //   everything else      → plain pre-wrap paragraph
 // ---------------------------------------------------------------------------
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function renderInline(text: string): React.ReactNode[] {
   // Parse **bold** into rich segments
   const parts: React.ReactNode[] = [];
@@ -1124,11 +1116,11 @@ function renderInline(text: string): React.ReactNode[] {
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > last) parts.push(escapeHtml(text.slice(last, m.index)));
-    parts.push(<strong key={key++} className="font-semibold">{escapeHtml(m[1])}</strong>);
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(<strong key={key++} className="font-semibold">{m[1]}</strong>);
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(escapeHtml(text.slice(last)));
+  if (last < text.length) parts.push(text.slice(last));
   return parts;
 }
 
@@ -1145,8 +1137,8 @@ function MarkdownBlock({ text }: { text: string }) {
       blocks.push(
         <ul key={key++} className="space-y-1 mt-1 mb-1">
           {list.map((item, i) => (
-            <li key={i} className="flex gap-2 text-[11px] leading-relaxed">
-              <span className="text-amber-400 shrink-0">•</span>
+            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-app-text">
+              <span className="text-app-text-muted shrink-0">•</span>
               <span>{renderInline(item)}</span>
             </li>
           ))}
@@ -1159,7 +1151,7 @@ function MarkdownBlock({ text }: { text: string }) {
   const flushCodeBlock = () => {
     if (codeLines.length > 0) {
       blocks.push(
-        <pre key={key++} className="bg-slate-900/50 p-2 rounded-lg border border-slate-700 font-mono text-[10px] text-emerald-400 overflow-x-auto my-2 whitespace-pre">
+        <pre key={key++} className="bg-app-card p-2 rounded-lg ring-1 ring-app-border font-mono text-xs text-app-text overflow-x-auto my-2 whitespace-pre">
           {codeLines.join('\n')}
         </pre>
       );
@@ -1194,7 +1186,7 @@ function MarkdownBlock({ text }: { text: string }) {
       flushList();
       const header = line.slice(1, -1).trim();
       blocks.push(
-        <div key={key++} className="text-[10px] font-semibold text-amber-400 mt-2.5 first:mt-0">
+        <div key={key++} className="text-[13px] font-semibold text-amber-800 dark:text-amber-300 mt-3 first:mt-0">
           {renderInline(header)}
         </div>
       );
@@ -1211,9 +1203,9 @@ function MarkdownBlock({ text }: { text: string }) {
       const cols = line.split("|").map((c) => c.trim()).filter(Boolean);
       if (cols.length >= 2) {
         blocks.push(
-          <div key={key++} className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-relaxed">
+          <div key={key++} className="flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] leading-relaxed">
             {cols.map((c, i) => (
-              <span key={i} className={i === 0 ? "font-bold text-slate-100" : "text-slate-300"}>
+              <span key={i} className={i === 0 ? "font-semibold text-app-text" : "text-app-text-muted"}>
                 {renderInline(c)}
               </span>
             ))}
@@ -1224,7 +1216,7 @@ function MarkdownBlock({ text }: { text: string }) {
     }
     // plain paragraph
     blocks.push(
-      <p key={key++} className="text-[11px] leading-relaxed text-slate-200 whitespace-pre-wrap">
+      <p key={key++} className="text-[13px] leading-relaxed text-app-text whitespace-pre-wrap">
         {renderInline(line)}
       </p>
     );

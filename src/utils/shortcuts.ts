@@ -44,6 +44,7 @@ export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   inventory: "i",
   "stock-history": "y", // histor-Y
   "stock-transfers": "t",
+  "stock-report": "g", // report: the only free letter left
   buying: "b",
   production: "j", // Jobs (production batches)
   money: "e", // payments & Expenses

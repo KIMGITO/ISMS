@@ -29,6 +29,7 @@ import {
 } from '../services/buying';
 import type { Product } from '../types';
 import { NumberInput } from '../components/shared/Input';
+import TransfersByProduct, { type TransferLine } from '../components/transfers/TransfersByProduct';
 
 const TZ = 'Africa/Nairobi';
 
@@ -188,7 +189,7 @@ export default function StockTransfersView() {
   const canApprove = hasRolePermission(role, 'purchases.approve');
   const canWriteOff = canSend && (hasRolePermission(role, 'inventory.wastage') || hasRolePermission(role, 'inventory.adjust_stock'));
 
-  const [tab, setTab] = useState<'open' | 'history'>('open');
+  const [tab, setTab] = useState<'open' | 'history' | 'products'>('open');
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -240,6 +241,27 @@ export default function StockTransfersView() {
   const opened = transfers.find((t) => t.id === openId) || null;
 
   const list = tab === 'open' ? openList : history;
+  const loadedLines = useMemo<TransferLine[]>(
+    () =>
+      transfers
+        .filter((t) => t.status === 'in_transit' || t.status === 'received')
+        .flatMap((t) =>
+          t.items.map((i) => ({
+            transferId: t.id,
+            reference: t.reference,
+            status: t.status,
+            direction: t.direction,
+            otherBranch: t.direction === 'out' ? t.toName : t.fromName,
+            sentAt: t.sentAt,
+            productName: i.productName,
+            unit: i.unit,
+            unitCost: i.unitCost,
+            quantitySent: i.quantitySent,
+            quantityReceived: i.quantityReceived,
+          })),
+        ),
+    [transfers],
+  );
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-app-bg pb-nav">
@@ -300,6 +322,7 @@ export default function StockTransfersView() {
           {([
             ['open', `To do (${openList.length})`],
             ['history', 'History'],
+            ['products', 'By product'],
           ] as const).map(([id, label]) => (
             <button
               key={id}
@@ -313,7 +336,10 @@ export default function StockTransfersView() {
           ))}
         </div>
 
+        {tab === 'products' && businessId && <TransfersByProduct businessId={businessId} fallback={loadedLines} />}
+
         {/* List */}
+        {tab !== 'products' && (
         <section className="bg-app-card rounded-2xl shadow-xs overflow-hidden">
           {loading ? (
             <p className="p-6 text-sm text-app-text-muted text-center">Loading…</p>
@@ -369,6 +395,7 @@ export default function StockTransfersView() {
             </ul>
           )}
         </section>
+        )}
       </div>
 
       {sheet && businessId && (
