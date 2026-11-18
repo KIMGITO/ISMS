@@ -374,7 +374,7 @@ export default function PromotionsView() {
           <h2 className="text-base font-semibold text-app-text truncate">Promotions & Points</h2>
         </div>
         <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} />
-        <AreaAdvisor area="rewards" />
+        <AreaAdvisor area="rewards" floating />
         {tab === 'overview' && <OverviewTab businessId={businessId} />}
         {tab === 'promotions' && <PromotionsTab businessId={businessId} canManage={can('promotions.manage')} />}
         {tab === 'referrals' && <ReferralsTab businessId={businessId} canManage={can('referrals.manage')} />}
