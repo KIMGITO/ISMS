@@ -1,0 +1,31 @@
+{
+  "version": "7.5.5",
+  "notes": "### Fixes and improvements\n\n- ui fixes (e477e5b)\n- bttons and tabs (dab86c7)\n\n**Full changelog:** https://github.com/KIMGITO/ISMS/compare/v7.5.4...v7.5.5",
+  "pub_date": "2026-11-19T09:57:28.265Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN0xUaEl5WmJ0VG1MenJ4dGZwem5Wc1hLQWtXbndaZUM1V3FzME1XSE1lRlAwUjBkOWxhcUZMV3NrUEZ0WTIxMkNBOUtNVW9HZ21CODVaZTU4YU1tVndzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDgxNTg5CWZpbGU6S2F5S2F5J3NfNy41LjVfeDY0X2VuLVVTLm1zaQpSYmZxSytrZ01DeHlycFJrMXVkMUNqZFFEYzE4Uzd1RmloOW9tWDA2bmVXb3ZrMDJBVnpPR0xzK1NiZkhkK0JCbU9TZWtiVFdsbHdkRGhtak1Mc05DUT09Cg==",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-windows-x64-setup.msi"
+    },
+    "windows-x86_64-msi": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN0xUaEl5WmJ0VG1MenJ4dGZwem5Wc1hLQWtXbndaZUM1V3FzME1XSE1lRlAwUjBkOWxhcUZMV3NrUEZ0WTIxMkNBOUtNVW9HZ21CODVaZTU4YU1tVndzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDgxNTg5CWZpbGU6S2F5S2F5J3NfNy41LjVfeDY0X2VuLVVTLm1zaQpSYmZxSytrZ01DeHlycFJrMXVkMUNqZFFEYzE4Uzd1RmloOW9tWDA2bmVXb3ZrMDJBVnpPR0xzK1NiZkhkK0JCbU9TZWtiVFdsbHdkRGhtak1Mc05DUT09Cg==",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-windows-x64-setup.msi"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN0dQcmVVQmZYUUFNTkdFRm9KZWZEU3ptWFQrMjluSEJ6eE85NkNjckFPVVk2THJ5cUF3TXp1bGgvK3ZPYlIxMHQ1cHpsZXZPSU90VERMWDVDZnhmeHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDgyMjI3CWZpbGU6S2F5S2F5J3NfNy41LjVfYW1kNjQuQXBwSW1hZ2UKRm9HVTdpb2RxV0JZb0ZBSjhjSmU0TkcwYXNEeU4yUk9PRGlEczB0UHRic0o2QTBVd1NZQ1FEL2dER0RRWk9EV1RaeEg0Ky9nSVk0U25pL0U2YjRxQVE9PQo=",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-linux-x86_64.AppImage"
+    },
+    "linux-x86_64-appimage": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN0dQcmVVQmZYUUFNTkdFRm9KZWZEU3ptWFQrMjluSEJ6eE85NkNjckFPVVk2THJ5cUF3TXp1bGgvK3ZPYlIxMHQ1cHpsZXZPSU90VERMWDVDZnhmeHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDgyMjI3CWZpbGU6S2F5S2F5J3NfNy41LjVfYW1kNjQuQXBwSW1hZ2UKRm9HVTdpb2RxV0JZb0ZBSjhjSmU0TkcwYXNEeU4yUk9PRGlEczB0UHRic0o2QTBVd1NZQ1FEL2dER0RRWk9EV1RaeEg0Ky9nSVk0U25pL0U2YjRxQVE9PQo=",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-linux-x86_64.AppImage"
+    },
+    "linux-x86_64-deb": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN095RjBxdkhRaHR5MEZDbVZsajJkc2pPYjM0U3JoLzRic0pPdzRJY005TEdXakRZTWhXZTRGLzZvYzhTcS9PcXNCZ1lrelhHcG1UemZDQlVyQXNRK3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDgyMjI3CWZpbGU6S2F5S2F5J3NfNy41LjVfYW1kNjQuZGViCjVYZFpUUERlaWpPNXByL1UzdUZCVkY5UVY3Y2V4MnVwbVpFclVsSGpKQ1Yxc0xBci82Rm9vVTlEZHlENmVPZ0t6aEZWYzdrSUFPVWhHb1hYblJjRkRRPT0K",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-linux-amd64.deb"
+    }
+  },
+  "android": {
+    "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v7.5.5/KayKays-7.5.5-android.apk",
+    "sha256": "be2c339c0ff282e38f57740344e10231e51e0aaf550f232fa220e4adbebf77e4"
+  }
+}
