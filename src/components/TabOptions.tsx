@@ -17,6 +17,8 @@ interface TabsProps<T extends string> {
   activeTab: T;
   onChange: (tabId: T) => void;
   className?: string;
+  /** Extra classes merged onto each individual tab button. */
+  tabClassName?: string;
 }
 
 /** Keeps the chosen tab in view when a row of tabs is wider than the phone. */
@@ -48,6 +50,7 @@ export function Tabs<T extends string>({
   activeTab,
   onChange,
   className = "",
+  tabClassName = "",
 }: TabsProps<T>) {
   const rowRef = useActiveInView(activeTab);
   return (
@@ -62,7 +65,7 @@ export function Tabs<T extends string>({
             aria-selected={isActive}
             data-shortcut={tab.shortcut}
             onClick={() => onChange(tab.id)}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded text-[11px] font-semibold transition-all ${
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded text-[11px] font-semibold transition-all ${tabClassName} ${
               isActive
                 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                 : "text-app-text-muted hover:bg-app-card border border-transparent"

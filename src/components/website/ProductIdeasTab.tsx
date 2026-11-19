@@ -5,6 +5,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, EyeOff, Lightbulb, PackageCheck, Plus, ThumbsUp, Trash2 } from 'lucide-react';
 import SearchableDropdown from '../SearchableDropdown';
+import { Tabs } from '../TabOptions';
 import { getSupabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -160,16 +161,8 @@ export default function ProductIdeasTab({ businessId }: { businessId: string }) 
         <p className="text-sm text-app-text-muted">
           Customers vote and suggest products on the website's <strong>Vote &amp; suggest</strong> page. Suggestions wait here until you approve them.
         </p>
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`min-h-10 rounded-full px-4 text-sm font-semibold ${filter === f.id ? 'bg-brand-500 text-slate-950' : 'border border-app-border text-app-text'}`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="mt-4 overflow-x-auto">
+          <Tabs<Status> tabs={FILTERS} activeTab={filter} onChange={setFilter} className="w-max" tabClassName="rounded-full" />
         </div>
         {loadError ? (
           <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600">{loadError}</p>

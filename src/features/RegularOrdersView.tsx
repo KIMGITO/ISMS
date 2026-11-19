@@ -321,9 +321,9 @@ function RingTime({ businessId, ringAt, canChange, onSaved }: { businessId: stri
         From {ringAt}, everyone's phone rings while today's orders are not all delivered or skipped, then every 2 hours.
       </p>
       {canChange && (
-        <div className="flex items-center gap-2">
-          <input type="time" className={`${fieldClass} w-28 py-1.5`} value={value} min="06:00" max="22:00" onChange={(e) => setValue(e.target.value)} aria-label="Ring time" />
-          <button className={`${secondaryBtn} py-1.5`} onClick={save} disabled={busy || value === ringAt}><CalendarClock size={14} /> Save</button>
+        <div className="flex w-full items-center gap-2">
+          <input type="time" className={`${fieldClass} flex-1 py-1.5`} value={value} min="06:00" max="22:00" onChange={(e) => setValue(e.target.value)} aria-label="Ring time" />
+          <button className={`${secondaryBtn} flex-1 py-1.5`} onClick={save} disabled={busy || value === ringAt}><CalendarClock size={14} /> Save</button>
         </div>
       )}
     </section>

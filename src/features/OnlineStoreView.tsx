@@ -65,6 +65,14 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+type ReviewFilterId = 'pending' | 'approved' | 'hidden';
+
+const REVIEW_FILTER_TABS: { id: ReviewFilterId; label: string }[] = [
+  { id: 'pending', label: 'Waiting for approval' },
+  { id: 'approved', label: 'On the website' },
+  { id: 'hidden', label: 'Hidden' },
+];
+
 const inputClass =
   'w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none focus:border-brand-500';
 const primaryClass =
@@ -631,7 +639,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex justify-between gap-2 flex-nowrap">
         <button
           onClick={() => setEditing({ id: null, slug: '', title: '', summary: '', body: '', category: 'Milk care', published: false })}
           className={primaryClass}
@@ -639,7 +647,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
           <Plus size={16} /> New guide
         </button>
         <button onClick={addStarters} disabled={busy} className={secondaryClass}>
-          <BookOpen size={16} /> Add starter guides as drafts
+          <BookOpen size={16} /> Get A Draft
         </button>
       </div>
       {guides.length === 0 && (
@@ -882,7 +890,7 @@ function ReviewsTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
   const staffName = useAuthStore((s) => s.currentEmployee?.name ?? 'Staff');
-  const [filter, setFilter] = useState<WebsiteReview['status']>('pending');
+  const [filter, setFilter] = useState<ReviewFilterId>('pending');
   const [items, setItems] = useState<WebsiteReview[] | null>(null);
   const [replies, setReplies] = useState<Record<string, string>>({});
 
@@ -915,16 +923,8 @@ function ReviewsTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {(['pending', 'approved', 'hidden'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`min-h-10 rounded-full px-4 text-sm font-semibold ${filter === status ? 'bg-brand-500 text-slate-950' : 'border border-app-border text-app-text'}`}
-          >
-            {status === 'pending' ? 'Waiting for approval' : status === 'approved' ? 'On the website' : 'Hidden'}
-          </button>
-        ))}
+      <div className="mt-4 overflow-x-auto">
+        <Tabs<ReviewFilterId> tabs={REVIEW_FILTER_TABS} activeTab={filter} onChange={setFilter} className="w-max" />
       </div>
       {!items ? (
         <p className="text-sm text-app-text-muted">Loading reviews…</p>
