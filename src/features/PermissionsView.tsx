@@ -4,11 +4,12 @@
 import React, { useState, useEffect } from "react";
 import { getDynamicRoles, saveDynamicRoles, ALL_PERMISSIONS, PermissionCode, SYSTEM_ROLES, SUPPLIER_PORTAL_CATEGORY } from "../utils/permissions";
 import { ShieldCheck, ToggleLeft, ToggleRight, Info, Bot, RefreshCw, Lock, Search, X, Check, ShieldAlert, Grid, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Tabs } from "../components/TabOptions";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useAuthStore } from "../stores/authStore";
 
 export default function PermissionsView() {
-  const { showToast } = useNotificationStore();
+  const showToast = useNotificationStore((s) => s.showToast);
   const [selectedRole, setSelectedRole] = useState("Cashier");
   const dbPermissions = useAuthStore(state => state.dbPermissions);
   const [editedPermissions, setEditedPermissions] = useState<PermissionCode[]>([]);
@@ -152,6 +153,19 @@ export default function PermissionsView() {
     await useAuthStore.getState().saveRolePermissions(selectedRole, editedPermissions);
   };
 
+  /** Persist the current role's edits, then switch to the chosen role. */
+  const handleRoleSwitch = async (nextRole: string) => {
+    if (!blocked()) {
+      try {
+        await handleSave();
+        showToast("Role updated", `Permissions for ${selectedRole} saved.`, undefined, "success");
+      } catch (err) {
+        showToast("Role not updated", `Could not save permissions for ${selectedRole}.`, undefined, "error");
+      }
+    }
+    setSelectedRole(nextRole);
+  };
+
   const handleReset = () => {
     if (blocked()) return;
     const defaultPerms = SYSTEM_ROLES[selectedRole]?.permissions || [];
@@ -189,25 +203,14 @@ export default function PermissionsView() {
         <span className="text-[11px] text-app-text-muted font-bold block">
           Role
         </span>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {Object.keys(SYSTEM_ROLES).map((roleName) => {
-            const isActive = selectedRole === roleName;
-            return (
-              <button
-                key={roleName}
-                type="button"
-                onClick={() => setSelectedRole(roleName)}
-                className={`py-2 px-3 rounded-xl text-[10px] font-bold text-center border transition-all cursor-pointer truncate ${
-                  isActive
-                    ? "bg-amber-500 text-slate-950 border-amber-500 font-semibold shadow-sm"
-                    : "bg-app-bg border-app-border hover:border-app-border/80 text-app-text-muted hover:text-app-text"
-                }`}
-                title={SYSTEM_ROLES[roleName].description}
-              >
-                {roleName}
-              </button>
-            );
-          })}
+        <div className="mt-3 overflow-x-auto">
+          <Tabs<string>
+            tabs={Object.keys(SYSTEM_ROLES).map((roleName) => ({ id: roleName, label: roleName }))}
+            activeTab={selectedRole}
+            onChange={handleRoleSwitch}
+            className="w-max"
+            tabClassName="rounded-full"
+          />
         </div>
 
         <div className="p-3 bg-app-bg border border-app-border/45 rounded-xl text-[10px] leading-relaxed text-app-text-muted flex gap-2 items-start">

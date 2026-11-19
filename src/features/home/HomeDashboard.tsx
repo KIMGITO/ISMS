@@ -692,16 +692,16 @@ function TrendControls({ visible, setVisible, comparePrev, setComparePrev, total
     if (next.length) setVisible((["sales", "expenses", "profit"] as SeriesKey[]).filter((s) => next.includes(s)));
   };
   return (
-    <div className="flex w-max items-center gap-2">
+    <div className="flex items-center gap-2 overflow-x-auto min-w-0 sm:overflow-visible">
       <SeriesToggle keys={["sales", "expenses", "profit"]} visible={visible} onToggle={toggle} totals={totals} />
       <button
         type="button"
         onClick={() => setComparePrev(!comparePrev)}
         aria-pressed={comparePrev}
-        className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs cursor-pointer ${comparePrev ? "border-app-border bg-app-bg text-app-text" : "border-dashed border-app-border text-app-text-muted"}`}
+        className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-[10px] sm:text-xs cursor-pointer ${comparePrev ? "border-app-border bg-app-bg text-app-text" : "border-dashed border-app-border text-app-text-muted"}`}
       >
         <span className="inline-block w-3 h-0.5 rounded bg-[var(--viz-muted)]" />
-        Last period
+        <span className="text-[10px] sm:text-xs truncate">Last period</span>
       </button>
     </div>
   );

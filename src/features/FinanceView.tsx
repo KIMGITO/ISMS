@@ -516,7 +516,7 @@ export default function FinanceView({ embedded, period, reloadKey = 0 }: {
             </div>
 
             {/* Everything that happened */}
-            <Card title="What happened" subtitle="Every sale, payment, expense and points use, newest first">
+            <Card title="What happened" subtitle="Every sale, payment, expense and points use.">
               <div className="flex gap-1.5 flex-wrap mb-3">
                 {FEED_FILTERS.map((f) => (
                   <button

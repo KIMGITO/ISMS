@@ -436,7 +436,7 @@ export default function PettyCashView() {
         {/* Book */}
         <section className="bg-app-card rounded-2xl shadow-xs min-w-0">
           <div className="p-4 border-b border-app-border space-y-3">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-start justify-between gap-3 ">
               <div>
                 <h2 className="text-sm font-semibold text-app-text">{seesAll ? 'Petty cashbook' : 'My petty cash'}</h2>
                 <p className="text-2xl font-bold text-app-text tabular-nums mt-0.5">{ksh(total)}</p>

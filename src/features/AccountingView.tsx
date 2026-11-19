@@ -8,7 +8,7 @@
 // managers can read everything.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, BookOpen, CheckCircle2, ChevronDown, ChevronRight, Lock, Plus, RotateCcw, Scale, Search, Trash2, Undo2, Wallet,
+  AlertTriangle, BookOpen, Calculator, CheckCircle2, ChevronDown, ChevronRight, EqualApproximately, Lock, Plus, RotateCcw, Scale, Search, Trash2, Undo2, Wallet,
 } from 'lucide-react';
 import { useBusinessStore } from '../stores/businessStore';
 import { useNotificationStore } from '../stores/notificationStore';
@@ -69,10 +69,10 @@ function Card({ title, subtitle, action, children }: { title: string; subtitle?:
   );
 }
 
-function Tile({ label, value, note, tone, onClick }: { label: string; value: string; note?: string; tone?: 'bad' | 'good'; onClick?: () => void }) {
+function Tile({ label, value, note, tone, onClick, centered }: { label: string; value: string; note?: string; tone?: 'bad' | 'good'; onClick?: () => void; centered?: boolean }) {
   const Comp: any = onClick ? 'button' : 'div';
   return (
-    <Comp onClick={onClick} className={`bg-app-card rounded-2xl p-3.5 shadow-xs min-w-0 text-left ${onClick ? 'cursor-pointer hover:ring-1 hover:ring-amber-500/40' : ''}`}>
+    <Comp onClick={onClick} className={`bg-app-card rounded-2xl p-3.5 shadow-xs min-w-0 ${centered ? 'text-center' : 'text-left'} ${onClick ? 'cursor-pointer hover:ring-1 hover:ring-amber-500/40' : ''}`}>
       <div className="text-xs text-app-text-muted">{label}</div>
       <div className={`text-lg font-bold tabular-nums mt-0.5 break-words ${tone === 'bad' ? 'text-red-600 dark:text-red-400' : tone === 'good' ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text'}`}>{value}</div>
       {note && <div className="text-[11px] text-app-text-muted mt-0.5">{note}</div>}
@@ -224,7 +224,7 @@ export default function AccountingView() {
         <div className="flex items-center gap-2 flex-wrap">
           <GroupedTabs<Tab> groups={groups} activeTab={tab} onChange={setTab} className="w-full" />
         </div>
-        {(seesBooks || seesSummary) && <AreaAdvisor area="finance" />}
+
 
         {tab !== 'accounts' && tab !== 'receivables' && tab !== 'payables' && tab !== 'checks' && tab !== 'settings' && (
           <div className="flex items-center gap-2 flex-wrap">
@@ -454,6 +454,8 @@ export default function AccountingView() {
         )}
       </div>
 
+        {(seesBooks || seesSummary) && <AreaAdvisor area="finance" floating />}
+
       {ledgerFor && businessId && (
         <LedgerSheet
           account={accounts.find((a) => a.id === ledgerFor)!}
@@ -591,7 +593,7 @@ function JournalTab({ businessId, start, end, version, canManage, onOpen, onNew 
       {!busy && entries.length === 0 && <p className="text-sm text-app-text-muted py-6 text-center">No entries in this period.</p>}
       {entries.length < total && (
         <button onClick={() => void fetchPage(entries.length)} disabled={busy} className={`${secondaryBtn} w-full mt-3`}>
-          {busy ? 'Loading…' : `Show more (${(total - entries.length).toLocaleString()} left)`}
+          {busy ? 'Loading…' : `Show more entries`}
         </button>
       )}
     </Card>
@@ -1215,20 +1217,25 @@ function ChecksTab({ businessId, version, canManage, onCount, onChanged }: {
         {!data && !err && <p className="text-sm text-app-text-muted">Loading…</p>}
         {data && (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px] tabular-nums">
+            <table className="min-w-full text-[13px] tabular-nums">
               <thead className="text-xs text-app-text-muted">
-                <tr><th className="text-left font-medium py-1">Account</th><th className="text-right font-medium">Books</th><th className="text-right font-medium">Payments screen</th><th /></tr>
+                <tr>
+                  <th className="text-left font-medium py-1 whitespace-nowrap">Account</th>
+                  <th className="text-right font-medium py-1 whitespace-nowrap">Books</th>
+                  <th className="text-right font-medium py-1 whitespace-nowrap ">On Screen</th>
+                  <th className="py-1 whitespace-nowrap" />
+                </tr>
               </thead>
               <tbody>
                 {data.money.map((m) => {
                   const differs = m.app !== null && Math.round(m.app) !== Math.round(m.books);
                   return (
                     <tr key={m.accountId} className="border-t border-app-border">
-                      <td className="py-2 pr-3">{m.name}</td>
-                      <td className={`text-right ${m.books < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{exact(m.books)}</td>
-                      <td className={`text-right pl-3 ${differs ? 'text-amber-600' : 'text-app-text-muted'}`}>{m.app === null ? '—' : exact(m.app)}</td>
-                      <td className="text-right pl-3">
-                        {canManage && <button onClick={() => onCount(m)} className="text-xs underline cursor-pointer text-app-text">Count</button>}
+                      <td className="py-2 pr-3 min-w-0 truncate">{m.name}</td>
+                      <td className={`text-right whitespace-nowrap ${m.books < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{exact(m.books)}</td>
+                      <td className={`text-right pl-3 whitespace-nowrap ${differs ? 'text-amber-600' : 'text-app-text-muted'}`}>{m.app === null ? '—' : exact(m.app)}</td>
+                      <td className="text-right pl-3 whitespace-nowrap">
+                        {canManage && <button onClick={() => onCount(m)} className="text-xs underline cursor-pointer text-app-text whitespace-nowrap"> <EqualApproximately /></button>}
                       </td>
                     </tr>
                   );
@@ -1241,10 +1248,12 @@ function ChecksTab({ businessId, version, canManage, onCount, onChanged }: {
 
       {data && (
         <Card title="Stock value" subtitle="The stock account against stock on hand × each product's cost">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <Tile label="Books" value={money(data.stock.books)} />
             <Tile label="On hand" value={money(data.stock.actual)} />
-            <Tile label="Difference" value={money(data.stock.difference)} tone={Math.abs(data.stock.difference) >= 1 ? 'bad' : 'good'} />
+            <div className="col-span-2 md:col-span-1 flex items-center justify-center gap-2">
+              <Tile centered label="Difference" value={money(data.stock.difference)} tone={Math.abs(data.stock.difference) >= 1 ? 'bad' : 'good'} />
+            </div>
           </div>
           
           {canManage && Math.abs(data.stock.difference) >= 1 && (
