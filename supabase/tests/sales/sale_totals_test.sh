@@ -65,6 +65,18 @@ eq "stock now moved once" "$(python3 -c "print($S0-$(stock $BR))")" "1.0"
 sale 50 0 0 50 "[$(item $BR 1 50)]" "$REF" >/dev/null
 eq "a further retry adds nothing" "$(sql "select count(*) from transaction_items where transaction_id='$(id_of "$ORPHAN")'")" "1"
 
+echo "--- customer and credit sales (process_customer_transaction) get the same check"
+AL=c1000000-0000-0000-0000-000000000000
+credit(){ local ref=null; [ -n "${6:-}" ] && ref="'$6'"; as cash "select process_customer_transaction('$B1','$AL','Alice','$EMP','Carl',$1,$2,0,$3,$4,'${5:-Credit_Debt}',now(),null,false,0,null,$ref,'[$(item $BR 2 50)]'::jsonb,'charged',0,null)"; }
+DEBT0=$(sql "select debt_balance from customers where id='$AL'"); S0=$(stock $BR)
+has "credit sale books 1.00 for 100.00 of goods" "$(credit 100 0 1 0)" "does not match the items"
+eq "  ...no debt added" "$(sql "select debt_balance from customers where id='$AL'")" "$DEBT0"
+eq "  ...no stock moved" "$(stock $BR)" "$S0"
+has "credit sale total 5.00 for items 100.00" "$(credit 5 0 5 0)" "does not match its items"
+ok "correct credit sale saved" "$(credit 100 10 90 0 Credit_Debt "st-credit-$$")"
+eq "  ...debt up by 90.00 (less any wallet)" "$(python3 -c "print(f'{$(sql "select debt_balance + 0 from customers where id='$AL'")-$DEBT0+$(sql "select wallet_applied from transactions where reference_id='st-credit-$$'"):.2f}')")" "90.00"
+ok "correct paid customer sale saved" "$(credit 100 0 100 100 Cash)"
+
 echo "--- two tills at once"
 REF="st-race-$$"; S0=$(stock $BR)
 for i in 1 2 3 4; do sale 50 0 0 50 "[$(item $BR 1 50)]" "$REF" >/dev/null & done; wait
