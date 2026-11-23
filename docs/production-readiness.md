@@ -4,6 +4,8 @@
 
 Plan and checklist: [ISMS_Production_Readiness_Master_Checklist.md](ISMS_Production_Readiness_Master_Checklist.md).
 
+Everything left to do, step by step: [TO_FINISH.md](TO_FINISH.md).
+
 ## Phase status
 
 | Phase | Status | Report |

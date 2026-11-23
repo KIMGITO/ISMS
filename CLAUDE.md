@@ -36,6 +36,25 @@ Profit figures read `fn_spending()` (server) or `spendingWithRiderPay()` (app); 
   `<NumberInput decimals={QTY_DECIMALS} />`; quantity columns are `numeric(p,1)`
   (`20261130007_quantity_one_decimal.sql`). Recipes state amounts per batch (yield), not per item.
 
+## Finishing rule (set by the owner, 2026-11-23)
+
+Every change that isn't fully live when the work stops gets a numbered **To finish** list, in
+`docs/TO_FINISH.md` (newest at the top) and in the reply. Each step is one line:
+
+- what to do, with the exact command, screen or SQL (`npx supabase db push`, then
+  `bash scripts/check-live-grants.sh`);
+- how to see it worked ("A 'Watchdog test' message should arrive in Telegram");
+- **You:** at the start when only the owner can do it (accounts, secrets, payments, devices).
+
+Steps are in the order they must run. Nothing is called done until its steps are ticked; a
+ticked item moves to **Done** at the bottom of the file.
+
+Example (Phase 5):
+1. Apply the database change: `npx supabase db push`, then `bash scripts/check-live-grants.sh`.
+2. Deploy the function: `npx supabase functions deploy ops-alert --no-verify-jwt`.
+3. Run `SELECT public.run_ops_watchdog(true);` in the SQL editor. A "Watchdog test" message should arrive in Telegram.
+4. **You:** create free UptimeRobot or Better Stack monitors for the web app, the website and the health check, with both Telegram and email as contacts. Then break one on purpose once to see the alert arrive.
+
 ## Permission rules (2026-11-18)
 
 Every permission the app checks is also enforced by the database (`has_permission` in RLS or the
