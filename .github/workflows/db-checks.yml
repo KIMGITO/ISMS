@@ -1,0 +1,58 @@
+name: Database checks
+
+# Phase 7: nothing reaches the live database, or a release, without these passing.
+#   1. scripts/check-migrations.mjs: names, order, and no drop/rename/retype without a reason.
+#   2. `supabase db start` applies every migration to a fresh Supabase database, the way
+#      `db push` applies them to live. A migration that fails here would fail on live.
+#   3. scripts/run-db-tests.sh: every supabase/tests suite (access rules, money and books,
+#      sales, promotions, numbers, regular orders) signed in as real roles.
+# Runs on pull requests; on pushes to main, release-and-deploy.yml calls it before releasing.
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  db:
+    name: Migrations and database tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DO_NOT_TRACK: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the base commit, to see which migrations are new
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Check the migration files
+        env:
+          # Pull request: its target branch. Push: the commit main was on before.
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then base="origin/$BASE_REF"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then base="$BEFORE"
+          else base="HEAD~1"; fi
+          node scripts/check-migrations.mjs "$base"
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0 # the version that applies migrations on this machine and to live
+
+      - name: Apply every migration to a fresh database
+        run: supabase db start
+
+      - name: Run the database tests
+        run: bash scripts/run-db-tests.sh
+
+      - name: Database log (on failure)
+        if: failure()
+        run: docker logs --tail 200 "$(docker ps --format '{{.Names}}' | grep -E '^supabase_db_' | head -1)" || true

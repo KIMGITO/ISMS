@@ -1,13 +1,13 @@
 name: Security checks
 
 # Phase 6: known-vulnerable dependencies and committed secrets fail the check.
-# Runs on every push and pull request to main, and every Monday so new advisories against
-# packages that haven't changed are still noticed. A failure on main alerts Telegram.
+# Runs on every pull request to main, and every Monday so new advisories against packages
+# that haven't changed are still noticed. On pushes to main, release-and-deploy.yml calls it
+# before releasing (Phase 7), so a failure blocks the release and that run alerts Telegram.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
   schedule:
     - cron: "0 5 * * 1" # Monday 08:00 Nairobi
   workflow_dispatch:
@@ -62,7 +62,8 @@ jobs:
   alert:
     name: Tell Telegram
     needs: [dependencies, secrets, edge-function-tests]
-    if: failure() && github.event_name != 'pull_request'
+    # Only the Monday and manual runs; a release run reports its own failures.
+    if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     steps:
       - name: Send

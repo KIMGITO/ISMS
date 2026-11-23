@@ -40,4 +40,4 @@ echo "-- outsiders and anon"
 ok "anon can't call it" "$(sql "SET role anon; select my_permissions('$B')" | grep -q 'permission denied' && echo yes || echo ERROR)"
 eq "AI settings fall back to the business itself" "$(sql "select fn_ai_settings_business('$B') = '$B'")" "t"
 sql "DELETE FROM public.role_permissions WHERE business_id='$B' AND role='Cashier' AND permission='inventory.transfer_stock'" >/dev/null
-done_tests 2>/dev/null || echo "PASS=$PASS FAIL=$FAIL"
+echo; echo "passed $PASS, failed $FAIL"; [ $FAIL -eq 0 ]
