@@ -41,7 +41,8 @@ echo "--- fraud rules"
 has "self referral"          "$(check $CODE "$CART" "'$ALICE'")" "own referral code"
 EVE=$(newcust "Eve Twin" "'+254 711 000 001'")
 has "same phone as referrer (other format)" "$(check $CODE "$CART" "'$EVE'")" "same phone or email"
-FAY=$(newcust "Fay Nophone" "''")
+# Every customer has a phone (20261128001); a short landline is kept as typed but is too short for a referral.
+FAY=$(newcust "Fay Landline" "'020 1234'")
 has "phone required"         "$(check $CODE "$CART" "'$FAY'")" "phone number first"
 GUS=$(newcust "Gus Old" "'0733000009'" 60)
 has "existing customer excluded" "$(check $CODE "$CART" "'$GUS'")" "more than 30 days"

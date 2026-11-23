@@ -1,6 +1,6 @@
 import nodemailer from "npm:nodemailer@6.9.13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { contactAllowed, enforceRateLimit } from "../shared/cors.ts";
+import { contactAllowed, enforceRateLimit, requirePermission } from "../shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -197,7 +197,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { to, type, variables = {}, businessId, purpose } = body;
+    const { to, type, businessId, purpose } = body;
+    let variables: Record<string, any> = body.variables ?? {};
 
     // Backend callers use the service role key. App users must be active members of a business,
     // and OTP emails can only come from auth-otp, so nobody can email a code they chose themselves.
@@ -229,6 +230,47 @@ Deno.serve(async (req) => {
 
       const limited = await enforceRateLimit(`mail:${user.id}`, 30, 3600);
       if (limited) return limited;
+
+      // App users can only send the two emails the app sends, and never choose the subject,
+      // sender name or colours, so this can't be used to send look-alike mail to anyone.
+      const admin = createClient(supabaseUrlForAuth, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "", {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const recipient = String(to || "").trim().toLowerCase();
+      if (type === "invitation") {
+        // Only a real, open invitation for this address, from a shop the sender belongs to.
+        // The shop name and role come from the invitation, not from the request.
+        const code = cleanCodeValue(variables.code);
+        if (!/^[A-Z0-9]{4,32}$/.test(code)) return denied(400, "The invitation code is missing.");
+        const { data: invite } = await admin
+          .from("invitations")
+          .select("business_id, email, role, status, expires_at, businesses(name)")
+          .eq("invitation_token", code)
+          .eq("status", "Pending")
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+        if (!invite || String(invite.email || "").trim().toLowerCase() !== recipient) {
+          return denied(403, "That invitation was not found.");
+        }
+        const isMember = await userClient
+          .from("business_memberships").select("id")
+          .eq("user_id", user.id).eq("business_id", invite.business_id).eq("status", "Active").limit(1);
+        if (!isMember.data?.length) return denied(403, "You don't have permission to send email.");
+        variables = {
+          code,
+          name: String(variables.name || "").slice(0, 120),
+          businessName: (invite as any).businesses?.name || "",
+          role: invite.role || "",
+          optionalMessage: String(variables.optionalMessage || "").slice(0, 500),
+        };
+      } else if (type === "customer_message") {
+        if (!businessId) return denied(400, "Choose a shop first.");
+        const forbidden = await requirePermission(req, String(businessId), "communication.send");
+        if (forbidden) return forbidden;
+        variables = { body: String(variables.body || "").slice(0, 5000) };
+      } else {
+        return denied(403, "This email can't be sent from here.");
+      }
     }
 
     if (!to) {
