@@ -14,8 +14,9 @@ Sign-up: the cause was the password. Live Supabase Auth needs 8+ characters with
 
 1. [x] Find the cause: the browser console showed `AuthWeakPasswordError` (2026-11-23).
 2. [ ] Reload the app (sign out or clear the site data first, to drop the old login from before the reset), then register the owner with a password that has 8+ characters, a capital, a small letter and a number. It should go to the 6-digit code screen, and `SELECT count(*) FROM auth.users;` should return 1.
-3. [ ] **You:** decide on the 6 `zip` advisories (RUSTSEC-2026-0367/0368/0369/0429/0545/0548) from `tauri-plugin-updater`. No fixed updater exists yet; the updater checks the signature before unzipping. Either accept them in `src-tauri/.cargo/audit.toml` until a fix ships, or keep releases blocked.
-4. [ ] Commit the Deno test fix (`--no-config` in `security.yml`) and the `cookie`/`url` update in `Cargo.lock`, then `git push`. The "Security checks" jobs should pass and "Release and Deploy" should tag and publish.
+3. [x] Fix the 6 `zip` advisories (RUSTSEC-2026-0367/0368/0369/0429/0545/0548): `tauri-plugin-updater` 2.14.1 uses `zip` 9 (pinned 9.4.2). This needs Tauri 2.12, so `tauri` went 2.11.5 → 2.12.5 and npm `@tauri-apps/api` 2.12.4, `@tauri-apps/cli` 2.12.4, `@tauri-apps/plugin-updater` 2.14.1 (exact pins, every version at least two weeks old). `cargo audit` shows 0 vulnerabilities and `cargo check` + `tsc` pass on Linux (2026-11-23). The Windows build was not tried locally.
+4. [ ] Commit `package.json`, `package-lock.json` and `src-tauri/Cargo.lock`, then `git push`. The "Security checks" jobs should pass and "Release and Deploy" should build Windows/Android/Linux, then tag and publish.
+5. [ ] **You:** install the new release on Windows over the old one. The in-app update should download, install and restart on the new version (this is the code path that unzips with `zip` 9).
 
 ---
 
