@@ -24,7 +24,7 @@ date: "23 November 2026"
 3. Technology stack
 4. Repository structure
 5. Roles and access control
-6. Staff app: user guide
+6. Staff app: screen map
 7. Customer website
 8. Dial-code (USSD) ordering
 9. Payments and M-Pesa
@@ -115,22 +115,22 @@ Which of these migrations are live is tracked in `docs/TO_FINISH.md`.
 
 | Area | Change | Section |
 |---|---|---|
-| Loyalty | New points rule: 2 per Ksh 1 paid, 1 per Ksh 1 of debt repaid, value by tier; points never become money; points report | 10.1, 6.11 |
-| Customers | Invoices for what a customer owes (A5 PDF, numbered, stored) | 6.12 |
+| Loyalty | New points rule: 2 per Ksh 1 paid, 1 per Ksh 1 of debt repaid, value by tier; points never become money; points report | 10.1 |
+| Customers | Invoices for what a customer owes (A5 PDF, numbered, stored) | User guide |
 | Customers | Add a customer to a walk-in sale afterwards, so they get the points | 10.8 |
-| Credit | A credit sale is a debt, not a payment: "Sold on credit" notification, receipt marked not paid | 6.7 |
+| Credit | A credit sale is a debt, not a payment: "Sold on credit" notification, receipt marked not paid | User guide |
 | Receipts | One layout for preview, print, PDF and WhatsApp; points on receipts; real Bluetooth and Wi-Fi printing | 14 |
 | Tax | KRA eTIMS signing; VAT only once eTIMS is connected | 14.4 |
 | Offline | Paid sales queue on the device and send on reconnect | 15.4 |
-| Home | Rebuilt: charts, four key figures on phones, needs attention, full-screen charts | 6.4 |
-| Stock | Stock History screen; categories in their own table | 6.8, 6.9 |
-| Shifts | Rebuilt end-of-shift report | 6.5 |
-| Navigation | Payments & Expenses screen; grouped More sheet; double-tap hides the bottom bar | 6.2 |
-| Keyboard | Shortcuts on every screen, filtered by role; ? help; table in About | 6.3 |
-| Search | Global search finds features and shortcuts | 6.2 |
-| Settings | Collapsible sections; Invoices section; settings no longer reset | 6.20 |
+| Home | Rebuilt: charts, four key figures on phones, needs attention, full-screen charts | User guide |
+| Stock | Stock History screen; categories in their own table | User guide |
+| Shifts | Rebuilt end-of-shift report | User guide |
+| Navigation | Payments & Expenses screen; grouped More sheet; double-tap hides the bottom bar | User guide |
+| Keyboard | Shortcuts on every screen, filtered by role; ? help; table in About | User guide |
+| Search | Global search finds features and shortcuts | User guide |
+| Settings | Collapsible sections; Invoices section; settings no longer reset | User guide |
 | Text | No database IDs shown; customer names capitalised | 10.9 |
-| Security | Invitations bound to the invited email; reset codes only to the login email | 6.1, 18.3 |
+| Security | Invitations bound to the invited email; reset codes only to the login email | 18.3 |
 | Updates | Signed desktop updates; `.deb` installs update themselves; Android key pinned in CI | 20, 21 |
 
 # 2. System overview
@@ -333,285 +333,50 @@ A rider receives deliveries only through `get_my_deliveries`, which returns just
 
 <div class="page-break"></div>
 
-# 6. Staff app: user guide
-
-This chapter is the reference for each screen. A shorter, task-based guide for shop staff is in `docs/USER_GUIDE.pdf`.
-
-## 6.1 Getting started
-
-**First run.** The first person to sign up creates a business (name, type, country, currency) and becomes its Owner through `create_business_with_owner`. Supported countries are Kenya, Uganda, Tanzania, Rwanda and Somalia; currencies Ksh, USh, TSh, RWF and USD. Business types include retail, wholesale, bakery, restaurant, dairy farm, milk processing plant, agrovet, pharmacy and others.
-
-**Inviting staff.** In **Workers**, the Owner invites a person by email with a role. The invitee receives a code, signs up or signs in **with the same email address**, and joins through `accept_invitation_with_token`. The invitation is bound to that login email (migration `20261107002`), so a code can't be used to join, or take over, a different account. Invitations can be revoked and expire.
-
-**Signing in and recovering a password.** Email verification and password reset codes are issued and checked by the `auth-otp` edge function. Codes are six digits, never returned to the app, and limited to five wrong guesses each. A reset code only goes to the account's real login email.
-
-**Switching business.** A person can belong to several businesses and switch between them; all data is scoped to the business selected.
-
-**Guided tour.** New staff get a walkthrough that highlights each screen they can open. On phones it opens the **More** sheet and points at the exact entry. Restart it from **Settings > Help & tour**.
-
-## 6.2 Navigation
-
-**Desktop.** Screens are in a sidebar, grouped as Selling, Money, Stock, Team, Business, and You & the app. AI drafts (actions the assistant proposed) sit in the sidebar footer.
-
-**Phones.** A bottom bar holds at most five slots, with **Sell** in the centre for cashiers and **Payments** on the bar for Owners and Admins. Everything else is in the **More** sheet, which is grouped the same way as the sidebar and has its own search. Profile, theme and AI drafts live in the More sheet's header. Double-tap anywhere to hide or show the bottom bar; it also hides while scrolling down a long screen and comes back at the end. The bar is dark in light mode and light in dark mode.
-
-The top bar holds only search and notifications. Each screen requires a permission and disappears for roles without it (`src/utils/screens.ts`).
-
-| Screen | Group | Required permission (any one) | Purpose |
-|---|---|---|---|
-| Home | Business | `home.view` | Business figures and charts at a glance |
-| Shift | Team | `dashboard.view` | Clock in and out, current shift |
-| Quick Sale | Selling | `pos.create_sale` | Fast keyboard and scanner checkout |
-| POS | Selling | `pos.create_sale` | Full checkout with cart, customers, discounts, delivery |
-| Sales Log | Selling | `orders.view` | Past sales and receipts |
-| Loyalty | Selling | `customers.view` | Customers, points, debts, wallets, invoices |
-| Online Store | Selling | `online_store.view` | Website orders, messages, guides, settings |
-| Deliveries | Selling | `deliveries.view` | A rider's assigned deliveries |
-| Payments & Expenses | Money | `payments.*` or `expenses.view` / `expenses.create` | Payments, M-Pesa till and prompts, expenses |
-| Inventory | Stock | `inventory.view` | Products, categories, stock |
-| Stock History | Stock | `inventory.stock_history` | Every change to stock, with search and filters |
-| Production & BOM | Stock | `bom.view` | Recipes and production batches |
-| Workers | Team | `staff.view` | Staff, invitations, schedules |
-| Roles | Team | `staff.roles` | Permission matrix |
-| Feedback | Business | `complaints.view` | Reviews, complaints, messaging |
-| Assistant | Business | `ai.use` | Workspace AI assistant |
-| Business Management | Business | `business.update` | Details, branches, logo, colours |
-| Settings | You & the app | `settings.view` | Receipts, invoices, connections, backups, devices |
-| Notifications | You & the app | — | Alerts and messages |
-| My Profile | You & the app | — | Own name, photo, password, PIN |
-| About this app | You & the app | — | Version, updates, keyboard shortcuts |
-
-**Global search** (Ctrl+K, or the search box) finds products, customers and sales, plus **Features** (for example "invoice", "merge duplicates", "KRA", "offline sales") and **Keyboard shortcuts**. Both lists are filtered to what the person's role can use.
-
-**Messages on screen.** Confirmations of your own actions show as a brief silent pill. Warnings and errors are never shown as successes. There are no "back online / connection lost" popups; a thin strip under the header shows while offline, with the number of sales still waiting to send. Anything saved offline is shown in rose red with a cloud icon, deliberately different from an error. Toasts show the sender's photo, else the business logo, else your own photo.
-
-## 6.3 Keyboard shortcuts
-
-One list, `src/utils/shortcuts.ts`, drives the key handler, the **?** help panel, the table in **About this app** and global search, so they always agree. Each person only sees and can use the shortcuts their role allows: a page key presses a button tagged `data-shortcut`, and a button the role can't see isn't on the page.
-
-**Everywhere**
-
-| Keys | Action |
-|---|---|
-| Ctrl+K | Search the app |
-| ? | Shortcuts for this screen |
-| / | Jump to this screen's search box |
-| [ and ] | Previous / next tab on this screen |
-| Esc | Close a window or clear a search |
-| G then a letter | Open a screen (below) |
-
-**G then …** H Home · J Shift · S Quick Sale · P POS · I Inventory · K Stock History · L Sales Log · C Loyalty · M Payments & Expenses · F Feedback · O Online Store · D Deliveries · W Workers · R Roles · A Assistant · B Production & BOM · E Business Management · T Settings · N Notifications · U My Profile · V About.
-
-**Quick Sale**
-
-| Keys | Action |
-|---|---|
-| Type or scan, then Enter | Add the product (an exact SKU match wins) |
-| ↑ ↓ | Move through the products |
-| + − | One more / one less of the last item |
-| F1 / F2 / F3 | Paid by Cash / M-Pesa / Card |
-| F7 | Add a customer to the last sale (they get the points) |
-| F8 | Receipt for the last sale |
-| Esc | Clear the search, then the sale |
-
-**POS**
-
-| Keys | Action |
-|---|---|
-| F2 or / | Search products; ↑ ↓ Enter to pick |
-| Alt+← / Alt+→ | Previous / next category |
-| + − | One more / one less of the last item |
-| Delete / Ctrl+Delete | Remove the last item / empty the cart |
-| F4 | Show or hide the cart (phone layout) |
-| Alt+1 / Alt+2 / Alt+3 | Pay by Cash / M-Pesa / sell on Credit |
-| Alt+C / Alt+D / Alt+N | Choose customer / delivery on-off / add a note |
-| F9 or Ctrl+Enter | Complete the sale |
-| R | Receipt, after a sale |
-
-**Receipts** (from Quick Sale, POS, customer history or the Sales Log): P or Ctrl+P print · W WhatsApp · E email · D save PDF · C copy text · B barcode on/off · A add a customer to a walk-in sale · Esc close.
-
-**Page keys:** N adds a new item on Inventory, Loyalty, Shift (schedule), Production (batch) and Business Management (branch); B creates a recipe on Production; P opens the points report on Loyalty; C clocks in/out on Shift; M marks all notifications read.
-
-POS and Quick Sale keep their own key handlers for speed. When adding a feature or page action, add it to `FEATURES`/`SHORTCUTS` and tag the button with `data-shortcut`; the test "Keyboard shortcuts and search features follow the roles" checks that no key is used twice on a screen and every page key has a tagged button.
-
-## 6.4 Home
-
-Home (`src/features/home/`) shows, top to bottom: charts, key figures, **Needs attention**, and reports. On phones it shows four figures (Sales, Profit, Money in, Spending) in side-scrolling rows; desktop adds items per sale, new customers, loyalty members, staff on shift, products not selling and team figures.
-
-- **Period**: today, week, month or a custom range. Times are Kenya time, and today's chart stops at the current hour.
-- **Charts** can be opened full screen and played back over the period. Turning a phone sideways uses nearly the whole screen (native `ScreenOrientationPlugin` on Android; older builds rotate the chart with CSS).
-- **Branch growth** always shows; each business counts as a branch.
-- **Profit** has debt paid with loyalty points taken off it (section 10.1).
-
-Figures come from pure functions in `home/metrics.ts`, covered by tests. Known caveats: long ranges can hit Supabase's 1,000-row limit (branch charts page their own fetch), and product revenue and profit use each product's current price and cost, so they are estimates.
-
-## 6.5 Shifts and clock-in
-
-The clock bar and the **Shift** screen let staff clock in and out (C on the Shift screen). Opening a shift records the starting cash; every sale by that employee adds to the shift's count and total (done in the database trigger). **End shift** asks for the closing cash and produces the end-of-shift report: all payment types, cash counted against cash expected and the difference, in Kenya time. If closing the shift fails, the report stays open with its notes so nothing is lost. The report can be sent as a notification to the Owner.
-
-Staff presence is shown as online (seen in the last 3 minutes), away (3–10 minutes) or offline, based on `employees.last_seen_at`, which the app updates every 2 minutes.
-
-## 6.6 Quick Sale
-
-Quick Sale is built for speed at a busy counter with a keyboard or barcode scanner (keys in section 6.3).
-
-- **Typed quantities**: type any amount, including decimals such as 0.5 kg, with "," or ".". − / + step by 1 and stop at the stock on hand with a notice.
-- Quantities, badges and new lines animate, with haptics on add, success and error on phones. The sale panel ends above the bottom bar.
-- Quick sales are walk-in sales. After the sale, **Add customer** on the success banner (F7) puts it on a customer's account so they still get the points (section 10.8).
-- Cash, card and M-Pesa-code sales work offline (section 15.4).
-
-## 6.7 Point of sale
-
-The POS screen supports everything Quick Sale does plus:
-
-- **Customer selection**, or a walk-in sale. Only sales to a registered customer earn points; a walk-in sale can be given a customer afterwards.
-- **Quantity, price override and discounts**, each controlled by its own permission (`pos.override_price`, `pos.discount`).
-- **Payment methods**: Cash, M-Pesa, Card, Bank, Mobile Wallet (customer wallet), and **Credit**, which adds the sale to the customer's debt. A credit sale is not a payment: it raises a **Credit Sale** notification ("Sold on credit"), never "Payment received", and its receipt is marked as not paid.
-- **Points as a discount**: the cart shows "Paid with N points" before checkout. Points come off the price; they are never recorded as money received.
-- **Split payments**, for example part wallet and part M-Pesa.
-- **Delivery**: a delivery fee, delivery zone and rider. Delivery fees never earn points.
-- **VAT**: the VAT line shows the rate actually applied. VAT can only be switched on or changed once KRA eTIMS is connected (section 14.4).
-- **Send M-Pesa prompt** to the customer's phone (section 9).
-- **Receipt**: printed, shared as PDF or WhatsApp text, emailed, or copied (section 14).
-
-The checkout panel lays payment, note, tax and discount side by side only when there is room, with short labels (Discount, 16% VAT, No VAT, Credit, Note, Delivery, Rider, Subtotal). A failed sale pops up an error like other screens.
-
-When the sale completes, `process_customer_transaction` records it. Triggers then reduce stock, add points, update the shift, raise the customer's tier if earned, and post the money to the right money asset (section 16.4).
-
-## 6.8 Inventory
-
-Inventory holds the product catalogue: name, category, SKU or barcode, unit, cost, sale price, tax, image, minimum stock and expiry. From here staff with the right permissions can:
-
-- **Add products** (N), with a photo from the camera (phones) or webcam (computers), a file, or a free Unsplash search that runs as you type and loads more as you scroll.
-- **Receive stock** (restock), **adjust stock** with a reason, run **stock counts**, and record **wastage** such as spillage or souring.
-- **Manage categories.** Categories have their own table (`product_categories`, migration `20261106002`), so a new category stays even before any product uses it. Any category a product uses is added automatically.
-- **Bulk edit** categories (`update_product_category_bulk`) and stock (`adjust_stock_bulk`).
-- **Import and export** products.
-
-When stock falls to the minimum, `fn_check_low_stock` raises **Stock Almost Finished**; at zero it raises **Out Of Stock**. Products are never deleted outright: `fn_trap_product_hard_deletes` turns a delete into an archive so past sales keep their product.
-
-## 6.9 Stock History
-
-Every stock movement (restock, wastage, count, sale and production) in one list, moved here from Inventory. It has search, filters by type, groups by day, and a receipt for each change. Stock leaving with a sale is shown as **Sold** with the sale's receipt number (`TXN-XXXXXXXX`) as its reference. No screen shows raw database IDs (migration `20261108004`).
-
-## 6.10 Sales Log
-
-Lists past sales with their items, payment, customer, staff member and receipt number. Sales can be filtered, reprinted, exported to PDF, and refunded or cancelled with the right permission (`pos.refund`, `pos.cancel_sale`). Cashiers see only their own sales and their customers' sales.
-
-- A sale made offline shows **Waiting to sync** in rose until it reaches the server.
-- A paid walk-in sale has **Add customer** on its receipt (A), within the time limits in section 10.8.
-
-## 6.11 Loyalty (customers)
-
-The customer list collapses on wide screens so the customer panel gets the room, and on phones it is one scroll with balances and quick actions at the top. Customer names are stored and shown with every word capitalised.
-
-Each customer has tabs:
-
-| Tab | Holds |
-|---|---|
-| Money | Take a payment, top up the wallet, pay debt (including with points), send an M-Pesa prompt |
-| Invoices | Issue and re-share invoices for what the customer owes (section 6.12) |
-| History | Sales, purchases, credit repayments and wallet events, with a period filter |
-| Ledger | Every balance movement, oldest to newest |
-| Message | Send a message by WhatsApp, SMS or email, using the real shop name |
-| Profile | Details, customer type, payment terms, group, delivery schedule, contact preferences, notes, account number |
-
-From here staff can also:
-
-- Register customers (N).
-- Open the **Points report** (P): points held and what they're worth by tier, points earned and used, who used them and where, and how much came off profit.
-- Adjust points, tier, wallet or debt by hand (Owner and Manager only; every change is logged).
-- Review **Duplicates** and merge two records (section 10.5).
-
-## 6.12 Customer invoices
-
-An invoice bills a customer for what they owe on credit (`src/services/invoice/`, `src/components/invoices/`). Open it from **Loyalty > customer > Invoices**.
-
-- **What it covers**: everything owed, or a week, month or custom period, optionally with older unpaid debt. Each unpaid credit-sale line is listed at the price it was **sold** at (not today's price), with delivery, tax, discounts, part payments and manual balance changes. The invoice balance always equals what the customer owes.
-- **Editing**: line descriptions and texts can be edited, with a live A5 preview.
-- **Numbering**: one counter per business (`issue_invoice`, `invoice_counters`), so two devices never issue the same number. Each issued invoice is stored exactly as sent (`invoices`) and can be shared again.
-- **Output**: an A5 PDF with logo, From / Bill to, product table, totals, optional payment details and business stamp, running onto more pages when long. Share the PDF, send by WhatsApp, or email.
-- **Defaults** (texts, labels, number prefix, due days, default period, payment details, stamp) are in **Settings > Invoices** and save themselves.
-
-Issuing requires `customers.debts`.
-
-## 6.13 Feedback
-
-Two tabs: **Reviews & Sentiment**, which lists complaints and ratings with filters by rating, sentiment and status, and **Communication Center**. AI can analyse a complaint's sentiment, draft a reply and improve a draft (`complaints` edge function). Replies are saved in `complaint_replies`.
-
-## 6.14 Communication Center
-
-Sends a message to a list of customers. Staff first choose the kind of message, **Order update or reminder** or **Offer or promotion**, then how to send it:
-
-| Option | What happens |
-|---|---|
-| Automatic | WhatsApp API, then SMS. Anyone still unreached is listed to send by hand. |
-| WhatsApp API, SMS or Email | That channel only. Anyone it can't reach is listed to send by hand. |
-| By hand | Lists everyone; each tap opens that customer's WhatsApp chat. |
-
-Customers who haven't agreed to offers are skipped for promotions. The SMS, WhatsApp and email functions check consent again on the server. A **Staff Reminders** feed shows the signed-in person's schedule reminders.
-
-## 6.15 Online Store
-
-Tabs: **Orders**, **Messages**, **Feedback**, **Guides** and **Website**.
-
-- **Orders**: website and dial-code orders, their payment state, and anything flagged for attention (wrong amount, second payment, stock shortage). Staff prepare orders, assign riders (`staff_assign_rider`) and update status (`staff_update_online_order`).
-- **Messages**: conversations with website customers.
-- **Feedback**: reviews submitted on the website.
-- **Guides**: milk guides and articles shown on the website; starter guides can be added, edited and published.
-- **Website**: the site's name (`kaykays`; the site stays hidden until set), delivery fee and delivery areas, which products are shown, and loyalty settings: what a point is worth in each tier and the minimum to redeem.
-
-## 6.16 Deliveries
-
-A rider sees their assigned deliveries with the customer's name, phone, location, items and amount, and marks each one out for delivery or delivered (`rider_update_delivery`). Completion notifies the Owner.
-
-## 6.17 Workers and Roles
-
-**Workers** lists staff with their role, branch, presence and shifts, handles invitations, and sets **schedules** (with repeat: none, daily, weekly, monthly). Staff receive a **Schedule Reminder** notification before each scheduled shift, raised by a job every 15 minutes.
-
-**Roles** is the permission matrix described in section 5.4.
-
-## 6.18 Payments & Expenses
-
-Its own screen (in the Money group), with tabs shown by permission:
-
-- **Payments**: every payment received, filterable by method, with void (`void_business_payment`) for mistakes. Money assets show the running balance per method (cash, M-Pesa, card, bank and so on) with a ledger of every movement.
-- **M-Pesa**: the till number, **Register till with Safaricom**, and the **Paid to the till** queue (section 9).
-- **Expenses**: record costs by category (categories are seeded per business), with receipt photos. Expenses are voided with a reason, not deleted.
-
-## 6.19 Business Management
-
-Name, description, address, phone, email, logo, cover image, brand colours and branches (N adds a branch). These appear on receipts, invoices and the website. Tapping the business logo anywhere opens this page.
-
-## 6.20 Settings
-
-A collapsible list of sections (icons only when collapsed, still reachable by Tab), each shown by permission:
-
-| Group | Section | Holds |
-|---|---|---|
-| Shop | Receipts & printing | Paper, shop details, printers, barcode and QR, KRA eTIMS (section 14) |
-| Shop | Invoices | Layout, texts, prefix, due days, payment details, stamp |
-| Connections | SMS | Twilio |
-| Connections | WhatsApp | WhatsApp Cloud API |
-| Connections | AI assistant | Provider, model and instructions (section 13) |
-| Data | Backups | Google Sheets backup and restore, schedule |
-| Data | Database | Supabase connection (developers) |
-| This device | Device permissions | Camera, location, Bluetooth, notifications, storage |
-| Account | Notifications | What you get notified about, sounds, pause |
-| Account | Help & tour | Restart the guided walkthrough |
-| Account | Sign out | End the session on this device |
-
-Receipt and invoice settings save by themselves, load at startup, are kept on the device per business, and survive a failed reload, so they no longer reset. The app's own dropdowns replace the system ones for a consistent look.
-
-## 6.21 About this app
-
-Open to every role (under **More** on phones). An iOS-style grouped list with the version, the build number (CI run) and the build date, **Check for updates** (section 21), and a searchable **Keyboard shortcuts** table filtered by screen and by what the role can do.
-
-## 6.22 Production (BOM)
-
-See section 11.3.
-
-<div class="page-break"></div>
+# 6. Staff app: screen map
+
+How to *use* each screen is in `docs/USER_GUIDE.md` (v1.0.0); this section only maps screens to code. Screens, their groups, search keywords and permissions are defined once in `src/utils/screens.ts`; keyboard shortcuts (including G-then-letter) in `src/utils/shortcuts.ts`; the phone bottom bar order in `src/utils/mobileNav.ts`. `App.tsx` renders the screen whose id matches `activeTab`, wrapped in `SecurityGuard` with the same permissions.
+
+| Screen id | Group | Title | Component (`src/features/`) | Permission (any of) |
+|---|---|---|---|---|
+| `home` | Reports | Home | `HomeView` | `home.view` |
+| `sell` | Selling | Quick Sale | `QuickSaleView` | `pos.create_sale` |
+| `pos` | Selling | POS | `POSView` | `pos.create_sale` |
+| `sales` | Selling | Sales Log (Sales, Quotes) | `SalesView` | `orders.view` |
+| `online-store` | Selling | Online Store | `OnlineStoreView` | `online_store.view` |
+| `prompt` | Selling | Payment Prompts | `PaymentPromptView` | `payments.mpesa / payments.airtel` |
+| `customers` | Customers | Loyalty | `CustomersView` | `customers.view` |
+| `promotions` | Customers | Promotions & Points | `PromotionsView` | `promotions.* / referrals.* / loyalty.*` |
+| `regular-orders` | Customers | Regular Orders | `RegularOrdersView` | `customers.view / customers.schedules` |
+| `feedback` | Customers | Feedback (incl. Communication) | `CustomerFeedbackView` | `complaints.view` |
+| `inventory` | Stock | Inventory | `InventoryView` | `inventory.view` |
+| `stock-history` | Stock | Stock History | `StockHistoryView` | `inventory.stock_history` |
+| `stock-transfers` | Stock | Stock Transfers | `StockTransfersView` | `inventory.transfer_stock / receive_stock / request_transfer` |
+| `production` | Stock | Production & BOM | `ProductionBOMView` | `bom.view` |
+| `buying` | Buying & deliveries | Buying (embeds Suppliers) | `BuyingView` | `suppliers.view / purchases.* / supplier_bills.manage` |
+| `deliveries` | Buying & deliveries | Deliveries | `RiderDeliveriesView` | `deliveries.view` |
+| `money` | Money | Payments & Expenses | `BusinessManagementView section=money` | `payments.* / expenses.*` |
+| `petty-cash` | Money | Petty Cash | `PettyCashView` | `pettycash.record` |
+| `finance` | Money | Finance & Accounting (embeds FinanceView as Summary) | `AccountingView` | `finance.view / accounting.view` |
+| `stock-report` | Reports | Stock Report | `StockReportView` | `reports.* / inventory.stock_history / finance.view` |
+| `dashboard` | Team | Shift | `DashboardView` | `dashboard.view` |
+| `workers` | Team | Workers (staff and suppliers) | `WorkersView` | `staff.view` |
+| `permissions` | Admin | Roles | `PermissionsView` | `staff.roles` |
+| `audit` | Admin | Audit Log | `AuditLogView` | `audit.view` |
+| `business-management` | Admin | Business Management | `BusinessManagementView` | `business.update` |
+| `settings` | Admin | Settings | `SettingsView` | `settings.view` |
+| `ai` | You & the app | Assistant | `WorkspaceAssistantView` | `ai.use` |
+| `notifications` | You & the app | Notifications | `NotificationsView` | `none` |
+| `profile` | You & the app | My Profile | `ProfileView` | `none` |
+| `about` | You & the app | About this app | `AboutView` | `none` |
+
+**Aliases.** Old ids `accounting` → `finance` and `suppliers` → `buying` still work through `SCREEN_ALIASES`; they set `screenSection` so the right tab opens. Removed screens (`invoicing`, `assets`) redirect: quotes live in POS and Sales Log, invoices in Loyalty, files are uploaded where they are used.
+
+**Supplier portal.** A signed-in user with a `supplier_accounts` row and no staff membership gets `SupplierPortalView` instead of the staff shell (orders, bills, stock requests). Suppliers are never in `business_memberships`, so `has_permission` never opens staff data to them.
+
+**Shared components.** Every number box is `NumberInput` (quantities with `decimals={QTY_DECIMALS}`), money is shown with `formatMoney`; lists with delete use `SwipeRow`; grouped tabs use `GroupedTabs`. No native `<select>` or checkbox in `src/`.
+
+**Area advisors.** `AreaAdvisor` cards (areas rewards, money, finance) call the `area-advisor` edge function, which reads figures with the user's own RLS; the AI only explains.
 
 # 7. Customer website
 
