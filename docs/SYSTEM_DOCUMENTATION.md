@@ -1019,6 +1019,14 @@ All functions live in `supabase/functions/<name>/index.ts`. Common helpers in `s
 | `auth-otp` | Apps | Public, rate limited | Issue and check email verification and password reset codes; codes never leave the server |
 | `ai-config` | Staff app | Owner | Read and save AI provider settings; returns masked keys |
 | `chat` | Staff app | `ai.use` | Workspace assistant |
+| `area-advisor` | Staff app | `ai.use` or `ai.insights` + area permission | Advisor cards on Promotions & Points, Payments & Expenses and Finance; reads figures with the caller's RLS, AI only explains |
+| `airtel-payments` | Staff app, website | `payments.airtel`; setup `settings.integrations` | Airtel Money prompts and status checks; client secret stays on the server |
+| `airtel-callback` | Airtel | Public (`--no-verify-jwt`), per-business token in URL | Prompt result; success only after an Airtel status check |
+| `card-payments` | Staff app, website | `payments.card` (or `pos.create_sale` at the till); setup `settings.integrations` | Paystack card charges; secret key stays on the server |
+| `card-webhook` | Paystack | Public, Paystack signature | Card payment result, per business |
+| `alarm-sync` | Database | Service key or `FCM_WEBHOOK_SECRET` | Copies a reminder to the person's phones so each rings it as a native alarm |
+| `accept-alert` | Apps | Signed in | Accepts a ringing alert and stops it ringing on the person's other devices |
+| `ops-alert` | Uptime monitor, database, apps | GET public (health check); `report` owner/admin; `crash`, `watchdog`, `test` service key | Health check, and problems, crashes and watchdog results to the developer's Telegram |
 | `bi-analyze` | Staff app | `ai.insights` / `reports.view` | Structured business report |
 | `complaints` | Staff app | `complaints.view` | Analyse complaints, draft and improve replies |
 | `customer-assistant` | Website | Public, quota | Restricted shop assistant |
