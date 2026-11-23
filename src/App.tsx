@@ -1190,6 +1190,9 @@ export default function App() {
       if (!isOnline) return;
       if (isSupabaseConfigured()) {
         try {
+          // Nothing to load before sign-in: every table needs a signed-in account.
+          const { data: { session } } = await getSupabase().auth.getSession();
+          if (!session) return;
           console.log('Supabase is configured. Synchronizing data...');
 
           // 1. Fetch businesses
