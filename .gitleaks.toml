@@ -1,0 +1,12 @@
+# gitleaks settings (CI: .github/workflows/security.yml). Default rules, plus an allow-list
+# for names that look like keys but are browser storage key names, not secrets.
+# Add an entry only after checking the match is not a secret; never allow a whole file.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "localStorage key names"
+regexTarget = "line"
+regexes = [
+  '''\b(STORAGE_KEY|PREFS_LOCAL_KEY|localBomKey|localPurchasesKey)\s*=\s*["'`][A-Za-z0-9_:.\-]+["'`]''',
+]
