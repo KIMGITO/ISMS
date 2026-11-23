@@ -4,6 +4,19 @@ Every change that isn't fully live yet has its steps here, in order. A step mark
 
 Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
+All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
+
+---
+
+## Owner sign-up fails + v7.6 release blocked (2026-11-23)
+
+Sign-up: the cause was the password. Live Supabase Auth needs 8+ characters with a capital, a small letter and a number; the app only checked for 6 characters and hid Supabase's message behind "check your connection". The app now checks the same rule on both sign-up forms (`src/utils/passwordRule.ts`) and shows the password message.
+
+1. [x] Find the cause: the browser console showed `AuthWeakPasswordError` (2026-11-23).
+2. [ ] Reload the app (sign out or clear the site data first, to drop the old login from before the reset), then register the owner with a password that has 8+ characters, a capital, a small letter and a number. It should go to the 6-digit code screen, and `SELECT count(*) FROM auth.users;` should return 1.
+3. [ ] **You:** decide on the 6 `zip` advisories (RUSTSEC-2026-0367/0368/0369/0429/0545/0548) from `tauri-plugin-updater`. No fixed updater exists yet; the updater checks the signature before unzipping. Either accept them in `src-tauri/.cargo/audit.toml` until a fix ships, or keep releases blocked.
+4. [ ] Commit the Deno test fix (`--no-config` in `security.yml`) and the `cookie`/`url` update in `Cargo.lock`, then `git push`. The "Security checks" jobs should pass and "Release and Deploy" should tag and publish.
+
 ---
 
 ## Phase 10: cost, operations, final readiness (2026-11-23)
@@ -30,7 +43,7 @@ Report: [deployment/expansion.md](deployment/expansion.md). Nothing to deploy; t
 
 Report: [deployment/performance.md](deployment/performance.md). The database change and the app change are independent of each other; both are safe with old and new app versions.
 
-1. [ ] **Live has an earlier draft of `20261201005`** (found in Phase 10: no REVOKE on `fn_perm_cache_gen`, no `prune-cron-history` job; the rest works). The file is safe to run twice (tested), so re-apply it: `npx supabase migration repair --status reverted 20261201005 --linked`, then `bash scripts/db-push.sh`. That push also applies Phase 10's `20261201006` and `20261201007`, and it should end with "Live now has every migration in this folder, unchanged, and its access rules are right." Then `SELECT jobname FROM cron.job WHERE jobname = 'prune-cron-history';` should return one row.
+1. [x] (2026-11-23: live database reset with `supabase db reset --linked`, all data wiped, every migration re-applied from the files; `db-push.sh --check` reports 30 on live and unchanged, `check-live-grants.sh` reports no problems.) **Live has an earlier draft of `20261201005`** (found in Phase 10: no REVOKE on `fn_perm_cache_gen`, no `prune-cron-history` job; the rest works). The file is safe to run twice (tested), so re-apply it: `npx supabase migration repair --status reverted 20261201005 --linked`, then `bash scripts/db-push.sh`. That push also applies Phase 10's `20261201006` and `20261201007`, and it should end with "Live now has every migration in this folder, unchanged, and its access rules are right." Then `SELECT jobname FROM cron.job WHERE jobname = 'prune-cron-history';` should return one row.
 2. [ ] Release the app: `git push` (with the Phase 7 push). After the update, open the app on two devices as a cashier and sell one item on the first. On the second, that product's stock should change within about a second, and the browser's Network tab should show no new `products` request.
 3. [ ] A week after step 1, in the SQL editor: `SELECT calls, round(mean_exec_time) ms FROM pg_stat_statements WHERE query LIKE '%transaction_items_1%' ORDER BY calls DESC LIMIT 3;` The sales-list averages should be well under the old 650–1,000 ms. Record the numbers in performance.md section 1.
 

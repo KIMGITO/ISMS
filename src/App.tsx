@@ -1,3 +1,4 @@
+import { passwordProblem, PASSWORD_HINT } from './utils/passwordRule';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from './stores/appStore';
 import { useCartStore } from './stores/cartStore';
@@ -2169,10 +2170,9 @@ export default function App() {
                             );
                             return;
                           }
-                          if (regPassword.length < 6) {
-                            setAuthError(
-                              'Password must be at least 6 characters.',
-                            );
+                          const regPasswordProblem = passwordProblem(regPassword);
+                          if (regPasswordProblem) {
+                            setAuthError(regPasswordProblem);
                             return;
                           }
                           setAuthLoading(true);
@@ -2274,7 +2274,7 @@ export default function App() {
                           label="Choose Password"
                           value={regPassword}
                           onChange={(val) => setRegPassword(val)}
-                          placeholder="Minimum 6 characters"
+                          placeholder={PASSWORD_HINT}
                         />
 
                         <button
@@ -2814,10 +2814,9 @@ export default function App() {
                                 );
                                 return;
                               }
-                              if (invitePassword.length < 6) {
-                                setAuthError(
-                                  'Password must be at least 6 characters.',
-                                );
+                              const invitePasswordProblem = passwordProblem(invitePassword);
+                              if (invitePasswordProblem) {
+                                setAuthError(invitePasswordProblem);
                                 return;
                               }
                               if (invitePassword !== inviteConfirmPassword) {
@@ -2942,7 +2941,7 @@ export default function App() {
                               </div>
                             </div>
 
-                            <PasswordInput label="Secure Password" placeholder="Minimum 6 characters" value={invitePassword} onChange={setInvitePassword} />
+                            <PasswordInput label="Secure Password" placeholder={PASSWORD_HINT} value={invitePassword} onChange={setInvitePassword} />
 
                             <PasswordInput label="Confirm Password" placeholder="Re-enter password" value={inviteConfirmPassword} onChange={setInviteConfirmPassword} />
 

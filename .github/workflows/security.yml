@@ -57,7 +57,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno test --allow-env supabase/tests/functions/
+      # --no-config: edge functions run without the app's package.json (CI has no node_modules).
+      - run: deno test --allow-env --no-config supabase/tests/functions/
 
   alert:
     name: Tell Telegram

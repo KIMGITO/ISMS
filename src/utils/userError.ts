@@ -16,6 +16,7 @@ const KNOWN_MESSAGES: Array<[RegExp, string]> = [
   [/invalid login credentials/i, "Incorrect email or password."],
   [/email not confirmed|email confirmation/i, "Please verify your email address to continue."],
   [/user already registered|already been registered/i, "This email address is already registered. Please sign in instead."],
+  [/password should (contain|be)|weak.?password/i, "Password needs 8+ characters, with a capital letter, a small letter and a number."],
   [/rate limit|too many requests/i, "Too many attempts. Please wait a moment and try again."],
   [/failed to fetch|networkerror|network request failed|load failed|err_internet|timed? ?out/i, "We couldn't reach the server. Please check your connection and try again."],
   [/jwt|session (has )?expired|auth session missing|refresh token/i, "Your session has expired. Please log in again."],

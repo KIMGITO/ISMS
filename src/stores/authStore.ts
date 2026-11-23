@@ -867,6 +867,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         return { success: true };
       } catch (err: any) {
+        console.error("Owner registration failed:", err);
         return { success: false, error: toUserMessage(err, "Registration failed. Please check your connection and try again.") };
       }
     },
