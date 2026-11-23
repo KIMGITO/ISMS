@@ -396,7 +396,7 @@ Routes: `/`, `/shop`, `/products/...`, `/cart`, `/articles/...`, `/feedback`, `/
 
 ## 7.2 How the website reaches data
 
-Customers sign in through Supabase Auth and have no business membership, so staff policies exclude them. They read only their own rows through RLS and write only through database functions such as `place_online_order`, `save_order_schedule`, `update_my_account` and `redeem_my_points`. The shop's public data comes from `get_public_storefront`, which returns only what customers should see.
+Customers sign in through Supabase Auth and have no business membership, so staff policies exclude them. They read only their own rows through RLS and write only through database functions such as `place_online_order`, `request_regular_order`, `update_my_profile`, `update_my_account` and `redeem_my_points`. The shop's public data comes from `get_public_storefront`, which returns only what customers should see.
 
 **Never add anon or customer policies on `products` or `businesses`.** A policy can't hide columns, so it would expose `products.cost` and other private fields.
 
@@ -927,19 +927,22 @@ Every business table carries `business_id`. Row-level security policies let a si
 
 | Area | Tables |
 |---|---|
-| Identity and access | `businesses`, `branches`, `users`, `employees`, `business_memberships`, `invitations`, `role_permissions`, `role_default_permissions`, `otps`, `rate_limits` |
-| Products and stock | `products`, `product_categories`, `inventory_adjustments`, `suppliers`, `purchases`, `purchase_items` |
+| Identity and access | `businesses`, `branches`, `users`, `employees`, `business_memberships`, `invitations`, `role_permissions`, `role_default_permissions`, `otps`, `rate_limits`, `supplier_accounts`, `security_events` |
+| Products and stock | `products`, `product_categories`, `inventory_adjustments`, `suppliers`, `purchases`, `purchase_items`, `stock_transfers`, `stock_transfer_items`, `supplier_stock_requests` |
 | Production | `recipes`, `recipe_ingredients`, `bill_of_materials`, `bom_ingredients`, `production_batches` |
-| Sales | `transactions`, `transaction_items`, `offline_sync_queue`, `receipt_verifications`, `kra_etims_receipts`, `kra_etims_items` |
-| Customers | `customers`, `customer_ledger`, `wallet_transactions`, `debt_payments`, `credit_payments`, `loyalty_settings`, `loyalty_redemptions`, `customer_merges`, `customer_duplicate_dismissals`, `loyalty_points_earned`, `invoices`, `invoice_counters` |
-| Money | `payments`, `money_assets`, `payment_asset_ledger`, `expenses`, `expense_categories`, `business_assets` |
+| Sales | `transactions`, `transaction_items`, `offline_sync_queue`, `receipt_verifications`, `kra_etims_receipts`, `kra_etims_items`, `quotes`, `quote_lines`, `sales_orders`, `sales_order_lines`, `sales_deliveries`, `sales_delivery_lines`, `sales_invoices`, `sales_invoice_lines`, `invoice_payments`, `credit_notes`, `credit_note_lines`, `doc_counters` |
+| Customers | `customers`, `customer_ledger`, `wallet_transactions`, `debt_payments`, `credit_payments`, `loyalty_settings`, `loyalty_redemptions`, `customer_merges`, `customer_duplicate_dismissals`, `loyalty_points_earned`, `invoices`, `invoice_counters`, `regular_orders`, `regular_order_days`, `regular_order_settings`, `message_variables` |
+| Money | `payments`, `money_assets`, `payment_asset_ledger`, `expenses`, `expense_categories`, `business_assets`, `petty_cash_categories`, `rider_pay_links`, `card_payments`, `card_payment_settings`, `card_payment_secrets`, `airtel_transactions`, `airtel_payment_settings`, `airtel_payment_secrets` |
 | M-Pesa | `mpesa_settings`, `mpesa_transactions`, `mpesa_till_payments` |
-| Online store | `customer_accounts`, `online_orders`, `online_order_items`, `customer_order_schedules`, `customer_messages`, `delivery_zones`, `website_settings`, `website_articles`, `assistant_usage` |
+| Online store | `customer_accounts`, `online_orders`, `online_order_items`, `customer_order_schedules`, `customer_messages`, `delivery_zones`, `website_settings`, `website_articles`, `assistant_usage`, `customer_account_stores`, `delivery_trips`, `website_reviews`, `website_product_ideas`, `website_product_idea_votes` |
+| Books (accounting) | `acc_accounts`, `acc_entries`, `acc_lines`, `acc_settings`, `acc_post_errors`, `acc_reconciliations` |
+| Buying | `buying_settings`, `purchase_approval_limits`, `purchase_quotes`, `purchase_quote_lines`, `purchase_receipts`, `purchase_receipt_lines`, `supplier_bills`, `supplier_payments`, `supplier_returns`, `supplier_return_lines` |
+| Promotions and referrals | `website_promo_codes` (all promotions, till and website), `promotion_products`, `promotion_categories`, `promotion_customers`, `promotion_branches`, `promotion_redemptions`, `referral_campaigns`, `referral_codes`, `referrals`, `referral_rewards` |
 | Staff operations | `shifts`, `schedules` |
 | Notifications | `notifications`, `notification_preferences`, `device_fcm_tokens` |
 | Feedback | `complaints`, `complaint_replies` |
 | Settings | `receipt_settings`, `printer_settings`, `sms_settings`, `whatsapp_settings`, `ai_settings`, `integration_configurations` (includes the `invoice` defaults), `kra_etims_settings`, `kra_etims_secrets` (server only) |
-| Analytics and logs | `audit_logs`, `ai_insights`, `dashboard_analytics_snapshots`, `scheduled_reports`, `report_tracked_items`, `crash_reports` |
+| Analytics and logs | `audit_logs`, `ai_insights`, `dashboard_analytics_snapshots`, `scheduled_reports`, `report_tracked_items`, `crash_reports`, `problem_reports`, `ops_watchdog_config`, `ops_watchdog_state`, `app_data_conversions` |
 | Backups and files | `google_sheets_backup`, `backup_history_logs`, `storage_files` |
 
 ## 16.3 Enumerated types
@@ -962,14 +965,16 @@ Every business table carries `business_id`. Row-level security policies let a si
 
 ## 16.4 What happens when a sale is saved
 
-`fn_process_completed_transaction` runs after each sale is inserted:
+Paid till sales go through `record_till_sale` (credit sales through `process_customer_transaction`), so the sale, its lines, any points spent and any promotion use are saved in one database transaction. Then `fn_process_completed_transaction` runs:
 
-1. **Loyalty**: for a registered customer, adds `floor((total − delivery fee) / 100)` points and one purchase.
-2. **Shift**: adds the sale to the employee's active shift count and total.
-3. **Money asset**: unless paid on credit, adds the total to the money asset for its payment method and writes a ledger line with the balance before and after.
-4. **Debt**: for a credit sale, adds to the customer's debt.
+1. **Loyalty**: for a registered customer, adds `fn_sale_points` (2 points per KSh paid, delivery excluded; the wallet-paid part counts as paid) and one purchase.
+2. **Shift**: adds the sale to the employee's open shift. The app never writes shift totals itself.
+3. **Money asset**: the paid part moves the balance for its method (`money_assets`) with a ledger line.
+4. **Debt / wallet**: the wallet pays first; any rest of a credit sale becomes an open debt record and raises `customers.debt_balance`.
 
-`fn_process_transaction_item` reduces stock for each item, and `fn_check_low_stock` raises notifications when stock reaches its minimum.
+`fn_process_transaction_item` reduces stock for each item (logged in `inventory_adjustments`), and `fn_check_low_stock` raises notifications, including the suggested supplier for **Ask supplier**. A deferred trigger then posts the sale to the books through `acc_post_source('sale', …)`: sales, promotion discounts, cost of goods, money or receivables, and rider pay owed (`rider_pay`). A sale whose totals don't equal its lines is refused (`20261201002`).
+
+**Undo** is never a delete: `create_credit_note` refunds (stock back, money/wallet/debt settled, books reversed). Every change to a sale or its lines is logged in `audit_logs` by `trg_audit_sale_change`.
 
 ## 16.5 Main database functions
 
@@ -984,11 +989,20 @@ Every business table carries `business_id`. Row-level security policies let a si
 | KRA eTIMS | `kra_next_invoice_no` |
 | Readable text | `fn_receipt_number`, `fn_readable_ids`, `fn_capitalize_words` |
 | Customers | `find_duplicate_customers`, `dismiss_duplicate_customers`, `merge_customers`, `calculate_customer_tier` |
-| Customer portal | `get_public_storefront`, `place_online_order`, `cancel_my_order`, `save_order_schedule`, `delete_order_schedule`, `get_my_rewards`, `redeem_my_points`, `update_my_account`, `get_my_contact_preferences`, `update_my_contact_preferences`, `submit_website_feedback`, `run_customer_portal_daily` |
+| Customer portal | `get_public_storefront`, `place_online_order`, `cancel_my_order`, `get_my_rewards`, `redeem_my_points`, `update_my_account`, `get_my_contact_preferences`, `update_my_contact_preferences`, `submit_website_feedback`, `run_customer_portal_daily` |
 | Staff portal tools | `staff_update_online_order`, `staff_assign_rider`, `staff_clear_order_attention`, `staff_send_customer_message`, `get_my_deliveries`, `rider_update_delivery` |
 | Notifications | `fn_notification_catalog`, `fn_notification_recipients`, `get_my_notification_settings`, `set_my_notification_setting`, `flag_due_schedule_reminders` |
 | Security | `otp_issue`, `otp_check`, `otp_confirm_signup`, `check_rate_limit`, `report_crash` |
 | Dashboard | `get_business_dashboard_metrics`, `refresh_dashboard_snapshot` |
+| Books | `acc_post_source`, `acc_source_ids`, `acc_rebuild_start`, `fn_post_money_asset`, `fn_spending` (profit spending incl. rider pay owed) |
+| Sales documents | `record_till_sale`, `create_credit_note`, `mark_quote_sold` |
+| Buying | `receive_purchase`, `ask_supplier_for_stock`, `supplier_portal_*` |
+| Transfers | `send_stock_transfer`, `approve_stock_transfer`, `cancel_stock_transfer`, `accept_transfer_request`, `decline_transfer_request`, `list_stock_transfers`, `list_stock_transfer_lines` |
+| Promotions | `promo_check`, `promo_reserve`, `promo_release`, `run_referral_jobs` |
+| Riders and regular orders | `fn_rider_owed`, `list_rider_pay`, `pay_rider`, `remove_rider_payment`, `deliver_regular_orders` |
+| Shifts | `confirm_still_on_shift` |
+| Search and reports | `global_search`, `stock_period_report` |
+| Operations | `run_ops_watchdog`, `revoke_invitation` |
 | Backups | `run_due_backups` |
 
 ## 16.6 Views
