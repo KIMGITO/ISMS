@@ -294,7 +294,8 @@ A role's access is enforced in three places, so hiding a screen is never the onl
 | Owner / Admin | Full control, including settings, API keys, staff and deletion. Bypass permission checks by design. |
 | Manager | Runs the business day to day: sales, stock, customers, expenses, staff schedules, reports. No API keys, no deletes of key records. |
 | Cashier | Sells, opens and closes shifts, registers customers, takes payments and debt repayments. |
-| Rider | Sees and completes only the deliveries assigned to them. |
+| Rider | Accepts open delivery requests, completes their own deliveries, and adds or prices delivery areas. |
+| Supplier | External. Signs in to the supplier portal only (orders, deliveries, price and stock requests, statement, own details). Held in `supplier_accounts`, never in `business_memberships`. |
 
 Other database roles, such as `Sales Staff` and `Viewer`, exist but have no permissions until an Owner grants some.
 
@@ -329,7 +330,7 @@ The full list of permission codes is in Appendix B.
 
 ## 5.5 Riders
 
-A rider receives deliveries only through `get_my_deliveries`, which returns just what the job needs (name, phone, location, items and amount) for their own deliveries. Staff assign online orders in **Online Store**; a till sale links to a rider when the rider is chosen by name. A delivery with a typed-in rider name isn't linked to an account, so nobody sees it under **Deliveries**.
+Open requests are paid or preparing online orders with no rider, and till delivery sales from the last 3 days with no rider. Only the Rider role can accept one, first come first served; the customer's phone stays hidden until then, and the rider can give it back until they start it. Owners and managers with `deliveries.assign` can group deliveries into a trip (`delivery_trips`) with one rider pay. A till sale can also name a rider who has no account; that name is enough for rider pay (`fn_rider_owed` keys it as `name:<lowercase>`), but the delivery won't show under anyone's **Deliveries**.
 
 <div class="page-break"></div>
 
@@ -1356,6 +1357,10 @@ Every connection except Supabase is optional.
 | Google Sheets | Backups | No Sheets backup | Scheduling tested; a real backup hasn't run |
 | Firebase | Push notifications | No pushes | Never run end to end |
 | AI providers | AI features | AI answers unavailable | Website assistant's model path hasn't run |
+| Airtel Africa API | Airtel Money prompts | Airtel payments recorded by hand | Never run against Airtel |
+| Paystack | Card payments online and on a reader | Card recorded by hand at the till | Never run end to end |
+| Telegram bot | Developer alerts (`ops-alert`) | No alerts | Bot live since 2026-11-15 |
+| Cloudflare (Workers, R2) | Web app and website hosting; backups | No web app; no off-site backups | Hosting live; R2 backup secrets not all set |
 
 ## 24.2 Functional limits
 
@@ -1370,15 +1375,14 @@ Every connection except Supabase is optional.
 - **Windows shows a SmartScreen warning** until the MSI is code-signed.
 - **The delivery fee defaults to 0.** Set delivery areas and prices before launching the website.
 
-## 24.3 Status as of 8 November 2026
+## 24.3 Status as of 23 November 2026
 
-- The staff app is at **v4.2.1**, released through CI with automatic updates.
-- All 40 migrations, up to `20261108004`, are applied to the linked Supabase project, and all 18 edge functions (including `kra-etims`) are deployed. Check with `supabase migration list` and `supabase functions list` before assuming this is still true.
-- Two old functions, `kim-chat` and `shared`, are still deployed but unused; they can be deleted from the Supabase dashboard.
-- The linked Supabase project is a development project; no separate production database exists yet.
-- **Not yet tested by hand on a device or against a live provider:** KRA eTIMS (never run against the sandbox), offline sales on a phone, turning a phone sideways in full-screen Home charts, keyboard shortcuts in a browser, and the provider connections in section 24.1.
-- The Android release key was replaced after v2.0.0, so phones still on v2.0.0 must install a newer APK by hand once (section 20.4).
-- Several older files (`APP_DOCUMENTATION.*`, parts of the root and `supabase/` READMEs) describe an earlier version and mention functions that no longer exist, such as `twilio-sms`, `mpesa-callback` and `gemini-copilot`. This document supersedes them.
+- Version numbers restarted: the next release is **v1.0.0** (tag `v0.0.0` is the base). Older installs on 7.x Windows/Linux must be reinstalled by hand once; Android codes start at 20000000 so phones update over 7.x.
+- The live database was reset onto the squashed schema (`20261120001`, `20261120002`). Many later migrations are **not on live yet**; `docs/TO_FINISH.md` lists each with the exact push and check steps. Always run `supabase migration list` before assuming a file is live, and use `scripts/db-push.sh`, then `scripts/check-live-grants.sh`.
+- Live holds **test data** from `supabase/seed_quick.sql` (two branches, an admin, riders, products, customers). Wipe it with `supabase/dev_wipe.sql` before real use; that also removes the owner's account.
+- Several new screens (Regular Orders, Promotions & Points, rider pay, trips, Stock Report, global search) have passed database tests but not yet a click-through in a browser or on a phone.
+- **Not yet tested against a live provider:** KRA eTIMS, M-Pesa Daraja, Airtel, Paystack, WhatsApp, SMS, and the others in section 24.1.
+- Older files (`APP_DOCUMENTATION.*`, parts of the root and `supabase/` READMEs) describe earlier versions. This document and `docs/USER_GUIDE.md` supersede them.
 
 <div class="page-break"></div>
 
