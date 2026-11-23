@@ -8,6 +8,17 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Version numbers start again at 1.0.0 (2026-11-23)
+
+The old v7.x releases and tags are removed from both repos (KIMGITO/ISMS and KIMGITO/kaykays-releases); the tag `v0.0.0` marks the restart, so the next release is exactly **1.0.0**. The website now shows the same version in its footer. Android version codes start at 20100000 (old ones were 107xxxxx), so phones update in place.
+
+1. [x] Remove the old releases, tags and `update-manifest` branches; push the `v0.0.0` tag (2026-11-23).
+2. [ ] `git push`. "Release and Deploy" should show `v0.0.0 -> v1.0.0 (major)` and publish v1.0.0 in kaykays-releases; `https://raw.githubusercontent.com/KIMGITO/kaykays-releases/update-manifest/latest.json` should say `"version": "1.0.0"`.
+3. [ ] Open the website: the footer should end with `v1.0.0`. In the app, About should show 1.0.0.
+4. [ ] **You:** on each Windows/Linux PC with a 7.x app, uninstall it and install 1.0.0 from the releases page (7.x won't auto-update to a lower number). Android phones update over the old app.
+
+---
+
 ## Owner sign-up fails + v7.6 release blocked (2026-11-23)
 
 Sign-up: the cause was the password. Live Supabase Auth needs 8+ characters with a capital, a small letter and a number; the app only checked for 6 characters and hid Supabase's message behind "check your connection". The app now checks the same rule on both sign-up forms (`src/utils/passwordRule.ts`) and shows the password message.

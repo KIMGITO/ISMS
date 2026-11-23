@@ -888,6 +888,7 @@ function Footer() {
             <span>© {new Date().getFullYear()} {business.name}</span>
             {LEGAL_LINKS.map((link) => <a key={link.href} href={link.href} className="py-1 hover:text-ink">{link.label}</a>)}
             <a href="/sitemap" className="py-1 hover:text-ink">Site map</a>
+            <span className="py-1" title="Website version">v{__SITE_VERSION__}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5"><Lock size={13} aria-hidden /> Secure payments</span>

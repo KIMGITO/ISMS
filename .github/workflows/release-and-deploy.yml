@@ -97,8 +97,10 @@ jobs:
         env:
           VERSION: ${{ steps.calc.outputs.version }}
         run: |
+          # Base 20000000 since the restart at 1.0.0 (2026-11-23): the old 7.x codes were
+          # 107xxxxx, and Android only installs a higher code over an installed app.
           IFS=. read -r major minor patch <<< "$VERSION"
-          echo "android_code=$((10000000 + major * 100000 + minor * 1000 + patch))" >> "$GITHUB_OUTPUT"
+          echo "android_code=$((20000000 + major * 100000 + minor * 1000 + patch))" >> "$GITHUB_OUTPUT"
 
       - name: Check required secrets
         if: steps.calc.outputs.bump != 'none'
@@ -458,6 +460,8 @@ jobs:
     env:
       VITE_SITE_URL: ${{ secrets.VITE_SITE_URL }}
       VITE_WEBSITE_SLUG: ${{ secrets.VITE_WEBSITE_SLUG || 'kaykays' }}
+      # Same version as the app release (shown in the website footer).
+      APP_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
