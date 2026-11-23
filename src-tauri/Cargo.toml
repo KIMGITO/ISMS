@@ -26,7 +26,7 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2"
 # Native background removal (bg_removal.rs). Downloads a prebuilt ONNX Runtime at build time.
-ort = "=2.0.0-rc.10"
+ort = "=2.0.0-rc.15"
 sha2 = "0.10"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
