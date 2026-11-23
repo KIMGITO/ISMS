@@ -1466,33 +1466,25 @@ Every connection except Supabase is optional.
 
 # Appendix B. Permission codes
 
-Defined in `src/utils/permissions.ts` and mirrored in `role_default_permissions`.
+Defined in `PERMISSIONS` in `src/utils/permissions.ts` (180 codes, each with a plain description shown on the Roles screen) and mirrored in `role_default_permissions`. Every code the app checks is also enforced by the database (`has_permission` in RLS or the function), and edge functions use `requirePermission`, never a role name. `supabase/tests/permissions/permissions_test.sh` checks both.
 
 | Group | Codes |
 |---|---|
-| Screens | `home.view`, `dashboard.view`, `complaints.view`, `complaints.reply`, `online_store.view`, `staff.schedule` |
-| Business | `business.view`, `business.create`, `business.update`, `business.delete`, `business.switch`, `business.view_all` |
-| Settings | `settings.view`, `settings.update`, `settings.theme`, `settings.tax`, `settings.delivery`, `settings.integrations`, `settings.storage`, `settings.security` |
-| Staff and users | `staff.view`, `staff.invite`, `staff.update`, `staff.remove`, `staff.roles`, `users.view`, `users.manage`, `invitations.view`, `invitations.create`, `invitations.delete` |
-| Products | `products.view`, `products.create`, `products.update`, `products.delete`, `products.import`, `products.export`, `products.manage_categories`, `products.manage_discounts`, `products.manage_tax`, `products.manage_images` |
-| Inventory | `inventory.view`, `inventory.manage`, `inventory.receive_stock`, `inventory.adjust_stock`, `inventory.transfer_stock`, `inventory.stock_count`, `inventory.stock_history`, `inventory.wastage`, `inventory.expiry`, `inventory.import`, `inventory.export` |
-| POS | `pos.create_sale`, `pos.manage`, `pos.open_shift`, `pos.close_shift`, `pos.discount`, `pos.override_price`, `pos.refund`, `pos.cancel_sale`, `pos.walkin_customer` |
-| Orders | `orders.view`, `orders.create`, `orders.update`, `orders.cancel`, `orders.complete`, `orders.assign_rider`, `orders.manage` |
-| Deliveries | `deliveries.view`, `deliveries.create`, `deliveries.assign`, `deliveries.complete`, `deliveries.cancel`, `deliveries.delivery_price`, `deliveries.delivery_zones`, `deliveries.manage` |
-| Customers | `customers.view`, `customers.create`, `customers.update`, `customers.delete`, `customers.manage`, `customers.debts`, `customers.loyalty`, `customers.schedules`, `customers.import`, `customers.export` |
-| Loyalty | `loyalty.view`, `loyalty.adjust`, `loyalty.configure` |
-| Payments | `payments.view`, `payments.cash`, `payments.mpesa`, `payments.verify`, `payments.refund`, `payments.manage` |
-| Expenses | `expenses.view`, `expenses.create`, `expenses.update`, `expenses.delete`, `expenses.export`, `expenses.manage` |
-| Suppliers | `suppliers.view`, `suppliers.create`, `suppliers.update`, `suppliers.delete`, `suppliers.import`, `suppliers.export`, `suppliers.manage` |
-| Purchases | `purchases.view`, `purchases.create`, `purchases.update`, `purchases.approve`, `purchases.cancel`, `purchases.print`, `purchases.import`, `purchases.export`, `purchases.manage` |
-| Production and BOM | `production.view`, `production.create`, `production.update`, `production.delete`, `production.approve`, `production.import`, `production.export`, `production.manage`, `bom.view`, `bom.create`, `bom.update`, `bom.delete`, `bom.manage` |
-| Reports | `reports.view`, `reports.sales`, `reports.profit`, `reports.inventory`, `reports.customers`, `reports.expenses`, `reports.deliveries`, `reports.tax`, `reports.export`, `reports.manage` |
-| Communication | `communication.view`, `communication.send`, `notifications.view`, `notifications.send`, `notifications.manage` |
-| AI | `ai.use`, `ai.insights`, `ai.configure`, `ai.manage` |
-| Assets and files | `assets.view`, `assets.manage`, `files.view`, `files.manage` |
-| Audit and data | `audit.view`, `audit.manage`, `export.data`, `import.data`, `google.connect` |
-
-<div class="page-break"></div>
+| Screens | `home.view`, `dashboard.view`, `complaints.view`, `online_store.view`, `complaints.reply`, `staff.schedule` |
+| Business & Settings | `business.view`, `business.create`, `business.update`, `business.delete`, `business.switch`, `business.view_all`, `settings.view`, `settings.update`, `settings.theme`, `settings.tax`, `settings.delivery`, `settings.integrations`, `settings.storage`, `settings.security` |
+| Products & Inventory | `products.view`, `products.create`, `products.update`, `products.delete`, `products.import`, `products.export`, `products.manage_categories`, `products.manage_discounts`, `products.manage_tax`, `products.manage_images`, `inventory.view`, `inventory.receive_stock`, `inventory.adjust_stock`, `inventory.transfer_stock`, `inventory.request_transfer`, `inventory.stock_count`, `inventory.stock_history`, `inventory.wastage`, `inventory.expiry`, `inventory.import`, `inventory.export`, `inventory.manage` |
+| POS & Checkout | `pos.open_shift`, `pos.close_shift`, `pos.create_sale`, `pos.cancel_sale`, `pos.refund`, `refunds.create`, `pos.discount`, `pos.override_price`, `pos.walkin_customer`, `pos.manage`, `pos.apply_promotion` |
+| Quotes & Invoices | `quotes.view`, `quotes.manage`, `sales_orders.view`, `sales_orders.manage`, `invoices.view`, `invoices.manage` |
+| Promotions & Referrals | `promotions.view`, `promotions.manage`, `referrals.view`, `referrals.manage` |
+| Customers & Loyalty | `customers.view`, `customers.create`, `customers.update`, `customers.delete`, `customers.import`, `customers.export`, `customers.debts`, `customers.loyalty`, `customers.schedules`, `customers.manage`, `loyalty.view`, `loyalty.configure`, `loyalty.adjust` |
+| Orders & Deliveries | `orders.view`, `orders.create`, `orders.update`, `orders.cancel`, `orders.complete`, `orders.assign_rider`, `orders.manage`, `deliveries.view`, `deliveries.create`, `deliveries.assign`, `deliveries.complete`, `deliveries.cancel`, `deliveries.delivery_price`, `deliveries.delivery_zones`, `deliveries.manage` |
+| Suppliers & Purchases | `suppliers.view`, `suppliers.create`, `suppliers.update`, `suppliers.delete`, `suppliers.import`, `suppliers.export`, `suppliers.manage`, `purchases.view`, `purchases.create`, `purchases.update`, `purchases.cancel`, `purchases.approve`, `purchases.export`, `purchases.import`, `purchases.print`, `purchases.manage`, `purchases.request_quote`, `supplier_bills.manage`, `suppliers.portal` |
+| Production & Recipes | `production.view`, `production.create`, `production.update`, `production.delete`, `production.approve`, `production.export`, `production.import`, `production.manage`, `bom.view`, `bom.create`, `bom.update`, `bom.delete`, `bom.manage` |
+| Expenses & Payments | `expenses.view`, `expenses.create`, `expenses.update`, `expenses.delete`, `expenses.export`, `expenses.manage`, `pettycash.record`, `finance.view`, `accounting.view`, `accounting.manage`, `payments.view`, `payments.verify`, `payments.refund`, `payments.mpesa`, `payments.cash`, `payments.card`, `payments.airtel`, `payments.configure`, `payments.manage` |
+| Staff & Roles | `staff.view`, `staff.invite`, `staff.update`, `staff.remove`, `staff.roles`, `users.view`, `users.manage`, `invitations.view`, `invitations.create`, `invitations.delete` |
+| Notifications & Alerts | `notifications.view`, `notifications.send`, `notifications.manage`, `communication.view`, `communication.send` |
+| Reports & AI | `reports.view`, `reports.sales`, `reports.inventory`, `reports.customers`, `reports.profit`, `reports.expenses`, `reports.tax`, `reports.deliveries`, `reports.export`, `reports.manage`, `ai.use`, `ai.configure`, `ai.insights`, `ai.manage` |
+| Files & Audit Logs | `audit.view`, `audit.manage`, `files.view`, `files.manage`, `assets.view`, `assets.manage`, `import.data`, `export.data`, `google.connect` |
 
 # Appendix C. Database migrations
 
