@@ -233,7 +233,7 @@ Checklist:
 -   [-] Review authentication, password/OTP flows, session lifecycle and
     account recovery.
 -   [!] Protect owner and administrator accounts with appropriate MFA
-    and access controls.
+    and access controls. *(Deferred by owner 2026-11-23; SEC-03.)*
 -   [x] Search source code and Git history for accidentally committed
     credentials; do not expose any discovered secret in output.
 -   [x] Verify privileged keys are server-side only and not bundled into
@@ -319,6 +319,8 @@ Checklist:
 -   [ ] Document recovery steps, owners, credentials access process and
     escalation.
 -   [ ] Schedule recurring restoration drills.
+
+> **Phase 3 status (2026-11-23):** `[!]` deferred by the owner, to be redone as a whole phase later. Hourly backups fail because their secrets are not set (SEC-02, P1, still open). See [production-readiness.md → Deferred](production-readiness.md#deferred-revisit-later).
 
 **Tests:** A real isolated restoration exercise, integrity checks and
 post-restore application smoke tests.
