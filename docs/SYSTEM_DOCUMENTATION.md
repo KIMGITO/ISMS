@@ -1,8 +1,8 @@
 ---
 title: "KayKay's ISMS — System Documentation"
 subtitle: "Integrated Shop Management System: staff app, customer website, dial-code ordering and Supabase backend"
-version: "4.2.1"
-date: "9 November 2026"
+version: "1.0.0"
+date: "23 November 2026"
 ---
 
 # KayKay's App — System Documentation
@@ -11,8 +11,8 @@ date: "9 November 2026"
 
 | | |
 |---|---|
-| Document version | 4.2.1, matching app release v4.2.1 |
-| Date | 9 November 2026 |
+| Document version | 1.0.0, matching app release v1.0.0 (numbering restarted; earlier releases went up to 7.x) |
+| Date | 23 November 2026 |
 | Repository | `github.com/KIMGITO/ISMS` (code; to become private) and `github.com/KIMGITO/kaykays-releases` (public: installers and `latest.json`) |
 | Product name | KayKay's (package `com.kaykays.app`, desktop identifier `com.isms.app`) |
 | Status | Staff app released; customer website, M-Pesa till flow, dial-code ordering and KRA eTIMS built but not yet run against the live providers |
@@ -86,7 +86,32 @@ ISMS covers the whole of KayKay's day-to-day operation:
 - Money is in Kenyan shillings (Ksh) unless stated. Times for scheduled jobs are Nairobi time (UTC+3).
 - "Owner" includes Admin unless a section says otherwise.
 
-## 1.5 What changed since v2.0.0
+## 1.5 What changed since v4.2.1
+
+Sections 6 onward still describe v4.2.1 in places; the table below is the current state. The staff-facing detail is in `docs/USER_GUIDE.md` (v1.0.0).
+
+| Area | Change | Where in code |
+|---|---|---|
+| Versions | Numbering restarted at 1.0.0; Android version codes from 20000000 | `scripts/`, `.github/workflows/` |
+| Database | 82 migrations squashed into `20261120001` + `20261120002`; later files numbered from `20261121001` | `supabase/migrations/` |
+| Navigation | Screens grouped (Selling, Customers, Stock, Buying & deliveries, Money, Reports, Team, Admin, You & the app); G-then-letter keys | `src/utils/screens.ts`, `src/utils/shortcuts.ts` |
+| Search | `global_search()` finds records by number; new refs EXP/STM/LOG/LDG | `20261202001` |
+| Accounting | Double-entry books posted by `acc_post_source`; Finance & Accounting screen | `20261116003`, `AccountingView.tsx` |
+| Sales docs | Quotes from POS, credit notes for refunds, sale edit = refund + re-sell, edits audited | `20261117001`, `20261125001` |
+| Buying | Purchases with role approval limits, GRN/BILL/RTS, supplier portal, ask-supplier ringing requests | `20261118001`, `20261123001` |
+| Transfers | Branch stock transfers at cost, shortages, By product tab | `StockTransfersView.tsx` |
+| Payments | Five methods (Airtel added), per-method on/off, Payment Prompts screen | `PaymentPromptView.tsx` |
+| Rewards | Promotion and referral codes at till and website, posted to books; points moved to Promotions & Points | `20261126001`–`003` |
+| Regular orders | Per-weekday standing orders, delivered = one sale, ringing reminders | `20261130005` |
+| Deliveries | Three delivery modes, trips, rider pay owed on the day (`rider_pay` source) | `20261130001`, `20261130004` |
+| Shifts | "Still working?" check at 15 h, worked-hours panel | `20261130002` |
+| Permissions | Every app permission enforced in RLS/RPCs; edge functions use `requirePermission` | `20261130006` |
+| Numbers | Money `numeric(14,2)` shown with 2 decimals; quantities 1 decimal | `20261130007`, `src/utils/money.ts` |
+| Operations | Cloudflare hosting, hourly backups to R2, Telegram alerts, DB watchdog, release gates | `docs/DEPLOYMENT_AND_MONITORING.md`, `docs/TO_FINISH.md` |
+
+Which of these migrations are live is tracked in `docs/TO_FINISH.md`.
+
+### Earlier: what changed in v4.2.1
 
 | Area | Change | Section |
 |---|---|---|
