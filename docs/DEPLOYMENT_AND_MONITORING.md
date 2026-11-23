@@ -66,7 +66,8 @@ Supabase has one live database, so changes there can't be switched like the web.
 | Restore drill failed | restore-drill.yml | Monday's test restore of the newest backup failed, or the newest backup is over 26 h old |
 | New crash | `ops-alert` function, from the `crash_reports` trigger | First time a crash is seen, then at 10, 100 and 1000 occurrences (at most 30 an hour) |
 | Problem report | `ops-alert` function | An owner or admin uses **Report a problem** |
-| Site or database down | Uptime monitor (setup below) | Within 5 minutes of going down, and when it is back |
+| Scheduled job failed, payment stuck, database nearly full, edge calls failing | Database watchdog (`run_ops_watchdog`, every 10 min) through `ops-alert` | Once, again every 6 h while it lasts, and when fixed. Details: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md) |
+| Site or database down, or the watchdog stopped | Uptime monitor (setup below) | Within 5 minutes of going down, and when it is back |
 
 ### Problem reports from admins
 
@@ -131,8 +132,8 @@ GitHub Actions can't watch the site every few minutes within the free 2,000 minu
 1. Create HTTP monitors, every 5 minutes, for:
    - the staff web app (`APP_URL`), expecting 200;
    - the website (`WEBSITE_URL`) and `WEBSITE_URL/terms`, expecting 200;
-   - `https://<project-ref>.supabase.co/functions/v1/ops-alert`, expecting 200 and the keyword `"ok":true`. This one also fails if the database or edge functions are down.
-2. Add Telegram as the alert contact (both UptimeRobot and Better Stack can send to Telegram; follow their steps to link your chat).
+   - `https://<project-ref>.supabase.co/functions/v1/ops-alert`, expecting 200 and the keyword `"ok":true`. This one also fails if the database or edge functions are down, or the database watchdog hasn't run for 30 minutes.
+2. Add Telegram **and** email as alert contacts, so an alert still arrives if one channel fails (both UptimeRobot and Better Stack can send to Telegram; follow their steps to link your chat).
 3. Optional: a public status page from the same tool, linked from the website's help page, so owners can check before calling.
 
 ## 4. When something breaks

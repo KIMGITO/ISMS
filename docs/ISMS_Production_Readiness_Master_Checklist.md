@@ -378,15 +378,15 @@ Checklist:
 -   [ ] Monitor API and database availability.
 -   [ ] Monitor latency, error rates and failed requests.
 -   [ ] Monitor database capacity, connections and storage.
--   [ ] Monitor scheduled jobs, queues and Edge Function failures where
+-   [x] Monitor scheduled jobs, queues and Edge Function failures where
     applicable.
--   [ ] Monitor payment callback failures and reconciliation delays.
+-   [x] Monitor payment callback failures and reconciliation delays.
 -   [ ] Monitor backup completion and age.
 -   [ ] Monitor domain and certificate expiration.
 -   [ ] Configure actionable alerts through independent channels.
 -   [ ] Test alerts by deliberately creating safe test failures.
--   [ ] Establish incident severity, ownership and escalation.
--   [ ] Ensure logs are useful, access-controlled and do not contain
+-   [x] Establish incident severity, ownership and escalation.
+-   [x] Ensure logs are useful, access-controlled and do not contain
     secrets.
 -   [ ] Define a monthly availability objective, initially targeting
     99.9%, and measure it rather than claiming it.
@@ -396,6 +396,8 @@ simulation in staging.
 
 **Exit criteria:** Monitoring and alerts are operational and have been
 demonstrated.
+
+**Status (2026-11-23):** watchdog and health check built and tested on a test DB, not on live; uptime monitor, live alert test and SLO measurement still open. Report: `docs/operations/monitoring-and-alerting.md`.
 
 ## Phase 6 --- Network, API and attack resistance
 

@@ -13,7 +13,7 @@ Plan and checklist: [ISMS_Production_Readiness_Master_Checklist.md](ISMS_Product
 | 2. Financial and inventory integrity | In progress: FIN-01 live; FIN-02 waits for the app release; SEC-10 open | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
 | 3. Backup and recovery | Blocked: backup secrets unset | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | 4. Cloudflare deployment | Production verified; staging deferred; domain and Auth URLs need the owner | [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
-| 5. Monitoring and alerting | Partial (Telegram alerts); no uptime monitor | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) |
+| 5. Monitoring and alerting | Built: database watchdog + health check, tested on a test DB; not on live; uptime monitor needs the owner | [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md) |
 | 6–10 | Not started | |
 
 ## Open risks
@@ -42,7 +42,8 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 3. **SEC-03 / SEC-07:** in Supabase → Authentication: TOTP MFA on, password minimum 8 with letters and digits, leaked-password check if the plan allows it.
 4. **SEC-09:** protect `main` (require checks, no force push).
 5. **Phase 4:** check Supabase Auth URL Configuration (WEB-07); enable R2 when redoing Phase 3; move kaykays.com DNS to Cloudflare when ready (WEB-05).
-6. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
+6. **Phase 5:** after `db push` + `functions deploy ops-alert`, run `SELECT public.run_ops_watchdog(true);` and create the uptime monitors ([monitoring-and-alerting.md](operations/monitoring-and-alerting.md) section 5).
+7. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
 
 ## Documentation map
 
@@ -54,7 +55,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Financial integrity (Phase 2) | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
 | Roles and permissions | [ROLES_AND_ACCESS.md](ROLES_AND_ACCESS.md) |
 | Backup and recovery | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
-| Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) |
+| Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md); Phase 5: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md), [operations/incident-response.md](operations/incident-response.md) |
 | Cloudflare hosting | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md), Phase 4: [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
 | Releases and operations | [RELEASE_AND_OPERATIONS.md](RELEASE_AND_OPERATIONS.md) |
 | Integrations | [INTEGRATIONS.md](INTEGRATIONS.md) |
