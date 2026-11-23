@@ -334,30 +334,32 @@ RPO/RTO and documented limitations.
 
 Checklist:
 
--   [ ] Determine whether the application is compatible with Cloudflare
+-   [x] Determine whether the application is compatible with Cloudflare
     Pages, Workers or another suitable Cloudflare deployment model.
--   [ ] Confirm whether server-side rendering, server routes or
+-   [x] Confirm whether server-side rendering, server routes or
     Node-specific runtime features are required.
--   [ ] Verify build command, output directory, routing and SPA fallback
+-   [x] Verify build command, output directory, routing and SPA fallback
     behaviour.
--   [ ] Create or verify a separate staging deployment.
--   [ ] Configure environment variables and secrets safely.
--   [ ] Verify that no privileged secret is exposed in frontend bundles
+-   [!] Create or verify a separate staging deployment.
+-   [x] Configure environment variables and secrets safely.
+-   [x] Verify that no privileged secret is exposed in frontend bundles
     or source maps.
--   [ ] Configure custom domain, DNS and TLS in a controlled manner.
--   [ ] Verify Supabase Auth redirects, CORS and allowed origins after
+-   [!] Configure custom domain, DNS and TLS in a controlled manner.
+-   [!] Verify Supabase Auth redirects, CORS and allowed origins after
     deployment.
--   [ ] Configure appropriate cache rules; never publicly cache
+-   [x] Configure appropriate cache rules; never publicly cache
     authenticated or tenant-specific responses.
--   [ ] Evaluate WAF, rate limiting, bot protection and DDoS protections
+-   [x] Evaluate WAF, rate limiting, bot protection and DDoS protections
     available on the account plan.
--   [ ] Test application routes, assets, uploads, authentication and API
+-   [-] Test application routes, assets, uploads, authentication and API
     calls on the Cloudflare deployment.
--   [ ] Document rollback and DNS cutover steps.
+-   [x] Document rollback and DNS cutover steps.
 -   [ ] Obtain owner approval before switching production DNS or
     traffic.
--   [ ] Remove Vercel-specific deployment configuration only after
+-   [x] Remove Vercel-specific deployment configuration only after
     successful Cloudflare verification and approval.
+
+> **Phase 4 status (2026-11-23):** in progress. Production hosting verified (routes, headers, cache, browser load, rollback history). Staging deferred by the owner; custom domain and Auth URLs need the owner. Report: [docs/deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md).
 
 **Tests:** Staging deployment, route tests, authentication tests, cache
 isolation tests, TLS checks and deployment rollback rehearsal.

@@ -12,7 +12,7 @@ Plan and checklist: [ISMS_Production_Readiness_Master_Checklist.md](ISMS_Product
 | 1. Security and data isolation | In progress: P0 fixed; P1 open (owner actions) | [security/security-assessment.md](security/security-assessment.md) |
 | 2. Financial and inventory integrity | In progress: FIN-01 live; FIN-02 waits for the app release; SEC-10 open | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
 | 3. Backup and recovery | Blocked: backup secrets unset | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
-| 4. Cloudflare deployment | Mostly built (Workers + blue-green live); no staging DB, no custom domain | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md) |
+| 4. Cloudflare deployment | Production verified; staging deferred; domain and Auth URLs need the owner | [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
 | 5. Monitoring and alerting | Partial (Telegram alerts); no uptime monitor | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) |
 | 6–10 | Not started | |
 
@@ -31,6 +31,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Public test password / possible misuse (SEC-04, SEC-05) | P1 | Owner checks account `abb89fdf…` and the live passwords | [threat-register.md](security/threat-register.md) |
 | One-step sale saving released (FIN-02) | P1 | Test one cash sale in `npm run dev`, push `main` (patch release); later block direct sale inserts once every device has updated | [phase-2-financial-integrity.md](security/phase-2-financial-integrity.md#5-deployment-order) |
 | M-Pesa STK status check (SEC-10) | P2 | Query Daraja before marking an order paid; needs sandbox keys | [threat-register.md](security/threat-register.md) |
+| Staging environment (WEB-03 / SEC-08) | P2 | Free Supabase `kaykays-staging` plus staging Workers; rollback rehearsal there | [cloudflare-deployment.md](deployment/cloudflare-deployment.md#5-deferred-and-owner-actions) |
 | Rest of Phase 1 | — | Branch-level permission tests; review of input validation/XSS; logs and error messages; live Auth redirect URLs | checklist Phase 1 |
 | Rest of Phase 2 | — | Audit histories and correction/reversal workflows | checklist Phase 2 |
 
@@ -40,7 +41,8 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 2. **SEC-02:** in GitHub → Settings → Secrets, set `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` (keep an offline copy), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`. Run *Backup database* once, then *Restore drill*.
 3. **SEC-03 / SEC-07:** in Supabase → Authentication: TOTP MFA on, password minimum 8 with letters and digits, leaked-password check if the plan allows it.
 4. **SEC-09:** protect `main` (require checks, no force push).
-5. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
+5. **Phase 4:** check Supabase Auth URL Configuration (WEB-07); enable R2 when redoing Phase 3; move kaykays.com DNS to Cloudflare when ready (WEB-05).
+6. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
 
 ## Documentation map
 
@@ -53,7 +55,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Roles and permissions | [ROLES_AND_ACCESS.md](ROLES_AND_ACCESS.md) |
 | Backup and recovery | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) |
-| Cloudflare hosting | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md) |
+| Cloudflare hosting | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md), Phase 4: [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
 | Releases and operations | [RELEASE_AND_OPERATIONS.md](RELEASE_AND_OPERATIONS.md) |
 | Integrations | [INTEGRATIONS.md](INTEGRATIONS.md) |
 
