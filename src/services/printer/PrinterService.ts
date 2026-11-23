@@ -37,7 +37,7 @@ class PrinterService {
     return {
       bluetooth: false,
       network: false,
-      reason: "Printing to a receipt printer works in the KayKay's Android and desktop apps. Here you can download the PDF instead.",
+      reason: "Receipt printers work in the Android and desktop apps. Download the PDF instead.",
     };
   }
 

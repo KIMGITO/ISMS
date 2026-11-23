@@ -20,11 +20,11 @@ export class AuthOtpService {
   }
 
   static sendSignupCode(email: string, name?: string) {
-    return this.call({ action: "send", type: "signup", email, name }, "Failed to send verification code. Please try again.");
+    return this.call({ action: "send", type: "signup", email, name }, "Could not send the code. Try again.");
   }
 
   static sendPasswordResetCode(email: string) {
-    return this.call({ action: "send", type: "password_reset", email }, "Failed to send recovery code. Please try again.");
+    return this.call({ action: "send", type: "password_reset", email }, "Could not send the code. Try again.");
   }
 
   static verifySignupCode(email: string, code: string) {

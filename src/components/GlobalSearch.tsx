@@ -933,8 +933,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     if ("home dashboard".includes(lower) || "kpis".includes(lower) || "analytics".includes(lower)) {
       matched.push({
         id: "home-panel",
-        title: "Main Home Dashboard",
-        subtitle: "Review system-wide gross sales, active couriers, and daily milestones",
+        title: "Home",
+        subtitle: "Sales, stock and customer figures",
         category: "Home Dashboard",
         businessName: activeBizName,
         relevance: 40,
@@ -950,8 +950,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     if ("toggle offline".includes(lower) || "network".includes(lower) || "offline".includes(lower)) {
       matched.push({
         id: "act-offline",
-        title: "Toggle Network Connection",
-        subtitle: "Simulate cellular connection drops to test background sync queues",
+        title: "Switch offline mode",
+        subtitle: "Work offline until you switch it back",
         category: "Quick Actions",
         businessName: activeBizName,
         relevance: 50,
@@ -967,8 +967,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     if (`ask ${aiName.toLowerCase()}`.includes(lower) || "ai assistant".includes(lower) || "chat with bot".includes(lower)) {
       matched.push({
         id: "act-ai",
-        title: `Chat with ${aiName} AI Co-Pilot`,
-        subtitle: `Let ${aiName} compile milk production reports or search files with AI`,
+        title: `Ask ${aiName}`,
+        subtitle: `Ask about your sales, stock and customers`,
         category: "Quick Actions",
         businessName: activeBizName,
         relevance: 65,
@@ -984,7 +984,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       matched.push({
         id: "act-communication",
         title: "Message customers",
-        subtitle: "Send bulk SMS, WhatsApp, and Emails to filtered customer segments",
+        subtitle: "Send SMS, WhatsApp or email to groups of customers",
         category: "Communication Center",
         businessName: activeBizName,
         relevance: 60,

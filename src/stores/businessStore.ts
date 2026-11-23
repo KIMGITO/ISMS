@@ -173,8 +173,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       const current = get().businesses;
       if (current.length >= 5) {
         useNotificationStore.getState().showToast(
-          "Business Limit",
-          "You can own a maximum of 5 businesses at a time.",
+          "Business limit",
+          "You can own up to 5 businesses.",
           undefined,
           "error"
         );
@@ -245,8 +245,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         }
 
         useNotificationStore.getState().showToast(
-          "Business Created",
-          `New business "${name}" successfully setup.`,
+          "Business created",
+          `${name} is ready.`,
           undefined,
           "success"
         );
@@ -325,8 +325,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         set({ businesses: updated });
 
         useNotificationStore.getState().showToast(
-          "Business Updated",
-          "Business details successfully saved.",
+          "Business updated",
+          "Business details saved.",
           undefined,
           "success"
         );
@@ -344,8 +344,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       const current = get().businesses;
       if (current.length <= 1) {
         useNotificationStore.getState().showToast(
-          "Operation Blocked",
-          "You must retain at least one active business.",
+          "Not allowed",
+          "You need at least one open business.",
           undefined,
           "error"
         );
@@ -373,8 +373,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         });
 
         useNotificationStore.getState().showToast(
-          "Business Removed",
-          "The business and its associated viewpoint have been closed.",
+          "Business removed",
+          "The business is closed.",
           undefined,
           "info"
         );

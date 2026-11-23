@@ -244,7 +244,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
       // Create a promise that rejects after 10 seconds
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Connection timed out. Please check your internet connection or server status and try again.")), 10000)
+        setTimeout(() => reject(new Error("The connection timed out. Check your internet and try again.")), 10000)
       );
 
       try {
@@ -823,7 +823,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (ownerAlreadyExists === true) {
           return {
             success: false,
-            error: "An Owner account already exists for this workspace. Please sign in instead. If you need access, ask the existing Owner to invite you as a staff member."
+            error: "This business already has an owner. Sign in, or ask the owner to invite you."
           };
         }
 
@@ -844,7 +844,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           // Map known Supabase error messages to friendly text
           const msg = toUserMessage(error, "");
           if (msg.includes("User already registered") || msg.includes("already been registered")) {
-            return { success: false, error: "This email address is already registered. Please sign in or use a different email." };
+            return { success: false, error: "This email already has an account. Sign in or use another email." };
           }
           if (msg.includes("Password should be")) {
             return { success: false, error: "Password must be at least 6 characters long." };
@@ -857,8 +857,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (!otpRes.success) return otpRes;
 
         useNotificationStore.getState().showToast(
-          "Verification Code Sent",
-          `A 6-digit verification code has been sent to ${email}.`,
+          "Verification code sent",
+          `We sent a 6-digit code to ${email}.`,
           undefined,
           "success"
         );
@@ -868,7 +868,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return { success: true };
       } catch (err: any) {
         console.error("Owner registration failed:", err);
-        return { success: false, error: toUserMessage(err, "Registration failed. Please check your connection and try again.") };
+        return { success: false, error: toUserMessage(err, "Could not create the account. Check your connection and try again.") };
       }
     },
 
@@ -900,7 +900,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         useNotificationStore.getState().showToast(
-          "Business Setup Complete",
+          "Business ready",
           `Welcome to ${name} command center!`,
           undefined,
           "success"
@@ -935,15 +935,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // Website customers share Supabase Auth but have nothing to do in the staff app.
         if (data.user.user_metadata?.account_type === "customer") {
           await supabase.auth.signOut();
-          return { success: false, error: "This is a customer account. Please sign in on our website instead." };
+          return { success: false, error: "This is a customer account. Sign in on the shop's website instead." };
         }
 
         // Always load fresh: the email may have just been verified or an invitation finished.
         await get().hydrateAuthSessionData(data.user, true);
 
         useNotificationStore.getState().showToast(
-          "Welcome Back",
-          `Logged in successfully as ${data.user.email}.`,
+          "Welcome back",
+          `Signed in as ${data.user.email}.`,
           undefined,
           "success"
         );
@@ -968,7 +968,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const currentUser = get().currentUser;
 
         if (!bizId || !currentUser) {
-          throw new Error("You must be logged in to an active business to invite staff.");
+          throw new Error("Open a business before inviting staff.");
         }
 
         // Generate 6-character invitation code (without INV- prefix)
@@ -984,7 +984,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           .select("id")
           .eq("email", email.trim());
         if (existingUser && existingUser.length > 0) {
-          throw new Error("A registered user with this email address already exists in the system.");
+          throw new Error("Someone with this email already has an account.");
         }
 
         // Client-side checks for active invitations
@@ -995,7 +995,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           .eq("status", "Pending")
           .gt("expires_at", new Date().toISOString());
         if (existingInvite && existingInvite.length > 0) {
-          throw new Error("An active invitation for this email address already exists.");
+          throw new Error("This email already has an open invitation.");
         }
 
         // Insert into invitations table
@@ -1032,7 +1032,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           console.error("EmailService invitation dispatch failed:", err);
           // Delete the invitation from database so we don't have dangling records
           await supabase.from("invitations").delete().eq("id", invite.id);
-          throw new Error(toUserMessage(err, "Failed to deliver invitation email. Invitation aborted."));
+          throw new Error(toUserMessage(err, "The invitation email could not be sent, so the invitation was cancelled."));
         }
 
         // Hydrate invitations in store
@@ -1055,8 +1055,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         useNotificationStore.getState().showToast(
-          "Invitation Dispatched",
-          `Staff invite code ${inviteCode} sent to ${email}.`,
+          "Invitation sent",
+          `Invitation code ${inviteCode} sent to ${email}.`,
           undefined,
           "success"
         );
@@ -1099,7 +1099,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          return { success: false, error: "Invalid, expired, or already used invitation code. After 10 wrong codes, wait 15 minutes." };
+          return { success: false, error: "This invitation code is wrong, expired or already used. After 10 wrong codes, wait 15 minutes." };
         }
 
         const invite = data[0];
@@ -1181,7 +1181,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (linkErr) throw linkErr;
         if (accepted === false) {
-          return { success: false, error: "Invalid, expired, or already used invitation code." };
+          return { success: false, error: "This invitation code is wrong, expired or already used." };
         }
 
         // Already verified (existing account): they joined just now.
@@ -1201,7 +1201,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (!otpRes.success) return otpRes;
 
         useNotificationStore.getState().showToast(
-          "Verification Code Sent",
+          "Verification code sent",
           `Enter the 6-digit code sent to ${invite.email} to join the team.`,
           undefined,
           "success"
@@ -1272,8 +1272,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await get().loadPermissionsFromDatabase();
 
         useNotificationStore.getState().showToast(
-          "Permissions Synchronized",
-          `Permissions for "${role}" successfully saved to database.`,
+          "Permissions saved",
+          `Permissions for ${role} saved.`,
           undefined,
           "success"
         );
@@ -1298,7 +1298,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         useBusinessStore.getState().businesses.some(b => b.id === businessId);
       if (!allowed) {
         useNotificationStore.getState().showToast(
-          "Access Denied",
+          "Access denied",
           "You are not a member of this business.",
           undefined,
           "error"
@@ -1345,7 +1345,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         useNotificationStore.getState().showToast(
-          "Invitation Revoked",
+          "Invitation revoked",
           "Staff invitation cancelled and removed.",
           undefined,
           "info"
@@ -1407,7 +1407,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           currentEmployee: { ...emp, activeShiftId: newShift.id }
         });
 
-        useNotificationStore.getState().showToast("Clocked In", `Shift started at ${new Date().toLocaleTimeString()}.`, undefined, "success");
+        useNotificationStore.getState().showToast("Clocked in", `Shift started at ${new Date().toLocaleTimeString()}.`, undefined, "success");
 
         NotificationService.createNotification(
           "Custom Notification",
@@ -1417,7 +1417,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return true;
       } catch (err) {
         console.error("punchIn error:", err);
-        useNotificationStore.getState().showToast("Clock In Failed", toUserMessage(err, "Could not clock you in. Please try again."), undefined, "error");
+        useNotificationStore.getState().showToast("Clock in failed", toUserMessage(err, "Could not clock you in. Please try again."), undefined, "error");
         return false;
       }
     },
@@ -1443,7 +1443,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return true;
       } catch (err) {
         console.error("punchOut error:", err);
-        useNotificationStore.getState().showToast("Clock Out Failed", toUserMessage(err, "Could not clock you out. Please try again."), undefined, "error");
+        useNotificationStore.getState().showToast("Clock out failed", toUserMessage(err, "Could not clock you out. Please try again."), undefined, "error");
         return false;
       }
     },
@@ -1498,7 +1498,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     setupNewWorkerPin: (emailOrPhone, pin) => {
-      return { success: false, error: "PIN passcodes are obsolete. Use email/password logins." };
+      return { success: false, error: "PINs are no longer used. Sign in with your email and password." };
     },
 
     updateProfile: async (id, updates) => {
@@ -1570,8 +1570,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         useNotificationStore.getState().showToast(
-          "Password Updated",
-          "Your password has been changed successfully.",
+          "Password updated",
+          "Password changed.",
           undefined,
           "success"
         );
@@ -1617,8 +1617,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         });
 
         useNotificationStore.getState().showToast(
-          "Email Updated",
-          `Verification code sent to new email: ${newEmail}`,
+          "Email updated",
+          `Code sent to ${newEmail}.`,
           undefined,
           "success"
         );

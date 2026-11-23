@@ -396,7 +396,7 @@ export default function UnifiedUploader({
     try {
       const permission = await devicePermissionService.request("camera");
       if (permission === "denied") {
-        throw new Error("Camera permission denied. Please grant permission to continue.");
+        throw new Error("Camera access is off. Allow it to take a photo.");
       }
 
       let stream: MediaStream;
@@ -416,7 +416,7 @@ export default function UnifiedUploader({
       }
     } catch (err: any) {
       console.error("Camera access failed:", err);
-      setCameraError(toUserMessage(err, "Failed to access camera stream. Grant camera permissions."));
+      setCameraError(toUserMessage(err, "Could not open the camera. Check that camera access is allowed."));
       setIsCameraActive(false);
     }
   };
@@ -499,7 +499,7 @@ export default function UnifiedUploader({
 
     const type = mapMimeToCategory(file.type);
     if (!allowedTypes.includes(type)) {
-      setErrorMessage(`Unsupported file format. Allowed: ${allowedTypes.join(", ")}`);
+      setErrorMessage(`This file type isn't accepted. Use ${allowedTypes.join(", ")}.`);
       return;
     }
 
@@ -1216,7 +1216,7 @@ export default function UnifiedUploader({
                         <Check size={28} />
                       </div>
                       <div>
-                        <h4 className="text-[11px] font-semibold text-brand-500">Stashed Offline</h4>
+                        <h4 className="text-[11px] font-semibold text-brand-500">Saved offline</h4>
                         <p className="text-[11px] text-app-text-muted mt-1.5 font-medium px-4">
                           Saved on this device. It uploads when you are back online.
                         </p>

@@ -51,7 +51,7 @@ export default function RingToneSetting() {
     preview(id);
     await setRingTone(id);
     const label = OPTIONS.find((o) => o.id === id)?.label || 'Tone';
-    showToast('Ringing Tone Saved', `${label} will ring for reminders and urgent alerts on this device.`, undefined, 'success');
+    showToast('Ringing tone saved', `${label} will ring for reminders and urgent alerts on this device.`, undefined, 'success');
   };
 
   return (

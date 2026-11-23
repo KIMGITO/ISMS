@@ -8,6 +8,28 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## UI wording cleanup + update bar removed (2026-11-23)
+
+Text-only changes across the app and website, and the top update bar removed (updates show only in About this app). Details: [ui-content-audit.md](ui-content-audit.md). Type checks, 73 tests and both builds pass.
+
+1. [ ] Commit and release the app (`bash release.sh`, as usual). The new version should appear in About this app → Updates on an installed copy.
+2. [ ] **You:** on the desktop app, when an update has downloaded, open About this app and press "Restart and install". The app should reopen on the new version. No bar should appear at the top while it downloads.
+3. [ ] **You:** walk the tour once (My Profile → Take the tour again) on a phone and check no step is cut off.
+4. [ ] **You:** decide whether to remove the "Switch offline mode" entry from search (see Outstanding in the audit doc).
+
+---
+
+## Quick test data: seed_quick.sql (2026-11-23)
+
+`supabase/seed_quick.sql`: 2 branches, owner + admin, 5 riders, 5 products in both branches, 5 customers. Checked on a scratch copy of the current schema (all counts right; owner is the system creator). Logins: [supabase/SEED_LOGINS.md](../supabase/SEED_LOGINS.md).
+
+1. [x] Loaded on live with `npx supabase db query --linked -f supabase/seed_quick.sql`, keeping the owner's account and business "KayKay's" as Main; added "KayKay's Westlands". Backup from before: `/home/dennis/isms-backups/2026-11-23-before-seed-quick/data.sql` (2026-11-23).
+2. [x] `admin@kaykays.test` and `rider1@kaykays.test` sign in on live (password grant OK) (2026-11-23).
+3. [ ] **You:** open the app as owner, switch between both branches: 5 products and the customers should show in each; riders should appear when assigning a delivery.
+4. [ ] Before real customers use live: wipe the test data (`supabase/dev_wipe.sql`). That also removes your own account and business.
+
+---
+
 ## Version numbers start again at 1.0.0 (2026-11-23)
 
 The old v7.x releases and tags are removed from both repos (KIMGITO/ISMS and KIMGITO/kaykays-releases); the tag `v0.0.0` marks the restart, so the next release is exactly **1.0.0**. The website now shows the same version in its footer. Android version codes start at 20100000 (old ones were 107xxxxx), so phones update in place.

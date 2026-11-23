@@ -108,7 +108,7 @@ export default function TrackedReports({ businessId, transactions, customers, pr
       label: option[1],
     });
     if (error && error.code !== '23505') {
-      showToast('Could Not Track', toUserMessage(error, 'Please try again.'), undefined, 'error');
+      showToast('Could not track', toUserMessage(error, 'Please try again.'), undefined, 'error');
       return;
     }
     setKey('');
@@ -118,7 +118,7 @@ export default function TrackedReports({ businessId, transactions, customers, pr
   const handleRemove = async (id: string) => {
     const { error } = await getSupabase().from('report_tracked_items').delete().eq('id', id);
     if (error) {
-      showToast('Could Not Remove', toUserMessage(error, 'Please try again.'), undefined, 'error');
+      showToast('Could not remove', toUserMessage(error, 'Please try again.'), undefined, 'error');
       return;
     }
     load();

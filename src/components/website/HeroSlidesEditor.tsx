@@ -804,7 +804,7 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
         <div className="max-w-2xl">
           <h3 className="font-bold text-app-text">Home banner</h3>
           <p className="text-sm text-app-text-muted">
-            The slides at the top of the website's home page. They move by themselves every few seconds, and customers can swipe them.
+            Slides at the top of the website's home page.
             {usingBuiltIn ? ' The website is showing the built-in slides; change anything below and save to use your own.' : ''}
           </p>
         </div>

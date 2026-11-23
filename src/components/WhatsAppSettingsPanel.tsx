@@ -45,7 +45,7 @@ export default function WhatsAppSettingsPanel({ businessId }: { businessId: stri
       setAccessToken('');
       showToast('WhatsApp Saved', 'Your WhatsApp settings are saved.', undefined, 'success');
     } catch (err) {
-      showToast('Could Not Save', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not save', toUserMessage(err, 'Please try again.'), undefined, 'error');
     } finally {
       setBusy(false);
     }

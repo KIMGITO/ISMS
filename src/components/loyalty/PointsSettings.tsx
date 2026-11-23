@@ -54,7 +54,7 @@ export function PointsSettings({ businessId, onSaved }: { businessId: string; on
         min_redeem_points: Number(minRedeem),
       });
       if (error) throw error;
-      showToast('Points Saved', 'Your points settings are saved.', undefined, 'success');
+      showToast('Points saved', 'Your points settings are saved.', undefined, 'success');
       onSaved?.();
     } catch (err) {
       fail(err, 'Could not save points settings.');

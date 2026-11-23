@@ -116,7 +116,7 @@ export class SupabaseUploadClient implements UploadClient {
       onProgress?.(100);
 
       if (!urlData || !urlData.publicUrl) {
-        throw new Error('Failed to generate public URL for uploaded file.');
+        throw new Error("The file uploaded but can't be opened. Try again.");
       }
 
       return urlData.publicUrl;
@@ -140,14 +140,14 @@ export class SupabaseUploadClient implements UploadClient {
         friendlyError.toLowerCase().includes('network request failed') ||
         err.name === 'TypeError'
       ) {
-        friendlyError = `CORS or Network Error: Disallowed reading remote resource at ${supabaseUrl}/storage/v1/object. Please verify that your Supabase URL is configured correctly, your network connection is active, and CORS origins are allowed in your Supabase storage settings.`;
+        friendlyError = 'Could not upload the file. Check your connection and try again.';
       }
 
       // Dispatch a prominent system alert toast
       useNotificationStore
         .getState()
         .showToast(
-          'Supabase Storage Error',
+          'Upload failed',
           friendlyError,
           undefined,
           'error',

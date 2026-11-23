@@ -104,16 +104,16 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
 
       if (newStock === 0 && previousStock > 0) {
         useNotificationStore.getState().showToast(
-          "Inventory Alert",
-          `CRITICAL: "${prod.name}" is now completely Out of Stock!`,
+          "Stock alert",
+          `${prod.name} is out of stock.`,
           prod.image || "",
           "error"
         );
         NotificationService.createInventoryAlert(prod.name, newStock, prod.minStock, prod.unit || "units", true);
       } else if (newStock <= prod.minStock && previousStock > prod.minStock && newStock > 0) {
         useNotificationStore.getState().showToast(
-          "Inventory Alert",
-          `Warning: "${prod.name}" is low in stock! Current: ${newStock} units.`,
+          "Stock alert",
+          `${prod.name} is low: ${newStock} left.`,
           prod.image || "",
           "info"
         );
@@ -193,16 +193,16 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
 
           if (newStock === 0 && previousStock > 0) {
             useNotificationStore.getState().showToast(
-              "Inventory Alert",
-              `CRITICAL: "${p.name}" is now completely Out of Stock!`,
+              "Stock alert",
+              `${p.name} is out of stock.`,
               p.image || "",
               "error"
             );
             NotificationService.createInventoryAlert(p.name, newStock, p.minStock, p.unit || "units", true);
           } else if (newStock <= p.minStock && previousStock > p.minStock && newStock > 0) {
             useNotificationStore.getState().showToast(
-              "Inventory Alert",
-              `Warning: "${p.name}" is low in stock! Current: ${newStock} units.`,
+              "Stock alert",
+              `${p.name} is low: ${newStock} left.`,
               p.image || "",
               "info"
             );
@@ -228,7 +228,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
         set({ categories: mergeCategories(get().products) });
         return true;
       } catch (err) {
-        useNotificationStore.getState().showToast("Could Not Add Category", toUserMessage(err, "Please try again."), undefined, "error");
+        useNotificationStore.getState().showToast("Could not add category", toUserMessage(err, "Please try again."), undefined, "error");
         return false;
       }
     },

@@ -145,7 +145,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (paymentMethod === 'Credit_Debt' && !selectedCustomer) {
       return {
         success: false,
-        error: "Debt payment is only available for registered loyalty customers, not walk-in customers."
+        error: "Choose a customer to pay a debt. Walk-in customers have no debt."
       };
     }
 
@@ -384,7 +384,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       if (activeBusinessId) void kraService.reportSaleIfConnected(activeBusinessId, savedTx.id);
       return { success: true, transaction: savedTx };
     } catch (err: any) {
-      return { success: false, error: toUserMessage(err, "Checkout failed due to database or connection error.") };
+      return { success: false, error: toUserMessage(err, "The sale could not be saved. Check your connection and try again.") };
     }
   },
 }));

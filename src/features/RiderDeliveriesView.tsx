@@ -123,7 +123,7 @@ export default function RiderDeliveriesView() {
     load().catch((err) => {
       setMine((m) => m ?? []);
       setRequests((r) => r ?? []);
-      showToast('Could Not Load Deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not load deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
     });
     const timer = setInterval(() => load().catch(() => undefined), REFRESH_MS);
     // Riders mostly switch back from maps or calls, so check for new work straight away.
@@ -147,7 +147,7 @@ export default function RiderDeliveriesView() {
       await load().catch(() => undefined);
       return true;
     } catch (err) {
-      showToast('Could Not Update', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not update', toUserMessage(err, 'Please try again.'), undefined, 'error');
       load().catch(() => undefined);
       return false;
     } finally {

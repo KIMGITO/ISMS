@@ -72,7 +72,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
   useEffect(() => {
     load().catch((err) => {
       setRows([]);
-      showToast('Could Not Load Deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not load deliveries', toUserMessage(err, 'Please try again.'), undefined, 'error');
     });
   }, [load, showToast]);
 
@@ -110,7 +110,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
       await load();
       onChanged?.();
     } catch (err) {
-      showToast('Could Not Update', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not update', toUserMessage(err, 'Please try again.'), undefined, 'error');
       load().catch(() => undefined);
     } finally {
       setBusy(null);

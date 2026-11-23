@@ -208,8 +208,8 @@ export default function InventoryView() {
         setSuccessMsg(true);
         setTimeout(() => setSuccessMsg(false), 2000);
         showToast(
-          'Product Added',
-          `"${vals.name}" successfully created in database.`,
+          'Product added',
+          `"${vals.name}" added.`,
           undefined,
           'success',
         );
@@ -276,14 +276,14 @@ export default function InventoryView() {
       setSuccessMsg(true);
       setTimeout(() => setSuccessMsg(false), 2000);
       showToast(
-        'Product Updated',
-        `"${editValues.name}" catalog config updated successfully.`,
+        'Product updated',
+        `"${editValues.name}" saved.`,
         undefined,
         'success',
       );
     } catch (err: any) {
       showToast(
-        'Update Error',
+        'Not saved',
         toUserMessage(err, "Could not save the product."),
         undefined,
         'error',
@@ -333,8 +333,8 @@ export default function InventoryView() {
       setAdjustQty(10);
       setTimeout(() => setSuccessMsg(false), 2000);
       showToast(
-        'Stock Adjusted',
-        `Stock for "${selectedProduct.name}" successfully adjusted in database.`,
+        'Stock adjusted',
+        `Stock for "${selectedProduct.name}" updated.`,
         undefined,
         'success',
       );
@@ -455,8 +455,8 @@ export default function InventoryView() {
                             try {
                               await deleteProduct(p.id);
                               showToast(
-                                'Product Deleted',
-                                `"${p.name}" successfully deleted.`,
+                                'Product deleted',
+                                `"${p.name}" deleted.`,
                                 undefined,
                                 'success',
                               );
@@ -1101,7 +1101,7 @@ export default function InventoryView() {
                             await updateCategory(cat, next);
                             setRenamingCategory(null);
                           } catch (err) {
-                            showToast('Could Not Rename', toUserMessage(err, 'Please try again.'), undefined, 'error');
+                            showToast('Could not rename', toUserMessage(err, 'Please try again.'), undefined, 'error');
                           }
                         }}
                       >

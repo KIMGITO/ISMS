@@ -322,7 +322,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'deliveries.view', category: 'Orders & Deliveries', description: 'View courier route maps' },
   { code: 'deliveries.create', category: 'Orders & Deliveries', description: 'Initialize dispatch schedules' },
   { code: 'deliveries.assign', category: 'Orders & Deliveries', description: 'Assign routes to couriers' },
-  { code: 'deliveries.complete', category: 'Orders & Deliveries', description: 'Mark deliveries as successfully completed' },
+  { code: 'deliveries.complete', category: 'Orders & Deliveries', description: 'Mark deliveries as delivered' },
   { code: 'deliveries.cancel', category: 'Orders & Deliveries', description: 'Flag deliveries as failed' },
   { code: 'deliveries.delivery_price', category: 'Orders & Deliveries', description: 'Change delivery area prices' },
   { code: 'deliveries.delivery_zones', category: 'Orders & Deliveries', description: 'Add and edit delivery areas and their prices' },
@@ -425,7 +425,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'ai.use', category: 'Reports & AI', description: 'Chat with Kim AI Assistant' },
   { code: 'ai.configure', category: 'Reports & AI', description: 'Modify AI system configuration instructions' },
   { code: 'ai.insights', category: 'Reports & AI', description: 'Query AI recommendations' },
-  { code: 'ai.manage', category: 'Reports & AI', description: 'Edit Gemini API keys' },
+  { code: 'ai.manage', category: 'Reports & AI', description: 'Edit the assistant\'s AI keys' },
 
   // Files & Audit Logs
   { code: 'audit.view', category: 'Files & Audit Logs', description: 'Access system audit logs' },
@@ -585,7 +585,7 @@ export function checkPermissionGate(permission: PermissionCode): boolean {
   const currentEmployee = useAuthStore.getState().currentEmployee;
   if (!currentEmployee) {
     useNotificationStore.getState().showToast(
-      "Access Denied",
+      "Access denied",
       "No active session or employee profile loaded.",
       undefined,
       "error",
@@ -596,7 +596,7 @@ export function checkPermissionGate(permission: PermissionCode): boolean {
   const allowed = hasRolePermission(currentEmployee.role, permission);
   if (!allowed) {
     useNotificationStore.getState().showToast(
-      "Permission Denied",
+      "Permission denied",
       `You do not have the required permission (${permission}) to perform this action.`,
       undefined,
       "error",

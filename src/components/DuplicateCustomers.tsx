@@ -87,7 +87,7 @@ function MergeReview({ first, second, accountIds, onBack, onDone }: {
       await mergeCustomers(keepId, merge.id, name, phone, email);
       onDone(keepId);
     } catch (err) {
-      showToast('Could Not Merge', toUserMessage(err, 'Nothing changed. Please try again.'), undefined, 'error');
+      showToast('Could not merge', toUserMessage(err, 'Nothing changed. Please try again.'), undefined, 'error');
       setBusy(false);
     }
   };
@@ -188,7 +188,7 @@ export default function DuplicateCustomers({ businessId, customers, onClose, onM
       await dismissDuplicateCustomers(businessId, group.customerIds);
       load();
     } catch (err) {
-      showToast('Could Not Dismiss', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not dismiss', toUserMessage(err, 'Please try again.'), undefined, 'error');
     }
   };
 
@@ -199,7 +199,7 @@ export default function DuplicateCustomers({ businessId, customers, onClose, onM
         .filter((c) => c.id !== mergedId)
         .map((c) => (c.id === keepId && fresh ? fresh : c)),
     }));
-    showToast('Customers Merged', `${fresh?.name ?? 'The customer'} now has one record.`, undefined, 'success');
+    showToast('Customers merged', `${fresh?.name ?? 'The customer'} now has one record.`, undefined, 'success');
     onMerged(keepId);
     setPair(null);
     setManualFirst('');

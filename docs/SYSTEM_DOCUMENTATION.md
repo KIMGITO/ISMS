@@ -192,7 +192,7 @@ ISMS/
 ├── src/                      Staff app (React)
 │   ├── App.tsx               Shell, navigation, onboarding, tab routing
 │   ├── main.tsx              Entry point
-│   ├── components/           Shared widgets (ClockBar, GlobalSearch, UpdateBar,
+│   ├── components/           Shared widgets (ClockBar, GlobalSearch,
 │   │                         MpesaPaymentsPanel, DuplicateCustomers, EndShiftModal...)
 │   ├── features/             One file per screen (POSView, InventoryView, ...)
 │   ├── core/native/          Platform services: Bluetooth, camera, files, printer,
@@ -1093,7 +1093,7 @@ VAT can only be switched on or changed once eTIMS is connected. An offline sale 
 | `notificationStore` | Inbox, unread counts, toasts, schedule reminders |
 | `pendingActionStore` | AI-proposed actions awaiting approval |
 | `uiStore`, `overlayStore` | Active screen, modals, chat history |
-| `updateStore` | Update state for the update bar |
+| `updateStore` | Update state shown on the About page |
 | `systemHealthStore` | Connection and service health |
 | `appStore` | One facade over all of the above |
 

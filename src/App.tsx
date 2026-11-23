@@ -8,7 +8,6 @@ import GlobalSearch from './components/GlobalSearch';
 import POSView from './features/POSView';
 import QuickSaleView from './features/QuickSaleView';
 import ClockBar from './components/ClockBar';
-import UpdateBar from './components/UpdateBar';
 import PullToRefresh from './components/PullToRefresh';
 import AboutView from './features/AboutView';
 import { updateService } from './core/native/UpdateService';
@@ -271,25 +270,25 @@ const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
 const tourSteps: TourStep[] = [
   {
     title: "Welcome to KayKay's!",
-    content: "A one-minute tour of the screens your role can use. You can leave it at any time.",
+    content: "A quick tour of the screens you can use.",
     placement: 'bottom',
   },
   {
     targetSelector: '#sidebar-brand-header',
     title: 'Your business',
-    content: 'The branch you are working in. If you work at more than one, switch here. Switching changes everything: screens, cart, figures, your role and notifications all reload for that branch.',
+    content: 'The branch you are working in. Switch here if you work at more than one; screens, cart and figures change to that branch.',
     placement: 'right',
   },
   {
     targetSelector: '#clock-bar',
     title: 'Clock in and out',
-    content: 'This bar shows whether you are on shift. Clock in when you start and clock out when you finish; it sends the shift report.',
+    content: 'Clock in when you start and out when you finish. Clocking out sends the shift report.',
     placement: 'bottom',
   },
   {
     targetSelector: '#sidebar-tab-home',
     title: 'Home',
-    content: 'Sales, stock and customer figures at a glance.',
+    content: 'Sales, stock and customer figures.',
     placement: 'right',
     tab: 'home',
   },
@@ -303,7 +302,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-sell',
     title: 'Quick Sale',
-    content: 'Sell in a few taps: pick products, choose how the customer pays, done.',
+    content: 'Pick products, choose how the customer pays, done.',
     placement: 'right',
     tab: 'sell',
   },
@@ -317,7 +316,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-inventory',
     title: 'Inventory',
-    content: 'Products, stock levels and categories. Record restocks, wastage and counts here. When you add a product photo, Remove background cuts it out for free on this device.',
+    content: 'Products, stock levels and categories. Record restocks, wastage and counts here.',
     placement: 'right',
     tab: 'inventory',
   },
@@ -331,14 +330,14 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-stock-transfers',
     title: 'Stock Transfers',
-    content: 'Send stock to another branch, ask one for stock, and confirm what arrived. Settle what arrived short. A transfer is not a sale, so profit does not change, but both branches\' books follow it.',
+    content: 'Send stock to another branch, ask one for stock, and confirm what arrived. A transfer is not a sale, so profit does not change.',
     placement: 'right',
     tab: 'stock-transfers',
   },
   {
     targetSelector: '#sidebar-tab-buying',
     title: 'Buying',
-    content: 'Your suppliers and what you order from them. See what is running low and how much to order, or which branch has plenty to send instead. Receive deliveries into stock, approve purchases above someone\'s limit, enter supplier bills and pay them, and send goods back. Give a supplier app access (⋯ on a supplier) and they confirm orders, send prices and follow their payments themselves.',
+    content: 'Suppliers, orders, deliveries and bills. See what is running low and how much to order.',
     placement: 'right',
     tab: 'buying',
   },
@@ -352,14 +351,14 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-customers',
     title: 'Loyalty',
-    content: 'Customers, their points, debts, wallets and invoices. Each customer has an account number for M-Pesa. Swipe an invoice to delete it; hold it to archive.',
+    content: 'Customers, their points, debts, wallets and invoices.',
     placement: 'right',
     tab: 'customers',
   },
   {
     targetSelector: '[data-shortcut="points"]',
     title: 'Manage points',
-    content: 'Tap Points to switch loyalty points on or off, set what a point is worth for Bronze, Silver and Gold, and see the points report. Switching off keeps every balance.',
+    content: 'Switch points on or off, set what a point is worth, and see the points report.',
     placement: 'bottom',
     tab: 'customers',
     permissions: ['loyalty.configure'],
@@ -367,14 +366,14 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-money',
     title: 'Payments & Expenses',
-    content: 'Record payments and expenses. M-Pesa sends payment prompts and lists money paid to the till for you to assign. A mistaken payment is voided, which puts every balance back.',
+    content: 'Record payments and expenses, and match M-Pesa till payments to customers.',
     placement: 'right',
     tab: 'money',
   },
   {
     targetSelector: '#sidebar-tab-prompt',
     title: 'Payment Prompts',
-    content: 'Send an M-Pesa or Airtel Money prompt to a customer\'s phone and watch it until it is paid. The phone button at the top opens it from anywhere, or press G then M.',
+    content: 'Send an M-Pesa or Airtel Money prompt to a customer\'s phone and see when it is paid.',
     placement: 'right',
     tab: 'prompt',
     permissions: ['payments.mpesa', 'payments.airtel'],
@@ -397,14 +396,14 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-finance',
     title: 'Finance & Accounting',
-    content: 'Summary shows profit or loss, money in and out, debts, wallets and what points cost. Books, Who owes and Checks are the full accounts, kept by themselves from every sale, expense, payment, purchase and transfer: profit & loss, balance sheet, journal, VAT, what customers and suppliers owe, money counts.',
+    content: 'Profit, money in and out, debts and VAT. The books update from every sale, expense and payment.',
     placement: 'right',
     tab: 'finance',
   },
   {
     targetSelector: '#sidebar-tab-deliveries',
     title: 'Deliveries',
-    content: 'Open delivery requests riders can accept or give back, their own deliveries, and the areas you deliver to with their prices.',
+    content: 'Delivery requests, each rider\'s deliveries, and delivery areas.',
     placement: 'right',
     tab: 'deliveries',
   },
@@ -418,7 +417,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-online-store',
     title: 'Your website',
-    content: 'Also in Online Store: the home banner, website pages, promo codes, reviews, delivery areas and website settings.',
+    content: 'The website banner, pages, reviews and delivery areas are also in Online Store.',
     placement: 'right',
     tab: 'online-store',
     permissions: ['business.update'],
@@ -426,7 +425,7 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-feedback',
     title: 'Feedback',
-    content: 'Reviews, suggestions and complaints from customers. Hold one to archive it.',
+    content: 'Reviews, suggestions and complaints from customers.',
     placement: 'right',
     tab: 'feedback',
   },
@@ -482,32 +481,32 @@ const tourSteps: TourStep[] = [
   {
     targetSelector: '#sidebar-tab-about',
     title: 'About this app',
-    content: 'The version you have and every keyboard shortcut your role can use. Updates install by themselves; if one fails, check for updates here.',
+    content: 'Your version, updates and keyboard shortcuts.',
     placement: 'right',
     tab: 'about',
   },
   {
     targetSelector: '#mobile-tab-more',
     title: 'More',
-    content: 'On a phone, screens that do not fit on the bar are here, including Settings and About.',
+    content: 'Screens that don\'t fit on the bar, including Settings and About.',
     placement: 'top',
   },
   {
     targetSelector: '#global-search-container',
     title: 'Search',
-    content: 'Find any screen, product, customer, receipt or payment by typing a few letters. It also finds features by name, such as "points settings" or "promo codes", and keyboard shortcuts. You only see what your role can use.',
+    content: 'Find any screen, product, customer, receipt or setting.',
     placement: 'bottom',
   },
   {
     title: 'Keyboard shortcuts',
-    content: 'Press Ctrl+K to search, ? to see the shortcuts for the screen you are on, and G then a letter to jump to a screen (G then P for POS, G then I for Inventory); each tab in the side bar shows its letter. F5 reloads. The full list for your role is in About this app.',
+    content: 'Ctrl+K searches, ? shows the shortcuts for this screen, and G then a letter opens a screen (G then P for POS). The full list is in About this app.',
     placement: 'bottom',
     desktopOnly: true,
   },
   {
     targetSelector: '#header-notification-bell',
     title: 'Notifications',
-    content: 'Alerts such as low stock, M-Pesa payments and shift reports. Swipe one to delete it.',
+    content: 'Low stock, M-Pesa payments, shift reports and other alerts.',
     placement: 'left',
   },
   {
@@ -808,7 +807,7 @@ export default function App() {
 
   const handleConnectDatabase = async () => {
     if (!setupDbUrl || !setupDbKey) {
-      setSetupDbError('Provide both a valid Project URL and Anon API key.');
+      setSetupDbError('Enter the project URL and the anon key.');
       return;
     }
     setDbConnecting(true);
@@ -828,7 +827,7 @@ export default function App() {
         );
       }
     } catch (e) {
-      setSetupDbError('Invalid credentials format. Connect attempt failed.');
+      setSetupDbError('Could not connect. Check the project URL and key.');
     } finally {
       setDbConnecting(false);
     }
@@ -1035,7 +1034,7 @@ export default function App() {
     // Guard: verifyEmail must be set before resending
     if (!verifyEmail?.trim()) {
       setAuthError(
-        'Email address is missing. Please go back and enter your email.',
+        'Go back and enter your email.',
       );
       return;
     }
@@ -1058,11 +1057,11 @@ export default function App() {
       setVerifyCountdown(60);
       setVerifyCode('');
       setAuthSuccess(
-        `A new verification code has been sent to ${verifyEmail}!`,
+        `New code sent to ${verifyEmail}.`,
       );
     } catch (err: any) {
       console.error('Resend OTP failed:', err);
-      setAuthError(toUserMessage(err, 'Failed to resend verification code. Please check your connection and try again.'));
+      setAuthError(toUserMessage(err, 'Could not send a new code. Check your connection and try again.'));
     } finally {
       setIsResending(false);
     }
@@ -1077,7 +1076,7 @@ export default function App() {
     // Guard: verifyEmail must be set
     if (!verifyEmail?.trim()) {
       setAuthError(
-        'Email address is missing. Please go back and enter your email.',
+        'Go back and enter your email.',
       );
       return;
     }
@@ -1088,7 +1087,7 @@ export default function App() {
     try {
       const res = await verifyEmailCode(verifyEmail, code);
       if (res.success) {
-        setAuthSuccess('Email verified successfully! Logging you in...');
+        setAuthSuccess('Email confirmed. Signing you in…');
         try {
           const loginRes = await loginOnline(verifyEmail, regPassword);
           if (loginRes.success) {
@@ -1099,7 +1098,7 @@ export default function App() {
             setAuthViewTab('login');
             setLoginEmail(verifyEmail);
             setAuthSuccess(
-              'Account verified. Please enter your password to login.',
+              'Email confirmed. Enter your password to sign in.',
             );
           }
         } catch (loginErr: any) {
@@ -1164,7 +1163,7 @@ export default function App() {
           setInviteName(res.invitation.name);
           setInvitePhone(res.invitation.phone);
           setAuthSuccess(
-            `Secure invitation verified for joining as ${res.invitation.role}! Fill in your password to register.`,
+            `You're invited as ${res.invitation.role}. Choose a password to join.`,
           );
         } else {
           setAuthError(
@@ -2063,7 +2062,7 @@ export default function App() {
                                 );
                                 if (!otpRes.success) throw new Error(otpRes.error);
                                 setAuthSuccess(
-                                  `Your email is not confirmed. We've sent a new 6-digit verification code to ${loginEmail}.`,
+                                  `Your email is not confirmed yet. We sent a new code to ${loginEmail}.`,
                                 );
                               } catch (err: any) {
                                 console.error('Auto OTP send failed:', err);
@@ -2189,7 +2188,7 @@ export default function App() {
                             setVerifyEmail(regEmail);
                             setAuthViewTab('verify');
                             setAuthSuccess(
-                              `Verification email dispatched successfully!`,
+                              `Confirmation email sent.`,
                             );
                           } else {
                             setAuthError(
@@ -2363,7 +2362,7 @@ export default function App() {
                                     setVerifyCountdown(60);
                                     setVerifyCode('');
                                     setAuthSuccess(
-                                      `Email updated and verification code sent to ${newEmailInput.trim()}!`,
+                                      `Email changed. Code sent to ${newEmailInput.trim()}.`,
                                     );
                                   } else {
                                     setAuthError(
@@ -2387,7 +2386,7 @@ export default function App() {
                                     setVerifyCountdown(60);
                                     setVerifyCode('');
                                     setAuthSuccess(
-                                      `Verification code sent to ${newEmailInput.trim()}!`,
+                                      `Code sent to ${newEmailInput.trim()}.`,
                                     );
                                   } catch (err: any) {
                                     console.error(
@@ -2395,7 +2394,7 @@ export default function App() {
                                       err,
                                     );
                                     setAuthError(
-                                      toUserMessage(err, 'Failed to send verification code. Verify provider setup.'),
+                                      toUserMessage(err, 'Could not send the code. Try again in a minute.'),
                                     );
                                   } finally {
                                     setAuthLoading(false);
@@ -2598,7 +2597,7 @@ export default function App() {
                                 <div className="relative pt-1">
                                   <input
                                     type="text"
-                                    placeholder="Specify business type (e.g., Butchery, Logistics)"
+                                    placeholder="e.g. Dairy, Butchery"
                                     value={customTypeInput}
                                     onChange={(e) =>
                                       setCustomTypeInput(e.target.value)
@@ -2712,7 +2711,7 @@ export default function App() {
                                 setInvitePhone(res.invitation.phone || '');
                                 setInviteTokenInput(code);
                                 setAuthSuccess(
-                                  `Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`,
+                                  `You're invited as ${res.invitation.role}. Fill in your details to join.`,
                                 );
                               } else {
                                 setAuthError(
@@ -2758,7 +2757,7 @@ export default function App() {
                                       );
                                       setInviteTokenInput(cleanCode);
                                       setAuthSuccess(
-                                        `Secure invitation validated successfully for joining as ${res.invitation.role}! Fill in details to accept.`,
+                                        `You're invited as ${res.invitation.role}. Fill in your details to join.`,
                                       );
                                     } else {
                                       setAuthError(
@@ -2810,7 +2809,7 @@ export default function App() {
                                 validatedInvite.email.toLowerCase()
                               ) {
                                 setAuthError(
-                                  'Registration email does not match the invited email address.',
+                                  'Use the email address the invitation was sent to.',
                                 );
                                 return;
                               }
@@ -3000,7 +2999,7 @@ export default function App() {
                             setAuthViewTab('verify-reset-code');
                             setResetCountdown(60);
                             setAuthSuccess(
-                              `A 6-digit password recovery code has been sent to ${forgotEmail}.`,
+                              `We sent a 6-digit code to ${forgotEmail}.`,
                             );
                           } else {
                             setAuthError(
@@ -3135,7 +3134,7 @@ export default function App() {
                                   setResetCountdown(60);
                                   setResetOtpCode('');
                                   setAuthSuccess(
-                                    `A new recovery code has been sent to ${forgotEmail}.`,
+                                    `New code sent to ${forgotEmail}.`,
                                   );
                                 } else {
                                   setAuthError(
@@ -3242,7 +3241,7 @@ export default function App() {
                               }
                               if (strengthScore < 3) {
                                 setAuthError(
-                                  'Please choose a stronger password matching the minimum requirements.',
+                                  'Choose a password that meets the requirements below.',
                                 );
                                 return;
                               }
@@ -3256,7 +3255,7 @@ export default function App() {
                               setAuthLoading(false);
                               if (res.success) {
                                 setAuthSuccess(
-                                  'Password changed successfully! Returning to login...',
+                                  'Password changed. Sign in with your new password.',
                                 );
                                 // Sign out the recovery session
                                 await logout();
@@ -4021,7 +4020,7 @@ export default function App() {
                     onClick={() => {
                       setIsTourOpen(true);
                       showToast(
-                        'Tour Started',
+                        'Tour started',
                         'Guided onboarding walkthrough started.',
                         undefined,
                         'success',
@@ -4057,7 +4056,7 @@ export default function App() {
 
               {/* MAIN CONTENT SECTION */}
               <div className="flex-1 flex flex-col overflow-hidden relative font-sans">
-                {/* TOP APPLICATION BAR (it carries the status-bar inset; UpdateBar sits under it) */}
+                {/* TOP APPLICATION BAR (it carries the status-bar inset) */}
                 <header
                   className={`app-header border-b px-1 md:px-3 py-1.5 flex items-center justify-between gap-3 shrink-0 shadow-xs z-30 min-h-14 transition-colors duration-300 ${
                     isOnline ? 'bg-app-card border-app-border' : 'bg-red-600 border-red-700'
@@ -4228,7 +4227,6 @@ export default function App() {
                   )}
                 </header>
 
-                <UpdateBar />
                 <AnimatePresence initial={false}>
                   {(!isOnline || offlineSalesCount > 0) && (
                     <motion.div
@@ -4986,7 +4984,7 @@ export default function App() {
                           );
                           if (confirmed) {
                             deleteBusiness(biz.id);
-                            showToast('System Update', `Branch "${biz.name}" has been deleted.`);
+                            showToast('Branch deleted', `${biz.name} was deleted.`);
                           }
                         };
                         const canRemoveBranch = canManageBranch && businesses.length > 1;
@@ -5106,7 +5104,7 @@ export default function App() {
                       ) {
                         showToast(
                           'Check the form',
-                          'Please provide a valid contact email address.',
+                          'Enter a valid email address.',
                           undefined,
                           'error',
                         );
@@ -5118,7 +5116,7 @@ export default function App() {
                       ) {
                         showToast(
                           'Check the form',
-                          'Contact Phone must be in E.164 format (e.g. +254712345678).',
+                          'Enter the phone number with the country code, e.g. +254712345678.',
                           undefined,
                           'error',
                         );
@@ -5452,8 +5450,8 @@ export default function App() {
                         setEditingBizId(null);
                         setEditBizLogo('');
                         showToast(
-                          'Branch Updated',
-                          `Branch details saved successfully.`,
+                          'Branch updated',
+                          `Branch details saved.`,
                         );
                       }
                     }}

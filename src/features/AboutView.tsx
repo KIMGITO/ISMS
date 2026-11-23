@@ -76,7 +76,7 @@ export default function AboutView() {
   }, []);
 
   // One short line for where the update stands
-  let statusText: ReactNode = canUpdate ? 'Updates install automatically.' : 'Reload the page to get the latest version.';
+  let statusText: ReactNode = canUpdate ? 'Updates download automatically.' : 'Reload the page to get the latest version.';
   if (status === 'checking') statusText = 'Checking…';
   if (status === 'up-to-date') statusText = <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 size={14} /> Up to date</span>;
   if (status === 'downloading') statusText = `Downloading ${availableVersion}${progress !== null ? ` · ${progress}%` : '…'}`;

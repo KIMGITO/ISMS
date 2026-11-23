@@ -620,7 +620,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
             onChange={(body) => setEditing((current) => (current ? { ...current, body } : current))}
             businessId={businessId}
             header={{ eyebrow: editing.category || 'Guide', title: editing.title, summary: editing.summary }}
-            placeholder="Write the guide here. Add headings, lists and photos from the toolbar."
+            placeholder="Write the guide…"
           />
         </div>
         <Switch
@@ -1111,7 +1111,7 @@ function PagesTab({ businessId }: { businessId: string }) {
           fallback={standard}
           header={{ eyebrow: page.eyebrow, title: page.title, summary: page.summary }}
           sectionHeadings
-          placeholder="Leave empty to use the standard text, or start writing your own."
+          placeholder="Your own text"
           previewNote={
             selected === 'help'
               ? 'On the website, each heading on this page becomes a question customers tap to open, with a search box above.'

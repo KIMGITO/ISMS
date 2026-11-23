@@ -530,7 +530,7 @@ export const usePendingActionStore = create<PendingActionState>((set, get) => {
           staffName,
           action: `AI_ACTION_${action.type.toUpperCase()}`,
           module: 'AI Copilot',
-          details: `Confirmed and executed pending action "${action.title}": ${action.summary}`,
+          details: `Done: ${action.title}. ${action.summary}`,
           date: new Date().toISOString(),
         });
 

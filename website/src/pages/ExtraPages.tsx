@@ -22,7 +22,7 @@ export function SavedPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Your list" title="Saved Items" body="Products you've saved on this device, ready when you are.">
+      <PageHeader eyebrow="Your list" title="Saved Items" body="Products you've saved on this device.">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Saved items' }]} />
       </PageHeader>
       <div className={pageClass}>
@@ -147,7 +147,7 @@ export function SitemapPage() {
 
   return (
     <>
-      <PageHeader eyebrow={business.name} title="Site Map" body="Every page on our website in one place.">
+      <PageHeader eyebrow={business.name} title="Site Map" body="Every page on our website.">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Site map' }]} />
       </PageHeader>
       <div className={`${pageClass} grid gap-10 sm:grid-cols-2 lg:grid-cols-4`}>

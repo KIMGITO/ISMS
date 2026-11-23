@@ -534,8 +534,8 @@ export default function POSView() {
 
         // Send a professional toast popup notification on completed checkout action
         showToast(
-          'Order Processed',
-          `Sale of ${formatMoney(finalTotal)} successfully logged via ${paymentMethod.replace('_', ' ')}.`,
+          'Sale saved',
+          `Sale of ${formatMoney(finalTotal)} saved (${paymentMethod.replace('_', ' ')}).`,
           undefined,
           'success',
         );

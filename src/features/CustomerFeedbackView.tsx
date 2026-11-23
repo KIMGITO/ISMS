@@ -396,7 +396,7 @@ Feedback: "${comment.comment}"`,
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-app-text">Feedback</h1>
             <p className="text-xs text-app-text-muted">
-              Reviews, and messages to customers.
+              Reviews and messages from customers.
             </p>
           </div>
         </header>

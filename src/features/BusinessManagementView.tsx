@@ -272,7 +272,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
             : "";
 
       showToast(
-        "Payment Recorded",
+        "Payment recorded",
         `${formatCurrency(amountNum)} by ${methodLabel(payMethod)}${selectedCustomer ? ` for ${selectedCustomer.name}` : ""}.${appliedMsg}`,
         undefined,
         "success"
@@ -409,7 +409,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       showToast("Saved", "Your business details are updated.", undefined, "success");
     } catch (err: any) {
       console.error("Failed to update business configuration:", err);
-      showToast("Update Failed", toUserMessage(err, "Could not save business details."), undefined, "error");
+      showToast("Update failed", toUserMessage(err, "Could not save business details."), undefined, "error");
     } finally {
       setLoading(false);
     }
@@ -427,19 +427,19 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
   const handleVoidPayment = async (id: string) => {
     if (!voidReason.trim()) {
-      showToast("Reason Needed", "Say why this payment is being voided.", undefined, "error");
+      showToast("Reason needed", "Say why this payment is being voided.", undefined, "error");
       return;
     }
     setIsVoiding(true);
     try {
       const { PaymentRepository } = await import("../services/repositories");
       await PaymentRepository.void(id, voidReason.trim(), currentEmployee?.name || "Staff");
-      showToast("Payment Voided", "The money balance and the customer's account have been put back.", undefined, "success");
+      showToast("Payment voided", "The money balance and the customer's account have been put back.", undefined, "success");
       setVoidingId(null);
       setVoidReason("");
     } catch (err: any) {
       console.error(err);
-      showToast("Could Not Void", toUserMessage(err, "Could not cancel the payment."), undefined, "error");
+      showToast("Could not void", toUserMessage(err, "Could not cancel the payment."), undefined, "error");
     } finally {
       setIsVoiding(false);
     }
@@ -500,7 +500,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
           <p className="text-[11px] text-app-text-muted mt-0.5 font-medium leading-normal">
             {isMoney
               ? "Record money coming in and going out, and handle M-Pesa payments."
-              : "Configure metadata, contact points, brand representations, and global workspace defaults for your business branches."}
+              : "Branches, contact details, logo and colours."}
           </p>
         </div>
       </div>
@@ -728,7 +728,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                    {newBizType === 'Other' && (
                      <input
                        type="text"
-                       placeholder="Specify business type (e.g., Butchery, Logistics)"
+                       placeholder="e.g. Dairy, Butchery"
                        value={newBizCustomType}
                        onChange={(e) => setNewBizCustomType(e.target.value)}
                        className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
@@ -780,7 +780,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Describe branch inventory limits, wholesale distribution scopes..."
+                  placeholder="What this branch does (optional)"
                   value={newBizDesc}
                   onChange={(e) => setNewBizDesc(e.target.value)}
                   className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-medium leading-relaxed"
@@ -921,7 +921,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                            {businessType === 'Other' && (
                              <input
                                type="text"
-                               placeholder="Specify business type (e.g., Butchery, Logistics)"
+                               placeholder="e.g. Dairy, Butchery"
                                value={customTypeInput}
                                onChange={(e) => setCustomTypeInput(e.target.value)}
                                className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
@@ -937,7 +937,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </label>
                           <textarea
                             rows={3}
-                            placeholder="Describe scope, branches, daily handling volume..."
+                            placeholder="What the business does (optional)"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-semibold"

@@ -77,8 +77,8 @@ export function LocalPinSetupCard({ employee, onComplete }: LocalPinSetupCardPro
           </h2>
           <p className="text-[10.5px] text-slate-400 font-medium leading-relaxed px-4">
             {stage === "enter"
-              ? `Set up a secure ${pinLength}-digit passcode to authorize instant POS clearings and dashboard locks.`
-              : `Re-enter the ${pinLength}-digit security passcode to verify accurate registration.`}
+              ? `Choose a ${pinLength}-digit passcode to unlock this device.`
+              : `Enter the ${pinLength}-digit passcode again.`}
           </p>
         </div>
 

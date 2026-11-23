@@ -413,7 +413,7 @@ export default function DashboardView() {
         );
         upsertLocal([updated, ...added]);
         showToast(
-          'Reminder Updated',
+          'Reminder updated',
           `"${shift.title}" ${when}${added.length ? ` Also set for ${added.length} more.` : ''}`,
           assignedWorker.avatar,
           'success',
@@ -440,7 +440,7 @@ export default function DashboardView() {
           );
         }
         showToast(
-          'Reminder Set',
+          'Reminder set',
           `"${shift.title}" ${when}${targetEmployeeIds.length > 1 ? ` Set for ${targetEmployeeIds.length} people.` : ''}`,
           assignedWorker.avatar,
           'success',
@@ -468,7 +468,7 @@ export default function DashboardView() {
     try {
       await SupabaseService.deleteSchedule(id);
       setSchedules((prev) => prev.filter((s) => s.id !== id));
-      showToast('Reminder Removed', `"${name}" won't ring any more.`, undefined, 'success');
+      showToast('Reminder removed', `"${name}" won't ring any more.`, undefined, 'success');
       syncAlarms('reminder removed');
       if (editingScheduleId === id) resetForm();
     } catch (err) {

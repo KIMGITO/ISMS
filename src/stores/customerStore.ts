@@ -154,7 +154,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       if (amount <= 0) throw new Error("Amount must be greater than zero.");
 
       const currentDebt = Number(cust.debtBalance || 0);
-      if (amount > currentDebt) throw new Error("Cannot pay off more than outstanding debt.");
+      if (amount > currentDebt) throw new Error("That is more than the customer owes.");
 
       const newDebt = currentDebt - amount;
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
@@ -218,7 +218,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
       if (!cust) throw new Error("Customer profile not found.");
       if (amount <= 0) throw new Error("Amount must be greater than zero.");
       const currentWallet = Number(cust.walletBalance || 0);
-      if (amount > currentWallet) throw new Error("Insufficient wallet balance.");
+      if (amount > currentWallet) throw new Error("Not enough money in the wallet.");
 
       const activeBusinessId = useBusinessStore.getState().activeBusinessId;
       const referenceId = id || `wallet-spend-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;

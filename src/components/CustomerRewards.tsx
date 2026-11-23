@@ -46,7 +46,7 @@ export default function CustomerRewards({ customer, formatCurrency }: Props) {
         'success',
       );
     } catch (err) {
-      showToast('Could Not Redeem', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      showToast('Could not redeem', toUserMessage(err, 'Please try again.'), undefined, 'error');
     } finally {
       setBusy(false);
     }

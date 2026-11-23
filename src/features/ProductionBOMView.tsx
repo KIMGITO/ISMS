@@ -247,7 +247,7 @@ export default function ProductionBOMView() {
       const result = await extra.cancelProductionBatch(cancellingBatch.id, staffName, returnPayload);
 
       if (result.success) {
-        showToast?.('Batch Cancelled', 'Batch cancelled. Stock reversal and waste logs recorded.', undefined, 'info');
+        showToast?.('Batch cancelled', 'Batch cancelled. Stock is back and any waste is logged.', undefined, 'info');
         setCancellingBatch(null);
       } else {
         showToast?.('Error', result.error || 'Failed to cancel batch.', undefined, 'error');
@@ -293,7 +293,7 @@ export default function ProductionBOMView() {
     try {
       const result = await extra.updateProductionBatch(batchId, { status: newStatus, staffName });
       if (result.success) {
-        showToast?.('Success', `Batch status updated to ${newStatus}`, undefined, 'success');
+        showToast?.('Success', `Batch is now ${newStatus.toLowerCase()}`, undefined, 'success');
       } else {
         showToast?.('Error', result.error || 'Failed to update batch status.', undefined, 'error');
       }
@@ -334,7 +334,7 @@ export default function ProductionBOMView() {
       const boms = await SupabaseService.fetchBoms(activeBusinessId);
       extra.setBillOfMaterials(boms);
 
-      showToast?.('Success', `BOM "${bomName}" created successfully.`, undefined, 'success');
+      showToast?.('Success', `Recipe "${bomName}" saved.`, undefined, 'success');
       resetBomForm();
       setViewMode('list');
     } catch (err: any) {
@@ -357,7 +357,7 @@ export default function ProductionBOMView() {
     try {
       await SupabaseService.deleteBom(id);
       extra.removeBillOfMaterial(id);
-      showToast?.('Deleted', 'BOM removed successfully.', undefined, 'success');
+      showToast?.('Deleted', 'Recipe deleted.', undefined, 'success');
     } catch (err: any) {
       showToast?.('Error', toUserMessage(err, 'Failed to delete BOM.'), undefined, 'error');
     }
@@ -371,7 +371,7 @@ export default function ProductionBOMView() {
     }
 
     if (hasInsufficientIngredients) {
-      showToast?.('Stock Insufficient', 'Required raw materials exceed current inventory stock.', undefined, 'error');
+      showToast?.('Not enough stock', 'Not enough ingredients in stock.', undefined, 'error');
       return;
     }
 
@@ -394,7 +394,7 @@ export default function ProductionBOMView() {
       const result = await extra.createProductionBatch(input);
 
       if (result.success) {
-        showToast?.('Batch Started', `Production batch created & raw materials deducted immediately.`, undefined, 'success');
+        showToast?.('Batch started', `Batch started. Ingredients taken off stock.`, undefined, 'success');
         resetBatchForm();
         setViewMode('list');
       } else {
@@ -460,7 +460,7 @@ export default function ProductionBOMView() {
     <div className="min-w-0">
       <h2 className="text-xs sm:text-sm font-bold text-app-text truncate">Production & BOM</h2>
       <p className="text-[10px] text-app-text-muted truncate hidden xs:block">
-        Recipe Formulations & Batch Management
+        Recipes and batches
       </p>
     </div>
   </div>
@@ -967,7 +967,7 @@ export default function ProductionBOMView() {
                   items={[
                     { id: 'In Progress', label: 'In Progress (Deducts raw materials now)' },
                     { id: 'Pending', label: 'Pending (Deducts raw materials now)' },
-                    { id: 'Completed', label: 'Completed (Deducts raw materials & adds finished good)' },
+                    { id: 'Completed', label: 'Completed (adds the finished product to stock)' },
                   ]}
                   selectedValue={batchStatus}
                   onChange={(value) => setBatchStatus(value as typeof batchStatus)}
@@ -1104,7 +1104,7 @@ export default function ProductionBOMView() {
               <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
                 <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold text-amber-300">Do you want to return any raw materials to stock?</h4>
+                  <h4 className="text-xs font-bold text-amber-300">Return any ingredients to stock?</h4>
                   <p className="text-[10px] text-amber-400/90 mt-0.5 leading-relaxed">
                     Pick what goes back into stock.
                   </p>

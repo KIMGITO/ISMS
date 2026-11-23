@@ -214,7 +214,7 @@ export default function SettingsView({
         err?.message?.includes('expired')
       ) {
         showToast(
-          'Session Expired',
+          'Signed out',
           'Please log out and log back in to continue.',
           undefined,
           'error',
@@ -240,7 +240,7 @@ export default function SettingsView({
         err?.message?.includes('expired')
       ) {
         showToast(
-          'Session Expired',
+          'Signed out',
           'Please log out and log back in to continue.',
           undefined,
           'error',
@@ -262,7 +262,7 @@ export default function SettingsView({
     try {
       if (currentRole !== 'Owner') {
         throw new Error(
-          'Access Denied: Only Owners can view or modify API credentials.',
+          'Only the owner can see or change these keys.',
         );
       }
 
@@ -284,7 +284,7 @@ export default function SettingsView({
           }
         } catch (jsonErr: any) {
           throw new Error(
-            'That Google Service Account file is not valid JSON. Please check it and try again.',
+            "That Google service account file can't be read. Check it and try again.",
           );
         }
       }
@@ -301,7 +301,7 @@ export default function SettingsView({
         throw new Error(data?.error || 'Failed to update remote variables.');
 
       showToast(
-        'Backup Settings Saved',
+        'Backup settings saved',
         'Your Google Sheets backup settings are saved.',
         undefined,
         'success',
@@ -309,7 +309,7 @@ export default function SettingsView({
       fetchBackupData();
     } catch (err: any) {
       showToast(
-        'Save Failed',
+        'Save failed',
         toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
@@ -349,7 +349,7 @@ export default function SettingsView({
         fetchBackupData();
       } else {
         showToast(
-          'Backup Failed',
+          'Backup failed',
           toUserMessage(data?.error, 'Failed to run backup.'),
           undefined,
           'error',
@@ -363,14 +363,14 @@ export default function SettingsView({
         err?.message?.includes('session')
       ) {
         showToast(
-          'Session Expired',
-          'Your login session has expired. Please log out and log back in, then try again.',
+          'Signed out',
+          'You were signed out. Sign in again and try again.',
           undefined,
           'error',
         );
       } else {
         showToast(
-          'Backup Failed',
+          'Backup failed',
           toUserMessage(err, 'Could not reach the server. Check your connection.'),
           undefined,
           'error',
@@ -406,7 +406,7 @@ export default function SettingsView({
         fetchBackupData();
       } else {
         showToast(
-          'Import Failed',
+          'Import failed',
           toUserMessage(data?.error, 'Failed to run import.'),
           undefined,
           'error',
@@ -415,7 +415,7 @@ export default function SettingsView({
       }
     } catch (err: any) {
       showToast(
-        'Import Failed',
+        'Import failed',
         toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
@@ -451,7 +451,7 @@ export default function SettingsView({
         fetchBackupData();
       } else {
         showToast(
-          'Retry Failed',
+          'Retry failed',
           toUserMessage(data?.error, 'Retry attempt failed.'),
           undefined,
           'error',
@@ -460,7 +460,7 @@ export default function SettingsView({
       }
     } catch (err: any) {
       showToast(
-        'Retry Failed',
+        'Retry failed',
         toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
@@ -505,7 +505,7 @@ export default function SettingsView({
         }
       } catch (err) {
         console.error(
-          'Failed to load SMS configuration from edge engine:',
+          'Could not load SMS settings:',
           err,
         );
       }
@@ -520,7 +520,7 @@ export default function SettingsView({
     try {
       if (currentRole !== 'Owner') {
         throw new Error(
-          'Access Denied: Only Owners can view or modify API credentials.',
+          'Only the owner can see or change these keys.',
         );
       }
       const data = await SupabaseService.callEdgeFunction('sms-config', {
@@ -566,7 +566,7 @@ export default function SettingsView({
       if (data?.success) {
         setSmsTestResult({ success: true, message: data.message });
         showToast(
-          'Test SMS Sent',
+          'Test SMS sent',
           'A test message was sent. Check the phone.',
           undefined,
           'success',
@@ -577,7 +577,7 @@ export default function SettingsView({
           message: data?.error || 'Delivery failed.',
         });
         showToast(
-          'Test SMS Failed',
+          'Test SMS failed',
           toUserMessage(data?.error, 'The test message was not sent.'),
           undefined,
           'error',
@@ -589,7 +589,7 @@ export default function SettingsView({
         message: toUserMessage(err, 'Could not reach the server. Check your connection.'),
       });
       showToast(
-        'Test SMS Failed',
+        'Test SMS failed',
         toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
@@ -628,7 +628,7 @@ export default function SettingsView({
     try {
       if (currentRole !== 'Owner') {
         throw new Error(
-          'Access Denied: Only Owners can view or modify API credentials.',
+          'Only the owner can see or change these keys.',
         );
       }
       const problem = aiConfigProblem(aiConfig);
@@ -656,7 +656,7 @@ export default function SettingsView({
       }
     } catch (err: any) {
       showToast(
-        'Save Failed',
+        'Save failed',
         toUserMessage(err, 'Could not save. Try again.'),
         undefined,
         'error',
@@ -725,7 +725,7 @@ export default function SettingsView({
           message: data?.error || 'Connection failed.',
         });
         showToast(
-          'Connection Failed',
+          'Connection failed',
           toUserMessage(data?.error, 'The assistant did not answer the test.'),
           undefined,
           'error',
@@ -737,7 +737,7 @@ export default function SettingsView({
         message: toUserMessage(err, 'Could not reach the server. Check your connection.'),
       });
       showToast(
-        'Connection Failed',
+        'Connection failed',
         toUserMessage(err, 'Could not reach the server. Check your connection.'),
         undefined,
         'error',
@@ -841,7 +841,7 @@ export default function SettingsView({
                 onClick={() => {
                   logout();
                   showToast(
-                    'Logged Out',
+                    'Signed out',
                     'You are signed out.',
                   );
                 }}
@@ -1359,7 +1359,7 @@ export default function SettingsView({
                         placeholder={
                           showSaJsonPass
                             ? '{\n  "type": "service_account",\n  "project_id": "...",\n  "private_key": "-----BEGIN PRIVATE KEY-----..."\n}'
-                            : '•••••••••••••••••••••••••••••••• (Click Show/Edit JSON to paste credentials)'
+                            : '••••••••••••••••'
                         }
                         disabled={!showSaJsonPass}
                         rows={5}
@@ -1935,7 +1935,7 @@ export default function SettingsView({
                   onClick={() => {
                     onRestartTour?.();
                     showToast(
-                      'Tour Started',
+                      'Tour started',
                       'The tour has started.',
                     );
                   }}
@@ -1966,7 +1966,7 @@ export default function SettingsView({
                   onClick={() => {
                     logout();
                     showToast(
-                      'Logged Out',
+                      'Signed out',
                       'You are signed out.',
                     );
                   }}
@@ -2029,7 +2029,7 @@ export default function SettingsView({
 
                   <div>
                     <h3 className="text-sm font-semibold text-app-text font-display">
-                      {meta.label} Request
+                      Allow {meta.label.toLowerCase()}
                     </h3>
                     <p className="text-[11px] text-app-text-muted leading-relaxed mt-2.5 font-medium px-2">
                       {meta.explanation}

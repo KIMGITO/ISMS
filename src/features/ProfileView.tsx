@@ -261,7 +261,7 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
           </div>
           <div>
             <h3 className="text-xs font-bold text-app-text">Guided tour</h3>
-            <p className="text-[10px] text-app-text-muted mt-0.5">Need help finding your way? Take the tour again any time.</p>
+            <p className="text-[10px] text-app-text-muted mt-0.5">Take the tour again.</p>
           </div>
         </div>
         <button

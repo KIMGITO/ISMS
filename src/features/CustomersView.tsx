@@ -601,7 +601,7 @@ export default function CustomersView() {
     try {
       await deleteCustomer(cust.id);
       if (selectedCustomerId === cust.id) setSelectedCustomerId(null);
-      showToast('Customer Deleted', `${cust.name} was deleted.`, undefined, 'success');
+      showToast('Customer deleted', `${cust.name} was deleted.`, undefined, 'success');
     } catch (err: any) {
       showToast('Not deleted', toUserMessage(err, "Could not delete the customer."), undefined, 'error');
     } finally {

@@ -61,7 +61,7 @@ export default function NotificationSettingsPanel() {
       setSettings(NotificationPreferences.get());
       NotificationRepository.refresh();
     } catch (err) {
-      showToast('Could Not Save', toUserMessage(err, 'Your setting did not change. Please try again.'), undefined, 'error');
+      showToast('Could not save', toUserMessage(err, 'Your setting did not change. Please try again.'), undefined, 'error');
     } finally {
       setSaving(null);
     }

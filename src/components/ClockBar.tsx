@@ -129,7 +129,7 @@ export default function ClockBar() {
       await restoreActiveShift();
       useNotificationStore.getState().showToast('Still on shift', "You'll be asked again in 2 hours.", undefined, 'success');
     } catch (err) {
-      useNotificationStore.getState().showToast('Could Not Answer', toUserMessage(err, 'Please try again.'), undefined, 'error');
+      useNotificationStore.getState().showToast('Could not answer', toUserMessage(err, 'Please try again.'), undefined, 'error');
       restoreActiveShift();
     } finally {
       setIsAnswering(false);

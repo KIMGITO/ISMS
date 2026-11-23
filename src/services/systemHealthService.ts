@@ -58,7 +58,7 @@ export class SystemHealthService {
 
         if (!url || url.includes("your-project.supabase.co") || url.includes("your-supabase-project")) {
           dbStatus = "Error";
-          dbErrorMsg = "Supabase connection is unconfigured or using placeholder values.";
+          dbErrorMsg = "The app is not connected to its server.";
         } else {
           const supabase = getSupabase();
           // Perform a fast, lightweight query to check availability
@@ -82,7 +82,7 @@ export class SystemHealthService {
 
     if (!isOnline) {
       aiStatus = "Offline";
-      aiErrorMsg = "AI Workspace Assistant requires internet connectivity.";
+      aiErrorMsg = "The assistant needs an internet connection.";
     } else {
       try {
         const response = await fetch("/api/health");
@@ -92,11 +92,11 @@ export class SystemHealthService {
             aiStatus = "Online";
           } else {
             aiStatus = "Offline";
-            aiErrorMsg = "Gemini API key is unconfigured on the server.";
+            aiErrorMsg = "The assistant is not set up yet.";
           }
         } else {
           aiStatus = "Offline";
-          aiErrorMsg = "AI Workspace Assistant server endpoint returned an error status.";
+          aiErrorMsg = "The assistant is not answering right now.";
         }
       } catch (err: any) {
         aiStatus = "Error";
@@ -115,7 +115,7 @@ export class SystemHealthService {
       if (!session) {
         const wasLoggedIn = localStorage.getItem("kkm_current_user_id_v2");
         sessionStatus = wasLoggedIn ? "Session Expired" : "Logged Out";
-        sessionErrorMsg = wasLoggedIn ? "Your session has expired. Please log in again." : "No active session.";
+        sessionErrorMsg = wasLoggedIn ? "You were signed out. Sign in again." : "No active session.";
       } else {
         sessionStatus = "Logged In";
       }
@@ -148,8 +148,8 @@ export class SystemHealthService {
     for (const dep of deps) {
       if (dep === "internet" && health.internetStatus === "Offline") {
         showToast(
-          "Internet Connection Unavailable",
-          "No internet connection. Please verify your Wi-Fi or cellular data and try again.",
+          "No internet",
+          "No internet connection. Check your Wi-Fi or mobile data.",
           undefined,
           "error"
         );
@@ -158,17 +158,17 @@ export class SystemHealthService {
       if (dep === "db" && health.dbStatus !== "Connected") {
         const errorDetail = health.dbErrorMsg || "The database could not be reached.";
         showToast(
-          "Database Connection Lost",
-          `Database is currently offline: ${errorDetail}`,
+          "Can't reach the server",
+          `Can't reach the server: ${errorDetail}`,
           undefined,
           "error"
         );
         return false;
       }
       if (dep === "auth" && health.sessionStatus !== "Logged In") {
-        const errorDetail = health.sessionErrorMsg || "Session expired or offline buffer exceeded.";
+        const errorDetail = health.sessionErrorMsg || "Signed out or offline buffer exceeded.";
         showToast(
-          "Authentication Expired",
+          "Signed out",
           `Access Denied: ${errorDetail}`,
           undefined,
           "error"

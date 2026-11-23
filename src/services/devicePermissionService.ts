@@ -29,70 +29,70 @@ export const PERMISSION_METADATA: Record<PermissionType, PermissionDetails> = {
     type: "camera",
     label: "Camera",
     description: "Scan barcodes and take photos.",
-    explanation: "We require camera access to let your device scan product SKU barcodes on checking out and take real-time profile pictures of employees.",
+    explanation: "Used to scan barcodes and take product and profile photos.",
     iconName: "camera"
   },
   photos: {
     type: "photos",
     label: "Photos",
     description: "Choose logos and photos.",
-    explanation: "Photo library access lets you choose pre-saved high-quality store logos and employee avatars directly from your photo album.",
+    explanation: "Used to pick logos and photos from your gallery.",
     iconName: "photos"
   },
   storage: {
     type: "storage",
     label: "Storage",
     description: "Keep sales when offline.",
-    explanation: "Local storage persistence is essential to cache products, customers, and pending sales transactions securely on your device during network blackouts.",
+    explanation: "Used to keep products, customers and unsent sales on this device while offline.",
     iconName: "storage"
   },
   microphone: {
     type: "microphone",
     label: "Microphone",
     description: "Search and ask by voice.",
-    explanation: "We utilize microphone inputs for audio queries, letting cashiers dictate notes, search orders by voice, and communicate with the AI assistant hands-free.",
+    explanation: "Used to search and ask the assistant by voice.",
     iconName: "microphone"
   },
   location: {
     type: "location",
     label: "Location",
     description: "Delivery routes.",
-    explanation: "GPS coordinates are requested to verify location accuracy for staff punch-ins at active branches and map optimal routes for dispatch riders.",
+    explanation: "Used for delivery locations and rider routes.",
     iconName: "location"
   },
   notifications: {
     type: "notifications",
     label: "Notifications",
     description: "Alerts and reminders.",
-    explanation: "Push notifications guarantee you immediately receive warning banners for expiring stocks, low-cash registers, and urgent AI audit reports.",
+    explanation: "Used for low stock alerts, payments, reminders and shift reports.",
     iconName: "notifications"
   },
   bluetooth: {
     type: "bluetooth",
     label: "Bluetooth",
     description: "Receipt printers.",
-    explanation: "We require Bluetooth search capabilities to pair with and print real-time sales receipts to external mobile thermal receipt printers.",
+    explanation: "Used to find and print to Bluetooth receipt printers.",
     iconName: "bluetooth"
   },
   contacts: {
     type: "contacts",
     label: "Contacts",
     description: "Add customers from contacts.",
-    explanation: "Address book imports allow cashiers to register new loyalty customers in one tap by selecting their details from their device contacts.",
+    explanation: "Used to add customers from your contacts.",
     iconName: "contacts"
   },
   calendar: {
     type: "calendar",
     label: "Calendar",
     description: "Add shifts to your calendar.",
-    explanation: "Calendar access is used to export and synchronize assigned shift schedules directly to your personal device calendar.",
+    explanation: "Used to add your shifts to your calendar.",
     iconName: "calendar"
   },
   phone: {
     type: "phone",
     label: "Phone calls",
     description: "Call riders and customers.",
-    explanation: "Phone dialer integration allows cashiers to call dispatch riders and customers directly from the app to resolve delivery issues.",
+    explanation: "Used to call riders and customers from the app.",
     iconName: "phone"
   }
 };

@@ -261,7 +261,7 @@ export default function WorkspaceAssistantView() {
 
       if (response && (response.success || response.reply)) {
         let replyText =
-          response.reply || 'I received your message, but I have no response.';
+          response.reply || "Sorry, I don't have an answer for that.";
         // Owners and Admins also get one plain line on what to fix (the server only
         // sends it to them).
         if (response.success === false && response.ownerHint) {
