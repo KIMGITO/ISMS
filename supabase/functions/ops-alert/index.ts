@@ -4,6 +4,7 @@
 //   GET                      Health check for an uptime monitor: is the database answering?
 //   POST {action:"report"}   An owner or admin reports a problem (About this app → Report a problem).
 //   POST {action:"crash"}    A new or growing crash, sent by the crash_reports trigger (service role only).
+//   POST {action:"watchdog"} Problems found or fixed by run_ops_watchdog in the database (service role only).
 //   POST {action:"test"}     Sends a test message (service role only), to check the setup.
 //
 // verify_jwt is off (supabase/config.toml) so the uptime monitor can call GET without a key.
@@ -91,7 +92,33 @@ async function health(): Promise<Response> {
     console.error("[ops-alert] Health check failed:", error.message);
     return jsonResponse({ ok: false, database: false, ms }, 503);
   }
-  return jsonResponse({ ok: true, database: true, ms });
+
+  // The database watchdog (run_ops_watchdog, every 10 min) must also be running, so the
+  // uptime monitor notices if scheduled jobs stop. Unknown (not set up yet) counts as fine.
+  const { data: beat } = await adminClient().rpc("ops_watchdog_heartbeat");
+  const lastRun = beat?.last_run_at ? Date.parse(beat.last_run_at) : NaN;
+  const watchdog = Number.isNaN(lastRun) ? "unknown" : Date.now() - lastRun < 30 * 60_000 ? "running" : "stopped";
+  const openProblems = typeof beat?.open_problems === "number" ? beat.open_problems : null;
+  if (watchdog === "stopped") {
+    console.error("[ops-alert] Health check: the watchdog last ran at", beat.last_run_at);
+    return jsonResponse({ ok: false, database: true, watchdog, ms }, 503);
+  }
+  return jsonResponse({ ok: true, database: true, watchdog, open_problems: openProblems, ms });
+}
+
+/** Problems found (or cleared) by run_ops_watchdog in the database. */
+async function watchdog(body: any): Promise<Response> {
+  const list = (v: unknown) => (Array.isArray(v) ? v.slice(0, 20) : []);
+  const problems = list(body.problems);
+  const fixed = list(body.fixed);
+  const line = (p: any) => `• ${htmlEscape(text(p?.problem, 400))}`;
+  const parts: string[] = [];
+  if (body.test) parts.push("🧪 <b>Watchdog test</b>: every check, as it stands now.");
+  if (problems.length) parts.push(`🚨 <b>${problems.length} problem(s) found</b>\n${problems.map(line).join("\n")}`);
+  if (fixed.length) parts.push(`✅ <b>Fixed</b>\n${fixed.map(line).join("\n")}`);
+  if (!problems.length && !fixed.length) parts.push("✅ All watchdog checks are fine.");
+  const sent = await sendAlert({ text: parts.join("\n\n") });
+  return jsonResponse({ success: sent }, sent ? 200 : 502);
 }
 
 async function report(req: Request, body: any): Promise<Response> {
@@ -212,6 +239,9 @@ Deno.serve(async (req) => {
       case "crash":
         if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
         return await crash(body);
+      case "watchdog":
+        if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
+        return await watchdog(body);
       case "test": {
         if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
         const sent = await sendAlert({ text: "✅ KayKay's alerts are connected to this chat." });
