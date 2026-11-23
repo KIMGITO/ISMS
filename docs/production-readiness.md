@@ -20,6 +20,20 @@ Plan and checklist: [ISMS_Production_Readiness_Master_Checklist.md](ISMS_Product
 
 See [security/threat-register.md](security/threat-register.md). P1s: SEC-02 backups, SEC-03 MFA, SEC-04 public test password, SEC-05 possible use of SEC-01 before it was fixed.
 
+## Deferred: revisit later
+
+The owner chose on 2026-11-23 to skip these for now and come back to them. They remain open risks, and the overall status can't rise above **Not Ready** while the P1s here are open.
+
+| Item | Sev | What is left | Where it is written up |
+|---|---|---|---|
+| MFA for owner/admin (SEC-03) | P1 | Turn on TOTP in Supabase Auth; build enrolment in Profile plus a code prompt at sign-in; later require it for Owner/Admin | [threat-register.md#sec-03](security/threat-register.md#sec-03--p1--no-mfa-for-owneradmin-accounts) |
+| Phase 3, backup and recovery (SEC-02) | P1 | Redo as a whole phase: set backup secrets, first hourly backup, restore drill, measure RPO/RTO, check Supabase plan backups/PITR, storage files | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md), checklist Phase 3 |
+| Public test password / possible misuse (SEC-04, SEC-05) | P1 | Owner checks account `abb89fdf…` and the live passwords | [threat-register.md](security/threat-register.md) |
+| One-step sale saving released (FIN-02) | P1 | Test one cash sale in `npm run dev`, push `main` (patch release); later block direct sale inserts once every device has updated | [phase-2-financial-integrity.md](security/phase-2-financial-integrity.md#5-deployment-order) |
+| M-Pesa STK status check (SEC-10) | P2 | Query Daraja before marking an order paid; needs sandbox keys | [threat-register.md](security/threat-register.md) |
+| Rest of Phase 1 | — | Branch-level permission tests; review of input validation/XSS; logs and error messages; live Auth redirect URLs | checklist Phase 1 |
+| Rest of Phase 2 | — | Audit histories and correction/reversal workflows | checklist Phase 2 |
+
 ## Owner actions, in order
 
 1. **SEC-05 / SEC-04:** if you did not edit account `abb89fdf…` on 2026-11-22, reset both live passwords and sign out all sessions. Never use the seed password on live.
