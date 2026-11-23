@@ -1081,10 +1081,14 @@ Deploy one with `supabase functions deploy <name>`, or all with `supabase functi
 ## 18.1 Principles
 
 - **Row-level security on every table.** No table is readable or writable without a policy.
-- **Least privilege on functions.** Functions are revoked from `PUBLIC` and granted only to the roles that need them (migration `20261105002`). Service-only functions such as `run_due_backups` are granted to `service_role` alone.
+- **Least privilege on functions.** Functions are revoked from `PUBLIC` and granted explicitly (`20261201001`, SEC-01). After every push, `scripts/check-live-grants.sh` checks the live grants; a new table with a policy also needs its GRANT to `authenticated`. Service-only functions such as `run_due_backups` are granted to `service_role` alone.
 - **Tenant checks inside functions.** Every `SECURITY DEFINER` function confirms the caller belongs to the business and holds the permission before acting.
 - **Server-side pricing and balances.** Clients never send totals that are trusted.
 - **Secrets on the server.** Provider keys are Supabase secrets or rows only functions read; the app receives masked values.
+- **Permissions in the database.** Every permission the app checks is also enforced by `has_permission` in RLS or the function (`20261130006`), worked out once per request (`20261201005`). Edge functions use `requirePermission`, never a role name.
+- **Signed-out tokens refused.** A pre-request check rejects tokens of sessions that signed out (`20261128002`).
+- **Verified email for access.** Only `users.verified_email` (set by the server's sign-up and reset codes) counts; an unverified user can only claim an invitation, which finishes after the email is confirmed. Only the system creator can create a business (`20261128003`).
+- **Abuse log.** Public functions that turn a caller away write `security_events`; promo codes are rate limited so they can't be guessed (`20261201004`).
 
 ## 18.2 Inbound calls from providers
 
@@ -1123,6 +1127,7 @@ Signing keys never enter the repository: the Android key is in `~/.config/kaykay
 
 - Any member can read colleagues' names and contact details from `employees`, because the app needs them for assigning and display.
 - Owners and Admins bypass permission checks by design.
+- The development `.env` points at the live database (REL-01 in `docs/production-readiness.md`); run destructive scripts only against a local database.
 - The `.env` file and `my-release.keystore` exist in the working folder. Confirm neither holds live production secrets before the repository is shared further, and keep `.env` out of git.
 
 <div class="page-break"></div>
