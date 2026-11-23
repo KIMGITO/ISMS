@@ -28,6 +28,9 @@ eq "no table with a write rule lacks its grant" "$(sql "select string_agg(distin
   join pg_policies p on p.schemaname=n.nspname and p.tablename=c.relname
   where n.nspname='public' and p.cmd in ('INSERT','UPDATE','DELETE') and not has_table_privilege('authenticated', c.oid, p.cmd)")" ""
 
+echo "-- who can reach what (grants_check.sql; scripts/check-live-grants.sh runs it on live)"
+eq "no grant problems" "$(sql "$(cat "$HERE/grants_check.sql")" | tr '\n' ';')" ""
+
 echo "-- invoices"
 ok  "admin issues an invoice" "$(as admin "select invoice_no from issue_invoice('$B','$ALICE','INV',null,null,100,'{\"a\":1}','Ada')")"
 eq  "admin sees invoices" "$(as admin "select count(*) > 0 from invoices")" "t"
