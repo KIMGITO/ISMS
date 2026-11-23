@@ -531,8 +531,12 @@ export async function placeOrder(items: CartLine[], fulfilment: string, address:
   });
 }
 
-export const checkPromoCode = (code: string, subtotal: number) =>
-  rpc<PromoCheck>('check_promo_code', { p_slug: storeSlug(), p_code: code, p_subtotal: subtotal });
+/** A wrong code comes back as { error } (not a database error), so wrong guesses can be counted. */
+export async function checkPromoCode(code: string, subtotal: number): Promise<PromoCheck> {
+  const result = await rpc<PromoCheck & { error?: string }>('check_promo_code', { p_slug: storeSlug(), p_code: code, p_subtotal: subtotal });
+  if (result?.error) throw Object.assign(new Error(result.error), { customerMessage: result.error });
+  return result;
+}
 
 // Reviews and regular orders name this branch's products, so the account moves to it first.
 export async function submitReview(productId: string | null, rating: number, title: string, body: string) {

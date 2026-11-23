@@ -26,7 +26,9 @@ SELECT problem FROM (
                          'confirm_online_order_payment', 'confirm_store_payment_request',
                          'confirm_airtel_payment', 'fn_post_money_asset', 'acc_apply',
                          'find_auth_user_by_phone', 'find_account_by_auth_phone',
-                         'fn_create_customer_account', 'fn_build_online_order')
+                         'fn_create_customer_account', 'fn_build_online_order',
+                         'check_rate_limit', 'log_security_event', 'purge_security_data',
+                         'request_ip', 'ops_watchdog_checks', 'ops_watchdog_core_checks')
            OR p.proname LIKE 'otp\_%')
       AND has_function_privilege(r.rolname, p.oid, 'EXECUTE')
     UNION ALL
