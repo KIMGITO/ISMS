@@ -86,10 +86,10 @@ Live after the fix: `get_public_storefront`, `website_accepts_cards` and `check_
 | Action | Status |
 |---|---|
 | Apply `20261201001` to live | **Done 2026-11-23** (owner approved). Rollback: `~/isms-backups/2026-11-23-before-grant-lockdown/rollback_grants.sql` |
-| Deploy `send-email` | Pending |
+| Deploy `send-email` | **Done 2026-11-23** (v35), live gate verified |
 | Set backup secrets (SEC-02) | Owner |
 | Auth settings: password policy, MFA, leaked-password check (SEC-03, SEC-07) | Owner |
-| Delete `kim-chat`, `shared` functions (SEC-11) | Owner approval |
+| Delete `kim-chat`, `shared` functions (SEC-11) | **Done 2026-11-23** (owner approved) |
 | Protect `main` (SEC-09) | Owner |
 
 ## 7. Not tested, and why
@@ -97,7 +97,6 @@ Live after the fix: `get_public_storefront`, `website_accepts_cards` and `check_
 - **Signed-in screens on live after the grant fix.** There is no live test login, and the clean build these grants come from is what every local test and session has used. The owner should open the app and do one sale, one expense and open Finances.
 - **Live Auth settings.** The Management API token is in the system keyring and can't be read from scripts.
 - **Payment providers end to end.** No sandbox credentials (Daraja, Airtel, Paystack, KRA).
-- **`send-email` on live.** Not deployed yet.
 - **Branch-level permissions in depth.** The role/permission matrix tests cover roles; per-branch membership tests are planned for Phase 9.
 
 ## 8. Owner decisions required
@@ -106,11 +105,10 @@ Live after the fix: `get_public_storefront`, `website_accepts_cards` and `check_
 2. SEC-04: confirm the live owner password is not the seed password.
 3. SEC-02: set the four backup secrets.
 4. SEC-03: turn on TOTP MFA in Supabase Auth; approve building MFA screens in the app.
-5. Approve deploying `send-email` and deleting `kim-chat` / `shared`.
 
 ## 9. Next recommended tasks
 
-1. Deploy `send-email`, then run `scripts/check-live-grants.sh` after every `supabase db push`, and add it to the release checklist.
+1. Run `scripts/check-live-grants.sh` after every `supabase db push`, and add it to the release checklist.
 2. App MFA (SEC-03).
 3. Phase 2: M-Pesa STK query before marking paid (SEC-10); concurrent sale/stock tests.
 4. Phase 3: once the secrets are set, run the first backup and restore drill, and record RPO/RTO.

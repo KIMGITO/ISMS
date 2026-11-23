@@ -13,12 +13,12 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | SEC-03 | P1 | No MFA for owner/admin accounts | Open (owner setting + app work) |
 | SEC-04 | P1 | Owner's real email with test password `Admin@123` published in the public repo | Owner action |
 | SEC-05 | P1 | Possible use of SEC-01 before the fix cannot be ruled out | Owner action |
-| SEC-06 | P2 | `send-email` let any staff member send branded email with any subject, sender name and text, for any shop | Fixed in code (deploy pending) |
+| SEC-06 | P2 | `send-email` let any staff member send branded email with any subject, sender name and text, for any shop | Fixed (deployed v35, verified 2026-11-23) |
 | SEC-07 | P2 | Server password minimum is 6 characters, with no other rules | Owner action (live), fixed in `config.toml` |
 | SEC-08 | P2 | No staging database; preview builds use production | Open |
 | SEC-09 | P2 | `main` unprotected; pushes to `main` release and deploy | Owner action |
 | SEC-10 | P2 | M-Pesa STK success taken from the callback body (protected only by a URL token); callback token not set live | Open |
-| SEC-11 | P2 | Old edge functions `kim-chat`, `shared` still deployed | Owner action |
+| SEC-11 | P2 | Old edge functions `kim-chat`, `shared` still deployed | Fixed (deleted 2026-11-23, owner approved) |
 | SEC-12 | P2 | Pre-2.0.0 Android keystore still fetchable from public GitHub history by SHA | Owner action |
 | SEC-13 | P2 | No secret or dependency scanning in CI | Open |
 | SEC-14 | P3 | Old hard-coded DB password in Git history | Accepted (project gone) |
@@ -71,7 +71,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 - **Impact:** Phishing sent from the business's own mail server and brand; damage to the sender's reputation.
 - **Fix:** Commit `157771f`. App users can send only (a) an invitation that exists, is open, matches the address and belongs to their shop (shop name and role read from the invitation), or (b) a `customer_message` with `communication.send` in that shop. Everything else needs the service key.
 - **Verification:** Local run against the seed stack, 13 cases: no login 401; custom subject 403; OTP type 403; fake code 403; wildcard code 400; real code + wrong email 403; other shop's invite 403; own invite passes; rider message 403; other shop message 403; no shop 400; manager own shop passes; service role passes.
-- **Pending:** `supabase functions deploy send-email`.
+- **Deployed** 2026-11-23 (v35, owner approved). Live check: no login → 401; anon key as bearer with OTP type → 403.
 
 ## SEC-07 · P2 · Weak server password policy
 
@@ -96,7 +96,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 ## SEC-11 · P2 · Stale deployed functions
 
 - **Evidence:** `kim-chat` (v14, last updated July) and `shared` are deployed but are not in the repo.
-- **Owner action:** Approve `supabase functions delete kim-chat` and `supabase functions delete shared`.
+- **Done** 2026-11-23 with owner approval; 26 functions remain, all in the repo.
 
 ## SEC-12 · P2 · Old keystore in public history
 

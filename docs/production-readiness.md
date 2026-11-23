@@ -26,8 +26,7 @@ See [security/threat-register.md](security/threat-register.md). P1s: SEC-02 back
 2. **SEC-02:** in GitHub → Settings → Secrets, set `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` (keep an offline copy), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`. Run *Backup database* once, then *Restore drill*.
 3. **SEC-03 / SEC-07:** in Supabase → Authentication: TOTP MFA on, password minimum 8 with letters and digits, leaked-password check if the plan allows it.
 4. **SEC-09:** protect `main` (require checks, no force push).
-5. Approve: deploy `send-email`; delete the old `kim-chat` and `shared` functions.
-6. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
+5. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
 
 ## Documentation map
 
