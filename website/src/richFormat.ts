@@ -210,10 +210,11 @@ export type InlineNode =
   | { t: 'b' | 'i' | 's' | 'mark'; c: InlineNode[] }
   | { t: 'a'; href: string; c: InlineNode[] };
 
-export const SAFE_LINK = /^(?:\/|https:\/\/|mailto:|tel:)[^\s)]*$/;
+// "//host" would open another site while looking like a page of this one, so it isn't allowed.
+export const SAFE_LINK = /^(?:\/(?!\/)|https:\/\/|mailto:|tel:)[^\s)]*$/;
 
 const INLINE =
-  /\*\*([^*]+)\*\*|\[([^\]]+)\]\(((?:\/|https:\/\/|mailto:|tel:)[^)\s]*)\)|==([^=]+)==|~~([^~]+)~~|(?<![A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g;
+  /\*\*([^*]+)\*\*|\[([^\]]+)\]\(((?:\/(?!\/)|https:\/\/|mailto:|tel:)[^)\s]*)\)|==([^=]+)==|~~([^~]+)~~|(?<![A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g;
 
 export function parseInline(text: string, depth = 0): InlineNode[] {
   if (depth > 6) return [{ t: 'text', v: text }];
