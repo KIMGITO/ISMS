@@ -16,7 +16,8 @@ Everything left to do, step by step: [TO_FINISH.md](TO_FINISH.md).
 | 3. Backup and recovery | Blocked: backup secrets unset | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | 4. Cloudflare deployment | Production verified; staging deferred; domain and Auth URLs need the owner | [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
 | 5. Monitoring and alerting | Built: database watchdog + health check, tested on a test DB; not on live; uptime monitor needs the owner | [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md) |
-| 6–10 | Not started | |
+| 6. Network, API and attack resistance | Built: callback hardening, body caps, promo guess limit, abuse alerts, CI scans; tested on a test DB; not on live; pen test needs the owner | [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md) |
+| 7–10 | Not started | |
 
 ## Open risks
 
@@ -55,6 +56,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Security assessment (Phase 0–1) | [security/security-assessment.md](security/security-assessment.md) |
 | Threat register | [security/threat-register.md](security/threat-register.md) |
 | Financial integrity (Phase 2) | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
+| Attack resistance (Phase 6) | [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md) |
 | Roles and permissions | [ROLES_AND_ACCESS.md](ROLES_AND_ACCESS.md) |
 | Backup and recovery | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md); Phase 5: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md), [operations/incident-response.md](operations/incident-response.md) |

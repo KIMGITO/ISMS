@@ -22,14 +22,20 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | SEC-10 | P2 | M-Pesa STK success taken from the callback body (protected only by a URL token); callback token not set live | Open |
 | SEC-11 | P2 | Old edge functions `kim-chat`, `shared` still deployed | Fixed (deleted 2026-11-23, owner approved) |
 | SEC-12 | P2 | Pre-2.0.0 Android keystore still fetchable from public GitHub history by SHA | Owner action |
-| SEC-13 | P2 | No secret or dependency scanning in CI | Open |
+| SEC-13 | P2 | No secret or dependency scanning in CI | Fixed in code (`security.yml`; first CI run pending) |
 | SEC-14 | P3 | Old hard-coded DB password in Git history | Accepted (project gone) |
-| SEC-15 | P3 | Callback tokens compared with `!==` (not constant-time) | Open |
+| SEC-15 | P3 | Callback tokens compared with `!==` (not constant-time) | Fixed in code (deploy pending) |
 | SEC-16 | P3 | Edge functions answer CORS `*` | Accepted |
 | SEC-17 | P3 | anon/authenticated had TRUNCATE/TRIGGER/REFERENCES on 14 views | Fixed (verified on live) |
 | SEC-18 | P3 | Unused `update_user_password_by_email` still exists | Open |
 | SEC-19 | P3 | `http://` on workers.dev returns 200 instead of redirecting | Open (fix with custom domain) |
 | SEC-20 | P3 | CSP has no `'wasm-unsafe-eval'`, so the web background remover may be blocked | Open (functional) |
+| SEC-21 | P2 | Promo codes could be guessed without limit (`check_promo_code`, callable without sign-in) | Fixed in code (`20261201004`, not on live) |
+| SEC-22 | P3 | Public edge functions read request bodies of any size | Fixed in code (deploy pending) |
+| SEC-23 | P3 | Refused webhook calls and rate-limit blocks left no trace; no abuse alert | Fixed in code (`20261201004` + deploy pending) |
+| SEC-24 | P3 | Build tools had 1 critical and 3 high npm advisories (`tar`, `sharp` via `@capacitor/assets` 3) | Fixed (lockfile, 0 advisories) |
+| SEC-25 | P3 | Website rich text accepted `//host` as an internal link | Fixed in code (website deploy pending) |
+| SEC-26 | P3 | No per-IP limit in front of the Supabase API and edge functions; a flood costs invocations | Accepted (per-function caps; re-assess with domain move) |
 
 ---
 
@@ -119,7 +125,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 
 ## SEC-13 · P2 · No scanning in CI
 
-- **Remediation:** Add gitleaks, `npm audit --omit=dev` and the DB test suites to `build.yml`. Phase 6/7.
+- **Fixed in code (Phase 6):** `.github/workflows/security.yml` runs `npm audit --audit-level=high`, `cargo audit`, gitleaks over the whole history and the guard tests on every push, PR and Monday; Telegram on failure. Dependabot in `.github/dependabot.yml`. The DB test suites in CI remain Phase 7.
 
 ## SEC-14 · P3 · Old DB password in history
 
@@ -127,7 +133,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 
 ## SEC-15 · P3 · Non-constant-time token compare
 
-- `mpesa-webhook`, `till-callback` and `ussd` use `!==`. Network timing over HTTPS makes this impractical to exploit. Fix together with SEC-10.
+- `mpesa-webhook`, `till-callback` and `ussd` used `!==`. **Fixed in code (Phase 6):** `safeEqual` in `shared/guard.ts`, also for the service-key and FCM secret checks.
 
 ## SEC-16 · P3 · CORS `*` on edge functions
 
@@ -148,3 +154,28 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 ## SEC-20 · P3 · CSP blocks WebAssembly compile for the remote ORT wasm
 
 - Add `'wasm-unsafe-eval'` to `script-src` once the background remover is tested in the hosted web app.
+
+## SEC-21 · P2 · Promo codes guessable
+
+- **Evidence:** `check_promo_code` can be called without signing in and said yes or no straight away, with no limit, so a script could try codes for a shop until one worked.
+- **Fixed in code (Phase 6):** 20 wrong codes per caller IP per 15 minutes (`20261201004`). A wrong code returns `{error}` instead of raising, because raising would undo the counter; the website reads the new answer. Tested on a test DB.
+
+## SEC-22 · P3 · Unbounded request bodies
+
+- Public functions called `req.json()` on any size. Now capped (callbacks 64 KB, assistant 32 KB, OTP and USSD 8 KB) with `readJson`/`readText` in `shared/guard.ts`.
+
+## SEC-23 · P3 · No abuse monitoring
+
+- Now: refused calls (wrong token, bad signature, IP not allowed, too large) and the first block of each rate-limit key go to `security_events` (server only, 30 days). The watchdog sends `abuse:refused` (≥ 10 an hour) and `abuse:rate_limited` (≥ 20 an hour) to Telegram.
+
+## SEC-24 · P3 · Vulnerable build tools
+
+- `@capacitor/assets` 3.0.5 pulled in an old `@capacitor/cli` with `tar` 6 (critical) and `sharp` 0.32 (high). Upgraded to 4.0.0; `npm audit` reports 0. Not shipped code, so no release is needed.
+
+## SEC-25 · P3 · Protocol-relative links
+
+- `[text](//evil.example)` passed the internal-link rule and would open another site. `SAFE_LINK` and the inline parser now refuse `//`. Only staff can write page text, so the risk was low.
+
+## SEC-26 · P3 · No per-IP limit in front of Supabase
+
+- The Supabase API and edge functions are not behind our Cloudflare zone. Every anon write has its own cap, and costly functions have per-user limits. Accepted for now; re-assess with the custom domain or a paid plan.

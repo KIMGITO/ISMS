@@ -6,6 +6,18 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 ---
 
+## Phase 6: attack resistance (2026-11-23)
+
+Report: [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md). Order matters: the new website understands both the old and the new promo check, the old website only the old one.
+
+1. [ ] Deploy the website: `npm run website:deploy`. Applying a wrong promo code in the cart should still say "We don't recognise that promo code."
+2. [ ] Apply the database change: `npx supabase db push`, then `bash scripts/check-live-grants.sh`. It should print "Live access rules: no problems."
+3. [ ] Deploy the edge functions (all of them share the changed `shared/` code; named one by one so the `shared` folder is never deployed as a function): `npx supabase functions deploy accept-alert ai-config airtel-callback airtel-payments alarm-sync area-advisor auth-otp backup-config bi-analyze card-payments card-webhook chat complaints customer-assistant customer-checkout kra-etims mpesa-payments mpesa-webhook ops-alert send-email send-fcm sms-config sync till-callback ussd whatsapp-config`. `config.toml` keeps the no-login ones open. `curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?token=wrong"` should answer `Forbidden`, and `SELECT kind, source FROM security_events ORDER BY id DESC LIMIT 1;` should show `bad_token | mpesa-webhook`.
+4. [ ] Push `main`: `git push`. **Actions → Security checks** should pass (npm audit, cargo audit, gitleaks, guard tests). If `cargo audit` fails, update the crate it names or record why it doesn't apply.
+5. [ ] **You:** GitHub → Settings → Code security: turn on *Dependabot alerts* and *Dependabot security updates*. Dependabot PRs should appear under Pull requests within a day.
+6. [ ] **You (optional):** set the provider IP lists from Safaricom's and Paystack's current docs: `npx supabase secrets set MPESA_ALLOWED_IPS=... PAYSTACK_ALLOWED_IPS=...`. Then make one test payment of each; it should still complete. If it doesn't, unset the list (`npx supabase secrets unset MPESA_ALLOWED_IPS`).
+7. [ ] **You:** arrange an independent penetration test before onboarding larger customers. Give the tester the report above and a staging copy, not production.
+
 ## Phase 5: monitoring and alerting (2026-11-23)
 
 Commits `225ac53`, `a54baa2`. Report: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md).

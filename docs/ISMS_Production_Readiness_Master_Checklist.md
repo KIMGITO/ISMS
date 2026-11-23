@@ -406,20 +406,20 @@ attacks.
 
 Checklist:
 
--   [ ] Assess DDoS exposure and available Cloudflare protections.
--   [ ] Apply rate limits to authentication, OTP, public APIs and
+-   [x] Assess DDoS exposure and available Cloudflare protections.
+-   [x] Apply rate limits to authentication, OTP, public APIs and
     sensitive operations.
--   [ ] Review request size and upload limits.
--   [ ] Verify security headers and content security policy.
--   [ ] Review CORS and origin validation.
--   [ ] Test injection, XSS, CSRF where relevant, IDOR and broken access
+-   [x] Review request size and upload limits.
+-   [x] Verify security headers and content security policy.
+-   [x] Review CORS and origin validation.
+-   [x] Test injection, XSS, CSRF where relevant, IDOR and broken access
     control.
--   [ ] Review bot protection and abuse patterns.
--   [ ] Review webhook authentication, timestamp validation and replay
+-   [x] Review bot protection and abuse patterns.
+-   [x] Review webhook authentication, timestamp validation and replay
     protection.
--   [ ] Ensure sensitive endpoints have abuse monitoring.
--   [ ] Run dependency and secret scans in CI.
--   [ ] Establish a responsible process for security updates.
+-   [-] Ensure sensitive endpoints have abuse monitoring.
+-   [-] Run dependency and secret scans in CI.
+-   [x] Establish a responsible process for security updates.
 -   [ ] Arrange an independent penetration test before major enterprise
     expansion.
 
@@ -428,6 +428,8 @@ denial-of-service testing against production.
 
 **Exit criteria:** High-risk exposures are fixed or have documented,
 owner-accepted mitigations.
+
+**Status (2026-11-23):** fixes built and tested on a test DB and in unit tests; not on live (db push, function deploys, website deploy). Open: SEC-10 (M-Pesa body trusted), penetration test (owner), HTTP redirect with the custom domain. Report: `docs/security/phase-6-attack-resistance.md`.
 
 ## Phase 7 --- CI/CD, environments and release safety
 
