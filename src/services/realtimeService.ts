@@ -25,7 +25,9 @@ class RealtimeService {
     this.unsubscribeAll();
 
     const supabase = getSupabase();
-    const tables = ["products", "transactions", "customers", "notifications", "integration_configurations", "businesses"];
+    // Products, sales and customers are followed by their own repositories (filtered by
+    // business); the unfiltered copies that used to be here did nothing with the events.
+    const tables = ["notifications", "integration_configurations", "businesses"];
 
     tables.forEach((table) => {
       const channelName = `realtime-${table}-sync-trigger`;
