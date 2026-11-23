@@ -1488,52 +1488,41 @@ Defined in `src/utils/permissions.ts` and mirrored in `role_default_permissions`
 
 # Appendix C. Database migrations
 
-Applied in filename order by `supabase db push`.
+Applied in filename order by `scripts/db-push.sh` (wraps `supabase db push`); run `bash scripts/check-live-grants.sh` after every push. On 16 November 2026 the 82 older files were squashed into the first two below and the live database was reset onto them. Which files are on live is tracked in `docs/TO_FINISH.md`.
 
 | Migration | Contents |
 |---|---|
-| `20260715001_extensions` | UUID, crypto and other extensions |
-| `20260715002_enums` | Custom types (section 16.3) |
-| `20260715003_core_identity_tables` | Businesses, branches, users, employees |
-| `20260715004_access_control_tables` | Memberships, invitations, role permissions |
-| `20260715005_product_customer_tables` | Products, customers, tiers |
-| `20260715006_transaction_tables` | Sales, sale items, credit payments |
-| `20260715007_operations_tables` | Shifts, adjustments, categories, schedules |
-| `20260715008_settings_tables` | Receipt, SMS, printer and AI settings |
-| `20260715009_extra_modules_tables` | Suppliers, purchases, recipes, assets, backups |
-| `20260715010_analytics_log_tables` | Audit logs, snapshots, feedback, sync queue |
-| `20260715011_indexes` | Query indexes |
-| `20260715012_functions` | Core procedures, including the sale trigger |
-| `20260715013_triggers` | Table triggers |
-| `20260715014_rls_policies` | Row-level security policies |
-| `20260715015_views_realtime` | Views and Realtime publication |
-| `20260715016_storage_setup` | Storage buckets and policies |
-| `20260719001_bom_production` | Bill of materials and production batches |
-| `20260722001_password_reset_functions` | Password reset RPCs |
-| `20260808001_customer_wallet_rpcs` | Atomic sale, wallet and debt RPCs |
-| `20260819001_money_assets_payments` | Payments, money assets and asset ledger |
-| `20260819002_schedule_reminder_cron` | Schedule reminder job |
-| `20260918003_update_customer_tier_thresholds` | Tier thresholds and backfill |
-| `20261105002_security_hardening` | Function privileges and tenant checks; server OTPs |
-| `20261105003_rate_limits_crash_reports` | Rate limits and crash reports |
-| `20261105010_customer_portal` | Customer website schema and RPCs |
-| `20261105011_fix_process_business_payment` | One working payment RPC |
-| `20261105012_scheduled_jobs` | `pg_cron` jobs, including due backups |
-| `20261105013_customer_groups_loyalty_messaging` | Customer groups, loyalty settings, messaging consent |
-| `20261105014_role_enforcement` | `has_permission()` and database role defaults |
-| `20261105015_rider_deliveries_points_on_orders` | Rider deliveries, points on online orders |
-| `20261105016_customer_merge_notification_settings` | Customer merging, notification preferences |
-| `20261106001_void_payments_expenses_mpesa_till` | Voiding payments and expenses, M-Pesa till queue, account numbers |
-| `20261106002_product_categories` | Product categories in their own table |
-| `20261107001_kra_etims` | KRA eTIMS settings, secrets, items and signatures |
-| `20261107002_invitation_account_binding` | Invitations bound to the invited login email; reset lookup by login email only |
-| `20261107003_till_points_on_receipts` | Links till points to the sale (`link_till_points`) |
-| `20261108001_customer_invoices` | Invoices, invoice counters, `issue_invoice`, Credit Sale notification |
-| `20261108002_loyalty_points_rule` | New points rule, tier values, points log, capitalised names, old balances x200 |
-| `20261108003_attach_sale_to_customer` | `attach_sale_to_customer` |
-| `20261108004_no_ids_in_text` | Receipt numbers instead of IDs in stock and customer history |
-
-<div class="page-break"></div>
+| `20261120001_schema` | The whole schema up to 16 November 2026: 82 older files squashed into one (tables, enums, functions, RLS, books) |
+| `20261120002_platform_and_defaults` | What the schema dump leaves out: sign-up trigger, storage buckets and their rules, defaults |
+| `20261121001_quote_sold_at_till` | `mark_quote_sold`: a quote sold from the POS cart |
+| `20261122001_message_variables` | `message_variables` table and `customer_purchase_stats` for bulk messages |
+| `20261123001_supplier_stock_requests` | Ask-supplier requests that ring the supplier; portal answers |
+| `20261124001_vat_needs_etims` | VAT allowed only when KRA eTIMS is connected (`vat_allowed`) |
+| `20261125001_delivery_modes_sale_edit_log` | `delivery_mode` and `rider_pay` on sales; audit triggers for sale edits |
+| `20261126001_promotions` | Promotion codes at till and website, `promo_check/reserve/release` |
+| `20261126002_referrals` | Referral campaigns, codes, rewards, `run_referral_jobs` cron |
+| `20261126003_promotion_referral_books` | Books for promotion discounts and referral rewards (redefines `acc_post_source`) |
+| `20261127001_auto_clock_out` | Server-side clock-out of long shifts (replaced by 20261130002) |
+| `20261128001_customer_profile` | Standard customer fields, `fn_normalize_phone`, delivery location parts |
+| `20261128002_signed_out_sessions_denied` | Pre-request check refuses tokens of signed-out sessions |
+| `20261128003_only_creator_creates_business` | Only the system creator can create a business |
+| `20261129001_revoke_invitation` | `revoke_invitation` removes the invite and its orphan sign-up |
+| `20261130001_delivery_trips` | `delivery_trips`: several deliveries, one rider pay |
+| `20261130002_still_on_shift_check` | "Still working?" question at 15 h, 3-minute auto close |
+| `20261130003_stock_period_report` | `stock_period_report`, `list_stock_transfer_lines` |
+| `20261130004_rider_pay_bills` | Rider pay owed on the day (`rider_pay` source, account 2010), `pay_rider`, `fn_spending` |
+| `20261130005_regular_orders` | `regular_orders`, `regular_order_days`, delivery RPCs, ringing cron |
+| `20261130006_permissions_db_level` | Every app permission enforced in RLS/RPCs; missing SELECT grants |
+| `20261130007_quantity_one_decimal` | Money columns `numeric(14,2)`, quantity columns one decimal |
+| `20261130008_ai_reads_permissions` | AI reads role permissions live; website uses the owner's AI |
+| `20261201001_lock_function_grants` | Revoke default EXECUTE; grant functions explicitly (SEC-01) |
+| `20261201002_sale_totals_check` | Sale totals must equal their lines |
+| `20261201003_ops_watchdog` | `run_ops_watchdog`, health check, Telegram alerts |
+| `20261201004_abuse_limits` | `security_events` log of turned-away calls; promo codes can't be guessed |
+| `20261201005_permission_cache` | Per-request permission cache for `has_permission` |
+| `20261201006_realtime_publication` | Live updates only for tables the apps follow (adds `money_assets`) |
+| `20261201007_storage_usage_alert` | File storage usage alert, next to the database size alert |
+| `20261202001_record_refs_global_search` | `ref_no` (EXP/STM/LOG/LDG) and `global_search()` |
 
 # Appendix D. Glossary
 
