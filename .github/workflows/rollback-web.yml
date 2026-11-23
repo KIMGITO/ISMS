@@ -38,7 +38,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CONFIG: ${{ inputs.target == 'app' && 'wrangler.jsonc' || 'website/wrangler.jsonc' }}
-      LIVE_URL: ${{ inputs.target == 'app' && vars.APP_URL || vars.WEBSITE_URL }}
+      # Same addresses deploy-web.sh checks: the repo variable, else the workers.dev one.
+      LIVE_URL: ${{ inputs.target == 'app' && (vars.APP_URL || 'https://kaykays-app.kimanthidennis02.workers.dev') || (vars.WEBSITE_URL || 'https://kaykays-website.kimanthidennis02.workers.dev') }}
       SMOKE_PATHS: ${{ inputs.target == 'website' && '--path /terms' || '' }}
       LABEL: ${{ inputs.target == 'app' && 'Staff web app' || 'Customer website' }}
       VERSION_ID: ${{ inputs.version }}
