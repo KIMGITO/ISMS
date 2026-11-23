@@ -655,6 +655,14 @@ Only paid sales with no customer yet qualify. Once set, the customer can't be sw
 
 Customer names are stored and shown with every word capitalised (`fn_capitalize_words` triggers in the database, `customerName()` in the app). Text people read, such as stock history, customer history, invoices and notifications, never carries raw database IDs: sales are named by receipt number (`fn_readable_ids`, migration `20261108004`), and the app tidies older stored text when it loads it.
 
+## 10.10 Promotions and referrals
+
+All promotions live in `website_promo_codes` (the name is kept for the online functions); `origin` is `manual`, `referral_welcome` or `referral_reward`. The till uses the same flow as points: `promo_check` → `promo_reserve` (a 20-minute hold with the discount worked out on the server) → the sale is saved with `promotion_redemption_id` in one transaction → a deferred trigger recomputes from the saved lines and refuses the whole sale on any mismatch → `promo_release` on failure. Sales with a code never go to the offline outbox. Books: Sales gross plus 4050 Promotion discounts; wallet referral rewards post `referral_reward` (6150 / 2100). Referral rewards are idempotent (one per referral and side) and paid by `run_referral_jobs` after a wait period; flagged ones wait for a manager. Detail: `docs/PROMOTIONS_AND_REFERRALS.md`.
+
+## 10.11 Regular orders
+
+`regular_orders` holds customer + product + `day_qty[7]` (Sunday to Saturday); `regular_order_days` holds one-day changes, skips (with a message) and deliveries (`transaction_id`). Tables have no direct grants: everything goes through RPCs. `deliver_regular_orders` makes one sale per customer through `process_customer_transaction` ("on account": wallet first, then debt). Undo is a credit note; a trigger on `credit_note_lines` puts the day back to due. Website requests (`request_regular_order`) need `customers.manage` to approve; staff with `customers.schedules` set orders directly. The older `customer_order_schedules` table is read-only.
+
 <div class="page-break"></div>
 
 # 11. Inventory and production
@@ -1193,7 +1201,7 @@ CI runs the same checks. A local type check can pass where CI fails if React typ
 | `fix:`, `perf:`, `refactor:` | Patch (2.0.0 → 2.0.1) |
 | Anything else (`docs:`, `chore:`, `wip:`, ...) | No release |
 
-Emoji commit prefixes are recognised too.
+Emoji commit prefixes are recognised too. The first release after the reset is `v0.0.0 → v1.0.0`.
 
 ## 20.2 Release pipeline
 
@@ -1244,15 +1252,15 @@ Installed apps check `latest.json` (in `KIMGITO/kaykays-releases`, see `MANIFEST
 
 | Platform | Behaviour |
 |---|---|
-| Windows, Linux AppImage | The download is verified against the signing key, then the app restarts after a 15-second countdown. It never restarts while a sale has items, and staff can press **Later**. |
+| Windows, Linux AppImage | The update downloads in the background and is verified against the signing key. **About this app** then shows "Version X is ready" and **Restart and install** (`restartToUpdate`). There is no update bar. |
 | Linux `.deb` | Gets the signed `.deb` (`latest.json` lists `linux-x86_64-deb` and `linux-x86_64-appimage` separately). |
 | Android | `AppUpdatePlugin.java` downloads the APK, checks its SHA-256, and opens Android's installer. Android always asks to confirm, and the first time asks to allow installs from KayKay's. |
 
-If an update fails, a red bar says so, and **About this app** (under More on phones; in the sidebar and Profile on desktop) has **Check for updates**.
+If an update fails, a phone notification says so ("Update failed"), and **About this app** (under More on phones; in the sidebar and Profile on desktop) has **Check for updates**.
 
 **The repository must stay public**, or the apps can't download releases. Version comparison is numeric (`utils/semver.ts`; tested as "App versions compare numerically"), so 2.10.0 is newer than 2.9.0.
 
-v2.0.0 was the first release with automatic updates, so devices on older builds need v2.0.0 installed by hand once.
+Numbering restarted at **1.0.0** on 23 November 2026 (base tag `v0.0.0`; old releases and tags deleted). Desktop installs on 7.x see 1.0.0 as older and must be reinstalled by hand once; Android version codes start at 20000000, so phones on 7.x update normally.
 
 <div class="page-break"></div>
 
