@@ -523,19 +523,21 @@ accountable.
 
 Checklist:
 
--   [ ] Record actual costs for Cloudflare, Supabase, storage, email,
+-   [-] Record actual costs for Cloudflare, Supabase, storage, email,
     notifications and other providers.
--   [ ] Estimate cost per business and per active user.
--   [ ] Model costs at the agreed growth stages.
--   [ ] Configure budget and usage alerts where available.
--   [ ] Identify wasteful queries, storage and bandwidth.
--   [ ] Document provider ownership, account recovery and billing
+-   [x] Estimate cost per business and per active user.
+-   [x] Model costs at the agreed growth stages.
+-   [-] Configure budget and usage alerts where available.
+-   [x] Identify wasteful queries, storage and bandwidth.
+-   [!] Document provider ownership, account recovery and billing
     contacts.
--   [ ] Document incident response for account compromise, data breach,
+-   [x] Document incident response for account compromise, data breach,
     outage and data loss.
--   [ ] Document operational responsibilities and escalation.
--   [ ] Review all unresolved risks and accepted exceptions.
--   [ ] Produce a final evidence-based readiness assessment.
+-   [x] Document operational responsibilities and escalation.
+-   [x] Review all unresolved risks and accepted exceptions.
+-   [x] Produce a final evidence-based readiness assessment.
+
+**Status (2026-11-23):** done in code and docs; the database changes are not live. Costs today are $0 a month plus the domain (every provider on a free plan; the Supabase plan and the domain fee need the owner to confirm). Minimum production setup about $25–30 a month; from 100 businesses about $0.55–0.70 per business a month. Waste fixed in code: Payments balances never refreshed live (`money_assets` missing from Realtime, OPS-01), 27 unfollowed tables dropped from Realtime (Realtime polling was ~80% of live database time, OPS-02), 3 no-op subscriptions removed; new `storage:size` usage alert (OPS-03). Incident playbooks for compromise, breach (ODPC 72 h), outage and data loss; operational duties table. `[-]` costs and alerts: billing pages and spend caps need the owner. `[!]` ownership: the accounts table needs the owner's 2FA, billing and recovery details, and a named backup person (OPS-05). **Final classification: Not Ready** ([production-readiness.md](production-readiness.md#final-readiness-assessment)). Report: `docs/infrastructure/cost-management.md`, `docs/operations/incident-response.md`, `docs/operations/accounts-and-ownership.md`.
 
 **Final classification:** Not Ready / Conditionally Ready / Production
 Ready / Enterprise Ready.

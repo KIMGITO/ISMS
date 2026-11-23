@@ -6,6 +6,19 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 ---
 
+## Phase 10: cost, operations, final readiness (2026-11-23)
+
+Reports: [infrastructure/cost-management.md](infrastructure/cost-management.md), [operations/incident-response.md](operations/incident-response.md), [operations/accounts-and-ownership.md](operations/accounts-and-ownership.md), [production-readiness.md](production-readiness.md#final-readiness-assessment) (final status: **Not Ready**, with the list of what lifts it).
+
+1. [ ] Push the database changes together with Phase 8 step 1 (the repair of `20261201005`, then `bash scripts/db-push.sh`). Afterwards in the SQL editor: `SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime' ORDER BY 1;` should list 26 tables including `money_assets` and not `audit_logs`; `SELECT check_key, problem FROM ops_watchdog_checks() WHERE check_key = 'storage:size';` should return one row with an empty problem.
+2. [ ] Release the app (`git push`, with Phase 7/8). Then open Payments on two devices and make a cash sale on one: the Cash balance on the other should change within a few seconds without a refresh.
+3. [ ] **You:** Supabase → Organization → Billing: confirm the plan. Before the first paying business, move to **Pro** with the **spend cap on** (OPS-06). Then in the SQL editor: `UPDATE ops_watchdog_config SET db_size_limit_mb = 8192, storage_limit_mb = 102400;`. Write the plan and the invoice amount in cost-management.md section 1.
+4. [ ] **You:** fill in the "Owner to confirm" cells of [accounts-and-ownership.md](operations/accounts-and-ownership.md): 2FA by authenticator app and backup codes for Supabase, Cloudflare, GitHub, Google, Hugging Face, Telegram and DreamHost; the billing card and email for each; the domain's renewal date with auto-renew on.
+5. [ ] **You:** name a backup person who can reach the offline copy and the accounts if you can't (OPS-05), and write down how (password manager emergency access or a sealed copy).
+6. [ ] **You:** GitHub → Settings → Billing: spending limit $0 (Actions never charge). Cloudflare → Notifications: a usage-based billing alert once R2 is on (OPS-07).
+7. [ ] Before ~20 businesses or any bulk customer email: move email off personal Gmail to a sending service on kaykays.com (SPF/DKIM set at the domain), then change the `SMTP_*` function secrets (OPS-04). A sign-in code should then arrive from the new address.
+8. [ ] Each month: refresh the numbers with cost-management.md section 8.
+
 ## Phase 9: expansion (2026-11-23)
 
 Report: [deployment/expansion.md](deployment/expansion.md). Nothing to deploy; the other findings are design work for when expansion starts.
@@ -17,7 +30,7 @@ Report: [deployment/expansion.md](deployment/expansion.md). Nothing to deploy; t
 
 Report: [deployment/performance.md](deployment/performance.md). The database change and the app change are independent of each other; both are safe with old and new app versions.
 
-1. [ ] Apply the database change after Phase 6 step 1 (website deploy): `bash scripts/db-push.sh`. The same push applies `20261201004` (Phase 6) and `20261201005` (this phase), and it should end with "Live now has every migration in this folder, unchanged, and its access rules are right." Then `SELECT jobname FROM cron.job WHERE jobname = 'prune-cron-history';` should return one row.
+1. [ ] **Live has an earlier draft of `20261201005`** (found in Phase 10: no REVOKE on `fn_perm_cache_gen`, no `prune-cron-history` job; the rest works). The file is safe to run twice (tested), so re-apply it: `npx supabase migration repair --status reverted 20261201005 --linked`, then `bash scripts/db-push.sh`. That push also applies Phase 10's `20261201006` and `20261201007`, and it should end with "Live now has every migration in this folder, unchanged, and its access rules are right." Then `SELECT jobname FROM cron.job WHERE jobname = 'prune-cron-history';` should return one row.
 2. [ ] Release the app: `git push` (with the Phase 7 push). After the update, open the app on two devices as a cashier and sell one item on the first. On the second, that product's stock should change within about a second, and the browser's Network tab should show no new `products` request.
 3. [ ] A week after step 1, in the SQL editor: `SELECT calls, round(mean_exec_time) ms FROM pg_stat_statements WHERE query LIKE '%transaction_items_1%' ORDER BY calls DESC LIMIT 3;` The sales-list averages should be well under the old 650–1,000 ms. Record the numbers in performance.md section 1.
 
@@ -37,9 +50,9 @@ Report: [deployment/release-safety.md](deployment/release-safety.md). From now o
 
 Report: [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md). Order matters: the new website understands both the old and the new promo check, the old website only the old one.
 
-1. [ ] Deploy the website: `npm run website:deploy`. Applying a wrong promo code in the cart should still say "We don't recognise that promo code."
-2. [ ] Apply the database change: `bash scripts/db-push.sh` (it runs the checks and `check-live-grants.sh` itself). It should end with "Live now has every migration in this folder, unchanged, and its access rules are right."
-3. [ ] Deploy the edge functions (all of them share the changed `shared/` code; named one by one so the `shared` folder is never deployed as a function): `npx supabase functions deploy accept-alert ai-config airtel-callback airtel-payments alarm-sync area-advisor auth-otp backup-config bi-analyze card-payments card-webhook chat complaints customer-assistant customer-checkout kra-etims mpesa-payments mpesa-webhook ops-alert send-email send-fcm sms-config sync till-callback ussd whatsapp-config`. `config.toml` keeps the no-login ones open. `curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?token=wrong"` should answer `Forbidden`, and `SELECT kind, source FROM security_events ORDER BY id DESC LIMIT 1;` should show `bad_token | mpesa-webhook`.
+1. [x] Deploy the website: `npm run website:deploy`. Applying a wrong promo code in the cart should still say "We don't recognise that promo code." (2026-11-23: the live website's script has the new promo check, found in Phase 10.)
+2. [x] Apply the database change: `bash scripts/db-push.sh` (it runs the checks and `check-live-grants.sh` itself). It should end with "Live now has every migration in this folder, unchanged, and its access rules are right." (2026-11-23: `20261201004` found on live, identical to the file; `check-live-grants.sh` clean.)
+3. [ ] Deploy the edge functions (2026-11-23 Phase 10: all were redeployed at 11:53 Nairobi time, after the Phase 6 commit; only the `curl` check below is left, and `security_events` was still empty) (all of them share the changed `shared/` code; named one by one so the `shared` folder is never deployed as a function): `npx supabase functions deploy accept-alert ai-config airtel-callback airtel-payments alarm-sync area-advisor auth-otp backup-config bi-analyze card-payments card-webhook chat complaints customer-assistant customer-checkout kra-etims mpesa-payments mpesa-webhook ops-alert send-email send-fcm sms-config sync till-callback ussd whatsapp-config`. `config.toml` keeps the no-login ones open. `curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?token=wrong"` should answer `Forbidden`, and `SELECT kind, source FROM security_events ORDER BY id DESC LIMIT 1;` should show `bad_token | mpesa-webhook`.
 4. [ ] Push `main`: `git push`. **Actions → Security checks** should pass (npm audit, cargo audit, gitleaks, guard tests). If `cargo audit` fails, update the crate it names or record why it doesn't apply.
 5. [ ] **You:** GitHub → Settings → Code security: turn on *Dependabot alerts* and *Dependabot security updates*. Dependabot PRs should appear under Pull requests within a day.
 6. [ ] **You (optional):** set the provider IP lists from Safaricom's and Paystack's current docs: `npx supabase secrets set MPESA_ALLOWED_IPS=... PAYSTACK_ALLOWED_IPS=...`. Then make one test payment of each; it should still complete. If it doesn't, unset the list (`npx supabase secrets unset MPESA_ALLOWED_IPS`).

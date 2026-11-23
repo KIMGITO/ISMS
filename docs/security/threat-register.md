@@ -46,7 +46,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | PERF-05 | P3 | Scheduler log never cleaned (~180 MB/year) | Fixed in code (migration 20261201005), not live |
 | PERF-06 | P3 | Home and charts computed from the newest 1,000 sales | Open |
 | PERF-07 | P3 | Web app is one 3.4 MB script | Open |
-| PERF-08 | P3 | ~25 live subscriptions per app; `users` followed without filter | Open |
+| PERF-08 | P3 | ~25 live subscriptions per app; `users` followed without filter | Open (3 no-op subscriptions removed in Phase 10, OPS-02) |
 | EXP-01 | P3 | No per-business usage quota | Open ([expansion.md](../deployment/expansion.md)) |
 | EXP-02 | P3 | No dedicated two-tenant isolation suite | Open |
 | EXP-03 | P3 | Business currency stored but unused (always KSh) | Open, before another country |
@@ -54,6 +54,13 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | EXP-05 | P3 | Phone handling assumes +254 | Open, before another country |
 | EXP-06 | P2 | Privacy policy doesn't disclose EU hosting or every processor; ODPC registration unconfirmed | Owner action (adviser) |
 | EXP-07 | P3 | No retention for notifications/audit log; no "erase customer" tool | Open
+| OPS-01 | P2 | `money_assets` not in the live-update list: Payments balances didn't refresh after a sale on another device | Fixed in code (migration 20261201006), not live ([cost-management.md](../infrastructure/cost-management.md#6-waste-found-and-fixed)) |
+| OPS-02 | P3 | Realtime decoded changes for 27 tables no screen follows (~80% of live DB time is Realtime polling); 3 unfiltered subscriptions with no handler | Fixed in code (migration 20261201006 + app), not live |
+| OPS-03 | P3 | No alert before file storage fills | Fixed in code (`storage:size`, migration 20261201007), not live |
+| OPS-04 | P2 | All email (sign-in codes, invitations, customer email) goes through one personal Gmail account: ~500 a day cap, no domain authentication, tied to one person | Open: move to a sending service on kaykays.com before ~20 businesses or bulk email |
+| OPS-05 | P2 | One person holds every provider account, key and the on-call phone; no named backup person; 2FA and recovery not confirmed | Owner action ([accounts-and-ownership.md](../operations/accounts-and-ownership.md)) |
+| OPS-06 | P2 | Supabase very likely on the Free plan: project pauses after a week idle, no restorable backups, 500 MB | Owner action: Pro before the first paying business (with SEC-02) |
+| OPS-07 | P3 | No spend cap / budget alerts confirmed at the providers | Owner action ([cost-management.md](../infrastructure/cost-management.md#5-budget-and-usage-alerts)) |
 
 ---
 
