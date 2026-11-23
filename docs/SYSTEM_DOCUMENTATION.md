@@ -496,7 +496,7 @@ The gateway expects a reply within 10 seconds. Placing an order calls M-Pesa ins
 
 | Method | Effect |
 |---|---|
-| Cash, Card, Bank, M-Pesa | Added to that method's money asset |
+| Cash, M-Pesa, Airtel Money, Card, Bank | Added to that method's money asset. Each can be switched off per business (`businesses.default_payment_methods`, `payments.configure`); an off method is hidden and its prompts or charges are refused server-side |
 | Mobile Wallet | Taken from the customer's wallet balance |
 | Credit | Added to the customer's debt; no money asset changes until repaid |
 | Points | Taken from the customer's points at the configured value |
@@ -674,7 +674,13 @@ Customer names are stored and shown with every word capitalised (`fn_capitalize_
 
 ## 11.2 Suppliers and purchases
 
-Suppliers (for example raw milk cooperatives) are kept in `suppliers`. Purchases record what was ordered and received, with approval and cancellation controlled by the `purchases.*` permissions.
+Suppliers (for example raw milk cooperatives) are kept in `suppliers`; a supplier invited with an email also gets a `supplier_accounts` login to the supplier portal.
+
+A purchase moves Pending → RFQ → Awaiting approval → Ordered → Part received → Received (or Cancelled). Each role can have an approval limit (`purchase_approval_limits`); the trigger `fn_purchase_guard` turns an "Ordered" save above the limit into "Awaiting approval". Receiving (`receive_purchase`, GRN-…) adds stock and posts Dr Stock / Cr 2050 goods received not invoiced; the supplier bill (BILL-…) clears that, with input VAT and any price difference; returns (RTS-…) reverse it. The branch that orders pays the supplier. `buying-nightly` refreshes reorder suggestions.
+
+**Branch transfers** (`stock_transfers`) are not sales: send takes stock off at cost (account 1210 in transit), the receiver counts what arrived, and shortages are settled as late, found or written off. Branches must share an active Owner.
+
+**Ask supplier** (`supplier_stock_requests`) sends one chosen supplier a ringing request from a low-stock alert; replies come back as notifications.
 
 ## 11.3 Bill of materials and production batches
 
@@ -689,7 +695,7 @@ All three run atomically in the database, so a failed step changes nothing. The 
 
 ## 11.4 Assets
 
-`business_assets` records the business's equipment (cooler, motorbike, separator), viewable and managed under the `assets.*` permissions.
+`business_assets` records the business's equipment (cooler, motorbike, separator) under the `assets.*` permissions. There is no separate assets screen; files are uploaded where they are used.
 
 <div class="page-break"></div>
 
@@ -1256,20 +1262,30 @@ v2.0.0 was the first release with automatic updates, so devices on older builds 
 
 Order matters:
 
-1. Confirm the notifications webhook sends the service role key or `FCM_WEBHOOK_SECRET`; `send-fcm` rejects anything else.
-2. Deploy edge functions, including `auth-otp`.
-3. Apply the migrations (`supabase db push`).
-4. Release the app. Older installs lose sign-up and password reset after step 3.
+1. Deploy changed edge functions (`npx supabase functions deploy <name>`, with `--no-verify-jwt` for the public ones in section 17).
+2. Apply the migrations with `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (it must list no problems).
+3. Release the app by pushing to `main`: **Release and Deploy** builds the apps and **deploy-web** publishes the web app and website to Cloudflare (blue-green; `rollback-web` switches back).
+4. Tick the steps in `docs/TO_FINISH.md`. Full details: `docs/DEPLOYMENT_AND_MONITORING.md`, `docs/HOSTING_CLOUDFLARE.md`, `docs/BACKUP_AND_RECOVERY.md`.
 
 ## 22.2 Scheduled jobs
 
-Migration `20261105012_scheduled_jobs.sql` enables `pg_cron` and `pg_net` and registers:
+`pg_cron` jobs registered by the migrations (times UTC; Nairobi is UTC+3):
 
-| Job | Schedule (cron, UTC) | Runs |
+| Job | Schedule | Does |
 |---|---|---|
-| `process-schedule-reminders` | `*/15 * * * *` (every 15 minutes) | `flag_due_schedule_reminders()` |
-| `customer-portal-daily` | `0 2 * * *` (05:00 Nairobi) | `run_customer_portal_daily()` |
-| `run-due-backups` | `5 * * * *` (hourly at :05) | `run_due_backups()` |
+| `process-schedule-reminders` | every minute | Due reminders |
+| `escalate-unaccepted-alerts` | every minute | Rings ringing alerts again until someone accepts |
+| `auto-clock-out` | every minute | "Still working?" at 15 h and the 3-minute close |
+| `expire-promotion-holds` | every 5 minutes | Releases promotion holds older than 20 minutes |
+| `referral-and-promotion-jobs` | every 10 minutes | `run_referral_jobs` |
+| `ring-regular-orders` | every 10 minutes | Rings staff while today's regular orders aren't done |
+| `ops-watchdog` | every 10 minutes | `run_ops_watchdog` health checks, alerts via `ops-alert` |
+| `run-due-backups` | hourly at :05 | Google Sheets backups |
+| `customer-portal-daily` | 02:00 | `run_customer_portal_daily()` |
+| `buying-nightly` | 04:15 | Reorder suggestions |
+| `prune-cron-history`, `purge-security-data`, `prune-stale-device-tokens` | nightly | Housekeeping |
+
+Check runs in `cron.job_run_details`.
 
 ## 22.3 Backups
 
@@ -1291,6 +1307,10 @@ Supabase's own database backups remain the primary recovery path; the Sheets exp
 | Scheduled jobs | `cron.job_run_details` |
 | Payments needing attention | **Payments & Expenses > M-Pesa > Paid to the till** and **Online Store > Orders** |
 | Backups | Backup history in **Settings** |
+| Database health | `ops-watchdog` job; problems arrive in Telegram (@kaykays_alerts_bot) |
+| Uptime | External monitor calling `GET ops-alert` |
+| Database backups | `backup-database` workflow (hourly to Cloudflare R2), weekly `restore-drill` |
+| Release gates | `db-checks` and `security` workflows must pass before a release |
 
 ## 22.5 Crash reports
 
