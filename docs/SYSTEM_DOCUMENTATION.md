@@ -141,12 +141,13 @@ ISMS is one Supabase project with four ways in:
 
 | Part | Who uses it | Runs on | Built from |
 |---|---|---|---|
-| Staff app | Owners, managers, cashiers, riders | Android phones and tablets, Windows and Linux PCs | `src/`, wrapped by Capacitor (`android/`) and Tauri (`src-tauri/`) |
-| Customer website | Customers | Any static web host (planned domain: kaykays.com) | `website/` |
+| Staff app | Owners, managers, cashiers, riders | Android phones and tablets, Windows and Linux PCs, and the web (Cloudflare Workers) | `src/`, wrapped by Capacitor (`android/`) and Tauri (`src-tauri/`) |
+| Customer website | Customers | Cloudflare Workers, blue-green (domain: kaykays.com) | `website/` |
+| Supplier portal | Suppliers | Same staff app; a separate shell for `supplier_accounts` | `src/features/SupplierPortalView.tsx` |
 | Dial-code ordering | Customers on basic phones | Africa's Talking USSD gateway calling an edge function | `supabase/functions/ussd/` |
 | Backend | All of the above | Supabase: PostgreSQL, Auth, Storage, Realtime, Edge Functions, `pg_cron` | `supabase/` |
 
-No server of our own is needed. Safaricom, Africa's Talking and the Supabase notification webhook call edge functions directly.
+No server of our own is needed. Safaricom, Airtel, Paystack, Africa's Talking and the Supabase notification webhook call edge functions directly. Developer alerts go to Telegram through `ops-alert`; database backups go hourly to Cloudflare R2 from GitHub Actions.
 
 ## 2.2 How the parts connect
 
@@ -165,7 +166,8 @@ No server of our own is needed. Safaricom, Africa's Talking and the Supabase not
   |  Edge functions: chat, bi-analyze, complaints, customer-assistant,    |
   |  customer-checkout, mpesa-payments, mpesa-webhook, till-callback,     |
   |  ussd, send-email, send-fcm, sms-config, whatsapp-config, auth-otp,   |
-  |  ai-config, backup-config, sync                                       |
+  |  ai-config, backup-config, sync, airtel-*, card-*, area-advisor,     |
+  |  alarm-sync, accept-alert, ops-alert, kra-etims  (section 17)        |
   +-----------------------------------------------------------------------+
         |              |              |              |             |
      Safaricom      Firebase      Twilio /       Resend /      AI providers
@@ -196,15 +198,17 @@ No server of our own is needed. Safaricom, Africa's Talking and the Supabase not
 | Icons | lucide-react | |
 | PDF | jsPDF 4 | Receipts and exports |
 | QR codes | qrcode | Receipts and verification |
-| Backend | Supabase (PostgreSQL 15) | RLS on every table |
+| Backend | Supabase (PostgreSQL 17) | RLS on every table |
 | Server code | Deno edge functions | One folder per function, shared helpers in `functions/shared/` |
-| Scheduling | `pg_cron`, `pg_net` | Registered by migration `20261105012` |
+| Scheduling | `pg_cron`, `pg_net` | Jobs in section 22.2 |
 | Desktop | Tauri 2 (Rust) | Windows `.exe`/`.msi`, Linux AppImage/`.deb`; updater plugin |
 | Mobile | Capacitor 8 | Android; custom Java plugins for Bluetooth printing and updates |
 | Push | Firebase Cloud Messaging | Through `send-fcm` |
-| Payments | Safaricom Daraja | STK push and C2B (till) |
+| Payments | Safaricom Daraja, Airtel Africa, Paystack | M-Pesa STK push and till; Airtel Money prompts; cards |
 | USSD | Africa's Talking | |
-| CI/CD | GitHub Actions | `build.yml`, `release-and-deploy.yml` |
+| CI/CD | GitHub Actions | `release-and-deploy`, `deploy-web`, `rollback-web`, `db-checks`, `security`, `backup-database`, `restore-drill` |
+| Web hosting | Cloudflare Workers, R2 | Web app and website; database backups |
+| Alerts | Telegram bot | `ops-alert` |
 
 **Version pinning rule.** The Tauri npm packages (`@tauri-apps/api`, plugins) must stay on the same minor version as the Rust crates in `src-tauri/Cargo.toml`, or `tauri build` fails. This is why `package.json` pins them with `~`.
 
