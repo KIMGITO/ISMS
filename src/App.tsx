@@ -147,7 +147,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { arrangeMobileNav, MORE_TAB_ID } from './utils/mobileNav';
-import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, type ScreenId } from './utils/screens';
+import { canOpenScreen, SCREENS, SCREEN_BY_ID, SCREEN_GROUPS, screenOrder, type ScreenId } from './utils/screens';
 import { GO_TO_KEYS, goToLabel } from './utils/shortcuts';
 import RingingAlerts from './components/RingingAlerts';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
@@ -3902,7 +3902,7 @@ export default function App() {
                     // Home always comes first, on its own, above the groups.
                     .sort((a, b) => {
                       if (a.id === 'home' || b.id === 'home') return a.id === 'home' ? -1 : b.id === 'home' ? 1 : 0;
-                      return SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(a.id as any)?.group ?? 'You & the app') - SCREEN_GROUPS.indexOf(SCREEN_BY_ID.get(b.id as any)?.group ?? 'You & the app');
+                      return screenOrder(a.id) - screenOrder(b.id);
                     })
                     .map((tab, index, list) => {
                       const Icon = tab.icon;
@@ -4724,7 +4724,8 @@ export default function App() {
                       <AnimatePresence>
                         {isMoreOpen && overflowTabs.length > 0 && (() => {
                           const query = moreQuery.trim().toLowerCase();
-                          const rows = overflowTabs
+                          const rows = [...overflowTabs]
+                            .sort((a, b) => screenOrder(a.id) - screenOrder(b.id))
                             .map((tab) => ({ tab, screen: SCREEN_BY_ID.get(tab.id as any) }))
                             .filter(({ tab, screen }) =>
                               !query ||

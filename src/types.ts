@@ -250,8 +250,11 @@ export interface InventoryAdjustment {
   reason: string;
   staffName: string;
   batchId?: string;
+  /** The sale or document that moved the stock (TXN-…, a transfer, a purchase). */
   referenceNumber?: string;
   notes?: string;
+  /** This movement's own reference, STM-2026-000123 (20261202001). */
+  refNo?: string;
 }
 
 export interface SyncState {
@@ -352,6 +355,8 @@ export interface Expense {
   riderPayment?: boolean;
   /** Rider pay owed for a delivery, counted as spending on that day (not a stored expense). */
   riderOwed?: boolean;
+  /** Reference, EXP-2026-000123 (20261202001). */
+  refNo?: string;
 }
 
 export interface Supplier {
@@ -397,6 +402,8 @@ export interface CustomerLedgerEntry {
   transactionId?: string;
   referenceId?: string;
   created_at?: string;
+  /** LDG-2026-000123 (20261202001). */
+  refNo?: string;
 }
 
 export interface DebtPayment {

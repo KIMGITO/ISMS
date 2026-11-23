@@ -6,6 +6,7 @@
 // (see services/accounting.ts and 20261116003_accounting.sql). Owners and admins can add
 // entries by hand, count money, pay suppliers, lock past months and rebuild the books;
 // managers can read everything.
+import { CopyRef } from '../components/shared/CopyRef';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, BookOpen, Calculator, CheckCircle2, ChevronDown, ChevronRight, EqualApproximately, Lock, Plus, RotateCcw, Scale, Search, Trash2, Undo2, Wallet,
@@ -148,6 +149,22 @@ export default function AccountingView() {
     if (seesBooks) setTab('overview');
   }, [section, seesBooks]);
   const [rangeKey, setRangeKey] = useState<RangeKey>('month');
+  // A journal entry found by search (JE-120): the Journal tab, with that entry open.
+  const searchTarget = useUiStore((s) => s.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== 'journal' || !businessId) return;
+    const { no, at } = searchTarget;
+    useUiStore.getState().setSearchTarget(null);
+    if (seesBooks) setTab('journal');
+    const day = (at || '').slice(0, 10);
+    loadJournal(businessId, { start: day || '2000-01-01', end: day || toDateInput(kenyaNow()), search: `JE-${no}`, limit: 1 })
+      .then(({ entries }) => {
+        if (entries[0]) setEntryOpen(entries[0]);
+        else showToast('Not found', `JE-${no} may have been deleted.`, undefined, 'info');
+      })
+      .catch((err) => showToast('Not opened', toUserMessage(err, 'Could not open the entry.'), undefined, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget, businessId]);
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const range = useMemo(() => getRange(rangeKey, kenyaNow(), customStart, customEnd), [rangeKey, customStart, customEnd]);
@@ -574,7 +591,7 @@ function JournalTab({ businessId, start, end, version, canManage, onOpen, onNew 
         {entries.map((e) => {
           const amount = e.lines.reduce((s, l) => s + l.debit, 0);
           return (
-            <button key={e.id} onClick={() => onOpen(e)} className="w-full text-left py-2.5 flex gap-3 items-start hover:bg-app-bg -mx-2 px-2 rounded-lg cursor-pointer">
+            <button key={e.id} data-search-id={`je-${e.id}`} onClick={() => onOpen(e)} className="w-full text-left py-2.5 flex gap-3 items-start hover:bg-app-bg -mx-2 px-2 rounded-lg cursor-pointer">
               <div className="w-16 shrink-0 text-[11px] text-app-text-muted tabular-nums">
                 <div className="font-semibold text-app-text">JE-{e.no}</div>
                 {day(e.date).replace(/ \d{4}$/, '')}
@@ -640,6 +657,7 @@ function EntrySheet({ entry, canManage, locked, onClose, onEdit, onChanged }: {
       ) : undefined}
     >
       <p className="text-sm text-app-text">{entry.memo}</p>
+      <p><CopyRef value={`JE-${entry.no}`} label="journal entry" /></p>
       {entry.reversed && <Note tone="info">This entry was reversed by a later entry.</Note>}
       {!manual && <Note tone="info">The app made this entry. To change it, change the {SOURCE_LABELS[entry.source!].toLowerCase()} itself; the books follow.</Note>}
       <div className="overflow-x-auto">

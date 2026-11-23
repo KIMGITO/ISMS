@@ -21,6 +21,7 @@ import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from '../services/logCle
 import { SwipeRow } from '../components/shared/SwipeRow';
 import { toUserMessage } from '../utils/userError';
 import type { AdjustmentType, InventoryAdjustment } from '../types';
+import { CopyRef } from '../components/shared/CopyRef';
 
 const HIDDEN_KEY = 'kkm_hidden_inventory_logs';
 const TZ = 'Africa/Nairobi';
@@ -79,7 +80,8 @@ const dayLabel = (iso: string) => {
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: TZ });
-const shortRef = (adj: InventoryAdjustment) => adj.referenceNumber || `ADJ-${adj.id.replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase()}`;
+// The movement's own reference (STM-2026-000123); before 20261202001, the document that moved it.
+const shortRef = (adj: InventoryAdjustment) => adj.refNo || adj.referenceNumber || `ADJ-${adj.id.replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase()}`;
 
 export default function StockHistoryView() {
   const { adjustments, products, showToast } = useAppStore();
@@ -108,13 +110,27 @@ export default function StockHistoryView() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
 
-  // Opened from search with a receipt number: show what that sale moved.
+  // Opened from search: with a receipt number, show what that sale moved; with one movement,
+  // clear the filters so its row shows (search then highlights it). A movement older than the
+  // loaded list is fetched and opened on its own.
   const searchTarget = useUiStore((st) => st.searchTarget);
   useEffect(() => {
     if (searchTarget?.kind !== 'stock') return;
-    setQuery(searchTarget.query);
+    const { query: q, id } = searchTarget;
+    setQuery(q);
     setFilter('all');
     useUiStore.getState().setSearchTarget(null);
+    if (!id) return;
+    setHidden((h) => h.filter((x) => x !== id));
+    if (all.some((a) => a.id === id)) return;
+    import('../services/repositories')
+      .then(({ InventoryAdjustmentRepository }) => InventoryAdjustmentRepository.getAll([id]))
+      .then((rows) => {
+        if (rows[0]) setOpen(rows[0] as InventoryAdjustment);
+        else showToast('Not found', 'That stock change may have been deleted.', undefined, 'info');
+      })
+      .catch(() => showToast('Could not open it', 'Check your connection and try again.', undefined, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTarget]);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -133,7 +149,7 @@ export default function StockHistoryView() {
         // Any form of a receipt number finds the sale's stock moves (logs say TXN-…, the paper RCT-2026-…).
         const code = receiptCode(query);
         if (code && (mentionsReceipt(adj.referenceNumber, code) || mentionsReceipt(adj.notes, code))) return true;
-        const hay = [adj.productName, adj.reason, adj.staffName, adj.referenceNumber, adj.notes, adj.type].filter(Boolean).join(' ');
+        const hay = [adj.productName, adj.reason, adj.staffName, adj.referenceNumber, adj.refNo, adj.notes, adj.type].filter(Boolean).join(' ');
         if (!searchMatch(hay, query)) return false;
       }
       return true;
@@ -350,6 +366,7 @@ export default function StockHistoryView() {
                           <span className="text-[11px] text-app-text-muted truncate">
                             {clock(adj.timestamp)} · {adj.staffName}
                           </span>
+                          {adj.refNo && !selecting && <CopyRef value={adj.refNo} label="stock movement" className="hidden sm:inline-flex shrink-0" />}
                         </span>
                       </span>
                       <span className="text-right shrink-0">
@@ -427,6 +444,7 @@ function AdjustmentReceipt({
   };
   const rows: [string, string][] = [
     ['Reference', shortRef(adj)],
+    ...(adj.refNo && adj.referenceNumber ? [['Moved by', adj.referenceNumber] as [string, string]] : []),
     ['Date', fullDate(adj.timestamp)],
     ['Type', TYPE_LABEL[adj.type] || adj.type],
     ['Product', adj.productName],
@@ -482,7 +500,9 @@ function AdjustmentReceipt({
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-3 py-0.5">
             <span className="text-app-text-muted shrink-0">{k}</span>
-            <span className="text-right break-words min-w-0">{v}</span>
+            {k === 'Reference' || k === 'Moved by'
+              ? <CopyRef value={v} label={k === 'Reference' ? 'stock movement' : 'reference'} />
+              : <span className="text-right break-words min-w-0">{v}</span>}
           </div>
         ))}
         <div className="border-t border-dashed border-app-text-muted/40 my-2" />

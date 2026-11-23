@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { pressShortcut } from "../utils/pressShortcut";
 import { useAppStore } from "../stores/appStore";
 import { useInventoryStore } from "../stores/inventoryStore";
@@ -26,6 +26,7 @@ import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
 import { spotlight } from "../utils/searchSpotlight";
 import { listPurchases, listAudit, purchaseRef, describeAction, type PurchaseOrder, type AuditEntry } from "../services/operations";
 import { formatCurrency } from '../utils/helpers';
+import { searchRecords, recordDestination, recordSearchId, describeRecord, RECORD_CATEGORY } from "../services/recordSearch";
 
 interface SearchResult {
   id: string;
@@ -38,13 +39,14 @@ interface SearchResult {
   action: () => void;
   /** What to highlight once the screen opens; defaults to a row tagged with `id`, else the title text. */
   spot?: { id?: string; text?: string; press?: string } | false;
+  /** Found by the database search (global_search), not in a list the app already holds. */
+  fromServer?: boolean;
 }
 
 // Results that open a whole screen or panel rather than one row on it.
 const NO_SPOTLIGHT = new Set([
   "Screens", "Features", "Keyboard Shortcuts", "Quick Actions", "Reports", "Settings",
   "Home Dashboard", "Communication Center", "Invoices", "Stock History", "AI Conversations", "Permissions",
-  "Audit Logs",
 ]);
 
 interface GlobalSearchProps {
@@ -71,7 +73,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   const searchRef = useRef<HTMLDivElement>(null);
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
 
@@ -104,16 +105,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           setSuppliers(sups);
         }
 
-        // Fetch expenses
-        const { data: exps } = await client
-          .from("expenses")
-          .select("*")
-          .eq("business_id", activeBusinessId)
-          .is("deleted_at", null);
-          
-        if (active && exps) {
-          setExpenses(exps);
-        }
+        // Expenses are found by the database search (global_search) instead of loading them all.
 
         // Purchases and the audit log, each only for a role that may see it.
         const role = currentEmployee?.role || "Guest";
@@ -251,6 +243,61 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
         });
       } catch {
         // Offline or invoices not set up: the other results still show.
+      }
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, activeBusinessId, isOpen]);
+
+  // Records kept on the server: sales of any age, deliveries, website orders, payments, expenses,
+  // stock movements, customer account entries, journal entries, the audit log and transfers.
+  // One database search shortly after typing stops; it runs as this person, so RLS leaves out
+  // what their role can't read, and each result opens on its exact row.
+  const [recordResults, setRecordResults] = useState<{ query: string; results: SearchResult[] }>({ query: "", results: [] });
+  const [recordsPending, setRecordsPending] = useState(false);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2 || !activeBusinessId || !isOpen) {
+      setRecordsPending(false);
+      return;
+    }
+    let live = true;
+    setRecordsPending(true);
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await searchRecords(activeBusinessId, q);
+        if (!live) return;
+        const role = currentEmployee?.role;
+        const found: SearchResult[] = [];
+        for (const hit of hits) {
+          const dest = recordDestination(hit, (screen) => canOpenScreen(role, screen));
+          if (!dest) continue;
+          const text = describeRecord(hit, formatCurrency);
+          found.push({
+            id: recordSearchId(hit),
+            title: text.title,
+            subtitle: text.subtitle,
+            status: text.status,
+            category: RECORD_CATEGORY[hit.kind],
+            relevance: hit.rank + 25,
+            fromServer: true,
+            spot: { id: dest.spotId, text: hit.ref || hit.title, press: dest.press },
+            action: () => {
+              if (dest.target) setSearchTarget(dest.target);
+              onNavigateTab(dest.screen);
+              setIsOpen(false);
+              setQuery("");
+            },
+          });
+        }
+        setRecordResults({ query: q, results: found });
+      } catch {
+        // Offline or the search isn't on this database yet: results from loaded lists still show.
+        if (live) setRecordResults({ query: q, results: [] });
+      } finally {
+        if (live) setRecordsPending(false);
       }
     }, 250);
     return () => {
@@ -686,28 +733,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       }
     });
 
-    // 14. Search Expenses
-    expenses.forEach(e => {
-      const matchCat = getRelevance(e.category, lower);
-      const matchDesc = getRelevance(e.description, lower);
-      const score = Math.max(matchCat, matchDesc);
-      if (score > 0) {
-        matched.push({
-          id: `exp-${e.id}`,
-          title: `Expense: ${e.category}`,
-          subtitle: `Amount: ${formatCurrency(e.amount)} · Note: ${e.description} · Date: ${new Date(e.date).toLocaleDateString()}`,
-          category: "Expenses",
-          businessName: activeBizName,
-          relevance: score,
-          spot: { text: e.description, press: "money-expenses" },
-          action: () => {
-            onNavigateTab("money");
-            setIsOpen(false);
-            setQuery("");
-          }
-        });
-      }
-    });
+    // Expenses: found by the database search below (searchRecords), with their EXP- reference.
 
     // 16. Search Team Members (Employees list)
     employees.forEach(e => {
@@ -867,6 +893,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           businessName: activeBizName,
           relevance: score,
           action: () => {
+            setSearchTarget({ kind: "audit", id: log.id, at: log.at });
             onNavigateTab("audit");
             setIsOpen(false);
             setQuery("");
@@ -1077,21 +1104,39 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   useEffect(() => {
     if (query.trim()) handleSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suppliers, expenses, purchases, auditLogs]);
+  }, [suppliers, purchases, auditLogs]);
+
+  // Results from loaded lists and from the database search together. A record found by both
+  // keeps the database's version (it carries the reference and opens the exact row). Groups are
+  // ordered by their best match, so an exact receipt or reference number comes first.
+  const shown = useMemo(() => {
+    const server = recordResults.query === query.trim() ? recordResults.results : [];
+    const byId = new Map<string, SearchResult>();
+    for (const r of results) byId.set(r.id, r);
+    for (const r of server) byId.set(r.id, r);
+    const list = Array.from(byId.values()).filter((r) => hasAccessToCategory(r.category) || r.fromServer);
+    const best = new Map<string, number>();
+    for (const r of list) best.set(r.category, Math.max(best.get(r.category) ?? 0, r.relevance));
+    return list.sort((a, b) =>
+      a.category === b.category
+        ? b.relevance - a.relevance
+        : (best.get(b.category)! - best.get(a.category)!) || (a.category < b.category ? -1 : 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, recordResults, query, currentEmployee]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || results.length === 0) return;
+    if (!isOpen || shown.length === 0) return;
     
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex(prev => (prev < results.length - 1 ? prev + 1 : 0));
+      setActiveIndex(prev => (prev < shown.length - 1 ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex(prev => (prev > 0 ? prev - 1 : results.length - 1));
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : shown.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (activeIndex >= 0 && activeIndex < results.length) {
-        openResult(results[activeIndex]);
+      if (activeIndex >= 0 && activeIndex < shown.length) {
+        openResult(shown[activeIndex]);
       }
     }
   };
@@ -1129,7 +1174,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
           enterKeyHint="search"
           autoFocus={autoFocus}
           aria-label="Search the app"
-          placeholder="Search screens, products, customers, payments..."
+          placeholder="Search products, receipts, customers, references…"
           value={query}
           onFocus={() => setIsOpen(true)}
           onChange={(e) => handleSearch(e.target.value)}
@@ -1157,21 +1202,21 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
             exit={{ opacity: 0, y: 10 }}
             className="absolute top-11 left-0 right-0 md:-left-16 md:-right-16 max-h-[min(450px,calc(100dvh-8rem))] bg-app-card rounded-2xl border border-app-border shadow-2xl overflow-y-auto z-50 p-3.5 flex flex-col gap-1.5 scrollbar-thin"
           >
-            {results.length === 0 ? (
-              <div className="p-6 text-center text-xs text-app-text-muted">
-                Nothing found.
+            {shown.length === 0 ? (
+              <div className="p-6 text-center text-xs text-app-text-muted" role="status">
+                {recordsPending ? "Searching…" : "Nothing found."}
               </div>
             ) : (
               // Grouped Results
               <div className="flex flex-col gap-2">
                 {(() => {
                   let globalItemIndex = -1;
-                  return Array.from(new Set(results.map(r => r.category))).map((cat) => (
+                  return Array.from(new Set(shown.map(r => r.category))).map((cat) => (
                   <div key={cat} className="flex flex-col gap-1 border-b border-app-border/20 pb-2 last:border-b-0">
                     <span className="text-[11px] font-semibold text-amber-500 px-2 pt-1 block">
                       {cat}
                     </span>
-                    {results
+                    {shown
                       .filter(r => r.category === cat)
                       .map((res) => {
                         globalItemIndex++;
@@ -1192,6 +1237,12 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                           res.category === "Production Batches" ? Layers :
                           res.category === "Recipes / BOM" ? BookOpen :
                           res.category === "Expenses" ? TrendingDown :
+                          res.category === "Deliveries" ? Truck :
+                          res.category === "Website orders" ? ShoppingCart :
+                          res.category === "Stock movements" ? History :
+                          res.category === "Customer accounts" ? User :
+                          res.category === "Journal entries" ? BookOpen :
+                          res.category === "Stock transfers" ? Boxes :
                           res.category === "Payments" ? DollarSign :
                           res.category === "Team Members" ? Users :
                           res.category === "Users" ? User :
@@ -1223,9 +1274,9 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
                                 <div className="flex items-center gap-1 shrink-0">
                                   {res.status && (
                                     <span className={`text-[11px] px-1 py-0.2 rounded font-semibold ${
-                                      ["Success", "Approved", "Completed", "Active", "Verified"].includes(res.status)
+                                      ["Success", "Approved", "Completed", "Active", "Verified", "Delivered", "Paid"].includes(res.status)
                                         ? "bg-emerald-500/10 text-emerald-500"
-                                        : ["Pending", "In_Progress", "Under_Maintenance"].includes(res.status)
+                                        : ["Pending", "In_Progress", "Under_Maintenance", "Accepted", "On the way", "Preparing", "Ready", "Not paid"].includes(res.status)
                                         ? "bg-amber-500/10 text-amber-500"
                                         : "bg-red-500/10 text-red-500"
                                     }`}>

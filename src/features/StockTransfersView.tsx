@@ -363,7 +363,7 @@ export default function StockTransfersView() {
                 const short = shortValue(t);
                 const value = sentValue(t);
                 return (
-                  <li key={t.id}>
+                  <li key={t.id} data-search-id={`transfer-${t.id}`}>
                     <button onClick={() => setOpenId(t.id)} className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-app-bg cursor-pointer">
                       <span
                         className={`grid place-items-center size-9 rounded-full shrink-0 ${

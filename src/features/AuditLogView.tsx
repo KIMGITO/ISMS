@@ -8,6 +8,8 @@ import { FilterChips } from '../components/shared/Choice';
 import { useBusinessStore, onBranchChange } from '../stores/businessStore';
 import { toUserMessage } from '../utils/userError';
 import { fieldClass } from '../components/shared/FormSheet';
+import { CopyRef } from '../components/shared/CopyRef';
+import { useUiStore } from '../stores/uiStore';
 import { listAudit, describeAction, describeChanges, AUDIT_TABLES, type AuditEntry } from '../services/operations';
 
 type Period = 'today' | 'week' | 'month' | 'quarter';
@@ -68,10 +70,28 @@ export default function AuditLogView() {
   }, [businessId, period, table]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Opened from search on one entry: widen the period to include it and clear filters so its
+  // row shows (search then highlights it).
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  const [extra, setExtra] = useState<AuditEntry[]>([]);
+  useEffect(() => {
+    if (searchTarget?.kind !== 'audit' || !businessId) return;
+    const { id, at } = searchTarget;
+    useUiStore.getState().setSearchTarget(null);
+    setTable('');
+    setQuery('');
+    const age = at ? Math.floor((Date.now() - new Date(at).getTime()) / 864e5) + 1 : 999;
+    const fits = PERIODS.find((p) => p.days >= age);
+    setPeriod(fits ? fits.id : 'quarter');
+    // Also fetched on its own, in case it is beyond the 500 newest the list loads.
+    listAudit(businessId, { id, limit: 1 }).then((rows) => setExtra(rows)).catch(() => undefined);
+  }, [searchTarget, businessId]);
   useEffect(() => onBranchChange(() => setEntries([])), []);
 
   const q = query.trim().toLowerCase();
-  const shown = entries.filter((e) => !q || [e.label, e.by, describeAction(e), ...describeChanges(e.changes)].some((v) => v.toLowerCase().includes(q)));
+  const all = [...entries, ...extra.filter((x) => !entries.some((e) => e.id === x.id))];
+  const shown = all.filter((e) => !q || [e.label, e.by, e.refNo || '', describeAction(e), ...describeChanges(e.changes)].some((v) => v.toLowerCase().includes(q)));
   const groups = useMemo(() => {
     const m = new Map<string, AuditEntry[]>();
     for (const e of shown) {
@@ -135,7 +155,7 @@ export default function AuditLogView() {
 
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, person or change" className={`${fieldClass} pl-9 bg-app-card`} />
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, person, change or LOG- number" className={`${fieldClass} pl-9 bg-app-card`} />
         </div>
 
         {loading ? (
@@ -181,6 +201,7 @@ export default function AuditLogView() {
                         </div>
                         {changes.length > 0 && (isOpen ? <ChevronUp size={15} className="mt-1 text-app-text-muted shrink-0" /> : <ChevronDown size={15} className="mt-1 text-app-text-muted shrink-0" />)}
                       </button>
+                      {e.refNo && <div className="pl-9 pr-4 -mt-1.5 pb-2.5"><CopyRef value={e.refNo} label="log entry" /></div>}
                     </li>
                   );
                 })}

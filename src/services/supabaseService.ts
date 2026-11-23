@@ -488,6 +488,7 @@ export class SupabaseService {
       note: readableIds(d.note),
       transactionId: d.transaction_id || "",
       created_at: d.created_at,
+      refNo: d.ref_no || undefined,
     }));
   }
 

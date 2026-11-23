@@ -18,6 +18,8 @@ import { appDialog } from '../AppDialog';
 import type { Expense, ExpenseCategory, MoneyMethod } from '../../types';
 import { PayRiderButton } from '../RidersToPay';
 import { loadRiderPayOwed, spendingWithRiderPay } from '../../services/riderPay';
+import { CopyRef } from '../shared/CopyRef';
+import { useUiStore } from '../../stores/uiStore';
 
 const DEFAULT_CATEGORIES = ['Rent', 'Wages', 'Transport', 'Utilities', 'Maintenance', 'Marketing', 'Supplies', 'Other'];
 type Period = 'month' | 'last-month' | 'all';
@@ -68,6 +70,27 @@ export default function ExpensesPanel() {
     return () => { unsubExp?.(); unsubCat?.(); };
   }, [businessId]);
 
+  // Opened from search on one expense: show every period and category so its row is there
+  // (search then highlights it). One older than the loaded list is fetched and added.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== 'expense') return;
+    const id = searchTarget.id;
+    useUiStore.getState().setSearchTarget(null);
+    setPeriod('all');
+    setCategory('all');
+    setQuery('');
+    if (stored.some((e) => e.id === id)) return;
+    import('../../services/repositories')
+      .then(({ ExpenseRepository }) => ExpenseRepository.getAll([id]))
+      .then((rows) => {
+        if (rows[0]) setStored((list) => (list.some((e) => e.id === id) ? list : [...list, rows[0] as Expense]));
+        else showToast('Not found', 'That expense may have been deleted.', undefined, 'info');
+      })
+      .catch(() => showToast('Could not open it', 'Check your connection and try again.', undefined, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
+
   useEffect(() => {
     if (!businessId) return;
     let live = true;
@@ -110,7 +133,7 @@ export default function ExpensesPanel() {
     return expenses
       .filter((e) => period === 'all' || nairobiDay(e.date).startsWith(period === 'month' ? monthKey : lastMonthKey))
       .filter((e) => category === 'all' || e.category === category)
-      .filter((e) => !q || [e.category, e.description, e.staffName, e.paymentMethod || ''].some((v) => (v || '').toLowerCase().includes(q)))
+      .filter((e) => !q || [e.category, e.description, e.staffName, e.paymentMethod || '', e.refNo || ''].some((v) => (v || '').toLowerCase().includes(q)))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, period, category, query, monthKey, lastMonthKey]);
   const days = useMemo(() => {
@@ -251,8 +274,9 @@ export default function ExpensesPanel() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-app-text truncate">{e.description || e.category}</p>
-                      <p className="text-[11px] text-app-text-muted truncate">
-                        {[e.description ? e.category : '', e.paymentMethod ? methodLabel(e.paymentMethod as MoneyMethod) : '', e.staffName].filter(Boolean).join(' · ')}
+                      <p className="flex items-center gap-1.5 min-w-0 text-[11px] text-app-text-muted">
+                        <span className="truncate">{[e.description ? e.category : '', e.paymentMethod ? methodLabel(e.paymentMethod as MoneyMethod) : '', e.staffName].filter(Boolean).join(' · ')}</span>
+                        {e.refNo && <CopyRef value={e.refNo} label="expense" className="shrink-0" />}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">{formatCurrency(e.amount)}</span>

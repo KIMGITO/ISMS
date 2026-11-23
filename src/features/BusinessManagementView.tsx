@@ -26,6 +26,7 @@ import { titleCase } from "../utils/stringUtils";
 import { BUSINESS_TYPES } from "../App";
 import { canOpenScreen } from "../utils/screens";
 import { useUiStore } from "../stores/uiStore";
+import { CopyRef } from "../components/shared/CopyRef";
 import type { MoneyMethod } from "../types";
 import { Switch } from '../components/shared/Switch';
 import { appDialog } from '../components/AppDialog';
@@ -165,6 +166,17 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [payCustomerDropdownOpen, setPayCustomerDropdownOpen] = useState(false);
   const [payMethodDisplay, setPayMethodDisplay] = useState<"modern" | "classic">("modern");
   const [payFilter, setPayFilter] = useState<"all" | "customer" | "walk-in">("all");
+
+  // Opened from search on one payment: the Payments tab with every payment showing, so search
+  // can highlight its row.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== "payment" || !isMoney) return;
+    useUiStore.getState().setSearchTarget(null);
+    if (moneyTabs.some((t) => t.id === "payments")) setActiveSubTab("payments");
+    setPayFilter("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
 
 
   // Subscribe to real-time repositories
@@ -1713,9 +1725,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                                         {pay.senderPhone && (
                                           <span className="text-[11px] text-app-text-muted font-mono">{pay.senderPhone}</span>
                                         )}
-                                        <span className="text-[11px] font-mono text-app-text-muted bg-app-bg border border-app-border rounded px-1.5 py-0.5">
-                                          {pay.referenceCode}
-                                        </span>
+                                        <CopyRef value={pay.referenceCode} label="payment reference" />
                                       </div>
                                       {pay.description && (
                                         <div className="text-[11px] text-app-text-muted font-medium mt-0.5 truncate max-w-[180px]" title={pay.description}>

@@ -721,16 +721,18 @@ export class ExpenseRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_expenses: any[]) {}
 
-  public static async getAll(): Promise<SQLiteRow<Expense>[]> {
+  /** All of this branch's expenses, or just the ones given (a search result older than the list). */
+  public static async getAll(ids?: string[]): Promise<SQLiteRow<Expense>[]> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("expenses")
       .select("*")
       .eq("business_id", activeBusinessId)
-      .is("deleted_at", null)
-      .order("date", { ascending: false });
+      .is("deleted_at", null);
+    if (ids) query = query.in("id", ids);
+    const { data, error } = await query.order("date", { ascending: false });
 
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
@@ -746,6 +748,7 @@ export class ExpenseRepository {
       categoryId: e.category_id || undefined,
       created_at: e.created_at,
       riderPayment: !!e.rider_payment,
+      refNo: e.ref_no || undefined,
       sync_status: "synced"
     }));
   }
@@ -954,16 +957,18 @@ export class InventoryAdjustmentRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_adjustments: any[]) {}
 
-  public static async getAll(): Promise<SQLiteRow<InventoryAdjustment>[]> {
+  /** All of this branch's stock movements, or just the ones given (a search result older than the list). */
+  public static async getAll(ids?: string[]): Promise<SQLiteRow<InventoryAdjustment>[]> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("inventory_adjustments")
       .select("*")
       .eq("business_id", activeBusinessId)
-      .is("deleted_at", null)
-      .order("timestamp", { ascending: false });
+      .is("deleted_at", null);
+    if (ids) query = query.in("id", ids);
+    const { data, error } = await query.order("timestamp", { ascending: false });
 
     if (error) { triggerNetworkFailureEvent(); throw error; }
 
@@ -981,6 +986,7 @@ export class InventoryAdjustmentRepository {
       batchId: a.batch_id || undefined,
       referenceNumber: a.reference_number || undefined,
       notes: a.notes ? readableIds(a.notes) : undefined,
+      refNo: a.ref_no || undefined,
       sync_status: "synced"
     }));
   }

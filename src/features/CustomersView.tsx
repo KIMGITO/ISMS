@@ -1,3 +1,4 @@
+import { CopyRef } from "../components/shared/CopyRef";
 import { toUserMessage } from "../utils/userError";
 import { customerName } from '../utils/stringUtils';
 import { SheetLayer } from '../components/shared/SheetLayer';
@@ -543,11 +544,31 @@ export default function CustomersView() {
 
   // An invoice found by search opens on its customer's invoices.
   const searchTarget = useUiStore((st) => st.searchTarget);
+  // An account entry found by search: open its customer (the effect below opens their history),
+  // or switch to history straight away when that customer is already open.
+  useEffect(() => {
+    if (searchTarget?.kind !== "ledger") return;
+    if (searchTarget.customerId !== selectedCustomerId) {
+      setSelectedCustomerId(searchTarget.customerId);
+      return;
+    }
+    setActiveDetailTab("history");
+    setHistoryFilter("all");
+    useUiStore.getState().setSearchTarget(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
 
   // A different customer starts on their money; their invoices load when that tab opens.
+  // An account entry found by search (LDG-…) opens their history, where search highlights it.
   useEffect(() => {
     const target = useUiStore.getState().searchTarget;
-    setActiveDetailTab(target?.kind === "invoice" && target.customerId === selectedCustomerId ? "invoice" : "money");
+    if (target?.kind === "ledger" && target.customerId === selectedCustomerId) {
+      setActiveDetailTab("history");
+      setHistoryFilter("all");
+      useUiStore.getState().setSearchTarget(null);
+    } else {
+      setActiveDetailTab(target?.kind === "invoice" && target.customerId === selectedCustomerId ? "invoice" : "money");
+    }
     setInvoices([]);
     setInvoicesState('idle');
     setInvoiceView('active');
@@ -1774,6 +1795,7 @@ export default function CustomersView() {
                             return (
                               <div
                                 key={ev.id}
+                                data-search-id={ev.id}
                                 className="bg-app-bg p-4 border border-app-border rounded-2xl flex flex-col gap-2.5 shadow-xs"
                               >
                                 <div className="flex flex-wrap justify-between items-start gap-2">
@@ -1792,8 +1814,9 @@ export default function CustomersView() {
                                           {ev.paymentStatusLabel}
                                         </span>
                                       </div>
-                                      <div className="text-[10px] text-app-text-muted font-mono mt-0.5">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-app-text-muted font-mono mt-0.5">
                                         {evDateStr}
+                                        {entry.refNo && <CopyRef value={entry.refNo} label="account entry" />}
                                       </div>
                                     </div>
                                   </div>

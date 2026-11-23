@@ -10,10 +10,15 @@ export type ScreenId =
   | "business-management" | "money" | "prompt" | "petty-cash" | "finance" | "production" | "settings" | "notifications" | "about" | "stock-history" | "stock-transfers" | "stock-report"
   | "suppliers" | "audit" | "accounting" | "buying" | "promotions" | "regular-orders";
 
-export type ScreenGroup = "Selling" | "Money" | "Stock" | "Team" | "Business" | "You & the app";
+// Grouped by what the business is doing, not by how the code is split (2026-11-23,
+// docs/navigation-search-improvement.md). Everyday work first, administration near the end.
+export type ScreenGroup =
+  | "Selling" | "Customers" | "Stock" | "Buying & deliveries" | "Money" | "Reports" | "Team" | "Admin" | "You & the app";
 
-/** The order groups appear in the phone's "More" sheet. */
-export const SCREEN_GROUPS: ScreenGroup[] = ["Selling", "Money", "Stock", "Team", "Business", "You & the app"];
+/** The order groups appear in the sidebar and the phone's "More" sheet. */
+export const SCREEN_GROUPS: ScreenGroup[] = [
+  "Selling", "Customers", "Stock", "Buying & deliveries", "Money", "Reports", "Team", "Admin", "You & the app",
+];
 
 export interface AppScreen {
   id: ScreenId;
@@ -26,39 +31,46 @@ export interface AppScreen {
 }
 
 export const SCREENS: AppScreen[] = [
-  { id: "home", group: "Business", title: "Home", description: "Your figures at a glance", keywords: ["dashboard", "overview", "kpi", "summary", "chart"], permissions: ["home.view"] },
-  { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out", keywords: ["shift", "clock in", "clock out", "punch", "timesheet", "alarm", "reminder", "schedule"], permissions: ["dashboard.view"] },
+  { id: "home", group: "Reports", title: "Home", description: "Your figures at a glance", keywords: ["dashboard", "overview", "kpi", "summary", "chart"], permissions: ["home.view"] },
   { id: "sell", group: "Selling", title: "Quick Sale", description: "Sell in a few taps", keywords: ["sell", "quick", "checkout", "till"], permissions: ["pos.create_sale"] },
   { id: "pos", group: "Selling", title: "POS", description: "Full checkout", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
+  { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
+  { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
+  { id: "prompt", group: "Selling", title: "Payment Prompts", description: "Send M-Pesa or Airtel prompts", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
+  { id: "customers", group: "Customers", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
+  { id: "promotions", group: "Customers", title: "Promotions & Points", description: "Points, codes and referrals", keywords: ["points", "loyalty points", "point value", "tier", "points report", "ai", "advisor", "promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage", "loyalty.view", "loyalty.configure", "customers.loyalty"] },
+  { id: "regular-orders", group: "Customers", title: "Regular Orders", description: "Customers we supply on fixed days", keywords: ["schedule", "schedules", "subscription", "standing order", "regular", "weekly", "daily", "every day", "milk round", "deliver every", "tomorrow", "recurring", "repeat order"], permissions: ["customers.view", "customers.schedules", "pos.create_sale"] },
+  { id: "feedback", group: "Customers", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products and stock", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
-  { id: "stock-report", group: "Stock", title: "Stock Report", description: "Daily and monthly report per product", keywords: ["report", "daily report", "monthly report", "opening", "closing", "closed", "milk report", "till", "not paid", "pending bills", "boss", "owner", "whatsapp report", "end of day"], permissions: ["reports.inventory", "reports.view", "reports.sales", "inventory.stock_history", "finance.view"] },
   { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Stock between branches", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way", "ask for stock", "request stock", "shortage"], permissions: ["inventory.transfer_stock", "inventory.receive_stock", "inventory.request_transfer"] },
-  { id: "buying", group: "Stock", title: "Buying", description: "Suppliers, purchases and bills", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
-  { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
-  { id: "customers", group: "Selling", title: "Loyalty", description: "Customers, points, debts and wallets", keywords: ["customers", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
+  { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
+  { id: "buying", group: "Buying & deliveries", title: "Buying", description: "Suppliers, purchases and bills", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
+  { id: "deliveries", group: "Buying & deliveries", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Payments, expenses and methods", keywords: ["payments", "expenses", "mpesa", "m-pesa", "airtel", "till", "void", "money", "cash", "payment methods", "switch off"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.airtel", "payments.verify", "payments.configure", "expenses.view", "expenses.create"] },
-  { id: "prompt", group: "Money", title: "Payment Prompts", description: "Send M-Pesa or Airtel prompts", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Money taken from the till", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finance & Accounting", description: "Profit, books and VAT", keywords: ["finance", "profit", "loss", "income", "spending", "report", "debts", "p&l", "accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock", "wallets", "points cost"], permissions: ["finance.view", "accounting.view"] },
-  { id: "feedback", group: "Business", title: "Feedback", description: "Customer reviews, suggestions and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
-  { id: "promotions", group: "Selling", title: "Promotions & Points", description: "Points, codes and referrals", keywords: ["points", "loyalty points", "point value", "tier", "points report", "ai", "advisor", "promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage", "loyalty.view", "loyalty.configure", "customers.loyalty"] },
-  { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and customer messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
-  { id: "regular-orders", group: "Selling", title: "Regular Orders", description: "Customers we supply on fixed days", keywords: ["schedule", "schedules", "subscription", "standing order", "regular", "weekly", "daily", "every day", "milk round", "deliver every", "tomorrow", "recurring", "repeat order"], permissions: ["customers.view", "customers.schedules", "pos.create_sale"] },
-  { id: "deliveries", group: "Selling", title: "Deliveries", description: "Delivery tasks for riders", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
+  { id: "stock-report", group: "Reports", title: "Stock Report", description: "Daily and monthly report per product", keywords: ["report", "daily report", "monthly report", "opening", "closing", "closed", "milk report", "till", "not paid", "pending bills", "boss", "owner", "whatsapp report", "end of day"], permissions: ["reports.inventory", "reports.view", "reports.sales", "inventory.stock_history", "finance.view"] },
+  { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out", keywords: ["shift", "clock in", "clock out", "punch", "timesheet", "alarm", "reminder", "schedule"], permissions: ["dashboard.view"] },
   { id: "workers", group: "Team", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },
-  { id: "permissions", group: "Team", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
-  { id: "ai", group: "Business", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
-  { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
-  { id: "audit", group: "Team", title: "Audit Log", description: "Who changed what", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
-  { id: "business-management", group: "Business", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
-  { id: "settings", group: "You & the app", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
+  { id: "permissions", group: "Admin", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
+  { id: "audit", group: "Admin", title: "Audit Log", description: "Who changed what", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
+  { id: "business-management", group: "Admin", title: "Business Management", description: "Branches, business details, logo and colours", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
+  { id: "settings", group: "Admin", title: "Settings", description: "Receipts, SMS, WhatsApp, backups and devices", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
+  { id: "ai", group: "You & the app", title: "Assistant", description: "Ask questions about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
   { id: "notifications", group: "You & the app", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },
   { id: "profile", group: "You & the app", title: "My Profile", description: "Your name, photo and password", keywords: ["profile", "password", "account", "pin"], permissions: [] },
   { id: "about", group: "You & the app", title: "About this app", description: "Version and updates", keywords: ["about", "version", "update", "check for updates"], permissions: [] },
 ];
 
 export const SCREEN_BY_ID = new Map(SCREENS.map((s) => [s.id, s]));
+
+/** Sort key for menus: the screen's group, then its place in SCREENS. Unknown ids go last. */
+export function screenOrder(id: string): number {
+  const i = SCREENS.findIndex((s) => s.id === id);
+  if (i < 0) return Number.MAX_SAFE_INTEGER;
+  return SCREEN_GROUPS.indexOf(SCREENS[i].group) * 1000 + i;
+}
 
 /**
  * Screens that were merged into another. Opening the old id opens the new screen at the

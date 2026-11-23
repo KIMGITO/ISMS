@@ -8,6 +8,20 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Navigation, global search, references, deliveries (2026-11-23)
+
+Regrouped menus, one search across sales/payments/expenses/stock/books/audit/deliveries with exact landing and highlight, EXP/STM/LOG/LDG references, copyable references, product-first deliveries. Migration `20261202001_record_refs_global_search.sql`. Details: [navigation-search-improvement.md](navigation-search-improvement.md). DB suite, 75 app tests and both builds pass; not clicked through in the app.
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (no problems listed).
+2. [ ] Check it on live in the SQL editor: `select ref_no from expenses order by created_at desc limit 3;` should show `EXP-2026-…`, and `select jsonb_array_length(global_search('<your business id>', 'TXN'));` should return a number, not an error.
+3. [ ] Commit and release the app (`bash release.sh`).
+4. [ ] **You:** in the app, search a receipt number, an `EXP-` number and a `JE-` number. Each should open its screen with that row glowing amber (the journal one opens the entry).
+5. [ ] **You:** tap a reference chip (e.g. a receipt number in the Sales Log). It should show "Copied", and pasting it elsewhere gives the full number. The row itself should not open.
+6. [ ] **You:** as a rider on a phone, open a delivery under Mine. Products should be listed first with quantities. Tick some, press "Mark delivered": it should ask "… items not checked" once.
+7. [ ] **You:** look over the new menu groups (sidebar and the phone's More sheet) and say if anything should sit elsewhere.
+
+---
+
 ## UI wording cleanup + update bar removed (2026-11-23)
 
 Text-only changes across the app and website, and the top update bar removed (updates show only in About this app). Details: [ui-content-audit.md](ui-content-audit.md). Type checks, 73 tests and both builds pass.

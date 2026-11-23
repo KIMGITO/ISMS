@@ -38,6 +38,8 @@ import { buildInvoiceLines, combineSameProducts, periodFor } from "../services/i
 import { contactsLine, defaultInvoiceTexts, receiptClosing } from "../services/invoice/invoiceSettings";
 import { closingOf } from "../services/invoice/invoicePdf";
 import { matchesReceipt, mentionsReceipt, receiptCode, receiptCodeIn } from "../utils/references";
+import { recordDestination, recordSearchId, describeRecord, type RecordHit } from "../services/recordSearch";
+import { SCREEN_GROUPS, screenOrder } from "../utils/screens";
 import { mergeDuplicateCredits } from "../services/invoice/invoiceData";
 import { weekText, planStock, customersForDay, addDays, dayLabel, needsDecision, stockAdvice, type RegularBoard } from "../services/regularOrders";
 import { tidyNotification } from "../services/notifications/notificationText";
@@ -1108,6 +1110,47 @@ runTest("A receipt number finds its sale and logs in any printed form", () => {
   if (receiptCode("milk") || receiptCode("1200")) throw new Error("ordinary words or prices taken for receipts");
   if (receiptCodeIn("Sold, receipt TXN-ABCD1234") !== "ABCD1234") throw new Error("log link");
   if (mentionsReceipt("TXN-FFABCD12", "ABCD12")) throw new Error("matched the middle of another code");
+});
+
+runTest("A search result opens the exact record, only on a screen the person may open", () => {
+  const hit = (kind: RecordHit["kind"], extra: Partial<RecordHit> = {}): RecordHit =>
+    ({ kind, id: "r1", ref: "X-1", title: "T", subtitle: null, rank: 100, ...extra });
+  const all = () => true;
+  const cases: [RecordHit, string, string, string?][] = [
+    [hit("sale"), "sales", "sale-r1"],
+    [hit("expense"), "money", "exp-r1", "money-expenses"],
+    [hit("payment"), "money", "pay-r1", "money-payments"],
+    [hit("stock_move"), "stock-history", "adj-r1"],
+    [hit("customer_ledger", { customer_id: "c1" }), "customers", "ledger-r1"],
+    [hit("journal", { no: 12 }), "finance", "je-r1"],
+    [hit("audit"), "audit", "audit-r1"],
+    [hit("delivery", { source: "sale" }), "deliveries", "delivery-sale-r1"],
+    [hit("order", { source: "online" }), "online-store", "order-r1"],
+    [hit("transfer"), "stock-transfers", "transfer-r1"],
+  ];
+  for (const [h, screen, spot, press] of cases) {
+    const d = recordDestination(h, all);
+    if (!d || d.screen !== screen || d.spotId !== spot || d.press !== press) throw new Error(`${h.kind}: ${JSON.stringify(d)}`);
+    if (recordSearchId(h) !== spot && h.kind !== "order") throw new Error(`${h.kind} row id`);
+  }
+  // A cashier can't open the audit log or finance: those results lead nowhere. (Expenses never
+  // reach a cashier at all: the database search doesn't return them, see global_search_test.sh.)
+  const cashier = (s: string) => canOpenScreen("Cashier", s);
+  for (const k of ["audit", "journal"] as const) {
+    if (recordDestination(hit(k, { no: 1 }), cashier)) throw new Error(`cashier reached ${k}`);
+  }
+  // Without the Deliveries screen, a till delivery opens as its receipt.
+  const d = recordDestination(hit("delivery", { source: "sale" }), (s) => s === "sales");
+  if (d?.screen !== "sales" || d.target?.kind !== "sale") throw new Error("delivery fallback");
+  const text = describeRecord(hit("expense", { ref: "EXP-2026-000123", title: "Rent", amount: 1200 }), (n) => `KSh ${n.toFixed(2)}`);
+  if (!text.title.startsWith("EXP-2026-000123") || !text.subtitle.includes("KSh 1200.00")) throw new Error(JSON.stringify(text));
+});
+
+runTest("Menus group every screen, everyday work before admin", () => {
+  for (const s of SCREENS) if (!SCREEN_GROUPS.includes(s.group)) throw new Error(`${s.id} has no group`);
+  if (!(screenOrder("pos") < screenOrder("inventory") && screenOrder("inventory") < screenOrder("finance") && screenOrder("finance") < screenOrder("settings")))
+    throw new Error("order");
+  if (screenOrder("nope") !== Number.MAX_SAFE_INTEGER) throw new Error("unknown screens go last");
 });
 
 runTest("Invoice closes like the receipt; title is only what was typed", () => {

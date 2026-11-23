@@ -23,6 +23,7 @@ import { RefundSheet } from "../components/sales/RefundSheet";
 import { loadSaleCreditNotes, REFUND_EVENT } from "../services/salesDocs";
 import { Tabs } from "../components/TabOptions";
 import QuotesPanel from "../components/sales/QuotesPanel";
+import { CopyRef } from "../components/shared/CopyRef";
 
 interface DaySection {
   key: string; // "today", "yesterday" or the day as YYYY-MM-DD
@@ -62,9 +63,22 @@ export default function SalesView() {
   const searchTarget = useUiStore((st) => st.searchTarget);
   useEffect(() => {
     if (searchTarget?.kind !== "sale") return;
-    const tx = transactions.find((t) => t.id === searchTarget.id);
-    if (tx) setSelectedTx(tx);
+    const id = searchTarget.id;
     useUiStore.getState().setSearchTarget(null);
+    const tx = transactions.find((t) => t.id === id);
+    if (tx) {
+      setSelectedTx(tx);
+      return;
+    }
+    // Older than the newest 1,000 sales this list holds: fetch just that one and open its receipt.
+    import("../services/repositories")
+      .then(({ TransactionRepository }) => TransactionRepository.getAll([id]))
+      .then((rows) => {
+        if (rows[0]) setSelectedTx(rows[0] as Transaction);
+        else showToast("Sale not found", "It may have been deleted.", undefined, "info");
+      })
+      .catch(() => showToast("Could not open the sale", "Check your connection and try again.", undefined, "error"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTarget, transactions]);
 
   // Owners and admins can delete sales older than 90 days (swipe left on a phone, right-click
@@ -219,6 +233,12 @@ export default function SalesView() {
       })
       .join(", ");
     const itemQty = tx.items ? tx.items.reduce((acc, item) => acc + item.quantity, 0) : 0;
+    // What was sold, product first: "2 × Milk 500ml, 1 × Bread and 2 more".
+    const lines = tx.items || [];
+    const products = lines
+      .slice(0, 3)
+      .map((item) => `${item.quantity} × ${titleCase(item.product?.name || 'Item')}`)
+      .join(", ") + (lines.length > 3 ? ` and ${lines.length - 3} more` : "");
 
 
     return (
@@ -263,9 +283,7 @@ export default function SalesView() {
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-mono font-bold text-app-text-muted">
-              {formatReceiptNumber(tx.id)}
-            </span>
+            <CopyRef value={formatReceiptNumber(tx.id)} label="receipt" className="font-bold text-[10px]" />
             <span
               className={`text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 ${
                 isSynced
@@ -293,10 +311,12 @@ export default function SalesView() {
             ) : null}
           </div>
 
-          <h3 className="text-xs font-semibold text-amber-500 mt-1.5">
-            {formatCurrency(tx.finalTotal)}
-          </h3>
+          {products && (
+            <h3 className="text-xs font-semibold text-app-text mt-1.5 truncate">{products}</h3>
+          )}
           <div className="flex items-center gap-2 text-[10px] text-app-text-muted mt-0.5 font-semibold">
+            <span className="text-amber-600 dark:text-amber-400 font-bold">{formatCurrency(tx.finalTotal)}</span>
+            <span>·</span>
             <span>{unitSummary || `${itemQty} items`}</span>
             <span>·</span>
             <span>{getPaymentMethodLabel(tx.paymentMethod)}</span>

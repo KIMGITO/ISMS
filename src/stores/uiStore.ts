@@ -26,8 +26,18 @@ export interface ChatMessage {
 export type SearchTarget =
   | { kind: "sale"; id: string }
   | { kind: "invoice"; customerId: string; invoiceId: string }
-  | { kind: "stock"; query: string }
-  | { kind: "feedback"; tab: "reviews" | "messages" | "reminders" };
+  | { kind: "stock"; query: string; id?: string }
+  | { kind: "feedback"; tab: "reviews" | "messages" | "reminders" }
+  // One exact record from the global search (20261202001). The screen shows it even when it is
+  // older than what it has loaded, then search centres and highlights its row.
+  | { kind: "expense"; id: string }
+  | { kind: "payment"; id: string }
+  | { kind: "journal"; id: string; no: number; at?: string }
+  | { kind: "ledger"; customerId: string; id: string }
+  | { kind: "audit"; id: string; at?: string }
+  | { kind: "delivery"; source: "sale" | "online"; id: string }
+  | { kind: "transfer"; id: string }
+  | { kind: "order"; id: string };
 
 interface UiState {
   searchTarget: SearchTarget | null;

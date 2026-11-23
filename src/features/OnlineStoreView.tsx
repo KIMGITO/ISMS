@@ -234,7 +234,7 @@ function OrdersTab({ businessId }: { businessId: string }) {
           const next = nextOrderStatus(order);
           const unpaid = order.status === 'pending_payment' || order.status === 'payment_failed';
           return (
-            <article key={order.id} className={cardClass}>
+            <article key={order.id} data-search-id={`order-${order.id}`} className={cardClass}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-bold text-app-text">Order #{order.order_number}</h3>
                 <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600">

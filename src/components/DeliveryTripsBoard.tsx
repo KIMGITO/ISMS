@@ -179,7 +179,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
                   {list.length} deliveries to {placeOf(list[0])}
                   <span className="font-normal text-app-text-muted"> · {list[0].rider_name || 'no rider yet'}</span>
                 </p>
-                <ul className="flex flex-col gap-1">{list.map((d) => <li key={keyOf(d)}>{line(d)}</li>)}</ul>
+                <ul className="flex flex-col gap-1">{list.map((d) => <li key={keyOf(d)} data-search-id={`delivery-${d.source}-${d.id}`}>{line(d)}</li>)}</ul>
                 <div className="flex flex-wrap items-end gap-2">
                   {payBox(key, list)}
                   <button
@@ -211,7 +211,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
             {free.map((d) => {
               const k = keyOf(d);
               return (
-                <li key={k} className="py-2">
+                <li key={k} data-search-id={`delivery-${d.source}-${d.id}`} className="py-2">
                   <Checkbox
                     checked={picked.includes(k)}
                     onChange={(on) => setPicked((p) => (on ? [...p, k] : p.filter((x) => x !== k)))}
@@ -269,7 +269,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
                   Customers paid {formatCurrency(t.list.reduce((s, d) => s + Number(d.delivery_fee), 0))}. Paid separately it would be{' '}
                   {formatCurrency(separatePay(t.list))}.
                 </p>
-                <ul className="flex flex-col gap-1">{t.list.map((d) => <li key={keyOf(d)}>{line(d)}</li>)}</ul>
+                <ul className="flex flex-col gap-1">{t.list.map((d) => <li key={keyOf(d)} data-search-id={`delivery-${d.source}-${d.id}`}>{line(d)}</li>)}</ul>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="flex flex-col gap-1 text-xs text-app-text-muted min-w-0 flex-1">
                     Rider gets for the trip

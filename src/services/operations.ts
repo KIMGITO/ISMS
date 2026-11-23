@@ -443,20 +443,23 @@ export interface AuditEntry {
   at: string;
   changes: Record<string, { from: unknown; to: unknown }>;
   details: Record<string, unknown>;
+  /** LOG-2026-000123 (20261202001). */
+  refNo?: string;
 }
 
 export async function listAudit(
   businessId: string,
-  opts: { since?: string; table?: string; limit?: number } = {},
+  opts: { since?: string; table?: string; limit?: number; id?: string } = {},
 ): Promise<AuditEntry[]> {
   let q = getSupabase()
     .from('audit_logs')
-    .select('id, action, table_name, record_id, details, timestamp')
+    .select('id, action, table_name, record_id, details, timestamp, ref_no')
     .eq('business_id', toUuid(businessId))
     .order('timestamp', { ascending: false })
     .limit(opts.limit ?? 300);
   if (opts.since) q = q.gte('timestamp', opts.since);
   if (opts.table) q = q.eq('table_name', opts.table);
+  if (opts.id) q = q.eq('id', opts.id);
   const { data, error } = await q;
   if (error) throw error;
   return (data || []).map((r: any) => {
@@ -471,6 +474,7 @@ export async function listAudit(
       at: r.timestamp,
       changes: (d.changes && typeof d.changes === 'object' ? d.changes : {}) as AuditEntry['changes'],
       details: d,
+      refNo: r.ref_no || undefined,
     };
   });
 }

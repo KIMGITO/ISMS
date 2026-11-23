@@ -5,7 +5,10 @@
 
 import { Tabs } from '../components/TabOptions';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, MapPin, Navigation, Phone, Route, Truck, Wallet } from 'lucide-react';
+import { CheckSquare, Clock, MapPin, Navigation, Phone, Route, Square, Truck, Wallet } from 'lucide-react';
+import { CopyRef } from '../components/shared/CopyRef';
+import { useUiStore } from '../stores/uiStore';
+import { canOpenScreen } from '../utils/screens';
 import DeliveryTripsBoard from '../components/DeliveryTripsBoard';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import { getSupabase } from '../services/supabaseClient';
@@ -42,6 +45,8 @@ interface Delivery {
   delivered_at: string | null;
   created_at?: string;
   items: string | null;
+  /** Each product with its quantity and unit (20261202001); missing before that migration. */
+  lines?: { name: string; quantity: number; unit: string | null }[];
   // Added in 20261110003; missing before that migration runs.
   payment?: string | null;
   balance_due?: number | null;
@@ -93,6 +98,11 @@ export default function RiderDeliveriesView() {
   const [tab, setTab] = useState<TabId | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [confirmFail, setConfirmFail] = useState<string | null>(null);
+  // Items the rider has ticked as packed / handed over, per delivery (this device only).
+  const [ticked, setTicked] = useState<Record<string, number[]>>({});
+  const [confirmDeliver, setConfirmDeliver] = useState<string | null>(null);
+  const toggleTick = (key: string, i: number) =>
+    setTicked((t) => ({ ...t, [key]: (t[key] || []).includes(i) ? (t[key] || []).filter((x) => x !== i) : [...(t[key] || []), i] }));
 
   const role = currentEmployee?.role ?? '';
   const isRider = role === 'Rider';
@@ -179,6 +189,81 @@ export default function RiderDeliveriesView() {
   // Open on the tab with work in it.
   const currentTab: TabId = tab ?? (active.length > 0 ? 'mine' : 'requests');
 
+  // A delivery found by search: open the tab it is on (search then highlights it). Staff who
+  // only see the trips board find recent ones there; anything else opens as its sale receipt.
+  const searchTarget = useUiStore((st) => st.searchTarget);
+  useEffect(() => {
+    if (searchTarget?.kind !== 'delivery' || mine === null || requests === null) return;
+    const { source, id } = searchTarget;
+    useUiStore.getState().setSearchTarget(null);
+    const is = (d: Delivery) => d.source === source && d.id === id;
+    if (requests.some(is)) return setTab('requests');
+    if (active.some(is)) return setTab('mine');
+    if (history.some(is)) return setTab('history');
+    if (canGroup) return setTab('trips');
+    if (source === 'sale' && canOpenScreen(role, 'sales')) {
+      useUiStore.getState().setSearchTarget({ kind: 'sale', id });
+      useUiStore.getState().setActiveTab('sales');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget, mine, requests]);
+
+  // What to deliver comes first: one line per product, quantity and unit in bold so 2 L and
+  // 500 ml can't be mixed up. On "Mine" the rider can tick each line as they pack or hand it over.
+  const renderItems = (d: Delivery, tickable: boolean) => {
+    const lines = d.lines ?? [];
+    if (lines.length === 0) return d.items ? <p className="text-sm font-medium">{d.items}</p> : null;
+    const done = ticked[keyOf(d)] || [];
+    return (
+      <div className="rounded-xl border border-app-border">
+        <p className="flex items-center justify-between px-3 pt-2 text-[11px] font-semibold text-app-text-muted">
+          <span>{lines.length} {lines.length === 1 ? 'item' : 'items'} to deliver</span>
+          {tickable && <span>{done.length} of {lines.length} checked</span>}
+        </p>
+        <ul className="divide-y divide-app-border/60">
+          {lines.map((l, i) => {
+            const isDone = done.includes(i);
+            const qty = `${Math.round(Number(l.quantity) * 10) / 10}${l.unit ? ` ${l.unit}` : ''}`;
+            const body = (
+              <>
+                {tickable && (isDone
+                  ? <CheckSquare size={18} className="shrink-0 text-emerald-600" aria-hidden />
+                  : <Square size={18} className="shrink-0 text-app-text-muted" aria-hidden />)}
+                <span className="min-w-[4.5rem] shrink-0 text-base font-bold tabular-nums">{qty}</span>
+                <span className={`min-w-0 flex-1 text-sm font-semibold break-words ${isDone ? 'text-app-text-muted' : ''}`}>{l.name}</span>
+                {tickable && isDone && <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Checked</span>}
+              </>
+            );
+            return (
+              <li key={i}>
+                {tickable ? (
+                  <button type="button" onClick={() => toggleTick(keyOf(d), i)} aria-pressed={isDone}
+                    className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left cursor-pointer">
+                    {body}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 px-3 py-2">{body}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  // Mark delivered; when some items aren't ticked, ask once first.
+  const deliver = (d: Delivery) => {
+    const n = d.lines?.length ?? 0;
+    const done = (ticked[keyOf(d)] || []).length;
+    if (n > 0 && done < n && confirmDeliver !== keyOf(d)) {
+      setConfirmDeliver(keyOf(d));
+      return;
+    }
+    setConfirmDeliver(null);
+    void setStatus(d, 'delivered');
+  };
+
   const renderDetails = (d: Delivery, showPhone: boolean) => {
     const due = Number(d.balance_due || 0);
     const place = [d.area, d.address].filter(Boolean).join(', ');
@@ -196,14 +281,14 @@ export default function RiderDeliveriesView() {
             {currentTab === 'requests' ? (d.source === 'online' ? 'Website order' : 'Till sale') : STATUS_LABELS[d.status]}
           </span>
         </div>
-        <p className="flex items-center gap-1 text-xs text-app-text-muted">
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-app-text-muted">
+          <CopyRef value={d.reference} label={d.source === 'online' ? 'order number' : 'receipt'} />
           <Clock size={12} />
-          {d.reference} ·{' '}
           {currentTab === 'requests'
             ? waitingFor(d.created_at ?? d.assigned_at)
             : new Date(d.delivered_at ?? d.assigned_at).toLocaleString()}
         </p>
-        {d.items && <p className="text-sm">{d.items}</p>}
+        {renderItems(d, currentTab === 'mine' && canComplete)}
         <p className="flex items-start gap-2 text-sm">
           <MapPin size={14} className="mt-0.5 shrink-0 text-amber-500" />
           {place || <span className="text-app-text-muted">No location given. Ask the shop.</span>}
@@ -239,7 +324,7 @@ export default function RiderDeliveriesView() {
     if (list === null) return <p className="text-sm text-app-text-muted">Loading deliveries…</p>;
     if (list.length === 0) return <p className="text-sm text-app-text-muted">{empty}</p>;
     return tripsTogether(list).map((d) => (
-      <article key={keyOf(d)} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
+      <article key={keyOf(d)} data-search-id={`delivery-${d.source}-${d.id}`} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
         {render(d)}
       </article>
     ));
@@ -351,9 +436,14 @@ export default function RiderDeliveriesView() {
                         Start delivery
                       </button>
                     )}
+                    {canComplete && d.status === 'out_for_delivery' && confirmDeliver === keyOf(d) && (
+                      <p className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="alert">
+                        {(d.lines?.length ?? 0) - (ticked[keyOf(d)] || []).length} of {d.lines?.length} items not checked. Did {d.customer_name} get everything?
+                      </p>
+                    )}
                     {canComplete && d.status === 'out_for_delivery' && (
-                      <button type="button" disabled={busy} onClick={() => setStatus(d, 'delivered')} className={primaryClass}>
-                        Mark delivered
+                      <button type="button" disabled={busy} onClick={() => deliver(d)} className={primaryClass}>
+                        {confirmDeliver === keyOf(d) ? 'Yes, all delivered' : 'Mark delivered'}
                       </button>
                     )}
                     {canComplete && d.status === 'assigned' && !requestsMissing && (
