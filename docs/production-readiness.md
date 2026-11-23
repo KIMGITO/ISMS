@@ -10,7 +10,7 @@ Plan and checklist: [ISMS_Production_Readiness_Master_Checklist.md](ISMS_Product
 |---|---|---|
 | 0. Discovery and architecture | Done | [infrastructure/architecture.md](infrastructure/architecture.md) |
 | 1. Security and data isolation | In progress: P0 fixed; P1 open (owner actions) | [security/security-assessment.md](security/security-assessment.md) |
-| 2. Financial and inventory integrity | In progress: FIN-01/02 fixed in code (push + app release pending); SEC-10 open | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
+| 2. Financial and inventory integrity | In progress: FIN-01 live; FIN-02 waits for the app release; SEC-10 open | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
 | 3. Backup and recovery | Blocked: backup secrets unset | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | 4. Cloudflare deployment | Mostly built (Workers + blue-green live); no staging DB, no custom domain | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md) |
 | 5. Monitoring and alerting | Partial (Telegram alerts); no uptime monitor | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) |

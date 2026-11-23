@@ -284,7 +284,7 @@ Checklist:
 -   [-] Confirm that failed operations do not leave partial stock or
     financial changes.
 
-> **Phase 2 status (2026-11-23):** in progress. FIN-01/FIN-02 fixed in code and tested (44 cases); live push of `20261201002` and app release pending; SEC-10 (M-Pesa STK query) open. Report: [docs/security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md).
+> **Phase 2 status (2026-11-23):** in progress. FIN-01 fixed and live (`20261201002`); FIN-02 fixed in the app, release pending; SEC-10 (M-Pesa STK query) open. Report: [docs/security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md).
 
 **Tests:** Duplicate request tests, concurrent POS/stock tests, replayed
 callback tests, interrupted transaction tests and reconciliation tests.

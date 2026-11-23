@@ -14,7 +14,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | SEC-04 | P1 | Owner's real email with test password `Admin@123` published in the public repo | Owner action |
 | SEC-05 | P1 | Possible use of SEC-01 before the fix cannot be ruled out | Owner action |
 | SEC-06 | P2 | `send-email` let any staff member send branded email with any subject, sender name and text, for any shop | Fixed (deployed v35, verified 2026-11-23) |
-| FIN-01 | P1 | Sale totals not checked against items (paid and credit sales): stock can leave while far less is booked, with no discount shown | Fixed in code (`20261201002`, push pending) |
+| FIN-01 | P1 | Sale totals not checked against items (paid and credit sales): stock can leave while far less is booked, with no discount shown | Fixed (`20261201002` live 2026-11-23, owner approved) |
 | FIN-02 | P1 | Paid sales saved as two requests (header, then items): a dropped connection leaves money booked with no items | Fixed for new app builds; older apps until retired |
 | SEC-07 | P2 | Server password minimum is 6 characters, with no other rules | Owner action (live), fixed in `config.toml` |
 | SEC-08 | P2 | No staging database; preview builds use production | Open |
@@ -72,7 +72,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 - **Evidence:** As a cashier, `record_till_sale` with 2 × 100.00 bread and `final_total` 1 was saved; books income 1.00, cash 1.00, no discount. The same for `process_customer_transaction` (credit).
 - **Impact:** A till can hide skimming: goods leave stock, little money is booked, and nothing shows in the discount reports.
 - **Fix:** `fn_check_sale_totals` (migration `20261201002`), called by both functions: total = items, discount 0..total, final = total − discount + VAT (+ fee for a charged delivery), within cent rounding. Details: [phase-2-financial-integrity.md](phase-2-financial-integrity.md).
-- **Verification:** `sale_totals_test.sh`, 44 passed. **Pending:** `supabase db push`.
+- **Verification:** `sale_totals_test.sh`, 44 passed. Applied on live 2026-11-23; both functions verified to call the check; live grants check clean. Rollback: `~/isms-backups/2026-11-23-before-sale-totals/rollback_sale_functions.sql`.
 
 ## FIN-02 · P1 · Paid sales saved in two requests
 

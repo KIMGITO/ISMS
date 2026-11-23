@@ -58,8 +58,8 @@ Regression after the change: all DB suites pass (promotions 98, referrals 74, nu
 
 ## 5. Deployment order
 
-1. `supabase db push` (applies `20261201002`), then `bash scripts/check-live-grants.sh`. Safe before the app update: the current app's promo and credit sales already send matching figures, and its plain paid sales don't use these functions.
-2. Release the app as usual. New builds save paid sales in one step.
+1. **Done 2026-11-23:** `supabase db push` applied `20261201002`; `check-live-grants.sh` clean. Safe before the app update: the current app's promo and credit sales already send matching figures, and its plain paid sales don't use these functions.
+2. **Pending (owner):** test one cash sale in `npm run dev`, then push `main` (the `fix:` commits release a patch version). New builds save paid sales in one step.
 3. Once every device runs the new build: add the same check to direct inserts (a deferred constraint trigger on `transactions` / `transaction_items`), or revoke direct `INSERT` on those tables, so FIN-02 is closed for good.
 
 ## 6. Not done yet
