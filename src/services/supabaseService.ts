@@ -26,107 +26,9 @@ export class SupabaseService {
   // PRODUCT / INVENTORY OPERATIONS (CRUD)
   // ==========================================
 
-  static async fetchProducts(businessId: string): Promise<Product[]> {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("business_id", toUuid(businessId))
-      .order("name", { ascending: true });
-
-    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
-    return (data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      price: Number(p.price),
-      cost: Number(p.cost),
-      image: p.image || "",
-      stock: Number(p.stock),
-      minStock: Number(p.min_stock),
-      unit: p.unit,
-      sku: p.sku || "",
-      description: p.description || "",
-      perishable: p.perishable,
-      expiryDays: p.expiry_days,
-      businessId: p.business_id,
-    }));
-  }
-
   // ==========================================
   // TRANSACTION / SALES LOGS OPERATIONS
   // ==========================================
-
-  static async fetchTransactions(businessId: string): Promise<Transaction[]> {
-    const supabase = getSupabase();
-    // Supabase returns at most 1,000 rows per request, so read the account's sales in
-    // pages. Without this, charts only saw the latest 1,000 sales and each device showed
-    // whatever its last load happened to include, instead of the whole account.
-    const PAGE = 1000;
-    const MAX_PAGES = 50; // 50,000 sales; beyond that, charts need a server-side summary
-    const data: any[] = [];
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const { data: rows, error } = await supabase
-        .from("transactions")
-        .select(`
-          *,
-          transaction_items (
-            *,
-            products (*)
-          )
-        `)
-        .eq("business_id", toUuid(businessId))
-        .order("timestamp", { ascending: false })
-        .order("id", { ascending: true }) // stable order, so pages never skip or repeat a sale
-        .range(page * PAGE, page * PAGE + PAGE - 1);
-
-      if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
-      data.push(...(rows || []));
-      if (!rows || rows.length < PAGE) break;
-      if (page === MAX_PAGES - 1) console.warn("[fetchTransactions] Stopped at 50,000 sales; older ones are not loaded.");
-    }
-
-    return data.map(t => ({
-      id: t.id,
-      total: Number(t.total),
-      discount: Number(t.discount),
-      tax: Number(t.tax),
-      finalTotal: Number(t.final_total),
-      paymentMethod: t.payment_method,
-      customerId: t.customer_id,
-      customerName: customerName(t.customer_name) || undefined,
-      staffId: t.staff_id,
-      staffName: t.staff_name,
-      status: t.status as any,
-      timestamp: t.timestamp,
-      note: t.note,
-      isDelivery: t.is_delivery,
-      deliveryFee: Number(t.delivery_fee),
-      deliveryMode: t.delivery_mode || 'charged',
-      riderPay: Number(t.rider_pay) || 0,
-      riderName: t.rider_name,
-      referenceId: t.reference_id || undefined,
-      businessId: t.business_id,
-      walletApplied: Number(t.wallet_applied) || 0,
-      items: (t.transaction_items || []).map((ti: any) => ({
-        product: {
-          id: ti.products.id,
-          name: ti.products.name,
-          category: ti.products.category,
-          // What the customer was charged and what the goods cost then, not today's figures
-          price: Number(ti.unit_price ?? ti.products.price),
-          cost: Number(ti.unit_cost ?? ti.products.cost),
-          image: ti.products.image || "",
-          stock: Number(ti.products.stock),
-          minStock: Number(ti.products.min_stock),
-          unit: ti.products.unit,
-          sku: ti.products.sku || "",
-        },
-        quantity: Number(ti.quantity),
-        discountPercentage: Number(ti.discount_percentage),
-      })),
-    }));
-  }
 
   static async createTransaction(tx: Transaction): Promise<any> {
     const supabase = getSupabase();
@@ -152,10 +54,12 @@ export class SupabaseService {
     let walletApplied = 0;
     if (isCreditSale && tx.customerId) {
       try {
-        const cust = await this.fetchCustomers(tx.businessId || "");
-        const customer = cust.find(c => c.id === tx.customerId);
+        // Just this customer (it used to read every customer, and missed anyone past the 1,000th).
+        const { data: customer, error: custErr } = await supabase
+          .from("customers").select("wallet_balance").eq("id", toUuid(tx.customerId)).maybeSingle();
+        if (custErr) throw custErr;
         if (customer) {
-          walletApplied = Math.min(Number(customer.walletBalance || 0), tx.finalTotal);
+          walletApplied = Math.min(Number(customer.wallet_balance || 0), tx.finalTotal);
         }
       } catch (err) {
         console.error("Failed to fetch customer wallet balance for credit sale:", err);
@@ -560,33 +464,6 @@ export class SupabaseService {
   // ==========================================
   // CUSTOMER LOYALTY OPERATIONS
   // ==========================================
-
-  static async fetchCustomers(businessId: string): Promise<Customer[]> {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("business_id", toUuid(businessId))
-      .order("name", { ascending: true });
-
-    if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
-
-    return (data || []).map(c => ({
-      id: c.id,
-      name: customerName(c.name),
-      phone: c.phone,
-      email: c.email || "",
-      loyaltyPoints: c.loyalty_points,
-      joinDate: c.join_date,
-      tier: c.tier as any,
-      purchasesCount: c.purchases_count,
-      debtBalance: Number(c.debt_balance),
-      walletBalance: Number(c.wallet_balance),
-      accountNumber: c.account_number || undefined,
-      businessId: c.business_id,
-      description: c.description || "",
-    }));
-  }
 
   static async fetchCustomerLedger(customerId: string): Promise<CustomerLedgerEntry[]> {
     const supabase = getSupabase();

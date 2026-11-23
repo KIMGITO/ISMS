@@ -33,6 +33,96 @@ const triggerNetworkFailureEvent = () => {
   }
 };
 
+/**
+ * Every row of a query, read 1,000 at a time (the API returns at most 1,000 per request, so a
+ * shop with 1,500 products used to see only the first 1,000 at the till). `page` builds the
+ * query for one range; its order must be stable (end with "id").
+ */
+export async function allPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  maxRows = 50_000,
+): Promise<T[]> {
+  const SIZE = 1000;
+  const out: T[] = [];
+  for (let from = 0; from < maxRows; from += SIZE) {
+    const { data, error } = await page(from, from + SIZE - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < SIZE) break;
+  }
+  return out;
+}
+
+/**
+ * Keeps a list current from live changes without reading the whole list again: the change
+ * already carries the row. (Every sale changes stock, and each change used to make every open
+ * device download every product again.) Rows with deleted_at set leave the list.
+ */
+export function liveList<T extends { id: string }>(
+  map: (row: any) => T,
+  sortKey: (item: T) => string,
+  emit: (list: T[]) => void,
+) {
+  let current: T[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const publish = () => {
+    timer = undefined;
+    emit(current);
+  };
+  return {
+    set(list: T[]) {
+      current = list;
+      if (timer) { clearTimeout(timer); timer = undefined; }
+      emit(current);
+    },
+    apply(payload: any) {
+      const row = payload?.new && Object.keys(payload.new).length ? payload.new : null;
+      const id = String(row?.id ?? payload?.old?.id ?? "");
+      if (!id) return false;
+      const was = current.findIndex((x) => String(x.id) === id);
+      const rest = was < 0 ? current : [...current.slice(0, was), ...current.slice(was + 1)];
+      if (payload.eventType === "DELETE" || !row || row.deleted_at) {
+        current = rest;
+      } else {
+        const item = map(row);
+        const key = sortKey(item);
+        if (was >= 0 && sortKey(current[was]) === key) {
+          // Same name (a stock or price change): keep its place.
+          current = [...current.slice(0, was), item, ...current.slice(was + 1)];
+        } else {
+          const at = rest.findIndex((x) => sortKey(x).localeCompare(key) > 0);
+          current = at < 0 ? [...rest, item] : [...rest.slice(0, at), item, ...rest.slice(at)];
+        }
+      }
+      // A sale changes several products at once: show them together.
+      if (!timer) timer = setTimeout(publish, 300);
+      return true;
+    },
+    stop() { if (timer) clearTimeout(timer); },
+  };
+}
+
+/** One products row as the app's Product. */
+function rowToProduct(p: any): SQLiteRow<Product> {
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    price: Number(p.price),
+    cost: Number(p.cost),
+    image: p.image || "",
+    stock: Number(p.stock),
+    minStock: Number(p.min_stock),
+    unit: p.unit,
+    sku: p.sku || "",
+    description: p.description || "",
+    perishable: p.perishable,
+    expiryDays: p.expiry_days,
+    businessId: p.business_id,
+    sync_status: "synced"
+  };
+}
+
 // ─────────────────────────────────────────────
 // PRODUCT REPOSITORY (With Soft Deletion)
 // ─────────────────────────────────────────────
@@ -40,36 +130,30 @@ export class ProductRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_products: any[]) {}
 
+  /** Reloads the product list the open subscription shows (pull to refresh). */
+  private static reloadActive: (() => Promise<void>) | null = null;
+  public static async reload(): Promise<void> {
+    await this.reloadActive?.();
+  }
+
   public static async getAll(): Promise<SQLiteRow<Product>[]> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
-    
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("business_id", activeBusinessId)
-      .is("deleted_at", null)
-      .order("name");
 
-    if (error) { triggerNetworkFailureEvent(); throw error; }
-    
-    return (data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      price: Number(p.price),
-      cost: Number(p.cost),
-      image: p.image || "",
-      stock: Number(p.stock),
-      minStock: Number(p.min_stock),
-      unit: p.unit,
-      sku: p.sku || "",
-      description: p.description || "",
-      perishable: p.perishable,
-      expiryDays: p.expiry_days,
-      businessId: p.business_id,
-      sync_status: "synced"
-    }));
+    try {
+      const rows = await allPages<any>((from, to) => supabase
+        .from("products")
+        .select("*")
+        .eq("business_id", activeBusinessId)
+        .is("deleted_at", null)
+        .order("name")
+        .order("id")
+        .range(from, to));
+      return rows.map(rowToProduct);
+    } catch (error) {
+      triggerNetworkFailureEvent();
+      throw error;
+    }
   }
 
   public static async getById(id: string): Promise<SQLiteRow<Product> | null> {
@@ -104,8 +188,10 @@ export class ProductRepository {
   }
 
   public static subscribe(callback: (products: SQLiteRow<Product>[]) => void): () => void {
-    // Trigger initial load
-    this.getAll().then(callback).catch(console.error);
+    const list = liveList(rowToProduct, (p) => `${String(p.name).toLowerCase()} ${p.id}`, callback);
+    const reload = () => this.getAll().then((all) => list.set(all));
+    this.reloadActive = reload;
+    reload().catch(console.error);
 
     if (typeof global !== "undefined" && (global as any).IS_TEST) {
       return () => {};
@@ -120,11 +206,15 @@ export class ProductRepository {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "products", filter: `business_id=eq.${activeBusinessId}` },
-        () => { this.getAll().then(callback).catch(console.error); }
+        (payload: any) => { if (!list.apply(payload)) this.getAll().then((all) => list.set(all)).catch(console.error); }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (this.reloadActive === reload) this.reloadActive = null;
+      list.stop();
+      supabase.removeChannel(channel);
+    };
   }
 
   public static async add(product: Omit<Product, "id" | "created_at" | "updated_at"> & { id?: string }): Promise<SQLiteRow<Product>> {
@@ -228,6 +318,12 @@ export class TransactionRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_transactions: any[]) {}
 
+  /** Reloads the sales list the open subscription shows (refresh, back online, offline sales sent). */
+  private static reloadActive: (() => Promise<void>) | null = null;
+  public static async reload(): Promise<void> {
+    await this.reloadActive?.();
+  }
+
   /** All of this branch's sales, or just the ones given (after a live change). */
   public static async getAll(ids?: string[]): Promise<SQLiteRow<Transaction>[]> {
     const supabase = getSupabase();
@@ -244,7 +340,8 @@ export class TransactionRepository {
       `)
       .eq("business_id", activeBusinessId)
       .is("deleted_at", null);
-    if (ids) query = query.in("id", ids);
+    // The newest 1,000 (the API's row cap, now explicit). Older sales: Sales log search and reports.
+    query = ids ? query.in("id", ids) : query.limit(1000);
     const { data, error } = await query.order("timestamp", { ascending: false });
 
     if (error) { triggerNetworkFailureEvent(); throw error; }
@@ -333,7 +430,9 @@ export class TransactionRepository {
       }
     };
 
-    this.getAll().then(emit).catch(console.error);
+    const reload = () => this.getAll().then(emit);
+    this.reloadActive = reload;
+    reload().catch(console.error);
 
     setTimeout(() => {
       if (isCancelled) return;
@@ -373,6 +472,7 @@ export class TransactionRepository {
 
     return () => { 
       isCancelled = true;
+      if (this.reloadActive === reload) this.reloadActive = null;
       if (flushTimer) clearTimeout(flushTimer);
       if (activeChannel) {
         const supabase = getSupabase();
@@ -470,19 +570,30 @@ export class CustomerRepository {
   // ── FIX: Add No-Op Stub to prevent SyncEngine crashes ──
   public static setAll(_customers: any[]) {}
 
+  /** Reloads the customer list the open subscription shows (pull to refresh). */
+  private static reloadActive: (() => Promise<void>) | null = null;
+  public static async reload(): Promise<void> {
+    await this.reloadActive?.();
+  }
+
   public static async getAll(): Promise<SQLiteRow<Customer>[]> {
     const supabase = getSupabase();
     const activeBusinessId = getActiveBusinessId();
 
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("business_id", activeBusinessId)
-      .is("deleted_at", null)
-      .order("name");
-
-    if (error) { triggerNetworkFailureEvent(); throw error; }
-    return (data || []).map(rowToCustomer);
+    try {
+      const rows = await allPages<any>((from, to) => supabase
+        .from("customers")
+        .select("*")
+        .eq("business_id", activeBusinessId)
+        .is("deleted_at", null)
+        .order("name")
+        .order("id")
+        .range(from, to));
+      return rows.map(rowToCustomer);
+    } catch (error) {
+      triggerNetworkFailureEvent();
+      throw error;
+    }
   }
 
   public static async getById(id: string): Promise<SQLiteRow<Customer> | null> {
@@ -501,11 +612,13 @@ export class CustomerRepository {
   }
 
   public static subscribe(callback: (customers: SQLiteRow<Customer>[]) => void): () => void {
-    callback([]); 
-
-    this.getAll().then(callback).catch((err) => {
+    const list = liveList(rowToCustomer, (c) => `${String(c.name).toLowerCase()} ${c.id}`, callback);
+    list.set([]);
+    const reload = () => this.getAll().then((all) => list.set(all));
+    this.reloadActive = reload;
+    reload().catch((err) => {
       console.error(err);
-      callback([]);
+      list.set([]);
     });
 
     if (typeof global !== "undefined" && (global as any).IS_TEST) {
@@ -519,12 +632,16 @@ export class CustomerRepository {
     const filterString = `business_id=eq.${activeBusinessId}`;
     const channel = supabase
       .channel(`realtime-customers-${activeBusinessId}-${channelId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "customers", filter: filterString }, () => {
-        this.getAll().then(callback).catch(console.error);
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers", filter: filterString }, (payload: any) => {
+        if (!list.apply(payload)) this.getAll().then((all) => list.set(all)).catch(console.error);
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (this.reloadActive === reload) this.reloadActive = null;
+      list.stop();
+      supabase.removeChannel(channel);
+    };
   }
 
   public static async add(customer: Omit<Customer, "id" | "created_at" | "updated_at"> & { id?: string }): Promise<SQLiteRow<Customer>> {

@@ -19,6 +19,7 @@ import { hasRolePermission, SYSTEM_ROLES, ALL_PERMISSIONS } from "../utils/permi
 import { referralShareText } from "../services/promotions";
 import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
+import { allPages, liveList } from "../services/repositories";
 import { arrangeMobileNav, MAX_BOTTOM_TABS, MORE_TAB_ID } from "../utils/mobileNav";
 import { toMsisdn } from "../../supabase/functions/mpesa-payments/phone";
 import { cardDetails, fromSubunits, keyEnvironment, newReference, signatureMatches, toSubunits, transactionOutcome } from "../../supabase/functions/card-payments/paystack";
@@ -1547,6 +1548,43 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
   eq([plan[0].level, plan[0].shortOn, plan[0].orderMore], ["short", "2026-11-19", 25], "short tomorrow by 25");
   eq(stockAdvice(plan[0], "2026-11-18"), "Runs out tomorrow. Order about 25 L more.", "what to order");
 });
+
+(async () => {
+  const name = "Lists: every page is read, and live changes update the list in place";
+  try {
+    const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
+    // 2,500 rows come back as 1,000 + 1,000 + 500.
+    const rows = Array.from({ length: 2500 }, (_, i) => i);
+    const asked: string[] = [];
+    const got = await allPages<number>(async (from, to) => { asked.push(`${from}-${to}`); return { data: rows.slice(from, to + 1), error: null }; });
+    eq([got.length, asked], [2500, ["0-999", "1000-1999", "2000-2999"]], "three pages, all rows");
+    const exact = await allPages<number>(async (from, to) => ({ data: rows.slice(0, 1000).slice(from, to + 1), error: null }));
+    eq(exact.length, 1000, "exactly 1,000 rows: one more (empty) page, no more");
+    let failed = false;
+    await allPages(async () => ({ data: null, error: new Error("offline") })).catch(() => { failed = true; });
+    eq(failed, true, "an error is passed on, not an empty list");
+
+    let shown: { id: string; name: string; stock: number }[] = [];
+    const list = liveList((r: any) => ({ id: r.id, name: r.name, stock: Number(r.stock) }), (p) => p.name.toLowerCase(), (l) => { shown = l; });
+    list.set([{ id: "1", name: "Bread", stock: 5 }, { id: "2", name: "Milk", stock: 9 }]);
+    list.apply({ eventType: "UPDATE", new: { id: "2", name: "Milk", stock: 8 }, old: { id: "2" } });
+    list.apply({ eventType: "INSERT", new: { id: "3", name: "Eggs", stock: 30 }, old: {} });
+    list.apply({ eventType: "UPDATE", new: { id: "1", name: "Bread", stock: 5, deleted_at: "2026-11-23" }, old: { id: "1" } });
+    eq(shown.map((p) => p.id), ["1", "2"], "changes wait a moment, so a sale's lines show together");
+    await new Promise((r) => setTimeout(r, 350));
+    eq(shown.map((p) => [p.name, p.stock]), [["Eggs", 30], ["Milk", 8]], "new item in name order, stock changed, deleted item gone");
+    list.apply({ eventType: "DELETE", new: {}, old: { id: "3" } });
+    await new Promise((r) => setTimeout(r, 350));
+    eq(shown.map((p) => p.id), ["2"], "a deleted row leaves");
+    eq(list.apply({ eventType: "UPDATE", new: {}, old: {} }), false, "a change without an id asks for a full reload");
+    list.stop();
+    console.log(`✅ TEST PASSED: ${name}`);
+  } catch (e) {
+    console.error(`❌ TEST FAILED: ${name}`);
+    console.error(e);
+    process.exit(1);
+  }
+})();
 
 (async () => {
   const name = "Paystack webhooks are only trusted with the right signature";

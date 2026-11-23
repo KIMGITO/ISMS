@@ -56,6 +56,7 @@ import { configManager } from './services/configManager';
 import { useSystemHealthStore } from './stores/systemHealthStore';
 import { SystemHealthService } from './services/systemHealthService';
 import { SupabaseService } from './services/supabaseService';
+import { ProductRepository, CustomerRepository } from './services/repositories';
 import { useAuthStore } from './stores/authStore';
 import { useUiStore } from './stores/uiStore';
 import { useInventoryStore } from './stores/inventoryStore';
@@ -1218,19 +1219,9 @@ export default function App() {
           // 3. Fetch products and customers for the active business
           const currentBizId = useBusinessStore.getState().activeBusinessId;
           if (currentBizId && currentBizId !== 'biz-1') {
-            const fetchedProds = await SupabaseService.fetchProducts(
-              currentBizId,
-            );
-            if (fetchedProds) {
-              useInventoryStore.getState().setProducts(fetchedProds);
-            }
-
-            const fetchedCusts = await SupabaseService.fetchCustomers(
-              currentBizId,
-            );
-            if (fetchedCusts) {
-              useCustomerStore.getState().setCustomers(fetchedCusts);
-            }
+            // The open product and customer lists reload themselves (they used to be
+            // downloaded here in full and then thrown away).
+            await Promise.all([ProductRepository.reload(), CustomerRepository.reload()]);
 
             // Receipt, printer, SMS… settings (kept on the device between refreshes)
             await useBusinessStore.getState().fetchAllIntegrationConfigs();

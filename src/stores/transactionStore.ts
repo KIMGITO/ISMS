@@ -119,16 +119,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => {
       await get().loadTransactionsFromServer();
     },
 
+    // Reloads the branch's sales list (the newest 1,000, what the screens show). It used to
+    // download every sale with its lines, up to 50,000, and then throw the result away.
     loadTransactionsFromServer: async () => {
       const businessId = useBusinessStore.getState().activeBusinessId;
       if (businessId && businessId !== "biz-1") {
         set({ isSyncing: true });
         try {
-          const fetchedTx = await SupabaseService.fetchTransactions(businessId);
-          if (fetchedTx) {
-            TransactionRepository.setAll(fetchedTx);
-            set({ lastSyncedAt: new Date().toISOString() });
-          }
+          await TransactionRepository.reload();
+          set({ lastSyncedAt: new Date().toISOString() });
         } finally {
           set({ isSyncing: false });
         }

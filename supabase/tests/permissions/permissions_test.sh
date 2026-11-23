@@ -82,5 +82,21 @@ ok  "cashier marks itself online" "$(as cash "select touch_my_presence('$B')")"
 eq  "cashier is online" "$(sql "select bool_and(last_seen_at is not null) from employees where business_id='$B' and user_id='$CASH_USER'")" "t"
 eq  "cashier can't write staff records" "$(as cash "update employees set name='Hacked' where business_id='$B' returning name")" ""
 
+echo "-- answers kept for one request (20261201005) follow changes made in that request"
+# One transaction, like one API request: ask, change, ask again.
+in_one(){ sql "BEGIN; SELECT set_config('request.jwt.claims','{\"sub\":\"${UID_OF[cash]}\",\"role\":\"authenticated\"}',true) \\g /dev/null
+SET LOCAL role authenticated;
+$1
+ROLLBACK;"; }
+grant Cashier reports.sales false
+eq  "a new grant counts within the same request" "$(in_one "SELECT has_permission('$B','reports.sales');
+RESET role; INSERT INTO role_permissions (business_id,role,permission,granted) VALUES ('$B','Cashier','reports.sales',true)
+  ON CONFLICT (business_id,role,permission) DO UPDATE SET granted=true; SET LOCAL role authenticated;
+SELECT has_permission('$B','reports.sales');" | tr '\n' ' ')" "f t "
+eq  "a removed member loses access within the same request" "$(in_one "SELECT has_permission('$B','pos.create_sale'), '$B' = ANY(get_user_business_ids());
+RESET role; UPDATE business_memberships SET status='Suspended' WHERE business_id='$B' AND user_id='$CASH_USER'; SET LOCAL role authenticated;
+SELECT has_permission('$B','pos.create_sale'), '$B' = ANY(get_user_business_ids());" | tr '\n' ' ')" "t|t f|f "
+eq  "the next request asks again (nothing kept)" "$(as cash "select current_setting('isms_hp.gen', true) is null or current_setting('isms_hp.gen', true) = ''")" "t"
+
 sql "DELETE FROM role_permissions WHERE business_id='$B'; DELETE FROM invitations WHERE business_id='$B'" >/dev/null
 echo; echo "passed $PASS, failed $FAIL"; [ $FAIL -eq 0 ]
