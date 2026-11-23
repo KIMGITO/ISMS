@@ -39,6 +39,21 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | REL-01 | P2 | Local `npm run dev` uses the live database; dev testing writes real records | Open (needs staging, WEB-03) |
 | REL-02 | P2 | `main` unprotected (same as SEC-09) | Owner action |
 | REL-03 | P3 | Migrations pushed by hand with no gate; live could differ from the files unnoticed | Fixed in code (`db-push.sh`, `db-checks.yml`; details in [release-safety.md](../deployment/release-safety.md)) |
+| PERF-01 | P2 | Row-security functions evaluated per row (sales list 1 s on live for 45 sales) | Fixed in code (migration 20261201005), not live ([performance.md](../deployment/performance.md)) |
+| PERF-02 | P2 | App downloaded every sale/product/customer and threw it away | Fixed in code, not released |
+| PERF-03 | P2 | Every product change reloaded every product on every device | Fixed in code, not released |
+| PERF-04 | P2 | Products, customers and the credit-sale wallet lookup cut off at 1,000 rows | Fixed in code, not released |
+| PERF-05 | P3 | Scheduler log never cleaned (~180 MB/year) | Fixed in code (migration 20261201005), not live |
+| PERF-06 | P3 | Home and charts computed from the newest 1,000 sales | Open |
+| PERF-07 | P3 | Web app is one 3.4 MB script | Open |
+| PERF-08 | P3 | ~25 live subscriptions per app; `users` followed without filter | Open |
+| EXP-01 | P3 | No per-business usage quota | Open ([expansion.md](../deployment/expansion.md)) |
+| EXP-02 | P3 | No dedicated two-tenant isolation suite | Open |
+| EXP-03 | P3 | Business currency stored but unused (always KSh) | Open, before another country |
+| EXP-04 | P3 | Business days cut in Nairobi time everywhere | Open, before a business outside UTC+3 |
+| EXP-05 | P3 | Phone handling assumes +254 | Open, before another country |
+| EXP-06 | P2 | Privacy policy doesn't disclose EU hosting or every processor; ODPC registration unconfirmed | Owner action (adviser) |
+| EXP-07 | P3 | No retention for notifications/audit log; no "erase customer" tool | Open
 
 ---
 

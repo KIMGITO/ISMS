@@ -6,6 +6,23 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 ---
 
+## Phase 9: expansion (2026-11-23)
+
+Report: [deployment/expansion.md](deployment/expansion.md). Nothing to deploy; the other findings are design work for when expansion starts.
+
+1. [ ] **You:** ask a Kenyan data protection adviser two things (EXP-06): does ISMS need to register with the ODPC, and is the privacy policy enough for data stored in the EU (Supabase, Paris) and the processors it uses (Cloudflare, AI providers)? Then update the website's privacy page (`website/src/infoPages.ts` → `privacy`) as advised. The page should name where data is stored and every processor.
+2. [ ] **You:** choose how long to keep notifications and the audit log (for example 1 year and 2 years; EXP-07). Then ask for the cleanup job and the "erase customer" tool to be built.
+
+## Phase 8: performance (2026-11-23)
+
+Report: [deployment/performance.md](deployment/performance.md). The database change and the app change are independent of each other; both are safe with old and new app versions.
+
+1. [ ] Apply the database change after Phase 6 step 1 (website deploy): `bash scripts/db-push.sh`. The same push applies `20261201004` (Phase 6) and `20261201005` (this phase), and it should end with "Live now has every migration in this folder, unchanged, and its access rules are right." Then `SELECT jobname FROM cron.job WHERE jobname = 'prune-cron-history';` should return one row.
+2. [ ] Release the app: `git push` (with the Phase 7 push). After the update, open the app on two devices as a cashier and sell one item on the first. On the second, that product's stock should change within about a second, and the browser's Network tab should show no new `products` request.
+3. [ ] A week after step 1, in the SQL editor: `SELECT calls, round(mean_exec_time) ms FROM pg_stat_statements WHERE query LIKE '%transaction_items_1%' ORDER BY calls DESC LIMIT 3;` The sales-list averages should be well under the old 650–1,000 ms. Record the numbers in performance.md section 1.
+
+---
+
 ## Phase 7: release safety (2026-11-23)
 
 Report: [deployment/release-safety.md](deployment/release-safety.md). From now on push migrations with `bash scripts/db-push.sh`, not a bare `npx supabase db push`.

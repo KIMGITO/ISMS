@@ -469,25 +469,27 @@ businesses. These are planning scenarios, not capacity claims.
 
 Checklist:
 
--   [ ] Establish current response-time and error-rate baselines.
--   [ ] Identify slow database queries and missing indexes.
--   [ ] Review pagination and large data retrieval.
--   [ ] Identify N+1 requests and unnecessary realtime subscriptions.
--   [ ] Review connection pooling and database connection limits.
--   [ ] Review large tables and retention requirements.
--   [ ] Review frontend bundle size and asset delivery.
--   [ ] Evaluate caching without exposing private data.
--   [ ] Evaluate queues and background workers for slow or retryable
+-   [x] Establish current response-time and error-rate baselines.
+-   [x] Identify slow database queries and missing indexes.
+-   [x] Review pagination and large data retrieval.
+-   [x] Identify N+1 requests and unnecessary realtime subscriptions.
+-   [x] Review connection pooling and database connection limits.
+-   [x] Review large tables and retention requirements.
+-   [x] Review frontend bundle size and asset delivery.
+-   [x] Evaluate caching without exposing private data.
+-   [x] Evaluate queues and background workers for slow or retryable
     tasks.
--   [ ] Load-test critical workflows in an isolated environment.
--   [ ] Test concurrent logins, sales, inventory updates and payment
+-   [x] Load-test critical workflows in an isolated environment.
+-   [-] Test concurrent logins, sales, inventory updates and payment
     callbacks.
--   [ ] Measure throughput, latency, error rates and resource
+-   [x] Measure throughput, latency, error rates and resource
     consumption.
--   [ ] Recommend scaling changes only when measurements justify them.
+-   [x] Recommend scaling changes only when measurements justify them.
 
 **Exit criteria:** A performance baseline, repeatable load tests and
 evidence-based scaling plan exist.
+
+**Status (2026-11-23):** measured and fixed in code, not live. Baseline from live `pg_stat_statements` plus a local copy with a 50,000-sale branch; repeatable `scripts/perf/` (seed, busiest reads, load test). Row security answers cached per request (migration 20261201005): reads 2–4× faster, load-test throughput doubled. App no longer downloads and discards every sale, product and customer; product changes merge in place; lists past 1,000 rows complete. `[-]` logins: no Auth server in the local copy. Open: PERF-06 to 08. Report: `docs/deployment/performance.md`.
 
 ## Phase 9 --- Multi-tenant and geographic expansion
 
@@ -496,21 +498,23 @@ weakening isolation or reliability.
 
 Checklist:
 
--   [ ] Review tenant and branch data model.
--   [ ] Verify user membership across businesses and branches.
--   [ ] Review tenant-specific configuration and permissions.
--   [ ] Assess per-tenant usage limits and abuse controls.
--   [ ] Review currency precision and multi-currency requirements.
--   [ ] Review time-zone handling and date boundaries.
--   [ ] Assess data retention and deletion requirements.
--   [ ] Review applicable data protection and data residency obligations
+-   [x] Review tenant and branch data model.
+-   [x] Verify user membership across businesses and branches.
+-   [x] Review tenant-specific configuration and permissions.
+-   [x] Assess per-tenant usage limits and abuse controls.
+-   [x] Review currency precision and multi-currency requirements.
+-   [x] Review time-zone handling and date boundaries.
+-   [x] Assess data retention and deletion requirements.
+-   [-] Review applicable data protection and data residency obligations
     for target markets.
--   [ ] Assess regional hosting and disaster recovery requirements.
--   [ ] Document when separate databases, regions or services become
+-   [x] Assess regional hosting and disaster recovery requirements.
+-   [x] Document when separate databases, regions or services become
     justified.
 
 **Exit criteria:** A documented expansion design exists and does not
 rely on untested assumptions.
+
+**Status (2026-11-23):** reviewed and documented; no code change needed today. Tenant isolation sound (row security by `business_id`, role per business, tested in CI); Kenya is built in (KSh, Nairobi time, +254, M-Pesa, eTIMS), with the switches to change it listed. `[-]` data protection: adviser review and ODPC registration are owner actions; the privacy policy should disclose EU hosting (EXP-06). Report: `docs/deployment/expansion.md`.
 
 ## Phase 10 --- Cost, operations and final readiness
 

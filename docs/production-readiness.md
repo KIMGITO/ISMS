@@ -18,7 +18,9 @@ Everything left to do, step by step: [TO_FINISH.md](TO_FINISH.md).
 | 5. Monitoring and alerting | Built: database watchdog + health check, tested on a test DB; not on live; uptime monitor needs the owner | [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md) |
 | 6. Network, API and attack resistance | Built: callback hardening, body caps, promo guess limit, abuse alerts, CI scans; tested on a test DB; not on live; pen test needs the owner | [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md) |
 | 7. CI/CD and release safety | Built: DB checks + security checks gate every release, `db-push.sh` gates live migrations; first CI run on next push; staging and branch protection need the owner | [deployment/release-safety.md](deployment/release-safety.md) |
-| 8–10 | Not started | |
+| 8. Performance and growth | Measured and fixed in code: row-security cache (reads 2–4× faster, load-test throughput 2×), no more discarded full downloads, product changes merged in place, lists past 1,000 rows; repeatable load tests; growth plan. Not live | [deployment/performance.md](deployment/performance.md) |
+| 9. Multi-tenant and expansion | Reviewed: isolation sound; Kenya built in (currency, time zone, phone, payments, tax) with the changes listed; privacy policy needs EU hosting disclosure and adviser review | [deployment/expansion.md](deployment/expansion.md) |
+| 10 | Not started | |
 
 ## Open risks
 
@@ -48,6 +50,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 5. **Phase 4:** check Supabase Auth URL Configuration (WEB-07); enable R2 when redoing Phase 3; move kaykays.com DNS to Cloudflare when ready (WEB-05).
 6. **Phase 5:** after `db push` + `functions deploy ops-alert`, run `SELECT public.run_ops_watchdog(true);` and create the uptime monitors ([monitoring-and-alerting.md](operations/monitoring-and-alerting.md) section 5).
 7. Push migrations with `bash scripts/db-push.sh` (it runs `check-live-grants.sh` after the push), never a bare `supabase db push`.
+8. **EXP-06:** have a data protection adviser review the privacy policy (EU hosting, processors) and confirm whether ISMS must register with the ODPC.
 
 ## Documentation map
 
@@ -58,6 +61,8 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Threat register | [security/threat-register.md](security/threat-register.md) |
 | Financial integrity (Phase 2) | [security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md) |
 | Attack resistance (Phase 6) | [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md) |
+| Performance and growth (Phase 8) | [deployment/performance.md](deployment/performance.md) |
+| Expansion: tenants, countries, data protection (Phase 9) | [deployment/expansion.md](deployment/expansion.md) |
 | Roles and permissions | [ROLES_AND_ACCESS.md](ROLES_AND_ACCESS.md) |
 | Backup and recovery | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md); Phase 5: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md), [operations/incident-response.md](operations/incident-response.md) |
