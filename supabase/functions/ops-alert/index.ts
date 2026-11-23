@@ -18,8 +18,10 @@ import {
   errorResponse,
   verifyUserMembership,
   enforceRateLimit,
+  corsHeaders,
 } from "../shared/cors.ts";
 import { sendAlert, htmlEscape } from "../shared/telegram.ts";
+import { BodyTooLarge, readJson, safeEqual, tooLarge } from "../shared/guard.ts";
 
 const SEVERITY: Record<string, { label: string; icon: string }> = {
   blocking: { label: "Can't work", icon: "🚨" },
@@ -53,7 +55,7 @@ function callerKey(req: Request): string {
 async function isServiceRole(req: Request): Promise<boolean> {
   const token = callerKey(req);
   if (token.length < 20) return false;
-  if (token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || confirmedServiceKeys.has(token)) return true;
+  if (safeEqual(token, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || confirmedServiceKeys.has(token)) return true;
 
   const url = Deno.env.get("SUPABASE_URL");
   if (!url) return false;
@@ -228,8 +230,9 @@ Deno.serve(async (req) => {
 
     let body: any;
     try {
-      body = await req.json();
-    } catch {
+      body = await readJson(req, 64 * 1024);
+    } catch (e) {
+      if (e instanceof BodyTooLarge) return tooLarge(corsHeaders);
       return errorResponse("Invalid JSON body.", 400);
     }
 

@@ -6,6 +6,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { enforceRateLimit } from "../shared/cors.ts";
+import { BodyTooLarge, readText, safeEqual, securityEvent } from "../shared/guard.ts";
 import { stkPush } from "../customer-checkout/daraja.ts";
 import { respond, UssdContext } from "./menu.ts";
 
@@ -94,12 +95,20 @@ async function placeOrder(admin: any, accountId: string, msisdn: string, action:
 Deno.serve(async (req) => {
   const expected = Deno.env.get("USSD_CALLBACK_TOKEN");
   const token = new URL(req.url).searchParams.get("token");
-  if (req.method !== "POST" || !expected || token !== expected) {
+  if (req.method !== "POST" || !safeEqual(token, expected)) {
+    await securityEvent("bad_token", "ussd", req);
     return new Response("Forbidden", { status: 403 });
   }
 
   try {
-    const form = await req.formData();
+    // Africa's Talking posts a small url-encoded form.
+    let form: URLSearchParams;
+    try {
+      form = new URLSearchParams(await readText(req, 8 * 1024));
+    } catch (e) {
+      if (e instanceof BodyTooLarge) return reply("END Request too large.");
+      throw e;
+    }
     const msisdn = String(form.get("phoneNumber") ?? "").replace(/\D/g, "");
     const text = String(form.get("text") ?? "");
     const slug = Deno.env.get("USSD_SHOP_SLUG");

@@ -4,7 +4,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { handleCors, jsonResponse, errorResponse, enforceRateLimit, clientIp } from "../shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse, enforceRateLimit, clientIp, corsHeaders } from "../shared/cors.ts";
+import { BodyTooLarge, readJson, tooLarge } from "../shared/guard.ts";
 
 const OTP_TYPES = ["signup", "password_reset"];
 const MIN_PASSWORD_LENGTH = 8;
@@ -39,8 +40,9 @@ Deno.serve(async (req) => {
   try {
     let body: any;
     try {
-      body = await req.json();
-    } catch {
+      body = await readJson(req, 8 * 1024);
+    } catch (e) {
+      if (e instanceof BodyTooLarge) return tooLarge(corsHeaders);
       return errorResponse("Invalid request.", 400);
     }
 

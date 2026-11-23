@@ -4,7 +4,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { handleCors, jsonResponse, errorResponse, clientIp } from "../shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse, clientIp, corsHeaders } from "../shared/cors.ts";
+import { BodyTooLarge, MAX_PUBLIC_JSON_BYTES, readJson, tooLarge } from "../shared/guard.ts";
 import { loadAISettings, runAI } from "../shared/ai-runner.ts";
 import { acceptModelReply, AssistantContext, buildModelPrompt, decide } from "./logic.ts";
 
@@ -19,7 +20,13 @@ Deno.serve(async (req) => {
   if (corsResp) return corsResp;
 
   try {
-    const { slug, message, pendingProductId, history } = await req.json().catch(() => ({}));
+    let body: any = {};
+    try {
+      body = await readJson(req, MAX_PUBLIC_JSON_BYTES);
+    } catch (e) {
+      if (e instanceof BodyTooLarge) return tooLarge(corsHeaders);
+    }
+    const { slug, message, pendingProductId, history } = body ?? {};
     const text = typeof message === "string" ? message.trim() : "";
     if (!text || text.length > 500) {
       return errorResponse("Please keep your question under 500 characters.", 400);

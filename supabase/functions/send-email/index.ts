@@ -1,6 +1,7 @@
 import nodemailer from "npm:nodemailer@6.9.13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { contactAllowed, enforceRateLimit, requirePermission } from "../shared/cors.ts";
+import { safeEqual } from "../shared/guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,7 +205,7 @@ Deno.serve(async (req) => {
     // and OTP emails can only come from auth-otp, so nobody can email a code they chose themselves.
     const supabaseUrlForAuth = Deno.env.get("SUPABASE_URL") || "";
     const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-    const isBackendCaller = !!bearer && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const isBackendCaller = safeEqual(bearer, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
     if (!isBackendCaller) {
       const denied = (status: number, error: string) =>
         new Response(JSON.stringify({ success: false, error }), {

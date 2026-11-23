@@ -3,6 +3,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { safeEqual } from "./guard.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,7 +74,7 @@ export async function verifyUserMembership(
 
   // 1. Backend callers (cron jobs, other edge functions) use the service role key.
   //    The anon key is public and never proves identity, so it falls through to the JWT check.
-  if (serviceRoleKey && rawToken === serviceRoleKey) {
+  if (safeEqual(rawToken, serviceRoleKey)) {
     return { userId: "service_role", role: "Owner" };
   }
 

@@ -4,6 +4,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readJson, safeEqual, securityEvent, tooLarge } from "../shared/guard.ts";
 
 function ack(status = 200): Response {
   return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
@@ -15,12 +16,27 @@ function ack(status = 200): Response {
 Deno.serve(async (req) => {
   const expected = Deno.env.get("MPESA_CALLBACK_TOKEN");
   const token = new URL(req.url).searchParams.get("token");
-  if (req.method !== "POST" || !expected || token !== expected) {
+  if (req.method !== "POST" || !safeEqual(token, expected)) {
+    await securityEvent("bad_token", "mpesa-webhook", req);
+    return new Response("Forbidden", { status: 403 });
+  }
+  // Optional: Safaricom's published callback IPs, comma-separated (unset = any IP).
+  if (!ipAllowed(req, "MPESA_ALLOWED_IPS")) {
+    await securityEvent("ip_not_allowed", "mpesa-webhook", req);
     return new Response("Forbidden", { status: 403 });
   }
 
   try {
-    const payload = await req.json();
+    let payload: any;
+    try {
+      payload = await readJson(req, MAX_CALLBACK_BYTES);
+    } catch (e) {
+      if (e instanceof BodyTooLarge) {
+        await securityEvent("too_large", "mpesa-webhook", req);
+        return tooLarge();
+      }
+      throw e;
+    }
     const callback = payload?.Body?.stkCallback;
     if (!callback?.CheckoutRequestID) return ack();
 

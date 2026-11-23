@@ -8,6 +8,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readText, securityEvent, tooLarge } from "../shared/guard.ts";
 import { cardDetails, fromSubunits, paystack, signatureMatches, transactionOutcome } from "../card-payments/paystack.ts";
 
 const ok = () => new Response("ok", { status: 200 });
@@ -15,7 +16,28 @@ const ok = () => new Response("ok", { status: 200 });
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
-  const raw = await req.text();
+  // Paystack always signs (HMAC-SHA512, 128 hex characters). Anything else is turned away
+  // before the database is touched.
+  if (!/^[0-9a-f]{128}$/i.test(req.headers.get("x-paystack-signature") || "")) {
+    await securityEvent("bad_signature", "card-webhook", req);
+    return new Response("Invalid signature", { status: 401 });
+  }
+  // Optional: Paystack's published webhook IPs, comma-separated (unset = any IP).
+  if (!ipAllowed(req, "PAYSTACK_ALLOWED_IPS")) {
+    await securityEvent("ip_not_allowed", "card-webhook", req);
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let raw: string;
+  try {
+    raw = await readText(req, MAX_CALLBACK_BYTES);
+  } catch (e) {
+    if (e instanceof BodyTooLarge) {
+      await securityEvent("too_large", "card-webhook", req);
+      return tooLarge();
+    }
+    return new Response("Bad request", { status: 400 });
+  }
   let event: any;
   try {
     event = JSON.parse(raw);
@@ -48,6 +70,7 @@ Deno.serve(async (req) => {
     if (!secretRow?.secret_key) return ok();
     if (!(await signatureMatches(secretRow.secret_key, raw, req.headers.get("x-paystack-signature")))) {
       console.warn("[card-webhook] signature mismatch for", row.reference);
+      await securityEvent("bad_signature", "card-webhook", req);
       return new Response("Invalid signature", { status: 401 });
     }
     if (row.status === "success") return ok();

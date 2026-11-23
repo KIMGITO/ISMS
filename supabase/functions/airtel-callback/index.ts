@@ -10,6 +10,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { BodyTooLarge, MAX_CALLBACK_BYTES, readJson, securityEvent, tooLarge } from "../shared/guard.ts";
 import { outcomeOf } from "../airtel-payments/airtel.ts";
 import { refreshPrompt } from "../airtel-payments/settle.ts";
 
@@ -18,7 +19,10 @@ const ok = () => new Response(JSON.stringify({ received: true }), { status: 200,
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   const token = new URL(req.url).searchParams.get("token") || "";
-  if (!/^[0-9a-f]{48}$/.test(token)) return new Response("Forbidden", { status: 403 });
+  if (!/^[0-9a-f]{48}$/.test(token)) {
+    await securityEvent("bad_token", "airtel-callback", req);
+    return new Response("Forbidden", { status: 403 });
+  }
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
@@ -27,9 +31,20 @@ Deno.serve(async (req) => {
   try {
     const { data: owner } = await admin
       .from("airtel_payment_secrets").select("business_id").eq("callback_token", token).maybeSingle();
-    if (!owner) return new Response("Forbidden", { status: 403 });
+    if (!owner) {
+      await securityEvent("bad_token", "airtel-callback", req);
+      return new Response("Forbidden", { status: 403 });
+    }
 
-    const payload = await req.json().catch(() => null);
+    let payload: any = null;
+    try {
+      payload = await readJson(req, MAX_CALLBACK_BYTES);
+    } catch (e) {
+      if (e instanceof BodyTooLarge) {
+        await securityEvent("too_large", "airtel-callback", req);
+        return tooLarge();
+      }
+    }
     const tx = payload?.transaction;
     const reference = typeof tx?.id === "string" ? tx.id : null;
     if (!reference || reference.length > 64) return ok();

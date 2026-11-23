@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getFcmAccess, ringMessage, sendFcm } from '../shared/fcm.ts';
+import { matchesAnySecret } from '../shared/guard.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,8 +16,7 @@ Deno.serve(async (req) => {
   // Only backend callers may push: the notifications webhook and other functions.
   // The webhook must send the service role key or the FCM_WEBHOOK_SECRET value as a bearer token.
   const bearer = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  const allowedTokens = [Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), Deno.env.get('FCM_WEBHOOK_SECRET')].filter(Boolean);
-  if (!bearer || !allowedTokens.includes(bearer)) {
+  if (!matchesAnySecret(bearer, [Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), Deno.env.get('FCM_WEBHOOK_SECRET')])) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

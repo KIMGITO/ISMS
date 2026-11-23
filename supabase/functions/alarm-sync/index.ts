@@ -8,6 +8,7 @@
 // Auth: the service role key or FCM_WEBHOOK_SECRET, like send-fcm.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { matchesAnySecret } from "../shared/guard.ts";
 import { alarmCancelMessage, alarmUpsertMessage, getFcmAccess, sendFcm, type AlarmPayload } from "../shared/fcm.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -41,8 +42,9 @@ function nextRing(date: string, time: string, repeat: string, lastRemindedOn: st
 
 Deno.serve(async (req) => {
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  const allowed = [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), Deno.env.get("FCM_WEBHOOK_SECRET")].filter(Boolean);
-  if (!bearer || !allowed.includes(bearer)) return json({ error: "Unauthorized" }, 401);
+  if (!matchesAnySecret(bearer, [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), Deno.env.get("FCM_WEBHOOK_SECRET")])) {
+    return json({ error: "Unauthorized" }, 401);
+  }
 
   let body: { schedule_id?: string; user_ids?: string[] } = {};
   try {
