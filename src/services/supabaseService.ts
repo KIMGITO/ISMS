@@ -137,6 +137,16 @@ export class SupabaseService {
     // = final_total so the DB trigger does NOT create a false debt record.
     const isCreditSale = tx.paymentMethod === 'Credit_Debt' || tx.paymentMethod === 'Credit';
 
+    // Paid sales: header and items in one database step, which also checks the figures
+    // match the items (record_till_sale, 20261201002). A repeat returns the saved sale.
+    if (!isCreditSale && tx.items?.length) {
+      const id = await this.recordTillSale(tx, null);
+      const { data: saved, error: savedErr } = await supabase
+        .from("transactions").select("*").eq("id", id).single();
+      if (savedErr) throw savedErr;
+      return saved;
+    }
+
     // For credit sales, compute wallet_applied from the customer's current
     // wallet balance so the DB trigger can deduct it before adding debt.
     let walletApplied = 0;
@@ -206,12 +216,12 @@ export class SupabaseService {
   }
 
   /**
-   * Saves a paid sale that uses a promotion or referral code: header and items in one
+   * Saves a paid sale (with or without a promotion or referral code): header and items in one
    * database transaction (record_till_sale), so the database can check the code against the
    * items actually sold before the sale is kept. Same row rules as createTransaction.
    * @returns the sale's id
    */
-  static async recordTillSale(tx: Transaction, promotionRedemptionId: string): Promise<string> {
+  static async recordTillSale(tx: Transaction, promotionRedemptionId: string | null): Promise<string> {
     const { data, error } = await getSupabase().rpc("record_till_sale", {
       p_sale: {
         id: tx.id ? toUuid(tx.id) : null,
