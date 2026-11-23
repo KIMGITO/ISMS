@@ -14,6 +14,8 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | SEC-04 | P1 | Owner's real email with test password `Admin@123` published in the public repo | Owner action |
 | SEC-05 | P1 | Possible use of SEC-01 before the fix cannot be ruled out | Owner action |
 | SEC-06 | P2 | `send-email` let any staff member send branded email with any subject, sender name and text, for any shop | Fixed (deployed v35, verified 2026-11-23) |
+| FIN-01 | P1 | Sale totals not checked against items (paid and credit sales): stock can leave while far less is booked, with no discount shown | Fixed in code (`20261201002`, push pending) |
+| FIN-02 | P1 | Paid sales saved as two requests (header, then items): a dropped connection leaves money booked with no items | Fixed for new app builds; older apps until retired |
 | SEC-07 | P2 | Server password minimum is 6 characters, with no other rules | Owner action (live), fixed in `config.toml` |
 | SEC-08 | P2 | No staging database; preview builds use production | Open |
 | SEC-09 | P2 | `main` unprotected; pushes to `main` release and deploy | Owner action |
@@ -64,6 +66,18 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 
 - **Evidence:** The hole existed from about 2026-11-16 to 2026-11-23. Auth's audit log is empty, and the function bypasses Auth, so no trail would exist. One of the 2 live accounts (`abb89fdf…`) was modified at 2026-11-22 14:15 UTC, after its last sign-in on 2026-11-19. That can also be an ordinary profile change.
 - **Owner action:** If you did not change that account on 2026-11-22, reset both live passwords and sign out all sessions. Check the Supabase API logs (Logs → API, last 7 days) for `rpc/update_user_password_by_email`, `rpc/fn_post_money_asset`, `rpc/acc_apply` and `rpc/settle_card_payment`. The 2 businesses hold no real customers yet, so the data impact is likely nil.
+
+## FIN-01 · P1 · Sale totals not checked against items
+
+- **Evidence:** As a cashier, `record_till_sale` with 2 × 100.00 bread and `final_total` 1 was saved; books income 1.00, cash 1.00, no discount. The same for `process_customer_transaction` (credit).
+- **Impact:** A till can hide skimming: goods leave stock, little money is booked, and nothing shows in the discount reports.
+- **Fix:** `fn_check_sale_totals` (migration `20261201002`), called by both functions: total = items, discount 0..total, final = total − discount + VAT (+ fee for a charged delivery), within cent rounding. Details: [phase-2-financial-integrity.md](phase-2-financial-integrity.md).
+- **Verification:** `sale_totals_test.sh`, 44 passed. **Pending:** `supabase db push`.
+
+## FIN-02 · P1 · Paid sales saved in two requests
+
+- **Evidence:** `SupabaseService.createTransaction` inserted `transactions`, then `transaction_items`, as separate requests.
+- **Fix:** paid sales with items now go through `record_till_sale` (one step); a retry of an older split sale adds its items once. **Residual:** older installed apps still use two requests. Close it once they have updated (deferred check trigger or revoking direct INSERT).
 
 ## SEC-06 · P2 · `send-email` open relay for staff
 

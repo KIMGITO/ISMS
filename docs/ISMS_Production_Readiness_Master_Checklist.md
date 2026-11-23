@@ -263,26 +263,28 @@ forged, silently altered or left partially committed.
 
 Checklist:
 
--   [ ] Trace critical transaction flows from client to trusted
+-   [x] Trace critical transaction flows from client to trusted
     database/server logic.
--   [ ] Verify stock, sales, production, debt, wallet and payment
+-   [-] Verify stock, sales, production, debt, wallet and payment
     operations use safe atomic transactions where required.
--   [ ] Test concurrent updates and race conditions.
--   [ ] Add or verify idempotency for retried submissions and payment
+-   [x] Test concurrent updates and race conditions.
+-   [x] Add or verify idempotency for retried submissions and payment
     callbacks.
--   [ ] Verify payment callbacks using the provider's supported
+-   [-] Verify payment callbacks using the provider's supported
     verification process.
--   [ ] Prevent client-controlled amounts, ownership or payment status
+-   [-] Prevent client-controlled amounts, ownership or payment status
     from being trusted.
--   [ ] Verify duplicate webhook and replay handling.
+-   [x] Verify duplicate webhook and replay handling.
 -   [ ] Verify immutable or auditable histories for sensitive financial
     changes.
 -   [ ] Verify correction/reversal workflows preserve original records.
--   [ ] Check constraints, foreign keys and numeric precision for
+-   [x] Check constraints, foreign keys and numeric precision for
     financial values.
--   [ ] Test interrupted requests and retry behaviour.
--   [ ] Confirm that failed operations do not leave partial stock or
+-   [x] Test interrupted requests and retry behaviour.
+-   [-] Confirm that failed operations do not leave partial stock or
     financial changes.
+
+> **Phase 2 status (2026-11-23):** in progress. FIN-01/FIN-02 fixed in code and tested (44 cases); live push of `20261201002` and app release pending; SEC-10 (M-Pesa STK query) open. Report: [docs/security/phase-2-financial-integrity.md](security/phase-2-financial-integrity.md).
 
 **Tests:** Duplicate request tests, concurrent POS/stock tests, replayed
 callback tests, interrupted transaction tests and reconciliation tests.
