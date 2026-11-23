@@ -36,6 +36,9 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | SEC-24 | P3 | Build tools had 1 critical and 3 high npm advisories (`tar`, `sharp` via `@capacitor/assets` 3) | Fixed (lockfile, 0 advisories) |
 | SEC-25 | P3 | Website rich text accepted `//host` as an internal link | Fixed in code (website deploy pending) |
 | SEC-26 | P3 | No per-IP limit in front of the Supabase API and edge functions; a flood costs invocations | Accepted (per-function caps; re-assess with domain move) |
+| REL-01 | P2 | Local `npm run dev` uses the live database; dev testing writes real records | Open (needs staging, WEB-03) |
+| REL-02 | P2 | `main` unprotected (same as SEC-09) | Owner action |
+| REL-03 | P3 | Migrations pushed by hand with no gate; live could differ from the files unnoticed | Fixed in code (`db-push.sh`, `db-checks.yml`; details in [release-safety.md](../deployment/release-safety.md)) |
 
 ---
 
@@ -125,7 +128,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 
 ## SEC-13 · P2 · No scanning in CI
 
-- **Fixed in code (Phase 6):** `.github/workflows/security.yml` runs `npm audit --audit-level=high`, `cargo audit`, gitleaks over the whole history and the guard tests on every push, PR and Monday; Telegram on failure. Dependabot in `.github/dependabot.yml`. The DB test suites in CI remain Phase 7.
+- **Fixed in code (Phase 6):** `.github/workflows/security.yml` runs `npm audit --audit-level=high`, `cargo audit`, gitleaks over the whole history and the guard tests on every push, PR and Monday; Telegram on failure. Dependabot in `.github/dependabot.yml`. The DB test suites run in CI since Phase 7 (`db-checks.yml`), and both now gate every release.
 
 ## SEC-14 · P3 · Old DB password in history
 

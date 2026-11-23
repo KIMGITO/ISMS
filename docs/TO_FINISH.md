@@ -6,12 +6,22 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 ---
 
+## Phase 7: release safety (2026-11-23)
+
+Report: [deployment/release-safety.md](deployment/release-safety.md). From now on push migrations with `bash scripts/db-push.sh`, not a bare `npx supabase db push`.
+
+1. [ ] Push `main`: `git push`. In **Actions → Release and Deploy**, the jobs *Database checks* and *Security checks* should pass (about 5 minutes for the database one). If *Database checks* fails, its log names the migration or test.
+2. [ ] Before the next release is due, open a test pull request (any small change) and check *Database checks*, *Security checks* and *Type check and tests* appear on it and pass.
+3. [ ] **You:** GitHub → Settings → Branches → add a rule for `main`: block force pushes and deletion. (Requiring checks too would block direct pushes; only add it if you switch to pull requests.) `git push --force` to `main` should then be refused.
+4. [ ] **You (optional):** GitHub → Settings → Environments → `production-app` and `production-website` (they appear after the first deploy): add yourself as a required reviewer if you want to approve each web deploy. Delete the old Vercel environments `Production`, `Production – isms`, `Preview – isms`.
+5. [ ] Staging (WEB-03, deferred): when it exists, point `.env` at it (REL-01) and rehearse **Actions → Roll back web** there.
+
 ## Phase 6: attack resistance (2026-11-23)
 
 Report: [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md). Order matters: the new website understands both the old and the new promo check, the old website only the old one.
 
 1. [ ] Deploy the website: `npm run website:deploy`. Applying a wrong promo code in the cart should still say "We don't recognise that promo code."
-2. [ ] Apply the database change: `npx supabase db push`, then `bash scripts/check-live-grants.sh`. It should print "Live access rules: no problems."
+2. [ ] Apply the database change: `bash scripts/db-push.sh` (it runs the checks and `check-live-grants.sh` itself). It should end with "Live now has every migration in this folder, unchanged, and its access rules are right."
 3. [ ] Deploy the edge functions (all of them share the changed `shared/` code; named one by one so the `shared` folder is never deployed as a function): `npx supabase functions deploy accept-alert ai-config airtel-callback airtel-payments alarm-sync area-advisor auth-otp backup-config bi-analyze card-payments card-webhook chat complaints customer-assistant customer-checkout kra-etims mpesa-payments mpesa-webhook ops-alert send-email send-fcm sms-config sync till-callback ussd whatsapp-config`. `config.toml` keeps the no-login ones open. `curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/mpesa-webhook?token=wrong"` should answer `Forbidden`, and `SELECT kind, source FROM security_events ORDER BY id DESC LIMIT 1;` should show `bad_token | mpesa-webhook`.
 4. [ ] Push `main`: `git push`. **Actions → Security checks** should pass (npm audit, cargo audit, gitleaks, guard tests). If `cargo audit` fails, update the crate it names or record why it doesn't apply.
 5. [ ] **You:** GitHub → Settings → Code security: turn on *Dependabot alerts* and *Dependabot security updates*. Dependabot PRs should appear under Pull requests within a day.
@@ -22,7 +32,7 @@ Report: [security/phase-6-attack-resistance.md](security/phase-6-attack-resistan
 
 Commits `225ac53`, `a54baa2`. Report: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md).
 
-1. [ ] Apply the database change: `npx supabase db push`, then `bash scripts/check-live-grants.sh`. It should print "Live access rules: no problems."
+1. [x] Apply the database change. (2026-11-23: `20261201003` found already on live by `db-push.sh --check`, identical to the file.)
 2. [ ] Deploy the function: `npx supabase functions deploy ops-alert --no-verify-jwt`.
 3. [ ] Run `SELECT public.run_ops_watchdog(true);` in the SQL editor. A "Watchdog test" message should arrive in Telegram.
 4. [ ] **You:** create free UptimeRobot or Better Stack monitors for the web app, the website and the health check (`https://<project-ref>.supabase.co/functions/v1/ops-alert`, keyword `"ok":true`), with both Telegram and email as contacts. Then break one on purpose once to see the alert arrive. Steps: [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md) → Uptime monitor.

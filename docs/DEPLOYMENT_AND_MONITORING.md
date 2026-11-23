@@ -51,7 +51,7 @@ Supabase has one live database, so changes there can't be switched like the web.
 
 1. **Expand first.** Add columns, tables and functions; don't rename or drop them in the same release. New columns are nullable or have a default.
 2. Deploy edge functions before the app that needs them. A function must still accept what the previous app version sends.
-3. Apply migrations before releasing the app that uses them.
+3. Apply migrations before releasing the app that uses them, with `bash scripts/db-push.sh` (checks first, then pushes; [deployment/release-safety.md](deployment/release-safety.md) section 3). A drop, rename or type change needs a `-- destructive-ok: <why>` line or CI refuses it.
 4. **Contract later.** Drop old columns only after every device is on a version that no longer uses them (`SELECT app_version, MAX(last_seen_at) FROM crash_reports GROUP BY 1` gives a rough picture).
 5. Take a manual backup before any migration that changes or deletes data: **Actions → Back up database → Run workflow**.
 

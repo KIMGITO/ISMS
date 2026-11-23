@@ -438,24 +438,26 @@ broken or vulnerable code.
 
 Checklist:
 
--   [ ] Separate development, staging and production configuration.
--   [ ] Protect production branches and deployment permissions.
--   [ ] Add automated build and type checks.
--   [ ] Add unit and integration tests for critical flows.
--   [ ] Add RLS and tenant-isolation tests.
--   [ ] Add dependency and secret scanning.
--   [ ] Validate database migrations before deployment.
--   [ ] Use backward-compatible migration strategies where possible.
--   [ ] Add deployment health checks and smoke tests.
--   [ ] Document application rollback.
--   [ ] Document database recovery separately; application rollback does
+-   [-] Separate development, staging and production configuration.
+-   [-] Protect production branches and deployment permissions.
+-   [x] Add automated build and type checks.
+-   [x] Add unit and integration tests for critical flows.
+-   [x] Add RLS and tenant-isolation tests.
+-   [x] Add dependency and secret scanning.
+-   [x] Validate database migrations before deployment.
+-   [x] Use backward-compatible migration strategies where possible.
+-   [x] Add deployment health checks and smoke tests.
+-   [x] Document application rollback.
+-   [x] Document database recovery separately; application rollback does
     not reverse every migration safely.
--   [ ] Verify Cloudflare deployment workflows and environment
+-   [-] Verify Cloudflare deployment workflows and environment
     separation.
--   [ ] Ensure failed checks prevent release.
+-   [x] Ensure failed checks prevent release.
 
 **Exit criteria:** A repeatable release pipeline works and
 rollback/recovery procedures have been tested.
+
+**Status (2026-11-23):** built and tested locally; the new CI runs start with the next push. Database checks (every migration on a fresh DB + 7 test suites) and security checks now gate every release; `scripts/db-push.sh` gates pushes to live. Open: no staging, so local dev uses the live database (REL-01) and no rollback rehearsal; `main` unprotected (SEC-09, owner); backups (SEC-02) so recovery is untested. Report: `docs/deployment/release-safety.md`.
 
 ## Phase 8 --- Performance and growth capacity
 

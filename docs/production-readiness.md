@@ -17,7 +17,8 @@ Everything left to do, step by step: [TO_FINISH.md](TO_FINISH.md).
 | 4. Cloudflare deployment | Production verified; staging deferred; domain and Auth URLs need the owner | [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
 | 5. Monitoring and alerting | Built: database watchdog + health check, tested on a test DB; not on live; uptime monitor needs the owner | [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md) |
 | 6. Network, API and attack resistance | Built: callback hardening, body caps, promo guess limit, abuse alerts, CI scans; tested on a test DB; not on live; pen test needs the owner | [security/phase-6-attack-resistance.md](security/phase-6-attack-resistance.md) |
-| 7–10 | Not started | |
+| 7. CI/CD and release safety | Built: DB checks + security checks gate every release, `db-push.sh` gates live migrations; first CI run on next push; staging and branch protection need the owner | [deployment/release-safety.md](deployment/release-safety.md) |
+| 8–10 | Not started | |
 
 ## Open risks
 
@@ -46,7 +47,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 4. **SEC-09:** protect `main` (require checks, no force push).
 5. **Phase 4:** check Supabase Auth URL Configuration (WEB-07); enable R2 when redoing Phase 3; move kaykays.com DNS to Cloudflare when ready (WEB-05).
 6. **Phase 5:** after `db push` + `functions deploy ops-alert`, run `SELECT public.run_ops_watchdog(true);` and create the uptime monitors ([monitoring-and-alerting.md](operations/monitoring-and-alerting.md) section 5).
-7. After any `supabase db push`, run `bash scripts/check-live-grants.sh`.
+7. Push migrations with `bash scripts/db-push.sh` (it runs `check-live-grants.sh` after the push), never a bare `supabase db push`.
 
 ## Documentation map
 
@@ -61,6 +62,7 @@ The owner chose on 2026-11-23 to skip these for now and come back to them. They 
 | Backup and recovery | [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md) |
 | Deployment, alerts, incidents | [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md); Phase 5: [operations/monitoring-and-alerting.md](operations/monitoring-and-alerting.md), [operations/incident-response.md](operations/incident-response.md) |
 | Cloudflare hosting | [HOSTING_CLOUDFLARE.md](HOSTING_CLOUDFLARE.md), Phase 4: [deployment/cloudflare-deployment.md](deployment/cloudflare-deployment.md) |
+| Release pipeline, migrations to live, rollback vs recovery (Phase 7) | [deployment/release-safety.md](deployment/release-safety.md) |
 | Releases and operations | [RELEASE_AND_OPERATIONS.md](RELEASE_AND_OPERATIONS.md) |
 | Integrations | [INTEGRATIONS.md](INTEGRATIONS.md) |
 
