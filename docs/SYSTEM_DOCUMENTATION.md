@@ -1500,6 +1500,12 @@ Every connection except Supabase is optional.
 | `FCM_WEBHOOK_SECRET` | Alternative to the service role key for the webhook |
 | `GEMINI_API_KEY` and other provider keys | Optional fallback AI keys |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Email delivery |
+| `RESEND_API_KEY`, `SENDER_EMAIL` | Optional: send email through Resend instead of SMTP; the sender address |
+| `EMAIL_LOGO_URL`, `APP_DOWNLOAD_URL` | Logo and app download link in emails (`send-email`) |
+| `MPESA_CALLBACK_URL`, `MPESA_C2B_CALLBACK_URL`, `MPESA_BASE_URL` | Optional overrides of the Daraja callback URLs and API base |
+| `KRA_ETIMS_SANDBOX_URL`, `KRA_ETIMS_PRODUCTION_URL` | Optional overrides of the KRA eTIMS endpoints |
+| `OPENROUTER_API_KEY` | Optional OpenRouter AI fallback |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Developer alerts from `ops-alert` |
 
 ## A.3 Vault secrets (SQL)
 
