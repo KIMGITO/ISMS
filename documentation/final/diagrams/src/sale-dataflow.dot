@@ -1,0 +1,31 @@
+// Data flow when a till sale is completed (online path, with the offline queue).
+digraph sale {
+  graph [rankdir=TB, fontname="Arial", fontsize=11, nodesep=0.28, ranksep=0.5, pad=0.2];
+  node  [fontname="Arial", fontsize=9, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  ui      [label="Quick Sale / POS\n(cartStore)", fillcolor="#fff7ed"];
+  online  [label="Online?", shape=diamond, style=filled, fillcolor="#ffffff", width=0.9, height=0.6];
+  outbox  [label="salesOutbox\n(local storage,\nOffline_Pending)", shape=cylinder, fillcolor="#fff1f2"];
+  rpc     [label="record_till_sale()\n(paid) or\nprocess_customer_\ntransaction() (credit)\nchecks member, permission\nand totals", fillcolor="#fef3c7", color="#b45309"];
+  tx      [label="transactions", shape=cylinder];
+  items   [label="transaction_items", shape=cylinder];
+  t1      [label="fn_process_completed_\ntransaction\n(points, shift, money\nasset, credit record)"];
+  t2      [label="fn_log_sale_points\n→ loyalty_points_earned"];
+  t3      [label="fn_process_\ntransaction_item\n→ products.stock"];
+  t4      [label="fn_check_low_stock\n→ notifications"];
+  fcm     [label="send-fcm →\nFirebase push"];
+  rt      [label="Realtime →\nother devices"];
+  kra     [label="kra-etims\nsign_sale\n(if connected)"];
+  books   [label="acc_post_source('sale')\n(deferred) → books"];
+
+  ui -> online;
+  online -> rpc [label="yes"];
+  online -> outbox [label="no (cash, card,\nM-Pesa code)"];
+  outbox -> rpc [label="on reconnect\nor start-up", style=dashed];
+  rpc -> tx; rpc -> items;
+  tx -> t1; tx -> t2; items -> t3; t3 -> t4 [label="stock ≤ minimum"]; t4 -> fcm;
+  tx -> rt [style=dashed]; t3 -> rt [style=dashed];
+  rpc -> kra [label="after save", style=dashed];
+  tx -> books;
+}

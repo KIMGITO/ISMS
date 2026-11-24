@@ -138,6 +138,11 @@ def main():
             s.ParaKeepTogether = True  # keep with next paragraph
         h1 = style(doc, "ParagraphStyles", "Heading 1")
         h1.BreakType = uno.Enum("com.sun.star.style.BreakType", "PAGE_BEFORE")
+        # App colours (src/index.css): an amber rule under chapter headings, as in the PDF.
+        rule = uno.createUnoStruct("com.sun.star.table.BorderLine2")
+        rule.Color, rule.LineWidth, rule.OuterLineWidth = 0xF59E0B, 42, 42
+        h1.BottomBorder = rule
+        h1.BottomBorderDistance = 100
         ch = style(doc, "ParagraphStyles", "Contents Heading")
         set_para(ch, size=17, bold=True, before=0, after=8, color=0x0F172A)
         cap = style(doc, "ParagraphStyles", "Caption")

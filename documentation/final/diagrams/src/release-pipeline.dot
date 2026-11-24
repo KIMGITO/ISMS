@@ -1,0 +1,24 @@
+// Release pipeline in .github/workflows/release-and-deploy.yml.
+digraph release {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.3, ranksep=0.45, pad=0.2];
+  node  [fontname="Arial", fontsize=9, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  push  [label="Push to main", fillcolor="#fff7ed"];
+  ver   [label="version\nrelease-version.mjs\n(commit types since last tag)"];
+  none  [label="No release\n(docs, chore, wip ...)\nchecks still run", fillcolor="#f1f5f9"];
+  db    [label="db-checks\nmigration rules +\n7 database test suites"];
+  sec   [label="security\ndependency and\nsecret scans"];
+  win   [label="build-windows\nlint + tests\n.msi (signed update), .exe"];
+  lin   [label="build-linux\nAppImage + .deb\n(signed updates)"];
+  and   [label="build-android\nsigned APK;\ncertificate pin check"];
+  web   [label="website build"];
+  rel   [label="release\ntag · latest.json · GitHub Release\nverify-update-manifest", fillcolor="#fef3c7", color="#b45309"];
+  dep   [label="deploy-web\nblue-green: upload, smoke test,\nswitch, live check, auto rollback"];
+  tg    [label="Telegram\nlive / failed", fillcolor="#eff6ff"];
+
+  push -> ver; ver -> none [label="no releasable\ncommit"];
+  ver -> db; ver -> sec; ver -> win; ver -> lin; ver -> and; ver -> web;
+  db -> rel; sec -> rel; win -> rel; lin -> rel; and -> rel; web -> rel [label="all must pass"];
+  rel -> dep; dep -> tg;
+}

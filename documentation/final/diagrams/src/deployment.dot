@@ -1,0 +1,37 @@
+// Deployment view. Where each artefact is built, stored and executed.
+digraph deployment {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.3, ranksep=0.7, pad=0.2, compound=true];
+  node  [fontname="Arial", fontsize=9, shape=box3d, style=filled, fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  subgraph cluster_dev { label="Developer workstation"; style="rounded,dashed"; color="#94a3b8";
+    repo  [label="Git repository\n(main branch)", shape=folder];
+    keys  [label="Signing keys (offline)\n~/.config/kaykays-signing/\n~/.tauri/", shape=note, fillcolor="#fff1f2"];
+    cli   [label="scripts/db-push.sh ·\nsupabase functions deploy", shape=component];
+    vcli  [label="npm run app:deploy / website:deploy\n(Wrangler, blue-green)", shape=component];
+  }
+  subgraph cluster_gh { label="GitHub"; style="rounded"; color="#475569";
+    ci   [label="GitHub Actions\nbuild · release-and-deploy · db-checks · security\ndeploy-web · rollback-web\nbackup-database · restore-drill", shape=component];
+    rel  [label="Releases repository (public)\n.msi · .exe · AppImage · .deb · .apk\nlatest.json", shape=folder, fillcolor="#fef3c7", color="#b45309"];
+  }
+  subgraph cluster_sb { label="Supabase cloud (one project)"; style="rounded,filled"; fillcolor="#fffbeb"; color="#b45309";
+    pg   [label="PostgreSQL\n(31 migrations in repo)", shape=cylinder];
+    fns  [label="Edge Functions\n(27 in repo)", shape=component];
+    svc  [label="Auth · Storage ·\nRealtime · pg_cron"];
+  }
+  r2 [label="Cloudflare R2\nkaykays-backups\n(encrypted hourly copies)", shape=cylinder];
+  subgraph cluster_host { label="Cloudflare Workers (static assets)"; style="rounded"; color="#475569";
+    cfw [label="kaykays-app (dist)\nkaykays-website (website/dist)"];
+  }
+  subgraph cluster_devices { label="Client devices"; style="rounded,dashed"; color="#94a3b8";
+    android [label="Android phones/tablets\n(com.kaykays.app)"];
+    desktop [label="Windows / Linux PCs\n(Tauri, com.isms.app)"];
+    browser [label="Customer browsers"];
+  }
+
+  repo -> ci [label="push / PR"]; keys -> ci [label="GitHub secrets", style=dashed];
+  ci -> rel [label="publish on\nreleasable commits"];
+  rel -> android [label="APK + SHA-256"]; rel -> desktop [label="signed updates"];
+  cli -> pg; cli -> fns; vcli -> cfw; ci -> cfw [label="after each release"]; cfw -> browser; ci -> r2 [label="hourly backup", style=dashed]; pg -> ci [label="pg_dump", style=dashed];
+  android -> svc [lhead=cluster_sb, label="HTTPS"]; desktop -> svc [lhead=cluster_sb]; browser -> svc [lhead=cluster_sb];
+}

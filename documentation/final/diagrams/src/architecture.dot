@@ -1,0 +1,49 @@
+// Logical architecture. Clients, Supabase services and the database layer.
+digraph architecture {
+  graph [rankdir=TB, fontname="Arial", fontsize=11, nodesep=0.3, ranksep=0.55, pad=0.2, compound=true, newrank=true];
+  node  [fontname="Arial", fontsize=9.5, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  subgraph cluster_clients {
+    label="Clients"; style="rounded,dashed"; color="#94a3b8";
+    staffapp [label="Staff app (React 19 SPA)\nCapacitor 8 Android · Tauri 2 desktop · browser"];
+    website  [label="Customer website\n(React 19, prerendered pages)"];
+    ussdgw   [label="Africa's Talking\nUSSD gateway"];
+    safcom   [label="Payment providers\n(Safaricom, Airtel, Paystack)\ncallbacks"];
+
+  }
+
+  subgraph cluster_supabase {
+    label="Supabase project"; style="rounded,filled"; fillcolor="#fffbeb"; color="#b45309"; penwidth=1.3;
+    auth     [label="Auth (GoTrue)\nemail · OAuth · JWT"];
+    rest     [label="PostgREST API\ntables and RPC"];
+    realtime [label="Realtime\n(supabase_realtime publication)"];
+    storage  [label="Storage\n6 buckets"];
+    subgraph cluster_fn {
+      label="Edge Functions (Deno)"; style="rounded"; color="#b45309"; fillcolor="#fef3c7";
+      fnstaff  [label="Staff: chat · bi-analyze · area-advisor · complaints · ai-config\nmpesa-payments · airtel-payments · card-payments\nsms-config · whatsapp-config · send-email\nbackup-config · kra-etims · sync · accept-alert"];
+      fncust   [label="Customer and public: customer-checkout\ncustomer-assistant · auth-otp"];
+      fncb     [label="Provider callbacks:\nmpesa-webhook · till-callback · ussd\nairtel-callback · card-webhook"];
+      fnint    [label="Internal: send-fcm · alarm-sync\nops-alert (alerts, health check)"];
+    }
+    subgraph cluster_db {
+      label="PostgreSQL"; style="rounded"; color="#475569";
+      tables   [label="145 tables · 14 views\nrow-level security on every table"];
+      rpc      [label="SECURITY DEFINER functions\n(sales, wallet, debt, points, books, orders)"];
+      trig     [label="Triggers\n(stock, points, shift, money assets,\nbooks, audit)"];
+      cron     [label="pg_cron + pg_net\n13 scheduled jobs\n(incl. ops watchdog)"];
+      vault    [label="Vault\n(project_url, service_role_key)"];
+    }
+  }
+
+  staffapp -> auth; staffapp -> rest; staffapp -> realtime [dir=both]; staffapp -> storage; staffapp -> fnstaff;
+  website -> auth; website -> rest; website -> fncust;
+  ussdgw -> fncb; safcom -> fncb;
+  rest -> rpc; rpc -> tables; tables -> trig [label="INSERT / UPDATE", dir=both];
+  tables -> realtime [label="changes"];
+  tables -> fnint [label="notifications INSERT\n(webhook)"];
+  cron -> rpc; cron -> fnstaff [label="backup run\n(pg_net)"]; vault -> cron [style=dashed];
+  fnstaff -> rpc; fncust -> rpc; fncb -> rpc;
+  fnstaff -> fncust -> fncb -> fnint [style=invis];
+  auth -> rest -> realtime -> storage [style=invis];
+}

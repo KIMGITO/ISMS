@@ -1,0 +1,26 @@
+// Notification pipeline from event to device.
+digraph notifications {
+  graph [rankdir=LR, fontname="Arial", fontsize=11, nodesep=0.3, ranksep=0.55, pad=0.2];
+  node  [fontname="Arial", fontsize=9, shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#475569"];
+  edge  [fontname="Arial", fontsize=8, color="#64748b", arrowsize=0.7];
+
+  subgraph cluster_src { label="Sources"; style="rounded,dashed"; color="#94a3b8";
+    s1 [label="Triggers\n(fn_check_low_stock)"];
+    s2 [label="Database functions\n(log_mpesa_payment ...)"];
+    s3 [label="pg_cron job\n(flag_due_schedule_reminders)"];
+    s4 [label="Staff app\n(shift report, deliveries)"];
+  }
+  row   [label="notifications\nINSERT (status pending)", shape=cylinder, fillcolor="#fef3c7", color="#b45309"];
+  hook  [label="Database webhook\n(service role key or\nFCM_WEBHOOK_SECRET)"];
+  fcmfn [label="send-fcm"];
+  who   [label="fn_notification_recipients\n(permissions and\nnotification_preferences)"];
+  tok   [label="device_fcm_tokens", shape=cylinder];
+  fire  [label="Firebase Cloud\nMessaging"];
+  dev   [label="Android device\n(channels default,\nalerts, shifts)", fillcolor="#fff7ed"];
+  rt    [label="Realtime →\nopen apps: inbox,\nsound, banner", fillcolor="#fff7ed"];
+
+  s1 -> row; s2 -> row; s3 -> row; s4 -> row;
+  row -> hook -> fcmfn; fcmfn -> who; fcmfn -> tok; fcmfn -> fire -> dev;
+  fcmfn -> row [label="status sent /\ndelivered", style=dashed, constraint=false];
+  row -> rt [style=dashed];
+}

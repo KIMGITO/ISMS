@@ -54,7 +54,7 @@ async function launch() {
     const l = (m) => { if (m.method === method) { listeners.splice(listeners.indexOf(l), 1); r(m); } };
     listeners.push(l);
   });
-  const close = () => { try { ws.close(); } catch {} proc.kill(); setTimeout(() => rmSync(profile, { recursive: true, force: true }), 500); };
+  const close = () => { try { ws.close(); } catch {} proc.kill(); setTimeout(() => { try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {} }, 500); };
   return { send, once, close };
 }
 
