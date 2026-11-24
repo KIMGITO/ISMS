@@ -133,7 +133,7 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
 
   if (!account) {
     return (
-      <div className="min-h-dvh grid place-items-center bg-app-bg p-6 text-center">
+      <div className="min-h-full grid place-items-center bg-app-bg p-6 text-center" style={{ paddingTop: 'calc(1.5rem + var(--inset-top))' }}>
         <div className="space-y-3 max-w-sm">
           <p className="text-sm text-app-text">Your supplier access was removed. Ask the business to invite you again.</p>
           <button className={secondaryBtn} onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
@@ -147,10 +147,10 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
   const openRequests = requests.filter((r) => r.status === 'sent' || r.status === 'seen');
 
   return (
-    <div className="min-h-dvh bg-app-bg text-app-text flex flex-col">
+    <div className="min-h-full bg-app-bg text-app-text flex flex-col">
       <RingingAlerts businessId={account.businessId} onOpen={() => { setTab('requests'); void load(); }} />
       {/* Top bar */}
-      <header className="sticky z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 py-2.5" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+      <header className="sticky top-0 z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 pb-2.5" style={{ paddingTop: 'calc(0.625rem + var(--inset-top))' }}>
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           {account.businessLogo
             ? <img src={account.businessLogo} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0" />
@@ -165,7 +165,7 @@ export default function SupplierPortalView({ themeMode, onToggleTheme }: { theme
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-3xl mx-auto px-4 pt-3 space-y-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}>
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 pt-3 space-y-3" style={{ paddingBottom: 'calc(var(--inset-bottom) + 24px)' }}>
         {accounts.length > 1 && (
           <SearchableDropdown
             items={accounts.map((a) => ({ id: a.accountId, label: a.businessName, sublabel: `as ${a.supplierName}` }))}

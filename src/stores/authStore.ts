@@ -821,16 +821,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
       try {
         const supabase = getSupabase();
 
-        // 0. Pre-flight check: reject if an Owner already exists
-        //    This prevents raw Supabase errors from leaking to the user.
-        const { data: ownerAlreadyExists } = await supabase.rpc("check_owner_exists");
-        if (ownerAlreadyExists === true) {
-          return {
-            success: false,
-            error: "This business already has an owner. Sign in, or ask the admin to invite you."
-          };
-        }
-
         // 1. SignUp through Supabase Auth
         await settleSignOut();
         const { data, error } = await supabase.auth.signUp({
@@ -854,6 +844,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
             return { success: false, error: "Password must be at least 6 characters long." };
           }
           throw error;
+        }
+
+        // An email that already has an account comes back as a stand-in user with no
+        // sign-in methods (Supabase hides that it exists). Stop here: no code, no new account.
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          return { success: false, error: "This email already has an account. Sign in, or use Forgot password." };
         }
 
         // 2. Send verification code
@@ -1155,8 +1151,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
           options: { data: { name: inviteName, phone: invitePhone } }
         });
 
-        if (error) {
-          const msg = toUserMessage(error, "");
+        // Supabase may answer an existing email with a stand-in user (no sign-in methods)
+        // instead of an error. Treat both the same: it is an existing account.
+        const existingAccount =
+          !error && !!data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+        if (error || existingAccount) {
+          const msg = error ? toUserMessage(error, "") : "already registered";
           if (!/already (been )?registered/i.test(msg)) throw error;
           // They already have an account: the password they typed must be its password.
           const { data: signIn, error: signInErr } = await supabase.auth.signInWithPassword({

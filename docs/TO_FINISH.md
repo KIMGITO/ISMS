@@ -8,6 +8,16 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Sign-up screens fit phones, Back works, no code for a taken email (2026-11-24)
+
+Sign-in/Start/plan screens, the Platform console and the supplier portal scroll and stay below the status bar (they used `env()`, 0 on many Android phones, and centred tall forms off the top). Create account has "Already have an account? Sign in"; the Sign in / Create account / Join team bar always shows. Phone Back closes the console and steps back through sign-in, plans and the Start screen. Create account with an email that already has an account now says so (Supabase hid it as a stand-in user) and the old "business already has an owner" block is gone; `auth-otp` sends no sign-up code to an email already verified. Emails show the app mark drawn in HTML instead of the old KayKays logo picture. App tests pass; not tried on a phone.
+
+1. [ ] Deploy the functions: `npx supabase functions deploy auth-otp send-email` (`config.toml` keeps auth-otp open to signed-out visitors). Create account with an email that already has an account: the form should say "This email already has an account" and no code email should arrive.
+2. [ ] Create account with a new email. The code email should show an amber square with a dark "D" at the top (drawn in HTML, no picture, so it shows even with images off), not the old KayKays picture.
+3. [ ] Release the app (`git push`). On an Android phone: the Start screen and plan list scroll to the top with the logo below the status bar; the Platform console header sits below the status bar; phone Back on the console returns to the app, and on Create account returns to Sign in.
+
+---
+
 ## Retention and erasing a customer (2026-11-24)
 
 Owner: keep records as Kenyan law demands. Money records and the audit trail 7 years (Tax Procedures Act 5, Companies Act 7); a nightly job removes notifications after 1 year, website chat after 2, crash reports after 90 days, backup run log after 1 year, audit entries after 7. Customers > profile > **Erase personal details** (`customers.erase`, Data Protection Act s.40), refused while debt or wallet money remains. Website privacy page names EU hosting, Cloudflare, the periods and erasure. Migration `20261203002_retention_and_erasure.sql`; `records/retention_erasure_test.sh` 23 passed; not clicked through in the app.

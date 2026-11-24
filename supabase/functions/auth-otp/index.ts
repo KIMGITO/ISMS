@@ -87,6 +87,19 @@ Deno.serve(async (req) => {
       const account = Array.isArray(found) ? found[0] : found;
       if (!account) return jsonResponse({ success: true });
 
+      // An inbox already proven needs no sign-up code (a second "Create account" with the
+      // same email must not mail its owner). Same reply, so nothing is given away.
+      if (type === "signup") {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("verified_email")
+          .eq("auth_user_id", account.auth_user_id)
+          .maybeSingle();
+        if (String(profile?.verified_email || "").trim().toLowerCase() === email) {
+          return jsonResponse({ success: true });
+        }
+      }
+
       const otp = generateOtp();
       const { data: issued, error: issueErr } = await supabase.rpc("otp_issue", {
         p_email: email,

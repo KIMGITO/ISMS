@@ -15,6 +15,7 @@ import { usePlanStore } from '../../stores/planStore';
 import { toUserMessage } from '../../utils/userError';
 import { Field, TextInput } from '../shared/Input';
 import PlanChooser from '../plan/PlanChooser';
+import { useOverlay } from '../../hooks/useOverlay';
 import { clearWantedPlan, readWantedPlan } from '../../utils/wantedPlan';
 
 interface SignupState {
@@ -78,6 +79,8 @@ export default function StartScreen({ onCreateBusiness, onEnterInviteCode, onSig
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [code, setCode] = useState(savedJoinCode);
+  // Phone Back steps out of a plan list or the join form to the start choices.
+  useOverlay(view !== 'home', () => { setMessage(null); setView('home'); }, 'screen');
   const catalogue = usePlanStore((s) => s.catalogue);
 
   const load = useCallback(async () => {

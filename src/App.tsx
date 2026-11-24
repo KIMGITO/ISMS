@@ -544,7 +544,6 @@ export default function App() {
     currentUser,
     currentBusinessId,
     emailVerificationCode,
-    ownerExists,
     canCreateBusiness,
     isInitializing,
     initializationError,
@@ -1059,9 +1058,7 @@ export default function App() {
         }
       }
     } else {
-      if (ownerExists === false) {
-        setAuthViewTab('register'); // Create Owner Account
-      } else {
+      {
         // Prevent redirecting away from other guest auth tabs
         const guestTabs = [
           'login',
@@ -1079,7 +1076,7 @@ export default function App() {
         }
       }
     }
-  }, [currentUser, ownerExists, canCreateBusiness, memberships, authViewTab]);
+  }, [currentUser, canCreateBusiness, memberships, authViewTab]);
 
   const handleResendCode = async () => {
     // Guard: verifyEmail must be set before resending
@@ -1613,6 +1610,21 @@ export default function App() {
   const moreDragControls = useDragControls();
   useOverlay(isMoreOpen, () => setIsMoreOpen(false), 'bottom-sheet');
   useOverlay(showMobileSearch, () => setShowMobileSearch(false), 'other');
+  useOverlay(showConsole, () => setConsoleOpen(false), 'screen');
+  const authBackTo: 'login' | 'start' | null = currentEmployee || showConsole
+    ? null
+    : !currentUser
+      ? (authViewTab !== 'login' ? 'login' : null)
+      : currentUser.isVerified && (authViewTab === 'create-biz' || authViewTab === 'accept-invite')
+        ? 'start'
+        : null;
+  useOverlay(!!authBackTo, () => {
+    if (!authBackTo) return;
+    setAuthError('');
+    setAuthSuccess('');
+    if (authBackTo === 'start') setAdminPlanCode(undefined);
+    setAuthViewTab(authBackTo);
+  }, 'screen');
 
   return (
     <PreviewFrame>
@@ -1727,9 +1739,9 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-950 text-slate-100 min-h-dvh overflow-y-auto select-none"
+              className="flex-1 min-h-0 flex flex-col items-center px-4 md:px-8 pt-[calc(1rem+var(--inset-top))] pb-[calc(1rem+var(--inset-bottom))] md:pt-[calc(2rem+var(--inset-top))] md:pb-[calc(2rem+var(--inset-bottom))] bg-slate-950 text-slate-100 overflow-y-auto select-none"
             >
-              <div className="w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
+              <div className="my-auto shrink-0 w-full max-w-md bg-slate-900 border border-slate-800 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-bold text-lg">
                     <Database size={22} />
@@ -1805,9 +1817,9 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-100 text-slate-900 min-h-dvh overflow-y-auto select-none"
+              className="flex-1 min-h-0 flex flex-col items-center px-4 md:px-8 pt-[calc(1rem+var(--inset-top))] pb-[calc(1rem+var(--inset-bottom))] md:pt-[calc(2rem+var(--inset-top))] md:pb-[calc(2rem+var(--inset-bottom))] bg-slate-100 text-slate-900 overflow-y-auto select-none"
             >
-              <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-5 animate-fade-in">
+              <div className="my-auto shrink-0 w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-5 animate-fade-in">
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 font-bold text-lg">
                     <ShieldCheck size={22} />
@@ -1900,11 +1912,11 @@ export default function App() {
             </div>
           ) : initializationError ? (
             /* SLEEK INITIALIZATION ERROR SCREEN */
-            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh p-4">
+            <div className="flex-1 min-h-0 flex flex-col items-center px-4 pt-[calc(1rem+var(--inset-top))] pb-[calc(1rem+var(--inset-bottom))] md:pt-[calc(2rem+var(--inset-top))] md:pb-[calc(2rem+var(--inset-bottom))] bg-slate-950 text-slate-100 overflow-y-auto">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-md bg-slate-900/80 border border-red-500/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 text-center relative overflow-hidden"
+                className="my-auto shrink-0 w-full max-w-md bg-slate-900/80 border border-red-500/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 space-y-6 text-center relative overflow-hidden"
               >
                 {/* Decorative glow */}
 
@@ -1933,7 +1945,7 @@ export default function App() {
             </div>
           ) : showConsole ? (
             /* PLATFORM CONSOLE: platform admins only, no business screens */
-            <motion.div key="platform-console" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col min-h-dvh">
+            <motion.div key="platform-console" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain">
               <PlatformConsoleView
                 themeMode={themeMode}
                 onToggleTheme={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')}
@@ -1942,7 +1954,7 @@ export default function App() {
             </motion.div>
           ) : currentUser && currentUser.isVerified && !currentEmployee && supplierAccounts.length > 0 ? (
             /* SOMEONE AT A SUPPLIER: their own portal, no staff screens */
-            <motion.div key="supplier-portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col min-h-dvh">
+            <motion.div key="supplier-portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain">
               <SupplierPortalView themeMode={themeMode} onToggleTheme={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')} />
             </motion.div>
           ) : currentUser && currentUser.isVerified && currentEmployee && !showBranchChooser && !planReady ? (
@@ -1960,7 +1972,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-100 text-slate-900 min-h-dvh overflow-y-auto select-none relative"
+              className="flex-1 min-h-0 flex flex-col items-center px-4 md:px-8 pt-[calc(1rem+var(--inset-top))] pb-[calc(1rem+var(--inset-bottom))] md:pt-[calc(2rem+var(--inset-top))] md:pb-[calc(2rem+var(--inset-bottom))] bg-slate-100 text-slate-900 overflow-y-auto select-none relative"
             >
 
               <div className={`w-full ${authViewTab === 'start' || authViewTab === 'no-business' ? 'max-w-3xl' : 'max-w-lg'} bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-6 animate-fade-in relative`}>
@@ -2082,8 +2094,7 @@ export default function App() {
                     )}
 
                     {/* Navigation Tabs (Only shown if owner exists and not in verifying or business creation steps) */}
-                    {ownerExists &&
-                      !currentUser &&
+                    {!currentUser &&
                       authViewTab !== 'verify' &&
                       authViewTab !== 'create-biz' &&
                       authViewTab !== 'no-business' &&
@@ -2415,6 +2426,21 @@ export default function App() {
                             Terms of Use
                           </button>
                           .
+                        </p>
+
+                        <p className="text-center text-[11px] text-slate-500">
+                          Already have an account?{' '}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthViewTab('login');
+                              setAuthError('');
+                              setAuthSuccess('');
+                            }}
+                            className="text-amber-600 hover:text-amber-700 font-semibold cursor-pointer bg-transparent border-none p-0"
+                          >
+                            Sign in
+                          </button>
                         </p>
                       </form>
                     )}

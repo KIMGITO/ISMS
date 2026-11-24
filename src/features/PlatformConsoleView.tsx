@@ -992,8 +992,8 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
   })();
 
   return (
-    <div className="min-h-dvh bg-app-bg text-app-text flex flex-col">
-      <header className="sticky z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 py-2.5" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="min-h-full bg-app-bg text-app-text flex flex-col">
+      <header className="sticky top-0 z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 pb-2.5" style={{ paddingTop: 'calc(0.625rem + var(--inset-top))' }}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" aria-label="Leave the console" title="Leave the console">
             <ArrowLeft size={18} />
@@ -1006,7 +1006,7 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
           <button type="button" onClick={() => void logout()} className="p-2 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
         </div>
       </header>
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}>
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-4" style={{ paddingBottom: 'calc(var(--inset-bottom) + 24px)' }}>
         <SectionNav<Section> sections={SECTIONS} active={section} onSelect={setSection} searchPlaceholder="Search the console" collapseKey="kkm_console_nav_collapsed">
           {body}
         </SectionNav>

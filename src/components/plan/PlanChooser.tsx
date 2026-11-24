@@ -16,6 +16,7 @@ import { toUserMessage } from '../../utils/userError';
 import { Segmented } from '../shared/Choice';
 import { Field, NumberInput, TextInput } from '../shared/Input';
 import { estimateMonthly, type CostEstimate } from '../../utils/planCosts';
+import { useOverlay } from '../../hooks/useOverlay';
 
 type Cycle = 'monthly' | 'annual';
 
@@ -91,6 +92,8 @@ export default function PlanChooser(props: PlanChooserProps) {
   const [chosen, setChosen] = useState<string | null>(
     props.initialPlan && props.initialPlan !== 'trial' ? props.initialPlan : null,
   );
+  // Phone Back leaves a plan's summary for the plan list.
+  useOverlay(chosen !== null, () => setChosen(null), 'dialog');
 
   useEffect(() => {
     usePlanStore.getState().loadCatalogue().catch(() => {});
