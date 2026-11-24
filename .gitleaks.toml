@@ -8,5 +8,5 @@ useDefault = true
 description = "localStorage key names"
 regexTarget = "line"
 regexes = [
-  '''\b(STORAGE_KEY|PREFS_LOCAL_KEY|localBomKey|localPurchasesKey)\s*=\s*["'`][A-Za-z0-9_:.\-]+["'`]''',
+  '''\b(STORAGE_KEY|PREFS_LOCAL_KEY|localBomKey|localPurchasesKey|PATTERNS_KEY|CATALOGUE_KEY)\s*=\s*["'`][A-Za-z0-9_:.\-]+["'`]''',
 ]
