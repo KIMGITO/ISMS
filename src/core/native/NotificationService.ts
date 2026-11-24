@@ -257,7 +257,7 @@ class NotificationService {
   private sendLocalNotificationWeb(title: string, body: string) {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
       try {
-        new Notification(title, { body });
+        new Notification(title, { body, icon: "/icon.png", badge: "/denso-badge.png" });
       } catch (e) {
         console.warn("[Notification] Browser HTML5 Notification block prevented launch:", e);
       }

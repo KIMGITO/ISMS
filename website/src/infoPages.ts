@@ -110,7 +110,7 @@ function defaultText(id: InfoPageId, site: Storefront): string {
   switch (id) {
     case 'about':
       return lines(
-        site.business.description || `${name} brings fresh milk and dairy to homes and businesses, with ordering that takes a minute.`,
+        site.business.description || `${name} brings what you need to homes and businesses, with ordering that takes a minute.`,
         '## What we promise',
         '- **Fresh every day.** We sell what we can keep fresh, and the shop shows live stock, so what you see is what we have.',
         '- **Fair, clear prices.** The price you see is the price you pay. Any delivery fee is shown before you pay.',
@@ -209,7 +209,7 @@ function defaultText(id: InfoPageId, site: Storefront): string {
         '- A product was spoiled, leaking or damaged when you received it.',
         '- You were charged more than the order total.',
         '## How to tell us',
-        '1. Contact us **within 24 hours** of receiving your order. Fresh milk changes quickly, so the sooner the better.',
+        '1. Contact us **within 24 hours** of receiving your order. The sooner you tell us, the sooner we can put it right.',
         '2. Give your order number and tell us what went wrong. A photo helps.',
         '3. Keep the product until we reply, in case we need to collect it.',
         contactLine(site),

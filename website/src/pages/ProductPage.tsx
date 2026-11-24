@@ -247,7 +247,7 @@ export default function ProductPage({ path }: { path: string }) {
                 <a href="/payments" className="mt-2 inline-block font-medium text-ink underline">How payment works</a>
               </Accordion>
               <Accordion title="Freshness & returns">
-                <p>Keep fresh dairy in the fridge as soon as it arrives. If anything is wrong with your order, tell us within 24 hours and we'll replace or refund it.</p>
+                <p>Check your order when it arrives. If anything is wrong with your order, tell us within 24 hours and we'll replace or refund it.</p>
                 <a href="/returns" className="mt-2 inline-block font-medium text-ink underline">Returns & refunds</a>
               </Accordion>
               <Accordion title="Order it regularly">

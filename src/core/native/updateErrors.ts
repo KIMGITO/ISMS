@@ -31,10 +31,10 @@ export const UPDATE_MESSAGES: Record<UpdateErrorCode, string> = {
   CORRUPT_DOWNLOAD: "The download was damaged. Tap Try again.",
   BAD_SIGNATURE: "This update couldn't be verified, so it wasn't installed.",
   SIGNATURE_MISMATCH:
-    "This update was signed with a different key than the installed app, so it can't install over it. Uninstall KayKay's and install the latest version from the releases page once.",
+    "This update was signed with a different key than the installed app, so it can't install over it. Uninstall Denso and install the latest version from the releases page once.",
   NOT_NEWER: "The downloaded update isn't newer than this app.",
-  BAD_APK: "The downloaded file isn't a valid KayKay's app.",
-  NEEDS_PERMISSION: "Allow KayKay's to install updates, then tap Install again.",
+  BAD_APK: "The downloaded file isn't a valid Denso app.",
+  NEEDS_PERMISSION: "Allow Denso to install updates, then tap Install again.",
   NOT_DOWNLOADED: "The update hasn't been downloaded yet.",
   INSTALL_FAILED: "The update couldn't be installed. Tap Try again.",
   UNKNOWN: "Something went wrong while updating. Tap Try again.",

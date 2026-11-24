@@ -82,6 +82,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // The platform runs the AI. Only a plan where the business brings its own key (Perpetual)
+    // sets provider, model and key here; every other business sets only its instructions and
+    // the on/off switch. A server without plans (before 20261204002) keeps the old screen.
+    const { data: aiPlan, error: aiPlanErr } = await supabase.rpc("fn_ai_plan", { p_business_id: businessId });
+    const platformRun = !aiPlanErr && !!aiPlan && aiPlan.own_key !== true;
+
     // ── GET ──────────────────────────────────────────────────────────────
     if (action === "get") {
       const { data, error } = await supabase
@@ -95,9 +101,23 @@ Deno.serve(async (req) => {
         return errorResponse("Failed to load AI configuration.", 500);
       }
 
+      if (platformRun) {
+        return jsonResponse({
+          success: true,
+          config: {
+            business_id: businessId,
+            system_prompt: data?.system_prompt || "",
+            enabled: data ? data.enabled !== false : true,
+            platform: true,
+            own_key: false,
+            isConfigured: true,
+          },
+        });
+      }
+
       // Nothing configured yet — return safe defaults (Hugging Face default)
       if (!data) {
-        return jsonResponse({ success: true, config: defaultConfig(businessId) });
+        return jsonResponse({ success: true, config: { ...defaultConfig(businessId), own_key: aiPlan?.own_key === true } });
       }
 
       // Who may change AI settings sees the key's last characters; everyone else only dots.
@@ -113,6 +133,7 @@ Deno.serve(async (req) => {
         config: {
           ...data,
           api_key: maskedKey,
+          own_key: aiPlan?.own_key === true,
           isConfigured: provider === "huggingface" || !!data.api_key,
         },
       });
@@ -122,6 +143,27 @@ Deno.serve(async (req) => {
       const denied = await requirePermission(req, businessId, ...AI_MANAGE);
       if (denied) return denied;
       if (!config) return errorResponse("config payload is required.", 400);
+
+      if (platformRun) {
+        // Only the instructions and the switch belong to the business.
+        const { error: saveErr } = await supabase
+          .from("ai_settings")
+          .upsert({
+            business_id: businessId,
+            system_prompt: String(config.system_prompt || "").slice(0, 4000),
+            enabled: config.enabled !== false,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "business_id" });
+        if (saveErr) {
+          console.error("[ai-config] save error:", saveErr);
+          return errorResponse(saveErr.hint?.startsWith("plan_") ? saveErr.message : "Failed to save AI configuration.", saveErr.hint?.startsWith("plan_") ? 403 : 500);
+        }
+        return jsonResponse({
+          success: true,
+          message: "Assistant instructions saved.",
+          config: { business_id: businessId, system_prompt: config.system_prompt || "", enabled: config.enabled !== false, platform: true, own_key: false, isConfigured: true },
+        });
+      }
 
       const rawProvider = String(config.provider || "huggingface").toLowerCase();
       if (!(AI_PROVIDERS as readonly string[]).includes(rawProvider)) {
@@ -196,6 +238,7 @@ Deno.serve(async (req) => {
     } else if (action === "test" || action === "ping") {
       const denied = await requirePermission(req, businessId, ...AI_MANAGE);
       if (denied) return denied;
+      if (platformRun) return errorResponse("The assistant is run for you. There is nothing to test here.", 400);
       const testConfig = { ...defaultConfig(businessId), ...(config || {}) };
       const provider = normalizeProvider(testConfig.provider);
       const model = String(testConfig.model || "").trim() || DEFAULT_MODELS[provider];
@@ -243,6 +286,7 @@ Deno.serve(async (req) => {
 
     // ── MODELS ───────────────────────────────────────────────────────────
     } else if (action === "models") {
+      if (platformRun) return errorResponse("The assistant is run for you. There are no models to choose.", 400);
       const provider = normalizeProvider(config?.provider);
       let key = "";
       if (provider !== "huggingface" && provider !== "openrouter") {

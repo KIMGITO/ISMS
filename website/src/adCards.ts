@@ -4,6 +4,7 @@
 // (fn_valid_ad_cards, migration 20261114006). Plain data, so the app editor imports it too and
 // both use the same colour names.
 import { isSafeHeroImage, safeHref } from './heroSlides';
+import type { ShopPicture } from './shopPictures';
 
 export type AdTone = 'ember' | 'espresso' | 'butter' | 'peach' | 'sage' | 'cream';
 
@@ -38,11 +39,11 @@ export const AD_TONES: Record<AdTone, { label: string; bg: string; text: string;
 
 export const AD_TONE_ORDER: AdTone[] = ['ember', 'espresso', 'butter', 'peach', 'sage', 'cream'];
 
-/** Shown until staff save their own, so a new website never has an empty space. */
+/** Shown until staff save their own, so a new website never has an empty space. Posters get the shop's own product photos. */
 export const DEFAULT_AD_CARDS: AdCard[] = [
-  { id: 'ad-fresh', kind: 'poster', kicker: 'Fresh every morning', title: 'Farm Fresh Milk', body: 'From our dairy to your door.', ctaLabel: 'Shop milk', href: '/shop', image: '/hero/milk-bottle.webp', tone: 'butter' },
-  { id: 'ad-regular', kind: 'poster', kicker: 'Never run out', title: 'Regular Orders', body: 'Pick your days and we prepare it.', ctaLabel: 'Set up', href: '/account/schedules', image: '/hero/milk-glass.webp', tone: 'espresso' },
-  { id: 'ad-dairy', kind: 'poster', kicker: 'More than milk', title: 'Yoghurt, Butter & Cheese', body: 'Everything dairy in one place.', ctaLabel: 'Browse', href: '/shop', image: '/hero/cheese.webp', tone: 'peach' },
+  { id: 'ad-fresh', kind: 'poster', kicker: 'Fresh every morning', title: 'New Stock Daily', body: 'From our shelves to your door.', ctaLabel: 'Shop now', href: '/shop', tone: 'butter' },
+  { id: 'ad-regular', kind: 'poster', kicker: 'Never run out', title: 'Regular Orders', body: 'Pick your days and we prepare it.', ctaLabel: 'Set up', href: '/account/schedules', tone: 'espresso' },
+  { id: 'ad-dairy', kind: 'poster', kicker: 'More to choose from', title: 'Everything in One Place', body: 'Browse every product we sell.', ctaLabel: 'Browse', href: '/shop', tone: 'peach' },
   { id: 'ad-mpesa', kind: 'strip', kicker: 'Easy checkout', title: 'Order online, pay with M-Pesa', ctaLabel: 'Start shopping', href: '/shop', tone: 'ember' },
 ];
 
@@ -70,10 +71,16 @@ export function cleanAdCard(card: AdCard, newId: () => string): AdCard {
   return out;
 }
 
-/** The saved cards when there are any, otherwise the built-in ones. */
-export function visibleAdCards(saved: AdCard[] | undefined): AdCard[] {
+/** The saved cards when there are any, otherwise the built-in ones with the shop's own photos (none without). */
+export function visibleAdCards(saved: AdCard[] | undefined, pictures: readonly ShopPicture[] = []): AdCard[] {
   const cards = (saved ?? []).filter((c) => !c.hidden && c.title?.trim());
-  return cards.length > 0 ? cards : DEFAULT_AD_CARDS;
+  if (cards.length > 0) return cards;
+  let next = 0;
+  return DEFAULT_AD_CARDS.map((card) => {
+    if (card.kind !== 'poster' || pictures.length === 0) return card;
+    const picture = pictures[next++ % pictures.length];
+    return { ...card, image: picture.src };
+  });
 }
 
 /** "-20%" style saving, rounded down so it never overstates the offer. */

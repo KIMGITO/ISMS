@@ -82,8 +82,8 @@ export function calculateCartTotals(items: CartItem[]) {
 
 export const generateSku = (categoryName: string, currentSku: string = ''): string => {
   const cleanCat = (categoryName || '').trim().toUpperCase();
-  // Use MILK if category is Milk, otherwise take first 4 characters
-  const prefix = cleanCat === 'MILK' ? 'MILK' : cleanCat.substring(0, 4).padEnd(4, 'X');
+  // The first 4 characters of the category
+  const prefix = cleanCat.substring(0, 4).padEnd(4, 'X');
 
   // Preserve the existing 3-digit random number if SKU already follows KK-[PREFIX]-[NUM] pattern
   const existingNumMatch = currentSku.match(/^KK-[A-Z0-9]+-(\d{3})$/);

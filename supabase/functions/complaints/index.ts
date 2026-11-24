@@ -68,14 +68,14 @@ Deno.serve(async (req) => {
     }
 
     const systemBase =
-      "You are the Lead CRM and Customer Relations AI for KayKay's (a premium dairy brand in Kenya). You are professional, empathetic, and precise. Return output as raw parseable JSON — no markdown fences.";
+      "You are the Lead CRM and Customer Relations AI for a business in Kenya. You are professional, empathetic, and precise. Return output as raw parseable JSON — no markdown fences.";
 
     // ── 2. Route by action ───────────────────────────────────────────────
 
     if (action === "analyze") {
       if (!comment) return errorResponse("comment payload is required.", 400);
 
-      const prompt = `Analyze this customer feedback for KayKay's:
+      const prompt = `Analyze this customer feedback for Denso:
 Customer: ${comment.customerName || "Anonymous"}
 Rating: ${comment.rating || "N/A"} / 5 stars
 Branch: ${comment.branch || "N/A"}
@@ -127,7 +127,7 @@ Output raw JSON only.`;
     } else if (action === "generate_reply") {
       if (!comment) return errorResponse("comment payload is required.", 400);
 
-      const prompt = `Write a warm, professional customer service reply from KayKay's management for this review:
+      const prompt = `Write a warm, professional customer service reply from Denso management for this review:
 Customer: ${comment.customerName || "Anonymous"}
 Rating: ${comment.rating || "N/A"} / 5 stars
 Branch: ${comment.branch || "N/A"}
@@ -143,7 +143,7 @@ Guidelines:
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are the Voice of KayKay's Management. You write polite, concise, professional customer service messages. Return raw JSON only.",
+          "You are the Voice of Denso Management. You write polite, concise, professional customer service messages. Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -181,7 +181,7 @@ Output raw JSON with a single field: improvedText`;
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are a professional copyeditor and customer relations coach for KayKay's. Return raw JSON only.",
+          "You are a professional copyeditor and customer relations coach for Denso. Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -213,7 +213,7 @@ Output raw JSON with a single field: improvedText`;
         )
         .join("\n");
 
-      const prompt = `Analyse this cohort of ${comments.length} customer reviews for KayKay's:
+      const prompt = `Analyse this cohort of ${comments.length} customer reviews for Denso:
 
 ${formatted}
 
@@ -227,7 +227,7 @@ Output raw JSON only.`;
 
       const result = await runAI(settings, {
         systemInstruction:
-          "You are the Operations & QA Director for KayKay's. You analyse customer review cohorts to identify patterns and recommend process improvements. Return raw JSON only.",
+          "You are the Operations & QA Director for Denso. You analyse customer review cohorts to identify patterns and recommend process improvements. Return raw JSON only.",
         messages: [{ role: "user", content: prompt }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -332,20 +332,20 @@ function getMockAnalysis(c: any) {
 function getMockReply(c: any, draftText: string) {
   const name = c?.customerName || "Customer";
   const branch = c?.branch || "our branch";
-  if (draftText) return `Dear ${name}, thank you for reaching out. ${draftText} We appreciate your loyalty to KayKay's.`;
+  if (draftText) return `Dear ${name}, thank you for reaching out. ${draftText} We appreciate your loyalty to Denso.`;
   if ((c?.rating || 5) <= 2) {
     return `Dear ${name}, we sincerely apologise for the inconvenience at our ${branch} location. We are investigating this immediately and will make it right for you.`;
   }
-  return `Dear ${name}, thank you so much for your wonderful feedback! We are thrilled you enjoyed our fresh dairy products at ${branch} and look forward to serving you again soon.`;
+  return `Dear ${name}, thank you so much for your wonderful feedback! We are thrilled you enjoyed shopping with us at ${branch} and look forward to serving you again soon.`;
 }
 
 function getMockImprovedReply(c: any, draftText: string) {
-  return `Dear ${c?.customerName || "Customer"}, thank you for taking the time to share your experience with us. ${draftText || "We have logged your feedback and are addressing it immediately."} We remain committed to delivering the highest quality dairy products and service.`;
+  return `Dear ${c?.customerName || "Customer"}, thank you for taking the time to share your experience with us. ${draftText || "We have logged your feedback and are addressing it immediately."} We remain committed to delivering the highest quality products and service.`;
 }
 
 function getMockCohortAnalytics() {
   return {
-    overallSummary: "Customer sentiment is broadly positive with strong appreciation for fresh cooperative milk quality. Minor friction points include container seal durability during hot afternoon transit and occasional M-Pesa callback delays.",
+    overallSummary: "Customer sentiment is broadly positive with strong appreciation for product quality. Minor friction points include packaging during hot afternoon deliveries and occasional M-Pesa callback delays.",
     categories: [
       { category: "Product Quality", count: 12, percentage: 40 },
       { category: "Delivery Timing", count: 8, percentage: 26 },

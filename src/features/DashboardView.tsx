@@ -1031,7 +1031,7 @@ export default function DashboardView() {
                     type="text"
                     autoFocus
                     disabled={saving}
-                    placeholder="e.g. Open the shop, Milk delivery route"
+                    placeholder="e.g. Open the shop, Delivery route"
                     value={title}
                     onChange={(e) => {
                       setTitle(e.target.value);

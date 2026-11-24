@@ -177,7 +177,7 @@ export function SitemapPage() {
           { href: '/feedback', label: 'Give feedback' },
         ])}
         {group('Policies', 'policies', INFO_PAGES.filter((p) => p.group === 'legal').map((p) => ({ href: p.path, label: p.label })))}
-        {group('Milk guides', 'guides', [{ href: '/articles', label: 'All guides' }, ...articles.map((a) => ({ href: `/articles/${a.slug}`, label: a.title }))])}
+        {group('Guides', 'guides', [{ href: '/articles', label: 'All guides' }, ...articles.map((a) => ({ href: `/articles/${a.slug}`, label: a.title }))])}
       </div>
     </>
   );
@@ -239,7 +239,7 @@ export function OrderConfirmedPage({ orderId }: { orderId: string }) {
 
   const paid = !['pending_payment', 'payment_failed', 'cancelled'].includes(order.status);
   const steps = order.fulfilment === 'delivery'
-    ? ['We prepare your order now', 'A rider brings it to you; we message you when it is on the way', 'Keep fresh dairy in the fridge as soon as it arrives']
+    ? ['We prepare your order now', 'A rider brings it to you; we message you when it is on the way', 'Check your order when it arrives and tell us if anything is wrong']
     : ['We prepare your order now', 'We message you when it is ready to collect', settings.openingHours ? `Collect it during opening hours: ${settings.openingHours.replace(/\s*\n\s*/g, '; ')}` : 'Collect it from our shop'];
 
   return (

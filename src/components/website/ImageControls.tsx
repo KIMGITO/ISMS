@@ -223,7 +223,7 @@ export function ImageCard({ block, onStart, onStyle, onField, onReplace }: CardP
             value={block.alt}
             maxLength={160}
             onChange={(e) => onField('alt', e.target.value)}
-            placeholder="A bottle of fresh milk on a table"
+            placeholder="Our shop front in the morning"
             className="mt-1 w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-normal text-app-text outline-none focus:border-brand-500"
           />
         </label>
@@ -234,7 +234,7 @@ export function ImageCard({ block, onStart, onStyle, onField, onReplace }: CardP
             value={block.caption}
             maxLength={200}
             onChange={(e) => onField('caption', e.target.value)}
-            placeholder="Our milk, collected every morning"
+            placeholder="Fresh stock, every morning"
             className="mt-1 w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-normal text-app-text outline-none focus:border-brand-500"
           />
         </label>

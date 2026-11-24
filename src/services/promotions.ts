@@ -301,7 +301,7 @@ export function referralShareText(businessName: string, r: CustomerReferral): st
 
 // ─────────────────────────────────────────────── words
 export const PROMO_TYPES: { id: PromoType; label: string; hint: string }[] = [
-  { id: 'percentage', label: 'Percentage off', hint: 'e.g. MILK10: 10% off' },
+  { id: 'percentage', label: 'Percentage off', hint: 'e.g. SAVE10: 10% off' },
   { id: 'fixed', label: 'Amount off', hint: 'e.g. SAVE100: KSh 100 off' },
   { id: 'min_spend', label: 'Spend and save', hint: 'Spend KSh 1,000, get KSh 100 off' },
   { id: 'buy_x_get_y', label: 'Buy X, get Y free', hint: 'Buy 2 litres, get 500 ml free' },

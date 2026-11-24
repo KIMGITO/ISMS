@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { authErrorMessage, createAccount, friendlyError, isProviderEnabled, saveOffersChoice, supabase } from '../api';
-import { PHOTOS, photoUrl } from '../images';
+import { shopPictures } from '../shopPictures';
 import { useAuth, useStorefront } from '../store';
 import { ErrorText, fieldClass, primaryButton, secondaryButton } from '../ui';
 import { CUSTOMER_FIELDS as F, isValidPhone, MESSAGES, NAME_MAX, normalizePhone } from '../customerProfile';
@@ -25,16 +25,18 @@ function GoogleMark() {
   );
 }
 
-/** The photo panel beside every sign-in form. It drops away on phones. */
+/** The panel beside every sign-in form. It drops away on phones. */
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
-  const { business } = useStorefront();
+  const { business, products } = useStorefront();
+  // One of the shop's own product photos behind the words; the plain brand colour when it has none.
+  const photo = shopPictures(products, 1)[0]?.src;
   return (
     <div className="grid lg:min-h-[44rem] lg:grid-cols-2">
       <div className="relative isolate hidden overflow-hidden bg-hero text-cream lg:block">
-        <img src={photoUrl(PHOTOS.pour, 1100, 1300)} alt="" className="hero-photo absolute inset-0 -z-20 size-full object-cover" />
+        {photo && <img src={photo} alt="" className="hero-photo absolute inset-0 -z-20 size-full object-cover" />}
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
         <div className="rise-in flex h-full flex-col justify-end p-12 xl:p-16">
-          <p className="display-lg max-w-md font-display leading-[1.08]">Your milk, a few taps away.</p>
+          <p className="display-lg max-w-md font-display leading-[1.08]">Your shopping, a few taps away.</p>
           <p className="mt-4 max-w-sm text-lg leading-relaxed text-cream/85">
             Order from {business.name}, follow your deliveries, and set up regular orders.
           </p>

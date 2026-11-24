@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.kaykays.app',
-  appName: "KayKay's",
+  appName: "Denso",
   webDir: 'dist',
   server: {
     androidScheme: 'https'
@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     LocalNotifications: {
-      smallIcon: 'ic_stat_milk_alarm',
+      smallIcon: 'ic_stat_denso',
       iconColor: '#F59E0B',
     },
     Keyboard: {

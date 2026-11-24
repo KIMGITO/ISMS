@@ -6,7 +6,7 @@ import {
   CheckCircle2, AlertCircle,  Upload, Image as ImageIcon,
   LogOut, HelpCircle, RefreshCw,
 } from "lucide-react";
-import { hasRolePermission, ALL_PERMISSIONS } from "../utils/permissions";
+import { hasRolePermission, planPermissions } from "../utils/permissions";
 import { normalizePhone, validatePhone } from "../utils/phoneUtils";
 import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { formatName } from "../utils/stringUtils";
@@ -14,9 +14,11 @@ import { formatName } from "../utils/stringUtils";
 
 interface ProfileViewProps {
   onRestartTour?: () => void;
+  /** Platform admins only: open the platform console. */
+  onOpenConsole?: () => void;
 }
 
-export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
+export default function ProfileView({ onRestartTour, onOpenConsole }: ProfileViewProps = {}) {
   const { currentEmployee, updateProfile, showToast, logout } = useAppStore();
   
   const [name, setName] = useState(currentEmployee?.name || "");
@@ -97,9 +99,9 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
   };
 
   // Check which permissions are granted to the logged-in role
-  const rolePermissions = ALL_PERMISSIONS.map(p => ({
+  const rolePermissions = planPermissions().map(p => ({
     ...p,
-    granted: currentEmployee.role === "Owner" || hasRolePermission(currentEmployee.role, p.code)
+    granted: hasRolePermission(currentEmployee.role, p.code)
   }));
 
   return (
@@ -165,6 +167,15 @@ export default function ProfileView({ onRestartTour }: ProfileViewProps = {}) {
 
           {/* Logout Action */}
           <div className="w-full border-t border-app-border/45 pt-4 text-left flex flex-col gap-2">
+            {onOpenConsole && (
+              <button
+                type="button"
+                onClick={onOpenConsole}
+                className="w-full py-2.5 border border-amber-500/40 hover:bg-amber-500/10 text-amber-600 rounded-xl text-[11.5px] font-semibold transition duration-200 cursor-pointer"
+              >
+                Platform console
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

@@ -90,7 +90,7 @@ public class AlarmActivity extends Activity implements RingService.Listener {
         int others = RingService.count() - 1;
         more.setVisibility(others > 0 ? View.VISIBLE : View.GONE);
         more.setText("+" + others + " more waiting");
-        hint.setText(alert.test ? "Stops the test alarm" : "Stops the alarm and opens KayKay's");
+        hint.setText(alert.test ? "Stops the test alarm" : "Stops the alarm and opens Denso");
     }
 
     private void accept() {

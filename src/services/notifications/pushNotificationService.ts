@@ -34,7 +34,7 @@ class PushNotificationService {
         business_id: data.business_id || "all",
         user_id: data.user_id || null,
         role: data.role || null,
-        title: capNotif.title || data.title || "KayKay's Alert",
+        title: capNotif.title || data.title || "Denso Alert",
         message: capNotif.body || data.message || "",
         type: data.type || "Custom Notification",
         priority: data.priority || "medium",
@@ -140,7 +140,8 @@ class PushNotificationService {
       try {
         new Notification(notification.title, {
           body: notification.message,
-          icon: "/favicon.ico",
+          icon: "/icon.png",
+          badge: "/denso-badge.png",
           tag: notification.id,
           requireInteraction: notification.priority === "high" || notification.priority === "critical",
         });

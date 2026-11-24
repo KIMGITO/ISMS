@@ -6,7 +6,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useExtraModulesStore } from "../stores/extraModulesStore";
 import { useUiStore } from "../stores/uiStore";
-import { ALL_PERMISSIONS, hasRolePermission, getDynamicRoles } from "../utils/permissions";
+import { planPermissions, hasRolePermission, getDynamicRoles } from "../utils/permissions";
 import { 
   Search, X, ShoppingBag, User, Receipt, Users, Sliders, 
   Bell, Key, FileText, Clock, Home, Bot, Shield, Settings,
@@ -132,11 +132,8 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
   const hasAccessToCategory = (cat: string): boolean => {
     if (!currentEmployee) return false;
     
-    // Admins always have master access
-    if (currentEmployee.role === "Admin" || currentEmployee.role === "Owner" || currentEmployee.role === "Administrator") {
-      return true;
-    }
-
+    // No shortcut for Owners and Admins: hasRolePermission already says yes to them, and no
+    // to anything the plan doesn't include.
     switch (cat) {
       case "Businesses":
         return hasRolePermission(currentEmployee.role, "business.view");
@@ -829,7 +826,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     });
 
     // 20. Search Permissions Registry
-    ALL_PERMISSIONS.forEach(p => {
+    planPermissions().forEach(p => {
       const matchCode = getRelevance(p.code, lower);
       const matchDesc = getRelevance(p.description, lower);
       const matchCategory = getRelevance(p.category, lower);
@@ -987,7 +984,7 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
       });
     }
 
-    if (`ask ${aiName.toLowerCase()}`.includes(lower) || "ai assistant".includes(lower) || "chat with bot".includes(lower)) {
+    if (currentEmployee && canOpenScreen(currentEmployee.role, "ai") && (`ask ${aiName.toLowerCase()}`.includes(lower) || "ai assistant".includes(lower) || "chat with bot".includes(lower))) {
       matched.push({
         id: "act-ai",
         title: `Ask ${aiName}`,

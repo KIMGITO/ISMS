@@ -66,7 +66,7 @@ public class RingService extends Service {
     private static final String PREF_TONE = "tone";
     private static final String PREF_ALERTS = "alerts";
 
-    static final String APP_NAME = "KayKay's";
+    static final String APP_NAME = "Denso";
 
     public static final class Alert {
         /** "sched:<schedule id>:<day>" for reminders, otherwise the notification id. */
@@ -490,7 +490,7 @@ public class RingService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    /** "Reminder from KayKay's" / "You have a reminder: Open the shop". */
+    /** "Reminder from Denso" / "You have a reminder: Open the shop". */
     static String heading(Alert alert) {
         return alert.isReminder() ? "Reminder from " + APP_NAME : (alert.title.isEmpty() ? APP_NAME : alert.title);
     }
@@ -505,7 +505,7 @@ public class RingService extends Service {
     static synchronized Bitmap largeIcon(Context context) {
         if (largeIcon == null) {
             try {
-                Drawable d = ContextCompat.getDrawable(context, R.drawable.ic_milk_glass_large);
+                Drawable d = ContextCompat.getDrawable(context, R.drawable.ic_denso_large);
                 int px = Math.round(64 * context.getResources().getDisplayMetrics().density);
                 largeIcon = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 d.setBounds(0, 0, px, px);
@@ -538,7 +538,7 @@ public class RingService extends Service {
         if (others > 0) big.append("\n+").append(others).append(" more waiting");
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_milk_alarm)
+            .setSmallIcon(R.drawable.ic_stat_denso)
             .setLargeIcon(largeIcon(context))
             .setColor(0xFFF59E0B)
             .setContentTitle(heading(alert))
@@ -573,7 +573,7 @@ public class RingService extends Service {
     private static void postFallback(Context context, Alert alert) {
         NotificationChannels.ensure(context);
         NotificationCompat.Builder b = new NotificationCompat.Builder(context, NotificationChannels.RING_FALLBACK)
-            .setSmallIcon(R.drawable.ic_stat_milk_alarm)
+            .setSmallIcon(R.drawable.ic_stat_denso)
             .setLargeIcon(largeIcon(context))
             .setColor(0xFFF59E0B)
             .setContentTitle(heading(alert))

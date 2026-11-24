@@ -76,7 +76,7 @@ export default function ShopPage({ route }: { route: Route }) {
   return (
     <>
       <PageHeader
-        eyebrow={searching ? 'Search' : 'Our dairy'}
+        eyebrow={searching ? 'Search' : 'Our products'}
         title={title}
         body={searching ? `${visible.length} ${visible.length === 1 ? 'product' : 'products'}` : 'Order online, pay with M-Pesa, and choose delivery or pickup.'}
       >
@@ -190,7 +190,7 @@ export default function ShopPage({ route }: { route: Route }) {
               <p className="mt-2 text-muted">
                 {products.length === 0
                   ? 'Please contact us to ask what is available today.'
-                  : 'Check the spelling, try a shorter word such as “milk”, or ask our assistant.'}
+                  : 'Check the spelling, try a shorter word, or ask our assistant.'}
               </p>
               {filtersOn && <a href="/shop" className="btn btn-secondary mt-5">Show all products</a>}
             </div>

@@ -3,7 +3,7 @@
 //
 // Availability, quantities and totals are decided here from live stock. Those answers,
 // and refusals of internal or health questions, never go to the language model. Everything
-// else (delivery, payment, hours, greetings, milk care, small talk about the shop) is
+// else (delivery, payment, hours, greetings, product care, small talk about the shop) is
 // written by the AI the owner chose in the app, from the shop's public facts: prices and
 // "available / limited / out of stock", never stock counts, costs or staff. Its reply is
 // checked before a customer sees it; if it fails the check, the rule answer is sent.
@@ -66,16 +66,16 @@ type RuleReply = AssistantReply & { final?: boolean };
 /** For anything the rules don't cover and the model can't or won't answer: say what the assistant can do. */
 function helpReply(ctx: AssistantContext): AssistantReply {
   return {
-    reply: `I'm not able to answer that one. I can check whether we have a product, price an order, and tell you about delivery, payment, your orders and looking after your milk. For example, ask "Do you have milk?" For anything else, our team at ${ctx.businessName} can help.`,
+    reply: `I'm not able to answer that one. I can check whether we have a product, price an order, and tell you about delivery, payment, your orders and looking after what you buy. For example, ask "Do you have sugar?" For anything else, our team at ${ctx.businessName} can help.`,
     link: { label: "Contact us", href: "/contact" },
     pendingProductId: null,
   };
 }
 
-/** A milk-care question with no matching guide, for when the model is down or unsure. Stays to basics we can stand by. */
+/** A care or storage question with no matching guide, for when the model is down or unsure. Stays to basics we can stand by. */
 function careFallback(ctx: AssistantContext): AssistantReply {
   return {
-    reply: `I can't answer that in detail right now. The basics: keep fresh milk covered in the fridge, use it within a few days of opening, and don't drink it if it smells or tastes sour.${ctx.articles.length ? " Our guides have more." : ` Our team at ${ctx.businessName} can tell you more.`}`,
+    reply: `I can't answer that in detail right now. The basics: follow the storage note on the pack, check the date, and don't use anything that looks, smells or tastes wrong.${ctx.articles.length ? " Our guides have more." : ` Our team at ${ctx.businessName} can tell you more.`}`,
     link: ctx.articles.length ? { label: "Read our guides", href: "/articles" } : { label: "Contact us", href: "/contact" },
     pendingProductId: null,
   };
@@ -222,7 +222,7 @@ function ruleReply(message: string, pendingProductId: string | null, ctx: Assist
   const matches = matchProducts(text, ctx.products);
   const quantity = parseQuantity(text);
 
-  // An article question mentions milk too, so check for this before product matching.
+  // An article question names a product too, so check for this before product matching.
   // "Do you have milk in store?" is about stock, not storage, so that phrase doesn't count.
   const careText = text.replace(/\bin (the )?(store|shop)\b/g, " ");
   const careQuestion = has(careText, /\b(preserv|store|storing|storage|keep|fridge|refrigerat|boil|spoil|sour|bad|expire|shelf|freez|last|how long|safe)/);
@@ -302,7 +302,7 @@ function ruleReply(message: string, pendingProductId: string | null, ctx: Assist
     return { reply: "We'd love to hear from you. You can share feedback or a suggestion here.", link: { label: "Give feedback", href: "/feedback" }, pendingProductId: null };
   }
   if (has(text, /^(hi|hello|hey|habari|sasa|mambo|good (morning|afternoon|evening))\b/)) {
-    return { reply: `Hello! I can check what ${ctx.businessName} has available, work out the cost of your order, and answer questions about looking after your milk. What would you like?`, pendingProductId: null };
+    return { reply: `Hello! I can check what ${ctx.businessName} has available, work out the cost of your order, and answer questions about looking after what you buy. What would you like?`, pendingProductId: null };
   }
   if (has(text, /\b(what (do|can) (you|i)|products|menu|sell|list)\b/)) {
     const names = ctx.products.filter((p) => p.stock > 0).slice(0, 6).map((p) => p.name);
@@ -354,7 +354,7 @@ export function buildModelPrompt(ctx: AssistantContext, ruleAnswer: string): str
       ? "We deliver; the fee depends on the area and is shown at checkout. Pick-up is also possible."
       : `We deliver${ctx.deliveryFee > 0 ? ` for ${money(ctx, ctx.deliveryFee)}` : ""}. Pick-up is also possible.`;
   const pay = (ctx.payOnline?.length ? ctx.payOnline : ["M-Pesa"]).join(", ");
-  return `You are ${ctx.assistantName || "Kim"}, the friendly assistant on the website of ${ctx.businessName}, a dairy shop in Kenya. You chat with customers.
+  return `You are ${ctx.assistantName || "Kim"}, the friendly assistant on the website of ${ctx.businessName}, a business in Kenya. You chat with customers.
 
 THE SHOP (the only facts you may state about it):
 Address: ${ctx.address || "not listed (send them to the Find us page)"}
@@ -373,7 +373,7 @@ WHAT THE SHOP'S OWN RULES WOULD ANSWER (true; use it, say it in your own words, 
 ${ruleAnswer}
 
 RULES:
-1. Help with this shop: its products, prices, availability, orders, delivery, payment, opening hours, contacts, and storing, using or preparing milk and dairy. A greeting or short friendly chat is fine. For other subjects (homework, code, politics, other businesses) set "onTopic" to false.
+1. Help with this shop: its products, prices, availability, orders, delivery, payment, opening hours, contacts, and storing, using or preparing what it sells. A greeting or short friendly chat is fine. For other subjects (homework, code, politics, other businesses) set "onTopic" to false.
 2. Only state prices exactly as listed. Never work out totals: ask which product and how much, and the shop will price it. Never offer discounts, free items, promises or guarantees.
 3. Never say how many items are in stock, costs, suppliers, staff, or anything about how the shop runs inside. Availability is only "available", "limited amount left" or "out of stock".
 4. No health or medical advice: suggest a doctor or pharmacist.

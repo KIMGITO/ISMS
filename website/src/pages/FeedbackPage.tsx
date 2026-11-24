@@ -2,10 +2,10 @@ import { FormEvent, useEffect, useState } from 'react';
 import { CheckCircle2, Star } from 'lucide-react';
 import { FeedbackInput, friendlyError, submitFeedback } from '../api';
 import { useAuth, useStorefront } from '../store';
-import { ErrorText, fieldClass, primaryButton, secondaryButton, PageHeader, BANNER_IMAGES } from '../ui';
+import { ErrorText, fieldClass, primaryButton, secondaryButton, PageHeader } from '../ui';
 
 const TYPES: { id: FeedbackInput['type']; label: string; prompt: string }[] = [
-  { id: 'feedback', label: 'Feedback', prompt: 'How was your milk?' },
+  { id: 'feedback', label: 'Feedback', prompt: 'How was your order?' },
   { id: 'suggestion', label: 'Suggestion', prompt: 'What could we do better, or start doing?' },
   { id: 'complaint', label: 'Complaint', prompt: 'What went wrong?' },
 ];
@@ -65,7 +65,7 @@ export default function FeedbackPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Feedback" title="Tell Us What You Think" body="Your feedback helps us look after your milk better." images={BANNER_IMAGES.glass} />
+      <PageHeader eyebrow="Feedback" title="Tell Us What You Think" body="Your feedback helps us serve you better." />
       <div className="mx-auto w-full max-w-2xl px-4 pb-14 pt-4 sm:px-6">
       {state === 'sent' ? (
         <div role="status" className="mt-8 rounded-xl border border-line bg-white p-8 text-center">

@@ -2,7 +2,7 @@
 # Exit on any error
 set -e
 
-APP_NAME="KayKay's"
+APP_NAME="Denso"
 RELEASE_DIR="release"
 
 echo "=================================================="

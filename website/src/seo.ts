@@ -73,19 +73,19 @@ export function businessJsonLd(site: Storefront, siteUrl: string) {
 }
 
 export const homeMeta = (site: Storefront, siteUrl: string): PageMeta => ({
-  title: `${site.business.name} | Fresh milk and dairy in Kenya`,
+  title: `${site.business.name} | Order online`,
   description: clip(
     site.business.description ||
-      `Order fresh milk and dairy products from ${site.business.name} online. Pay with M-Pesa and get delivery or pick up in store.`,
+      `Order from ${site.business.name} online. Pay with M-Pesa and get delivery or pick up in store.`,
   ),
   path: '/',
   jsonLd: [businessJsonLd(site, siteUrl)],
 });
 
 export const shopMeta = (site: Storefront, siteUrl: string): PageMeta => ({
-  title: `Shop milk and dairy products | ${site.business.name}`,
+  title: `Shop | ${site.business.name}`,
   description: clip(
-    `Browse ${site.products.slice(0, 4).map((p) => p.name).join(', ') || 'our dairy products'} from ${site.business.name}. Order online and pay with M-Pesa.`,
+    `Browse ${site.products.slice(0, 4).map((p) => p.name).join(', ') || 'our products'} from ${site.business.name}. Order online and pay with M-Pesa.`,
   ),
   path: '/shop',
   jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Shop', '/shop']])],
@@ -142,10 +142,10 @@ export function productMeta(product: Product, path: string, site: Storefront, si
 }
 
 export const articlesMeta = (site: Storefront, siteUrl: string): PageMeta => ({
-  title: `Milk guides: storage, handling and safety | ${site.business.name}`,
-  description: clip(`Practical guides from ${site.business.name} on how to store, handle and enjoy your milk safely.`),
+  title: `Guides | ${site.business.name}`,
+  description: clip(`Practical guides and tips from ${site.business.name}.`),
   path: '/articles',
-  jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Milk guides', '/articles']])],
+  jsonLd: [breadcrumbs(siteUrl, [['Home', '/'], ['Guides', '/articles']])],
 });
 
 export function articleMeta(article: Article, site: Storefront, siteUrl: string): PageMeta {
@@ -168,7 +168,7 @@ export function articleMeta(article: Article, site: Storefront, siteUrl: string)
         publisher: { '@type': 'Organization', name: site.business.name },
         mainEntityOfPage: `${siteUrl}${path}`,
       },
-      breadcrumbs(siteUrl, [['Home', '/'], ['Milk guides', '/articles'], [article.title, path]]),
+      breadcrumbs(siteUrl, [['Home', '/'], ['Guides', '/articles'], [article.title, path]]),
     ],
   };
 }
@@ -184,7 +184,7 @@ export const contactMeta = (site: Storefront, siteUrl: string): PageMeta => ({
 
 export const feedbackMeta = (site: Storefront): PageMeta => ({
   title: `Share your feedback | ${site.business.name}`,
-  description: clip(`Tell ${site.business.name} about your milk, suggest an improvement or report a problem.`),
+  description: clip(`Tell ${site.business.name} what you think, suggest an improvement or report a problem.`),
   path: '/feedback',
 });
 
@@ -219,7 +219,7 @@ export function reviewsMeta(site: Storefront, siteUrl: string): PageMeta {
     title: `Customer reviews | ${site.business.name}`,
     description: clip(reviews.length
       ? `Rated ${average.toFixed(1)} out of 5 by ${reviews.length} customers. Read what customers say about ${site.business.name}.`
-      : `Read and write reviews of ${site.business.name}'s milk, dairy and delivery.`),
+      : `Read and write reviews of ${site.business.name}'s products and delivery.`),
     path: '/reviews',
     jsonLd: [
       ...(reviews.length ? [{ ...businessJsonLd(site, siteUrl), aggregateRating: { '@type': 'AggregateRating', ratingValue: average.toFixed(1), reviewCount: reviews.length } }] : []),

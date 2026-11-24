@@ -4,6 +4,7 @@
 // these lists, and each person only sees what their role can open and do.
 
 import { hasRolePermission } from "./permissions";
+import { hasModule } from "../stores/planStore";
 import { SCREENS, SCREEN_BY_ID, canOpenScreen, type ScreenId } from "./screens";
 
 export type ShortcutScope = ScreenId | "everywhere";
@@ -16,6 +17,8 @@ export interface Shortcut {
   scope: ShortcutScope;
   /** Any one of these lets the person use it. Empty means anyone who can open the screen. */
   permissions: string[];
+  /** Plan module the action needs when its permissions are core (e.g. delivery at the till). */
+  module?: string;
   /**
    * For page actions run by the global handler: the single key (lower case) and the
    * `data-shortcut` name of the button it presses. A button the role can't see isn't
@@ -121,7 +124,7 @@ const pages: Shortcut[] = [
   { id: "pos-bank", keys: "Alt+5", action: "Pay by bank transfer", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-airtel", keys: "Alt+6", action: "Pay by Airtel Money", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-customer", keys: "Alt+C", action: "Choose a customer", scope: "pos", permissions: ["pos.create_sale"] },
-  { id: "pos-delivery", keys: "Alt+D", action: "Delivery on / off", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-delivery", keys: "Alt+D", action: "Delivery on / off", scope: "pos", permissions: ["pos.create_sale"], module: "deliveries" },
   { id: "pos-note", keys: "Alt+N", action: "Add a note", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-quote", keys: "Alt+Q", action: "Save the cart as a quote", scope: "pos", permissions: ["quotes.manage"], keywords: ["quotation", "proforma", "estimate"] },
   { id: "pos-complete", keys: "Ctrl+Enter F9", action: "Complete the sale", scope: "pos", permissions: ["pos.create_sale"] },
@@ -173,7 +176,14 @@ function roleCan(role: string, codes: string[]): boolean {
 /** The shortcuts this role can use: their screen opens for them and they may do the action. */
 export function shortcutsFor(role: string | undefined): Shortcut[] {
   if (!role) return [];
-  return SHORTCUTS.filter((s) => (s.scope === "everywhere" || canOpenScreen(role, s.scope)) && roleCan(role, s.permissions));
+  return SHORTCUTS.filter(
+    (s) =>
+      (s.scope === "everywhere" || canOpenScreen(role, s.scope)) &&
+      roleCan(role, s.permissions) &&
+      // "Go to" keys follow the screen itself (its plan module too, not only its permissions).
+      (!s.id.startsWith("go-") || canOpenScreen(role, s.id.slice(3))) &&
+      hasModule(s.module),
+  );
 }
 
 /** Where a shortcut works, as a person reads it. */

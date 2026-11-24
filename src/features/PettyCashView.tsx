@@ -399,7 +399,7 @@ export default function PettyCashView() {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Boda to pick milk cans"
+              placeholder="e.g. Boda to pick up stock"
               maxLength={200}
               className={`${input} mt-1`}
             />

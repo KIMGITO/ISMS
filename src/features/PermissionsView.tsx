@@ -2,7 +2,8 @@
 // Streams Single-Open Accordions, System Uniform Toasts, and Bulletproof Owner/Admin Protections
 
 import React, { useState, useEffect } from "react";
-import { getDynamicRoles, saveDynamicRoles, ALL_PERMISSIONS, PermissionCode, SYSTEM_ROLES, SUPPLIER_PORTAL_CATEGORY } from "../utils/permissions";
+import { getDynamicRoles, saveDynamicRoles, planPermissions, PermissionCode, SYSTEM_ROLES, SUPPLIER_PORTAL_CATEGORY } from "../utils/permissions";
+import { usePlan } from "../stores/planStore";
 import { ShieldCheck, ToggleLeft, ToggleRight, Info, Bot, RefreshCw, Lock, Search, X, Check, ShieldAlert, Grid, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Tabs } from "../components/TabOptions";
 import { useNotificationStore } from "../stores/notificationStore";
@@ -37,7 +38,9 @@ export default function PermissionsView() {
     return false;
   };
   // Suppliers have their own short list (what they see when they sign in); staff roles never get it.
-  const pool = ALL_PERMISSIONS.filter((p) => (selectedRole === "Supplier") === (p.category === SUPPLIER_PORTAL_CATEGORY));
+  // Only what the plan includes; locked modules keep their saved ticks, unseen.
+  usePlan();
+  const pool = planPermissions().filter((p) => (selectedRole === "Supplier") === (p.category === SUPPLIER_PORTAL_CATEGORY));
   useEffect(() => {
     if (selectedRole === "Supplier") setActiveOpenCategory(SUPPLIER_PORTAL_CATEGORY);
   }, [selectedRole]);

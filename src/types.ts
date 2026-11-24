@@ -120,7 +120,7 @@ export interface Customer {
   deliveryNotes?: string;
 }
 
-export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer';
+export type EmployeeRole = 'Owner' | 'Admin' | 'Administrator' | 'Manager' | 'Cashier' | 'Inventory Manager' | 'Staff' | 'Rider' | 'Production Staff' | 'Inventory Staff' | 'Sales Staff' | 'Viewer' | 'Support';
 
 export interface User {
   id: string;
@@ -136,7 +136,9 @@ export interface User {
 export interface Business {
   id: string;
   name: string;
-  businessType: string; // Retail, Wholesale, Farm, Dairy Processing, etc.
+  /** The company (SaaS tenant) this branch belongs to; plans and limits are per company. */
+  tenantId?: string;
+  businessType: string; // Retail, Wholesale, Farm, Processing, etc.
   country: string;
   currency: string; // Default Ksh
   description?: string;

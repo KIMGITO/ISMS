@@ -37,6 +37,9 @@ import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptV
 import AccountingView from './features/AccountingView';
 import BuyingView from './features/BuyingView';
 import SupplierPortalView from './features/SupplierPortalView';
+import PlatformConsoleView from './features/PlatformConsoleView';
+import { setConsoleOpen, useConsoleOpen, usePlatformAdmin } from './utils/platformConsole';
+import { captureWantedPlan } from './utils/wantedPlan';
 import AuditLogView from './features/AuditLogView';
 import PromotionsView from './features/PromotionsView';
 import { useNotificationStore } from './stores/notificationStore';
@@ -162,6 +165,11 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useShortcutBadges } from './hooks/useShortcutBadges';
 import { ShortcutHelp } from './components/ShortcutTable';
 import { TermsDialog } from './components/legal/TermsDialog';
+import PlanBanner from './components/PlanBanner';
+import SupportBanner from './components/support/SupportBanner';
+import StartScreen, { JOIN_CODE_KEY } from './components/signup/StartScreen';
+import { usePlan, usePlanStore, startPlanWatch } from './stores/planStore';
+import { isBranchChosen, BRANCH_CHOSEN_EVENT, markBranchChosen } from './utils/branchChoice';
 
 // Anyone holding one of these sees the Payments screen; each of its tabs checks its own.
 const MONEY_PERMISSIONS = SCREEN_BY_ID.get('money')!.permissions;
@@ -217,29 +225,6 @@ const MOBILE_TABS = [
 
 
 
-  export const BUSINESS_TYPES = [
-    // Core Retail & Sales
-    { id: 'Retail', label: 'Retail Store / Supermarket' },
-    { id: 'Wholesale', label: 'Wholesale Depot / Distributor' },
-    { id: 'Hardware', label: 'Hardware & Building Materials' },
-    { id: 'Electronics', label: 'Electronics & Mobile Shop' },
-    { id: 'Boutique', label: 'Apparel & Clothing Boutique' },
-
-    // Food, Beverage & Bakery
-    { id: 'Bakery', label: 'Bakery & Confectionery' },
-    { id: 'Restaurant', label: 'Restaurant / Eatery / Cafe' },
-    { id: 'Liquor', label: 'Liquor Store & Bar' },
-
-    // Agri & Processing
-    { id: 'Farm', label: 'Dairy / Agricultural Farm' },
-    { id: 'Dairy Processing', label: 'Milk Processing Plant / Hub' },
-    { id: 'Agrovet', label: 'Agrovet & Farm Supplies' },
-
-    // Services & Other
-    { id: 'Pharmacy', label: 'Pharmacy & Chemist' },
-    { id: 'Services', label: 'Services / Repair Shop' },
-    { id: 'Other', label: 'Other (Specify below)' },
-  ];
   
 const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
   logoUrl,
@@ -269,7 +254,7 @@ const WorkspaceLogo: React.FC<{ logoUrl?: string; name: string }> = ({
 // Each step with a tab is only shown to roles that can open that screen (see utils/screens.ts).
 const tourSteps: TourStep[] = [
   {
-    title: "Welcome to KayKay's!",
+    title: "Welcome to Denso!",
     content: "A quick tour of the screens you can use.",
     placement: 'bottom',
   },
@@ -603,9 +588,7 @@ export default function App() {
   useShortcutBadges(currentEmployee?.role, activeTab as string);
 
   const [businessType, setBusinessType] = useState('');
-  const [customTypeInput, setCustomTypeInput] = useState('');
-
-  const finalBusinessType = businessType === 'Other' ? customTypeInput : businessType;
+  const finalBusinessType = businessType.trim();
 
 
 
@@ -643,7 +626,7 @@ export default function App() {
   const [newBizEmail, setNewBizEmail] = useState('');
   const [newBizCurrency, setNewBizCurrency] = useState('Ksh');
   const [newBizTimezone, setNewBizTimezone] = useState('Africa/Nairobi');
-  const [newBizType, setNewBizType] = useState('Retail');
+  const [newBizType, setNewBizType] = useState('');
   const [newBizPaymentMethods, setNewBizPaymentMethods] = useState<string[]>([
     'Cash',
     'M-Pesa',
@@ -658,7 +641,7 @@ export default function App() {
     businesses.find((b) => b.id === activeBusinessId) ||
     businesses[0] || {
       id: 'biz-1',
-      name: "KayKay's",
+      name: "Denso",
       logoUrl: '/icon.png',
     };
 
@@ -672,6 +655,68 @@ export default function App() {
   const [switchAdminPin, setSwitchAdminPin] = useState('');
   const [switchError, setSwitchError] = useState('');
   const [permissionVersion, setPermissionVersion] = useState(0);
+
+  // The plan of the open branch's company decides which modules show (planStore). Nothing
+  // opens before it is known for this person and branch: a saved copy counts, else the
+  // first answer (or failure) from the server.
+  const plan = usePlan();
+  useEffect(() => {
+    if (currentUser) startPlanWatch();
+  }, [currentUser?.id]);
+  const planKey = currentUser?.isVerified && activeBusinessId ? `${currentUser.id}:${activeBusinessId}` : '';
+  const [planCheckedFor, setPlanCheckedFor] = useState('');
+  useEffect(() => {
+    if (!planKey) return;
+    let live = true;
+    usePlanStore
+      .getState()
+      .loadPlan(activeBusinessId, true)
+      .catch(() => null)
+      .finally(() => {
+        if (live) setPlanCheckedFor(planKey);
+      });
+    return () => {
+      live = false;
+    };
+  }, [planKey]);
+  const planReady = !planKey || !!plan || planCheckedFor === planKey;
+
+  // Platform console (SaaS step 7): part of this app, but only platform admins can open it,
+  // and while it is open no business screen shows. The database refuses everyone else anyway.
+  const isPlatformAdmin = usePlatformAdmin(currentUser?.isVerified ? currentUser.id : null);
+  const consoleOpen = useConsoleOpen();
+  const showConsole = !!currentUser?.isVerified && isPlatformAdmin && consoleOpen;
+
+  // Someone in more than one branch picks the branch before any screen opens (each app
+  // start and sign-in). Picking happens in the chooser, the branch list or by creating one.
+  const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
+  const [, setBranchChoiceTick] = useState(0);
+  useEffect(() => {
+    const onChosen = () => setBranchChoiceTick((t) => t + 1);
+    window.addEventListener(BRANCH_CHOSEN_EVENT, onChosen);
+    return () => window.removeEventListener(BRANCH_CHOSEN_EVENT, onChosen);
+  }, []);
+  const myBranchCount = currentUser
+    ? memberships.filter((m) => m.userId === currentUser.id && m.status === 'Active').length
+    : 0;
+  const mustChooseBranch =
+    !!currentUser?.isVerified && myBranchCount > 1 && !isBranchChosen(currentUser.id, activeBusinessId);
+  const showBranchChooser = showWorkspaceSwitcher || mustChooseBranch;
+  // Company names for the chooser's headings (only when the person works for two companies).
+  const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!showBranchChooser || !currentUser) return;
+    let live = true;
+    getSupabase()
+      .from('tenants')
+      .select('id, name')
+      .then(({ data }) => {
+        if (live && data) setCompanyNames(Object.fromEntries(data.map((t: any) => [t.id, t.name])));
+      });
+    return () => {
+      live = false;
+    };
+  }, [showBranchChooser, currentUser?.id]);
 
   const [isTerminalLocked, setIsTerminalLocked] = useState(
     () => localStorage.getItem('kkm_terminal_locked') === 'true',
@@ -867,7 +912,10 @@ export default function App() {
     | 'session-expired'
     | 'unauthorized'
     | 'no-business'
-  >('login');
+    | 'start'
+  >(() => (new URLSearchParams(window.location.search).has('plan') ? 'register' : 'login'));
+  /** Platform admin only: the plan a new company is created on (no payment). */
+  const [adminPlanCode, setAdminPlanCode] = useState<string | undefined>(undefined);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -998,12 +1046,15 @@ export default function App() {
         const activeMems = memberships.filter(
           (m) => m.userId === currentUser.id && m.status === 'Active',
         );
-        // Not in any business yet. Only the person who set up the system may
-        // create one; everyone else joins by invitation.
+        // Not in any business yet: the start screen (start one, join one, invitations, requests).
+        // The set-up form only while the server says they may create a company.
         if (activeMems.length === 0) {
-          const next = canCreateBusiness ? 'create-biz' : 'no-business';
-          if (authViewTab !== next && authViewTab !== 'accept-invite') setAuthViewTab(next);
-        } else if (authViewTab === 'create-biz' || authViewTab === 'no-business') {
+          const stay =
+            authViewTab === 'start' ||
+            authViewTab === 'accept-invite' ||
+            (authViewTab === 'create-biz' && canCreateBusiness);
+          if (!stay) setAuthViewTab('start');
+        } else if (authViewTab === 'create-biz' || authViewTab === 'no-business' || authViewTab === 'start') {
           setAuthViewTab('login');
         }
       }
@@ -1141,7 +1192,27 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
-  const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
+
+  // A join-code link (the QR code in Workers): keep the code until they are signed in; the start
+  // screen fills it in.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const join = url.searchParams.get('join');
+    if (!join) return;
+    try {
+      sessionStorage.setItem(JOIN_CODE_KEY, join.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8));
+    } catch {
+      /* they type the code instead */
+    }
+    url.searchParams.delete('join');
+    window.history.replaceState(null, '', url.pathname + url.search);
+  }, []);
+
+  // A plan picked on the public plans page (?plan=pro&cycle=monthly): kept until they are
+  // signed in; the start screen then opens it.
+  useEffect(() => {
+    captureWantedPlan();
+  }, []);
 
   // Parse secure email invitation links in the URL on mount
   useEffect(() => {
@@ -1320,7 +1391,7 @@ export default function App() {
     if (canOpenScreen(currentEmployee.role, activeTab as string)) return;
     const first = SCREENS.find((screen) => canOpenScreen(currentEmployee.role, screen.id));
     if (first && first.id !== activeTab) setActiveTab(first.id as any);
-  }, [currentEmployee, activeTab, permissionVersion]);
+  }, [currentEmployee, activeTab, permissionVersion, plan]);
 
   // Hide native splash screen on first client mount
   useEffect(() => {
@@ -1426,7 +1497,7 @@ export default function App() {
   // Offline: the top bar turns red, so the phone's status-bar icons switch to white.
   // The sign-in screens are always light, whatever the app theme.
   const onAuthScreen =
-    !currentUser || !currentUser.isVerified || !currentEmployee || showWorkspaceSwitcher;
+    !currentUser || !currentUser.isVerified || !currentEmployee || showBranchChooser;
   useEffect(() => {
     statusBarService.setStyle(!isOnline ? 'dark' : onAuthScreen ? 'light' : themeMode);
   }, [isOnline, themeMode, onAuthScreen]);
@@ -1823,7 +1894,7 @@ export default function App() {
             <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh">
               <div className="text-center space-y-4">
                 <div className="flex justify-center mt-4">
-                  <img src="/milk-loader.svg" width={96} height={96} alt="Loading" />
+                  <img src="/denso-animated-dark.svg" width={240} height={76} alt="Denso" />
                 </div>
               </div>
             </div>
@@ -1860,15 +1931,29 @@ export default function App() {
                 </button>
               </motion.div>
             </div>
+          ) : showConsole ? (
+            /* PLATFORM CONSOLE: platform admins only, no business screens */
+            <motion.div key="platform-console" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col min-h-dvh">
+              <PlatformConsoleView
+                themeMode={themeMode}
+                onToggleTheme={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')}
+                onClose={() => setConsoleOpen(false)}
+              />
+            </motion.div>
           ) : currentUser && currentUser.isVerified && !currentEmployee && supplierAccounts.length > 0 ? (
             /* SOMEONE AT A SUPPLIER: their own portal, no staff screens */
             <motion.div key="supplier-portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col min-h-dvh">
               <SupplierPortalView themeMode={themeMode} onToggleTheme={() => setThemeMode(themeMode === 'light' ? 'dark' : 'light')} />
             </motion.div>
+          ) : currentUser && currentUser.isVerified && currentEmployee && !showBranchChooser && !planReady ? (
+            /* The plan of this branch is not known yet: nothing opens until it is */
+            <div className="flex-1 flex flex-col justify-center items-center bg-slate-950 text-slate-100 min-h-dvh">
+              <img src="/denso-loader.svg" width={96} height={96} alt="Loading" />
+            </div>
           ) : !currentUser ||
             !currentUser.isVerified ||
             !currentEmployee ||
-            showWorkspaceSwitcher ? (
+            showBranchChooser ? (
             /* ONLINE AUTHENTICATION & ONBOARDING PORTAL */
             <motion.div
               key="auth-portal"
@@ -1878,14 +1963,14 @@ export default function App() {
               className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 bg-slate-100 text-slate-900 min-h-dvh overflow-y-auto select-none relative"
             >
 
-              <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-6 animate-fade-in relative">
+              <div className={`w-full ${authViewTab === 'start' || authViewTab === 'no-business' ? 'max-w-3xl' : 'max-w-lg'} bg-white border border-slate-200 rounded-3xl shadow-sm p-6 md:p-8 space-y-6 animate-fade-in relative`}>
                 {/* Brand Header */}
                 <div className="text-center space-y-2">
                   <div className="mx-auto w-14 h-14 bg-white border border-amber-500/30 rounded-2xl flex items-center justify-center overflow-hidden">
-                    <img src="/icon.png" alt="KayKay's" className="w-full h-full object-cover" />
+                    <img src="/denso.svg" alt="Denso" className="w-full h-full object-cover" />
                   </div>
                   <h1 className="text-xl font-bold font-display tracking-tight text-amber-600">
-                    KayKay's
+                    Denso
                   </h1>
                   <p className="text-[10.5px] text-slate-500 font-bold">
                     Sales, stock and money for your shop
@@ -1893,14 +1978,14 @@ export default function App() {
                 </div>
 
                 {/* WORKSPACE SWITCHER OVERLAY */}
-                {showWorkspaceSwitcher && currentUser ? (
+                {showBranchChooser && currentUser ? (
                   <div className="space-y-4 animate-fade-in">
                     <div className="text-center space-y-1">
                       <h2 className="text-xs font-semibold text-amber-600">
-                        Choose a business
+                        Choose a branch
                       </h2>
                       <p className="text-[10px] text-slate-500">
-                        Your account belongs to more than one business. Pick one.
+                        You work in more than one branch. Pick the one you are working in now.
                       </p>
                     </div>
 
@@ -1911,7 +1996,12 @@ export default function App() {
                             m.userId === currentUser.id &&
                             m.status === 'Active',
                         )
-                        .map((m) => {
+                        // Grouped by company, so branches of different businesses never mix.
+                        .map((m) => ({ m, tenant: businesses.find((b) => b.id === m.businessId)?.tenantId || '' }))
+                        .sort((a, b) => a.tenant.localeCompare(b.tenant))
+                        .map(({ m, tenant }, index, list) => {
+                          const companyCount = new Set(list.map((x) => x.tenant)).size;
+                          const startsCompany = companyCount > 1 && (index === 0 || list[index - 1].tenant !== tenant);
                           const biz = businesses.find(
                             (b) => b.id === m.businessId,
                           ) || {
@@ -1921,8 +2011,13 @@ export default function App() {
                               "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Crect width='100' height='100' rx='20'/%3E%3Cpath d='M30,70 L50,30 L70,70 Z' fill='%230f172a'/%3E%3C/svg%3E",
                           };
                           return (
+                            <React.Fragment key={m.id}>
+                            {startsCompany && (
+                              <h3 className="text-[11px] font-semibold text-slate-500 pt-1">
+                                {companyNames[tenant] || 'Business'}
+                              </h3>
+                            )}
                             <button
-                              key={m.id}
                               onClick={() => {
                                 switchBusiness(m.businessId);
                                 setShowWorkspaceSwitcher(false);
@@ -1948,10 +2043,20 @@ export default function App() {
                                 className="text-slate-500 group-hover:text-amber-600 transition-colors"
                               />
                             </button>
+                            </React.Fragment>
                           );
                         })}
                     </div>
 
+                    {isPlatformAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setConsoleOpen(true)}
+                        className="w-full py-2.5 border border-amber-500/40 hover:bg-amber-500/10 text-amber-700 font-bold rounded-xl text-xs transition"
+                      >
+                        Platform console
+                      </button>
+                    )}
                     <button
                       onClick={() => logout()}
                       className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition tracking-wide"
@@ -1978,10 +2083,12 @@ export default function App() {
 
                     {/* Navigation Tabs (Only shown if owner exists and not in verifying or business creation steps) */}
                     {ownerExists &&
+                      !currentUser &&
                       authViewTab !== 'verify' &&
                       authViewTab !== 'create-biz' &&
-                      authViewTab !== 'no-business' && (
-                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                      authViewTab !== 'no-business' &&
+                      authViewTab !== 'start' && (
+                        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                           <button
                             type="button"
                             onClick={() => {
@@ -1995,7 +2102,22 @@ export default function App() {
                                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                           >
-                            Login
+                            Sign in
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthViewTab('register');
+                              setAuthError('');
+                              setAuthSuccess('');
+                            }}
+                            className={`py-2 text-[10px] font-semibold rounded-xl transition ${
+                              authViewTab === 'register'
+                                ? 'bg-amber-500 text-slate-950 shadow-md'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            Create account
                           </button>
                           <button
                             type="button"
@@ -2081,7 +2203,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="e.g. owner@kaykays.com"
+                              placeholder="e.g. owner@yourshop.co.ke"
                               value={loginEmail}
                               onChange={(e) => setLoginEmail(e.target.value)}
                               className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
@@ -2200,15 +2322,12 @@ export default function App() {
                       >
                         <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1.5">
                           <h4 className="text-[10.5px] font-semibold text-amber-600 flex items-center gap-1.5">
-                            <Building size={12} /> You will be the owner
+                            <Building size={12} /> Your account
                           </h4>
                           <p className="text-[11px] text-slate-500 leading-normal">
-                            The person who creates the account becomes the{' '}
-                            <strong className="text-slate-700 font-semibold">
-                              owner
-                            </strong>{' '}
-                            and can do everything. Your business is ready as
-                            soon as you confirm your email.
+                            After you confirm your email you can start your own
+                            business (free trial or a plan) or join one you work for.
+                            Invited by email? Use Join team instead.
                           </p>
                         </div>
 
@@ -2238,7 +2357,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@kaykays.com"
+                              placeholder="e.g. owner@yourshop.co.ke"
                               value={regEmail}
                               onChange={(e) => setRegEmail(e.target.value)}
                               className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
@@ -2283,7 +2402,7 @@ export default function App() {
                         >
                           {authLoading
                             ? 'Creating Profile...'
-                            : 'Register Owner Account'}
+                            : 'Create account'}
                         </button>
 
                         <p className="text-center text-[10px] text-slate-500 leading-normal">
@@ -2518,7 +2637,7 @@ export default function App() {
                       <div className="space-y-5 text-xs animate-fade-in">
                         <div className="text-center space-y-1">
                           <h3 className="text-xs font-semibold text-amber-600 flex items-center justify-center gap-1.5">
-                            <Building size={16} /> Register Business Hub
+                            <Building size={16} /> Set up your business
                           </h3>
                           <p className="text-[10.5px] text-slate-500">
                             Tell us about your business and first branch.
@@ -2532,6 +2651,10 @@ export default function App() {
                               setAuthError('Business name is required.');
                               return;
                             }
+                            if (!finalBusinessType) {
+                              setAuthError('Type what kind of business it is.');
+                              return;
+                            }
                             setAuthLoading(true);
                             setAuthError('');
                             setAuthSuccess('');
@@ -2540,10 +2663,15 @@ export default function App() {
                               finalBusinessType,
                               bizCountryField,
                               bizCurrencyField,
+                              undefined,
+                              undefined,
+                              undefined,
+                              adminPlanCode,
                             );
                             setAuthLoading(false);
                             if (res.success) {
                               setBizNameField('');
+                              setAdminPlanCode(undefined);
                             } else {
                               setAuthError(
                                 res.error || 'Failed to create business.',
@@ -2579,38 +2707,14 @@ export default function App() {
                                 Business Type *
                               </label>
 
-                              {/* Searchable Dropdown */}
-                              <SearchableDropdown
-                                items={BUSINESS_TYPES}
-                                selectedValue={businessType}
-                                onChange={(val: string) => {
-                                  setBusinessType(val);
-                                  if (val !== 'Other') {
-                                    setCustomTypeInput('');
-                                  }
-                                }}
-                                placeholder="Select business type..."
+                              <input
+                                type="text"
+                                placeholder="e.g. Shop, Butchery, Salon"
+                                value={businessType}
+                                onChange={(e) => setBusinessType(e.target.value)}
+                                maxLength={60}
+                                className="w-full bg-slate-50 text-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none text-xs placeholder:text-slate-400"
                               />
-
-                              {/* Conditional Input for Custom Business Type */}
-                              {businessType === 'Other' && (
-                                <div className="relative pt-1">
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Dairy, Butchery"
-                                    value={customTypeInput}
-                                    onChange={(e) =>
-                                      setCustomTypeInput(e.target.value)
-                                    }
-                                    className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-amber-500/50 focus:border-amber-500 focus:outline-none text-xs placeholder:text-slate-400 animate-in fade-in slide-in-from-top-1 duration-150"
-                                    autoFocus
-                                  />
-                                  <Edit3
-                                    size={13}
-                                    className="absolute left-3 top-4.5 text-amber-600 pointer-events-none"
-                                  />
-                                </div>
-                              )}
                             </div>
                             <div className="space-y-1">
                               <label className="text-[10px] text-slate-500 font-bold block">
@@ -2668,6 +2772,17 @@ export default function App() {
                               ? 'Setting up...'
                               : 'Create my business'}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthError('');
+                              setAdminPlanCode(undefined);
+                              setAuthViewTab('start');
+                            }}
+                            className="w-full text-[11px] text-slate-500 hover:text-slate-800 font-semibold"
+                          >
+                            Back
+                          </button>
                         </form>
                       </div>
                     )}
@@ -2675,9 +2790,22 @@ export default function App() {
                     {/* TAB CONTENT: JOIN TEAM (ACCEPT INVITATION) */}
                     {authViewTab === 'accept-invite' && (
                       <div className="space-y-4 text-xs animate-fade-in">
+                        {currentUser && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthError('');
+                              setAuthSuccess('');
+                              setAuthViewTab('start');
+                            }}
+                            className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold"
+                          >
+                            Back
+                          </button>
+                        )}
                         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1">
                           <h4 className="text-[10.5px] font-semibold text-amber-600 flex items-center gap-1.5">
-                            <Key size={12} /> Invitation Verification Portal
+                            <Key size={12} /> Join with an invitation code
                           </h4>
                           <p className="text-[11px] text-slate-500 leading-normal">
                             Enter the invitation code the owner or manager sent you.
@@ -3026,7 +3154,7 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              placeholder="e.g. owner@kaykays.com"
+                              placeholder="e.g. owner@yourshop.co.ke"
                               value={forgotEmail}
                               onChange={(e) => setForgotEmail(e.target.value)}
                               className="w-full bg-slate-50 text-slate-900 pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:outline-none"
@@ -3407,46 +3535,25 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* TAB CONTENT: SIGNED IN BUT NOT IN ANY BUSINESS */}
-                    {authViewTab === 'no-business' && currentUser && (
-                      <div className="space-y-4 text-xs animate-fade-in text-center py-4">
-                        <div className="mx-auto w-12 h-12 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center justify-center text-amber-600">
-                          <Key size={22} />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-semibold text-slate-900">
-                            Not in a business yet
-                          </h3>
-                          <p className="text-[11px] text-slate-500 leading-normal">
-                            Ask the admin to invite {currentUser.email}, then enter the code.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
+                    {/* TAB CONTENT: SIGNED IN BUT NOT IN ANY BUSINESS: start one or join one */}
+                    {(authViewTab === 'start' || authViewTab === 'no-business') && currentUser && (
+                      <div className="light-scope animate-fade-in">
+                        <StartScreen
+                          onCreateBusiness={(planCode) => {
+                            setAuthError('');
+                            setAuthSuccess('');
+                            setAdminPlanCode(planCode);
+                            setAuthViewTab('create-biz');
+                          }}
+                          onEnterInviteCode={() => {
                             setInviteEmail(currentUser.email);
                             setAuthError('');
                             setAuthSuccess('');
                             setAuthViewTab('accept-invite');
                           }}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl transition cursor-pointer"
-                        >
-                          Enter invitation code
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => useAuthStore.getState().refreshSession()}
-                          className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition cursor-pointer"
-                        >
-                          Check again
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => logout()}
-                          className="text-[11px] text-red-600 hover:text-red-700 transition cursor-pointer font-semibold bg-transparent border-none outline-none"
-                        >
-                          Sign out
-                        </button>
+                          onSignOut={() => logout()}
+                          onOpenConsole={isPlatformAdmin ? () => setConsoleOpen(true) : undefined}
+                        />
                       </div>
                     )}
 
@@ -3523,7 +3630,7 @@ export default function App() {
                         }`}
                         title={
                           assignableBranchesCount > 1
-                            ? 'Click to switch dairy branch'
+                            ? 'Click to switch branch'
                             : undefined
                         }
                       >
@@ -4055,7 +4162,7 @@ export default function App() {
                         }`}
                         title={
                           assignableBranchesCount > 1
-                            ? 'Click to switch dairy branch'
+                            ? 'Click to switch branch'
                             : undefined
                         }
                       >
@@ -4197,6 +4304,8 @@ export default function App() {
                   )}
                 </AnimatePresence>
                 <ClockBar />
+                <PlanBanner />
+                <SupportBanner />
 
                 {/* CORE VIEWPORT CARDS: pull down from the top of a screen to refresh
                     (app-screens: phone edge spacing in index.css) */}
@@ -4411,6 +4520,7 @@ export default function App() {
                       >
                         <ProfileView
                           onRestartTour={() => setIsTourOpen(true)}
+                          onOpenConsole={isPlatformAdmin ? () => setConsoleOpen(true) : undefined}
                         />
                       </motion.div>
                     )}
@@ -4945,7 +5055,7 @@ export default function App() {
                             surfaceClassName="bg-slate-50 dark:bg-slate-950"
                             actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch }]}
                             more={[
-                              { label: isActive ? 'Current branch' : 'Switch to this branch', icon: <Check size={16} />, disabled: isActive, onClick: () => { setActiveBusinessId(biz.id); setShowBusinessDropdown(false); } },
+                              { label: isActive ? 'Current branch' : 'Switch to this branch', icon: <Check size={16} />, disabled: isActive, onClick: () => { setActiveBusinessId(biz.id); markBranchChosen(biz.id, currentUser?.id); setShowBusinessDropdown(false); } },
                               { label: 'Edit branch', icon: <Edit size={16} />, hidden: !canManageBranch, onClick: editBranch },
                               { label: 'Delete branch', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch },
                             ]}
@@ -4959,6 +5069,7 @@ export default function App() {
                             <div
                               onClick={() => {
                                 setActiveBusinessId(biz.id);
+                                markBranchChosen(biz.id, currentUser?.id);
                                 setShowBusinessDropdown(false);
                               }}
                               className="flex-1 flex items-center gap-3 cursor-pointer min-w-0"
@@ -4972,7 +5083,7 @@ export default function App() {
                                   {biz.name}
                                 </h4>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                  {biz.description || 'Dairy Branch'}
+                                  {biz.description || 'Branch'}
                                 </p>
                                 {biz.address && (
                                   <span className="text-[11px] text-amber-500 font-semibold block mt-1">
@@ -5077,7 +5188,7 @@ export default function App() {
                         newBizDesc,
                         newBizAddr,
                         newBizLogo,
-                        newBizType,
+                        newBizType.trim() || 'Retail',
                         'Kenya',
                         newBizCurrency,
                         newBizCover,
@@ -5098,7 +5209,7 @@ export default function App() {
                         setNewBizEmail('');
                         setNewBizCurrency('Ksh');
                         setNewBizTimezone('Africa/Nairobi');
-                        setNewBizType('Retail');
+                        setNewBizType('');
                         setNewBizPaymentMethods(['Cash', 'M-Pesa']);
                         setShowBusinessDropdown(false);
                       }
@@ -5155,21 +5266,13 @@ export default function App() {
                           <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             Business Type
                           </label>
-                          <SearchableDropdown
-                            items={
-                              [
-                              { id: 'Retail', label: 'Retail' },
-                              { id: 'Wholesale', label: 'Wholesale' },
-                              { id: 'Farm', label: 'Farm' },
-                              {
-                                id: 'Dairy Processing',
-                                label: 'Dairy Processing',
-                              },
-                              { id: 'Other', label: 'Other' },
-                            ]}
-                            selectedValue={newBizType}
-                            onChange={(val) => setNewBizType(val)}
-                            placeholder="Select type..."
+                          <input
+                            type="text"
+                            placeholder="e.g. Shop, Butchery"
+                            value={newBizType}
+                            onChange={(e) => setNewBizType(e.target.value)}
+                            maxLength={60}
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500"
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -5359,7 +5462,7 @@ export default function App() {
                           setNewBizEmail('');
                           setNewBizCurrency('Ksh');
                           setNewBizTimezone('Africa/Nairobi');
-                          setNewBizType('Retail');
+                          setNewBizType('');
                           setNewBizPaymentMethods(['Cash', 'M-Pesa']);
                         }}
                         className="flex-1 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-[11px] text-slate-400 dark:text-slate-500 cursor-pointer"

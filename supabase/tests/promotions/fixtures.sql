@@ -42,3 +42,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.transactions (business_id, total, final_total, amount_paid, payment_method, customer_id, customer_name, staff_name)
 SELECT 'b1000000-0000-0000-0000-000000000000', 100, 100, 100, 'Cash', 'c1000000-0000-0000-0000-000000000000', 'Alice Old', 'Seed'
 WHERE NOT EXISTS (SELECT 1 FROM public.transactions WHERE customer_id = 'c1000000-0000-0000-0000-000000000000');
+-- The test company is on Pro Plus with no end date, as every business was when plans came in
+-- (20261204001). saas/plans_test.sh moves it between plans itself.
+UPDATE public.tenant_subscriptions SET plan_code = 'pro_plus', status = 'active', billing_cycle = 'manual',
+       trial_ends_at = NULL, current_period_end = NULL
+WHERE tenant_id = (SELECT tenant_id FROM public.businesses WHERE id = 'b1000000-0000-0000-0000-000000000000');

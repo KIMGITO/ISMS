@@ -3,6 +3,7 @@
 // Navigation, global search and the guided tour all read this, so they agree.
 
 import { hasRolePermission } from "./permissions";
+import { hasModule } from "../stores/planStore";
 
 export type ScreenId =
   | "home" | "dashboard" | "sell" | "pos" | "inventory" | "sales" | "customers" | "feedback"
@@ -28,6 +29,11 @@ export interface AppScreen {
   keywords: string[];
   /** Any one of these opens the screen. Empty means everyone signed in. */
   permissions: string[];
+  /**
+   * Plan module the whole screen needs, when its permissions alone don't say so (the Stock
+   * Report shows core data, so only the app can lock it).
+   */
+  module?: string;
 }
 
 export const SCREENS: AppScreen[] = [
@@ -35,29 +41,29 @@ export const SCREENS: AppScreen[] = [
   { id: "sell", group: "Selling", title: "Quick Sale", description: "Sell in a few taps", keywords: ["sell", "quick", "checkout", "till"], permissions: ["pos.create_sale"] },
   { id: "pos", group: "Selling", title: "POS", description: "Full checkout", keywords: ["point of sale", "cart", "checkout", "receipt"], permissions: ["pos.create_sale"] },
   { id: "sales", group: "Selling", title: "Sales Log", description: "Past sales and receipts", keywords: ["transactions", "receipts", "orders", "history"], permissions: ["orders.view"] },
-  { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"] },
+  { id: "online-store", group: "Selling", title: "Online Store", description: "Website orders and messages", keywords: ["website", "orders", "online", "shop"], permissions: ["online_store.view"], module: "online_store" },
   { id: "prompt", group: "Selling", title: "Payment Prompts", description: "Send M-Pesa or Airtel prompts", keywords: ["prompt", "stk", "stk push", "mpesa", "m-pesa", "airtel", "airtel money", "request payment", "ask to pay", "lipa", "push", "ussd"], permissions: ["payments.mpesa", "payments.airtel"] },
   { id: "customers", group: "Customers", title: "Customers", description: "Customers, debts and wallets", keywords: ["customers", "loyalty", "members", "points", "debt", "wallet", "credit", "account number"], permissions: ["customers.view"] },
-  { id: "promotions", group: "Customers", title: "Promotions & Points", description: "Points, codes and referrals", keywords: ["points", "loyalty points", "point value", "tier", "points report", "ai", "advisor", "promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage", "loyalty.view", "loyalty.configure", "customers.loyalty"] },
-  { id: "regular-orders", group: "Customers", title: "Regular Orders", description: "Fixed-day customers", keywords: ["schedule", "schedules", "subscription", "standing order", "regular", "weekly", "daily", "every day", "milk round", "deliver every", "tomorrow", "recurring", "repeat order"], permissions: ["customers.view", "customers.schedules", "pos.create_sale"] },
+  { id: "promotions", group: "Customers", title: "Promotions & Points", description: "Points, codes and referrals", keywords: ["points", "loyalty points", "point value", "tier", "points report", "ai", "advisor", "promotion", "promo", "promo code", "coupon", "voucher", "discount code", "offer", "campaign", "referral", "refer a friend", "invite", "reward", "buy one get one", "free product"], permissions: ["promotions.view", "promotions.manage", "referrals.view", "referrals.manage", "loyalty.view", "loyalty.configure", "customers.loyalty"], module: "promotions" },
+  { id: "regular-orders", group: "Customers", title: "Regular Orders", description: "Fixed-day customers", keywords: ["schedule", "schedules", "subscription", "standing order", "regular", "weekly", "daily", "every day", "deliver every", "tomorrow", "recurring", "repeat order"], permissions: ["customers.view", "customers.schedules", "pos.create_sale"], module: "regular_orders" },
   { id: "feedback", group: "Customers", title: "Feedback", description: "Reviews and complaints", keywords: ["reviews", "complaints", "suggestions"], permissions: ["complaints.view"] },
   { id: "inventory", group: "Stock", title: "Inventory", description: "Products and stock", keywords: ["stock", "products", "categories", "restock", "wastage"], permissions: ["inventory.view"] },
   { id: "stock-history", group: "Stock", title: "Stock History", description: "Every change to stock", keywords: ["audit", "adjustment", "log", "history", "restock", "damage", "wastage", "stock movement"], permissions: ["inventory.stock_history"] },
-  { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Stock between branches", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way", "ask for stock", "request stock", "shortage"], permissions: ["inventory.transfer_stock", "inventory.receive_stock", "inventory.request_transfer"] },
-  { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"] },
-  { id: "buying", group: "Buying & deliveries", title: "Buying", description: "Suppliers, purchases and bills", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"] },
-  { id: "deliveries", group: "Buying & deliveries", title: "Deliveries", description: "Riders, trips and areas", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"] },
+  { id: "stock-transfers", group: "Stock", title: "Stock Transfers", description: "Stock between branches", keywords: ["transfer", "branch", "send stock", "receive stock", "move stock", "supply", "main branch", "on the way", "ask for stock", "request stock", "shortage"], permissions: ["inventory.transfer_stock", "inventory.receive_stock", "inventory.request_transfer"], module: "transfers" },
+  { id: "production", group: "Stock", title: "Production & BOM", description: "Recipes and production batches", keywords: ["bom", "recipe", "batch", "production"], permissions: ["bom.view"], module: "production" },
+  { id: "buying", group: "Buying & deliveries", title: "Buying", description: "Suppliers, purchases and bills", keywords: ["supplier", "suppliers", "purchase", "purchases", "purchase order", "order stock", "buy stock", "vendor", "receive", "delivery note", "lpo", "rfq", "quote", "grn", "reorder", "reorder level", "suggested orders", "low stock", "approval", "approve purchase", "limit", "supplier bill", "bill", "three-way", "return to supplier", "vat on purchases", "lead time"], permissions: ["suppliers.view", "purchases.view", "purchases.create", "purchases.approve", "supplier_bills.manage"], module: "buying" },
+  { id: "deliveries", group: "Buying & deliveries", title: "Deliveries", description: "Riders, trips and areas", keywords: ["rider", "delivery", "dispatch", "route"], permissions: ["deliveries.view"], module: "deliveries" },
   { id: "money", group: "Money", title: "Payments & Expenses", description: "Payments, expenses and methods", keywords: ["payments", "expenses", "mpesa", "m-pesa", "airtel", "till", "void", "money", "cash", "payment methods", "switch off"], permissions: ["payments.view", "payments.cash", "payments.mpesa", "payments.airtel", "payments.verify", "payments.configure", "expenses.view", "expenses.create"] },
   { id: "petty-cash", group: "Money", title: "Petty Cash", description: "Money taken from the till", keywords: ["petty cash", "cashbook", "spending", "spent", "till cash", "expense", "float"], permissions: ["pettycash.record"] },
   { id: "finance", group: "Money", title: "Finance & Accounting", description: "Profit, books and VAT", keywords: ["finance", "profit", "loss", "income", "spending", "report", "debts", "p&l", "accounting", "books", "ledger", "journal", "balance sheet", "trial balance", "profit and loss", "chart of accounts", "vat", "kra", "payables", "receivables", "reconcile", "bookkeeping", "double entry", "pay supplier", "lock", "wallets", "points cost"], permissions: ["finance.view", "accounting.view"] },
-  { id: "stock-report", group: "Reports", title: "Stock Report", description: "Daily and monthly report per product", keywords: ["report", "daily report", "monthly report", "opening", "closing", "closed", "milk report", "till", "not paid", "pending bills", "boss", "owner", "whatsapp report", "end of day"], permissions: ["reports.inventory", "reports.view", "reports.sales", "inventory.stock_history", "finance.view"] },
+  { id: "stock-report", group: "Reports", title: "Stock Report", description: "Daily and monthly report per product", keywords: ["report", "daily report", "monthly report", "opening", "closing", "closed", "till", "not paid", "pending bills", "boss", "owner", "whatsapp report", "end of day"], permissions: ["reports.inventory", "reports.view", "reports.sales", "inventory.stock_history", "finance.view"], module: "stock_report" },
   { id: "dashboard", group: "Team", title: "Shift", description: "Clock in and out", keywords: ["shift", "clock in", "clock out", "punch", "timesheet", "alarm", "reminder", "schedule"], permissions: ["dashboard.view"] },
   { id: "workers", group: "Team", title: "Workers", description: "Staff, invitations and schedules", keywords: ["staff", "employees", "team", "invite"], permissions: ["staff.view"] },
   { id: "permissions", group: "Admin", title: "Roles", description: "What each role can see and do", keywords: ["permissions", "roles", "access", "security"], permissions: ["staff.roles"] },
   { id: "audit", group: "Admin", title: "Audit Log", description: "Who changed what", keywords: ["audit", "log", "history", "changes", "who changed", "activity", "security"], permissions: ["audit.view"] },
   { id: "business-management", group: "Admin", title: "Business Management", description: "Branches, details and logo", keywords: ["business", "branches", "branding", "logo", "tax"], permissions: ["business.update"] },
   { id: "settings", group: "Admin", title: "Settings", description: "Receipts, messages, backups", keywords: ["settings", "sms", "whatsapp", "backup", "printer", "receipts"], permissions: ["settings.view"] },
-  { id: "ai", group: "You & the app", title: "Assistant", description: "Ask about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"] },
+  { id: "ai", group: "You & the app", title: "Assistant", description: "Ask about your business", keywords: ["ai", "assistant", "chat", "insights"], permissions: ["ai.use"], module: "ai" },
   { id: "notifications", group: "You & the app", title: "Notifications", description: "Alerts and messages", keywords: ["alerts", "messages", "inbox"], permissions: [] },
   { id: "profile", group: "You & the app", title: "My Profile", description: "Your details, PIN, sign out", keywords: ["profile", "password", "account", "pin"], permissions: [] },
   { id: "about", group: "You & the app", title: "About this app", description: "Version and updates", keywords: ["about", "version", "update", "check for updates"], permissions: [] },
@@ -93,5 +99,6 @@ export function resolveScreen(id: string): ScreenId {
 export function canOpenScreen(role: string | undefined, id: string): boolean {
   const screen = SCREEN_BY_ID.get(resolveScreen(id));
   if (!screen || !role) return false;
+  if (!hasModule(screen.module)) return false;
   return screen.permissions.length === 0 || screen.permissions.some((code) => hasRolePermission(role, code as any));
 }

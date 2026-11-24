@@ -355,7 +355,7 @@ function RequestCard({ request: r, businessName, onDone }: { request: PortalStoc
           )}
           <Field label={mode === 'accept' ? 'Note (optional)' : 'Why you can\'t'}>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} autoFocus={mode === 'decline'}
-              placeholder={mode === 'accept' ? 'e.g. Coming at 7 am, only 150 L' : 'e.g. No milk until Friday'} className={`${fieldClass} resize-none`} />
+              placeholder={mode === 'accept' ? 'e.g. Coming at 7 am, only 150 pieces' : 'e.g. None until Friday'} className={`${fieldClass} resize-none`} />
           </Field>
           {err && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
           <div className="flex gap-2 justify-end flex-wrap">

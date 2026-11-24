@@ -2160,7 +2160,7 @@ export default function CustomersView() {
                 <Field label="Notes">
                   <textarea
                     rows={2}
-                    placeholder="e.g. Prefers raw whole milk"
+                    placeholder="e.g. Prefers delivery after 5 pm"
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"

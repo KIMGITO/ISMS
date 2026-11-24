@@ -15,8 +15,9 @@ import { EmailService } from "../services/emailService";
 import { toUserMessage, AppError } from "../utils/userError";
 import { scrubPersonalData } from "../services/crashReporter";
 import { NotificationRepository } from "../services/notifications/notificationRepository";
-import { hasRolePermission, SYSTEM_ROLES, ALL_PERMISSIONS } from "../utils/permissions";
+import { hasRolePermission, SYSTEM_ROLES, ALL_PERMISSIONS, SUPPORT_PERMISSIONS } from "../utils/permissions";
 import { referralShareText } from "../services/promotions";
+import { estimateMonthly, type CostEstimate } from "../utils/planCosts";
 import { useAuthStore } from "../stores/authStore";
 import { defaultKeepId, phoneKey, previewMerge } from "../services/customerMerge";
 import { allPages, liveList } from "../services/repositories";
@@ -52,6 +53,16 @@ import { compareVersions } from "../utils/semver";
 import { UpdateError, UPDATE_MESSAGES, toUpdateError, withRetry } from "../core/native/updateErrors";
 import { MANIFEST_SOURCES, fetchManifest, parseManifest } from "../core/native/updateManifest";
 import { SCREENS, canOpenScreen } from "../utils/screens";
+import { setPlanOverrideForTests, permissionModule, type PlanUsage } from "../stores/planStore";
+import { planPermissions } from "../utils/permissions";
+
+// The app shows only what the open branch's plan includes. Tests run on a full plan unless
+// they set another one (setTestPlan).
+const ALL_MODULES = ["buying", "stock_report", "transfers", "deliveries", "promotions", "regular_orders", "production", "quotes", "messaging", "online_store", "accounting", "ai", "own_domain"];
+function setTestPlan(modules: string[]) {
+  setPlanOverrideForTests({ plan: "test", plan_name: "Test", status: "active", writable: true, modules, addons: [] } as unknown as PlanUsage);
+}
+setTestPlan(ALL_MODULES);
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 import { SupabaseService } from "../services/supabaseService";
 import { parseDocument, serializeDocument, plainText as pagePlainText, parseInline } from "../../website/src/richFormat";
@@ -63,6 +74,8 @@ import { lineTotal, purchaseRef, nextAssetCode, describeChanges, describeAction 
 import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, trialBalance, type AccountBalance } from "../services/accounting";
 import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
 import { formatHours, minutesWithin, periodRange } from "../utils/workedHours";
+import websiteWorker from "../../website/worker/index";
+import { cleanHost, isFilePath, isSingleShopHost } from "../../website/worker/hosts";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -462,6 +475,23 @@ runTest("Database role permissions match the app's role permissions", () => {
   }
 });
 
+runTest("Platform support may do the same things in the app and the database", () => {
+  const dir = "supabase/migrations";
+  const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().reverse()
+    .map((f) => readFileSync(`${dir}/${f}`, "utf8"))
+    .find((s) => /FUNCTION public\.fn_support_permissions\(\)/.test(s));
+  const body = sql?.match(/FUNCTION public\.fn_support_permissions\(\)[\s\S]*?ARRAY\[([\s\S]*?)\]::text\[\]/);
+  if (!body) throw new Error("fn_support_permissions is missing from the migrations");
+  const inDatabase = [...body[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+  const inApp = [...SUPPORT_PERMISSIONS].sort();
+  if (JSON.stringify(inDatabase) !== JSON.stringify(inApp)) throw new Error("support permissions differ between the app and the migration");
+  const known = new Set(ALL_PERMISSIONS.map((p) => p.code));
+  for (const p of inApp) if (!known.has(p)) throw new Error(`unknown permission ${p}`);
+  for (const p of ["pos.create_sale", "pos.refund", "payments.manage", "expenses.create", "staff.invite", "staff.roles"] as const) {
+    if (hasRolePermission("Support", p)) throw new Error(`support must never have ${p}`);
+  }
+});
+
 runTest("Customer merge preview matches the database rules", () => {
   const base = { id: "a", name: "A", phone: "0711111111", email: "", joinDate: "", tier: "Silver" as const, purchasesCount: 4 };
   const preview = previewMerge(
@@ -550,10 +580,10 @@ runTest("Release versioning reads emoji commit types", () => {
 
 runTest("Update manifest lists signed desktop installers and the Android APK", () => {
   const files = [
-    "KayKays-1.2.0-windows-x64.exe", "KayKays-1.2.0-windows-x64-setup.msi", "KayKays-1.2.0-windows-x64-setup.msi.sig",
-    "KayKays-1.2.0-linux-x86_64.AppImage", "KayKays-1.2.0-linux-x86_64.AppImage.sig",
-    "KayKays-1.2.0-linux-amd64.deb", "KayKays-1.2.0-linux-amd64.deb.sig",
-    "KayKays-1.2.0-android.apk",
+    "Denso-1.2.0-windows-x64.exe", "Denso-1.2.0-windows-x64-setup.msi", "Denso-1.2.0-windows-x64-setup.msi.sig",
+    "Denso-1.2.0-linux-x86_64.AppImage", "Denso-1.2.0-linux-x86_64.AppImage.sig",
+    "Denso-1.2.0-linux-amd64.deb", "Denso-1.2.0-linux-amd64.deb.sig",
+    "Denso-1.2.0-android.apk",
   ];
   const m = buildManifest({
     version: "1.2.0", tag: "v1.2.0", repo: "KIMGITO/ISMS", notes: "### Features\n- x\n", files,
@@ -561,19 +591,19 @@ runTest("Update manifest lists signed desktop installers and the Android APK", (
   });
   const base = "https://github.com/KIMGITO/ISMS/releases/download/v1.2.0/";
   if (m.version !== "1.2.0") throw new Error("version");
-  if (m.platforms["windows-x86_64"].url !== base + "KayKays-1.2.0-windows-x64-setup.msi") throw new Error("windows url");
-  if (m.platforms["windows-x86_64"].signature !== "sig-of-KayKays-1.2.0-windows-x64-setup.msi.sig") throw new Error("windows sig");
-  if (m.platforms["linux-x86_64"].url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("linux url");
+  if (m.platforms["windows-x86_64"].url !== base + "Denso-1.2.0-windows-x64-setup.msi") throw new Error("windows url");
+  if (m.platforms["windows-x86_64"].signature !== "sig-of-Denso-1.2.0-windows-x64-setup.msi.sig") throw new Error("windows sig");
+  if (m.platforms["linux-x86_64"].url !== base + "Denso-1.2.0-linux-x86_64.AppImage") throw new Error("linux url");
   // An app installed from the .deb must get the .deb; given the AppImage it fails
   // with "invalid updater binary format".
-  if (m.platforms["linux-x86_64-deb"]?.url !== base + "KayKays-1.2.0-linux-amd64.deb") throw new Error("deb url");
-  if (m.platforms["linux-x86_64-deb"].signature !== "sig-of-KayKays-1.2.0-linux-amd64.deb.sig") throw new Error("deb sig");
-  if (m.platforms["linux-x86_64-appimage"]?.url !== base + "KayKays-1.2.0-linux-x86_64.AppImage") throw new Error("appimage url");
-  if (m.android.url !== base + "KayKays-1.2.0-android.apk" || m.android.sha256 !== "abc123") throw new Error("android");
+  if (m.platforms["linux-x86_64-deb"]?.url !== base + "Denso-1.2.0-linux-amd64.deb") throw new Error("deb url");
+  if (m.platforms["linux-x86_64-deb"].signature !== "sig-of-Denso-1.2.0-linux-amd64.deb.sig") throw new Error("deb sig");
+  if (m.platforms["linux-x86_64-appimage"]?.url !== base + "Denso-1.2.0-linux-x86_64.AppImage") throw new Error("appimage url");
+  if (m.android.url !== base + "Denso-1.2.0-android.apk" || m.android.sha256 !== "abc123") throw new Error("android");
   // Desktop apps refuse unsigned updates, so publishing one must fail instead.
   let threw = false;
   try {
-    buildManifest({ version: "1", tag: "v1", repo: "a/b", notes: "", files: ["KayKays-1-windows-x64-setup.msi"], readText: () => "", sha256: () => "" });
+    buildManifest({ version: "1", tag: "v1", repo: "a/b", notes: "", files: ["Denso-1-windows-x64-setup.msi"], readText: () => "", sha256: () => "" });
   } catch { threw = true; }
   if (!threw) throw new Error("An unsigned installer must be refused");
 });
@@ -1513,6 +1543,65 @@ runTest("Worked hours: periods start on Monday / the 1st, and shifts are cut to 
   if (m !== 150 || formatHours(m) !== "2h 30m" || formatHours(45) !== "45m") throw new Error(`open shift ${m}`);
 });
 
+runTest("Plan page: other companies' charges are worked out a month, money to 2 places", () => {
+  const row = (basis: CostEstimate["basis"], amount: number): CostEstimate =>
+    ({ id: basis, provider: "X", item: "Y", basis, amount, max_amount: null, needs: null, note: null, checked_on: null, sort: 0 });
+  const assertEqual = (got: number, want: number) => {
+    if (got !== want) throw new Error(`expected ${want}, got ${got}`);
+  };
+  assertEqual(estimateMonthly(row("percent_mpesa", 0.55), 100000, 0, 0), 550);
+  assertEqual(estimateMonthly(row("percent_card", 2.9), 0, 1234.5, 0), 35.8);
+  assertEqual(estimateMonthly(row("per_sms", 0.8), 0, 0, 333), 266.4);
+  assertEqual(estimateMonthly(row("per_year", 1500), 0, 0, 0), 125);
+  assertEqual(estimateMonthly(row("per_month", 100), 0, 0, 0), 100);
+  assertEqual(estimateMonthly(row("free", 99), 1e6, 1e6, 1e6), 0);
+  // Amounts come from the database as strings sometimes.
+  assertEqual(estimateMonthly({ ...row("per_year", 0), amount: "1000.00" as unknown as number }, 0, 0, 0), 83.33);
+});
+
+runTest("Plan modules: a locked module is hidden everywhere, for the Owner too", () => {
+  // Same mapping as module_permissions in 20261204001.
+  const cases: Array<[string, string | null]> = [
+    ["accounting.view", "accounting"], ["ai.use", "ai"], ["purchases.view", "buying"], ["suppliers.view", "buying"],
+    ["inventory.transfer_stock", "transfers"], ["inventory.adjust_stock", null], ["customers.loyalty", "promotions"],
+    ["customers.view", null], ["customers.schedules", "regular_orders"], ["online_store.view", "online_store"],
+    ["finance.view", null], ["payments.mpesa", null], ["communication.send", "messaging"], ["orders.assign_rider", "deliveries"],
+  ];
+  for (const [code, mod] of cases) if (permissionModule(code) !== mod) throw new Error(`${code} belongs to ${mod}, got ${permissionModule(code)}`);
+
+  setTestPlan([]); // Starter: core only
+  try {
+    for (const role of ["Owner", "Admin", "Manager"]) {
+      if (hasRolePermission(role, "accounting.view" as any)) throw new Error(`${role} sees the books on Starter`);
+      if (hasRolePermission(role, "ai.use" as any)) throw new Error(`${role} sees AI on Starter`);
+      if (!hasRolePermission(role, "customers.view" as any)) throw new Error(`${role} lost customers (core)`);
+      for (const id of ["stock-report", "online-store", "buying", "promotions", "deliveries", "ai", "production", "stock-transfers", "regular-orders"]) {
+        if (canOpenScreen(role, id)) throw new Error(`${role} can open ${id} on Starter`);
+      }
+      for (const sc of shortcutsFor(role)) if (sc.id.startsWith("go-") && !canOpenScreen(role, sc.id.slice(3))) throw new Error(`${role} has a shortcut to ${sc.id}`);
+      for (const f of featuresFor(role)) if (!canOpenScreen(role, f.screen)) throw new Error(`${role} finds ${f.id} in search`);
+    }
+    for (const id of ["home", "sell", "pos", "customers", "inventory", "money", "finance", "workers", "permissions", "settings"]) {
+      if (!canOpenScreen("Owner", id)) throw new Error(`core screen ${id} closed on Starter`);
+    }
+    // Roles, My Profile and search list only the plan's permissions.
+    const listed = planPermissions().map((p) => p.code);
+    if (listed.some((c) => permissionModule(c))) throw new Error("Roles lists a locked module's permission");
+    if (!listed.includes("pos.create_sale" as any)) throw new Error("Roles lost a core permission");
+
+    setTestPlan(["accounting"]); // Pro-like with the books add-on only
+    if (!hasRolePermission("Owner", "accounting.view" as any)) throw new Error("the books add-on should open the books");
+    if (hasRolePermission("Owner", "online_store.view" as any)) throw new Error("the online store is not bought");
+  } finally {
+    setTestPlan(ALL_MODULES);
+  }
+
+  // Plan errors from the database reach the owner as written.
+  const limit = { code: "42501", hint: "plan_limit_branches", message: "Your plan (Starter) allows 1 branch. Upgrade to add more." };
+  if (toUserMessage(limit) !== limit.message) throw new Error("plan limit message was replaced");
+  if (toUserMessage({ code: "42501", message: "permission denied for table x" }) !== "You don't have permission to do that.") throw new Error("plain denial changed");
+});
+
 runTest("Daily stock report: opening, where it went, closed, paid and not paid", () => {
   const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`); };
   // The owner's own example: opening 34.5, added 250, sold 71 at the counter (12 of it not paid),
@@ -1644,6 +1733,110 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
     console.error(`❌ TEST FAILED: ${name}`);
     console.error(e);
     process.exit(1);
+  }
+})();
+
+
+(async () => {
+  const name = "Website Worker: each address gets its own shop, unknown addresses name nobody";
+  const realFetch = globalThis.fetch;
+  const g = globalThis as unknown as { caches?: unknown };
+  const realCaches = g.caches;
+  try {
+    const eq = (got: unknown, want: unknown, what: string) => {
+      if (got !== want) throw new Error(`${what}: expected ${String(want)}, got ${String(got)}`);
+    };
+    eq(cleanHost("Shop.Example.COM:8787"), "shop.example.com", "host cleaned");
+    eq(isSingleShopHost("kaykays-website.abc.workers.dev", ""), true, "workers.dev serves the build's shop");
+    eq(isSingleShopHost("www.kaykays.com", "kaykays.com, www.kaykays.com"), true, "listed single-shop address");
+    eq(isSingleShopHost("milk.shops.test", "kaykays.com"), false, "a shop address is looked up");
+    eq(isFilePath("/assets/index-abc.js"), true, "scripts are files");
+    eq(isFilePath("/products/fresh-milk"), false, "pages are not files");
+
+    const answers: Record<string, object> = {
+      "milk.shops.test": { kind: "shop", slug: "milk", host: "milk.shops.test", powered_by: true, orders_open: true, platform_name: "Shopsy", platform_url: "https://shops.test" },
+      "old.shops.test": { kind: "redirect", host: "milk.shops.test" },
+      "shut.shops.test": { kind: "closed", name: "Shut Shop" },
+      "shops.test": { kind: "platform" },
+    };
+    const plans = {
+      platform_name: "Shopsy", app_url: "https://app.shops.test", trial_enabled: true, trial_days: 14, vat_percent: 16,
+      terms_url: "https://shops.test/terms", contact_text: "Call <us>",
+      plans: [
+        { code: "starter", name: "Starter", kind: "subscription", description: null, monthly_price: 3000, annual_price: 30000, one_time_price: null, setup_fee: 0, max_branches: 1, max_staff: 3, storage_mb: 1024, ai_daily_cap: 0, addons_allowed: false, show_powered_by: false, modules: [] },
+        { code: "pro", name: "Pro", kind: "subscription", description: null, monthly_price: 6000, annual_price: 60000, one_time_price: null, setup_fee: 500, max_branches: 3, max_staff: 10, storage_mb: 5120, ai_daily_cap: 0, addons_allowed: true, show_powered_by: true, modules: ["buying"] },
+      ],
+      modules: [
+        { key: "buying", name: "Buying and suppliers", tier: "growth", addable: false, addon_monthly_price: null, addon_annual_price: null },
+        { key: "ai", name: "AI assistant", tier: "advanced", addable: true, addon_monthly_price: 1000, addon_annual_price: 10000 },
+      ],
+    };
+    const storefront = {
+      business: { name: "Milk <Co>", description: "Fresh", address: null, contactEmail: null, contactPhone: null, logoUrl: "https://img.test/logo.png", coverImageUrl: null, primaryColor: null, currency: "KSh", paymentMethods: [] },
+      settings: { deliveryEnabled: true, deliveryFee: 0, minOrder: 0, assistantEnabled: false },
+      deliveryZones: [], branches: [], articles: [],
+      products: [{ id: "p1", name: "Fresh Milk", category: "Milk", price: 60, unit: "litre", description: null, image: null, inStock: true }],
+    };
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      if (url.endsWith("/rpc/resolve_website_host")) return new Response(JSON.stringify(answers[body.p_host] ?? { kind: "none" }));
+      if (url.endsWith("/rpc/get_public_plans")) return new Response(JSON.stringify(plans));
+      if (url.endsWith("/rpc/get_public_storefront")) return new Response(JSON.stringify(body.p_slug === "milk" ? storefront : null));
+      throw new Error(`unexpected fetch ${url}`);
+    }) as typeof fetch;
+    g.caches = { default: { match: async () => undefined, put: async () => undefined } };
+    const shell = '<html><head><title>Build shop</title><meta name="description" content="x" /><link rel="icon" type="image/png" href="/favicon.png" /></head><body><div id="root"></div></body></html>';
+    const env = {
+      SUPABASE_URL: "https://db.test", SUPABASE_ANON_KEY: "anon", SINGLE_SHOP_HOSTS: "",
+      ASSETS: { fetch: async (r: Request | string) => new Response(String(typeof r === "string" ? r : r.url).endsWith("/shell.tpl") ? shell : "asset") },
+    };
+    const ctx = { waitUntil: () => undefined };
+    const get = (u: string) => websiteWorker.fetch(new Request(u), env, ctx);
+
+    const page = await get("https://milk.shops.test/products/fresh-milk");
+    const html = await page.text();
+    eq(page.status, 200, "shop page");
+    eq(html.includes("<title>Fresh Milk"), true, "product title for this shop");
+    eq(html.includes("Milk &lt;Co&gt;"), true, "shop name escaped");
+    eq(html.includes("KSh 60.00"), true, "price with 2 places");
+    eq(html.includes('rel="canonical" href="https://milk.shops.test/products/fresh-milk"'), true, "canonical on the shop's address");
+    eq(html.includes('name="shop" content="{&quot;slug&quot;:&quot;milk&quot;'), true, "page told which shop it is");
+    eq(html.includes('href="https://img.test/logo.png"'), true, "shop logo as the tab icon");
+    eq(html.includes("Build shop"), false, "the build's own shop title is gone");
+    eq(page.headers.get("X-Frame-Options"), "DENY", "security headers");
+    const moved = await get("https://old.shops.test/shop?x=1");
+    eq(moved.status, 301, "old name redirects");
+    eq(moved.headers.get("Location"), "https://milk.shops.test/shop?x=1", "keeps the path");
+    const shut = await get("https://shut.shops.test/");
+    eq(shut.status, 404, "closed shop");
+    eq((await shut.text()).includes("not open online"), true, "closed message");
+    const none = await get("https://nobody.shops.test/");
+    eq(none.status, 404, "unknown address");
+    eq((await none.text()).includes("Milk"), false, "names no business");
+    eq(await (await get("https://milk.shops.test/assets/app.js")).text(), "asset", "files come from the build");
+    eq((await (await get("https://milk.shops.test/robots.txt")).text()).includes("Sitemap: https://milk.shops.test/sitemap.xml"), true, "robots per shop");
+    eq((await (await get("https://milk.shops.test/sitemap.xml")).text()).includes("https://milk.shops.test/products/fresh-milk"), true, "sitemap per shop");
+    const home = await get("https://shops.test/");
+    const plansHtml = await home.text();
+    eq(home.status, 200, "plans page on the platform domain");
+    eq(plansHtml.includes("KSh 6,000.00"), true, "monthly price with 2 places");
+    eq(plansHtml.includes('href="https://app.shops.test/?plan=pro&amp;cycle=monthly"'), true, "Choose opens sign-up with the plan");
+    eq(plansHtml.includes('href="https://app.shops.test/?plan=trial"'), true, "free trial link");
+    eq(plansHtml.includes("Call &lt;us&gt;"), true, "contact text escaped");
+    eq(plansHtml.includes("Milk"), false, "plans page names no business");
+    eq(plansHtml.includes("<script"), false, "no scripts");
+    const yearly = await (await get("https://shops.test/?cycle=annual")).text();
+    eq(yearly.includes("KSh 60,000.00") && yearly.includes("cycle=annual"), true, "yearly prices and links");
+    eq((await get("https://shops.test/admin")).status, 404, "nothing else on the platform address");
+    console.log(`✅ TEST PASSED: ${name}`);
+  } catch (e) {
+    console.error(`❌ TEST FAILED: ${name}`);
+    console.error(e);
+    process.exit(1);
+  } finally {
+    globalThis.fetch = realFetch;
+    g.caches = realCaches;
   }
 })();
 

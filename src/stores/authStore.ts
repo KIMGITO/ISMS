@@ -22,6 +22,7 @@ import { useCartStore } from "./cartStore";
 import { useUiStore } from "./uiStore";
 import { useExtraModulesStore } from "./extraModulesStore";
 import { PermissionCode, ALL_PERMISSIONS } from "../utils/permissions";
+import { markBranchChosen, clearBranchChoice } from "../utils/branchChoice";
 import { toUuid } from "../utils/idUtils";
 import { formatToE164 } from "../utils/phoneUtils";
 
@@ -62,7 +63,8 @@ interface AuthState {
   checkOwnerExists: () => Promise<boolean>;
   signUpOwner: (name: string, email: string, phone: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   verifyEmailCode: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  createBusinessWithOwner: (name: string, type: string, country: string, currency: string, logoUrl?: string, description?: string, address?: string) => Promise<{ success: boolean; error?: string }>;
+  /** planCode: platform admin only, a new company on that plan without payment. */
+  createBusinessWithOwner: (name: string, type: string, country: string, currency: string, logoUrl?: string, description?: string, address?: string, planCode?: string) => Promise<{ success: boolean; error?: string }>;
   loginOnline: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; error?: string; emailConfirmRequired?: boolean }>;
   inviteUser: (name: string, email: string, phone: string, role: EmployeeRole, optionalMessage?: string) => Promise<{ success: boolean; error?: string; invitation?: Invitation }>;
   verifyInvitation: (token: string) => Promise<{ success: boolean; error?: string; invitation?: Invitation }>;
@@ -108,7 +110,7 @@ const computeCurrentEmployee = (
     avatar: user.avatar || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23f59e0b'%3E%3Ccircle cx='50' cy='35' r='20'/%3E%3Cpath d='M20,80 C20,60 80,60 80,80'/%3E%3C/svg%3E",
     assignedBranches: [bizId],
     tasks: [
-      { id: "task-1", text: "Reconcile daily milk stock counts", completed: false },
+      { id: "task-1", text: "Count stock at the end of the day", completed: false },
       { id: "task-2", text: "Verify cash and mobile checkout transactions", completed: true }
     ]
   };
@@ -116,7 +118,8 @@ const computeCurrentEmployee = (
 
 const computeEmployeesList = (bizId: string | null, usersList: User[], membershipsList: BusinessMembership[]): Employee[] => {
   if (!bizId) return [];
-  const activeMemberships = membershipsList.filter((m) => m.businessId === bizId && m.status === "Active");
+  // Platform support (a time-limited visitor the Owner allowed) is not on the team.
+  const activeMemberships = membershipsList.filter((m) => m.businessId === bizId && m.status === "Active" && m.role !== "Support");
   return activeMemberships.map((m) => {
     const user = usersList.find((u) => u.id === m.userId);
     return {
@@ -667,6 +670,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       hydrateAgain = false;
 
       // Explicitly clear local variables and persistent storage caches
+      clearBranchChoice();
       localStorage.removeItem("kkm_current_user_id_v2");
       localStorage.removeItem("kkm_current_business_id_v2");
       localStorage.removeItem("kkm_businesses_v1");
@@ -876,7 +880,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     verifyEmailCode: async (email, code) => AuthOtpService.verifySignupCode(email.trim(), code.trim()),
 
     // Create Business with Owner (via PostgreSQL RPC to bypass RLS dependencies)
-    createBusinessWithOwner: async (name, type, country, currency, logoUrl, description, address) => {
+    createBusinessWithOwner: async (name, type, country, currency, logoUrl, description, address, planCode) => {
       try {
         const supabase = getSupabase();
         
@@ -886,8 +890,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
           p_country: country,
           p_currency: currency,
           p_logo_url: logoUrl || "",
-          p_description: description || `Dairy distribution center for ${name}`,
-          p_address: address || `${country} Outlet`
+          p_description: description || `${name} branch`,
+          p_address: address || `${country} Outlet`,
+          ...(planCode ? { p_plan_code: planCode, p_new_company: true } : {}),
         });
 
         if (rpcErr) throw rpcErr;
@@ -1018,7 +1023,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (error) throw error;
 
         // Dispatch invitation email using EmailService Edge Function
-        const businessName = useBusinessStore.getState().businesses.find(b => b.id === bizId)?.name || "KayKay's";
+        const businessName = useBusinessStore.getState().businesses.find(b => b.id === bizId)?.name || "Denso";
         try {
           await EmailService.sendInvitation(
             email.trim(),
@@ -1308,6 +1313,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
       // The branch-change listener below reloads role, team and notifications for it.
       useBusinessStore.getState().setActiveBusinessId(businessId);
+      markBranchChosen(businessId, user.id);
     },
 
     // Revoke Invitation

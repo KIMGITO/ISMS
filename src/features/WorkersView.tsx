@@ -14,6 +14,7 @@ import { useUiStore } from "../stores/uiStore";
 import { SuppliersTeamCard } from "../components/buying/SuppliersTeamCard";
 import { listSuppliers, saveSupplier, type Supplier } from "../services/operations";
 import { inviteSupplierUser } from "../services/supplierPortal";
+import JoinCodePanel from "../components/staff/JoinCodePanel";
 
 const PRESET_AVATARS = [
   { id: "preset-1", name: "Sarah", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" },
@@ -257,7 +258,7 @@ export default function WorkersView() {
       return;
     }
     if (isSupplier && supplierId === 'new' && !supplierSupplies.trim()) {
-      notify('error', "Say what they supply, e.g. Milk, Packaging.");
+      notify('error', "Say what they supply, e.g. Flour, Packaging.");
       setIsSubmitting(false);
       return;
     }
@@ -408,7 +409,7 @@ export default function WorkersView() {
                   <div className="relative">
                     <input
                       type="email"
-                      placeholder="e.g. kid@kaykays.com"
+                      placeholder="e.g. kid@yourshop.co.ke"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-app-bg text-app-text pl-8 pr-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/20"
@@ -486,12 +487,12 @@ export default function WorkersView() {
                       <>
                         <div className="space-y-1">
                           <label className="text-[10px] text-app-text-muted font-bold block">Company (optional)</label>
-                          <input value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} placeholder="e.g. Brookside Dairy" maxLength={80}
+                          <input value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} placeholder="e.g. Mwangi Distributors" maxLength={80}
                             className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] text-app-text-muted font-bold block">What they supply *</label>
-                          <input value={supplierSupplies} onChange={(e) => setSupplierSupplies(e.target.value)} placeholder="e.g. Milk, Packaging, Sugar" maxLength={80}
+                          <input value={supplierSupplies} onChange={(e) => setSupplierSupplies(e.target.value)} placeholder="e.g. Flour, Packaging, Sugar" maxLength={80}
                             className="w-full bg-app-card text-app-text px-3 py-2.5 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none" />
                         </div>
                       </>
@@ -736,6 +737,9 @@ export default function WorkersView() {
                 })}
             </div>
           </div>
+
+          {/* JOIN CODE: people with an account ask to join; someone lets them in */}
+          {canInviteStaff && currentBusinessId && <JoinCodePanel businessId={currentBusinessId} />}
 
           {/* PENDING INVITATIONS */}
           <div className="bg-app-card border border-app-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans">

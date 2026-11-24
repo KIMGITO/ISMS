@@ -49,6 +49,18 @@ if [ -z "${SKIP_BUILD:-}" ]; then
 fi
 node scripts/prepare-cloudflare.mjs "$DIR" || fail "The build can't go on Cloudflare as it is."
 
+# The website Worker reads the database itself (which shop an address is), with the same public
+# URL and key the website bundle uses. Taken from the environment or .env.
+VARS=()
+if [ "$TARGET" = website ]; then
+  envval() { [ -f .env ] && grep -E "^$1=" .env | tail -1 | cut -d= -f2- | sed -E 's/^["\x27]|["\x27]$//g'; }
+  VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$(envval VITE_SUPABASE_URL)}"
+  VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-$(envval VITE_SUPABASE_ANON_KEY)}"
+  [ -n "${VITE_SUPABASE_URL:-}" ] && [ -n "${VITE_SUPABASE_ANON_KEY:-}" ] || fail "VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are needed for the website Worker."
+  VARS=(--var "SUPABASE_URL:$VITE_SUPABASE_URL" --var "SUPABASE_ANON_KEY:$VITE_SUPABASE_ANON_KEY")
+  [ -n "${SINGLE_SHOP_HOSTS:-}" ] && VARS+=(--var "SINGLE_SHOP_HOSTS:$SINGLE_SHOP_HOSTS")
+fi
+
 # ── 2. Blue ────────────────────────────────────────────────────────────────
 status=$($WRANGLER deployments status -c "$CONFIG" 2>&1)
 status_code=$?
@@ -58,7 +70,7 @@ if [ $status_code -eq 0 ]; then
   echo "Blue (live now): ${BLUE:-traffic is split or unknown; a rollback would use the previous deployment}"
 elif grep -qiE "10007|does not exist|not found" <<<"$status"; then
   echo "No Worker yet: first deploy, straight to live."
-  out=$($WRANGLER deploy -c "$CONFIG" --message "$MESSAGE" 2>&1); code=$?
+  out=$($WRANGLER deploy -c "$CONFIG" "${VARS[@]}" --message "$MESSAGE" 2>&1); code=$?
   echo "$out"
   [ $code -eq 0 ] || fail "The first deploy failed."
   live_url="${LIVE:-$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' <<<"$out" | head -1)}"
@@ -73,7 +85,7 @@ fi
 output blue "$BLUE"
 
 # ── 3. Green ───────────────────────────────────────────────────────────────
-upload=$($WRANGLER versions upload -c "$CONFIG" --tag "$COMMIT" --message "$MESSAGE" 2>&1); code=$?
+upload=$($WRANGLER versions upload -c "$CONFIG" "${VARS[@]}" --tag "$COMMIT" --message "$MESSAGE" 2>&1); code=$?
 echo "$upload"
 [ $code -eq 0 ] || fail "Uploading the new version failed. Nothing changed for users."
 GREEN=$(grep -iE "version id" <<<"$upload" | grep -oE "$UUID" | head -1)

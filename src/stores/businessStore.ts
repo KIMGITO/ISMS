@@ -5,6 +5,7 @@ import { Business } from "../types";
 import { getSupabase } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
 import { enabledMethods } from "../utils/paymentMethods";
+import { markBranchChosen } from "../utils/branchChoice";
 
 interface BusinessState {
   businesses: Business[];
@@ -170,16 +171,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
       name, description, address, logoUrl, businessType, country, currency,
       coverImageUrl, contactEmail, contactPhone, timezone, defaultPaymentMethods
     ) => {
+      // How many branches the company may have is the plan's limit, checked by the database
+      // (fn_check_branch_limit); its message says what the plan allows.
       const current = get().businesses;
-      if (current.length >= 5) {
-        useNotificationStore.getState().showToast(
-          "Business limit",
-          "You can own up to 5 businesses.",
-          undefined,
-          "error"
-        );
-        return null;
-      }
 
       const supabase = getSupabase();
       try {
@@ -189,7 +183,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
           p_country: country || "Kenya",
           p_currency: currency || "Ksh",
           p_logo_url: logoUrl || "",
-          p_description: description || `Dairy distribution center for ${name}`,
+          p_description: description || `${name} branch`,
           p_address: address || ""
         });
 
@@ -235,8 +229,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         localStorage.setItem(localBusinessesKey, JSON.stringify(updated));
         set({ businesses: updated });
 
-        // Switch to the newly created branch immediately
+        // Switch to the newly created branch immediately (the person chose it by creating it)
         get().setActiveBusinessId(newBizId);
+        markBranchChosen(newBizId);
 
         // Fetch to ensure full sync
         const fetchedBiz = await SupabaseService.fetchBusinesses();
@@ -253,8 +248,9 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
 
         return newBiz;
       } catch (err: any) {
+        const planLimit = typeof err?.hint === "string" && err.hint.startsWith("plan_");
         useNotificationStore.getState().showToast(
-          "Error",
+          planLimit ? "Plan limit" : "Error",
           toUserMessage(err, "Failed to configure business workspace."),
           undefined,
           "error"

@@ -1,5 +1,5 @@
 // supabase/functions/shared/cors.ts
-// Shared CORS utilities for all KayKay's edge functions
+// Shared CORS utilities for all Denso edge functions
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";

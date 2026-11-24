@@ -193,7 +193,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
     const d = editingSupplier.draft;
     if (!d.name.trim()) return setFormError('Enter the supplier\'s name.');
     if (!d.phone.trim()) return setFormError('Enter a phone number to reach them.');
-    if (!d.productSupplied.trim()) return setFormError('Say what they supply, e.g. Milk, Packaging.');
+    if (!d.productSupplied.trim()) return setFormError('Say what they supply, e.g. Flour, Packaging.');
     setFormError(null);
     setBusy(true);
     try {
@@ -628,7 +628,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
                 inputMode={k === 'phone' ? 'tel' : undefined}
                 value={editingSupplier.draft[k]}
                 onChange={(e) => setEditingSupplier({ ...editingSupplier, draft: { ...editingSupplier.draft, [k]: e.target.value } })}
-                placeholder={k === 'productSupplied' ? 'e.g. Milk, Packaging, Sugar' : k === 'phone' ? 'e.g. 0712 345 678' : ''}
+                placeholder={k === 'productSupplied' ? 'e.g. Flour, Packaging, Sugar' : k === 'phone' ? 'e.g. 0712 345 678' : ''}
                 maxLength={k === 'email' ? 120 : 80}
                 className={fieldClass}
               />

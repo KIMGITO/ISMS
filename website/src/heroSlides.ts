@@ -3,6 +3,7 @@
 // When none are saved, the website shows DEFAULT_HERO_SLIDES. Plain data and functions only,
 // because the staff app imports this file too.
 import { AD_TONES, AdTone } from './adCards';
+import { pictureSet, ShopPicture } from './shopPictures';
 
 export interface HeroSlide {
   id: string;
@@ -55,49 +56,39 @@ export const HERO_BOX_LIMITS = { minXY: -50, maxXY: 100, minSize: 8, maxSize: 20
 
 export const HERO_LIMITS = { slides: 6, images: 3, title: 90, body: 160, ctaLabel: 30, ctaHref: 300 } as const;
 
-/** Product cut-outs shipped with the website (public/hero), backgrounds removed with the app's remover. */
-export const HERO_STOCK_IMAGES = [
-  { src: '/hero/milk-pour.webp', label: 'Milk poured into a glass' },
-  { src: '/hero/milk-bottle.webp', label: 'Swing-top milk bottle' },
-  { src: '/hero/milk-bottle-cookies.webp', label: 'Milk bottle with cookies' },
-  { src: '/hero/milk-splash.webp', label: 'Milk splash in a glass' },
-  { src: '/hero/milk-glass.webp', label: 'Glass of milk' },
-  { src: '/hero/butter.webp', label: 'Butter cubes' },
-  { src: '/hero/cheese.webp', label: 'Cheese' },
-] as const;
-
+/** Built-in slides: words only. Their pictures are the shop's own product photos (visibleHeroSlides). */
 export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
   {
     id: 'fresh-milk',
-    title: 'Fresh Milk Daily, Delivered to Your Door',
+    title: 'Shop Online, Delivered to Your Door',
     body: 'Order online and pay with M-Pesa.',
     ctaLabel: 'Explore shop',
     ctaHref: '/shop',
-    images: ['/hero/milk-pour.webp', '/hero/milk-bottle.webp', '/hero/butter.webp'],
+    images: [],
   },
   {
     id: 'dairy',
-    title: 'Butter, Cheese and More From Our Dairy',
-    body: 'Everything fresh, every day.',
-    ctaLabel: 'Shop dairy',
+    title: 'Everything You Need in One Place',
+    body: 'Good products at fair prices.',
+    ctaLabel: 'Browse products',
     ctaHref: '/shop',
-    images: ['/hero/butter.webp', '/hero/milk-glass.webp', '/hero/cheese.webp'],
+    images: [],
   },
   {
     id: 'regular-orders',
-    title: 'Never Run Out of Milk Again',
+    title: 'Never Run Out Again',
     body: 'Pick your days. We prepare each order.',
     ctaLabel: 'Set up regular orders',
     ctaHref: '/account/schedules',
-    images: ['/hero/milk-bottle-cookies.webp', '/hero/milk-bottle.webp'],
+    images: [],
   },
   {
     id: 'guides',
-    title: 'Keep Your Milk Fresh for Longer',
-    body: 'Simple guides for your kitchen.',
+    title: 'Tips and Guides From Our Team',
+    body: 'Simple guides to get the most from what you buy.',
     ctaLabel: 'Read our guides',
     ctaHref: '/articles',
-    images: ['/hero/milk-splash.webp', '/hero/milk-glass.webp', '/hero/butter.webp'],
+    images: [],
   },
 ];
 
@@ -155,8 +146,11 @@ export function heroBoxStyle(box: HeroBox) {
 /** Drawing order: the left picture first (behind), then the main one, then the small one in front. */
 export const HERO_DRAW_ORDER = [1, 0, 2] as const;
 
-/** Slides the website should show: saved ones that pass the checks, or the built-in ones. */
-export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: boolean): HeroSlide[] {
+/**
+ * Slides the website should show: saved ones that pass the checks, or the built-in ones with the
+ * shop's own product photos (none when it has no photos).
+ */
+export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: boolean, pictures: readonly ShopPicture[] = []): HeroSlide[] {
   const usable = (saved ?? [])
     .filter((slide) => !slide.hidden && slide.title?.trim())
     .map((slide) => {
@@ -167,5 +161,7 @@ export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: b
     })
     .filter((slide) => slide.images.length > 0);
   if (usable.length > 0) return usable.slice(0, HERO_LIMITS.slides);
-  return DEFAULT_HERO_SLIDES.filter((slide) => hasArticles || slide.ctaHref !== '/articles');
+  return DEFAULT_HERO_SLIDES
+    .filter((slide) => hasArticles || slide.ctaHref !== '/articles')
+    .map((slide, index) => ({ ...slide, images: pictureSet(pictures, index * 3, 3) }));
 }

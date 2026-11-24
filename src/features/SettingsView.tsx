@@ -73,6 +73,8 @@ import ReceiptSettingsPanel, { InvoiceSettingsPanel } from '../components/receip
 import NotificationSettingsPanel from '../components/NotificationSettingsPanel';
 import { SupabaseService } from '../services/supabaseService';
 import { Switch } from '../components/shared/Switch';
+import AiUsagePanel from '../components/assistant/AiUsagePanel';
+import { hasModule } from '../stores/planStore';
 
 
 interface SettingsViewProps {
@@ -86,7 +88,7 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'invoices', group: 'Shop', label: 'Invoices', description: 'Layout, texts, payment details and stamp', icon: FileText, keywords: 'invoice debt statement a5 stamp prefix number', permission: 'settings.tax' },
   { id: 'sms', group: 'Connections', label: 'SMS', description: 'Text messages through Twilio', icon: MessageSquareText, keywords: 'twilio phone text', permission: 'settings.integrations' },
   { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
-  { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
+  { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Daily use and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
   { id: 'records', group: 'Data', label: 'Old records', description: 'Clear old crash and backup logs', icon: Archive, keywords: 'logs history clear delete crash backup points earned space' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
@@ -631,7 +633,7 @@ export default function SettingsView({
           'Only the owner can see or change these keys.',
         );
       }
-      const problem = aiConfigProblem(aiConfig);
+      const problem = aiPlatform ? null : aiConfigProblem(aiConfig);
       if (problem) throw new Error(problem);
       const data = await SupabaseService.callEdgeFunction('ai-config', {
         action: 'save',
@@ -667,6 +669,8 @@ export default function SettingsView({
   };
 
   const aiProviderInfo = getAIProvider(aiConfig.provider);
+  /** The platform runs the AI: the business sets only its instructions and the switch. */
+  const aiPlatform = (aiConfig as any).platform === true;
   const aiModelOptions = (() => {
     const curated = aiProviderInfo.models;
     const extra = aiLiveModels
@@ -758,7 +762,7 @@ export default function SettingsView({
     () => localStorage.getItem('kkm_passcode_type') || '4',
   );
   const [ringtone, setRingtone] = useState(
-    () => localStorage.getItem('kkm_pref_ringtone') || 'Milk Bell',
+    () => localStorage.getItem('kkm_pref_ringtone') || 'Bell',
   );
   const [offlineLimit, setOfflineLimit] = useState(
     () => localStorage.getItem('kkm_pref_offline_limit') || '12',
@@ -781,7 +785,9 @@ export default function SettingsView({
   const allowedSections = SETTINGS_SECTIONS.filter(
     (section) =>
       (!section.permission || hasRolePermission(currentRole, section.permission)) &&
-      (section.id !== 'records' || isAdminRole(currentRole)),
+      (section.id !== 'records' || isAdminRole(currentRole)) &&
+      // The AI section only when the plan includes AI and insights.
+      (section.id !== 'ai' || hasModule('ai')),
   );
   const [selectedSection, setActiveSection] = useState<SectionId | null>(null);
   const activeSection = selectedSection ?? allowedSections[0].id;
@@ -1066,6 +1072,10 @@ export default function SettingsView({
                       />
                     </div>
 
+                    <AiUsagePanel businessId={activeBusinessId} />
+
+                    {/* Provider, key and model: only when the plan has the business bring its own key */}
+                    {!aiPlatform && (<>
                     {/* Provider selection */}
                     <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
                       <label className="text-[11px] font-semibold text-app-text-muted block">
@@ -1157,11 +1167,16 @@ export default function SettingsView({
                       )}
                     </div>
 
+                    </>)}
+
                     {/* System Prompt Instructions */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[11px] font-semibold text-app-text-muted block">
-                        Extra instructions for the assistant
+                        Assistant instructions
                       </label>
+                      <span className="text-[11px] text-app-text-muted leading-tight">
+                        How the assistant should answer for this business.
+                      </span>
                       <textarea
                         rows={2}
                         value={aiConfig.system_prompt || ''}
@@ -1206,7 +1221,7 @@ export default function SettingsView({
                     {/* Testing & Saving action triggers */}
                     <div className="flex items-center justify-end gap-2 mt-1 w-full">
                       {/* Test AI Connection Button */}
-                      <button
+                      {!aiPlatform && <button
                         type="button"
                         title="Test Connection"
                         disabled={testingAi || savingAi}
@@ -1234,7 +1249,7 @@ export default function SettingsView({
                             </span>
                           </>
                         )}
-                      </button>
+                      </button>}
 
                       {/* Save AI Settings Button */}
                       <button

@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         return await watchdog(body);
       case "test": {
         if (!(await isServiceRole(req))) return errorResponse("Not allowed.", 403);
-        const sent = await sendAlert({ text: "✅ KayKay's alerts are connected to this chat." });
+        const sent = await sendAlert({ text: "✅ Denso alerts are connected to this chat." });
         return jsonResponse({ success: sent }, sent ? 200 : 502);
       }
       default:

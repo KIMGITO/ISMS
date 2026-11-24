@@ -83,7 +83,7 @@
             android:value="subject_segment" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_milk_alarm"
+            android:resource="@drawable/ic_stat_denso"
         />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

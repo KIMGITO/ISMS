@@ -5,13 +5,14 @@
 // a link and an optional picture. Saved to website_settings.ad_cards; the database checks every
 // field again (fn_valid_ad_cards, migration 20261114006).
 import SearchableDropdown from '../SearchableDropdown';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUp, Eye, EyeOff, ImagePlus, Megaphone, Plus, Save, Tag, Trash2, X } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
 import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
-import { HERO_STOCK_IMAGES } from '../../../website/src/heroSlides';
+import OwnProductPictures, { useOwnProductPictures } from './OwnProductPictures';
+import type { ShopPicture } from '../../../website/src/shopPictures';
 import {
   AD_LIMITS,
   AD_TONE_ORDER,
@@ -20,7 +21,7 @@ import {
   AdTone,
   adCardProblem,
   cleanAdCard,
-  DEFAULT_AD_CARDS,
+  visibleAdCards,
 } from '../../../website/src/adCards';
 
 const inputClass =
@@ -39,13 +40,14 @@ const LINK_CHOICES = [
   { href: '/shop?offers=1', label: 'Offers' },
   { href: '/account/schedules', label: 'Regular orders' },
   { href: '/account/rewards', label: 'Rewards & points' },
-  { href: '/articles', label: 'Milk guides' },
+  { href: '/articles', label: 'Guides' },
   { href: '/delivery', label: 'Delivery & pickup' },
   { href: '/contact', label: 'Contact us' },
 ];
 
 const newId = () => `ad-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-const copyDefaults = () => DEFAULT_AD_CARDS.map((c) => ({ ...c }));
+/** The built-in cards as the website shows them: posters carry the shop's own product photos. */
+const copyDefaults = (pictures: readonly ShopPicture[]) => visibleAdCards([], pictures).map((c) => ({ ...c }));
 
 /** A small copy of the card as the website draws it, in the website's colours and font. */
 function CardPreview({ card }: { card: AdCard }) {
@@ -144,7 +146,7 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
         </label>
         <label className="block text-sm font-medium text-app-text">
           Headline
-          <input value={card.title} maxLength={AD_LIMITS.title} onChange={(e) => set({ title: e.target.value })} placeholder="20% off yoghurt" className={`${inputClass} mt-1`} />
+          <input value={card.title} maxLength={AD_LIMITS.title} onChange={(e) => set({ title: e.target.value })} placeholder="20% off snacks" className={`${inputClass} mt-1`} />
         </label>
         {card.kind === 'poster' && (
           <label className="block text-sm font-medium text-app-text sm:col-span-2">
@@ -173,7 +175,7 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
         {customLink && (
           <label className="block text-sm font-medium text-app-text sm:col-span-2">
             Link
-            <input value={card.href ?? ''} maxLength={AD_LIMITS.href} onChange={(e) => set({ href: e.target.value })} placeholder="/shop?category=Yoghurt or https://wa.me/2547…" className={`${inputClass} mt-1`} />
+            <input value={card.href ?? ''} maxLength={AD_LIMITS.href} onChange={(e) => set({ href: e.target.value })} placeholder="/shop?category=Snacks or https://wa.me/2547…" className={`${inputClass} mt-1`} />
           </label>
         )}
       </div>
@@ -191,20 +193,10 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
           <div className="mt-2 flex flex-wrap gap-2">
             <UnifiedUploader allowedTypes={['image']} bucketName="business-logos" cropAspect={1} buttonText={card.image ? 'Change picture' : 'Upload picture'} onUploadSuccess={(url) => set({ image: url })} />
             <button type="button" className={secondaryClass} onClick={() => setStockOpen(!stockOpen)}>
-              <ImagePlus size={15} /> {stockOpen ? 'Close' : 'Choose a ready cut-out'}
+              <ImagePlus size={15} /> {stockOpen ? 'Close' : 'Choose from your products'}
             </button>
           </div>
-          {stockOpen && (
-            <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
-              {HERO_STOCK_IMAGES.map((image) => (
-                <li key={image.src}>
-                  <button type="button" onClick={() => { set({ image: image.src }); setStockOpen(false); }} className="w-full rounded-lg border border-app-border bg-app-bg p-1 hover:border-brand-500" title={image.label}>
-                    <img src={image.src} alt={image.label} className="aspect-square w-full object-contain" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {stockOpen && <OwnProductPictures onPick={(src) => { set({ image: src }); setStockOpen(false); }} />}
         </div>
       )}
     </section>
@@ -219,6 +211,9 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState('');
+  const pictures = useOwnProductPictures();
+  const picturesRef = useRef(pictures);
+  picturesRef.current = pictures;
 
   const load = useCallback(async () => {
     setLoadError('');
@@ -228,7 +223,7 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
       const saved = (data?.ad_cards as AdCard[] | undefined) ?? [];
       setUsingBuiltIn(saved.length === 0);
       // With nothing saved the website shows the built-in cards, so start editing from those.
-      setCards(saved.length > 0 ? saved : copyDefaults());
+      setCards(saved.length > 0 ? saved : copyDefaults(picturesRef.current));
     } catch (err) {
       // Never show an empty editor here: saving it would wipe cards we simply failed to read.
       setLoadError(toUserMessage(err, 'Could not load the adverts.'));
@@ -273,14 +268,14 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
     }
     const cleaned = cards.map((c) => cleanAdCard(c, newId));
     if (await write(cleaned, cleaned.length ? 'Adverts saved. Customers see them straight away.' : 'Adverts reset to the built-in cards.')) {
-      setCards(cleaned.length ? cleaned : copyDefaults());
+      setCards(cleaned.length ? cleaned : copyDefaults(picturesRef.current));
       setUsingBuiltIn(cleaned.length === 0);
     }
   };
 
   const resetToBuiltIn = async () => {
     if (await write([], 'Adverts reset to the built-in cards.')) {
-      setCards(copyDefaults());
+      setCards(copyDefaults(picturesRef.current));
       setUsingBuiltIn(true);
     }
   };

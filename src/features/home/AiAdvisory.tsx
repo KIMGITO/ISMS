@@ -5,6 +5,7 @@
 // The `metrics` keys are the ones that function reads; keep them as they are.
 
 import React, { useState } from "react";
+import { useModule } from "../../stores/planStore";
 import { ArrowRight, CheckCircle, Square, Lightbulb } from "lucide-react";
 import { SupabaseService } from "../../services/supabaseService";
 import { useUiStore } from "../../stores/uiStore";
@@ -35,13 +36,21 @@ const HEALTH = {
 
 const ksh = (v: number) => formatMoney(v);
 
-export default function AiAdvisory({ businessId, metrics, period, fallback }: {
+type AiAdvisoryProps = {
   businessId: string | null;
   metrics: Record<string, unknown>;
   /** The period on screen, as YYYY-MM-DD in Nairobi. */
   period: { start: string; end: string };
   fallback: () => Advice;
-}) {
+};
+
+/** Shown only when the plan includes AI and insights. */
+export default function AiAdvisory(props: AiAdvisoryProps) {
+  const ai = useModule("ai");
+  return ai ? <AiAdvisoryInner {...props} /> : null;
+}
+
+function AiAdvisoryInner({ businessId, metrics, period, fallback }: AiAdvisoryProps) {
   const aiName = import.meta.env?.VITE_AI_NAME || "Kim";
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const [advice, setAdvice] = useState<Advice | null>(null);

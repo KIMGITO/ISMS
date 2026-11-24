@@ -1,6 +1,6 @@
 // src/components/buying/AskSupplierSheet.tsx
 // "Ask supplier": from a low-stock alert (or Buying → Reorder), send the product's supplier a
-// request with how much, by when and a note ("We need milk tomorrow, 200 L"). It goes to ONE
+// request with how much, by when and a note ("We need 200 pieces tomorrow"). It goes to ONE
 // supplier, chosen here (the preferred one to start with), even when several sell the product.
 // It rings on the phones of the people at that supplier who have the app; the answer comes back as a
 // notification. A supplier without the app gets the same words by WhatsApp or SMS.
@@ -200,7 +200,7 @@ export default function AskSupplierSheet({ target, onClose, onSent }: {
       <Field label="Note (optional)">
         <textarea
           value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}
-          placeholder="e.g. We need milk tomorrow, 200 L, before 8 am"
+          placeholder="e.g. We need 200 pieces tomorrow, before 8 am"
           className={`${fieldClass} resize-none`}
         />
       </Field>

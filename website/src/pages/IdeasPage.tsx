@@ -72,7 +72,7 @@ function SuggestForm({ onDone }: { onDone: () => Promise<void> }) {
               maxLength={80}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Strawberry yoghurt 500ml"
+              placeholder="e.g. Brown bread 400 g"
               className={fieldClass}
             />
           </label>

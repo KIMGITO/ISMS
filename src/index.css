@@ -84,6 +84,16 @@
   --bad: #ef6b6b;
 }
 
+.light-scope {
+  /* Sign-in and start screens stay light whatever the app theme (shared parts inside use app-* colours). */
+  --app-bg: #f8fafc;
+  --app-card: #ffffff;
+  --app-border: #eef1f5;
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  color-scheme: light;
+}
+
 /* Hide scrollbars but preserve functionality for native app feel */
 * {
   scrollbar-width: none !important;

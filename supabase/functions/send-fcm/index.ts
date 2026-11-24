@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
                 sound: androidSound,
                 channel_id: 'default',
                 // The milk-glass status-bar icon and the app's amber.
-                icon: 'ic_stat_milk_alarm',
+                icon: 'ic_stat_denso',
                 color: '#F59E0B',
               },
             },

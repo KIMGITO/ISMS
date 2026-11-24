@@ -193,7 +193,7 @@ export async function showSystemNotice(alert: Pick<RingingAlert, "id" | "title" 
       return;
     }
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(alert.title, { body: alert.message, tag: `ring-${alert.id}`, requireInteraction: true });
+      new Notification(alert.title, { body: alert.message, icon: "/icon.png", badge: "/denso-badge.png", tag: `ring-${alert.id}`, requireInteraction: true });
     }
   } catch {
     // The full-screen alert in the app still shows and rings.

@@ -32,6 +32,7 @@ import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import PageEditor from '../components/website/PageEditor';
 import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
 import AdCardsEditor from '../components/website/AdCardsEditor';
+import WebAddressCard from '../components/website/WebAddressCard';
 import ProductIdeasTab from '../components/website/ProductIdeasTab';
 import { NumberInput } from '../components/shared/Input';
 import { formatCurrency } from '../utils/helpers';
@@ -571,7 +572,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
         slug: guide.slug || slugify(guide.title),
         summary: guide.summary.trim(),
         body: guide.body.trim(),
-        category: guide.category.trim() || 'Milk care',
+        category: guide.category.trim() || 'Guides',
         published: guide.published,
         published_at: guide.published ? new Date().toISOString() : null,
       };
@@ -640,7 +641,7 @@ function GuidesTab({ businessId }: { businessId: string }) {
     <div className="space-y-3">
       <div className="flex justify-between gap-2 flex-nowrap">
         <button
-          onClick={() => setEditing({ id: null, slug: '', title: '', summary: '', body: '', category: 'Milk care', published: false })}
+          onClick={() => setEditing({ id: null, slug: '', title: '', summary: '', body: '', category: 'Guides', published: false })}
           className={primaryClass}
         >
           <Plus size={16} /> New guide
@@ -682,6 +683,9 @@ function SettingsTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
   const [slug, setSlug] = useState('');
+  const [savedSlug, setSavedSlug] = useState('');
+  // Bumped after a save so the Web address card shows the new name.
+  const [addressKey, setAddressKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState('0');
   const [minOrder, setMinOrder] = useState('0');
@@ -710,6 +714,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
     }
     if (productRows.error) throw productRows.error;
     setSlug(business.data.website_slug ?? '');
+    setSavedSlug(business.data.website_slug ?? '');
     if (settings.data) {
       setDeliveryEnabled(settings.data.delivery_enabled);
       setDeliveryFee(String(settings.data.delivery_fee));
@@ -744,6 +749,8 @@ function SettingsTab({ businessId }: { businessId: string }) {
       });
       if (error) throw error;
       setSlug(cleanSlug);
+      setSavedSlug(cleanSlug);
+      setAddressKey((k) => k + 1);
       showToast('Online Store', 'Website settings saved.', undefined, 'success');
     } catch (err) {
       reportError(err, 'Could not save website settings.');
@@ -784,13 +791,19 @@ function SettingsTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <WebAddressCard businessId={businessId} reloadKey={addressKey} />
       <DeliveryZonesEditor businessId={businessId} />
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
         <label className="block text-sm font-medium text-app-text">
           Website name
-          <span className="block font-normal text-app-text-muted">The website stays hidden until this is set.</span>
-          <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="kaykays" className={`${inputClass} mt-1`} />
+          <span className="block font-normal text-app-text-muted">The website stays hidden until this is set. Letters, numbers and dashes.</span>
+          <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="myshop" className={`${inputClass} mt-1`} />
+          {savedSlug && slugify(slug) && slugify(slug) !== savedSlug && (
+            <span className="mt-1 block font-normal text-amber-600">
+              Saving uses one of the two name changes allowed a year. The old address forwards visitors for 90 days.
+            </span>
+          )}
         </label>
         <Switch
           className="min-h-10"

@@ -131,7 +131,7 @@ export default function ReceiptSettingsPanel() {
   const sampleSale = useMemo<Transaction>(() => {
     const product = (id: string, name: string, price: number, unit: string) => ({ id, name, price, unit, stock: 0, category: '', sku: id.toUpperCase() } as unknown as Product);
     const items = [
-      { product: product('sample-1', 'Fresh milk 500ml', 60, 'packet'), quantity: 4, discountPercentage: 0 },
+      { product: product('sample-1', 'Sugar 1 kg', 60, 'packet'), quantity: 4, discountPercentage: 0 },
       { product: product('sample-2', 'Bread 400g', 65, 'loaf'), quantity: 1, discountPercentage: 0 },
       { product: product('sample-3', 'Sugar 1kg', 180, 'packet'), quantity: 1, discountPercentage: 10 },
     ];

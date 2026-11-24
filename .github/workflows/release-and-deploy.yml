@@ -54,7 +54,7 @@ env:
   MSI_GLOB: "src-tauri/target/release/bundle/msi/*.msi"
   APPIMAGE_GLOB: "src-tauri/target/release/bundle/appimage/*.AppImage"
   DEB_GLOB: "src-tauri/target/release/bundle/deb/*.deb"
-  RELEASE_NAME_PREFIX: "KayKays"
+  RELEASE_NAME_PREFIX: "Denso"
   # ────────────────────────────────────────────────────────────────────────────
   # Build-time settings the app reads.
   VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}

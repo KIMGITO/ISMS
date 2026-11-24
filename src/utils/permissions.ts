@@ -3,6 +3,7 @@
 
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
+import { planAllowsPermission } from "../stores/planStore";
 
 /** Permissions only the Supplier role has, shown on its own in Roles. */
 export const SUPPLIER_PORTAL_CATEGORY = 'Supplier portal';
@@ -270,7 +271,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'inventory.request_transfer', category: 'Products & Inventory', description: 'Ask another branch for stock (without being able to send any)' },
   { code: 'inventory.stock_count', category: 'Products & Inventory', description: 'Perform shelf stock audits' },
   { code: 'inventory.stock_history', category: 'Products & Inventory', description: 'View stock logs timeline' },
-  { code: 'inventory.wastage', category: 'Products & Inventory', description: 'Record milk spillages or spoilage' },
+  { code: 'inventory.wastage', category: 'Products & Inventory', description: 'Record spoiled, damaged or lost stock' },
   { code: 'inventory.expiry', category: 'Products & Inventory', description: 'Track product batch expiry dates' },
   { code: 'inventory.import', category: 'Products & Inventory', description: 'Import stock count logs' },
   { code: 'inventory.export', category: 'Products & Inventory', description: 'Export inventory logs' },
@@ -309,7 +310,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'customers.export', category: 'Customers & Loyalty', description: 'Export client list' },
   { code: 'customers.debts', category: 'Customers & Loyalty', description: 'Review credit accounts' },
   { code: 'customers.loyalty', category: 'Customers & Loyalty', description: 'Award membership tiers' },
-  { code: 'customers.schedules', category: 'Customers & Loyalty', description: 'Manage milk delivery subscriptions' },
+  { code: 'customers.schedules', category: 'Customers & Loyalty', description: 'Manage regular (fixed-day) orders' },
   { code: 'customers.manage', category: 'Customers & Loyalty', description: 'Configure customer settings' },
   { code: 'loyalty.view', category: 'Customers & Loyalty', description: 'View loyalty setups' },
   { code: 'loyalty.configure', category: 'Customers & Loyalty', description: 'Switch points on or off and set what a point is worth' },
@@ -334,16 +335,16 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
 
   // Suppliers & Purchases
   { code: 'suppliers.view', category: 'Suppliers & Purchases', description: 'Access suppliers catalog' },
-  { code: 'suppliers.create', category: 'Suppliers & Purchases', description: 'Register raw milk suppliers' },
+  { code: 'suppliers.create', category: 'Suppliers & Purchases', description: 'Add suppliers' },
   { code: 'suppliers.update', category: 'Suppliers & Purchases', description: 'Edit supplier profiles' },
   { code: 'suppliers.delete', category: 'Suppliers & Purchases', description: 'Remove supplier listings' },
   { code: 'suppliers.import', category: 'Suppliers & Purchases', description: 'Bulk load supplier contracts' },
   { code: 'suppliers.export', category: 'Suppliers & Purchases', description: 'Download suppliers list' },
   { code: 'suppliers.manage', category: 'Suppliers & Purchases', description: 'Reconcile supplier statements' },
   { code: 'purchases.view', category: 'Suppliers & Purchases', description: 'Browse purchases registry' },
-  { code: 'purchases.create', category: 'Suppliers & Purchases', description: 'Create wholesale milk purchase orders' },
+  { code: 'purchases.create', category: 'Suppliers & Purchases', description: 'Create purchase orders' },
   { code: 'purchases.update', category: 'Suppliers & Purchases', description: 'Modify draft purchase orders' },
-  { code: 'purchases.cancel', category: 'Suppliers & Purchases', description: 'Cancel raw milk orders' },
+  { code: 'purchases.cancel', category: 'Suppliers & Purchases', description: 'Cancel purchase orders' },
   { code: 'purchases.approve', category: 'Suppliers & Purchases', description: 'Approve purchases for delivery' },
   { code: 'purchases.export', category: 'Suppliers & Purchases', description: 'Download purchase history' },
   { code: 'purchases.import', category: 'Suppliers & Purchases', description: 'Load incoming supplier invoices' },
@@ -361,7 +362,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'supplier_portal.stock_requests', category: SUPPLIER_PORTAL_CATEGORY, description: 'Answer stock requests' },
 
   // Production & Recipes
-  { code: 'production.view', category: 'Production & Recipes', description: 'Browse raw milk batches' },
+  { code: 'production.view', category: 'Production & Recipes', description: 'See production batches' },
   { code: 'production.create', category: 'Production & Recipes', description: 'Log pasteurization run' },
   { code: 'production.update', category: 'Production & Recipes', description: 'Edit processing values' },
   { code: 'production.delete', category: 'Production & Recipes', description: 'Discard production batch logs' },
@@ -442,6 +443,14 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'export.data', category: 'Files & Audit Logs', description: 'Export full database SQL/JSON' },
   { code: 'google.connect', category: 'Files & Audit Logs', description: 'Link direct spreadsheet pipelines' }
 ];
+
+/**
+ * Permissions the open branch's plan includes. Screens that list permissions (Roles, My
+ * Profile, search) show only these; a locked module's permissions stay saved but hidden.
+ */
+export function planPermissions(): PermissionDetails[] {
+  return ALL_PERMISSIONS.filter((p) => planAllowsPermission(p.code));
+}
 
 export const SYSTEM_ROLES: Record<string, RoleConfig> = {
   'Admin': {
@@ -561,8 +570,33 @@ export function saveDynamicRoles(roles: Record<string, RoleConfig>) {
   }
 }
 
+/**
+ * What platform support may do while an Owner allows it (20261204007 fn_support_permissions;
+ * npm test checks the two lists match). Setting up only: never selling, payments, expenses,
+ * the plan or staff. The Roles screen can't change it.
+ */
+export const SUPPORT_PERMISSIONS: readonly PermissionCode[] = [
+  'home.view', 'dashboard.view', 'notifications.view',
+  'business.view', 'business.update',
+  'settings.view', 'settings.update', 'settings.theme', 'settings.tax', 'settings.delivery',
+  'products.view', 'products.create', 'products.update', 'products.import', 'products.export',
+  'products.manage_categories', 'products.manage_tax', 'products.manage_images',
+  'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.stock_count',
+  'inventory.stock_history', 'inventory.expiry', 'inventory.import', 'inventory.export',
+  'customers.view', 'customers.create', 'customers.update', 'customers.import', 'customers.export',
+  'suppliers.view', 'suppliers.create', 'suppliers.update', 'suppliers.import', 'suppliers.export',
+  'deliveries.view', 'deliveries.delivery_zones', 'deliveries.delivery_price',
+  'bom.view', 'bom.create', 'bom.update',
+  'production.view',
+  'online_store.view',
+  'reports.view', 'reports.inventory',
+];
+
 export function hasRolePermission(role: string, permission: PermissionCode): boolean {
   const normRole = role || 'Guest';
+  // A module the plan doesn't include is closed to everyone, the Owner too (like the database).
+  if (!planAllowsPermission(permission)) return false;
+  if (normRole === 'Support') return SUPPORT_PERMISSIONS.includes(permission);
   if (normRole === 'Admin' || normRole === 'Owner' || normRole === 'Administrator') return true; 
   
   // 1. Check database loaded permissions first

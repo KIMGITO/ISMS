@@ -44,9 +44,8 @@ import { renderBlock } from '../../../website/src/RichText';
 import { toUserMessage } from '../../utils/userError';
 import { clearFormatting, inlineToHtml, normaliseLink, toggleHighlight } from './editableDom';
 import { FocalLayer, ImageBlock, ImageCard, withAlign } from './ImageControls';
-import UnifiedUploader, { UploaderPreset } from '../shared/UnifiedUploader';
+import UnifiedUploader from '../shared/UnifiedUploader';
 import ProgressBar from '../shared/ProgressBar';
-import { CREDITED_PHOTOS, photoUrl } from '../../../website/src/images';
 import InlineEditable, { EditableHandle, FocusRequest } from './InlineEditable';
 import { uploadPageImage } from './pageImages';
 
@@ -55,15 +54,8 @@ interface PickedImage {
   alt: string;
 }
 
-/** The website's own photos, offered in the uploader's gallery before anything is searched. */
-const WEBSITE_PHOTOS: UploaderPreset[] = CREDITED_PHOTOS.map((photo) => ({
-  id: photo.id,
-  label: photo.alt,
-  url: photoUrl(photo, 1600),
-  thumb: photoUrl(photo, 400, 400),
-}));
 
-/** A starting alt text from a file name: "fresh-milk_2.jpg" becomes "fresh milk 2". */
+/** A starting alt text from a file name: "shop-front_2.jpg" becomes "shop front 2". */
 const altFromName = (name = '') =>
   name
     .replace(/\.[^.]+$/, '')
@@ -1208,7 +1200,6 @@ export default function PageEditor({
         maxSizeMb={15}
         cropAspect="original"
         outputWidth={1600}
-        presetImages={WEBSITE_PHOTOS}
         onUploadSuccess={(src, info) => placePhoto({ src, alt: altFromName(info?.name) })}
       />
     </div>

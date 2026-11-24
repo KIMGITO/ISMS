@@ -22,7 +22,7 @@
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_stat_milk_alarm"
+            android:src="@drawable/ic_stat_denso"
             android:tint="#FFF59E0B" />
 
         <TextView
@@ -32,7 +32,7 @@
             android:layout_marginStart="8dp"
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="0.12"
-            android:text="KAYKAY'S"
+            android:text="DENSO"
             android:textColor="#FFF59E0B"
             android:textSize="13sp" />
     </LinearLayout>
@@ -68,7 +68,7 @@
         android:layout_width="150dp"
         android:layout_height="150dp"
         android:contentDescription="@null"
-        android:src="@drawable/ic_milk_glass_large" />
+        android:src="@drawable/ic_denso_large" />
 
     <TextView
         android:id="@+id/alarm_kind"
@@ -151,7 +151,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:gravity="center"
-        android:text="Stops the alarm and opens KayKay's"
+        android:text="Stops the alarm and opens Denso"
         android:textColor="#80FFFBF2"
         android:textSize="13sp" />
 </LinearLayout>

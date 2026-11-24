@@ -2,10 +2,10 @@ import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../api';
 import { AdCard, AD_TONES, visibleAdCards } from '../adCards';
-import { photoUrl, productPhoto } from '../images';
+import { shopPictures } from '../shopPictures';
 import { useRecent, useStorefront } from '../store';
 import { HeroSlide, heroLayout, safeHref, visibleHeroSlides } from '../heroSlides';
-import { formatDate, ProductDisplay, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
+import { formatDate, NoPicture, ProductDisplay, promotionLabel, Reveal, RevealList, SectionHeader, TrustStrip } from '../ui';
 import { OrderAnyWayBand } from './PageEnd';
 import { Testimonials } from './Reviews';
 import ProductCarousel from './ProductCarousel';
@@ -22,11 +22,13 @@ const prefersReducedMotion = () =>
  */
 function slideClasses(slide: HeroSlide) {
   const { phone, side } = heroLayout(slide);
-  const beside = phone === 'beside';
+  const pictures = slide.images.length > 0;
+  const beside = pictures && phone === 'beside';
+  // A slide without pictures (a shop with no product photos yet) is words only, across the panel.
   const grid = [
     'grid w-full shrink-0 items-center gap-3 px-4 pb-11 pt-6 sm:gap-6 sm:px-16 sm:pb-16 sm:pt-12 lg:px-20 lg:pb-20 lg:pt-14',
     beside ? 'grid-cols-[1.2fr_1fr]' : 'grid-cols-1',
-    side === 'left' ? 'sm:grid-cols-[1fr_1.2fr] md:grid-cols-[1fr_1.15fr]' : 'sm:grid-cols-[1.2fr_1fr] md:grid-cols-[1.15fr_1fr]',
+    !pictures ? '' : side === 'left' ? 'sm:grid-cols-[1fr_1.2fr] md:grid-cols-[1fr_1.15fr]' : 'sm:grid-cols-[1.2fr_1fr] md:grid-cols-[1.15fr_1fr]',
   ].join(' ');
   // Stacked on a phone: the words are centred under or over the pictures.
   const text = beside || phone === 'none' ? '' : 'max-sm:text-center';
@@ -47,8 +49,8 @@ function slideClasses(slide: HeroSlide) {
  * Slides come from Online Store > Home banner in the app, or the built-in ones (heroSlides.ts).
  */
 function Hero() {
-  const { articles, heroSlides } = useStorefront();
-  const slides = visibleHeroSlides(heroSlides, articles.length > 0);
+  const { articles, heroSlides, products } = useStorefront();
+  const slides = visibleHeroSlides(heroSlides, articles.length > 0, shopPictures(products));
   const count = slides.length;
   const [rawActive, setActive] = useState(0);
   // Saved slides can arrive after the built-in ones, so the position is kept inside the new count.
@@ -121,7 +123,9 @@ function Hero() {
                     </a>
                   )}
                 </div>
-                <ProductDisplay images={slide.images} positions={slide.positions} title={slide.title} eager={index === 0} className={layout.picture} />
+                {slide.images.length > 0 && (
+                  <ProductDisplay images={slide.images} positions={slide.positions} title={slide.title} eager={index === 0} className={layout.picture} />
+                )}
               </div>
             );
           })}
@@ -174,11 +178,9 @@ function Promotions() {
   );
 }
 
-/** Each category's picture: its first product with a photo, or a matching stock photo. */
-function categoryImage(category: string, products: Product[]): { src: string; contain: boolean } {
-  const withImage = products.find((p) => p.category === category && p.image);
-  if (withImage?.image) return { src: withImage.image, contain: true };
-  return { src: photoUrl(productPhoto(category), 240, 240), contain: false };
+/** Each category's picture: its first product with a photo, or none. */
+function categoryImage(category: string, products: Product[]): string | undefined {
+  return products.find((p) => p.category === category && p.image)?.image ?? undefined;
 }
 
 /** "Shop by category": round pictures in a row, the biggest categories first. Swipes on phones. */
@@ -198,7 +200,9 @@ function CategoryCircles() {
             <li key={category} className="shrink-0 snap-start">
               <a href={`/shop?category=${encodeURIComponent(category)}`} className="flex w-[4.625rem] flex-col items-center gap-2 text-center lg:w-[7.5rem]">
                 <span className="category-circle">
-                  <img src={image.src} alt="" loading="lazy" className={`size-full ${image.contain ? 'object-contain p-2 lg:p-3' : 'object-cover'}`} />
+                  {image
+                    ? <img src={image} alt="" loading="lazy" className="size-full object-contain p-2 lg:p-3" />
+                    : <NoPicture text={category} />}
                 </span>
                 <span className="line-clamp-2 text-xs font-medium capitalize leading-snug sm:text-sm">{category}</span>
               </a>
@@ -285,7 +289,7 @@ export default function HomePage() {
   const site = useStorefront();
   const { products, articles, reviews = [] } = site;
   const recentIds = useRecent((s) => s.ids);
-  const cards = visibleAdCards(site.adCards);
+  const cards = visibleAdCards(site.adCards, shopPictures(products));
   const posters = cards.filter((c) => c.kind === 'poster').slice(0, 6);
   const strips = cards.filter((c) => c.kind === 'strip');
 
@@ -331,7 +335,7 @@ export default function HomePage() {
       <ProductCarousel id="recent" title="Recently Viewed" products={recent} />
       {articles.length > 0 && (
         <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="guides-heading">
-          <Reveal><SectionHeader center id="guides-heading" title="Milk Guides" subtitle="How to store, handle and enjoy your milk." /></Reveal>
+          <Reveal><SectionHeader center id="guides-heading" title="Guides" subtitle="Tips to get the most from what you buy." /></Reveal>
           <RevealList className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-3 max-sm:[&>li]:w-[78vw] max-sm:[&>li]:max-w-xs max-sm:[&>li]:shrink-0 max-sm:[&>li]:snap-start">
             {articles.slice(0, 3).map((article) => <ArticleCard key={article.id} article={article} />)}
           </RevealList>

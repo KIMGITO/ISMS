@@ -14,6 +14,10 @@ export interface AISettings {
   top_k: number;
   system_prompt?: string;
   enabled: boolean;
+  /** The plan has the business bring its own AI key (Perpetual): never use the platform's keys. */
+  own_key?: boolean;
+  /** Set when the plan refuses this request (no AI in the plan, read-only, today's cap used). */
+  blocked?: "not_in_plan" | "read_only" | "cap_reached";
 }
 
 export interface ChatMessage {
@@ -34,7 +38,10 @@ export type AIFailureCode =
   | "invalid_key"     // keys rejected or missing the Inference Providers permission
   | "no_key"          // no key set at all
   | "busy"            // rate limits, timeouts, models not answering
-  | "disabled";       // the Owner turned the AI off
+  | "disabled"        // the Owner turned the AI off
+  | "not_in_plan"     // the plan has no AI
+  | "read_only"       // the plan has ended (read-only or suspended)
+  | "cap_reached";    // today's AI requests for the plan are used up
 
 export interface AIRunnerResult {
   success: boolean;
@@ -49,6 +56,12 @@ export function friendlyAIMessage(code?: AIFailureCode): string {
   switch (code) {
     case "disabled":
       return "The assistant is switched off for this business. The owner can turn it on in Settings.";
+    case "not_in_plan":
+      return "The assistant isn't part of this business's plan.";
+    case "read_only":
+      return "The assistant is paused until the plan is renewed.";
+    case "cap_reached":
+      return "Today's assistant questions for this plan are used up. They start again at midnight.";
     case "out_of_credit":
     case "invalid_key":
     case "no_key":
@@ -69,16 +82,62 @@ export function ownerAIHint(code?: AIFailureCode): string {
       return "No AI key is set. Add a Hugging Face token as the Supabase secret HF_TOKEN_A.";
     case "disabled":
       return "The assistant is turned off in AI settings.";
+    case "not_in_plan":
+      return "AI and insights is not in this plan. Upgrade, or on Pro buy it as an add-on.";
+    case "read_only":
+      return "The plan has ended, so the assistant is paused. Renew the plan to use it again.";
+    case "cap_reached":
+      return "Today's AI limit for the plan is used up. It resets at midnight (Nairobi time).";
     default:
       return "The AI service is busy or slow right now. If this keeps happening, check the AI settings.";
   }
 }
 
+/**
+ * The AI settings for one request of a business, and its place in today's plan allowance.
+ * The platform runs the AI (provider, model, keys): a business only adds its "Assistant
+ * instructions" and can switch the assistant off. A plan with own_ai_key (Perpetual) uses the
+ * business's own provider and key instead, and never the platform's.
+ * Each call counts as one AI request for the company (fn_ai_use); call it once per request.
+ */
 export async function loadAISettings(businessId: string): Promise<AISettings> {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
+  const own = await loadBusinessAISettings(supabase, businessId);
+
+  const { data: plan, error: planErr } = await supabase.rpc("fn_ai_plan", { p_business_id: businessId });
+  if (planErr || !plan) {
+    // A server without plans (before 20261204002): the business's own settings, as before.
+    if (planErr) console.warn("[ai-runner] no plan info, using the business settings:", planErr.message);
+    return own;
+  }
+
+  const { data: use } = await supabase.rpc("fn_ai_use", { p_business_id: businessId });
+  const blocked = use && use.allowed === false ? (use.reason as AISettings["blocked"]) ?? "not_in_plan" : undefined;
+
+  if (plan.own_key) {
+    return { ...own, own_key: true, blocked };
+  }
+  const p = plan.platform || {};
+  return {
+    provider: p.provider || "huggingface",
+    model: p.model || "Qwen/Qwen2.5-72B-Instruct",
+    api_key: "",
+    temperature: Number(p.temperature ?? 0.7),
+    max_tokens: Number(p.max_tokens ?? 2048),
+    top_p: Number(p.top_p ?? 0.95),
+    top_k: Number(p.top_k ?? 40),
+    system_prompt: own.system_prompt || "",
+    enabled: p.enabled !== false && own.enabled !== false,
+    own_key: false,
+    blocked,
+  };
+}
+
+/** The business's own row (its instructions and switch; provider and key only matter on own-key plans). */
+async function loadBusinessAISettings(supabase: any, businessId: string): Promise<AISettings> {
 
   const { data: aiData } = await supabase
     .from("ai_settings")
@@ -206,11 +265,23 @@ export function isMaskedKey(key?: string | null): boolean {
 export async function runAI(settings: any, options: AIRunnerOptions): Promise<AIRunnerResult> {
   const safeSettings = settings || { provider: "huggingface", model: "Qwen/Qwen2.5-72B-Instruct", enabled: true };
 
+  if (safeSettings.blocked) {
+    return { success: false, text: "", error: `Plan: ${safeSettings.blocked}`, code: safeSettings.blocked };
+  }
   if (safeSettings.enabled === false) {
     return { success: false, text: "", error: "AI is currently disabled for this business by the Owner.", code: "disabled" };
   }
 
   const provider = normalizeProvider(safeSettings.provider);
+
+  // Own key (Perpetual): only their provider and key, no fallback to the platform's keys.
+  if (safeSettings.own_key) {
+    const ownKey = cleanKey(safeSettings.api_key);
+    if (!ownKey) return { success: false, text: "", code: "no_key", error: "No AI key is set for this business." };
+    const res = await executeProvider(provider, ownKey, safeSettings, options);
+    return res.success ? res : { ...res, code: res.code || "busy" };
+  }
+
   const apiKey = providerKey(provider, safeSettings.api_key);
 
   console.log(`[ai-runner] Executing with provider: ${provider}, model: ${safeSettings.model}`);
@@ -318,13 +389,14 @@ const HF_TOKEN_NAMES = [
 ];
 
 /** Hugging Face keys from the Supabase secrets, with the secret's name (never shown: the value). */
-function huggingFaceTokenPool(settingsKey?: string): { label: string; token: string }[] {
+function huggingFaceTokenPool(settingsKey?: string, ownOnly = false): { label: string; token: string }[] {
   const pool: { label: string; token: string }[] = [];
   const add = (label: string, value?: string | null) => {
     const token = (value || "").trim();
     if (token && !pool.some((p) => p.token === token)) pool.push({ label, token });
   };
   add("the key in AI settings", cleanKey(settingsKey));
+  if (ownOnly) return pool;
   for (const name of HF_TOKEN_NAMES) add(name, cleanKey(Deno.env.get(name)));
   return pool;
 }
@@ -372,7 +444,7 @@ const CREDIT_WORDS = /credit|quota|exceeded|billing|payment required|subscribe t
  * doesn't serve moves on to the next model with the same key.
  */
 async function runHuggingFaceRotation(dbKey: string, settings: AISettings, options: AIRunnerOptions): Promise<AIRunnerResult> {
-  const pool = huggingFaceTokenPool(dbKey);
+  const pool = huggingFaceTokenPool(dbKey, settings.own_key === true);
   if (pool.length === 0) {
     return { success: false, text: "", code: "no_key", error: "No Hugging Face key is set. Add one as the HF_TOKEN_A secret." };
   }

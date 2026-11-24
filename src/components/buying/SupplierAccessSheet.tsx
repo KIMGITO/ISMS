@@ -40,7 +40,7 @@ export function SupplierAccessSheet({ supplier, businessName, canManage, onClose
   };
 
   const shareText = (code: string) =>
-    `${businessName} invites you to see your orders and payments in the KayKay's app. Sign up with your email, choose "Join team" and enter the code ${code}.`;
+    `${businessName} invites you to see your orders and payments in the Denso app. Sign up with your email, choose "Join team" and enter the code ${code}.`;
 
   return (
     <FormSheet title={`App access · ${supplier.company || supplier.name}`} subtitle="They see only their own orders and payments." onClose={onClose}>

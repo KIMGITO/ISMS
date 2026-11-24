@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { ArrowRight, BadgeCheck, CreditCard, Headphones, Milk, Truck } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CreditCard, Headphones, Store, Truck } from 'lucide-react';
 import { Order, OrderStatus, Product, Storefront, takesAirtel } from './api';
-import { photoUrl, productPhoto } from './images';
+import { pictureSet, shopPictures, textSeed } from './shopPictures';
+import { useSite } from './store';
 import { HERO_DRAW_ORDER, HeroBox, heroBoxes, heroBoxStyle } from './heroSlides';
 import { formatPrice, qtyNumber, roundQty } from './numbers';
 
@@ -63,15 +64,25 @@ export function ProductImage({ product, width = 640, fit = 'cover' }: {
   fit?: 'cover' | 'contain';
 }) {
   const [failed, setFailed] = useState(false);
-  const photo = productPhoto(`${product.name} ${product.category ?? ''}`);
+  if (!product.image || failed) return <NoPicture text={product.name} label={product.name} />;
   return (
     <img
-      src={product.image && !failed ? product.image : photoUrl(photo, width, width)}
+      src={product.image}
       alt={product.name}
       loading="lazy"
+      width={width}
       onError={() => setFailed(true)}
-      className={`size-full ${fit === 'contain' && product.image && !failed ? 'object-contain' : 'object-cover'}`}
+      className={`size-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
     />
+  );
+}
+
+/** Stands in for a missing photo: a soft colour with the first letter, never another shop's picture. */
+export function NoPicture({ text, label }: { text: string; label?: string }) {
+  return (
+    <span role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} className={`grid size-full place-items-center ${tintFor(text)}`}>
+      <span className="font-display text-[2.5em] font-semibold uppercase text-ink/30">{text.trim().charAt(0) || '?'}</span>
+    </span>
   );
 }
 
@@ -129,7 +140,7 @@ export function Notice({ title, body, children }: { title: string; body: string;
   return (
     <div className="grid min-h-[60vh] place-items-center px-4 py-12 text-center">
       <div className="max-w-md">
-        <Milk size={40} className="mx-auto text-brand" aria-hidden />
+        <Store size={40} className="mx-auto text-brand" aria-hidden />
         <h1 className="display-md mt-4">{title}</h1>
         <p className="mt-2 text-muted">{body}</p>
         {children}
@@ -142,7 +153,7 @@ export function Loading() {
   return (
     <div role="status" className="grid min-h-[40vh] place-items-center text-muted">
       <div className="flex flex-col items-center gap-3">
-        <img src="/milk-loader.svg" width={88} height={88} alt="Loading" />
+        <img src="/denso-loader.svg" width={88} height={88} alt="Loading" />
       </div>
     </div>
   );
@@ -225,21 +236,11 @@ export function ProductDisplay({ images, positions, title, eager = false, classN
   );
 }
 
-/** Cut-out sets for inner page banners, from the same pictures as the home hero. */
-export const BANNER_IMAGES = {
-  milk: ['/hero/milk-pour.webp', '/hero/milk-bottle.webp', '/hero/butter.webp'],
-  dairy: ['/hero/butter.webp', '/hero/milk-glass.webp', '/hero/cheese.webp'],
-  bottle: ['/hero/milk-bottle-cookies.webp', '/hero/milk-bottle.webp'],
-  splash: ['/hero/milk-splash.webp', '/hero/milk-glass.webp', '/hero/butter.webp'],
-  glass: ['/hero/milk-glass.webp', '/hero/milk-bottle.webp', '/hero/cheese.webp'],
-} as const satisfies Record<string, readonly string[]>;
-
-const BANNER_SETS = Object.values(BANNER_IMAGES);
-
 /**
  * The banner at the top of every inner page: the home hero's sand panel, a bold headline,
  * and a small product display on the right, so each page reads as part of the same shop.
- * Pages pick a picture set with `images`; otherwise one is chosen from the title.
+ * Pages may pass `images`; otherwise the shop's own product photos are used (picked by the title),
+ * and a shop without product photos gets a banner with words only.
  */
 export function PageHeader({ eyebrow, title, body, images, children }: {
   eyebrow?: string;
@@ -248,9 +249,8 @@ export function PageHeader({ eyebrow, title, body, images, children }: {
   images?: readonly string[];
   children?: ReactNode;
 }) {
-  let hash = 0;
-  for (const char of title) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  const pictures = images ?? BANNER_SETS[hash % BANNER_SETS.length];
+  const products = useSite((s) => s.site?.products);
+  const pictures = images ?? pictureSet(shopPictures(products), textSeed(title), 3);
   return (
     <section className="site-gutter pt-3 sm:pt-6">
       <div className="soft-panel relative isolate grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl px-4 py-6 sm:gap-6 sm:px-12 sm:py-8 lg:px-16">
@@ -260,7 +260,7 @@ export function PageHeader({ eyebrow, title, body, images, children }: {
           <h1 className="display-xl rise-in mt-1.5 max-w-[22ch] font-semibold max-sm:text-[1.375rem] max-sm:leading-tight">{title}</h1>
           {body && <p className="rise-in-late mt-2 max-w-xl text-muted max-sm:hidden sm:text-[0.9375rem]">{body}</p>}
         </div>
-        <ProductDisplay images={pictures} title="" eager className="rise-in-late w-[5.5rem] min-[400px]:w-[6.5rem] sm:w-[11rem] lg:w-[14rem]" />
+        {pictures.length > 0 && <ProductDisplay images={pictures} title="" eager className="rise-in-late w-[5.5rem] min-[400px]:w-[6.5rem] sm:w-[11rem] lg:w-[14rem]" />}
       </div>
     </section>
   );
@@ -277,7 +277,7 @@ export function TrustStrip({ site, compact = false }: { site: Storefront; compac
       body: settings.deliveryEnabled ? 'Your choice at checkout' : 'Collect when it suits you',
       href: '/delivery',
     },
-    { icon: BadgeCheck, title: 'Fresh guarantee', body: 'Problem? We put it right', href: '/returns' },
+    { icon: BadgeCheck, title: 'Our guarantee', body: 'Problem? We put it right', href: '/returns' },
     { icon: Headphones, title: 'Real people', body: business.contactPhone ? `Call ${business.contactPhone}` : 'Message us any time', href: '/contact' },
   ];
   // Bordered boxes with the icon on the left. Phones see the icon and title; the line under it joins in on wider screens.

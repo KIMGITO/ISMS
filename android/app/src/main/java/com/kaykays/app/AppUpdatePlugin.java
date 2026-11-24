@@ -124,11 +124,11 @@ public class AppUpdatePlugin extends Plugin {
     private static String explain(String code) {
         switch (code) {
             case "SIGNATURE_MISMATCH":
-                return "This update was signed with a different key than the installed app, so Android won't install it over this one. Uninstall KayKay's and install the latest version from the releases page once.";
+                return "This update was signed with a different key than the installed app, so Android won't install it over this one. Uninstall Denso and install the latest version from the releases page once.";
             case "NOT_NEWER":
                 return "The downloaded update isn't newer than the installed app.";
             default:
-                return "The downloaded update isn't a valid KayKay's app.";
+                return "The downloaded update isn't a valid Denso app.";
         }
     }
 
@@ -253,7 +253,7 @@ public class AppUpdatePlugin extends Plugin {
                     Uri.parse("package:" + getContext().getPackageName()));
             settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(settings);
-            call.reject("Allow KayKay's to install updates, then tap Install again.", "NEEDS_PERMISSION");
+            call.reject("Allow Denso to install updates, then tap Install again.", "NEEDS_PERMISSION");
             return;
         }
 

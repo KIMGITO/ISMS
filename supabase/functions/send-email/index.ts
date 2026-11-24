@@ -113,7 +113,7 @@ function getEmailTemplate(
   vars: Record<string, any>,
   logoSrc: string,
 ): { subject: string; html: string } {
-  const appName = String(vars.brandName || "KayKay's");
+  const appName = String(vars.brandName || "Denso");
   const color = /^#[0-9a-f]{3,8}$/i.test(String(vars.primaryColor || "")) ? String(vars.primaryColor) : "#f59e0b";
   const code = cleanCodeValue(vars.code || vars.token || vars.otp || vars.verificationCode);
   const name = String(vars.name || "").trim();

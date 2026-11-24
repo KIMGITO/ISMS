@@ -165,7 +165,7 @@ export default function InventoryView() {
     initialValues: {
       name: '',
       sku: '',
-      category: 'Milk' as ProductCategory,
+      category: 'General' as ProductCategory,
       price: 100,
       cost: 50,
       unit: 'Litre',
@@ -396,8 +396,8 @@ export default function InventoryView() {
                 setProductImage(
                   'https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c2hvcHBpbmclMjBiYWd8ZW58MHx8MHx8fDA%3D',
                 );
-                // Dynamically generates SKU based on default category ('Milk' -> KK-MILK-XXX)
-                handleCustomChange('sku', generateSku('Milk'));
+                // SKU from the default category ('General' -> KK-GENE-XXX)
+                handleCustomChange('sku', generateSku('General'));
                 setIsAddingProduct(true);
               }}
               data-shortcut="new"
@@ -795,7 +795,7 @@ export default function InventoryView() {
                     <input
                       type="text"
                       name="name"
-                      placeholder="Organic Whole Milk"
+                      placeholder="e.g. Sugar 1 kg"
                       value={values.name}
                       onChange={handleChange}
                       className={`bg-app-bg border ${
@@ -810,7 +810,7 @@ export default function InventoryView() {
                     <input
                       type="text"
                       name="sku"
-                      placeholder="KK-MILK-105"
+                      placeholder="KK-GENE-105"
                       value={values.sku}
                       onChange={handleChange}
                       className={`bg-app-bg border ${

@@ -13,8 +13,8 @@ SELECT problem FROM (
           'accept_invitation_with_token', 'assert_business_member', 'check_owner_exists',
           'check_promo_code', 'check_request_session', 'fn_audit_actor_name',
           'fn_can_write_storage_folder', 'fn_storage_folder_permission', 'gen_random_bytes',
-          'get_invitation_by_token', 'get_product_ideas', 'get_public_storefront',
-          'get_user_business_ids', 'is_owner_or_admin', 'report_crash', 'session_is_live',
+          'get_invitation_by_token', 'get_product_ideas', 'get_public_plans', 'get_public_storefront',
+          'get_user_business_ids', 'is_owner_or_admin', 'report_crash', 'resolve_website_host', 'session_is_live',
           'submit_website_feedback', 'uuid_generate_v4', 'vat_allowed',
           'website_accepts_airtel', 'website_accepts_cards')
     UNION ALL
@@ -48,5 +48,15 @@ SELECT problem FROM (
     SELECT 'RLS off on ' || c.relname
     FROM pg_class c
     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity
+    UNION ALL
+    -- 6. Every business table obeys read-only plans (20261204001), except the listed housekeeping.
+    SELECT 'no read-only plan check on ' || c.relname
+    FROM pg_class c
+    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'business_id' AND NOT a.attisdropped
+    WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
+      AND c.relname NOT IN ('audit_logs', 'notifications', 'notification_preferences',
+                            'business_memberships', 'crash_reports', 'problem_reports',
+                            'support_grants')
+      AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = 'trg_zz_plan_read_only')
 ) problems
 ORDER BY 1;

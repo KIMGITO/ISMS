@@ -694,7 +694,7 @@ export default function ProductionBOMView() {
                   type="text"
                   value={bomName}
                   onChange={(e) => setBomName(e.target.value)}
-                  placeholder="e.g. Yogurt Production Formula"
+                  placeholder="e.g. White bread, 20 loaves"
                   className="w-full bg-app-bg border border-app-border text-app-text px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-amber-500/50"
                 />
               </div>

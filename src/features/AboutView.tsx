@@ -197,9 +197,9 @@ export default function AboutView() {
     <div className="h-full overflow-y-auto px-4 lg:px-6 pt-6 pb-nav bg-app-bg text-app-text">
       <div className="w-full flex flex-col gap-6">
         <header className="flex flex-col sm:flex-row items-center sm:justify-center text-center sm:text-left gap-2 sm:gap-4">
-          <img src="/logo.png" alt="" className="w-20 h-20 sm:w-14 sm:h-14 rounded-2xl object-cover bg-app-card shadow-sm" />
+          <img src="/denso.svg" alt="" className="w-20 h-20 sm:w-14 sm:h-14 rounded-2xl object-cover bg-app-card shadow-sm" />
           <div>
-            <h1 className="text-xl font-bold font-display">KayKay's</h1>
+            <h1 className="text-xl font-bold font-display">Denso</h1>
             <p className="text-sm text-app-text-muted">Version {currentVersion}</p>
           </div>
         </header>
@@ -244,7 +244,7 @@ export default function AboutView() {
         <TermsDialog open={termsOpen} onClose={() => setTermsOpen(false)} />
 
         <p className="text-center text-xs text-app-text-muted">
-          © 2026 KayKay's. All rights reserved.
+          © 2026 Denso. All rights reserved.
           <br />
           Licensed software: use needs a paid licence. Copying or sharing the app is not allowed.
         </p>

@@ -2,8 +2,32 @@ import type { HeroSlide } from './heroSlides';
 import type { AdCard } from './adCards';
 import { createClient } from '@supabase/supabase-js';
 
-/** The website's own shop. Other branches with the same owner can be picked in the store picker. */
-export const WEBSITE_SLUG = import.meta.env.VITE_WEBSITE_SLUG || 'kaykays';
+/**
+ * What the website Worker says about the shop at this address (<meta name="shop">, worker/index.ts).
+ * Missing on workers.dev, localhost and single-shop addresses: the build's own shop.
+ */
+export interface ShopInfo {
+  slug: string;
+  poweredBy: boolean;
+  ordersOpen: boolean;
+  platformName: string | null;
+  platformUrl: string | null;
+}
+
+function readShopTag(): ShopInfo | null {
+  try {
+    const raw = document.querySelector('meta[name="shop"]')?.getAttribute('content');
+    const data = raw ? JSON.parse(raw) : null;
+    return data && typeof data.slug === 'string' && /^[a-z0-9-]{1,60}$/.test(data.slug) ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export const SHOP_TAG: ShopInfo | null = typeof document === 'undefined' ? null : readShopTag();
+
+/** The website's own shop: the one at this address. Other branches of the company can be picked in the store picker. */
+export const WEBSITE_SLUG = SHOP_TAG?.slug || import.meta.env.VITE_WEBSITE_SLUG || 'kaykays';
 
 const STORE_KEY = 'kaykays-store';
 
@@ -107,6 +131,14 @@ export interface Storefront {
   promotions?: Promotion[];
   /** Advert cards from Online Store > Adverts (20261114006). Empty or missing: built-in cards. */
   adCards?: AdCard[];
+  /** About the platform this shop runs on (20261204004). Missing on older databases. */
+  site?: {
+    ordersOpen: boolean;
+    poweredBy: boolean;
+    platformName: string | null;
+    platformUrl: string | null;
+    host: string | null;
+  };
   /** Branches with the website switched on, this one included (20261114006). */
   stores?: Store[];
   deliveryZones: DeliveryZone[];

@@ -1,7 +1,8 @@
 // src/components/shared/UnifiedUploader.tsx
 import { toUserMessage } from "../../utils/userError";
 import { SwitchCamera } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useOwnProductPictures } from "../website/OwnProductPictures";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
   Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2
@@ -53,34 +54,6 @@ function cameraWord(): "Camera" | "Webcam" {
   }
   return "Webcam";
 }
-
-// Pictures shown in the gallery before a search
-const UNSPLASH_PRESETS = [
-  { id: "u-1", label: "Fresh Milk Glass", url: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-2", label: "Dairy Cows Pasture", url: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-3", label: "Vintage Milk Bottle", url: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-4", label: "Artisanal Cheese Board", url: "https://images.unsplash.com/photo-1486299267070-83823f5448dd?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-5", label: "Lush Green Meadow", url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-6", label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-7", label: "Creamy Yogurt Dessert", url: "https://images.unsplash.com/photo-1571244856341-4f3005953043?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-9", label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-10", label: "Cow Milking Process", url: "https://images.unsplash.com/photo-1596731046162-9745e69e4ce1?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-11", label: "Gourmet Cheese Platter", url: "https://images.unsplash.com/photo-1561043433-aaf687c4ce04?auto=format&fit=crop&q=80&w=300" },
-  { id: "u-12", label: "Milk Splash Abstract", url: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=300" }
-];
-
-// High-quality local index fallback for offline mode or empty API keys
-const LOCAL_FALLBACK_CATALOG = [
-  { keywords: ["milk", "glass", "bottle"], label: "Fresh Milk Glass", url: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["milk", "bottle", "jug"], label: "Vintage Milk Bottle", url: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["milk", "pour", "splash"], label: "Splash of Fresh Milk", url: "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["cow", "farm", "pasture", "meadow"], label: "Dairy Cows Pasture", url: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["meadow", "grass", "green"], label: "Lush Green Meadow", url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["cheese", "board", "food"], label: "Artisanal Cheese Board", url: "https://images.unsplash.com/photo-1486299267070-83823f5448dd?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["yogurt", "bowl", "berry"], label: "Fresh Yogurt Bowl", url: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["yogurt", "strawberry", "spoon"], label: "Creamy Yogurt Dessert", url: "https://images.unsplash.com/photo-1571244856341-4f3005953043?auto=format&fit=crop&q=80&w=300" },
-  { keywords: ["butter", "cream", "bakery"], label: "Fresh Dairy Butter Block", url: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&q=80&w=300" },
-];
 
 export interface UploaderPreset {
   id: string;
@@ -139,7 +112,12 @@ export default function UnifiedUploader({
   title = "Unified Media Uploader",
   presetImages,
 }: UnifiedUploaderProps) {
-  const presets: UploaderPreset[] = presetImages ?? UNSPLASH_PRESETS;
+  // Before a search the gallery shows this shop's own product photos, never another trade's stock photos.
+  const ownPictures = useOwnProductPictures();
+  const presets: UploaderPreset[] = useMemo(
+    () => presetImages ?? ownPictures.map((p) => ({ id: p.id, label: p.label, url: p.src })),
+    [presetImages, ownPictures],
+  );
   const controlled = open !== undefined;
   const [isOpenState, setIsOpen] = useState(false);
   const isOpen = controlled ? Boolean(open) : isOpenState;
@@ -894,21 +872,16 @@ export default function UnifiedUploader({
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
   }, []);
 
+  // Product photos can arrive after the gallery opened: show them while nothing is searched.
+  useEffect(() => {
+    if (!unsplashQuery.trim()) setUnsplashResults(presets);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presets]);
+
   const fallbackLocalSearch = (query: string) => {
-    const q = query.toLowerCase();
-    const scored = LOCAL_FALLBACK_CATALOG.map(item => {
-      let score = 0;
-      item.keywords.forEach(kw => {
-        if (q.includes(kw)) score += 2;
-      });
-      return { item, score };
-    }).filter(x => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map(x => ({
-        id: `local-${x.item.label.replace(/\s+/g, '-').toLowerCase()}-${Math.random().toString(36).substring(2, 5)}`,
-        label: x.item.label,
-        url: x.item.url
-      }));
+    // Offline or no search key: the shop's own product photos whose names match.
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const scored = presets.filter((item) => words.some((w) => item.label.toLowerCase().includes(w)));
 
     if (scored.length > 0) {
       setUnsplashResults(scored.slice(0, 12));
@@ -1444,7 +1417,7 @@ export default function UnifiedUploader({
                               handleUnsplashSearch();
                             }
                           }}
-                          placeholder="Search free photos, e.g. milk, bread"
+                          placeholder="Search free photos, e.g. bread, shoes"
                           className="flex-1 bg-app-bg text-app-text px-3 py-1.5 rounded-xl border border-app-border focus:border-brand-500 focus:outline-none text-[11px]"
                         />
                         <button
@@ -1486,7 +1459,7 @@ export default function UnifiedUploader({
                         <div className="py-8 text-center space-y-1">
                           <ImageIcon size={22} className="mx-auto text-app-text-muted/45" />
                           <p className="text-[10px] text-app-text-muted font-semibold">No results found</p>
-                          <p className="text-[11px] text-app-text-muted/80">Try another keyword like &quot;milk&quot; or &quot;cheese&quot;</p>
+                          <p className="text-[11px] text-app-text-muted/80">Try another word, like &quot;bread&quot; or &quot;shop&quot;</p>
                         </div>
                       ) : (
                         /* RESULTS GRID */

@@ -5,6 +5,7 @@
 // With `floating`, it is a draggable round button that opens the advisor in a sheet instead
 // of a card in the page, so it stays out of the way on every tab.
 import React, { useState } from 'react';
+import { useModule } from "../../stores/planStore";
 import { ArrowRight, ChevronDown, Send, Lightbulb } from 'lucide-react';
 import { SupabaseService } from '../../services/supabaseService';
 import { useBusinessStore } from '../../stores/businessStore';
@@ -59,7 +60,7 @@ const TONE = {
   act: 'bg-red-500/12 text-red-700 dark:text-red-300',
 };
 
-export default function AreaAdvisor({ area, floating = false }: { area: AdvisorArea; floating?: boolean }) {
+function AreaAdvisorInner({ area, floating = false }: { area: AdvisorArea; floating?: boolean }) {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const copy = COPY[area];
@@ -233,4 +234,10 @@ export default function AreaAdvisor({ area, floating = false }: { area: AdvisorA
       {open && <div className="px-3 pb-3 space-y-3 min-w-0">{body}</div>}
     </div>
   );
+}
+
+/** Shown only when the plan includes AI and insights. */
+export default function AreaAdvisor(props: { area: AdvisorArea; floating?: boolean }) {
+  const ai = useModule("ai");
+  return ai ? <AreaAdvisorInner {...props} /> : null;
 }

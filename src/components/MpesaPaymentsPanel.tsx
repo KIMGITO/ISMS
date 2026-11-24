@@ -244,7 +244,7 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
             </label>
             <label className="flex flex-col gap-1 sm:col-span-2">
               <span className={label}>Note (optional)</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. October milk balance" className={input} />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. October balance" className={input} />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-3 mt-4">

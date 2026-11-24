@@ -1,4 +1,8 @@
 import { toUserMessage } from "../utils/userError";
+import PlanUsageCard from '../components/plan/PlanUsageCard';
+import SupportAccessCard from '../components/support/SupportAccessCard';
+import { usePlan } from '../stores/planStore';
+import { markBranchChosen } from '../utils/branchChoice';
 import React, { useState, useEffect } from "react";
 import { useOverlay } from '../hooks/useOverlay';
 import { SwipeRow } from '../components/shared/SwipeRow';
@@ -23,7 +27,6 @@ import { hasRolePermission } from "../utils/permissions";
 import SearchableDropdown from "../components/SearchableDropdown";
 import { Tabs } from "../components/TabOptions";
 import { titleCase } from "../utils/stringUtils";
-import { BUSINESS_TYPES } from "../App";
 import { canOpenScreen } from "../utils/screens";
 import { useUiStore } from "../stores/uiStore";
 import { CopyRef } from "../components/shared/CopyRef";
@@ -37,7 +40,7 @@ import { formatCurrency } from '../utils/helpers';
 // Shown only until the business's own list has loaded.
 
 const COLOR_PRESETS = [
-  { name: "KayKay's Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
+  { name: "Denso Amber", primary: "#f59e0b", secondary: "#1e293b", label: "Amber & Slate" },
   { name: "Royal Cobalt", primary: "#2563eb", secondary: "#0f172a", label: "Blue & Navy" },
   { name: "Forest Mint", primary: "#10b981", secondary: "#064e3b", label: "Emerald & Pine" },
   { name: "Crimson Velvet", primary: "#dc2626", secondary: "#450a0a", label: "Ruby & Maroon" },
@@ -91,8 +94,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [newBizDesc, setNewBizDesc] = useState("");
   const [newBizAddr, setNewBizAddr] = useState("");
   const [newBizLogo, setNewBizLogo] = useState("");
-  const [newBizType, setNewBizType] = useState("Retail");
-  const [newBizCustomType, setNewBizCustomType] = useState("");
+  const [newBizType, setNewBizType] = useState("");
   const [newBizCountry, setNewBizCountry] = useState("Kenya");
   const [newBizCurrency, setNewBizCurrency] = useState("Ksh");
   const [creatingLoading, setCreatingLoading] = useState(false);
@@ -104,7 +106,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [logoUrl, setLogoUrl] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [businessType, setBusinessType] = useState("Retail");
-  const [customTypeInput, setCustomTypeInput] = useState("");
   const [country, setCountry] = useState("Kenya");
   const [currency, setCurrency] = useState("Ksh");
   const [contactEmail, setContactEmail] = useState("");
@@ -133,6 +134,21 @@ export default function BusinessManagementView({ section = "business" }: { secti
     section === "money" ? moneyTabs[0]?.id ?? "payments" : "details",
   );
   const isMoney = section === "money";
+
+  // A new branch only when the plan has room (the database refuses it anyway; this says why first).
+  const plan = usePlan();
+  const startCreatingBranch = () => {
+    if (plan && !plan.legacy && plan.branches_used >= plan.max_branches) {
+      showToast(
+        "Plan limit",
+        `Your plan (${plan.plan_name}) allows ${plan.max_branches} branch${plan.max_branches === 1 ? "" : "es"}. Upgrade to add more.`,
+        undefined,
+        "error",
+      );
+      return;
+    }
+    setIsCreating(true);
+  };
 
 
   // Voiding a payment
@@ -334,7 +350,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setAddress(activeBiz.address || "");
       setLogoUrl(activeBiz.logoUrl || "");
       setCoverImageUrl(activeBiz.coverImageUrl || "");
-      setBusinessType(activeBiz.businessType || "Retail");
+      setBusinessType(activeBiz.businessType || "");
       setCountry(activeBiz.country || "Kenya");
       setCurrency(activeBiz.currency || "Ksh");
       setContactEmail(activeBiz.contactEmail || "");
@@ -344,14 +360,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
       setIsTaxEnabled(activeBiz.isTaxEnabled === true);
       setTaxPercentage(typeof activeBiz.taxPercentage === 'number' ? activeBiz.taxPercentage : 16.0);
       
-      // Check if business type is a custom type (not in the predefined list)
-      const predefinedTypes = ['Retail', 'Wholesale', 'Dairy Processing', 'Farm', 'Cooperative'];
-      if (!predefinedTypes.includes(activeBiz.businessType)) {
-        setBusinessType('Other');
-        setCustomTypeInput(activeBiz.businessType || "");
-      } else {
-        setCustomTypeInput("");
-      }
     }
   }, [activeBiz]);
 
@@ -398,7 +406,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
     setLoading(true);
     try {
       const normalizedPhone = contactPhone.trim() ? normalizePhone(contactPhone) : "";
-      const finalBusinessType = businessType === 'Other' ? customTypeInput : businessType;
+      const finalBusinessType = businessType.trim() || "Retail";
       
       await updateBusiness(
         activeBusinessId,
@@ -468,7 +476,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
     setCreatingLoading(true);
     try {
-      const finalBizType = newBizType === 'Other' ? newBizCustomType : newBizType;
+      const finalBizType = newBizType.trim() || "Retail";
       const created = await addBusiness(
         newBizName.trim(),
         newBizDesc.trim(),
@@ -485,8 +493,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
         setNewBizDesc("");
         setNewBizAddr("");
         setNewBizLogo("");
-        setNewBizType("Retail");
-        setNewBizCustomType("");
+        setNewBizType("");
         setNewBizCountry("Kenya");
         setNewBizCurrency("Ksh");
       }
@@ -519,6 +526,12 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
      
 
+      {/* The company's plan: limits, use and what is locked */}
+      {!isMoney && <PlanUsageCard />}
+
+      {/* The Owner lets platform support into this branch for a while */}
+      {!isMoney && isOwner && activeBusinessId && <SupportAccessCard businessId={activeBusinessId} />}
+
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
       {!isMoney && (
       <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 -mx-1 px-1 min-h-[130px]">
@@ -532,6 +545,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
               onClick={() => {
                 setIsCreating(false);
                 setActiveBusinessId(biz.id);
+                markBranchChosen(biz.id);
               }}
               className={`relative shrink-0 w-[230px] rounded-2xl border text-left overflow-hidden transition-all cursor-pointer group ${
                 isActive
@@ -587,7 +601,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
         {businesses.length < 5 && hasRolePermission(currentEmployee?.role || 'Guest', 'settings.view') && (
           <button
             type="button"
-            onClick={() => setIsCreating(true)}
+            onClick={startCreatingBranch}
             data-shortcut="new"
             className={`shrink-0 w-[180px] rounded-2xl border-2 border-dashed text-left transition-all cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[110px] ${
               isCreating
@@ -625,6 +639,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     onClick={() => {
                       setIsCreating(false);
                       setActiveBusinessId(biz.id);
+                markBranchChosen(biz.id);
                     }}
                     className={`p-3 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer ${
                       isActive
@@ -671,7 +686,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
               ) && (
                 <button
                   type="button"
-                  onClick={() => setIsCreating(true)}
+                  onClick={startCreatingBranch}
                   className={`w-full py-2 border-2 border-dashed rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     isCreating
                       ? 'border-amber-500 text-amber-500 bg-amber-500/5'
@@ -717,7 +732,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                   <input
                     type="text"
                     required
-                    placeholder="e.g. KayKay's - Syokimau Hub"
+                    placeholder="e.g. Town Centre branch"
                     value={newBizName}
                     onChange={(e) => setNewBizName(e.target.value)}
                     className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
@@ -729,24 +744,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
                    <label className="text-[10px] text-app-text-muted font-bold">
                      Type of business
                    </label>
-                   <SearchableDropdown
-                     items={
-                     BUSINESS_TYPES
-                    }
-                     selectedValue={newBizType}
-                     onChange={(val) => setNewBizType(val)}
-                     placeholder="Select operation type..."
+                   <input
+                     type="text"
+                     placeholder="e.g. Shop, Butchery"
+                     value={newBizType}
+                     onChange={(e) => setNewBizType(e.target.value)}
+                     maxLength={60}
+                     className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
                    />
-                   {newBizType === 'Other' && (
-                     <input
-                       type="text"
-                       placeholder="e.g. Dairy, Butchery"
-                       value={newBizCustomType}
-                       onChange={(e) => setNewBizCustomType(e.target.value)}
-                       className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                       autoFocus
-                     />
-                   )}
                  </div>
 
                 {/* Country */}
@@ -917,29 +922,14 @@ export default function BusinessManagementView({ section = "business" }: { secti
                            <label className="text-[10px] text-app-text-muted font-bold">
                              Type of business
                            </label>
-                           <SearchableDropdown
-                             items={
-                              BUSINESS_TYPES
-                            }
-                             selectedValue={businessType}
-                             onChange={(val) => {
-                               setBusinessType(val);
-                               if (val !== 'Other') {
-                                 setCustomTypeInput("");
-                               }
-                             }}
-                             placeholder="Select operation type..."
+                           <input
+                             type="text"
+                             placeholder="e.g. Shop, Butchery"
+                             value={businessType}
+                             onChange={(e) => setBusinessType(e.target.value)}
+                             maxLength={60}
+                             className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
                            />
-                           {businessType === 'Other' && (
-                             <input
-                               type="text"
-                               placeholder="e.g. Dairy, Butchery"
-                               value={customTypeInput}
-                               onChange={(e) => setCustomTypeInput(e.target.value)}
-                               className="mt-1 bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                               autoFocus
-                             />
-                           )}
                          </div>
 
                         {/* Description */}
@@ -989,7 +979,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </label>
                           <input
                             type="email"
-                            placeholder="e.g. branch@kaykays.com"
+                            placeholder="e.g. branch@yourshop.co.ke"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             className={`bg-app-bg text-app-text border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold ${
@@ -1585,7 +1575,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </label>
                           <textarea
                             rows={2}
-                            placeholder={payType === 'walk-in' ? 'e.g. Walk-in customer — fuel reimbursement' : 'e.g. August milk order settlement'}
+                            placeholder={payType === 'walk-in' ? 'e.g. Walk-in customer — fuel reimbursement' : 'e.g. August order settlement'}
                             value={payDescription}
                             onChange={(e) => setPayDescription(e.target.value)}
                             className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-medium"

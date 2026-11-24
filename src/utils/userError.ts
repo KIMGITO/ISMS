@@ -46,6 +46,10 @@ export function toUserMessage(err: unknown, fallback: string = GENERIC_ERROR_MES
 
   const message = typeof err === "string" ? err : typeof (err as any)?.message === "string" ? (err as any).message : "";
   const code = typeof (err as any)?.code === "string" ? (err as any).code : "";
+  const hint = typeof (err as any)?.hint === "string" ? (err as any).hint : "";
+
+  // Plan limits and read-only mode: the database wrote these for the business owner.
+  if (/^plan_/.test(hint) && message.trim()) return message;
 
   if (POSTGRES_CODE_MESSAGES[code]) return POSTGRES_CODE_MESSAGES[code];
 

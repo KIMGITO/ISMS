@@ -875,7 +875,7 @@ function PromotionEditor({ businessId, promotion, onClose, onSaved }: {
               }
             />
           </Field>
-          <Field label="Name"><TextInput value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="Milk week" maxLength={80} /></Field>
+          <Field label="Name"><TextInput value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="Back to school week" maxLength={80} /></Field>
         </div>
         <Field label="Note (optional)"><TextInput value={d.description ?? ''} onChange={(e) => set({ description: e.target.value })} maxLength={500} placeholder="Shown with the code" /></Field>
       </Group>

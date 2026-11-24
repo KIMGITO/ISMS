@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { metaForRoute } from './seo';
-import type { Storefront } from './api';
+import { SHOP_TAG, type Storefront } from './api';
 
-/** The live domain, such as https://kaykays.com. While unset, search engines are told not to index. */
-export const SITE_URL: string = (import.meta.env.VITE_SITE_URL || '').replace(/\/+$/, '');
+/**
+ * The live address. On a shop's own address (the Worker said which shop) it is that address;
+ * otherwise VITE_SITE_URL, and while that is unset search engines are told not to index.
+ */
+export const SITE_URL: string =
+  SHOP_TAG && typeof location !== 'undefined' ? location.origin : (import.meta.env.VITE_SITE_URL || '').replace(/\/+$/, '');
 
 function setTag(selector: string, create: () => HTMLElement, attribute: string, value: string | null) {
   let tag = document.head.querySelector<HTMLElement>(selector);

@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react';
 import { friendlyError, sendMessage, submitFeedback } from '../api';
 import { useAuth, useStorefront } from '../store';
 import { ErrorText } from '../ui';
-import { BANNER_IMAGES, PageHeader, pageClass } from '../ui';
+import { PageHeader, pageClass } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 function ContactTile({ icon: Icon, title, body, href, external = false }: {
@@ -115,7 +115,7 @@ export default function ContactPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Contact" title="Find Us" body="Visit us, call, or send a message." images={BANNER_IMAGES.bottle}>
+      <PageHeader eyebrow="Contact" title="Find Us" body="Visit us, call, or send a message.">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Contact' }]} />
       </PageHeader>
       <div className={pageClass}>

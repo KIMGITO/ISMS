@@ -1,4 +1,5 @@
 import { toUserMessage } from '../utils/userError';
+import { useModule } from '../stores/planStore';
 import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, usePointsEnabled } from '../services/loyalty/pointValue';
 import { recordTillPoints } from '../services/loyalty/tillPoints';
 import { SheetLayer } from '../components/shared/SheetLayer';
@@ -206,6 +207,8 @@ export default function POSView() {
 
   // Delivery states
   const [isDelivery, setIsDelivery] = useState(false);
+  // Delivery orders and riders are the Deliveries module (Pro and up).
+  const deliveriesOn = useModule('deliveries');
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
   // How the delivery is paid: on our bill (now or on their account), to the rider in cash,
   // or free. The fee typed is what the rider earns; only 'charged' adds it to our total.
@@ -597,7 +600,7 @@ export default function POSView() {
         const methods: Record<string, PaymentMethod> = { '1': 'Cash', '2': 'M-Pesa', '3': 'Credit_Debt', '4': 'Card', '5': 'Bank', '6': 'Airtel Money' };
         if (methods[k] && (methods[k] === 'Credit_Debt' || enabledMethods.includes(methods[k] as MoneyMethod))) return done(), setPaymentMethod(methods[k]);
         const code = e.code;
-        if (code === 'KeyD') return done(), setIsDelivery((v) => !v);
+        if (code === 'KeyD' && deliveriesOn) return done(), setIsDelivery((v) => !v);
         if (code === 'KeyQ') {
           done();
           if (cart.length > 0 && hasRolePermission(currentEmployee?.role || 'Guest', 'quotes.manage' as any)) setQuoting(true);
@@ -933,6 +936,7 @@ export default function POSView() {
                 </div>
 
                 {/* Delivery Settings */}
+                {deliveriesOn && (
                 <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex flex-col gap-2.5">
                   <div data-shortcut="pos-delivery" className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-amber-500 text-xs font-bold">
@@ -1110,6 +1114,7 @@ export default function POSView() {
                     </div>
                   )}
                 </div>
+                )}
 
                 {pointsOn && selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
                   <label className="flex flex-col gap-1 p-3 bg-app-bg/50 border border-app-border rounded-2xl text-xs font-medium text-app-text">

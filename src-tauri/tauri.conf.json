@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "KayKay's",
+  "productName": "Denso",
   "version": "0.1.0",
   "identifier": "com.isms.app",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "KayKay's",
+        "title": "Denso",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -44,8 +44,8 @@
     "active": true,
     "targets": "all",
     "category": "Business",
-    "copyright": "2026 KayKay's",
-    "publisher": "KayKay's",
+    "copyright": "2026 Denso",
+    "publisher": "Denso",
     "license": "Proprietary",
     "licenseFile": "../LICENSE",
     "icon": [
@@ -58,7 +58,12 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "wix": {
+        "upgradeCode": "c9a95509-8443-5d55-9b90-92e51ee44ec7"
+      }
+    }
   },
   "plugins": {
     "updater": {

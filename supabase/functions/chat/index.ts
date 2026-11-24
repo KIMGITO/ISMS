@@ -20,15 +20,15 @@ import { loadAISettings, runAI, friendlyAIMessage, ownerAIHint } from "../shared
 // example. Mirrors ASSISTANT_ACTIONS in src/stores/pendingActionStore.ts, which checks
 // the permission again before anything runs. Only the ones this person may do are offered.
 const ACTIONS: { type: string; permission: string | null; does: string; example: string }[] = [
-  { type: "create_checkout", permission: "pos.create_sale", does: "put items in the till cart for a sale", example: '{"type":"create_checkout","title":"Sale","summary":"3 Whole Milk","params":{"items":[{"productName":"Whole Milk","quantity":3}]}}' },
+  { type: "create_checkout", permission: "pos.create_sale", does: "put items in the till cart for a sale", example: '{"type":"create_checkout","title":"Sale","summary":"3 Sugar 1kg","params":{"items":[{"productName":"Sugar 1kg","quantity":3}]}}' },
   { type: "create_customer", permission: "customers.create", does: "add a customer", example: '{"type":"create_customer","title":"New customer","summary":"John Doe","params":{"name":"John Doe","phone":"0712345678"}}' },
   { type: "update_customer", permission: "customers.update", does: "change a customer's name, phone or email", example: '{"type":"update_customer","title":"Edit customer","summary":"New phone for Jane","params":{"customerName":"Jane Wanjiku","phone":"0722000000"}}' },
   { type: "settle_debt", permission: "customers.debts", does: "record a payment towards a customer's debt (method Cash or M-Pesa)", example: '{"type":"settle_debt","title":"Debt payment","summary":"Jane pays 1000","params":{"customerName":"Jane Wanjiku","amount":1000,"method":"Cash"}}' },
   { type: "adjust_wallet", permission: "customers.debts", does: "add money to a customer's wallet", example: '{"type":"adjust_wallet","title":"Wallet top-up","summary":"Jane +500","params":{"customerName":"Jane Wanjiku","amount":500}}' },
-  { type: "create_product", permission: "products.create", does: "add a product", example: '{"type":"create_product","title":"New product","summary":"Yoghurt 500ml","params":{"name":"Yoghurt 500ml","price":120,"cost":80,"stock":0,"unit":"Cup","category":"Dairy"}}' },
-  { type: "update_product", permission: "products.update", does: "change a product's price, cost, minimum stock, category or unit (not stock: use adjust_stock)", example: '{"type":"update_product","title":"Price change","summary":"Milk to 60","params":{"productName":"Whole Milk","price":60}}' },
-  { type: "adjust_stock", permission: "inventory.adjust_stock", does: "add stock (type restock) or remove damaged stock (type damage)", example: '{"type":"adjust_stock","title":"Stock adjustment","summary":"Milk -5 damaged","params":{"productName":"Whole Milk","quantity":5,"type":"damage","reason":"Spilt"}}' },
-  { type: "transfer_stock", permission: "inventory.transfer_stock", does: "send stock from this branch to another branch (use a branch name from OTHER BRANCHES)", example: '{"type":"transfer_stock","title":"Send stock","summary":"10 Whole Milk to Westlands","params":{"toBranch":"Westlands","items":[{"productName":"Whole Milk","quantity":10}],"note":""}}' },
+  { type: "create_product", permission: "products.create", does: "add a product", example: '{"type":"create_product","title":"New product","summary":"Rice 2kg","params":{"name":"Rice 2kg","price":320,"cost":260,"stock":0,"unit":"Packet","category":"Groceries"}}' },
+  { type: "update_product", permission: "products.update", does: "change a product's price, cost, minimum stock, category or unit (not stock: use adjust_stock)", example: '{"type":"update_product","title":"Price change","summary":"Sugar to 160","params":{"productName":"Sugar 1kg","price":160}}' },
+  { type: "adjust_stock", permission: "inventory.adjust_stock", does: "add stock (type restock) or remove damaged stock (type damage)", example: '{"type":"adjust_stock","title":"Stock adjustment","summary":"Sugar -5 damaged","params":{"productName":"Sugar 1kg","quantity":5,"type":"damage","reason":"Torn bags"}}' },
+  { type: "transfer_stock", permission: "inventory.transfer_stock", does: "send stock from this branch to another branch (use a branch name from OTHER BRANCHES)", example: '{"type":"transfer_stock","title":"Send stock","summary":"10 Sugar 1kg to Westlands","params":{"toBranch":"Westlands","items":[{"productName":"Sugar 1kg","quantity":10}],"note":""}}' },
   { type: "create_expense", permission: "expenses.create", does: "record an expense", example: '{"type":"create_expense","title":"Expense","summary":"Fuel 2500","params":{"amount":2500,"category":"Fuel","description":"Delivery motorbike"}}' },
   { type: "create_shift", permission: "staff.schedule", does: "schedule a worker's shift (date YYYY-MM-DD, times HH:MM)", example: '{"type":"create_shift","title":"Shift","summary":"Peter Saturday 8-5","params":{"workerName":"Peter","date":"2026-11-14","startTime":"08:00","endTime":"17:00"}}' },
   { type: "clock_in", permission: null, does: "clock the person talking to you in", example: '{"type":"clock_in","title":"Clock in","summary":"Start my shift","params":{}}' },
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       (p: any) => (p.stock ?? 0) <= (p.min_stock_level ?? 5) && (p.stock ?? 0) >= 0
     );
 
-    const bizName = biz?.name || "KayKay's";
+    const bizName = biz?.name || "Denso";
     const currency = biz?.currency || "KSh";
     const aiName = Deno.env.get("VITE_AI_NAME") || "Kim";
     const userRole = activeRole || "Owner";

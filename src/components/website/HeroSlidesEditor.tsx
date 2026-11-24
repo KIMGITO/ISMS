@@ -8,6 +8,8 @@ import SearchableDropdown from '../SearchableDropdown';
 import { FormEvent, KeyboardEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, ImagePlus, Minus, Monitor, Move, Plus, RotateCcw, Save, ShoppingCart, Smartphone, Tablet, Trash2, X, ZoomIn } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
+import OwnProductPictures, { useOwnProductPictures } from './OwnProductPictures';
+import { pictureSet } from '../../../website/src/shopPictures';
 import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
@@ -17,7 +19,6 @@ import {
   HERO_LIMITS,
   HERO_PHONE_LAYOUTS,
   HERO_SIDES,
-  HERO_STOCK_IMAGES,
   HeroBox,
   HeroPhoneLayout,
   HeroSide,
@@ -48,7 +49,7 @@ const LINK_CHOICES = [
   { href: '/shop', label: 'Shop (all products)' },
   { href: '/account/schedules', label: 'Regular orders' },
   { href: '/account/rewards', label: 'Rewards & points' },
-  { href: '/articles', label: 'Milk guides' },
+  { href: '/articles', label: 'Guides' },
   { href: '/reviews', label: 'Customer reviews' },
   { href: '/delivery', label: 'Delivery & pickup' },
   { href: '/contact', label: 'Contact us' },
@@ -584,7 +585,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-app-text sm:col-span-2">
           Headline
-          <input value={slide.title} maxLength={HERO_LIMITS.title} onChange={(e) => set({ title: e.target.value })} placeholder="Fresh Milk Daily, Delivered to Your Door" className={`${inputClass} mt-1`} />
+          <input value={slide.title} maxLength={HERO_LIMITS.title} onChange={(e) => set({ title: e.target.value })} placeholder="Fresh Stock Daily, Delivered to Your Door" className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-sm font-medium text-app-text sm:col-span-2">
           Short line <span className="font-normal text-app-text-muted">(optional, keep it short for phones)</span>
@@ -619,7 +620,7 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
               value={slide.ctaHref ?? ''}
               maxLength={HERO_LIMITS.ctaHref}
               onChange={(e) => set({ ctaHref: e.target.value })}
-              placeholder="/shop?category=Yoghurt or https://wa.me/2547…"
+              placeholder="/shop?category=Snacks or https://wa.me/2547…"
               className={`${inputClass} mt-1`}
             />
           </label>
@@ -669,26 +670,11 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
               onUploadSuccess={(url) => addImage(url)}
             />
             <button type="button" className={secondaryClass} onClick={() => setStockOpen(!stockOpen)}>
-              <ImagePlus size={15} /> {stockOpen ? 'Close' : 'Choose a ready cut-out'}
+              <ImagePlus size={15} /> {stockOpen ? 'Close' : 'Choose from your products'}
             </button>
           </div>
         )}
-        {stockOpen && !full && (
-          <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
-            {HERO_STOCK_IMAGES.map((image) => (
-              <li key={image.src}>
-                <button
-                  type="button"
-                  onClick={() => addImage(image.src)}
-                  className="w-full rounded-lg border border-app-border bg-app-bg p-1 hover:border-brand-500"
-                  title={image.label}
-                >
-                  <img src={image.src} alt={image.label} className="aspect-square w-full object-contain" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        {stockOpen && !full && <OwnProductPictures onPick={addImage} />}
         </div>
         </div>
       </div>
@@ -704,6 +690,14 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState('');
   const [loadError, setLoadError] = useState('');
+  // The built-in slides carry this shop's own product photos, as the website shows them.
+  const pictures = useOwnProductPictures();
+  const picturesRef = useRef(pictures);
+  picturesRef.current = pictures;
+  const builtIn = useCallback(
+    () => DEFAULT_HERO_SLIDES.map((s, i) => ({ ...s, images: pictureSet(picturesRef.current, i * 3, 3) })),
+    [],
+  );
 
   const load = useCallback(async () => {
     const { data, error } = await getSupabase().from('website_settings').select('hero_slides').eq('business_id', businessId).maybeSingle();
@@ -711,9 +705,9 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
     const saved = (data?.hero_slides as HeroSlide[] | undefined) ?? [];
     setUsingBuiltIn(saved.length === 0);
     // With nothing saved the website shows the built-in slides, so start editing from those.
-    setSlides(saved.length > 0 ? saved : DEFAULT_HERO_SLIDES.map((s) => ({ ...s, images: [...s.images] })));
+    setSlides(saved.length > 0 ? saved : builtIn());
     setLoaded(true);
-  }, [businessId]);
+  }, [businessId, builtIn]);
 
   const tryLoad = useCallback(() => {
     setLoadError('');
@@ -765,14 +759,14 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       );
     }
     if (ok) {
-      setSlides(cleaned.length ? cleaned : DEFAULT_HERO_SLIDES.map((s) => ({ ...s, images: [...s.images] })));
+      setSlides(cleaned.length ? cleaned : builtIn());
       setUsingBuiltIn(cleaned.length === 0);
     }
   };
 
   const resetToBuiltIn = async () => {
     if (await write([], 'Home banner reset to the built-in slides.')) {
-      setSlides(DEFAULT_HERO_SLIDES.map((s) => ({ ...s, images: [...s.images] })));
+      setSlides(builtIn());
       setUsingBuiltIn(true);
     }
   };

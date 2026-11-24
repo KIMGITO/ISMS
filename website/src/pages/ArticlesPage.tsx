@@ -1,8 +1,7 @@
 import { RichText } from '../RichText';
 import { Article } from '../api';
-import { articlePhoto, photoUrl } from '../images';
 import { useStorefront } from '../store';
-import { BANNER_IMAGES, DisplayText, formatDate, Notice, PageHeader, pageClass, RevealList } from '../ui';
+import { DisplayText, NoPicture, formatDate, Notice, PageHeader, pageClass, RevealList } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 
 export function ArticleCard({ article }: { article: Article }) {
@@ -10,12 +9,9 @@ export function ArticleCard({ article }: { article: Article }) {
     <li className="group overflow-hidden rounded-lg border border-line bg-white transition hover:border-ember/40 hover:shadow-soft">
       <a href={`/articles/${article.slug}`} className="flex h-full flex-col">
         <div className="aspect-[16/10] overflow-hidden bg-sand">
-          <img
-            src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 800, 600)}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover"
-          />
+          {article.coverImageUrl
+            ? <img src={article.coverImageUrl} alt="" loading="lazy" className="size-full object-cover" />
+            : <NoPicture text={article.title} />}
         </div>
         <div className="p-4 sm:p-5">
           <p className="eyebrow">{article.category}</p>
@@ -41,15 +37,13 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
     }
     return (
       <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides', href: '/articles' }, { label: article.title }]} />
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Guides', href: '/articles' }, { label: article.title }]} />
         <p className="eyebrow mt-4">{article.category}</p>
         <h1 className="display-lg mt-2"><DisplayText>{article.title}</DisplayText></h1>
         {article.publishedAt && <p className="mt-3 text-muted">{formatDate(article.publishedAt)}</p>}
-        <img
-          src={article.coverImageUrl || photoUrl(articlePhoto(`${article.slug} ${article.title}`), 1200, 700)}
-          alt=""
-          className="mt-6 aspect-[12/7] w-full rounded-xl bg-sand object-cover"
-        />
+        {article.coverImageUrl && (
+          <img src={article.coverImageUrl} alt="" className="mt-6 aspect-[12/7] w-full rounded-xl bg-sand object-cover" />
+        )}
         {article.summary && <p className="mt-6 text-xl leading-relaxed text-muted">{article.summary}</p>}
         <RichText body={article.body} className="mt-6 text-lg" />
       </article>
@@ -59,12 +53,11 @@ export default function ArticlesPage({ slug }: { slug?: string }) {
   return (
     <>
       <PageHeader
-        eyebrow="Milk care"
-        title="Milk Guides"
-        body="How to store, handle and enjoy your milk."
-        images={BANNER_IMAGES.splash}
+        eyebrow="Guides"
+        title="Guides"
+        body="Tips to get the most from what you buy."
       >
-        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Milk guides' }]} />
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Guides' }]} />
       </PageHeader>
       <div className={pageClass}>
       {articles.length > 0 ? (

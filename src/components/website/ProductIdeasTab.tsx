@@ -273,7 +273,7 @@ export default function ProductIdeasTab({ businessId }: { businessId: string }) 
         <p className="text-xs text-app-text-muted">It goes straight onto the website so customers can vote for it.</p>
         <label className="block text-xs font-medium text-app-text-muted">
           Product name
-          <input required maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Goat milk 1L" className={`${inputClass} mt-1`} />
+          <input required maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Brown bread 1L" className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-xs font-medium text-app-text-muted">
           Details (optional)

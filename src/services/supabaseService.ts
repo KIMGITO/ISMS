@@ -779,6 +779,7 @@ export class SupabaseService {
     if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }
     return (data || []).map(b => ({
       id: b.id,
+      tenantId: b.tenant_id || undefined,
       name: b.name,
       description: b.description || "",
       address: b.address || "",

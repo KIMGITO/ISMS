@@ -12,7 +12,7 @@ interface ChatMessage {
   reply?: AssistantReply;
 }
 
-const SUGGESTIONS = ['Do you have milk?', 'Do you deliver?', 'How do I pay?'];
+const SUGGESTIONS = ['What do you have today?', 'Do you deliver?', 'How do I pay?'];
 
 /** The same name as the assistant in the ISMS app. */
 const AI_NAME: string = import.meta.env.VITE_AI_NAME || 'Kim';

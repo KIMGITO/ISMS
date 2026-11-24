@@ -244,6 +244,8 @@ export default function CartPage() {
 export function CheckoutPage() {
   const site = useStorefront();
   const { business, settings, deliveryZones } = site;
+  // False while the company's plan is read-only (20261204004): the shop shows, orders wait.
+  const ordersClosed = site.site?.ordersOpen === false;
   const rows = useCartRows();
   const clear = useCart((s) => s.clear);
   const ready = useAuth((s) => s.ready);
@@ -469,8 +471,9 @@ export function CheckoutPage() {
           </dl>
           {belowMinimum && <p className="text-muted">The minimum order is {formatPrice(business.currency, settings.minOrder)}.</p>}
           {promoCode && !promo && promoError && <p className="text-sm text-red-800">The promo code won't be used: {promoError}</p>}
+          {ordersClosed && <p className="text-sm text-red-800">This shop isn't taking online orders right now. Please call or visit the shop.</p>}
           <ErrorText>{error}</ErrorText>
-          <button type="submit" disabled={busy || belowMinimum} className="btn btn-accent min-h-12 w-full">
+          <button type="submit" disabled={busy || belowMinimum || ordersClosed} className="btn btn-accent min-h-12 w-full">
             <ShoppingBag size={18} aria-hidden />
             {busy ? 'Placing your order…' : `Place order · ${formatPrice(business.currency, total)}`}
           </button>

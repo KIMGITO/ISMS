@@ -1,12 +1,17 @@
-// Cloudflare Worker that serves the customer website (the shop). Static files only, with
-// a prerendered page per product, guide and policy. Deployed blue-green by
+// Cloudflare Worker that serves the customer website: every business's shop, chosen by the
+// address (worker/index.ts, SaaS step 6). workers.dev and SINGLE_SHOP_HOSTS serve the build's
+// own shop from the pages prerendered at build time. Deployed blue-green by
 // scripts/deploy-web.sh website, which CI runs after each release.
 // Security headers: website/public/_headers. Hosting guide: docs/HOSTING_CLOUDFLARE.md.
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "kaykays-website",
   "compatibility_date": "2026-10-29",
+  "main": "./worker/index.ts",
   "assets": {
+    "binding": "ASSETS",
+    // Every request reaches the Worker first, so a shop's address never gets another shop's pages.
+    "run_worker_first": true,
     // Built by: npm run website:build
     "directory": "./dist",
     // /terms serves terms/index.html; anything else that isn't a file gets index.html.
@@ -16,8 +21,24 @@
   // kaykays-website.<your-subdomain>.workers.dev
   "workers_dev": true,
   "preview_urls": true,
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Public values (the website bundle carries them too). SUPABASE_URL is set at deploy time
+  // (--var) from VITE_SUPABASE_URL, the same as the build.
+  "vars": {
+    "SUPABASE_URL": "",
+    "SUPABASE_ANON_KEY": "",
+    // Comma list of addresses that serve the build's own shop as before, e.g. "kaykays.com,www.kaykays.com".
+    "SINGLE_SHOP_HOSTS": ""
+  }
 
+  // Shop addresses, once the platform domain is on Cloudflare: a wildcard route for the
+  // subdomains, and Cloudflare for SaaS (fallback origin customers.<platform domain>) for
+  // shops' own domains:
+  // "routes": [
+  //   { "pattern": "*.<platform domain>/*", "zone_name": "<platform domain>" },
+  //   { "pattern": "*/*", "zone_name": "<platform domain>" }
+  // ]
+  //
   // Your own address, once the domain is on Cloudflare (docs/HOSTING_CLOUDFLARE.md, step 5):
   // "routes": [
   //   { "pattern": "kaykays.com", "custom_domain": true },

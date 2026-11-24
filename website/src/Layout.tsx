@@ -4,7 +4,6 @@ import {
   Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, User, X,
 } from 'lucide-react';
 import { pointsOn } from './points';
-import { CREDITED_PHOTOS } from './images';
 import { INFO_PAGES } from './infoPages';
 import { navigate } from './router';
 import { fetchRewards, friendlyError, takesAirtel, WEBSITE_SLUG } from './api';
@@ -35,7 +34,7 @@ const COMPANY_LINKS = [
   { href: '/about', label: 'About us' },
   { href: '/reviews', label: 'Customer reviews' },
   { href: '/ideas', label: 'Vote & suggest products' },
-  { href: '/articles', label: 'Milk guides' },
+  { href: '/articles', label: 'Guides' },
   { href: '/feedback', label: 'Give feedback' },
   { href: '/sitemap', label: 'Site map' },
 ];
@@ -615,7 +614,7 @@ function CartDrawer() {
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
             <span className="grid size-16 place-items-center rounded-full bg-sand"><ShoppingBag size={28} strokeWidth={1.5} aria-hidden /></span>
             <p className="text-lg font-medium">Your cart is empty</p>
-            <p className="text-muted">Fresh milk is a few taps away.</p>
+            <p className="text-muted">Everything you need is a few taps away.</p>
             <a href="/shop" onClick={close} className="btn btn-primary">Start shopping</a>
           </div>
         ) : (
@@ -833,7 +832,7 @@ function Footer() {
               <span className="text-2xl font-semibold text-ember">{business.name}</span>
             </a>
             <p className="mt-3 text-sm leading-relaxed text-muted max-sm:line-clamp-2 lg:mx-auto lg:max-w-xs">
-              {business.description || 'Fresh milk and dairy, ordered online and paid with M-Pesa.'}
+              {business.description || 'Order online and pay with M-Pesa.'}
             </p>
             <div className="mt-4 flex gap-2 lg:justify-center">
               {business.contactPhone && (
@@ -889,6 +888,15 @@ function Footer() {
             {LEGAL_LINKS.map((link) => <a key={link.href} href={link.href} className="py-1 hover:text-ink">{link.label}</a>)}
             <a href="/sitemap" className="py-1 hover:text-ink">Site map</a>
             <span className="py-1" title="Website version">v{__SITE_VERSION__}</span>
+            {site.site?.poweredBy && (site.site.platformName || site.site.platformUrl) && (
+              site.site.platformUrl ? (
+                <a href={site.site.platformUrl} target="_blank" rel="noopener" className="py-1 hover:text-ink">
+                  Powered by {site.site.platformName || site.site.platformUrl.replace(/^https:\/\//, '')}
+                </a>
+              ) : (
+                <span className="py-1">Powered by {site.site.platformName}</span>
+              )
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5"><Lock size={13} aria-hidden /> Secure payments</span>
@@ -899,20 +907,6 @@ function Footer() {
             </button>
           </div>
         </div>
-        <details className="pb-5 text-xs text-muted/80">
-          <summary className="cursor-pointer py-1">Photo credits</summary>
-          <p className="max-w-2xl pb-2 leading-relaxed">
-            Photos on{' '}
-            <a className="underline" href="https://unsplash.com/?utm_source=kaykays&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a>
-            {' '}by{' '}
-            {CREDITED_PHOTOS.map((photo, index) => (
-              <span key={photo.id}>
-                {index > 0 && ', '}
-                <a className="underline" href={`https://unsplash.com/@${photo.username}?utm_source=kaykays&utm_medium=referral`} target="_blank" rel="noopener noreferrer">{photo.by}</a>
-              </span>
-            ))}.
-          </p>
-        </details>
       </div>
     </footer>
   );

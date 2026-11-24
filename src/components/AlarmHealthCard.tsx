@@ -36,7 +36,7 @@ function checksFor(s: AlarmStatus): Check[] {
     {
       id: 'notifications', ok: s.notificationsEnabled, required: true,
       label: 'Notifications', okText: 'Allowed',
-      problem: 'Turned off for KayKay\'s, so alarms can\'t show and nothing arrives. Turn on "Allow notifications".',
+      problem: 'Turned off for Denso, so alarms can\'t show and nothing arrives. Turn on "Allow notifications".',
       fix: 'notifications', fixLabel: 'Turn on',
     },
     {
@@ -60,7 +60,7 @@ function checksFor(s: AlarmStatus): Check[] {
     {
       id: 'battery', ok: s.batteryUnrestricted, required: false,
       label: 'Battery', okText: 'Unrestricted',
-      problem: 'Some phones stop apps in the background to save battery, which can delay pushes. Set KayKay\'s to "Unrestricted" or "Don\'t optimise".',
+      problem: 'Some phones stop apps in the background to save battery, which can delay pushes. Set Denso to "Unrestricted" or "Don\'t optimise".',
       fix: 'battery', fixLabel: 'Open',
     },
     {
