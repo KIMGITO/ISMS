@@ -26,3 +26,4 @@ website/.wrangler
 # Old Vercel project links (no longer used; safe to delete)
 .vercel
 website/.vercel
+__pycache__/
