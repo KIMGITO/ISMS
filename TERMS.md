@@ -8,7 +8,7 @@ Your business's customers who shop on its website are covered by that website's 
 
 ## 1. Who we are
 
-The app is provided by Dennis Kimanthi ("we", "us"), Kenya. Contact: kimanthidennis02@gmail.com.
+The app is provided by Dennis Kimanthi Gitonga, trading as Codensons ("we", "us"), Kenya. Contact: kimanthidennis02@gmail.com or codensons@gmail.com.
 
 The business that bought the licence ("your business") decides who in its team may use the app. "You" means the business and each person who signs in for it.
 
