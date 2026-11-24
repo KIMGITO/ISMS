@@ -406,6 +406,35 @@ tr.search-spotlight > td {
   .search-spotlight:not(tr)::after { animation: none; }
 }
 
+/* FloatingButton: for its first seconds on a screen it nudges sideways and up/down, with a
+   pulsing ring, to show it can be dragged out of the way (components/shared/FloatingButton). */
+@keyframes fab-drag-hint {
+  0%, 100% { translate: 0 0; }
+  12%      { translate: -10px 0; }
+  24%      { translate: 0 0; }
+  36%      { translate: 0 -10px; }
+  48%      { translate: 0 0; }
+  60%      { translate: 0 10px; }
+  72%      { translate: 0 0; }
+}
+@keyframes fab-drag-ring {
+  0%   { opacity: 0.7; scale: 1; }
+  100% { opacity: 0; scale: 1.7; }
+}
+.fab-drag-hint { animation: fab-drag-hint 1.4s ease-in-out 2; }
+.fab-drag-hint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 3px rgb(245 158 11 / 0.9);
+  pointer-events: none;
+  animation: fab-drag-ring 0.9s ease-out 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab-drag-hint, .fab-drag-hint::after { animation: none; }
+}
+
 /* Keyboard shortcut on big screens: the key after the text of the button it presses (stamped
    as data-kbd by hooks/useShortcutBadges.ts), so it never covers a word. Icon-only buttons
    (size-*, or .kbd-corner) keep it in the corner; .kbd-stack puts it under the text, for

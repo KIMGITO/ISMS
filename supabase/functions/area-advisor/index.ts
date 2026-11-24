@@ -327,7 +327,7 @@ Deno.serve(async (req) => {
 
     const settings = await loadAISettings(businessId);
     if (!settings) {
-      return jsonResponse({ success: false, error: "The assistant is not set up yet. Ask the owner to add it under Settings → AI." }, 503);
+      return jsonResponse({ success: false, error: "The assistant is not set up yet. Ask the admin to add it under Settings → AI." }, 503);
     }
 
     const end = typeof period?.end === "string" ? period.end.slice(0, 10) : day(new Date());

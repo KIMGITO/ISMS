@@ -184,7 +184,7 @@ Anything not in that list is not allowed. When asked whether they can do somethi
       return jsonResponse({
         success: true,
         reply:
-          "The AI assistant is not yet configured for this business. Please ask the Owner to add an API key under Settings > AI Configuration.",
+          "The AI assistant is not yet configured for this business. Please ask the admin to add an API key under Settings > AI Configuration.",
       });
     }
 

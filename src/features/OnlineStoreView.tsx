@@ -1,5 +1,4 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { useOverlay } from '../hooks/useOverlay';
 import {
   AlertTriangle,
@@ -680,7 +679,6 @@ interface WebsiteProductRow {
 }
 
 function SettingsTab({ businessId }: { businessId: string }) {
-  const role = useAuthStore((s) => s.currentEmployee?.role);
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
   const [slug, setSlug] = useState('');
@@ -787,7 +785,6 @@ function SettingsTab({ businessId }: { businessId: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <DeliveryZonesEditor businessId={businessId} />
-      {canConfigurePoints(role) && <PointsSettings businessId={businessId} />}
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
         <label className="block text-sm font-medium text-app-text">

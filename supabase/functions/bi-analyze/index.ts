@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
     if (!settings) {
       return jsonResponse({
         success: false,
-        error: "The assistant is not set up yet. Ask the owner to add it under Settings → AI.",
+        error: "The assistant is not set up yet. Ask the admin to add it under Settings → AI.",
       }, 503);
     }
 

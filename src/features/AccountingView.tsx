@@ -296,7 +296,7 @@ export default function AccountingView() {
               {report.errors > 0 && (
                 <Note>
                   {report.errors} record{report.errors === 1 ? '' : 's'} could not be posted to the books.{' '}
-                  {canManage ? <button className="underline font-semibold cursor-pointer" onClick={() => setTab('settings')}>See and retry</button> : 'Ask the owner to look at Lock & rebuild.'}
+                  {canManage ? <button className="underline font-semibold cursor-pointer" onClick={() => setTab('settings')}>See and retry</button> : 'Ask the admin to look at Lock & rebuild.'}
                 </Note>
               )}
               {bs.difference !== 0 ? (

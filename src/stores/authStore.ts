@@ -823,7 +823,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (ownerAlreadyExists === true) {
           return {
             success: false,
-            error: "This business already has an owner. Sign in, or ask the owner to invite you."
+            error: "This business already has an owner. Sign in, or ask the admin to invite you."
           };
         }
 

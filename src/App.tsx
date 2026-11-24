@@ -194,7 +194,7 @@ const MOBILE_TABS = [
   { id: 'stock-transfers', label: 'Transfers', icon: ArrowRightLeft, permission: TRANSFER_PERMISSIONS },
   { id: 'sales', label: 'Sales Log', icon: Receipt, permission: 'orders.view' },
   { id: 'buying', label: 'Buying', icon: ClipboardList, permission: BUYING_PERMISSIONS },
-  { id: 'customers', label: 'Loyalty', icon: Heart, permission: 'customers.view' },
+  { id: 'customers', label: 'Customers', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
   { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
   { id: 'promotions', label: 'Promotions', icon: BadgePercent, permission: PROMOTION_PERMISSIONS },
@@ -350,17 +350,17 @@ const tourSteps: TourStep[] = [
   },
   {
     targetSelector: '#sidebar-tab-customers',
-    title: 'Loyalty',
-    content: 'Customers, their points, debts, wallets and invoices.',
+    title: 'Customers',
+    content: 'Customers, their debts, wallets and invoices.',
     placement: 'right',
     tab: 'customers',
   },
   {
-    targetSelector: '[data-shortcut="points"]',
-    title: 'Manage points',
-    content: 'Switch points on or off, set what a point is worth, and see the points report.',
-    placement: 'bottom',
-    tab: 'customers',
+    targetSelector: '#sidebar-tab-promotions',
+    title: 'Promotions & Points',
+    content: 'Switch points on or off, set what a point is worth, and see the points report. Promo codes and referrals are here too.',
+    placement: 'right',
+    tab: 'promotions',
     permissions: ['loyalty.configure'],
   },
   {
@@ -3418,7 +3418,7 @@ export default function App() {
                             Not in a business yet
                           </h3>
                           <p className="text-[11px] text-slate-500 leading-normal">
-                            Ask the owner to invite {currentUser.email}, then enter the code.
+                            Ask the admin to invite {currentUser.email}, then enter the code.
                           </p>
                         </div>
                         <button
@@ -3691,208 +3691,156 @@ export default function App() {
                   {[
                     {
                       id: 'home',
-                      label: 'Home Dashboard',
                       icon: Home,
-                      desc: 'Business KPIs & Analytics',
                       permission: 'home.view' as const,
                     },
                     {
                       id: 'dashboard',
-                      label: 'Shift Controls',
                       icon: Clock,
-                      desc: 'Punch clock & tasks',
                       permission: 'dashboard.view' as const,
                     },
                     {
                       id: 'sell',
-                      label: 'Quick Sale',
                       icon: Zap,
-                      desc: 'Record a sale in seconds',
                       permission: 'pos.create_sale' as const,
                     },
                     {
                       id: 'pos',
-                      label: 'POS Checkout',
                       icon: ShoppingCart,
-                      desc: 'Process delivery sales',
                       permission: 'pos.create_sale' as const,
                     },
                     {
                       id: 'inventory',
-                      label: 'Inventory Stock',
                       icon: Boxes,
-                      desc: 'Reconcile truck stock',
                       permission: 'inventory.view' as const,
                     },
                     {
                       id: 'stock-history',
-                      label: 'Stock History',
                       icon: History,
-                      desc: 'Restocks, wastage, counts',
                       permission: 'inventory.stock_history' as const,
                     },
                     {
                       id: 'stock-report',
-                      label: 'Stock Report',
                       icon: FileBarChart,
-                      desc: 'Daily and monthly report',
                       permission: STOCK_REPORT_PERMISSIONS,
                     },
                     {
                       id: 'stock-transfers',
-                      label: 'Stock Transfers',
                       icon: ArrowRightLeft,
-                      desc: 'Send to and receive from branches',
                       permission: TRANSFER_PERMISSIONS,
                     },
                     {
                       id: 'buying',
-                      label: 'Buying',
                       icon: ClipboardList,
-                      desc: 'Suppliers, orders, bills, reorder',
                       permission: BUYING_PERMISSIONS,
                     },
                     {
                       id: 'sales',
-                      label: 'Sales Log',
                       icon: Receipt,
-                      desc: 'View synced orders',
                       permission: 'orders.view' as const,
                     },
                     {
                       id: 'customers',
-                      label: 'Loyalty Club',
                       icon: Heart,
-                      desc: 'Manage members',
                       permission: 'customers.view' as const,
                     },
                     {
                       id: 'regular-orders',
-                      label: 'Regular Orders',
                       icon: CalendarClock,
-                      desc: 'Fixed-day customers, today and tomorrow',
                       permission: REGULAR_ORDER_PERMISSIONS,
                     },
                     {
                       id: 'deliveries',
-                      label: 'My Deliveries',
                       icon: Truck,
-                      desc: 'Assigned deliveries & history',
                       permission: 'deliveries.view' as const,
                     },
                     {
                       id: 'feedback',
-                      label: 'Customer Reviews',
                       icon: MessageSquare,
-                      desc: 'Feedback & Sentiment',
                       permission: 'complaints.view' as const,
                     },
                     {
                       id: 'online-store',
-                      label: 'Online Store',
                       icon: Globe,
-                      desc: 'Website orders & messages',
                       permission: 'online_store.view' as const,
                     },
                     {
                       id: 'promotions',
-                      label: 'Promotions',
                       icon: BadgePercent,
-                      desc: 'Codes, referrals, results',
                       permission: PROMOTION_PERMISSIONS,
                     },
                     {
                       id: 'workers',
-                      label: 'Workers List',
                       icon: Users,
-                      desc: 'Register & manage staff',
                       permission: 'staff.view' as const,
                     },
                     {
                       id: 'permissions',
-                      label: 'Permissions',
                       icon: Key,
-                      desc: 'Configure role access',
                       permission: 'staff.roles' as const,
                     },
                     {
                       id: 'ai',
-                      label: `${aiName}`,
                       icon: Bot,
-                      desc: 'AI assistant',
                       permission: 'ai.use' as const,
                     },
                     {
                       id: 'profile',
-                      label: 'My Profile',
                       icon: User,
-                      desc: 'Manage profile & PIN',
                       permission: 'dashboard.view' as const,
                     },
                     {
                       id: 'business-management',
-                      label: 'Business Management',
                       icon: Building,
-                      desc: 'Name, logo, branding',
                       permission: 'business.update' as const,
                     },
                     {
                       id: 'money',
-                      label: 'Payments & Expenses',
                       icon: Wallet,
-                      desc: 'Payments, M-Pesa, expenses',
                       permission: MONEY_PERMISSIONS,
                     },
                     {
                       id: 'prompt',
-                      label: 'Payment Prompts',
                       icon: Send,
-                      desc: 'M-Pesa and Airtel Money prompts',
                       permission: PROMPT_PERMISSIONS,
                     },
                     {
                       id: 'petty-cash',
-                      label: 'Petty Cash',
                       icon: Coins,
-                      desc: 'Money spent from the till',
                       permission: 'pettycash.record' as const,
                     },
                     {
                       id: 'finance',
-                      label: 'Finance & Accounting',
                       icon: PieChart,
-                      desc: 'Profit, the books, VAT, who owes',
                       permission: FINANCE_PERMISSIONS,
                     },
                     {
                       id: 'production',
-                      label: 'Production & BOM',
                       icon: FlaskConical,
-                      desc: 'BOM & Batch Tracking',
                       permission: 'bom.view' as const,
                     },
                     {
                       id: 'audit',
-                      label: 'Audit Log',
                       icon: Activity,
-                      desc: 'Who changed what',
                       permission: 'audit.view' as const,
                     },
                     {
                       id: 'settings',
-                      label: 'Settings',
                       icon: Settings,
-                      desc: 'Preferences & Security',
                       permission: 'settings.view' as const,
                     },
                     {
                       id: 'about',
-                      label: 'About this app',
                       icon: Info,
-                      desc: 'Version & updates',
                       permission: 'dashboard.view' as const,
                     },
                   ]
+                    // Names and subtitles come from the screens registry, so the sidebar, the
+                    // phone menu, search, the tour and each page's title all agree.
+                    .map((tab) => {
+                      const screen = SCREEN_BY_ID.get(tab.id as ScreenId);
+                      return { ...tab, label: screen?.title ?? tab.id, desc: screen?.description ?? '' };
+                    })
                     .filter((tab) =>
                       currentEmployee
                         ? canOpenScreen(currentEmployee.role, tab.id)

@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = "ISMS Business Management System (KayKay's). Commercial software, see LICENSE."
-authors = ["Dennis Kimanthi"]
+authors = ["Dennis Kimanthi Gitonga <kimanthidennis02@gmail.com>"]
 license-file = "../LICENSE"
 publish = false
 repository = ""

@@ -2,7 +2,8 @@
 // A small round floating button that can be dragged out of the way. Drag it anywhere; on
 // release it snaps to the nearest side edge, stays inside the safe areas (below the header and
 // status bar, above the bottom nav and the phone's bar) and remembers where it was left.
-// A tap (no drag) presses it.
+// A tap (no drag) presses it. For its first seconds on a screen it nudges about with a pulsing
+// ring (.fab-drag-hint in index.css) so people see it can be moved.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -50,6 +51,12 @@ export function FloatingButton({ id, icon, label, onClick, className = 'bg-viole
   const start = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const [, force] = useState(0);
+  // The "you can drag me" hint plays once per screen visit and stops as soon as it is touched.
+  const [hint, setHint] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setHint(false), 2900);
+    return () => clearTimeout(t);
+  }, []);
 
   // Keep it on screen when the window turns or the keyboard opens.
   useEffect(() => {
@@ -73,6 +80,7 @@ export function FloatingButton({ id, icon, label, onClick, className = 'bg-viole
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    setHint(false);
     start.current = { x: e.clientX, y: e.clientY, ox: pos.left, oy: pos.top, moved: false };
     btn.current?.setPointerCapture(e.pointerId);
   };
@@ -118,7 +126,7 @@ export function FloatingButton({ id, icon, label, onClick, className = 'bg-viole
       onPointerCancel={() => { start.current = null; setDrag(null); }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       style={{ left: pos.left, top: pos.top, width: SIZE, height: SIZE, touchAction: 'none' }}
-      className={`fixed z-40 grid place-items-center rounded-full shadow-lg ring-2 ring-white/70 dark:ring-slate-900/70 select-none cursor-grab active:cursor-grabbing [&>svg]:size-5 ${
+      className={`${hint && !drag ? 'fab-drag-hint ' : ''}fixed z-40 grid place-items-center rounded-full shadow-lg ring-2 ring-white/70 dark:ring-slate-900/70 select-none cursor-grab active:cursor-grabbing [&>svg]:size-5 ${
         drag ? 'scale-110 opacity-90' : 'transition-[left,top] duration-200 ease-out'
       } ${className}`}
     >

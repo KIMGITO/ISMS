@@ -142,7 +142,7 @@ export const evaluateValidation = (
   if (!spec) {
     errors.push("The assistant can't do this yet. Please do it from its own screen.");
   } else if (!hasPermission) {
-    errors.push(`Your role (${currentRole}) isn't allowed to ${spec.label}. Ask the owner if you need this.`);
+    errors.push(`Your role (${currentRole}) isn't allowed to ${spec.label}. Ask the admin if you need this.`);
   }
 
   if (type === 'create_checkout') {

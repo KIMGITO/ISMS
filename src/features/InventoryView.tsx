@@ -3,6 +3,7 @@
 
 import { toUserMessage } from '../utils/userError';
 import { SheetLayer } from '../components/shared/SheetLayer';
+import { FormSheet, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import {
@@ -502,20 +503,13 @@ export default function InventoryView() {
                     <span className="text-[11px] px-1.5 py-0.5 bg-app-bg rounded-md font-bold text-app-text border border-app-border truncate max-w-[120px]">
                       {titleCase(p.category)}
                     </span>
-                    <span
-                      className={`text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${
-                        (p as any).sync_status === 'synced'
-                          ? 'bg-emerald-500/15 text-emerald-500'
-                          : 'bg-amber-500/15 text-amber-500 '
-                      }`}
-                    >
-                      <span className="w-1 h-1 rounded-full bg-current" />
-                      <span>
-                        {(p as any).sync_status === 'synced'
-                          ? 'Synced'
-                          : 'Offline'}
+                    {/* Only a product change still waiting to send is marked; sent ones need no badge. */}
+                    {(p as any).sync_status && (p as any).sync_status !== 'synced' && (
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 bg-rose-500/15 text-rose-600 dark:text-rose-300">
+                        <span className="w-1 h-1 rounded-full bg-current" />
+                        <span>Not sent yet</span>
                       </span>
-                    </span>
+                    )}
                   </div>
                   <h3 className="text-xs font-bold font-display text-app-text mt-1 truncate">
                     {titleCase(p.name)}
@@ -608,177 +602,148 @@ export default function InventoryView() {
         )}
       </div>
 
-      {/* ADJUST STOCK DRAWER */}
-      <SheetLayer>
-      <AnimatePresence>
-        {isAdjusting && selectedProduct && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAdjusting(false)}
-              className="absolute inset-0 bg-black z-40"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-hidden"
-            >
-              <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
-              <h3 className="text-base font-semibold font-display text-app-text">
-                Manual Stock Adjustment
-              </h3>
-              <p className="text-[10px] text-app-text-muted font-bold mt-0.5">
-                ITEM: {selectedProduct.name} ({selectedProduct.sku})
-              </p>
-              <div className="h-[1px] bg-app-border my-3 shrink-0" />
-
-              <div className="flex-1 overflow-y-auto flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-app-text-muted">
-                    Adjustment Type
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
-                    <button
-                      onClick={() => setAdjustmentType('Restock')}
-                      className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                        adjustmentType === 'Restock'
-                          ? 'bg-amber-500 text-slate-950 shadow'
-                          : 'text-app-text-muted'
-                      }`}
-                    >
-                      <Plus size={12} />
-                      <span>Restock (+)</span>
-                    </button>
-                    <button
-                      onClick={() => setAdjustmentType('Damage')}
-                      className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                        adjustmentType === 'Damage'
-                          ? 'bg-red-500 text-white shadow'
-                          : 'text-app-text-muted'
-                      }`}
-                    >
-                      <Minus size={12} />
-                      <span>Damage (-)</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-app-text-muted">
-                    Quantity to Adjust
-                  </label>
-                  <div className="flex items-center justify-between bg-app-bg rounded-2xl p-2 border border-app-border">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAdjustQty(
-                          Math.max(
-                            0.5,
-                            Math.round((adjustQty - 0.5) * 10) / 10,
-                          ),
-                        )
-                      }
-                      className="w-10 h-10 bg-app-card border border-app-border rounded-xl flex items-center justify-center font-bold text-app-text shadow-xs cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <NumberInput decimals={QTY_DECIMALS}
-                      value={adjustQty === 0 ? '' : adjustQty}
-                      placeholder="0.0"
-                      onChange={(v) => {
-                        const val = (v == null ? '' : String(v));
-                        setAdjustQty(val === '' ? 0 : parseFloat(val) || 0);
-                      }}
-                      onBlur={() => {
-                        if (adjustQty <= 0) setAdjustQty(0.5);
-                      }}
-                      className="font-bold text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none" inputClassName="text-center"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAdjustQty(Math.round((adjustQty + 0.5) * 10) / 10)
-                      }
-                      className="w-10 h-10 bg-app-card border border-app-border rounded-xl flex items-center justify-center font-bold text-app-text shadow-xs cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-app-bg p-3 border border-app-border rounded-xl flex flex-col gap-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span>Initial Stock:</span>
-                    <span className="font-bold">
-                      {selectedProduct.stock} {selectedProduct.unit}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Adjustment:</span>
-                    <span
-                      className={`font-bold ${
-                        adjustmentType === 'Damage'
-                          ? 'text-red-500'
-                          : 'text-emerald-500'
-                      }`}
-                    >
-                      {adjustmentType === 'Damage' ? '-' : '+'}
-                      {adjustQty} {selectedProduct.unit}
-                    </span>
-                  </div>
-                  <div className="h-[1px] bg-app-border/40 my-0.5" />
-                  <div className="flex justify-between font-bold">
-                    <span>Final Stock Preview:</span>
-                    <span className="text-emerald-500">
-                      {adjustmentType === 'Damage'
-                        ? Math.max(0, selectedProduct.stock - adjustQty)
-                        : selectedProduct.stock + adjustQty}{' '}
-                      {selectedProduct.unit}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-app-text-muted">
-                    Audit Note / Reason
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Audit contexts descriptor notes..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-xs text-app-text focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="pt-4 border-t border-app-border flex gap-3 mt-4 shrink-0">
+      {/* ADJUST STOCK: bottom sheet on phones, centred card on computers */}
+      {isAdjusting && selectedProduct && (
+        <FormSheet
+          title="Adjust stock"
+          subtitle={`${selectedProduct.name} · ${selectedProduct.sku}`}
+          onClose={() => setIsAdjusting(false)}
+          footer={
+            <>
+              <button type="button" onClick={() => setIsAdjusting(false)} className={secondaryBtn}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleAdjustStock} disabled={isAdjustingStock} className={`${primaryBtn} flex-1 sm:flex-none`}>
+                {isAdjustingStock ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1.5 whitespace-nowrap"><SlidersHorizontal size={14} /> Save change</span>
+                )}
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-app-text-muted">
+                What happened
+              </label>
+              <div className="grid grid-cols-2 gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
                 <button
-                  onClick={() => setIsAdjusting(false)}
-                  className="px-4 py-2.5 border border-app-border rounded-xl text-xs font-bold text-app-text hover:bg-app-bg transition"
+                  onClick={() => setAdjustmentType('Restock')}
+                  className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    adjustmentType === 'Restock'
+                      ? 'bg-amber-500 text-slate-950 shadow'
+                      : 'text-app-text-muted'
+                  }`}
                 >
-                  Cancel
+                  <Plus size={12} />
+                  <span>Restock (+)</span>
                 </button>
                 <button
-                  onClick={handleAdjustStock}
-                  disabled={isAdjustingStock}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer"
+                  onClick={() => setAdjustmentType('Damage')}
+                  className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    adjustmentType === 'Damage'
+                      ? 'bg-red-500 text-white shadow'
+                      : 'text-app-text-muted'
+                  }`}
                 >
-                  {isAdjustingStock ? (
-                    <>
-                      <RefreshCw size={13} className="animate-spin" />
-                      <span>Adjusting...</span>
-                    </>
-                  ) : (
-                    <span className="flex items-center gap-1.5 whitespace-nowrap"><SlidersHorizontal size={13} /> Save change</span>
-                  )}
+                  <Minus size={12} />
+                  <span>Damage (−)</span>
                 </button>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      </SheetLayer>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-app-text-muted">
+                How many
+              </label>
+              <div className="flex items-center justify-between bg-app-bg rounded-2xl p-2 border border-app-border">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAdjustQty(
+                      Math.max(
+                        0.5,
+                        Math.round((adjustQty - 0.5) * 10) / 10,
+                      ),
+                    )
+                  }
+                  className="w-10 h-10 bg-app-card border border-app-border rounded-xl flex items-center justify-center font-bold text-app-text shadow-xs cursor-pointer"
+                >
+                  -
+                </button>
+                <NumberInput decimals={QTY_DECIMALS}
+                  value={adjustQty === 0 ? '' : adjustQty}
+                  placeholder="0.0"
+                  onChange={(v) => {
+                    const val = (v == null ? '' : String(v));
+                    setAdjustQty(val === '' ? 0 : parseFloat(val) || 0);
+                  }}
+                  onBlur={() => {
+                    if (adjustQty <= 0) setAdjustQty(0.5);
+                  }}
+                  className="font-bold text-lg text-app-text w-24 bg-transparent outline-none border-none focus:outline-none" inputClassName="text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAdjustQty(Math.round((adjustQty + 0.5) * 10) / 10)
+                  }
+                  className="w-10 h-10 bg-app-card border border-app-border rounded-xl flex items-center justify-center font-bold text-app-text shadow-xs cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="bg-app-bg p-3 border border-app-border rounded-xl flex flex-col gap-1.5 text-xs">
+              <div className="flex justify-between">
+                <span>Now</span>
+                <span className="font-bold">
+                  {selectedProduct.stock} {selectedProduct.unit}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Change</span>
+                <span
+                  className={`font-bold ${
+                    adjustmentType === 'Damage'
+                      ? 'text-red-500'
+                      : 'text-emerald-500'
+                  }`}
+                >
+                  {adjustmentType === 'Damage' ? '-' : '+'}
+                  {adjustQty} {selectedProduct.unit}
+                </span>
+              </div>
+              <div className="h-[1px] bg-app-border/40 my-0.5" />
+              <div className="flex justify-between font-bold">
+                <span>After</span>
+                <span className="text-emerald-500">
+                  {adjustmentType === 'Damage'
+                    ? Math.max(0, selectedProduct.stock - adjustQty)
+                    : selectedProduct.stock + adjustQty}{' '}
+                  {selectedProduct.unit}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-app-text-muted">
+                Reason
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Delivery from Brookside, 2 spilt"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-xs text-app-text focus:outline-none"
+              />
+            </div>
+          </div>
+        </FormSheet>
+      )}
 
       {/* ADD PRODUCT DRAWER OVERLAY */}
       <SheetLayer>

@@ -179,7 +179,7 @@ export default function RegularOrdersView() {
               {board && list.length === 0 && (
                 <p className="rounded-2xl bg-app-card ring-1 ring-app-border p-4 text-sm text-app-text-muted">
                   No regular orders {dayLabel(day, today).toLowerCase() === 'today' ? 'today' : `on ${dayLabel(day, today)}`}.
-                  {canEdit ? ' Add one with the Add button, or from the customer’s page in Loyalty.' : ''}
+                  {canEdit ? ' Add one with the Add button, or from the customer’s page in Customers.' : ''}
                 </p>
               )}
               <ul className="space-y-2">
@@ -293,7 +293,7 @@ function PickCustomer({ onClose, onPick }: { onClose: () => void; onPick: (id: s
         <SearchableDropdown items={customers.map((c) => ({ id: c.id, label: c.name, sublabel: c.phone || undefined }))}
           selectedValue={id} onChange={setId} placeholder="Choose a customer" searchPlaceholder="Name or phone" />
       </Field>
-      <p className="text-xs text-app-text-muted">Not listed? Add them in Loyalty first.</p>
+      <p className="text-xs text-app-text-muted">Not listed? Add them in Customers first.</p>
     </FormSheet>
   );
 }

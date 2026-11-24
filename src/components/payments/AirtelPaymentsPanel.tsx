@@ -210,7 +210,7 @@ export default function AirtelPaymentsPanel() {
         )}
 
         {status && !status.configured && !canConfigure && (
-          <p className="text-sm text-app-text-muted">Ask the owner or an admin to connect Airtel Money.</p>
+          <p className="text-sm text-app-text-muted">Ask the admin to connect Airtel Money.</p>
         )}
       </section>
 

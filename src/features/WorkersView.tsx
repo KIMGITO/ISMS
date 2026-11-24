@@ -346,7 +346,7 @@ export default function WorkersView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
           <h2 className="text-sm font-semibold font-display text-app-text flex items-center gap-1.5">
-            <Shield size={16} className="text-amber-500" /> Staff & invitations
+            <Shield size={16} className="text-amber-500" /> Workers
           </h2>
           <p className="text-[11px] text-app-text-muted mt-0.5">
             Invite people to work with you and choose what each person can do.
@@ -581,7 +581,7 @@ export default function WorkersView() {
                 You can't invite people
               </h4>
               <p className="text-[11px] text-app-text-muted leading-relaxed">
-                As <strong>{currentEmployee?.role}</strong> you can see the team. Ask the owner to
+                As <strong>{currentEmployee?.role}</strong> you can see the team. Ask the admin to
                 invite people or change roles.
               </p>
             </div>

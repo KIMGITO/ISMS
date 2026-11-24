@@ -356,7 +356,7 @@ export default function PaymentPromptView() {
             <p className="text-sm text-app-text-muted mb-4">
               {mayMpesa || mayAirtel
                 ? 'M-Pesa and Airtel Money are switched off for this business, or not set up yet.'
-                : "Your role can't send payment prompts. Ask the owner to allow M-Pesa or Airtel Money prompts under Roles."}
+                : "Your role can't send payment prompts. Ask the admin to allow M-Pesa or Airtel Money prompts under Roles."}
             </p>
             {canSetUp && (
               <button type="button" onClick={() => setActiveTab('money')} className="min-h-10 px-4 bg-amber-500 text-slate-950 font-bold rounded-xl text-sm inline-flex items-center gap-2 cursor-pointer">

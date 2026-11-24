@@ -271,8 +271,8 @@ export default function RiderDeliveriesView() {
       <>
         {d.trip_id && (
           <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-            <Route size={12} /> One trip with {Math.max(0, (d.trip_size ?? 1) - 1)} other{(d.trip_size ?? 1) - 1 === 1 ? '' : 's'}
-            {Number(d.trip_pay) > 0 && ` · ${formatCurrency(Number(d.trip_pay))} for the whole trip`}
+            <Route size={12} /> Trip of {d.trip_size ?? 2}
+            {Number(d.trip_pay) > 0 && ` · ${formatCurrency(Number(d.trip_pay))}`}
           </p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -291,7 +291,7 @@ export default function RiderDeliveriesView() {
         {renderItems(d, currentTab === 'mine' && canComplete)}
         <p className="flex items-start gap-2 text-sm">
           <MapPin size={14} className="mt-0.5 shrink-0 text-amber-500" />
-          {place || <span className="text-app-text-muted">No location given. Ask the shop.</span>}
+          {place || <span className="text-app-text-muted">No location</span>}
         </p>
         {d.notes && <p className="text-sm text-app-text-muted">Note: {d.notes}</p>}
         {showPhone && d.customer_phone && (
@@ -303,7 +303,7 @@ export default function RiderDeliveriesView() {
           <span>
             <span className="font-semibold">{formatCurrency(Number(d.amount))}</span>
             {Number(d.delivery_fee) > 0 && (
-              <span className="text-app-text-muted"> including {formatCurrency(Number(d.delivery_fee))} delivery</span>
+              <span className="text-app-text-muted"> incl. {formatCurrency(Number(d.delivery_fee))} delivery</span>
             )}
             <DeliveryPayNote d={d} pay={payOf(d)} />
           </span>
@@ -382,12 +382,7 @@ export default function RiderDeliveriesView() {
                 Delivery requests are not available right now. Try again later.
               </p>
             )}
-            {!isRider && (
-              <p className="text-xs text-app-text-muted">
-                Deliveries waiting for a rider.
-              </p>
-            )}
-            {renderList(requests, 'No delivery requests right now. New ones show up here and you get a notification.', (d) => (
+            {renderList(requests, 'No delivery requests right now.', (d) => (
               <>
                 {renderDetails(d, false)}
                 {isRider && canComplete && (
@@ -401,7 +396,7 @@ export default function RiderDeliveriesView() {
         )}
 
         {currentTab === 'mine' &&
-          renderList(active, 'Nothing on your list. Check Requests for deliveries to accept.', (d) => {
+          renderList(active, 'Nothing on your list.', (d) => {
             const busy = busyKey === keyOf(d);
             const place = [d.address, d.area].filter(Boolean).join(', ');
             return (
@@ -484,15 +479,14 @@ function DeliveryPayNote({ d, pay }: { d: Delivery; pay: number }) {
     return (
       <span className={cls}>
         {goods > 0
-          ? `Collect ${formatCurrency(goods + pay)} in cash: bring ${formatCurrency(goods)} to the shop, keep ${formatCurrency(pay)} for delivery.`
-          : `Collect ${formatCurrency(pay)} for delivery in cash and keep it.`}
+          ? `Collect ${formatCurrency(goods + pay)} cash · keep ${formatCurrency(pay)}`
+          : `Collect and keep ${formatCurrency(pay)}`}
       </span>
     );
   }
   return (
     <span className={cls}>
-      {d.delivery_mode === 'free' ? 'Free delivery for the customer. ' : 'Delivery is on the shop\'s bill. '}
-      Collect nothing for it: the shop pays you {formatCurrency(pay)}.
+      Collect nothing · shop pays you {formatCurrency(pay)}
     </span>
   );
 }

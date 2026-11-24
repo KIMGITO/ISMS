@@ -58,7 +58,7 @@ export default function SecurityGuard({ permission: required, children }: Securi
         <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-2 text-left">
           <Key className="text-amber-500 shrink-0 mt-0.5" size={13} />
           <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
-            Ask the owner or an admin to allow this for your role in Workers → Roles.
+            Ask the admin to allow this for your role in Workers → Roles.
           </p>
         </div>
       </div>

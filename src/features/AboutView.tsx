@@ -9,6 +9,7 @@ import { useBusinessStore } from '../stores/businessStore';
 import { updateService } from '../core/native/UpdateService';
 import { ShortcutTable } from '../components/ShortcutTable';
 import { useAuthStore } from '../stores/authStore';
+import { hasRolePermission } from '../utils/permissions';
 import { ReportProblemForm } from '../components/ReportProblemForm';
 import { TermsDialog, TERMS_VERSION_LINE } from '../components/legal/TermsDialog';
 import { Tabs } from '../components/TabOptions';
@@ -55,7 +56,7 @@ export default function AboutView() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const business = businesses.find((b) => b.id === activeBusinessId);
   const role = useAuthStore((s) => s.currentEmployee?.role);
-  const canReport = !!business && (role === 'Owner' || role === 'Admin');
+  const canReport = !!business && !!role && hasRolePermission(role, 'support.report');
   const [termsOpen, setTermsOpen] = useState(false);
   // Big screens show one part at a time in tabs, centred, instead of three squeezed columns.
   const [isWide, setIsWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);

@@ -31,7 +31,7 @@ export default function PermissionsView() {
       return true;
     }
     if (isOwnRole) {
-      showToast("Can't change your own role", "Ask the Owner or an Admin to change what your role can do.", undefined, "error" as any);
+      showToast("Can't change your own role", "Ask the admin to change what your role can do.", undefined, "error" as any);
       return true;
     }
     return false;
@@ -191,7 +191,7 @@ export default function PermissionsView() {
       
       <div>
         <h2 className="text-base font-semibold font-display text-app-text flex items-center gap-2">
-          Role permissions
+          Roles
         </h2>
         <p className="text-[11px] text-app-text-muted">
           What each role can see and do.
@@ -325,10 +325,7 @@ export default function PermissionsView() {
                         }`}
                       >
                         <div className="flex-1 pr-3">
-                          <code className={`text-[10px] font-mono font-bold block ${isHighlighted ? "text-amber-400" : "text-amber-500 dark:text-amber-400"}`}>
-                            {perm.code}
-                          </code>
-                          <p className="text-[11px] text-app-text-muted mt-0.5 leading-normal font-medium">{perm.description}</p>
+                          <p className={`text-xs leading-normal font-medium ${isHighlighted ? "text-amber-600 dark:text-amber-400" : "text-app-text"}`}>{perm.description}</p>
                         </div>
                         <button className="shrink-0 text-app-text-muted transition-colors" disabled={isRootRole || isOwnRole}>
                           {isRootRole ? (

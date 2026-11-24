@@ -160,7 +160,7 @@ export default function ReceiptSettingsPanel() {
   );
 
   return (
-    <div className="bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 flex flex-col gap-4" id="receipt-engine-customization-settings">
+    <div className="@container bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 flex flex-col gap-4" id="receipt-engine-customization-settings">
       <div className="flex items-center gap-2">
         <ReceiptText size={18} className="text-amber-500" />
         <h3 className="text-sm font-semibold text-app-text">Receipts & printing</h3>
@@ -171,11 +171,11 @@ export default function ReceiptSettingsPanel() {
 
       <Tabs<Tab> tabs={TABS} activeTab={tab} onChange={setTab} className="!pb-2" />
 
-      <div className="grid lg:grid-cols-[1fr_auto] gap-5">
-        <div className="space-y-4 min-w-0">
+      <div className="grid @3xl:grid-cols-[minmax(0,1fr)_auto] gap-5">
+        <div className="@container space-y-4 min-w-0">
           {tab === 'layout' && (
             <>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid @md:grid-cols-2 gap-3">
                 <Field title="Paper roll width" hint="Used for the printer, the PDF and the preview.">
                   <Pick
                     value={settings.paperWidth}
@@ -202,24 +202,9 @@ export default function ReceiptSettingsPanel() {
                   <input className={input} value={settings.currencyFormat} onChange={(e) => update({ currencyFormat: e.target.value })} placeholder="KSh" />
                 </Field>
                 <Field title="Receipt number">
-                  <div className="flex gap-2">
-                    <input
-                      className={`${input} w-24 uppercase`}
-                      value={settings.receiptPrefix}
-                      onChange={(e) => update({ receiptPrefix: e.target.value.toUpperCase() })}
-                      placeholder="RCT"
-                      aria-label="Receipt number prefix"
-                    />
-                    <Pick
-                      value={settings.receiptNumberFormat}
-                      onChange={(v) => update({ receiptNumberFormat: v as BusinessReceiptSettings['receiptNumberFormat'] })}
-                      options={[
-                        { id: 'PREFIX-YYYY-INCREMENT', label: 'Prefix-Year-ID' },
-                        { id: 'PREFIX-INCREMENT', label: 'Prefix-ID' },
-                        { id: 'INCREMENT', label: 'ID only' },
-                      ]}
-                    />
-                  </div>
+                  <p className="text-xs text-app-text-muted py-2">
+                    TXN- and the sale&apos;s code, for example TXN-D6EB287C. The same number shows in the Sales Log, search and the books.
+                  </p>
                 </Field>
                 <Field title="Date format">
                   <Pick
@@ -251,12 +236,12 @@ export default function ReceiptSettingsPanel() {
           )}
 
           {tab === 'shop' && (
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid @md:grid-cols-2 gap-3">
               <Field title="Name on receipt">
                 <input className={input} value={settings.businessName} onChange={(e) => update({ businessName: e.target.value })} />
               </Field>
               <BusinessValue title="Phone" value={business?.contactPhone} fallback={settings.phone} />
-              <div className="sm:col-span-2">
+              <div className="@md:col-span-2">
                 <BusinessValue title="Address" value={business?.address} fallback={settings.address} />
               </div>
               <BusinessValue title="Email" value={business?.contactEmail} fallback={settings.email} />
@@ -269,7 +254,7 @@ export default function ReceiptSettingsPanel() {
               <Field title="Business registration no.">
                 <input className={input} value={settings.registrationNumber} onChange={(e) => update({ registrationNumber: e.target.value })} />
               </Field>
-              <p className="sm:col-span-2 text-xs text-app-text-muted">
+              <p className="@md:col-span-2 text-xs text-app-text-muted">
                 Phone, address and email come from Business settings.
               </p>
             </div>
@@ -325,20 +310,10 @@ export default function ReceiptSettingsPanel() {
 
           {tab === 'kra' && activeBusinessId && <KraTab businessId={activeBusinessId} canConnect={canConnectKra} />}
 
-          {tab !== 'kra' && (
-            <button
-              type="button"
-              onClick={() => save()}
-              disabled={saving || !dirty}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 cursor-pointer"
-            >
-              {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} Save receipt settings
-            </button>
-          )}
         </div>
 
         {tab !== 'kra' && tab !== 'printers' && (
-          <div className="min-w-0 lg:w-[28rem] xl:w-[34rem]">
+          <div className="min-w-0 @3xl:w-[22rem] @5xl:w-[28rem]">
             <p className={label}>Preview <span className="ml-1 px-1.5 py-0.5 rounded bg-app-bg text-[10px]">Example sale</span></p>
             <div className="bg-app-bg rounded-xl p-3 sm:p-4">
               <ReceiptPaper lines={previewLines} columns={columnsFor(settings)} paperWidth={settings.paperWidth} />
@@ -754,7 +729,7 @@ function InvoicesTab({ businessId, receipt }: { businessId: string; receipt: Bus
         >
           {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} {dirty ? 'Save now' : 'Saved'}
         </button>
-        <p className="text-xs text-app-text-muted">Make an invoice from a customer's page in Loyalty → Invoices.</p>
+        <p className="text-xs text-app-text-muted">Make an invoice from a customer's page in Customers → Invoices.</p>
       </div>
 
       <div className="min-w-0">

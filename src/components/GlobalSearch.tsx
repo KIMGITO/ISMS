@@ -20,8 +20,6 @@ import { SCREENS, canOpenScreen, type ScreenId } from "../utils/screens";
 import { featuresFor, shortcutsFor, scopeLabel } from "../utils/shortcuts";
 import { formatReceiptNumber, toUuid } from "../utils/idUtils";
 import { receiptCode, matchesReceipt, mentionsReceipt } from "../utils/references";
-import { formatReceiptNo } from "../services/receipt/ReceiptGenerator";
-import { ReceiptService } from "../services/receipt/ReceiptService";
 import { formatInvoiceMoney } from "../services/invoice/invoiceDraft";
 import { spotlight } from "../utils/searchSpotlight";
 import { listPurchases, listAudit, purchaseRef, describeAction, type PurchaseOrder, type AuditEntry } from "../services/operations";
@@ -317,7 +315,6 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     const lower = text.toLowerCase().trim();
     // A receipt number in any form (RCT-2026-ABCD1234, TXN-ABCD1234, ABCD1234).
     const code = receiptCode(text);
-    const receiptSettings = activeBusinessId ? ReceiptService.getSettings(activeBusinessId) : null;
 
     // Helper to calculate relevance score
     const getRelevance = (field: string, targetQuery: string) => {
@@ -614,17 +611,16 @@ export default function GlobalSearch({ onNavigateTab, autoFocus = false }: Globa
     // 8. Search Sales, by any form of the receipt number, customer or payment method
     transactions.forEach(t => {
       const receipt = formatReceiptNumber(t.id);
-      const printed = receiptSettings ? formatReceiptNo(t.id, t.timestamp, receiptSettings) : receipt;
       const matchCode = code && matchesReceipt(t.id, code) ? (code.length >= 8 ? 100 : 85) : 0;
-      const matchId = Math.max(matchCode, getRelevance(receipt, lower), getRelevance(printed, lower));
+      const matchId = Math.max(matchCode, getRelevance(receipt, lower));
       const matchCust = t.customerName ? getRelevance(t.customerName, lower) : 0;
       const matchMethod = getRelevance(t.paymentMethod, lower);
       const score = Math.max(matchId, matchCust, matchMethod);
       if (score > 0) {
         matched.push({
           id: `sale-${t.id}`,
-          title: `Receipt ${printed}${t.customerName ? ` · ${t.customerName}` : ""}`,
-          subtitle: `${new Date(t.timestamp).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })} · ${formatCurrency(t.finalTotal)} · ${t.paymentMethod} · By ${t.staffName}${printed !== receipt ? ` · Logs: ${receipt}` : ""}`,
+          title: `Receipt ${receipt}${t.customerName ? ` · ${t.customerName}` : ""}`,
+          subtitle: `${new Date(t.timestamp).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })} · ${formatCurrency(t.finalTotal)} · ${t.paymentMethod} · By ${t.staffName}`,
           category: "Sales",
           businessName: activeBizName,
           status: t.status,

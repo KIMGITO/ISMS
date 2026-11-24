@@ -153,7 +153,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
         {d.customer_name} <span className="font-normal text-app-text-muted">· {d.reference}</span>
       </span>
       <span className="block text-xs text-app-text-muted truncate">
-        {placeOf(d) || 'No location'} · {d.rider_name || 'No rider yet'} · {statusOf(d)} · pays {formatCurrency(Number(d.delivery_fee))}
+        {placeOf(d) || 'No location'} · {statusOf(d)}
       </span>
     </span>
   );
@@ -162,10 +162,6 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-app-text-muted">
-        Deliveries that go in one round can be one trip: the rider is paid once for the trip. Customers still pay their own delivery.
-      </p>
-
       {suggestions.length > 0 && (
         <section className="flex flex-col gap-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -192,7 +188,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
                   </button>
                 </div>
                 <p className="text-xs text-app-text-muted">
-                  Paid separately: {formatCurrency(separatePay(list))}. As one trip: {formatCurrency(tripPay ?? 0)}.
+                  Separately {formatCurrency(separatePay(list))} · trip {formatCurrency(tripPay ?? 0)}
                 </p>
               </article>
             );
@@ -205,7 +201,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
           <Layers size={14} className="text-amber-500" /> Pick deliveries
         </h3>
         {free.length < 2 ? (
-          <p className="text-sm text-app-text-muted">Fewer than two deliveries from the last 7 days can go in a trip.</p>
+          <p className="text-sm text-app-text-muted">Not enough deliveries to group.</p>
         ) : (
           <ul className="flex flex-col divide-y divide-app-border/60 rounded-2xl border border-app-border bg-app-card px-3">
             {free.map((d) => {
@@ -226,7 +222,7 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
           <div className="sticky bottom-2 flex flex-col gap-2 rounded-2xl border border-amber-500/40 bg-app-card p-3 shadow-lg">
             {mixedRiders ? (
               <p className="text-sm text-red-600 dark:text-red-400">
-                A trip is one rider's round. Pick deliveries of the same rider, or ones still waiting for a rider.
+                Pick one rider's deliveries.
               </p>
             ) : pickedRows.length < 2 ? (
               <p className="text-sm text-app-text-muted">Pick at least one more.</p>
@@ -264,10 +260,6 @@ export default function DeliveryTripsBoard({ businessId, onChanged }: { business
               <article key={t.id} className="flex flex-col gap-2 rounded-2xl border border-app-border bg-app-card p-4">
                 <p className="text-sm font-semibold">
                   {t.list.length} deliveries · {t.list[0].rider_name || 'no rider yet'} · rider gets {formatCurrency(t.pay)}
-                </p>
-                <p className="text-xs text-app-text-muted">
-                  Customers paid {formatCurrency(t.list.reduce((s, d) => s + Number(d.delivery_fee), 0))}. Paid separately it would be{' '}
-                  {formatCurrency(separatePay(t.list))}.
                 </p>
                 <ul className="flex flex-col gap-1">{t.list.map((d) => <li key={keyOf(d)} data-search-id={`delivery-${d.source}-${d.id}`}>{line(d)}</li>)}</ul>
                 <div className="flex flex-wrap items-end gap-2">

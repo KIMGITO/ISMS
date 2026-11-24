@@ -113,8 +113,8 @@ export default function AuditLogView() {
         <div className="flex items-start gap-3">
           <span className="grid place-items-center size-9 shrink-0 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400"><Activity size={18} /></span>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-app-text">Who changed what</h2>
-            <p className="text-xs text-app-text-muted">This log can't be edited.</p>
+            <h2 className="text-sm font-semibold text-app-text">Audit Log</h2>
+            <p className="text-xs text-app-text-muted">Who changed what. This log can't be edited.</p>
           </div>
         </div>
 

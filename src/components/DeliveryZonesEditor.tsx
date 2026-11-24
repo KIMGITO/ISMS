@@ -141,9 +141,6 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
         <h3 className="flex items-center gap-2 font-bold">
           <MapPin size={16} className="text-amber-500" /> Delivery areas and prices
         </h3>
-        <p className="text-xs text-app-text-muted">
-          Customers pick an area and pay its price. None on: the flat fee is used.
-        </p>
       </div>
 
       {zones === null && <p className="text-sm text-app-text-muted">Loading areas…</p>}
@@ -191,7 +188,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
                     <div className="min-w-0">
                       <p className={`truncate font-semibold ${zone.active ? '' : 'text-app-text-muted line-through'}`}>{zone.name}</p>
                       <p className="text-xs text-app-text-muted">
-                        {setBy ? `Price set by ${setBy}` : 'Price set by the owner'} · {new Date(zone.updated_at).toLocaleDateString()}
+                        {setBy ? `Set by ${setBy}` : 'Set by the shop'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -247,7 +244,7 @@ export default function DeliveryZonesEditor({ businessId }: { businessId: string
           <button type="submit" disabled={busy} className={primaryClass}>Add area</button>
         </form>
       ) : (
-        <p className="text-xs text-app-text-muted">Your role can view these prices but not change them.</p>
+        <p className="text-xs text-app-text-muted">View only.</p>
       )}
     </section>
   );

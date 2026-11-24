@@ -2,11 +2,10 @@ import { CopyRef } from "../components/shared/CopyRef";
 import { toUserMessage } from "../utils/userError";
 import { customerName } from '../utils/stringUtils';
 import { SheetLayer } from '../components/shared/SheetLayer';
+import { FormSheet, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import { useBusinessStore } from '../stores/businessStore';
 import { useUiStore } from '../stores/uiStore';
 import { InvoiceSheet } from '../components/invoices/InvoiceSheet';
-import { PointsReport } from '../components/loyalty/PointsReport';
-import { PointsSettings, canConfigurePoints } from '../components/loyalty/PointsSettings';
 import { usePointsEnabled } from '../services/loyalty/pointValue';
 import { listInvoices, IssuedInvoice, setInvoiceArchived, deleteInvoice } from '../services/invoice/invoiceData';
 import { SwipeRow } from '../components/shared/SwipeRow';
@@ -41,7 +40,6 @@ import {
   ChevronUp,
   Filter,
   FileText,
-  Gift,
   PanelLeftClose,
   PanelLeftOpen,
   Archive,
@@ -246,15 +244,12 @@ export default function CustomersView() {
   // Centralized permission validations
   const canViewCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.view") : false;
   const canAdjustPoints = currentEmployee ? hasRolePermission(currentEmployee.role, "loyalty.adjust") : false;
-  const canConfigurePointsHere = canConfigurePoints(currentEmployee?.role);
-  const [pointsReportKey, setPointsReportKey] = useState(0);
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
   const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
   const canInvoice = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.debts") : false;
   const [showDuplicates, setShowDuplicates] = useState(false);
   // The points report shows in the right panel instead of a customer.
-  const [showPoints, setShowPoints] = useState(false);
   // Wide screens: the customer list can fold away to give the customer more room (remembered).
   const [listCollapsed, setListCollapsed] = useState(() => {
     try {
@@ -273,7 +268,6 @@ export default function CustomersView() {
       return !v;
     });
   const openCustomer = (id: string) => {
-    setShowPoints(false);
     setSelectedCustomerId(id);
   };
 
@@ -770,7 +764,7 @@ export default function CustomersView() {
       {/* LIST: on phones it's the whole screen until a customer is opened */}
       <div
         className={`w-full lg:w-80 xl:w-[21rem] shrink-0 flex-col lg:border-r border-app-border h-full min-h-0 bg-app-card ${
-          selectedCustomerId || showPoints ? 'hidden lg:flex' : 'flex'
+          selectedCustomerId ? 'hidden lg:flex' : 'flex'
         } ${listCollapsed ? 'lg:!hidden' : ''}`}
       >
         {/* Title and actions */}
@@ -792,21 +786,6 @@ export default function CustomersView() {
             </button>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {(pointsOn || canConfigurePointsHere) && (
-              <button
-                data-shortcut="points"
-                title={canConfigurePointsHere ? 'Points report and points settings' : 'Points report'}
-                onClick={() => {
-                  // Points now live with Promotions on one screen.
-                  useUiStore.getState().setScreenSection('points');
-                  useUiStore.getState().setActiveTab('promotions');
-                }}
-                aria-pressed={showPoints}
-                className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 cursor-pointer ${showPoints ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-app-bg text-app-text'}`}
-              >
-                <Gift size={15} /> Points
-              </button>
-            )}
             {canMergeCustomers && (
               <button
                 onClick={() => setShowDuplicates(true)}
@@ -922,7 +901,7 @@ export default function CustomersView() {
       {/* CUSTOMER: one scroll on phones; side panel on large screens */}
       <div
         className={`relative flex-1 min-w-0 flex-col h-full min-h-0 bg-app-bg ${
-          !selectedCustomerId && !showPoints ? 'hidden lg:flex' : 'flex'
+          !selectedCustomerId ? 'hidden lg:flex' : 'flex'
         }`}
       >
         {/* Brings the folded customer list back (wide screens) */}
@@ -936,32 +915,7 @@ export default function CustomersView() {
             <PanelLeftOpen size={16} /> Customers
           </button>
         )}
-        {showPoints && !selectedCustomer && activeBusinessId ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-            <div className={`px-3 pt-3 pb-nav lg:px-5 lg:pb-6 max-w-5xl mx-auto w-full ${listCollapsed ? 'lg:pt-14' : 'lg:pt-4'}`}>
-              {pointsOn ? (
-                <PointsReport
-                  key={pointsReportKey}
-                  businessId={activeBusinessId}
-                  customers={customers}
-                  onBack={() => setShowPoints(false)}
-                  onOpenCustomer={openCustomer}
-                  settings={canConfigurePointsHere ? <PointsSettings businessId={activeBusinessId} onSaved={() => setPointsReportKey((k) => k + 1)} /> : undefined}
-                />
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setShowPoints(false)} aria-label="Back" className="p-2 -ml-2 rounded-xl hover:bg-app-card cursor-pointer lg:hidden">
-                      <ArrowLeft size={20} />
-                    </button>
-                    <h2 className="text-base font-semibold">Loyalty points are off</h2>
-                  </div>
-                  {canConfigurePointsHere && <PointsSettings businessId={activeBusinessId} />}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : selectedCustomer ? (
+        {selectedCustomer ? (
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             {/* Top bar: back, name, close */}
             <div className="sticky top-0 z-20 h-14 bg-app-bg/95 backdrop-blur px-2 flex items-center gap-1 lg:hidden">
@@ -2089,130 +2043,89 @@ export default function CustomersView() {
         }}
       />
 
-      {/* Add Customer Modal */}
-      <SheetLayer>
-      <AnimatePresence>
-        {showDuplicates && activeBusinessId && (
-          <DuplicateCustomers
-            businessId={activeBusinessId}
-            customers={customers}
-            onClose={() => {
-              setShowDuplicates(false);
-              refreshDuplicateCount();
-            }}
-            onMerged={setSelectedCustomerId}
-          />
-        )}
-
-        {isAdding && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAdding(false)}
-              className="absolute inset-0 bg-black z-40"
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[90%] md:max-h-[85%] bg-app-card rounded-t-[32px] border-t border-app-border shadow-2xl p-5 pb-[calc(1.25rem+var(--inset-bottom))] flex flex-col z-50 overflow-y-auto md:overflow-hidden"
-            >
-              <div className="w-12 h-1 bg-app-border rounded-full mx-auto mb-4 shrink-0" />
-
-              <h3 className="text-base font-semibold text-app-text">New customer</h3>
-
-              <div className="h-[1px] bg-app-border my-3 shrink-0" />
-
-              <form
-                onSubmit={handleSubmit}
-                noValidate
-                className="flex-1 overflow-y-auto flex flex-col gap-3 pb-20"
+      {/* Add Customer: bottom sheet on phones, centred card on computers */}
+      {isAdding && (
+        <FormSheet
+          title="New customer"
+          onClose={() => setIsAdding(false)}
+          wide
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setIsAdding(false);
+                }}
+                className={secondaryBtn}
               >
-                <CustomerDetailsFields
-                  value={newDetails}
-                  onChange={setNewDetails}
-                  errors={newErrors}
-                  zones={zones}
-                  phoneExtra={samePhoneCustomer && (
-                    <div className="mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-app-text">
-                      <span>{titleCase(samePhoneCustomer.name)} already has this number.</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAdding(false);
-                          setSelectedCustomerId(samePhoneCustomer.id);
-                        }}
-                        className="shrink-0 font-semibold text-amber-600 dark:text-amber-400 underline cursor-pointer"
-                      >
-                        Open
-                      </button>
-                    </div>
-                  )}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setNewMore((v) => !v)}
-                  aria-expanded={newMore}
-                  className="flex items-center justify-between rounded-xl border border-app-border px-3 py-2.5 text-sm font-medium text-app-text cursor-pointer"
-                >
-                  Type, payment terms and notes
-                  <ChevronDown size={16} className={`transition-transform ${newMore ? 'rotate-180' : ''}`} />
-                </button>
-                {newMore && (
+                Cancel
+              </button>
+              <button type="submit" form="new-customer-form" disabled={isSubmitting} className={`${primaryBtn} flex-1 sm:flex-none`}>
+                {isSubmitting ? (
                   <>
-                    <CustomerGroupFields
-                      values={newGroups}
-                      onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
-                    />
-                    <Field label="Notes">
-                      <textarea
-                        rows={2}
-                        placeholder="e.g. Prefers raw whole milk"
-                        value={newDescription}
-                        onChange={(e) => setNewDescription(e.target.value)}
-                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"
-                      />
-                    </Field>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Adding…</span>
                   </>
+                ) : (
+                  <span className="whitespace-nowrap">Add customer</span>
                 )}
-
-                <div className="pt-4 border-t border-app-border flex gap-3 mt-4 shrink-0">
+              </button>
+            </>
+          }
+        >
+          <form id="new-customer-form" onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
+            <CustomerDetailsFields
+              value={newDetails}
+              onChange={setNewDetails}
+              errors={newErrors}
+              zones={zones}
+              phoneExtra={samePhoneCustomer && (
+                <div className="mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-app-text">
+                  <span>{titleCase(samePhoneCustomer.name)} already has this number.</span>
                   <button
                     type="button"
                     onClick={() => {
-                      resetForm();
                       setIsAdding(false);
+                      setSelectedCustomerId(samePhoneCustomer.id);
                     }}
-                    className="px-4 py-2.5 border border-app-border rounded-xl text-xs font-bold text-app-text hover:bg-app-bg transition cursor-pointer"
+                    className="shrink-0 font-semibold text-amber-600 dark:text-amber-400 underline cursor-pointer"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-amber-500 text-slate-950 font-semibold rounded-xl text-xs shadow hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <RefreshCw size={13} className="animate-spin" />
-                        <span>Adding…</span>
-                      </>
-                    ) : (
-                      <span className="whitespace-nowrap">Add customer</span>
-                    )}
+                    Open
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      </SheetLayer>
+              )}
+            />
+
+            <button
+              type="button"
+              onClick={() => setNewMore((v) => !v)}
+              aria-expanded={newMore}
+              className="flex items-center justify-between rounded-xl border border-app-border px-3 py-2.5 text-sm font-medium text-app-text cursor-pointer"
+            >
+              Type, payment terms and notes
+              <ChevronDown size={16} className={`transition-transform ${newMore ? 'rotate-180' : ''}`} />
+            </button>
+            {newMore && (
+              <>
+                <CustomerGroupFields
+                  values={newGroups}
+                  onChange={(key, value) => setNewGroups((prev) => ({ ...prev, [key]: value }))}
+                />
+                <Field label="Notes">
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Prefers raw whole milk"
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2 text-sm text-app-text focus:outline-none focus:border-amber-500"
+                  />
+                </Field>
+              </>
+            )}
+          </form>
+        </FormSheet>
+      )}
 
       <ReceiptSheet transaction={receiptTx} onClose={() => setReceiptTx(null)} />
     </div>
