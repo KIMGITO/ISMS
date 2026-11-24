@@ -2,7 +2,7 @@
 // period, and who used points where. Points used to pay off debt cost the business on top of
 // sales, so that figure is also taken off profit on the Home screen.
 import React, { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe, Trash2, Medal } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Coins, TrendingUp, ShoppingBag, CreditCard, Globe, Medal } from 'lucide-react';
 import { Segmented } from '../shared/Choice';
 import { StatTile, StatGrid } from '../shared/StatTile';
 import { getSupabase } from '../../services/supabaseClient';
@@ -11,9 +11,6 @@ import { formatCurrency } from '../../utils/helpers';
 import { customerName } from '../../utils/stringUtils';
 import { toUserMessage } from '../../utils/userError';
 import type { Customer } from '../../types';
-import { appDialog } from '../AppDialog';
-import { deleteLogRows, useIsAdmin } from '../../services/logCleanup';
-import { useNotificationStore } from '../../stores/notificationStore';
 import { DEFAULT_POINT_SETTINGS, fetchPointSettings, pointValueFor, pointsPerShilling, PointSettings } from '../../services/loyalty/pointValue';
 
 type Range = 'this_month' | 'last_month' | 'this_year' | 'all';
@@ -135,25 +132,7 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
 
-  const isAdmin = useIsAdmin();
-  const showToast = useNotificationStore((s) => s.showToast);
-  /** Owners and admins can delete a "who used points" record. Balances don't change. */
-  const deleteUse = async (r: Redemption) => {
-    const ok = await appDialog.confirm({
-      title: `Delete this record of ${r.points.toLocaleString()} points used?`,
-      message: "The customer's balance stays.",
-      confirmLabel: 'Delete',
-      destructive: true,
-    });
-    if (!ok) return;
-    try {
-      await deleteLogRows(businessId, 'points_used', [r.id]);
-      setUsed((list) => list.filter((x) => x.id !== r.id));
-      showToast('Deleted', 'Record deleted.', undefined, 'success');
-    } catch (err) {
-      showToast('Not deleted', toUserMessage(err, 'Could not delete. Check your connection.'), undefined, 'error');
-    }
-  };
+  // Points used are discounts the profit figures read, so they are never deleted (20261203001).
 
   // Held now, by tier, at each tier's value.
   const held = useMemo(() => {
@@ -264,17 +243,6 @@ export function PointsReport({ businessId, customers, onBack, onOpenCustomer, se
                       <span className="block text-xs text-app-text-muted tabular-nums">{formatCurrency(r.value)}</span>
                     </span>
                   </button>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => void deleteUse(r)}
-                      title="Delete this record"
-                      aria-label="Delete this record"
-                      className="shrink-0 p-2 mr-1 rounded-lg text-app-text-muted hover:text-red-500 hover:bg-app-bg cursor-pointer"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
                 </li>
               );
             })}

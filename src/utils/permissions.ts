@@ -27,6 +27,7 @@ export type PermissionCode =
   | 'settings.update'
   | 'settings.theme'
   | 'settings.tax'
+  | 'support.report'
   | 'settings.delivery'
   | 'settings.integrations'
   | 'settings.storage'
@@ -244,6 +245,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'settings.update', category: 'Business & Settings', description: 'Edit settings preferences' },
   { code: 'settings.theme', category: 'Business & Settings', description: 'Toggle user themes' },
   { code: 'settings.tax', category: 'Business & Settings', description: 'Configure KRA VAT rules' },
+  { code: 'support.report', category: 'Business & Settings', description: 'Report a problem to the app developer' },
   { code: 'settings.delivery', category: 'Business & Settings', description: 'Configure courier parameters' },
   { code: 'settings.integrations', category: 'Business & Settings', description: 'Manage third-party API links' },
   { code: 'settings.storage', category: 'Business & Settings', description: 'Configure upload folders' },

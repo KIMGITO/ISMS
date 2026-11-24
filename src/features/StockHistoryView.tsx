@@ -14,12 +14,7 @@ import { searchMatch } from '../utils/stringUtils';
 import { useUiStore } from '../stores/uiStore';
 import { mentionsReceipt, receiptCode, receiptCodeIn } from '../utils/references';
 import { getShortId } from '../utils/idUtils';
-import { useInventoryStore } from '../stores/inventoryStore';
-import { useBusinessStore } from '../stores/businessStore';
-import { appDialog } from '../components/AppDialog';
-import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from '../services/logCleanup';
 import { SwipeRow } from '../components/shared/SwipeRow';
-import { toUserMessage } from '../utils/userError';
 import type { AdjustmentType, InventoryAdjustment } from '../types';
 import { CopyRef } from '../components/shared/CopyRef';
 
@@ -181,49 +176,8 @@ export default function StockHistoryView() {
     setSelected([]);
     setSelecting(false);
   };
-  const isAdmin = useIsAdmin();
-  const businessId = useBusinessStore((s) => s.activeBusinessId);
-  const [deleting, setDeleting] = useState(false);
-  /** Deletes logs for everyone. Stock levels stay as they are. */
-  const canDelete = (adj: InventoryAdjustment) => isAdmin && oldEnoughToDelete('stock', adj.timestamp);
-  const deleteLogs = async (picked: string[]) => {
-    if (!businessId || picked.length === 0 || deleting) return false;
-    // Logs from the last 3 days stay (the database refuses them too).
-    const byId = new Map(all.map((a) => [a.id, a]));
-    const ids = picked.filter((id) => { const a = byId.get(id); return !!a && canDelete(a); });
-    if (ids.length === 0) {
-      showToast('Too new to delete', 'Stock logs can be deleted once they are older than 3 days.', undefined, 'error');
-      return false;
-    }
-    const tooNew = picked.length - ids.length;
-    const many = ids.length === 1 ? 'this stock log' : `${ids.length} stock logs`;
-    const ok = await appDialog.confirm({
-      title: `Delete ${many}?`,
-      message: `Deleted for good. Stock stays.${tooNew ? ` ${tooNew} from the last 3 days ${tooNew === 1 ? 'stays' : 'stay'}.` : ''}`,
-      confirmLabel: 'Delete',
-      destructive: true,
-    });
-    if (!ok) return false;
-    setDeleting(true);
-    try {
-      const n = await deleteLogRows(businessId, 'stock', ids);
-      const gone = new Set(ids);
-      useInventoryStore.setState((st) => ({ adjustments: st.adjustments.filter((a) => !gone.has(a.id)) }));
-      showToast('Deleted', `${n} ${n === 1 ? 'log' : 'logs'} deleted.`, undefined, 'success');
-      return true;
-    } catch (err) {
-      showToast('Not deleted', toUserMessage(err, 'Could not delete. Check your connection.'), undefined, 'error');
-      return false;
-    } finally {
-      setDeleting(false);
-    }
-  };
-  const deleteSelected = async () => {
-    if (await deleteLogs(selected)) {
-      setSelected([]);
-      setSelecting(false);
-    }
-  };
+  // Stock logs are never deleted (20261203001): damage, waste, counts and opening stock are in
+  // the books, and the stock report reads them. Hiding on this device is still possible.
 
   const restore = () => {
     setHidden([]);
@@ -288,16 +242,6 @@ export default function StockHistoryView() {
                 >
                   <EyeOff size={13} /> Hide {selected.length || ''}
                 </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => void deleteSelected()}
-                    disabled={selected.length === 0 || deleting}
-                    title="Delete for everyone"
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 font-medium disabled:opacity-40 whitespace-nowrap"
-                  >
-                    <Trash2 size={13} /> Delete {selected.length || ''}
-                  </button>
-                )}
               </span>
             ) : (
               <button onClick={restore} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
@@ -342,11 +286,9 @@ export default function StockHistoryView() {
                       disabled={selecting}
                       title={`${adj.productName} · ${up ? '+' : ''}${fmtQty(adj.quantityAdjusted)}${unit ? ` ${unit}` : ''}`}
                       subtitle={`${TYPE_LABEL[adj.type] || adj.type} · ${fullDate(adj.timestamp)}`}
-                      actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(adj), onClick: () => void deleteLogs([adj.id]) }]}
                       more={[
                         { label: 'Open receipt', icon: <Eye size={16} />, onClick: () => setOpen(adj) },
                         { label: 'Hide on this device', icon: <EyeOff size={16} />, onClick: () => setHidden((h) => [...new Set([...h, adj.id])]) },
-                        { label: 'Delete for everyone', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(adj), onClick: () => void deleteLogs([adj.id]) },
                       ]}
                       contentClassName="w-full text-left flex items-center gap-3 px-3 py-3 cursor-pointer"
                     >
@@ -415,7 +357,6 @@ export default function StockHistoryView() {
                     showToast('Hidden', 'Log hidden on this device.', undefined, 'success');
                   }}
                   onCopied={() => showToast('Copied', 'Stock receipt copied.', undefined, 'success')}
-                  onDelete={canDelete(open) ? async () => { if (await deleteLogs([open.id])) setOpen(null); } : undefined}
                 />
               </motion.div>
             </>

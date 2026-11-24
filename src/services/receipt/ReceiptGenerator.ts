@@ -1,7 +1,7 @@
 import { Transaction } from "../../types";
 import { pointsEarned as earnedOnSale } from "../loyalty/tillPoints";
 import { ReceiptContent, BusinessReceiptSettings, ReceiptItem, KraSignature } from "./types";
-import { getShortId } from "../../utils/idUtils";
+import { formatReceiptNumber } from "../../utils/idUtils";
 import { customerName } from "../../utils/stringUtils";
 
 export interface ReceiptExtras {
@@ -36,13 +36,14 @@ export function isCreditSale(method: string | undefined): boolean {
 
 const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
-export function formatReceiptNo(txId: string, timestamp: string | undefined, settings: BusinessReceiptSettings): string {
-  const shortId = getShortId(txId);
-  const prefix = settings.receiptPrefix.replace(/[-\s]+$/, "");
-  const year = new Date(timestamp || Date.now()).getFullYear();
-  if (settings.receiptNumberFormat === "INCREMENT" || !prefix) return shortId;
-  if (settings.receiptNumberFormat === "PREFIX-INCREMENT") return `${prefix}-${shortId}`;
-  return `${prefix}-${year}-${shortId}`;
+/**
+ * The receipt number: TXN- and the first 8 characters of the sale's id, the same everywhere
+ * (Sales Log, search, logs, books memos, rider bills; fn_receipt_number() in the database).
+ * It is not counted: the code comes from the sale's id, so a sale made offline already has it.
+ * The old prefix and format settings are ignored; search still finds RCT-2026-… on old paper.
+ */
+export function formatReceiptNo(txId: string, _timestamp?: string, _settings?: BusinessReceiptSettings): string {
+  return formatReceiptNumber(txId);
 }
 
 /** The extra QR code chosen in the receipt settings. `about` names the paper in the WhatsApp greeting. */

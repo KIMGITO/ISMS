@@ -1,5 +1,5 @@
 // src/components/ReportProblemForm.tsx
-// About this app → Report a problem. Owners and admins only; the report goes to the
+// About this app → Report a problem. Needs support.report (owners and admins have it; the owner can give it to other roles); the report goes to the
 // developer's Telegram through the ops-alert function.
 
 import { useState } from 'react';

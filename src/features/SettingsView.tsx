@@ -88,7 +88,7 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
   { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Provider, model and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
-  { id: 'records', group: 'Data', label: 'Old records', description: 'Delete old logs (owners and admins)', icon: Archive, keywords: 'logs history clear delete stock points audit space' },
+  { id: 'records', group: 'Data', label: 'Old records', description: 'Clear old crash and backup logs', icon: Archive, keywords: 'logs history clear delete crash backup points earned space' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
   { id: 'notifications', group: 'Account', label: 'Notifications', description: 'Choose what you get notified about', icon: Bell, keywords: 'alerts mute pause push' },
   { id: 'help', group: 'Account', label: 'Help & tour', description: 'Restart the guided walkthrough', icon: HelpCircle, keywords: 'onboarding guide' },

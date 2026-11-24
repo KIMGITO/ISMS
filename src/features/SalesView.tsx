@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
-import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Trash2, Undo2, History, X, Pencil } from "lucide-react";
+import { ReceiptText, FileText, ShieldAlert, ChevronDown, ChevronUp, Undo2, History, X, Pencil } from "lucide-react";
 import { SheetLayer } from "../components/shared/SheetLayer";
 import { listSaleEdits, describeChanges, describeAction, type AuditEntry } from "../services/operations";
 import { hasRolePermission } from "../utils/permissions";
@@ -14,11 +14,7 @@ import { formatReceiptNumber } from "../utils/idUtils";
 import { titleCase } from "../utils/stringUtils";
 import { ReceiptSheet } from "../components/receipts/ReceiptSheet";
 import { SwipeRow } from "../components/shared/SwipeRow";
-import { appDialog } from "../components/AppDialog";
-import { deleteLogRows, oldEnoughToDelete, useIsAdmin } from "../services/logCleanup";
 import { useBusinessStore } from "../stores/businessStore";
-import { useTransactionStore } from "../stores/transactionStore";
-import { toUserMessage } from "../utils/userError";
 import { RefundSheet } from "../components/sales/RefundSheet";
 import { loadSaleCreditNotes, REFUND_EVENT } from "../services/salesDocs";
 import { Tabs } from "../components/TabOptions";
@@ -81,32 +77,8 @@ export default function SalesView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTarget, transactions]);
 
-  // Owners and admins can delete sales older than 90 days (swipe left on a phone, right-click
-  // or hold elsewhere). The database enforces the same age.
-  const isAdmin = useIsAdmin();
+  // Sales are never deleted (20261203001): a refund or credit note undoes one and the sale stays.
   const businessId = useBusinessStore((s) => s.activeBusinessId);
-  const canDelete = (tx: Transaction) => isAdmin && tx.status === "Synced" && oldEnoughToDelete("sales", tx.timestamp);
-  const deleteSale = async (tx: Transaction) => {
-    if (!businessId) return;
-    const ok = await appDialog.confirm({
-      title: `Delete sale ${formatReceiptNumber(tx.id)}?`,
-      message: `${formatCurrency(tx.finalTotal)} on ${new Date(tx.timestamp).toLocaleDateString()}. Deleted for good. Stock and payments stay.`,
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!ok) return;
-    try {
-      const n = await deleteLogRows(businessId, "sales", [tx.id]);
-      if (n === 0) {
-        showToast("Not deleted", "Only sales older than 3 months can be deleted.", undefined, "error");
-        return;
-      }
-      useTransactionStore.setState((st) => ({ transactions: st.transactions.filter((t) => t.id !== tx.id) }));
-      showToast("Deleted", "Sale deleted.", undefined, "success");
-    } catch (err) {
-      showToast("Not deleted", toUserMessage(err, "Could not delete. Check your connection."), undefined, "error");
-    }
-  };
 
   // Refunds: a credit note for some or all of a sale; the sale stays in the log.
   // Managers refund any sale; staff who can cancel a sale refund today's only (the database checks too).
@@ -269,14 +241,12 @@ export default function SalesView() {
         actions={[
           { label: 'Edit', icon: <Pencil size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => startRefund(tx, 'edit') },
           { label: 'Refund', icon: <Undo2 size={18} />, tone: 'amber', hidden: !canRefund(tx), onClick: () => startRefund(tx, 'refund') },
-          { label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
         more={[
           { label: 'Open receipt (print or share)', icon: <ReceiptText size={16} />, onClick: () => handleSelectTx(tx) },
           { label: 'Edit sale (redo in the till)', icon: <Pencil size={16} />, hidden: !canRefund(tx), onClick: () => startRefund(tx, 'edit') },
           { label: 'Refund (credit note)', icon: <Undo2 size={16} />, hidden: !canRefund(tx), onClick: () => startRefund(tx, 'refund') },
           { label: `Changes made to this sale (${edits.get(tx.id)?.length ?? 0})`, icon: <History size={16} />, hidden: !edits.get(tx.id)?.length, onClick: () => setEditsOf(tx) },
-          { label: 'Delete sale', icon: <Trash2 size={16} />, tone: 'red', hidden: !canDelete(tx), onClick: () => void deleteSale(tx) },
         ]}
         className="rounded-2xl border border-app-border shadow-2xs hover:border-amber-500 transition animate-fadeIn"
         contentClassName="p-3.5 flex items-center justify-between gap-3 cursor-pointer select-none"
@@ -284,16 +254,13 @@ export default function SalesView() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <CopyRef value={formatReceiptNumber(tx.id)} label="receipt" className="font-bold text-[10px]" />
-            <span
-              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 ${
-                isSynced
-                  ? 'bg-emerald-500/15 text-emerald-500'
-                  : 'bg-rose-600/15 text-rose-600 dark:text-rose-300' // saved on this phone, not yet on the server
-              }`}
-            >
-              <span className="w-1 h-1 rounded-full bg-current" />
-              <span>{isSynced ? 'Synced' : 'Waiting to sync'}</span>
-            </span>
+            {/* Only a sale saved on this device and not yet sent is marked; sent sales need no badge. */}
+            {!isSynced && (
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 bg-rose-600/15 text-rose-600 dark:text-rose-300">
+                <span className="w-1 h-1 rounded-full bg-current" />
+                <span>Waiting to sync</span>
+              </span>
+            )}
             {edits.get(tx.id)?.length ? (
               <button
                 type="button"

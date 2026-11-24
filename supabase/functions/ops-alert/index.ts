@@ -18,6 +18,7 @@ import {
   errorResponse,
   verifyUserMembership,
   enforceRateLimit,
+  requirePermission,
   corsHeaders,
 } from "../shared/cors.ts";
 import { sendAlert, htmlEscape } from "../shared/telegram.ts";
@@ -129,9 +130,9 @@ async function report(req: Request, body: any): Promise<Response> {
 
   const { userId, role, errorResponse: authError } = await verifyUserMembership(req, businessId);
   if (authError) return authError;
-  if (userId === "service_role" || (role !== "Owner" && role !== "Admin")) {
-    return errorResponse("Only the owner or an admin can report problems. Ask them to report it for you.", 403, "FORBIDDEN");
-  }
+  if (userId === "service_role") return errorResponse("Sign in to report a problem.", 403, "FORBIDDEN");
+  const denied = await requirePermission(req, businessId, "support.report");
+  if (denied) return denied;
 
   const limited = await enforceRateLimit(`ops-report:${userId}`, 10, 3600);
   if (limited) return limited;
