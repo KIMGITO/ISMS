@@ -75,3 +75,10 @@ export async function mergeCustomers(keepId: string, mergeId: string, name: stri
   });
   if (error) throw error;
 }
+
+/** Erases a customer's personal details on their request (Data Protection Act 2019, s.40).
+ *  Sales and the ledger are kept for the tax law; the database refuses while money is owed either way. */
+export async function eraseCustomer(customerId: string): Promise<void> {
+  const { error } = await getSupabase().rpc("erase_customer", { p_customer_id: customerId });
+  if (error) throw error;
+}

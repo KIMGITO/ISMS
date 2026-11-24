@@ -14,6 +14,7 @@ import { formatInvoiceDate } from '../services/invoice/invoiceDraft';
 import React, { useState, useEffect } from "react";
 import { useOverlay } from "../hooks/useOverlay";
 import { useAppStore } from "../stores/appStore";
+import { useCustomerStore } from "../stores/customerStore";
 import {
   UserPlus,
   Search,
@@ -62,7 +63,7 @@ import { usePaymentMethods } from "../hooks/usePaymentMethods";
 import { openPaymentPrompt, usePromptProviders } from "./PaymentPromptView";
 import CustomerGroupFields, { CustomerGroupValues } from "../components/CustomerGroupFields";
 import DuplicateCustomers from "../components/DuplicateCustomers";
-import { findDuplicateCustomers, phoneKey } from "../services/customerMerge";
+import { findDuplicateCustomers, phoneKey, eraseCustomer } from "../services/customerMerge";
 import CustomerRewards from "../components/CustomerRewards";
 import CustomerReferralCard from "../components/loyalty/CustomerReferralCard";
 import CustomerRegularOrders from "../components/regular/CustomerRegularOrders";
@@ -246,6 +247,7 @@ export default function CustomersView() {
   const canAdjustPoints = currentEmployee ? hasRolePermission(currentEmployee.role, "loyalty.adjust") : false;
   const canCreateCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.create") : false;
   const canDeleteCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.delete") : false;
+  const canEraseCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.erase") : false;
   const canMergeCustomers = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.manage") : false;
   const canInvoice = currentEmployee ? hasRolePermission(currentEmployee.role, "customers.debts") : false;
   const [showDuplicates, setShowDuplicates] = useState(false);
@@ -619,6 +621,28 @@ export default function CustomersView() {
       showToast('Customer deleted', `${cust.name} was deleted.`, undefined, 'success');
     } catch (err: any) {
       showToast('Not deleted', toUserMessage(err, "Could not delete the customer."), undefined, 'error');
+    } finally {
+      setIsDeletingCustomer(false);
+    }
+  };
+
+  const erasePersonalDetails = async (cust: { id: string; name: string }) => {
+    if (
+      !(await appDialog.confirm({
+        title: `Erase ${cust.name}'s details?`,
+        message: 'Their name, phone, email, delivery details and website account are removed for good. Their sales stay, as tax law requires, under "Erased customer".',
+        confirmLabel: 'Erase',
+        destructive: true,
+      }))
+    ) return;
+    setIsDeletingCustomer(true);
+    try {
+      await eraseCustomer(cust.id);
+      useCustomerStore.getState().setCustomers(customers.filter((x) => x.id !== cust.id));
+      if (selectedCustomerId === cust.id) setSelectedCustomerId(null);
+      showToast('Details erased', 'The customer\'s personal details were removed.', undefined, 'success');
+    } catch (err: any) {
+      showToast('Not erased', toUserMessage(err, 'Could not erase the customer\'s details.'), undefined, 'error');
     } finally {
       setIsDeletingCustomer(false);
     }
@@ -1346,6 +1370,27 @@ export default function CustomersView() {
                               <span>Delete customer</span>
                             </>
                           )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* The customer asks for their data to be erased (Data Protection Act 2019) */}
+                    {canEraseCustomers && (
+                      <div className="bg-red-500/5 p-4 border border-red-500/15 rounded-2xl flex flex-col gap-2">
+                        <div>
+                          <h4 className="text-sm font-semibold text-red-500">Erase personal details</h4>
+                          <p className="text-xs text-app-text-muted mt-0.5">
+                            When the customer asks. Sales are kept for tax. Settle debt and wallet first.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isDeletingCustomer}
+                          onClick={() => erasePersonalDetails(selectedCustomer)}
+                          className="w-full py-2 border border-red-500 text-red-500 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-xl text-xs flex items-center justify-center gap-1 transition cursor-pointer"
+                        >
+                          <Trash2 size={13} />
+                          <span>Erase personal details</span>
                         </button>
                       </div>
                     )}

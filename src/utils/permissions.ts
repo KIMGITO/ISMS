@@ -88,6 +88,7 @@ export type PermissionCode =
   | 'customers.create'
   | 'customers.update'
   | 'customers.delete'
+  | 'customers.erase'
   | 'customers.import'
   | 'customers.export'
   | 'customers.debts'
@@ -303,6 +304,7 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'customers.create', category: 'Customers & Loyalty', description: 'Add new customers' },
   { code: 'customers.update', category: 'Customers & Loyalty', description: 'Edit contact information' },
   { code: 'customers.delete', category: 'Customers & Loyalty', description: 'Revoke customer accounts' },
+  { code: 'customers.erase', category: 'Customers & Loyalty', description: 'Erase a customer\'s personal details on request' },
   { code: 'customers.import', category: 'Customers & Loyalty', description: 'Bulk upload customer lists' },
   { code: 'customers.export', category: 'Customers & Loyalty', description: 'Export client list' },
   { code: 'customers.debts', category: 'Customers & Loyalty', description: 'Review credit accounts' },
