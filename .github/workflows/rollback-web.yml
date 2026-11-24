@@ -7,7 +7,7 @@ name: Roll back web
 #
 # The installed Windows, Linux and Android apps can't be rolled back this way: Android and
 # the desktop updater refuse an older version. Fix forward with a new fix: release instead
-# (see docs/DEPLOYMENT_AND_MONITORING.md).
+# (see ISMS Technical Documentation Ch 15).
 
 on:
   workflow_dispatch:

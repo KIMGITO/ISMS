@@ -12,7 +12,7 @@
 //   - a new or changed file that drops, renames, retypes or empties a table or column without
 //     a `-- destructive-ok: <reason>` line. Installed apps lag behind (no rollback, fix forward),
 //     so the old app must keep working: expand first, contract later
-//     (docs/DEPLOYMENT_AND_MONITORING.md → Database and edge functions).
+//     (ISMS Technical Documentation Ch 22.2).
 // Warnings:
 //   - a file on the base that was changed. If it is already on live, live keeps the old text
 //     (the 2026-11-18 rider-pay bug). `bash scripts/db-push.sh` refuses to push in that case.

@@ -5,7 +5,7 @@
 #   bash scripts/perf/load-test.sh                 # rebuilds perf_test from perf_tpl, runs all
 #   SECS=60 CLIENTS="10 50 100" bash scripts/perf/load-test.sh
 #
-# Needs perf_tpl (scripts/perf/seed.sql on a promo_test copy; see docs/deployment/performance.md).
+# Needs perf_tpl (scripts/perf/seed.sql on a promo_test copy; see ISMS Technical Documentation Ch 20).
 # Each "client" is one till or phone working as fast as it can, so 25 clients is far more load
 # than 25 real cashiers (a real till makes a sale every 30 s or so, not every 50 ms).
 #

@@ -15,7 +15,7 @@ name: Release and Deploy
 # Then the web app and website go live on Cloudflare, blue-green (deploy-web.yml): the new
 # version is checked on its own URL before it takes traffic, and rolled back if the live check fails.
 # Every failure, and each release, is posted to Telegram (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID).
-# Setup: docs/HOSTING_CLOUDFLARE.md and docs/DEPLOYMENT_AND_MONITORING.md.
+# Setup: docs/HOSTING_CLOUDFLARE.md and ISMS Technical Documentation Ch 15 and 17.
 #
 # Commit rules (see scripts/release-version.mjs; emoji and scope are optional):
 #   MAJOR  🚀 feat!: / 🐛 fix!: (any type followed by "!"), or "BREAKING CHANGE" in the body

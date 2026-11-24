@@ -1,6 +1,6 @@
 # Hosting on Cloudflare
 
-The staff web app and the customer website are hosted on Cloudflare Workers (static assets). They used to be on Vercel. This guide covers what runs where, the one-time setup, moving over from Vercel, and day-to-day deploys and rollbacks. Alerts and incidents are in [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md).
+The staff web app and the customer website are hosted on Cloudflare Workers (static assets). They used to be on Vercel. This guide covers what runs where, the one-time setup, moving over from Vercel, and day-to-day deploys and rollbacks. Alerts and incidents are in [ISMS-TD Ch 15 and 17](../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md).
 
 ## 1. What runs where
 

@@ -2,7 +2,7 @@
 
 Date: 2026-11-23. Status: **built and tested locally; the new CI runs start with the next `git push`.** Live needs nothing for this phase except the owner's GitHub settings ([TO_FINISH.md](../TO_FINISH.md) → Phase 7).
 
-Checklist: [Phase 7](../ISMS_Production_Readiness_Master_Checklist.md#phase-7-----cicd-environments-and-release-safety). Findings: [threat-register.md](../security/threat-register.md) (REL-01 to REL-03).
+Checklist: [ISMS-TD Ch 23](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md). Findings: [threat-register.md](../security/threat-register.md) (REL-01 to REL-03).
 
 ## 1. The pipeline after this phase
 
@@ -34,7 +34,7 @@ New in this phase:
 | RLS and tenant-isolation tests | `permissions_test.sh` (grants, roles, Roles screen) and the as-role checks in every suite, now in CI. Cross-business isolation is covered by the grants check and RLS; a dedicated two-business suite is still open (checklist Phase 1, "branch-level permission tests") |
 | Dependency and secret scanning | `security.yml` (Phase 6), now a release gate |
 | Validate migrations before deployment | CI applies every migration to a fresh database and runs the suites; `db-push.sh` compares live with the files first |
-| Backward-compatible migrations | Expand first, contract later ([DEPLOYMENT_AND_MONITORING.md](../DEPLOYMENT_AND_MONITORING.md) → Database and edge functions), now enforced by `check-migrations.mjs` |
+| Backward-compatible migrations | Expand first, contract later ([ISMS-TD Ch 15 and 17](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md) → Database and edge functions), now enforced by `check-migrations.mjs` |
 | Deployment health checks and smoke tests | `smoke-test-web.mjs` before and after the switch (Phase 4); `verify-update-manifest.mjs` after each release; `ops-alert` health check (Phase 5) |
 | Application rollback documented | Section 4 |
 | Database recovery documented separately | Section 5 |

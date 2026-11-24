@@ -1,6 +1,6 @@
 # Provider accounts, ownership and recovery
 
-Phase 10, 2026-11-23. Who owns each account ISMS depends on, how to get back in, and where the bills go. **No passwords, recovery codes or keys belong in this file**: they live in the password manager and the offline copy (L4 in [BACKUP_AND_RECOVERY.md](../BACKUP_AND_RECOVERY.md)). Related: [incident-response.md](incident-response.md), [cost-management.md](../infrastructure/cost-management.md).
+Phase 10, 2026-11-23. Who owns each account ISMS depends on, how to get back in, and where the bills go. **No passwords, recovery codes or keys belong in this file**: they live in the password manager and the offline copy (L4 in [BACKUP_AND_RECOVERY.md](../BACKUP_AND_RECOVERY.md)). Related: [ISMS-AG Ch 13](../../documentation/final/ISMS-System-Administration-Guide/ISMS-AG.md), [cost-management.md](../infrastructure/cost-management.md).
 
 ## 1. Accounts
 
@@ -29,4 +29,4 @@ Per-business accounts (M-Pesa Daraja, Airtel, Paystack, KRA eTIMS, Africa's Talk
 2. **One person holds everything today** (the developer is also the platform owner). Name a second trusted person who can reach the offline copy if the owner is unreachable for days, and write the arrangement down (sealed envelope, lawyer, or password-manager emergency access). Until then, a lost phone plus a lost laptop can lock ISMS out of its own accounts (OPS-05).
 3. **Billing on a card that won't expire unnoticed**, with the billing email read by the owner. A failed Supabase payment ends in a paused project.
 4. **Keys that have no recovery** (Android keystore, Tauri key, backup passphrase) exist in at least two offline places. Check them on the monthly offline-copy day ([BACKUP_AND_RECOVERY.md](../BACKUP_AND_RECOVERY.md) section 4.3).
-5. When someone leaves or a device is lost: change that account's password, sign out its sessions, and rotate any token it held (section 3 of [incident-response.md](incident-response.md)).
+5. When someone leaves or a device is lost: change that account's password, sign out its sessions, and rotate any token it held (section 3 of [ISMS-AG Ch 13](../../documentation/final/ISMS-System-Administration-Guide/ISMS-AG.md)).

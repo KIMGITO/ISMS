@@ -11,7 +11,7 @@ export type ScreenId =
   | "suppliers" | "audit" | "accounting" | "buying" | "promotions" | "regular-orders";
 
 // Grouped by what the business is doing, not by how the code is split (2026-11-23,
-// docs/navigation-search-improvement.md). Everyday work first, administration near the end.
+// ISMS Technical Documentation Ch 11.13). Everyday work first, administration near the end.
 export type ScreenGroup =
   | "Selling" | "Customers" | "Stock" | "Buying & deliveries" | "Money" | "Reports" | "Team" | "Admin" | "You & the app";
 

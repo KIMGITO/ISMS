@@ -5,7 +5,7 @@
 #   bash scripts/perf/queries.sh            # perf_test in the local Supabase DB container
 #   DB=promo_test bash scripts/perf/queries.sh
 #
-# Prints the median of 3 runs in ms per query and role. See docs/deployment/performance.md.
+# Prints the median of 3 runs in ms per query and role. See ISMS Technical Documentation Ch 20.
 set -uo pipefail
 C=${C:-$(docker ps --format '{{.Names}}' | grep -E '^supabase_db_isms' | head -1)}
 DB=${DB:-perf_test}

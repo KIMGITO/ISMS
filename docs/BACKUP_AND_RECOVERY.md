@@ -1,6 +1,6 @@
 # Backup and Recovery Plan
 
-What KayKay's backs up, where, how often, how long it is kept, and how to restore it. Deployment and alerts are in [DEPLOYMENT_AND_MONITORING.md](DEPLOYMENT_AND_MONITORING.md).
+What KayKay's backs up, where, how often, how long it is kept, and how to restore it. Deployment and alerts are in [ISMS-TD Ch 15 and 17](../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md).
 
 ## 1. Targets
 
@@ -19,7 +19,7 @@ What KayKay's backs up, where, how often, how long it is kept, and how to restor
 | 3 | **Android signing key** | `~/.config/kaykays-signing/` (keystore + `credentials.env`) | Developer's machine, GitHub secret | Offline copy (L4) | Installed phones can never update; every phone must reinstall |
 | 4 | **Desktop update key** | `~/.tauri/kaykays-updater.key` + `.password` | Developer's machine, GitHub secret | Offline copy (L4) | Installed desktops refuse every update |
 | 5 | **Backup passphrase** | `BACKUP_PASSPHRASE` | GitHub secret | Offline copy (L4), password manager | Every L2 backup becomes unreadable |
-| 6 | **Secrets and config** | GitHub secrets and variables, Supabase function secrets, Vault secrets, Cloudflare account and API token | Those services | Names listed in RELEASE_AND_OPERATIONS.md and DEPLOYMENT_AND_MONITORING.md; values in a password manager (L4) | Hours of re-issuing keys (M-Pesa, Paystack, KRA, SMS, AI, Firebase) |
+| 6 | **Secrets and config** | GitHub secrets and variables, Supabase function secrets, Vault secrets, Cloudflare account and API token | Those services | Names listed in ISMS-TD Ch 15 and 16 and ISMS-TD Ch 15 and 17; values in a password manager (L4) | Hours of re-issuing keys (M-Pesa, Paystack, KRA, SMS, AI, Firebase) |
 | 7 | **Source code** | This repository | GitHub (private) | Every clone, plus the monthly offline copy | Rebuild from a clone |
 | 8 | **Releases** | Installers and `latest.json` | `KIMGITO/kaykays-releases` | GitHub; can be rebuilt from a tag | Rebuilt by re-running the release |
 
@@ -67,7 +67,7 @@ Cost: GitHub Actions minutes are free for public repositories. R2's free tier is
 
 ### 4.2 Owner backups (L3)
 
-Owners and admins set this up in **Settings → Backup** with a Google Sheet and service account. Runs need the Vault secrets `project_url` and `service_role_key` (RELEASE_AND_OPERATIONS.md → Scheduled jobs). Each run appears in the backup history.
+Owners and admins set this up in **Settings → Backup** with a Google Sheet and service account. Runs need the Vault secrets `project_url` and `service_role_key` (ISMS-TD Ch 15 and 16 → Scheduled jobs). Each run appears in the backup history.
 
 ### 4.3 Offline copy (L4), monthly
 
@@ -145,7 +145,7 @@ Don't restore over live data. Restore the L2 backup from just before the mistake
 
 - Android key: restore `~/.config/kaykays-signing/` from L4, then `gh secret set ANDROID_KEYSTORE_BASE64` again. The certificate must match `android/release-signing-cert.sha256`.
 - Desktop key: restore `~/.tauri/` from L4, then set `TAURI_SIGNING_PRIVATE_KEY` and its password again.
-- If a key is truly gone, see RELEASE_AND_OPERATIONS.md: every device must reinstall by hand.
+- If a key is truly gone, see ISMS-TD Ch 15 and 16: every device must reinstall by hand.
 
 ## 6. Restore drill (monthly, about 30 minutes)
 

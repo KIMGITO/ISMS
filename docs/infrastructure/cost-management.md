@@ -1,6 +1,6 @@
 # Cost management
 
-Phase 10 of the [production readiness plan](../ISMS_Production_Readiness_Master_Checklist.md#phase-10-----cost-operations-and-final-readiness), 2026-11-23. Status of the whole effort: [production-readiness.md](../production-readiness.md).
+Phase 10 of the [ISMS-TD Ch 23](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md), 2026-11-23. Status of the whole effort: [ISMS-TD Ch 23](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md).
 
 ## Contents
 
@@ -50,7 +50,7 @@ So the platform's cost grows with the number of businesses and how busy they are
 
 ## 3. Cost per business and per user
 
-Assumptions (the same as the [Phase 8 growth plan](../deployment/performance.md#5-growth-plan-planning-scenarios-not-capacity-claims)): 3 devices and 3 users per business, open 12 hours a day; 100 sales a day; about 2.2 KB of database per sale (80 MB a year per business); about 25 MB of files a year per business (logos, product pictures, expense receipts). Estimated per business per month:
+Assumptions (the same as the [ISMS-TD Ch 20](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md)): 3 devices and 3 users per business, open 12 hours a day; 100 sales a day; about 2.2 KB of database per sale (80 MB a year per business); about 25 MB of files a year per business (logos, product pictures, expense receipts). Estimated per business per month:
 
 | Item | Per business per month | How it is worked out |
 |---|---|---|

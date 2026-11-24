@@ -1,6 +1,6 @@
 # Threat register
 
-Every finding from the [production readiness plan](../ISMS_Production_Readiness_Master_Checklist.md), ranked P0 to P3. The Phase 1 report with test evidence is in [security-assessment.md](security-assessment.md), and the system map in [architecture.md](../infrastructure/architecture.md).
+Every security finding, ranked P0 to P3. The system map and the security model are in [ISMS-TD Ch 2 and 9](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md); administrative duties in [ISMS-AG Ch 9](../../documentation/final/ISMS-System-Administration-Guide/ISMS-AG.md).
 
 Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open** · **Owner action** · **Accepted**.
 
@@ -39,7 +39,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | REL-01 | P2 | Local `npm run dev` uses the live database; dev testing writes real records | Open (needs staging, WEB-03) |
 | REL-02 | P2 | `main` unprotected (same as SEC-09) | Owner action |
 | REL-03 | P3 | Migrations pushed by hand with no gate; live could differ from the files unnoticed | Fixed in code (`db-push.sh`, `db-checks.yml`; details in [release-safety.md](../deployment/release-safety.md)) |
-| PERF-01 | P2 | Row-security functions evaluated per row (sales list 1 s on live for 45 sales) | Fixed in code (migration 20261201005), not live ([performance.md](../deployment/performance.md)) |
+| PERF-01 | P2 | Row-security functions evaluated per row (sales list 1 s on live for 45 sales) | Fixed in code (migration 20261201005), not live ([ISMS-TD Ch 20](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md)) |
 | PERF-02 | P2 | App downloaded every sale/product/customer and threw it away | Fixed in code, not released |
 | PERF-03 | P2 | Every product change reloaded every product on every device | Fixed in code, not released |
 | PERF-04 | P2 | Products, customers and the credit-sale wallet lookup cut off at 1,000 rows | Fixed in code, not released |
@@ -47,7 +47,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | PERF-06 | P3 | Home and charts computed from the newest 1,000 sales | Open |
 | PERF-07 | P3 | Web app is one 3.4 MB script | Open |
 | PERF-08 | P3 | ~25 live subscriptions per app; `users` followed without filter | Open (3 no-op subscriptions removed in Phase 10, OPS-02) |
-| EXP-01 | P3 | No per-business usage quota | Open ([expansion.md](../deployment/expansion.md)) |
+| EXP-01 | P3 | No per-business usage quota | Open ([ISMS-TD Ch 20.4](../../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md)) |
 | EXP-02 | P3 | No dedicated two-tenant isolation suite | Open |
 | EXP-03 | P3 | Business currency stored but unused (always KSh) | Open, before another country |
 | EXP-04 | P3 | Business days cut in Nairobi time everywhere | Open, before a business outside UTC+3 |
@@ -102,7 +102,7 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 
 - **Evidence:** As a cashier, `record_till_sale` with 2 × 100.00 bread and `final_total` 1 was saved; books income 1.00, cash 1.00, no discount. The same for `process_customer_transaction` (credit).
 - **Impact:** A till can hide skimming: goods leave stock, little money is booked, and nothing shows in the discount reports.
-- **Fix:** `fn_check_sale_totals` (migration `20261201002`), called by both functions: total = items, discount 0..total, final = total − discount + VAT (+ fee for a charged delivery), within cent rounding. Details: [phase-2-financial-integrity.md](phase-2-financial-integrity.md).
+- **Fix:** `fn_check_sale_totals` (migration `20261201002`), called by both functions: total = items, discount 0..total, final = total − discount + VAT (+ fee for a charged delivery), within cent rounding. Details: [ISMS-AG Ch 9.5](../../documentation/final/ISMS-System-Administration-Guide/ISMS-AG.md).
 - **Verification:** `sale_totals_test.sh`, 44 passed. Applied on live 2026-11-23; both functions verified to call the check; live grants check clean. Rollback: `~/isms-backups/2026-11-23-before-sale-totals/rollback_sale_functions.sql`.
 
 ## FIN-02 · P1 · Paid sales saved in two requests
