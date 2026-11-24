@@ -13,7 +13,7 @@ These are the items the restructuring could not settle from the existing documen
 
 ## 2. Decisions needed from the owner
 
-Decided on 24 November 2026 (G-01 to G-05, G-07, G-08). G-06 is partly decided; the retention period is still open.
+Decided on 24 November 2026 (G-01 to G-05, G-07, G-08). G-06 was completed the same day: sales are kept for at least 5 years.
 
 | ID | Decision | Done in |
 |---|---|---|
@@ -22,7 +22,7 @@ Decided on 24 November 2026 (G-01 to G-05, G-07, G-08). G-06 is partly decided; 
 | G-03 | Still open: review, then set the status to Approved | |
 | G-04 | Receipt numbers come from the sale: `TXN-` and the first 8 characters of the sale id. One format everywhere; the prefix and format settings were removed (they suggested a counted number that never existed) | App 1.1; UG 10.1, AG 6, TD 10.4 |
 | G-05 | The audit trail can't be deleted or changed by anyone; the database refuses it | Migration `20261203001`; AG 10.1, 11.2 |
-| G-06 | Sales, stock history and points used are never deleted (they carry money and the books). Open: whether sales older than 5 years (the Kenyan tax record period) are ever archived | Migration `20261203001`; AG 11.2 |
+| G-06 | Sales, stock history and points used are never deleted (they carry money and the books). Sales are kept for at least 5 years (the Kenyan tax record period; owner decision 24 November 2026) | Migration `20261203001`; AG 11.2 |
 | G-07 | Points settings live only on Promotions & Points | App 1.1; UG 13.4 |
 | G-08 | New permission `support.report`; owners and admins have it, others when the owner ticks it | App 1.1, `ops-alert`; AG 3.4, UG 31 |
 

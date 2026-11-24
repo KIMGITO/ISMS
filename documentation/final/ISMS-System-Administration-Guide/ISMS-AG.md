@@ -567,7 +567,7 @@ All business data is in one Supabase database, separated by business. Logos and 
 | Points used | A discount that profit figures read |
 | Audit trail | The record of who changed what; one that can be deleted proves nothing |
 
-> **Note:** How long very old sales are kept (for example, whether they are archived after the five years Kenyan tax law requires records to be kept) is an open decision for the owner. Until it is made, nothing is removed.
+> **Note:** Sales are kept for at least five years, the period Kenyan tax law requires records to be kept (owner decision, 24 November 2026). The app never removes them; any archiving of older sales must keep at least five years available.
 
 ## 11.3 Personal data
 

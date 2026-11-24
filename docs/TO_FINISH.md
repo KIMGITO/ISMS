@@ -16,7 +16,7 @@ Gaps G-01 to G-08 from `documentation/audit/04-outstanding-gaps-and-clarificatio
 2. [ ] Check it on live in the SQL editor: `select count(*) from pg_trigger where tgname = 'trg_audit_logs_append_only';` should return 1, and `select count(*) from pg_policies where policyname = 'pol_transactions_delete';` should return 0.
 3. [ ] Deploy the function: `npx supabase functions deploy ops-alert --no-verify-jwt`. About this app > Report a problem should still send for an owner (a Telegram message arrives).
 4. [ ] Commit and release the app (`bash release.sh`). Settings > Old records should list only three logs, and a printed receipt should show `TXN-…`.
-5. [ ] **You:** decide how long sales are kept. Kenyan tax law needs 5 years; until you decide, nothing is ever removed. Options are in the reply of 24 November.
+5. [x] **You:** decide how long sales are kept. (2026-11-24: owner decided sales are kept for at least 5 years, the Kenyan tax record period. Nothing is removed today, so nothing to deploy.)
 6. [ ] **You:** review the three documents (each folder in `documentation/final/` has .md, .docx and .pdf), then set `status: Approved` in each front matter and rebuild: `python3 documentation/tools/build_docs.py all`.
 
 ---
@@ -25,7 +25,7 @@ Gaps G-01 to G-08 from `documentation/audit/04-outstanding-gaps-and-clarificatio
 
 Three new documents in `documentation/` (User Guide ISMS-UG, Technical Documentation ISMS-TD, Administration Guide ISMS-AG), with Markdown, DOCX and PDF, re-captured screenshots, and the audit, migration map, QA report and gaps list in `documentation/audit/`. The app also has the form, receipt-settings, screen-name, wording and "ask the admin" fixes of 24 November (uncommitted).
 
-1. [x] **You:** answer the owner decisions G-01 to G-08 (2026-11-24; G-03 approval and the sales retention period still open, see the item above).
+1. [x] **You:** answer the owner decisions G-01 to G-08 (2026-11-24; G-03 approval still open; sales retention decided: at least 5 years, see the item above).
 2. [ ] **You:** document owner named (2026-11-24: Dennis Kimanthi Gitonga, Codensons); still to do: set `status: Approved` and `author:` in each document's front matter and rebuild: `python3 documentation/tools/build_docs.py all`. The cover should show the owner and "Approved".
 3. [ ] Deploy the three edge functions whose wording changed: `npx supabase functions deploy chat --no-verify-jwt`, then the same for `bi-analyze` and `area-advisor`. The assistant should say "ask the admin", not "ask the owner".
 4. [ ] Commit the app changes and the documentation, then release (`git push`). About this app should show the new version, and the sidebar should show **Customers**, **Roles** and **Workers**.
