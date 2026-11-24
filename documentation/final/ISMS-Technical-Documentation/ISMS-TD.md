@@ -81,7 +81,7 @@ Developers joining the project, and technical staff who deploy, operate or audit
 
 ## 1.5 Verification basis
 
-Statements in this document were checked against the repository on 24 November 2026: `package.json`, `src/`, `supabase/migrations/` (32 files), `supabase/functions/` (27 functions), `.github/workflows/` and `scripts/`. The live migration history was read (read-only) and lists the first 31 migrations as applied; `20261203001` was added afterwards and is not yet on live. Where a statement could not be verified, it is marked as requiring confirmation. The audit trail of this restructuring is in `documentation/audit/`.
+Statements in this document were checked against the repository on 24 November 2026: `package.json`, `src/`, `supabase/migrations/` (33 files), `supabase/functions/` (27 functions), `.github/workflows/` and `scripts/`. The live migration history was read (read-only) and lists the first 31 migrations as applied; `20261203001` and `20261203002` were added afterwards and are not yet on live. Where a statement could not be verified, it is marked as requiring confirmation. The audit trail of this restructuring is in `documentation/audit/`.
 
 # Chapter 2: System Architecture
 
@@ -112,7 +112,7 @@ Clients reach the database through PostgREST (tables and RPC), subscribe to chan
 1. **The database is the authority.** Prices, stock, points, balances and permissions are calculated and checked in PostgreSQL. The app hides what a role may not use; the database refuses it regardless.
 2. **Money moves through functions, not table writes.** Sales, top-ups, debt payments, point redemptions and payment results go through `SECURITY DEFINER` functions that check the caller and update every affected balance in one transaction.
 3. **One record drives every figure.** The same row moves the payment balance (`money_assets`), posts to the books (`acc_post_source`) and feeds every report ([Section 10.1](#s-10-1)).
-4. **Nothing financial is deleted, and the audit trail is append-only.** Payments and expenses are voided with a reason; sales are refunded with credit notes. Nobody signed in can delete a sale (no DELETE grant or policy on `transactions`), and `trg_audit_logs_append_only` refuses every delete or edit of `audit_logs` (`20261203001`).
+4. **Nothing financial is deleted, and the audit trail is append-only.** Payments and expenses are voided with a reason; sales are refunded with credit notes. Nobody signed in can delete a sale (no DELETE grant or policy on `transactions`), and `trg_audit_logs_append_only` refuses every delete or edit of `audit_logs` (`20261203001`). The only exception is the nightly `run_data_retention()` job (`20261203002`, service role only), which removes audit entries older than 7 years and notifications, website chat, crash reports and backup runs past their periods (ISMS-AG Table 11.3). `erase_customer()` (permission `customers.erase`) removes one customer's personal details and website sign-in but keeps their sales and ledger, and refuses while debt or wallet money remains.
 5. **Real time across devices.** Changes reach every open device through Realtime.
 6. **Keep selling when the network drops.** Paid sales made offline are queued and sent when the connection returns.
 7. **Secrets stay on the server.** Provider keys live in Supabase secrets or server-only tables; the app sees masked values.
@@ -1228,6 +1228,7 @@ Applied in filename order by `scripts/db-push.sh`. All 31 are recorded as applie
 | `20261201007_storage_usage_alert` | Storage usage alert |
 | `20261202001_record_refs_global_search` | Record references and `global_search()` |
 | `20261203001_keep_records` | Audit trail append-only; sales, stock history and points used cannot be deleted; Old records clears only points earned, backup runs and crash reports (requires confirmation that it is applied on live) |
+| `20261203002_retention_and_erasure` | Nightly `data-retention` job (audit 7 years, notifications 1 year, website chat 2 years, crash reports 90 days, backup runs 1 year); `erase_customer()` and `customers.erase`; `customers.erased_at` (requires confirmation that it is applied on live) |
 
 # Appendix C: Source Documents
 

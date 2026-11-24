@@ -8,6 +8,18 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Retention and erasing a customer (2026-11-24)
+
+Owner: keep records as Kenyan law demands. Money records and the audit trail 7 years (Tax Procedures Act 5, Companies Act 7); a nightly job removes notifications after 1 year, website chat after 2, crash reports after 90 days, backup run log after 1 year, audit entries after 7. Customers > profile > **Erase personal details** (`customers.erase`, Data Protection Act s.40), refused while debt or wallet money remains. Website privacy page names EU hosting, Cloudflare, the periods and erasure. Migration `20261203002_retention_and_erasure.sql`; `records/retention_erasure_test.sh` 23 passed; not clicked through in the app.
+
+1. [ ] Apply the database change (with `20261203001` above): `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (no problems listed).
+2. [ ] In the SQL editor: `select jobname, schedule from cron.job where jobname = 'data-retention';` should return one row `30 0 * * *`, and `select public.run_data_retention();` should return counts, not an error.
+3. [ ] Deploy the website: `npm run website:deploy`. The privacy page should say "at least seven years" and name Cloudflare.
+4. [ ] Release the app (`git push`). As an owner, a customer with no debt and an empty wallet should show **Erase personal details** at the bottom of their profile; erasing a test customer should remove them from Customers while their sales stay in the Sales Log.
+5. [ ] **You:** ask a data protection adviser whether the business must register with the ODPC (EXP-06). Registration is your step; the app cannot do it.
+
+---
+
 ## Records kept, one receipt number, points in one place, owner named (2026-11-24)
 
 Gaps G-01 to G-08 from `documentation/audit/04-outstanding-gaps-and-clarifications.md`. The audit trail is append-only; sales, stock history and points used can't be deleted (Settings > Old records clears only points earned, backup runs and crash reports); receipts show `TXN-…` everywhere; points settings only on Promotions & Points; Report a problem needs `support.report`; README, LICENSE, TERMS and the three documents name Dennis Kimanthi Gitonga, Codensons. Migration `20261203001_keep_records.sql`. All 9 database suites (incl. the new `records/keep_records_test.sh`) and the app tests pass; not clicked through in the app.
@@ -111,7 +123,7 @@ Reports: [infrastructure/cost-management.md](infrastructure/cost-management.md),
 Report: [ISMS-TD Ch 20.4](../documentation/final/ISMS-Technical-Documentation/ISMS-TD.md). Nothing to deploy; the other findings are design work for when expansion starts.
 
 1. [ ] **You:** ask a Kenyan data protection adviser two things (EXP-06): does ISMS need to register with the ODPC, and is the privacy policy enough for data stored in the EU (Supabase, Paris) and the processors it uses (Cloudflare, AI providers)? Then update the website's privacy page (`website/src/infoPages.ts` → `privacy`) as advised. The page should name where data is stored and every processor.
-2. [ ] **You:** choose how long to keep notifications and the audit log (for example 1 year and 2 years; EXP-07). Then ask for the cleanup job and the "erase customer" tool to be built.
+2. [x] **You:** choose how long to keep notifications and the audit log (EXP-07). (2026-11-24: owner said "as Kenyan law demands"; built, see Retention and erasure at the top.)
 
 ## Phase 8: performance (2026-11-23)
 

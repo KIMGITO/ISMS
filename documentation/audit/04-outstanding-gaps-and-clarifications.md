@@ -13,7 +13,7 @@ These are the items the restructuring could not settle from the existing documen
 
 ## 2. Decisions needed from the owner
 
-Decided on 24 November 2026 (G-01 to G-05, G-07, G-08). G-06 was completed the same day: sales are kept for at least 5 years.
+Decided on 24 November 2026 (G-01 to G-05, G-07, G-08). G-06 was completed the same day: money records are kept for at least 7 years (tax law 5, Companies Act 7).
 
 | ID | Decision | Done in |
 |---|---|---|
@@ -60,7 +60,7 @@ These were not created because there was not enough verified information. Writin
 |---|---|---|
 | G-17 | Customer-facing guide to the website and dial-code ordering | Owner's decision that customers need one; the website and USSD going live |
 | G-18 | Installation guide for each platform (where installers are downloaded, first-run steps on Windows SmartScreen and Android "unknown apps") | Final download location for staff |
-| G-19 | Data retention and privacy procedures (erasing a customer, retention periods) | The data protection adviser's advice (finding EXP-06, EXP-07); a tool to erase a customer does not exist yet |
+| G-19 | Data retention and privacy procedures (erasing a customer, retention periods) | Done 2026-11-24: retention periods and Erase personal details (AG 11.2, 11.3; migration `20261203002`). ODPC registration still needs the adviser (EXP-06) |
 | G-20 | Named backup person and escalation contacts | Owner decision (finding OPS-05) |
 | G-21 | Staging environment procedures | A staging project does not exist (REL-01, WEB-03) |
 | G-22 | Database reference (every table and column) | Can be generated: `documentation/tools/generate_db_reference.py` exists from the earlier documentation set and needs a fresh schema export |

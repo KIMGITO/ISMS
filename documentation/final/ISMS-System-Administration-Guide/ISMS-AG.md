@@ -485,7 +485,7 @@ Findings are tracked in `docs/security/threat-register.md`. At 24 November 2026 
 | OPS-04 | P2 | All email goes through one personal mailbox (about 500 a day) | Move to a sending service |
 | OPS-05 | P2 | One person holds every account, key and the on-call phone | Name a backup person |
 | OPS-06 | P2 | Database very likely on the free plan (pauses when idle, no restorable backups) | Owner setting 6 |
-| EXP-06 | P2 | Privacy policy does not disclose hosting in the EU or every processor | Data protection adviser |
+| EXP-06 | P2 | ODPC registration not confirmed (the privacy page now names EU hosting and processors) | Data protection adviser |
 
 # Chapter 10: Audit Trails and Activity Monitoring
 
@@ -567,11 +567,33 @@ All business data is in one Supabase database, separated by business. Logos and 
 | Points used | A discount that profit figures read |
 | Audit trail | The record of who changed what; one that can be deleted proves nothing |
 
-> **Note:** Sales are kept for at least five years, the period Kenyan tax law requires records to be kept (owner decision, 24 November 2026). The app never removes them; any archiving of older sales must keep at least five years available.
+> **Note:** Money records (sales, the books, the customer ledger, payments, expenses, stock history and invoices) are kept for at least seven years. That meets both the Tax Procedures Act 2015 (five years) and the Companies Act 2015 (seven years for a company's accounting records). The app never removes them; any archiving of older sales must keep at least seven years available (owner decision, 24 November 2026).
+
+**Table 11.3:** How long other records are kept
+
+| Record | Kept for | Removed by |
+|---|---|---|
+| Audit trail | 7 years | The daily retention job |
+| Notifications | 1 year | The daily retention job |
+| Website chat messages | 2 years | The daily retention job |
+| Crash reports | 90 days | The daily retention job, or Old records sooner |
+| Backup run log | 1 year | The daily retention job, or Old records sooner |
+| Customer and staff details | While the person is active | Erase personal details ([Section 11.3](#s-11-3)), or removing the staff member |
+
+The retention job (`run_data_retention`) runs every night at 00:30 UTC on the database. Nobody signed in can run it or change its periods.
 
 ## 11.3 Personal data
 
-Customer and staff data is personal data under Kenya's Data Protection Act 2019. There is not yet a tool to erase one customer's data, and no automatic retention period for notifications and the audit log (finding EXP-07). Crash and problem reports have emails, phone numbers, IDs and tokens removed on the device before they are sent.
+Customer and staff data is personal data under Kenya's Data Protection Act 2019. It is kept only as long as needed ([Table 11.3](#t-11-3)), and crash and problem reports have emails, phone numbers, IDs and tokens removed on the device before they are sent.
+
+**Erasing a customer.** When a customer asks for their data to be erased (the Act, section 40), open the customer in **Customers**, go to the profile, and choose **Erase personal details**. This needs the permission `customers.erase`, which owners and admins hold. It:
+
+- replaces the name with "Erased customer" and the phone with 0000000, and removes the email and delivery details;
+- deletes their website sign-in, chat messages and regular-order schedules, and removes the name and phone from their online orders, reviews and feedback;
+- keeps their sales and ledger, because the tax law requires them; the sales still show the name they were made under;
+- writes a "customer erased" entry to the audit trail, with the account number only.
+
+It is refused while the customer owes money or has money in their wallet: settle the debt or pay back the wallet first. It cannot be undone.
 
 ## 11.4 Test data
 
@@ -805,7 +827,7 @@ Every change that is not fully live has numbered steps in `docs/TO_FINISH.md`, n
 - Clear **Paid to the till** daily, so customers' balances stay right.
 - Count money and stock against the books monthly, then lock the month.
 - Never correct a money record by editing; void and record again.
-- Agree a retention period before clearing old records.
+- Keep money records and the audit trail for at least seven years ([Section 11.2](#s-11-2)); never clear them by hand.
 
 ## 16.3 Platform
 

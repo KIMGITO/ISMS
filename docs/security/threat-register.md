@@ -52,8 +52,8 @@ Statuses: **Fixed (verified)** · **Fixed in code (deploy pending)** · **Open**
 | EXP-03 | P3 | Business currency stored but unused (always KSh) | Open, before another country |
 | EXP-04 | P3 | Business days cut in Nairobi time everywhere | Open, before a business outside UTC+3 |
 | EXP-05 | P3 | Phone handling assumes +254 | Open, before another country |
-| EXP-06 | P2 | Privacy policy doesn't disclose EU hosting or every processor; ODPC registration unconfirmed | Owner action (adviser) |
-| EXP-07 | P3 | No retention for notifications/audit log; no "erase customer" tool | Open
+| EXP-06 | P2 | ODPC registration unconfirmed (privacy page names EU hosting and processors since 2026-11-24) | Owner action (adviser) |
+| EXP-07 | P3 | No retention for notifications/audit log; no "erase customer" tool | Fixed 2026-11-24 (`20261203002`, not on live)
 | OPS-01 | P2 | `money_assets` not in the live-update list: Payments balances didn't refresh after a sale on another device | Fixed in code (migration 20261201006), not live ([cost-management.md](../infrastructure/cost-management.md#6-waste-found-and-fixed)) |
 | OPS-02 | P3 | Realtime decoded changes for 27 tables no screen follows (~80% of live DB time is Realtime polling); 3 unfiltered subscriptions with no handler | Fixed in code (migration 20261201006 + app), not live |
 | OPS-03 | P3 | No alert before file storage fills | Fixed in code (`storage:size`, migration 20261201007), not live |
