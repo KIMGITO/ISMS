@@ -13,7 +13,7 @@
 // Unknown addresses get a plain "nothing here" page that names no business.
 import type { Storefront } from '../src/api';
 import { escapeHtml, publicPaths, renderRoute, robotsTxt, ShopTag, sitemapXml } from '../src/render';
-import { cleanHost, HostAnswer, isFilePath, isSingleShopHost, redirectTo } from './hosts';
+import { cleanHost, HostAnswer, isFilePath, isSingleShopHost, redirectTo, rpcCacheKey } from './hosts';
 import { plansPageHtml, PublicPlans } from './plansPage';
 
 interface Env {
@@ -30,7 +30,7 @@ interface Ctx {
 // Same rules as website/public/_headers, set here because pages the Worker builds don't get them.
 const SECURITY_HEADERS: Record<string, string> = {
   'Content-Security-Policy':
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https: wss://*.supabase.co; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss://*.supabase.co; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
   'Strict-Transport-Security': 'max-age=63072000',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -55,7 +55,7 @@ function plainPage(title: string, text: string, status: number): Response {
 
 /** A database call through the public REST endpoint, cached at the edge for `ttl` seconds. */
 async function cachedRpc<T>(env: Env, ctx: Ctx, fn: string, args: Record<string, string>, ttl: number): Promise<T | null> {
-  const key = new Request(`https://rpc.cache/${fn}?${new URLSearchParams(args)}`);
+  const key = new Request(rpcCacheKey(fn, args));
   const hit = await cache().match(key);
   if (hit) return (await hit.json()) as T | null;
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -159,8 +159,17 @@ export default {
       platformUrl: answer.platform_url,
     };
     const html = renderRoute(await shell.text(), site, siteUrl, url.pathname, shop);
+    // A preview link (?preview=, from the app): the page itself is the live one (the draft is
+    // fetched by the browser with the secret), but it is never stored or indexed.
+    const preview = url.searchParams.has('preview');
     return withHeaders(
-      new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate' } }),
+      new Response(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': preview ? 'no-store' : 'public, max-age=0, must-revalidate',
+          ...(preview ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
+        },
+      }),
     );
   },
 };

@@ -1,4 +1,4 @@
-import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOverlay } from '../hooks/useOverlay';
 import {
   AlertTriangle,
@@ -6,10 +6,8 @@ import {
   BookOpen,
   CheckCircle2,
   ExternalLink,
-  MessageSquare,
   Package,
   Plus,
-  RefreshCw,
   Save,
   Send,
   Settings,
@@ -24,20 +22,14 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import { STARTER_GUIDES } from './onlineStoreStarterGuides';
-// The website's own page list and default text, so the editor shows exactly what customers see.
-import { defaultInfoPageText, INFO_PAGES, InfoPageId } from '../../website/src/infoPages';
-import type { Storefront } from '../../website/src/api';
 import { Switch } from '../components/shared/Switch';
 import DeliveryZonesEditor from '../components/DeliveryZonesEditor';
 import PageEditor from '../components/website/PageEditor';
-import HeroSlidesEditor from '../components/website/HeroSlidesEditor';
-import AdCardsEditor from '../components/website/AdCardsEditor';
-import WebAddressCard from '../components/website/WebAddressCard';
 import ProductIdeasTab from '../components/website/ProductIdeasTab';
 import { NumberInput } from '../components/shared/Input';
 import { formatCurrency } from '../utils/helpers';
 
-type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'ideas' | 'guides' | 'pages' | 'banner' | 'adverts' | 'settings';
+type TabId = 'orders' | 'messages' | 'feedback' | 'reviews' | 'ideas' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'orders', label: 'Orders' },
@@ -45,11 +37,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'feedback', label: 'Feedback' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'ideas', label: 'Product ideas' },
-  { id: 'guides', label: 'Guides' },
-  { id: 'banner', label: 'Home banner' },
-  { id: 'adverts', label: 'Adverts' },
-  { id: 'pages', label: 'Pages' },
-  { id: 'settings', label: 'Website' },
+  { id: 'settings', label: 'Selling online' },
 ];
 
 const REFRESH_MS = 20000;
@@ -521,7 +509,8 @@ function FeedbackTab({ businessId }: { businessId: string }) {
   );
 }
 
-function GuidesTab({ businessId }: { businessId: string }) {
+/** Guides (articles) are their own records with their own Published switch, like products. */
+export function GuidesTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const [guides, setGuides] = useState<Guide[] | null>(null);
   const [editing, setEditing] = useState<Guide | null>(null);
@@ -682,10 +671,6 @@ interface WebsiteProductRow {
 function SettingsTab({ businessId }: { businessId: string }) {
   const reportError = useReportError();
   const showToast = useNotificationStore((s) => s.showToast);
-  const [slug, setSlug] = useState('');
-  const [savedSlug, setSavedSlug] = useState('');
-  // Bumped after a save so the Web address card shows the new name.
-  const [addressKey, setAddressKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState('0');
   const [minOrder, setMinOrder] = useState('0');
@@ -700,12 +685,10 @@ function SettingsTab({ businessId }: { businessId: string }) {
     const supabase = getSupabase();
     const productQuery = (columns: string) =>
       supabase.from('products').select(columns).eq('business_id', businessId).is('deleted_at', null).order('name');
-    const [business, settings, firstTry] = await Promise.all([
-      supabase.from('businesses').select('website_slug').eq('id', businessId).single(),
-      supabase.from('website_settings').select('*').eq('business_id', businessId).maybeSingle(),
+    const [settings, firstTry] = await Promise.all([
+      supabase.from('website_settings').select('delivery_enabled, delivery_fee, min_order, assistant_enabled').eq('business_id', businessId).maybeSingle(),
       productQuery('id, name, price, show_on_website, website_was_price'),
     ]);
-    if (business.error) throw business.error;
     if (settings.error) throw settings.error;
     let productRows = firstTry;
     if (productRows.error && productRows.error.code === '42703') {
@@ -713,8 +696,6 @@ function SettingsTab({ businessId }: { businessId: string }) {
       productRows = await productQuery('id, name, price, show_on_website');
     }
     if (productRows.error) throw productRows.error;
-    setSlug(business.data.website_slug ?? '');
-    setSavedSlug(business.data.website_slug ?? '');
     if (settings.data) {
       setDeliveryEnabled(settings.data.delivery_enabled);
       setDeliveryFee(String(settings.data.delivery_fee));
@@ -733,14 +714,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const supabase = getSupabase();
-      const cleanSlug = slugify(slug);
-      const { error: slugError } = await supabase
-        .from('businesses')
-        .update({ website_slug: cleanSlug || null })
-        .eq('id', businessId);
-      if (slugError) throw slugError;
-      const { error } = await supabase.from('website_settings').upsert({
+      const { error } = await getSupabase().from('website_settings').upsert({
         business_id: businessId,
         delivery_enabled: deliveryEnabled,
         delivery_fee: Number(deliveryFee) || 0,
@@ -748,10 +722,7 @@ function SettingsTab({ businessId }: { businessId: string }) {
         assistant_enabled: assistantEnabled,
       });
       if (error) throw error;
-      setSlug(cleanSlug);
-      setSavedSlug(cleanSlug);
-      setAddressKey((k) => k + 1);
-      showToast('Online Store', 'Website settings saved.', undefined, 'success');
+      showToast('Online orders', 'Saved. Customers see it straight away.', undefined, 'success');
     } catch (err) {
       reportError(err, 'Could not save website settings.');
     } finally {
@@ -791,20 +762,10 @@ function SettingsTab({ businessId }: { businessId: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <WebAddressCard businessId={businessId} reloadKey={addressKey} />
       <DeliveryZonesEditor businessId={businessId} />
       <form onSubmit={save} className={`${cardClass} space-y-3`}>
-        <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Website</h3>
-        <label className="block text-sm font-medium text-app-text">
-          Website name
-          <span className="block font-normal text-app-text-muted">The website stays hidden until this is set. Letters, numbers and dashes.</span>
-          <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="myshop" className={`${inputClass} mt-1`} />
-          {savedSlug && slugify(slug) && slugify(slug) !== savedSlug && (
-            <span className="mt-1 block font-normal text-amber-600">
-              Saving uses one of the two name changes allowed a year. The old address forwards visitors for 90 days.
-            </span>
-          )}
-        </label>
+        <h3 className="flex items-center gap-2 font-bold text-app-text"><Settings size={16} /> Orders from the website</h3>
+        <p className="text-sm text-app-text-muted">These change straight away. The web address is in Website, under Address & publishing.</p>
         <Switch
           className="min-h-10"
           checked={deliveryEnabled}
@@ -1006,156 +967,20 @@ function ReviewsTab({ businessId }: { businessId: string }) {
   );
 }
 
-function PagesTab({ businessId }: { businessId: string }) {
-  const reportError = useReportError();
-  const showToast = useNotificationStore((s) => s.showToast);
-  const [pages, setPages] = useState<Record<string, string>>({});
-  const [openingHours, setOpeningHours] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [storefront, setStorefront] = useState<Storefront | null>(null);
-  const [selected, setSelected] = useState<InfoPageId>('about');
-  const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    const supabase = getSupabase();
-    const [settings, business] = await Promise.all([
-      supabase.from('website_settings').select('pages, opening_hours, whatsapp').eq('business_id', businessId).maybeSingle(),
-      supabase.from('businesses').select('website_slug').eq('id', businessId).single(),
-    ]);
-    if (settings.error) throw settings.error;
-    if (business.error) throw business.error;
-    setPages((settings.data?.pages as Record<string, string>) ?? {});
-    setOpeningHours(settings.data?.opening_hours ?? '');
-    setWhatsapp(settings.data?.whatsapp ?? '');
-    if (business.data.website_slug) {
-      const { data } = await supabase.rpc('get_public_storefront', { p_slug: business.data.website_slug });
-      setStorefront((data as Storefront | null) ?? null);
-    }
-    setLoaded(true);
-  }, [businessId]);
-
-  useEffect(() => {
-    load().catch((err) => reportError(err, 'Could not load the website pages.'));
-  }, [load, reportError]);
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const cleaned = Object.fromEntries(Object.entries(pages).filter(([, text]) => text.trim()));
-      const { error } = await getSupabase().from('website_settings').upsert({
-        business_id: businessId,
-        pages: cleaned,
-        opening_hours: openingHours.trim() || null,
-        whatsapp: whatsapp.trim() || null,
-      });
-      if (error) throw error;
-      setPages(cleaned);
-      showToast('Online Store', 'Website pages saved. Customers see them straight away.', undefined, 'success');
-    } catch (err) {
-      reportError(err, 'Could not save the website pages. Check the WhatsApp number uses digits only.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!loaded) return <p className="text-sm text-app-text-muted">Loading pages…</p>;
-
-  const page = INFO_PAGES.find((p) => p.id === selected)!;
-  const text = pages[selected] ?? '';
-  const standard = storefront ? defaultInfoPageText(selected, storefront) : '';
-
-  return (
-    <form onSubmit={save} className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start">
-      <div className="space-y-4">
-        <section className={`${cardClass} space-y-3`}>
-          <h3 className="font-bold text-app-text">Shop details</h3>
-          <label className="block text-sm font-medium text-app-text">
-            Opening hours
-            <span className="block font-normal text-app-text-muted">Shown in the footer, contact and help pages.</span>
-            <input value={openingHours} maxLength={500} onChange={(e) => setOpeningHours(e.target.value)} placeholder="Mon to Sat 7am to 8pm, Sun 8am to 1pm" className={`${inputClass} mt-1`} />
-          </label>
-          <label className="block text-sm font-medium text-app-text">
-            WhatsApp number
-            <span className="block font-normal text-app-text-muted">Empty uses the business phone.</span>
-            <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="254712345678" inputMode="tel" className={`${inputClass} mt-1`} />
-          </label>
-        </section>
-        <nav className={`${cardClass} p-2`} aria-label="Website pages">
-          {INFO_PAGES.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setSelected(p.id)}
-              className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm font-medium ${selected === p.id ? 'bg-brand-500/15 text-app-text' : 'text-app-text-muted hover:bg-app-bg'}`}
-            >
-              {p.label}
-              <span className="text-xs">{pages[p.id]?.trim() ? 'Custom' : 'Standard'}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      <section className={`${cardClass} space-y-3`}>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h3 className="font-bold text-app-text">{page.title}</h3>
-            <p className="text-sm text-app-text-muted">
-              Website address: {page.path}. {text.trim()
-                ? 'Your text is shown. Clear it to go back to the standard text.'
-                : 'The standard text is shown. It updates by itself when delivery areas, the minimum order or points change.'}
-            </p>
-          </div>
-          {standard && (
-            <button type="button" className={secondaryClass} onClick={() => setPages({ ...pages, [selected]: standard })}>
-              <BookOpen size={16} /> Start from standard text
-            </button>
-          )}
-        </div>
-        <PageEditor
-          key={selected}
-          value={text}
-          onChange={(next) => setPages((current) => ({ ...current, [selected]: next }))}
-          businessId={businessId}
-          fallback={standard}
-          header={{ eyebrow: page.eyebrow, title: page.title, summary: page.summary }}
-          sectionHeadings
-          placeholder="Your own text"
-          previewNote={
-            selected === 'help'
-              ? 'On the website, each heading on this page becomes a question customers tap to open, with a search box above.'
-              : 'On the website, pages with more than three headings also get an "On this page" list of the headings.'
-          }
-        />
-        {page.legal && <p className="text-xs text-app-text-muted">Legal pages: have a lawyer check them before launch.</p>}
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={saving} className={primaryClass}><Save size={16} /> {saving ? 'Saving…' : 'Save pages'}</button>
-          {text.trim() && (
-            <button type="button" className={secondaryClass} onClick={() => setPages({ ...pages, [selected]: '' })}>
-              <RefreshCw size={16} /> Use standard text
-            </button>
-          )}
-        </div>
-      </section>
-    </form>
-  );
-}
-
 export default function OnlineStoreView() {
   const businessId = useBusinessStore((s) => s.activeBusinessId);
   const role = useAuthStore((s) => s.currentEmployee?.role);
   const canManageWebsite = role ? hasRolePermission(role, 'business.update') : false;
   const [tab, setTab] = useState<TabId>('orders');
-  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'guides', 'pages', 'banner', 'reviews', 'ideas'].includes(t.id));
+  const tabs = canManageWebsite ? TABS : TABS.filter((t) => !['settings', 'reviews', 'ideas'].includes(t.id));
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 pb-nav">
       <header className="flex items-center gap-3">
         <Package className="text-brand-500" />
         <div>
-          <h1 className="font-display text-xl font-bold text-app-text">Online Store</h1>
-          <p className="text-sm text-app-text-muted">Website orders, customer messages, feedback, product ideas and guides</p>
+          <h1 className="font-display text-xl font-bold text-app-text">Online orders</h1>
+          <p className="text-sm text-app-text-muted">Website orders, customer messages, reviews and product ideas. The website itself is built in Website.</p>
         </div>
       </header>
       <div className="mt-4 overflow-x-auto">
@@ -1169,10 +994,6 @@ export default function OnlineStoreView() {
             {tab === 'orders' && <OrdersTab businessId={businessId} />}
             {tab === 'messages' && <MessagesTab businessId={businessId} />}
             {tab === 'feedback' && <FeedbackTab businessId={businessId} />}
-            {tab === 'guides' && canManageWebsite && <GuidesTab businessId={businessId} />}
-            {tab === 'pages' && canManageWebsite && <PagesTab businessId={businessId} />}
-            {tab === 'banner' && canManageWebsite && <HeroSlidesEditor businessId={businessId} />}
-            {tab === 'adverts' && canManageWebsite && <AdCardsEditor businessId={businessId} />}
             {tab === 'reviews' && canManageWebsite && <ReviewsTab businessId={businessId} />}
             {tab === 'ideas' && canManageWebsite && <ProductIdeasTab businessId={businessId} />}
             {tab === 'settings' && canManageWebsite && <SettingsTab businessId={businessId} />}

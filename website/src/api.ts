@@ -1,5 +1,6 @@
 import type { HeroSlide } from './heroSlides';
 import type { AdCard } from './adCards';
+import type { PublicBrand } from './engine/brand';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -114,6 +115,14 @@ export interface Storefront {
   };
   /** Staff-written text for info pages, keyed by page id (about, terms…). Empty means use the default. */
   pages?: Partial<Record<string, string>>;
+  /** The shop's brand profile (20261206001). Missing on older databases: the original look. */
+  brand?: PublicBrand;
+  /** The home page arrangement saved in the Homepage builder. Missing: the one for the brand (engine/layout.ts). */
+  home?: unknown;
+  /** The header menu chosen in the app (20261206002); missing = the menu for its industry. */
+  navigation?: { header?: { label: string; href: string }[] };
+  /** Search engine title, description and sharing picture for the home page (20261206002). */
+  seo?: { title?: string; description?: string; shareImage?: string };
   /** Home banner slides from Online Store > Home banner (20261111002). Empty or missing: built-in slides. */
   heroSlides?: HeroSlide[];
   loyalty?: {
@@ -138,6 +147,8 @@ export interface Storefront {
     platformName: string | null;
     platformUrl: string | null;
     host: string | null;
+    /** True on a preview link: the draft from the app, not yet live (20261206002). */
+    preview?: boolean;
   };
   /** Branches with the website switched on, this one included (20261114006). */
   stores?: Store[];
@@ -432,8 +443,61 @@ export async function isProviderEnabled(provider: 'google' | 'apple'): Promise<b
 /** Whether Airtel Money is switched on for the shop (the payment screen also checks it is set up). */
 export const takesAirtel = (site: Pick<Storefront, 'business'>) => (site.business.paymentMethods ?? []).includes('Airtel Money');
 
-/** Returns null when the slug isn't published. */
-export const fetchStorefront = (slug = storeSlug()) => rpc<Storefront | null>('get_public_storefront', { p_slug: slug });
+// Preview links from the app (Website > Preview) carry ?preview=<secret>. The secret is kept
+// for this tab only and taken out of the address bar, so it is not shared by copying the link.
+// The database decides which shop the secret belongs to and refuses it on any other address.
+const PREVIEW_KEY = 'website-preview';
+
+function readPreviewSecret(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const url = new URL(window.location.href);
+    const fromLink = url.searchParams.get('preview');
+    if (fromLink !== null) {
+      url.searchParams.delete('preview');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+      if (/^[0-9a-f]{48}$/.test(fromLink)) sessionStorage.setItem(PREVIEW_KEY, fromLink);
+    }
+    const saved = sessionStorage.getItem(PREVIEW_KEY);
+    return saved && /^[0-9a-f]{48}$/.test(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+let previewSecret = readPreviewSecret();
+
+/** Back to the live website. */
+export function leavePreview() {
+  try { sessionStorage.removeItem(PREVIEW_KEY); } catch { /* nothing kept */ }
+  previewSecret = null;
+  window.location.reload();
+}
+
+/** True while showing a draft from a preview link (not counted as a visit). */
+export const inPreview = () => previewSecret !== null;
+
+/**
+ * Counts one page opened (website_visit_daily, 20261208001): the kind of page and, on the first
+ * page of a visit, the kind of place the visitor came from. Nothing about the visitor is sent.
+ * Never throws: a lost count must not disturb the page.
+ */
+export function recordView(slug: string, page: string, source: string, landing: boolean): void {
+  supabase.rpc('record_website_view', { p_slug: slug, p_page: page, p_source: source, p_landing: landing })
+    .then(() => undefined, () => undefined);
+}
+
+/** Returns null when the slug isn't published. On a preview link, the draft of this shop. */
+export async function fetchStorefront(slug = storeSlug()): Promise<Storefront | null> {
+  if (previewSecret && slug === WEBSITE_SLUG) {
+    const draft = await rpc<Storefront | null>('get_preview_storefront', { p_slug: slug, p_secret: previewSecret });
+    if (draft) return draft;
+    // Expired or for another shop: the live website, without the preview bar.
+    try { sessionStorage.removeItem(PREVIEW_KEY); } catch { /* nothing kept */ }
+    previewSecret = null;
+  }
+  return rpc<Storefront | null>('get_public_storefront', { p_slug: slug });
+}
 
 /**
  * Moves the signed-in customer's account to this branch, so orders, points and messages go there.

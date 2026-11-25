@@ -30,6 +30,8 @@ import CustomerFeedbackView from './features/CustomerFeedbackView';
 import HomeView from './features/HomeView';
 import ProductionBOMView from './features/ProductionBOMView';
 import OnlineStoreView from './features/OnlineStoreView';
+import WebsiteView from './features/website/WebsiteView';
+import MarketingView from './features/marketing/MarketingView';
 import RiderDeliveriesView from './features/RiderDeliveriesView';
 import RegularOrdersView from './features/RegularOrdersView';
 import PettyCashView from './features/PettyCashView';
@@ -128,6 +130,8 @@ import {
   ArrowRight,
   Briefcase,
   Globe,
+  Megaphone,
+  ShoppingBag,
   BadgePercent,
   Coins,
   Mail,
@@ -180,6 +184,7 @@ const PROMPT_PERMISSIONS = SCREEN_BY_ID.get('prompt')!.permissions;
 const TRANSFER_PERMISSIONS = SCREEN_BY_ID.get('stock-transfers')!.permissions;
 const STOCK_REPORT_PERMISSIONS = SCREEN_BY_ID.get('stock-report')!.permissions;
 const PROMOTION_PERMISSIONS = SCREEN_BY_ID.get('promotions')!.permissions;
+const MARKETING_PERMISSIONS = SCREEN_BY_ID.get('marketing')!.permissions;
 const REGULAR_ORDER_PERMISSIONS = SCREEN_BY_ID.get('regular-orders')!.permissions;
 
 // Screens slide in like iOS: a short push with iOS easing, the old one eases out.
@@ -205,7 +210,9 @@ const MOBILE_TABS = [
   { id: 'buying', label: 'Buying', icon: ClipboardList, permission: BUYING_PERMISSIONS },
   { id: 'customers', label: 'Customers', icon: Heart, permission: 'customers.view' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, permission: 'complaints.view' },
-  { id: 'online-store', label: 'Online Store', icon: Globe, permission: 'customers.view' },
+  { id: 'online-store', label: 'Online orders', icon: ShoppingBag, permission: 'customers.view' },
+  { id: 'website', label: 'Website', icon: Globe, permission: 'business.update' },
+  { id: 'marketing', label: 'Marketing', icon: Megaphone, permission: MARKETING_PERMISSIONS },
   { id: 'promotions', label: 'Promotions', icon: BadgePercent, permission: PROMOTION_PERMISSIONS },
   { id: 'regular-orders', label: 'Regular Orders', icon: CalendarClock, permission: REGULAR_ORDER_PERMISSIONS },
   { id: 'deliveries', label: 'Deliveries', icon: Truck, permission: 'deliveries.view' },
@@ -395,18 +402,26 @@ const tourSteps: TourStep[] = [
   },
   {
     targetSelector: '#sidebar-tab-online-store',
-    title: 'Online Store',
+    title: 'Online orders',
     content: 'Orders and messages from customers using the website.',
     placement: 'right',
     tab: 'online-store',
   },
   {
-    targetSelector: '#sidebar-tab-online-store',
+    targetSelector: '#sidebar-tab-website',
     title: 'Your website',
-    content: 'The website banner, pages, reviews and delivery areas are also in Online Store.',
+    content: 'Brand, design, home page, pages and menu. Changes stay in a draft until you publish.',
     placement: 'right',
-    tab: 'online-store',
+    tab: 'website',
     permissions: ['business.update'],
+  },
+  {
+    targetSelector: '#sidebar-tab-marketing',
+    title: 'Marketing',
+    content: 'Campaigns with banners, cards, videos and pop-ups on your website, on a schedule, with real figures.',
+    placement: 'right',
+    tab: 'marketing',
+    permissions: ['marketing.view', 'marketing.manage'],
   },
   {
     targetSelector: '#sidebar-tab-feedback',
@@ -3895,8 +3910,18 @@ export default function App() {
                     },
                     {
                       id: 'online-store',
-                      icon: Globe,
+                      icon: ShoppingBag,
                       permission: 'online_store.view' as const,
+                    },
+                    {
+                      id: 'website',
+                      icon: Globe,
+                      permission: 'business.update' as const,
+                    },
+                    {
+                      id: 'marketing',
+                      icon: Megaphone,
+                      permission: MARKETING_PERMISSIONS,
                     },
                     {
                       id: 'promotions',
@@ -4459,6 +4484,28 @@ export default function App() {
                       >
                         <SecurityGuard permission="ai.use">
                           <WorkspaceAssistantView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'website' && (
+                      <motion.div
+                        key="website-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission="business.update">
+                          <WebsiteView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
+                    {activeTab === 'marketing' && (
+                      <motion.div
+                        key="marketing-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard permission={MARKETING_PERMISSIONS as any}>
+                          <MarketingView />
                         </SecurityGuard>
                       </motion.div>
                     )}

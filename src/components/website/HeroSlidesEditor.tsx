@@ -1,8 +1,9 @@
-// Online Store > Home banner: the slides at the top of the website's home page.
+// Website > Content > Home banner: the slides at the top of the website's home page.
 // Each slide has a headline, a short line, a button (label + where it goes) and 1 to 3 product
 // pictures. Pictures upload through the app's uploader, which can remove the background so the
-// product stands on the banner like a shop display. Saved to website_settings.hero_slides; the
-// database checks every field again (fn_valid_hero_slides, migrations 20261111002 + 20261112004).
+// product stands on the banner like a shop display. Saved into the website draft
+// (20261206002); the database checks every field when the draft is saved and again on Publish
+// (fn_valid_hero_slides, migrations 20261111002 + 20261112004).
 // Pictures can be dragged and zoomed anywhere in the display; their boxes are saved as positions.
 import SearchableDropdown from '../SearchableDropdown';
 import { FormEvent, KeyboardEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
@@ -10,11 +11,8 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, ImagePlus, 
 import UnifiedUploader from '../shared/UnifiedUploader';
 import OwnProductPictures, { useOwnProductPictures } from './OwnProductPictures';
 import { pictureSet } from '../../../website/src/shopPictures';
-import { getSupabase } from '../../services/supabaseClient';
-import { useNotificationStore } from '../../stores/notificationStore';
-import { toUserMessage } from '../../utils/userError';
 import {
-  DEFAULT_HERO_SLIDES,
+  defaultHeroSlides,
   HERO_DRAW_ORDER,
   HERO_LIMITS,
   HERO_PHONE_LAYOUTS,
@@ -33,6 +31,7 @@ import {
   safeHref,
 } from '../../../website/src/heroSlides';
 import { AD_TONES, AD_TONE_ORDER, AdTone } from '../../../website/src/adCards';
+import type { Industry } from '../../../website/src/engine/brand';
 
 const inputClass =
   'w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none focus:border-brand-500';
@@ -91,8 +90,6 @@ function cleanSlide(slide: HeroSlide): HeroSlide {
 }
 
 /** The layout fields, which a database without migration 20261115002 refuses. */
-const hasLayoutChoices = (slide: HeroSlide) => Boolean(slide.phone || slide.side || slide.tone);
-const withoutLayoutChoices = ({ phone: _p, side: _s, tone: _t, ...rest }: HeroSlide): HeroSlide => rest;
 
 /** Grows or shrinks a box around its centre, keeping its shape. */
 function zoomBox(box: HeroBox, factor: number): HeroBox {
@@ -682,56 +679,48 @@ export function SlideCard({ slide, index, total, onChange, onMove, onRemove }: {
   );
 }
 
-export default function HeroSlidesEditor({ businessId }: { businessId: string }) {
-  const showToast = useNotificationStore((s) => s.showToast);
+/**
+ * The banner slides in the website draft (Website > Content). Save puts them in the draft;
+ * visitors see them after Publish. With none saved the website shows the built-in slides for
+ * the shop's industry, so editing starts from those.
+ */
+export default function HeroSlidesEditor({ saved, industry, onSave }: {
+  saved: HeroSlide[];
+  industry?: Industry;
+  onSave: (next: HeroSlide[]) => Promise<boolean>;
+}) {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [usingBuiltIn, setUsingBuiltIn] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState('');
-  const [loadError, setLoadError] = useState('');
   // The built-in slides carry this shop's own product photos, as the website shows them.
   const pictures = useOwnProductPictures();
-  const picturesRef = useRef(pictures);
-  picturesRef.current = pictures;
   const builtIn = useCallback(
-    () => DEFAULT_HERO_SLIDES.map((s, i) => ({ ...s, images: pictureSet(picturesRef.current, i * 3, 3) })),
-    [],
+    () => defaultHeroSlides(industry).map((s, i) => ({ ...s, images: pictureSet(pictures, i * 3, 3) })),
+    [industry, pictures],
   );
-
-  const load = useCallback(async () => {
-    const { data, error } = await getSupabase().from('website_settings').select('hero_slides').eq('business_id', businessId).maybeSingle();
-    if (error) throw error;
-    const saved = (data?.hero_slides as HeroSlide[] | undefined) ?? [];
+  // Edits in progress are kept when the product photos arrive.
+  const touched = useRef(false);
+  useEffect(() => {
+    touched.current = false;
     setUsingBuiltIn(saved.length === 0);
-    // With nothing saved the website shows the built-in slides, so start editing from those.
     setSlides(saved.length > 0 ? saved : builtIn());
-    setLoaded(true);
-  }, [businessId, builtIn]);
+    // builtIn is left out on purpose: photos arriving must not undo edits (next effect).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
+  useEffect(() => {
+    if (saved.length === 0 && !touched.current) setSlides(builtIn());
+  }, [builtIn, saved.length]);
+  const edit = (next: HeroSlide[]) => {
+    touched.current = true;
+    setSlides(next);
+  };
 
-  const tryLoad = useCallback(() => {
-    setLoadError('');
-    load().catch((err) => {
-      // Never show an empty editor here: saving it would wipe slides we simply failed to read.
-      setLoadError(toUserMessage(err, 'Could not load the home banner.'));
-      setLoaded(true);
-    });
-  }, [load]);
-
-  useEffect(() => { tryLoad(); }, [tryLoad]);
-
-  /** `reportFailure` is false when a retry follows, so the first refusal shows no error. */
-  const write = async (next: HeroSlide[], message: string, reportFailure = true) => {
+  const write = async (next: HeroSlide[]) => {
     setSaving(true);
     setProblem('');
     try {
-      const { error } = await getSupabase().from('website_settings').upsert({ business_id: businessId, hero_slides: next });
-      if (error) throw error;
-      showToast('Online Store', message, undefined, 'success');
-      return true;
-    } catch (err) {
-      if (reportFailure) showToast('Online Store', toUserMessage(err, 'Could not save the home banner. Check each slide has a headline and a picture.'), undefined, 'error');
-      return false;
+      return await onSave(next);
     } finally {
       setSaving(false);
     }
@@ -748,49 +737,18 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
       setProblem('Every slide is hidden. Show at least one, or delete them all to use the built-in slides.');
       return;
     }
-    const cleaned = slides.map(cleanSlide);
-    const savedMessage = cleaned.length ? 'Home banner saved. Customers see it straight away.' : 'Home banner reset to the built-in slides.';
-    let ok = await write(cleaned, savedMessage, !cleaned.some(hasLayoutChoices));
-    if (!ok && cleaned.some(hasLayoutChoices)) {
-      // An older database refuses the layout and colour fields; keep the rest rather than lose it all.
-      ok = await write(
-        cleaned.map(withoutLayoutChoices),
-        'Home banner saved, but the phone layout, side and colour choices could not be saved. Try again later.',
-      );
-    }
-    if (ok) {
-      setSlides(cleaned.length ? cleaned : builtIn());
-      setUsingBuiltIn(cleaned.length === 0);
-    }
+    await write(slides.map(cleanSlide));
   };
 
-  const resetToBuiltIn = async () => {
-    if (await write([], 'Home banner reset to the built-in slides.')) {
-      setSlides(builtIn());
-      setUsingBuiltIn(true);
-    }
-  };
+  const resetToBuiltIn = () => write([]);
 
   const move = (index: number, direction: -1 | 1) => {
     const next = [...slides];
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
-    setSlides(next);
+    edit(next);
   };
-
-  if (!loaded) return <p className="text-sm text-app-text-muted">Loading home banner…</p>;
-  if (loadError) {
-    return (
-      <section className={`${cardClass} space-y-3`}>
-        <h3 className="font-bold text-app-text">Home banner</h3>
-        <p className="text-sm text-app-text-muted">
-          {loadError} Check your connection and try again.
-        </p>
-        <button type="button" className={secondaryClass} onClick={tryLoad}><RotateCcw size={15} /> Try again</button>
-      </section>
-    );
-  }
 
   return (
     <form onSubmit={save} className="space-y-4">
@@ -799,7 +757,7 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
           <h3 className="font-bold text-app-text">Home banner</h3>
           <p className="text-sm text-app-text-muted">
             Slides at the top of the website's home page.
-            {usingBuiltIn ? ' The website is showing the built-in slides; change anything below and save to use your own.' : ''}
+            {usingBuiltIn ? ' The website is showing the built-in slides for your kind of business. Change anything below and save to use your own.' : ''}
           </p>
         </div>
         {!usingBuiltIn && (
@@ -815,9 +773,9 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
           slide={slide}
           index={index}
           total={slides.length}
-          onChange={(next) => setSlides(slides.map((s, i) => (i === index ? next : s)))}
+          onChange={(next) => edit(slides.map((s, i) => (i === index ? next : s)))}
           onMove={(direction) => move(index, direction)}
-          onRemove={() => setSlides(slides.filter((_, i) => i !== index))}
+          onRemove={() => edit(slides.filter((_, i) => i !== index))}
         />
       ))}
 
@@ -832,12 +790,12 @@ export default function HeroSlidesEditor({ businessId }: { businessId: string })
           type="button"
           className={secondaryClass}
           disabled={slides.length >= HERO_LIMITS.slides}
-          onClick={() => setSlides([...slides, { id: newId(), title: '', body: '', ctaLabel: 'Shop now', ctaHref: '/shop', images: [] }])}
+          onClick={() => edit([...slides, { id: newId(), title: '', body: '', ctaLabel: 'Shop now', ctaHref: '/shop', images: [] }])}
         >
           <Plus size={15} /> Add slide {slides.length >= HERO_LIMITS.slides ? `(up to ${HERO_LIMITS.slides})` : ''}
         </button>
         <button type="submit" disabled={saving} className={primaryClass}>
-          <Save size={16} /> {saving ? 'Saving…' : 'Save home banner'}
+          <Save size={16} /> {saving ? 'Saving…' : 'Save to draft'}
         </button>
       </div>
     </form>

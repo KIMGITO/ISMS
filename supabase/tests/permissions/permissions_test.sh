@@ -21,9 +21,10 @@ grant(){ sql "INSERT INTO role_permissions (business_id, role, permission, grant
   ON CONFLICT (business_id, role, permission) DO UPDATE SET granted = EXCLUDED.granted" >/dev/null; }
 
 echo "-- every table with a read rule can be read (no missing grant)"
+# Column grants count: website_versions lets people read the history list, not the documents.
 eq "no table with a read rule lacks the SELECT grant" "$(sql "select string_agg(distinct c.relname, ',') from pg_class c join pg_namespace n on n.oid=c.relnamespace
   join pg_policies p on p.schemaname=n.nspname and p.tablename=c.relname
-  where n.nspname='public' and p.cmd in ('SELECT','ALL') and not has_table_privilege('authenticated', c.oid, 'SELECT')")" ""
+  where n.nspname='public' and p.cmd in ('SELECT','ALL') and not has_any_column_privilege('authenticated', c.oid, 'SELECT')")" ""
 eq "no table with a write rule lacks its grant" "$(sql "select string_agg(distinct c.relname||':'||p.cmd, ',') from pg_class c join pg_namespace n on n.oid=c.relnamespace
   join pg_policies p on p.schemaname=n.nspname and p.tablename=c.relname
   where n.nspname='public' and p.cmd in ('INSERT','UPDATE','DELETE') and not has_table_privilege('authenticated', c.oid, p.cmd)")" ""

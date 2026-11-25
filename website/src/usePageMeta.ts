@@ -45,7 +45,7 @@ export function usePageMeta(parts: string[], site: Storefront | null) {
 
     document.title = meta.title;
     setMeta('name', 'description', meta.description);
-    setMeta('name', 'robots', meta.noindex || !SITE_URL ? 'noindex, nofollow' : 'index, follow');
+    setMeta('name', 'robots', meta.noindex || !SITE_URL || site.site?.preview ? 'noindex, nofollow' : 'index, follow');
     setMeta('property', 'og:title', meta.title);
     setMeta('property', 'og:description', meta.description);
     setMeta('property', 'og:type', meta.type === 'article' ? 'article' : 'website');

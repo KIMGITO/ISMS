@@ -1,16 +1,14 @@
-// Online Store > Adverts: the advert cards on the website's home page.
+// Website > Content > Adverts: the advert cards on the website's home page.
 // "Poster" cards sit three in a row under the categories; a "strip" is a thin full-width offer bar
 // (the first strip shows above the offers, a second one lower down). Each card has a colour from
 // the website's own palette (the same names on both sides, from website/src/adCards.ts), short text,
-// a link and an optional picture. Saved to website_settings.ad_cards; the database checks every
-// field again (fn_valid_ad_cards, migration 20261114006).
+// a link and an optional picture. Saved into the website draft (20261206002); the database checks
+// every field when the draft is saved and again on Publish (fn_valid_ad_cards, 20261114006).
 import SearchableDropdown from '../SearchableDropdown';
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUp, Eye, EyeOff, ImagePlus, Megaphone, Plus, Save, Tag, Trash2, X } from 'lucide-react';
 import UnifiedUploader from '../shared/UnifiedUploader';
-import { getSupabase } from '../../services/supabaseClient';
-import { useNotificationStore } from '../../stores/notificationStore';
-import { toUserMessage } from '../../utils/userError';
+import type { Industry } from '../../../website/src/engine/brand';
 import OwnProductPictures, { useOwnProductPictures } from './OwnProductPictures';
 import type { ShopPicture } from '../../../website/src/shopPictures';
 import {
@@ -47,7 +45,7 @@ const LINK_CHOICES = [
 
 const newId = () => `ad-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 /** The built-in cards as the website shows them: posters carry the shop's own product photos. */
-const copyDefaults = (pictures: readonly ShopPicture[]) => visibleAdCards([], pictures).map((c) => ({ ...c }));
+const copyDefaults = (pictures: readonly ShopPicture[], industry?: Industry) => visibleAdCards([], pictures, industry).map((c) => ({ ...c }));
 
 /** A small copy of the card as the website draws it, in the website's colours and font. */
 function CardPreview({ card }: { card: AdCard }) {
@@ -203,48 +201,40 @@ function CardEditor({ card, index, total, onChange, onMove, onRemove }: {
   );
 }
 
-export default function AdCardsEditor({ businessId }: { businessId: string }) {
-  const showToast = useNotificationStore((s) => s.showToast);
+/** The advert cards in the website draft. Save puts them in the draft; visitors see them after Publish. */
+export default function AdCardsEditor({ saved, industry, onSave }: {
+  saved: AdCard[];
+  industry?: Industry;
+  onSave: (next: AdCard[]) => Promise<boolean>;
+}) {
   const [cards, setCards] = useState<AdCard[]>([]);
   const [usingBuiltIn, setUsingBuiltIn] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState('');
   const pictures = useOwnProductPictures();
-  const picturesRef = useRef(pictures);
-  picturesRef.current = pictures;
+  // Edits in progress are kept when the product photos arrive.
+  const touched = useRef(false);
+  useEffect(() => {
+    touched.current = false;
+    setUsingBuiltIn(saved.length === 0);
+    // With nothing saved the website shows the built-in cards, so start editing from those.
+    setCards(saved.length > 0 ? saved : copyDefaults(pictures, industry));
+    // pictures is left out on purpose: photos arriving must not undo edits (next effect).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved, industry]);
+  useEffect(() => {
+    if (saved.length === 0 && !touched.current) setCards(copyDefaults(pictures, industry));
+  }, [pictures, industry, saved.length]);
+  const edit = (update: (list: AdCard[]) => AdCard[]) => {
+    touched.current = true;
+    setCards(update);
+  };
 
-  const load = useCallback(async () => {
-    setLoadError('');
-    try {
-      const { data, error } = await getSupabase().from('website_settings').select('ad_cards').eq('business_id', businessId).maybeSingle();
-      if (error) throw error;
-      const saved = (data?.ad_cards as AdCard[] | undefined) ?? [];
-      setUsingBuiltIn(saved.length === 0);
-      // With nothing saved the website shows the built-in cards, so start editing from those.
-      setCards(saved.length > 0 ? saved : copyDefaults(picturesRef.current));
-    } catch (err) {
-      // Never show an empty editor here: saving it would wipe cards we simply failed to read.
-      setLoadError(toUserMessage(err, 'Could not load the adverts.'));
-    } finally {
-      setLoaded(true);
-    }
-  }, [businessId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const write = async (next: AdCard[], message: string) => {
+  const write = async (next: AdCard[]) => {
     setSaving(true);
     setProblem('');
     try {
-      const { error } = await getSupabase().from('website_settings').upsert({ business_id: businessId, ad_cards: next });
-      if (error) throw error;
-      showToast('Online Store', message, undefined, 'success');
-      return true;
-    } catch (err) {
-      showToast('Online Store', toUserMessage(err, 'Could not save the adverts. Check each card has a headline.'), undefined, 'error');
-      return false;
+      return await onSave(next);
     } finally {
       setSaving(false);
     }
@@ -266,43 +256,21 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
       setProblem(`Up to ${AD_LIMITS.cards} cards. Delete one first.`);
       return;
     }
-    const cleaned = cards.map((c) => cleanAdCard(c, newId));
-    if (await write(cleaned, cleaned.length ? 'Adverts saved. Customers see them straight away.' : 'Adverts reset to the built-in cards.')) {
-      setCards(cleaned.length ? cleaned : copyDefaults(picturesRef.current));
-      setUsingBuiltIn(cleaned.length === 0);
-    }
+    await write(cards.map((c) => cleanAdCard(c, newId)));
   };
 
-  const resetToBuiltIn = async () => {
-    if (await write([], 'Adverts reset to the built-in cards.')) {
-      setCards(copyDefaults(picturesRef.current));
-      setUsingBuiltIn(true);
-    }
-  };
+  const resetToBuiltIn = () => write([]);
 
   const add = (kind: AdCard['kind']) =>
-    setCards((list) => [...list, { id: newId(), kind, title: '', tone: kind === 'strip' ? 'ember' : 'butter', ctaLabel: 'Shop now', href: '/shop' }]);
+    edit((list) => [...list, { id: newId(), kind, title: '', tone: kind === 'strip' ? 'ember' : 'butter', ctaLabel: 'Shop now', href: '/shop' }]);
 
   const move = (index: number, direction: -1 | 1) => {
     const next = [...cards];
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
-    setCards(next);
+    edit(() => next);
   };
-
-  if (!loaded) return <p className="text-sm text-app-text-muted">Loading adverts…</p>;
-  if (loadError) {
-    return (
-      <section className={`${cardClass} space-y-3`}>
-        <h3 className="font-bold text-app-text">Adverts</h3>
-        <p className="text-sm text-app-text-muted">
-          {loadError} Check your connection and try again.
-        </p>
-        <button type="button" onClick={load} className={secondaryClass}>Try again</button>
-      </section>
-    );
-  }
 
   const full = cards.length >= AD_LIMITS.cards;
   return (
@@ -311,7 +279,7 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
         <h3 className="flex items-center gap-2 font-bold text-app-text"><Megaphone size={16} /> Adverts on the home page</h3>
         <p className="text-sm text-app-text-muted">
           Posters show three in a row under the categories (customers swipe them on phones). A strip is a thin offer bar across the page.
-          {usingBuiltIn && ' The website is showing the built-in cards below. Change them and save to use your own.'}
+          {usingBuiltIn && ' The website is showing the built-in cards for your kind of business. Change them and save to use your own.'}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button type="button" className={secondaryClass} onClick={() => add('poster')} disabled={full}><Plus size={15} /> Add poster</button>
@@ -327,16 +295,16 @@ export default function AdCardsEditor({ businessId }: { businessId: string }) {
             card={card}
             index={index}
             total={cards.length}
-            onChange={(next) => setCards((list) => list.map((c, i) => (i === index ? next : c)))}
+            onChange={(next) => edit((list) => list.map((c, i) => (i === index ? next : c)))}
             onMove={(direction) => move(index, direction)}
-            onRemove={() => setCards((list) => list.filter((_, i) => i !== index))}
+            onRemove={() => edit((list) => list.filter((_, i) => i !== index))}
           />
         ))}
       </div>
 
       {problem && <p className="text-sm font-medium text-red-500" role="alert">{problem}</p>}
       <div className="sticky bottom-3 flex justify-end">
-        <button type="submit" disabled={saving} className={`${primaryClass} shadow-lg`}><Save size={16} /> {saving ? 'Saving…' : 'Save adverts'}</button>
+        <button type="submit" disabled={saving} className={`${primaryClass} shadow-lg`}><Save size={16} /> {saving ? 'Saving…' : 'Save to draft'}</button>
       </div>
     </form>
   );

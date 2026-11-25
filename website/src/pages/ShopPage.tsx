@@ -6,6 +6,7 @@ import { PageHeader, pageClass } from '../ui';
 import Breadcrumbs from './Breadcrumbs';
 import ProductCard from './ProductCard';
 import { percentOff } from '../adCards';
+import { CategoryBanner } from '../ads/AdSlots';
 
 const SORTS = [
   { id: 'featured', label: 'Featured' },
@@ -86,6 +87,7 @@ export default function ShopPage({ route }: { route: Route }) {
             : [{ label: 'Home', href: '/' }, { label: 'Shop', href: category !== 'All' ? '/shop' : undefined }, ...(category !== 'All' ? [{ label: category }] : [])]}
         />
       </PageHeader>
+      {!searching && <div className="site-gutter mt-4"><CategoryBanner category={category} /></div>}
       <div className={`${pageClass} lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10`}>
         <aside className="hidden lg:block" aria-label="Filters">
           <div className="sticky top-36 space-y-8">

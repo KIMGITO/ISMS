@@ -10,6 +10,7 @@ import Breadcrumbs from './Breadcrumbs';
 import { OfferRibbon, PriceLine, SaveButton, useAddToCart } from './ProductCard';
 import ProductCarousel from './ProductCarousel';
 import { ProductReviews, RatingLine } from './Reviews';
+import { ProductPromo } from '../ads/AdSlots';
 
 function Accordion({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
   return (
@@ -195,6 +196,7 @@ export default function ProductPage({ path }: { path: string }) {
               <span className={`size-2 rounded-full ${product.inStock ? 'bg-emerald-600' : 'bg-red-600'}`} />
               {product.inStock ? 'In stock, ready to order' : 'Out of stock right now'}
             </p>
+            <ProductPromo productId={product.id} category={product.category} />
             {product.description && <p className="mt-5 text-lg leading-relaxed text-muted">{product.description}</p>}
 
             {product.inStock ? (

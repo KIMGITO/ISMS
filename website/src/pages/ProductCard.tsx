@@ -36,7 +36,7 @@ export function OfferRibbon({ product, className = '' }: { product: Pick<Product
   const off = percentOff(product.price, product.wasPrice);
   if (!off) return null;
   return (
-    <span className={`absolute left-0 z-10 flex flex-col rounded-r-full bg-ember py-1 pl-2 pr-3 text-[0.6875rem] font-semibold leading-tight text-white sm:text-xs ${className}`}>
+    <span className={`absolute left-0 z-10 flex flex-col rounded-r-full bg-accent py-1 pl-2 pr-3 text-[0.6875rem] font-semibold leading-tight text-on-accent sm:text-xs ${className}`}>
       {off}%<span className="font-normal">Off</span>
     </span>
   );
@@ -110,9 +110,9 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
     <Tag className="group relative flex min-w-0 flex-col rounded-lg border border-line bg-white p-2 transition hover:border-ember/40 hover:shadow-soft sm:p-3">
       <OfferRibbon product={product} className="top-3 sm:top-4" />
       <SaveButton productId={product.id} name={product.name} className="absolute right-2 top-2 z-10 size-8 border border-line shadow-none sm:right-3 sm:top-3" />
-      <a href={href} className="relative block aspect-square overflow-hidden rounded-md bg-white" tabIndex={-1} aria-hidden>
-        <span className="block size-full p-2 transition duration-500 group-hover:scale-[1.04] sm:p-3">
-          <ProductImage product={product} width={460} fit="contain" />
+      <a href={href} className="product-media relative block overflow-hidden rounded-md bg-white" tabIndex={-1} aria-hidden>
+        <span className="block size-full transition duration-500 group-hover:scale-[1.04]">
+          <ProductImage product={product} width={460} fit="brand" />
         </span>
         {!product.inStock && (
           <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-ink/90 px-2.5 py-0.5 text-[0.6875rem] font-medium text-cream">Sold out</span>

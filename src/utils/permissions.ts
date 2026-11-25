@@ -82,6 +82,8 @@ export type PermissionCode =
   // Promotions & referrals
   | 'promotions.view'
   | 'promotions.manage'
+  | 'marketing.view'
+  | 'marketing.manage'
   | 'referrals.view'
   | 'referrals.manage'
   // Customers & Loyalty
@@ -297,6 +299,8 @@ export const ALL_PERMISSIONS: PermissionDetails[] = [
   { code: 'pos.apply_promotion', category: 'POS & Checkout', description: 'Type a promotion or referral code at the till' },
   { code: 'promotions.view', category: 'Promotions & Referrals', description: 'See promotions, their uses and what they cost' },
   { code: 'promotions.manage', category: 'Promotions & Referrals', description: 'Create, change, switch off and archive promotion codes' },
+  { code: 'marketing.view', category: 'Marketing', description: 'See campaigns, adverts and their figures' },
+  { code: 'marketing.manage', category: 'Marketing', description: 'Create, schedule, publish and end campaigns; upload pictures and videos; use Canva' },
   { code: 'referrals.view', category: 'Promotions & Referrals', description: 'See referrals, top referrers and what rewards cost' },
   { code: 'referrals.manage', category: 'Promotions & Referrals', description: 'Run the referral programme' },
 
@@ -473,7 +477,7 @@ export const SYSTEM_ROLES: Record<string, RoleConfig> = {
       'products.view', 'products.create', 'products.update', 'products.import', 'products.export', 'products.manage_categories',
       'inventory.view', 'inventory.receive_stock', 'inventory.adjust_stock', 'inventory.transfer_stock', 'inventory.request_transfer', 'inventory.stock_count', 'inventory.stock_history', 'inventory.wastage', 'inventory.expiry',
       'pos.open_shift', 'pos.close_shift', 'pos.create_sale', 'pos.walkin_customer', 'pos.apply_promotion',
-      'promotions.view', 'promotions.manage', 'referrals.view', 'referrals.manage',
+      'promotions.view', 'promotions.manage', 'referrals.view', 'referrals.manage', 'marketing.view', 'marketing.manage',
       'customers.view', 'customers.create', 'customers.update', 'customers.debts', 'customers.loyalty', 'customers.schedules', 'customers.manage',
       'orders.view', 'orders.create', 'orders.update', 'orders.complete', 'orders.assign_rider',
       'deliveries.view', 'deliveries.create', 'deliveries.assign', 'deliveries.complete', 'deliveries.cancel',

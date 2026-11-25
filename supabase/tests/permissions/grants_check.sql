@@ -13,9 +13,9 @@ SELECT problem FROM (
           'accept_invitation_with_token', 'assert_business_member', 'check_owner_exists',
           'check_promo_code', 'check_request_session', 'fn_audit_actor_name',
           'fn_can_write_storage_folder', 'fn_storage_folder_permission', 'gen_random_bytes',
-          'get_invitation_by_token', 'get_product_ideas', 'get_public_plans', 'get_public_storefront',
-          'get_user_business_ids', 'is_owner_or_admin', 'report_crash', 'resolve_website_host', 'session_is_live',
-          'submit_website_feedback', 'uuid_generate_v4', 'vat_allowed',
+          'get_invitation_by_token', 'get_preview_campaigns', 'get_preview_storefront', 'get_public_campaigns', 'get_product_ideas', 'get_public_plans', 'get_public_storefront',
+          'get_user_business_ids', 'is_owner_or_admin', 'record_website_view', 'report_crash', 'resolve_website_host', 'session_is_live',
+          'submit_website_feedback', 'track_ad_events', 'uuid_generate_v4', 'vat_allowed',
           'website_accepts_airtel', 'website_accepts_cards')
     UNION ALL
     -- 2. Server-only functions (passwords, codes, payment callbacks, books): no app role at all.
@@ -56,7 +56,8 @@ SELECT problem FROM (
     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
       AND c.relname NOT IN ('audit_logs', 'notifications', 'notification_preferences',
                             'business_memberships', 'crash_reports', 'problem_reports',
-                            'support_grants')
+                            'support_grants', 'website_visit_daily',
+                            'marketing_ad_daily', 'marketing_conversions', 'canva_oauth_states')
       AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = 'trg_zz_plan_read_only')
 ) problems
 ORDER BY 1;

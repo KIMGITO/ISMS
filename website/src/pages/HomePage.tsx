@@ -1,4 +1,4 @@
-import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../api';
 import { AdCard, AD_TONES, visibleAdCards } from '../adCards';
@@ -10,6 +10,10 @@ import { OrderAnyWayBand } from './PageEnd';
 import { Testimonials } from './Reviews';
 import ProductCarousel from './ProductCarousel';
 import { ArticleCard } from './ArticlesPage';
+import { CategoryChips, CategoryTiles, HeroStatement, ProductGrid, StorySection, VisitSection } from './HomeSections';
+import { composeHome, ResolvedSection, SectionKind } from '../engine/layout';
+import { presetFor } from '../engine/tokens';
+import { HeroAds, PromoCards, VideoAds } from '../ads/AdSlots';
 
 const SLIDE_MS = 7000;
 
@@ -49,8 +53,8 @@ function slideClasses(slide: HeroSlide) {
  * Slides come from Online Store > Home banner in the app, or the built-in ones (heroSlides.ts).
  */
 function Hero() {
-  const { articles, heroSlides, products } = useStorefront();
-  const slides = visibleHeroSlides(heroSlides, articles.length > 0, shopPictures(products));
+  const { articles, heroSlides, products, brand } = useStorefront();
+  const slides = visibleHeroSlides(heroSlides, articles.length > 0, shopPictures(products), brand?.industry);
   const count = slides.length;
   const [rawActive, setActive] = useState(0);
   // Saved slides can arrive after the built-in ones, so the position is kept inside the new count.
@@ -155,11 +159,11 @@ function Hero() {
 }
 
 /** Promo codes staff chose to show on the website. Nothing shows when there are none. */
-function Promotions() {
+function Promotions({ gap }: { gap: string }) {
   const { promotions = [], business } = useStorefront();
   if (promotions.length === 0) return null;
   return (
-    <section className="site-gutter pt-6 sm:pt-8" aria-label="Promo codes">
+    <section className={`site-gutter ${gap}`} aria-label="Promo codes">
       <ul className="grid gap-3 md:grid-cols-2">
         {promotions.slice(0, 4).map((promo) => (
           <li key={promo.code} className="flex items-center gap-3 rounded-lg border border-dashed border-ember/50 bg-amber-50 p-3.5 sm:gap-4 sm:p-4">
@@ -184,15 +188,15 @@ function categoryImage(category: string, products: Product[]): string | undefine
 }
 
 /** "Shop by category": round pictures in a row, the biggest categories first. Swipes on phones. */
-function CategoryCircles() {
+function CategoryCircles({ title, gap }: { title: string; gap: string }) {
   const { products } = useStorefront();
   const counts = new Map<string, number>();
   for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
   const categories = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).map(([c]) => c).slice(0, 8);
   if (categories.length < 2) return null;
   return (
-    <section className="site-gutter pt-8 sm:pt-10" aria-labelledby="categories-heading">
-      <h2 id="categories-heading" className="display-md text-center font-semibold">Top Picks by Category</h2>
+    <section className={`site-gutter ${gap}`} aria-labelledby="categories-heading">
+      <h2 id="categories-heading" className="display-md text-center font-semibold">{title}</h2>
       <ul className="no-scrollbar -mx-4 mt-5 flex snap-x gap-4 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:justify-center sm:gap-6 sm:scroll-px-0 sm:px-0 lg:gap-8">
         {categories.map((category) => {
           const image = categoryImage(category, products);
@@ -274,10 +278,10 @@ function AdStrip({ card }: { card: AdCard }) {
   );
 }
 
-function AdPosters({ cards }: { cards: AdCard[] }) {
+function AdPosters({ cards, gap }: { cards: AdCard[]; gap: string }) {
   if (cards.length === 0) return null;
   return (
-    <section className="site-gutter pt-8 sm:pt-10" aria-label="Offers and news">
+    <section className={`site-gutter ${gap}`} aria-label="Offers and news">
       <ul className="poster-row -mx-4 scroll-px-4 px-4 sm:mx-0 sm:scroll-px-0 sm:px-0">
         {cards.map((card, index) => <li key={card.id || index}><AdPoster card={card} /></li>)}
       </ul>
@@ -285,13 +289,26 @@ function AdPosters({ cards }: { cards: AdCard[] }) {
   );
 }
 
+/** Space above each section on the original design: the exact classes it always had. */
+const ORIGINAL_GAP: Partial<Record<SectionKind, string>> = {
+  categories: 'pt-8 sm:pt-10', adverts: 'pt-8 sm:pt-10', strip: 'pt-6 sm:pt-8', promotions: 'pt-6 sm:pt-8',
+  strip2: 'pt-10 sm:pt-12', trust: 'pt-12 sm:pt-16', testimonials: 'pt-12 sm:pt-16', guides: 'pt-12 sm:pt-16',
+  contact: 'pt-12 sm:pt-16', story: 'pt-12 sm:pt-16', visit: 'pt-12 sm:pt-16',
+};
+
+/**
+ * The home page, drawn from the layout engine: the shop's saved arrangement, or the one for its
+ * industry and personality (engine/layout.ts). Sections with nothing to show draw nothing.
+ */
 export default function HomePage() {
   const site = useStorefront();
-  const { products, articles, reviews = [] } = site;
+  const { products, articles, reviews = [], brand } = site;
   const recentIds = useRecent((s) => s.ids);
-  const cards = visibleAdCards(site.adCards, shopPictures(products));
+  const cards = visibleAdCards(site.adCards, shopPictures(products), brand?.industry);
   const posters = cards.filter((c) => c.kind === 'poster').slice(0, 6);
   const strips = cards.filter((c) => c.kind === 'strip');
+  const original = presetFor(brand) === 'original';
+  const sections = composeHome(brand, site.home);
 
   const inStockFirst = (list: Product[]) => [...list].sort((a, b) => Number(b.inStock) - Number(a.inStock));
   const offers = inStockFirst(products.filter((p) => p.wasPrice && p.wasPrice > p.price)).slice(0, 12);
@@ -310,38 +327,72 @@ export default function HomePage() {
     ? Array.from(counts.entries()).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c)
     : [];
 
+  const draw = (section: ResolvedSection) => {
+    const { kind, variant, title } = section;
+    const legacyRow = 'pt-10 sm:pt-12';
+    const gap = original ? ORIGINAL_GAP[kind] ?? legacyRow : section.gap === 'lg' ? 'section-gap-lg' : 'section-gap';
+    const rows = (id: string, list: Product[], viewAll?: string) => variant === 'grid'
+      ? <ProductGrid key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />
+      : <ProductCarousel key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />;
+    switch (kind) {
+      case 'hero': return variant === 'carousel' ? <Hero key={kind} /> : <HeroStatement key={kind} variant={variant} />;
+      case 'categories':
+        if (variant === 'tiles') return <CategoryTiles key={kind} title={title} gap={gap} />;
+        if (variant === 'chips') return <CategoryChips key={kind} title={title} gap={gap} />;
+        return <CategoryCircles key={kind} title={title} gap={gap} />;
+      case 'adverts': return <AdPosters key={kind} cards={posters} gap={gap} />;
+      case 'strip': return strips[0] ? <div key={kind} className={`site-gutter ${gap}`}><AdStrip card={strips[0]} /></div> : null;
+      case 'strip2': return strips[1] ? <div key={kind} className={`site-gutter ${gap}`}><AdStrip card={strips[1]} /></div> : null;
+      case 'promotions': return <Promotions key={kind} gap={gap} />;
+      case 'offers': return rows('offers', offers, '/shop?offers=1');
+      case 'products': return rows('popular', popular, products.length > popular.length ? '/shop' : undefined);
+      case 'reviewed': return rows('best', mostReviewed);
+      case 'recent': return rows('recent', recent);
+      case 'aisles':
+        return aisles.map((category) => {
+          const id = `aisle-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          const list = inStockFirst(products.filter((p) => p.category === category)).slice(0, 12);
+          const heading = category.replace(/^./, (c) => c.toUpperCase());
+          const viewAll = `/shop?category=${encodeURIComponent(category)}`;
+          return variant === 'grid'
+            ? <ProductGrid key={id} id={id} title={heading} products={list} viewAll={viewAll} gap={gap} max={4} />
+            : <ProductCarousel key={id} id={id} title={heading} products={list} viewAll={viewAll} gap={gap} />;
+        });
+      case 'story': return <StorySection key={kind} variant={variant} title={title} gap={gap} />;
+      case 'trust': return <div key={kind} className={`site-gutter ${gap}`}><TrustStrip site={site} /></div>;
+      case 'testimonials': return <Testimonials key={kind} title={title} gap={gap} />;
+      case 'guides':
+        return articles.length > 0 && (
+          <section key={kind} className={`site-gutter ${gap}`} aria-labelledby="guides-heading">
+            <Reveal><SectionHeader center id="guides-heading" title={title} subtitle="Tips to get the most from what you buy." /></Reveal>
+            <RevealList className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-3 max-sm:[&>li]:w-[78vw] max-sm:[&>li]:max-w-xs max-sm:[&>li]:shrink-0 max-sm:[&>li]:snap-start">
+              {articles.slice(0, 3).map((article) => <ArticleCard key={article.id} article={article} />)}
+            </RevealList>
+          </section>
+        );
+      case 'visit': return <VisitSection key={kind} title={title} gap={gap} />;
+      case 'contact': return <OrderAnyWayBand key={kind} gap={gap} title={title} track={brand?.industry !== 'professional_services'} />;
+      default: return null;
+    }
+  };
+
+  // Campaign adverts (Marketing, 20261207001): banners before the shop's own opening, cards after
+  // the categories, a video after the first row of products. Each renders nothing when no
+  // running campaign uses it, so the page is unchanged without campaigns.
+  const find = (kinds: SectionKind[]) => sections.findIndex((s) => kinds.includes(s.kind));
+  const cardsAfter = Math.max(find(['categories']), find(['hero']), 0);
+  const videoAfter = (() => { const i = find(['products', 'offers', 'reviewed']); return i >= 0 ? i : sections.length - 1; })();
   return (
     <>
-      <Hero />
-      <CategoryCircles />
-      <AdPosters cards={posters} />
-      {strips[0] && <div className="site-gutter pt-6 sm:pt-8"><AdStrip card={strips[0]} /></div>}
-      <Promotions />
-      <ProductCarousel id="offers" title="Exclusive Offers" products={offers} viewAll="/shop?offers=1" />
-      <ProductCarousel id="popular" title="Our Products" products={popular} viewAll={products.length > popular.length ? '/shop' : undefined} />
-      <ProductCarousel id="best" title="Most Reviewed" products={mostReviewed} />
-      {strips[1] && <div className="site-gutter pt-10 sm:pt-12"><AdStrip card={strips[1]} /></div>}
-      {aisles.map((category) => (
-        <ProductCarousel
-          key={category}
-          id={`aisle-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-          title={category.replace(/^./, (c) => c.toUpperCase())}
-          products={inStockFirst(products.filter((p) => p.category === category)).slice(0, 12)}
-          viewAll={`/shop?category=${encodeURIComponent(category)}`}
-        />
+      <HeroAds />
+      {sections.map((section, i) => (
+        <Fragment key={`${section.kind}-${i}`}>
+          {draw(section)}
+          {i === cardsAfter && <PromoCards />}
+          {i === videoAfter && <VideoAds />}
+        </Fragment>
       ))}
-      <div className="site-gutter pt-12 sm:pt-16"><TrustStrip site={site} /></div>
-      <Testimonials />
-      <ProductCarousel id="recent" title="Recently Viewed" products={recent} />
-      {articles.length > 0 && (
-        <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="guides-heading">
-          <Reveal><SectionHeader center id="guides-heading" title="Guides" subtitle="Tips to get the most from what you buy." /></Reveal>
-          <RevealList className="no-scrollbar -mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-3 max-sm:[&>li]:w-[78vw] max-sm:[&>li]:max-w-xs max-sm:[&>li]:shrink-0 max-sm:[&>li]:snap-start">
-            {articles.slice(0, 3).map((article) => <ArticleCard key={article.id} article={article} />)}
-          </RevealList>
-        </section>
-      )}
-      <OrderAnyWayBand />
+      {sections.length === 0 && <><PromoCards /><VideoAds /></>}
     </>
   );
 }

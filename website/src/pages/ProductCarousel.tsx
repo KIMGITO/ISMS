@@ -8,12 +8,14 @@ import ProductCard from './ProductCard';
  * swipe on phones (about two and a half cards show, so it's clear there is more), and a
  * "View all" link. Arrows grey out at each end.
  */
-export default function ProductCarousel({ id, title, products, viewAll, className = '' }: {
+export default function ProductCarousel({ id, title, products, viewAll, className = '', gap = 'pt-10 sm:pt-12' }: {
   id: string;
   title: string;
   products: Product[];
   viewAll?: string;
   className?: string;
+  /** Space above, as classes. */
+  gap?: string;
 }) {
   const track = useRef<HTMLUListElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
@@ -40,7 +42,7 @@ export default function ProductCarousel({ id, title, products, viewAll, classNam
   const arrow = 'grid size-9 place-items-center rounded-full border border-line bg-white text-ink transition hover:border-ember hover:bg-ember hover:text-white disabled:pointer-events-none disabled:opacity-35';
 
   return (
-    <section id={id} className={`site-gutter scroll-mt-36 pt-10 sm:pt-12 ${className}`} aria-labelledby={`${id}-heading`}>
+    <section id={id} className={`site-gutter scroll-mt-36 ${gap} ${className}`} aria-labelledby={`${id}-heading`}>
       <div className="flex items-center justify-between gap-3">
         <h2 id={`${id}-heading`} className="display-md font-semibold">{title}</h2>
         <div className="flex shrink-0 items-center gap-2">

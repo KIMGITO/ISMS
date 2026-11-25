@@ -3,24 +3,11 @@
 // points and messages go to that branch), and keeps cart items the new branch also sells.
 import { fetchStorefront, rememberStore, Storefront, switchMyStore, WEBSITE_SLUG } from './api';
 import { useAuth, useCart, useSite } from './store';
+import { applyBrand } from './engine/apply';
 
 /** The branches a customer can pick from. The picker only shows with two or more. */
 export const storesOf = (site: Pick<Storefront, 'stores'> | null | undefined) => site?.stores ?? [];
 export const hasStorePicker = (site: Pick<Storefront, 'stores'> | null | undefined) => storesOf(site).length >= 2;
-
-/** Applies the business's brand colour, keeping button text readable on it. */
-export function applyBrandColor(color: string | null) {
-  const root = document.documentElement.style;
-  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) {
-    root.removeProperty('--brand-primary');
-    root.removeProperty('--brand-on-primary');
-    return;
-  }
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  root.setProperty('--brand-primary', color);
-  root.setProperty('--brand-on-primary', luminance > 0.55 ? '#1c1408' : '#ffffff');
-}
 
 const normalise = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -50,7 +37,7 @@ export async function changeStore(slug: string): Promise<{ dropped: number }> {
   }
   useCart.setState({ lines: kept });
 
-  applyBrandColor(next.business.primaryColor);
+  applyBrand(next);
   useSite.getState().setSite(next);
   return { dropped: lines.length - kept.length };
 }

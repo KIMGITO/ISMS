@@ -40,3 +40,13 @@ export const isFilePath = (pathname: string) =>
 
 /** The same page at the shop's home address (keeps the path and query). */
 export const redirectTo = (url: URL, host: string) => `https://${host}${url.pathname}${url.search}`;
+
+/**
+ * The edge-cache key for a database answer. Everything the answer depends on (the function and
+ * every argument: the shop's web name or the address) is in the key, so one shop's answer can
+ * never be served for another. Arguments are sorted so the same call always has the same key.
+ */
+export function rpcCacheKey(fn: string, args: Record<string, string>): string {
+  const params = new URLSearchParams(Object.entries(args).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  return `https://rpc.cache/${encodeURIComponent(fn)}?${params}`;
+}

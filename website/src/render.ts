@@ -2,6 +2,8 @@
 // readable content, so search engines and link previews work without running JavaScript.
 // Used by the website Worker for every shop (worker/index.ts) and by scripts/prerender.ts for the
 // build's own shop. Plain data only: no browser, Vite or Node APIs.
+import { buildTokens, tokensCss } from './engine/tokens';
+import { hoursText } from './engine/brand';
 import type { Storefront } from './api';
 import { shopPictures } from './shopPictures';
 import { metaForRoute, PageMeta, productPaths } from './seo';
@@ -89,16 +91,33 @@ export function pageHtml(
     .replace(/<meta (name="description"|property="og:[^"]+"|name="twitter:card")[^>]*>\s*/g, '')
     .replace('</head>', `  ${headTags(meta, site, siteUrl, opts.indexable, opts.shop)}\n  </head>`)
     .replace('<div id="root"></div>', `<div id="root">${content}</div>`);
-  const logo = site.business.logoUrl;
-  if (opts.shop && logo && /^https:\/\//.test(logo)) {
+  // The shop's design tokens and fonts, so the first paint is already in its colours.
+  const tokens = buildTokens(site.business.primaryColor, site.brand);
+  html = html
+    .replace(/<link id="brand-fonts"[^>]*>/, `<link id="brand-fonts" href="${escapeHtml(tokens.fontHref)}" rel="stylesheet" />`)
+    .replace(/<meta name="theme-color"[^>]*>/, `<meta name="theme-color" content="${escapeHtml(tokens.design.page)}" />`)
+    .replace('</head>', `  <style id="brand-tokens">${tokensCss(tokens).replace(/</g, '')}</style>\n  </head>`);
+  const icon = [site.brand?.faviconUrl, site.brand?.logoMarkUrl, site.business.logoUrl].find((u) => u && /^https:\/\//.test(u));
+  if (opts.shop && icon) {
     html = html
-      .replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escapeHtml(logo)}" />`)
-      .replace(/<link rel="apple-touch-icon"[^>]*>/, `<link rel="apple-touch-icon" href="${escapeHtml(logo)}" />`);
+      .replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escapeHtml(icon)}" />`)
+      .replace(/<link rel="apple-touch-icon"[^>]*>/, `<link rel="apple-touch-icon" href="${escapeHtml(icon)}" />`);
   }
   return html;
 }
 
 const list = (items: string[]) => `<ul>${items.join('')}</ul>`;
+const para = (text: string | null | undefined) => (text?.trim() ? `<p>${escapeHtml(text.trim())}</p>` : '');
+
+/** The home page as plain HTML: who the shop is, what it sells, where and when to find it. */
+export function homeHtml(site: Storefront, productLinks: string, articleLinks: string): string {
+  const { business, brand, settings } = site;
+  const hours = hoursText(brand?.openingHours) ?? settings.openingHours;
+  return `<h1>${escapeHtml(business.name)}</h1>${para(brand?.tagline)}${para(brand?.mission)}${para(brand?.story || business.description)}`
+    + `<h2>Products</h2>${productLinks}${guidesHtml(articleLinks)}`
+    + (business.address || hours ? `<h2>Visit us</h2>${para(business.address)}${para(hours)}` : '');
+}
+const guidesHtml = (links: string) => (links === '<ul></ul>' ? '' : `<h2>Guides</h2>${links}`);
 
 /** Every public page of a shop: [path parts, readable content]. */
 export function shopPages(site: Storefront): [string[], string][] {
@@ -107,7 +126,7 @@ export function shopPages(site: Storefront): [string[], string][] {
   const productLinks = list(products.map((p) => `<li><a href="${paths.get(p.id)}">${escapeHtml(p.name)}</a></li>`));
   const articleLinks = list(articles.map((a) => `<li><a href="/articles/${a.slug}">${escapeHtml(a.title)}</a></li>`));
   return [
-    [[], `<h1>${escapeHtml(business.name)}</h1><p>${escapeHtml(business.description ?? '')}</p><h2>Products</h2>${productLinks}${articles.length ? `<h2>Guides</h2>${articleLinks}` : ''}`],
+    [[], homeHtml(site, productLinks, articleLinks)],
     [['shop'], `<h1>Shop</h1>${productLinks}`],
     [['articles'], `<h1>Guides</h1>${articleLinks}`],
     [['contact'], `<h1>Contact ${escapeHtml(business.name)}</h1><p>${escapeHtml(business.address ?? '')}</p><p>${escapeHtml(business.contactPhone ?? '')}</p>`],

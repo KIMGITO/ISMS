@@ -76,6 +76,8 @@ import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts,
 import { formatHours, minutesWithin, periodRange } from "../utils/workedHours";
 import websiteWorker from "../../website/worker/index";
 import { cleanHost, isFilePath, isSingleShopHost } from "../../website/worker/hosts";
+import { runWebsiteEngineTests } from "./websiteEngineTests";
+import { runMarketingTests } from "./marketingTests";
 
 function runTest(name: string, fn: () => void) {
   try {
@@ -94,6 +96,9 @@ console.log("🚀 Starting Application Unit Tests...");
 // The whole database schema (20261120001 merged all earlier migrations). Function bodies are
 // kept as written, so the database's rules can be checked against the app's here.
 const SCHEMA_SQL = readFileSync("supabase/migrations/20261120001_schema.sql", "utf8");
+
+runWebsiteEngineTests(runTest);
+runMarketingTests(runTest);
 
 runTest("Alarm times read the same when set, listed and rung", () => {
   const cases: [string, string][] = [["13:38", "1:38 PM"], ["00:05", "12:05 AM"], ["12:00", "12:00 PM"], ["09:30:00", "9:30 AM"], ["23:59", "11:59 PM"]];

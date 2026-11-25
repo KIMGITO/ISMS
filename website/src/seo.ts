@@ -1,5 +1,6 @@
 // Page titles, descriptions and structured data. Used in the browser and by
 // scripts/prerender.ts, so everything here is plain data with no browser or Vite APIs.
+import { hoursJsonLd, type Industry } from './engine/brand';
 import type { Article, Product, Storefront } from './api';
 import { infoPage, InfoPageDef, plainText } from './infoPages';
 import { formatPrice } from './numbers';
@@ -55,11 +56,32 @@ const breadcrumbs = (siteUrl: string, items: [string, string][]) => ({
   })),
 });
 
+/** The most specific schema.org type for the shop's industry (brand profile, 20261206001). */
+const SCHEMA_TYPE: Record<Industry, string> = {
+  food_grocery: 'GroceryStore',
+  restaurant: 'Restaurant',
+  beauty: 'HealthAndBeautyBusiness',
+  fashion: 'ClothingStore',
+  electronics: 'ElectronicsStore',
+  pharmacy: 'Pharmacy',
+  hardware: 'HardwareStore',
+  professional_services: 'ProfessionalService',
+  logistics: 'LocalBusiness',
+  general_retail: 'Store',
+  other: 'LocalBusiness',
+};
+
 export function businessJsonLd(site: Storefront, siteUrl: string) {
   const { name, description, address, contactEmail, contactPhone, logoUrl } = site.business;
+  const brand = site.brand;
+  const sameAs = Object.values(brand?.socialLinks ?? {}).filter((u): u is string => !!u);
+  const hours = hoursJsonLd(brand?.openingHours);
   return {
     '@context': 'https://schema.org',
-    '@type': 'Store',
+    '@type': SCHEMA_TYPE[brand?.industry ?? 'general_retail'] ?? 'Store',
+    slogan: brand?.tagline || undefined,
+    sameAs: sameAs.length ? sameAs : undefined,
+    openingHoursSpecification: hours.length ? hours : undefined,
     name,
     url: siteUrl || undefined,
     description: description || undefined,
@@ -72,13 +94,17 @@ export function businessJsonLd(site: Storefront, siteUrl: string) {
   };
 }
 
+/** The home page. The shop's own search engine text (Website > SEO) comes first. */
 export const homeMeta = (site: Storefront, siteUrl: string): PageMeta => ({
-  title: `${site.business.name} | Order online`,
+  title: site.seo?.title?.trim() || `${site.business.name} | Order online`,
   description: clip(
-    site.business.description ||
+    site.seo?.description?.trim() ||
+      site.business.description ||
+      site.brand?.tagline ||
       `Order from ${site.business.name} online. Pay with M-Pesa and get delivery or pick up in store.`,
   ),
   path: '/',
+  image: site.seo?.shareImage?.startsWith('https://') ? site.seo.shareImage : undefined,
   jsonLd: [businessJsonLd(site, siteUrl)],
 });
 

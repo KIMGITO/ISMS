@@ -42,7 +42,9 @@ export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   sales: "s",
   customers: "l", // Loyalty
   "online-store": "o",
+  website: "@", // the web address (every letter is taken)
   promotions: "%", // % off
+  marketing: "!", // announcements (every letter is taken)
   deliveries: "d",
   "regular-orders": "7", // 7 days a week (every letter is taken)
   inventory: "i",
@@ -250,11 +252,11 @@ export const FEATURES: AppFeature[] = [
   { id: "count-money", title: "Count money & match stock", description: "Finance → Count money & stock", screen: "finance", permissions: ["accounting.view"], keywords: ["reconcile", "bank reconciliation", "cash count", "cash short", "stock value"], target: "acc-checks" },
   { id: "purchase-receive", title: "Receive a purchase into stock", description: "Open a purchase → Receive", screen: "buying", permissions: ["purchases.update", "purchases.approve"], keywords: ["receive", "goods received", "grn", "restock", "delivery from supplier", "purchase order"], target: "purchases-tab" },
   { id: "purchases", title: "Purchases", description: "Orders to suppliers", screen: "buying", permissions: ["purchases.view"], keywords: ["purchase", "order", "lpo", "buy"], target: "purchases-tab" },
-  { id: "website-banner", title: "Website home banner", description: "Online Store → Home banner", screen: "online-store", permissions: ["business.update"], keywords: ["hero", "banner", "slider", "carousel", "website picture"] },
-  { id: "website-pages", title: "Website pages", description: "Online Store → Pages", screen: "online-store", permissions: ["business.update"], keywords: ["page editor", "about page", "website text", "terms", "returns"] },
+  { id: "website-banner", title: "Website home banner", description: "Website → Content → Home banner", screen: "website", permissions: ["business.update"], keywords: ["hero", "banner", "slider", "carousel", "website picture"] },
+  { id: "website-pages", title: "Website pages", description: "Website → Pages", screen: "website", permissions: ["business.update"], keywords: ["page editor", "about page", "website text", "terms", "returns"] },
   { id: "promo-codes", title: "Promotion codes", description: "Promotions & Points → Codes", screen: "promotions", permissions: ["promotions.view", "promotions.manage"], keywords: ["promo", "coupon", "discount code", "voucher", "offer", "website promo"] },
   { id: "referral-programme", title: "Referral programme", description: "Promotions & Points → Referrals", screen: "promotions", permissions: ["referrals.view", "referrals.manage"], keywords: ["referral", "refer a friend", "invite", "reward", "bring a friend"], target: "referrals" },
-  { id: "website-reviews", title: "Website reviews", description: "Online Store → Reviews", screen: "online-store", permissions: ["business.update"], keywords: ["reviews", "ratings", "stars", "approve review"] },
+  { id: "website-reviews", title: "Website reviews", description: "Online orders → Reviews", screen: "online-store", permissions: ["business.update"], keywords: ["reviews", "ratings", "stars", "approve review"] },
   { id: "background-remover", title: "Remove a photo's background", description: "Tap Remove background on a photo", screen: "inventory", permissions: ["products.create", "products.update"], keywords: ["background", "cut out", "cutout", "transparent", "remove background", "photo", "picture"] },
   { id: "delete-notifications", title: "Delete notifications", description: "Swipe a notification to delete it, or hold it for more", screen: "notifications", permissions: [], keywords: ["clear notifications", "remove alert", "swipe", "delete"] },
   { id: "home-dashboard", title: "Home figures", description: "Sales, stock and customer figures at a glance", screen: "home", permissions: ["home.view"], keywords: ["dashboard", "figures", "charts", "today"] },

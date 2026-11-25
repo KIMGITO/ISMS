@@ -275,7 +275,7 @@ export function ProductReviews({ productId, productName }: { productId: string; 
 }
 
 /** "What our customers say" on the home page. Shows nothing invented: with no reviews it invites the first. */
-export function Testimonials() {
+export function Testimonials({ title = 'What Customers Say', gap = 'pt-12 sm:pt-16' }: { title?: string; gap?: string } = {}) {
   const { reviews = [], business } = useStorefront();
   const picks = useMemo(
     () => [...reviews].filter((r) => r.rating >= 4 && r.body.length >= 20)
@@ -286,9 +286,9 @@ export function Testimonials() {
   const { count, average } = reviewStats(reviews);
 
   return (
-    <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="testimonials-heading">
+    <section className={`site-gutter ${gap}`} aria-labelledby="testimonials-heading">
       <Reveal className="section-title">
-        <h2 id="testimonials-heading" className="display-lg">What Customers Say</h2>
+        <h2 id="testimonials-heading" className="display-lg">{title}</h2>
         {count > 0 ? (
           <p className="mt-1.5 flex flex-wrap items-center justify-center gap-2 text-sm text-muted">
             <Stars rating={average} size={15} />
@@ -296,7 +296,7 @@ export function Testimonials() {
             <a href="/reviews" className="font-medium text-ember">See all</a>
           </p>
         ) : (
-          <p className="mt-1.5 text-sm text-muted max-sm:hidden">Reviews from families who order from us.</p>
+          <p className="mt-1.5 text-sm text-muted max-sm:hidden">Reviews from customers who order from us.</p>
         )}
       </Reveal>
       {picks.length > 0 ? (
@@ -326,7 +326,7 @@ export function Testimonials() {
       ) : (
         <div className="mx-auto mt-6 max-w-xl rounded-lg border border-line bg-white p-6 text-center sm:mt-8 sm:p-8">
           <p className="font-medium">Ordered from {business.name}?</p>
-          <p className="mt-1 text-sm text-muted">Your review helps other families choose.</p>
+          <p className="mt-1 text-sm text-muted">Your review helps other customers choose.</p>
           <a href="/reviews" className="btn btn-primary mt-4">Write a review</a>
         </div>
       )}

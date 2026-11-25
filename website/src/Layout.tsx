@@ -9,6 +9,8 @@ import { navigate } from './router';
 import { fetchRewards, friendlyError, takesAirtel, WEBSITE_SLUG } from './api';
 import { changeStore, hasStorePicker, storesOf } from './stores';
 import { productPaths } from './seo';
+import { external, isCurrentLink, menuLinks } from './engine/navigation';
+import { leavePreview } from './api';
 import { useAuth, useCart, usePanels, useSaved, useStorefront, useToast } from './store';
 import { formatPrice, perUnit, ProductImage } from './ui';
 
@@ -240,6 +242,7 @@ function Header({ section, path }: { section: string; path: string }) {
   const navLink = (active: boolean) =>
     `whitespace-nowrap py-3 text-sm font-medium transition hover:text-ember ${active ? 'text-ember' : 'text-ink'}`;
   const offers = site.products.some((p) => p.wasPrice && p.wasPrice > p.price);
+  const menu = menuLinks(site.navigation, site.brand, offers);
   // The customer's saved delivery area, or else their estate/street.
   const myArea = account ? (site.deliveryZones.find((z) => z.id === account.delivery_zone_id)?.name || account.delivery_address || '') : '';
 
@@ -296,13 +299,10 @@ function Header({ section, path }: { section: string; path: string }) {
           <button onClick={() => open('categories')} className="-ml-1 inline-flex h-11 items-center gap-2 bg-ember px-4 text-sm font-semibold text-white transition hover:bg-brand-deep">
             <Menu size={17} aria-hidden /> All categories
           </button>
-          <a href="/" aria-current={section === '' ? 'page' : undefined} className={navLink(section === '')}>Home</a>
-          <a href="/shop" aria-current={section === 'shop' ? 'page' : undefined} className={navLink(section === 'shop' && !path.includes('offers=1'))}>Shop</a>
-          {offers && <a href="/shop?offers=1" className={navLink(path.includes('offers=1'))}>Offers</a>}
-          <a href="/account/schedules" className={navLink(path.startsWith('/account/schedules'))}>Regular orders</a>
-          <a href="/about" aria-current={section === 'about' ? 'page' : undefined} className={navLink(section === 'about')}>About us</a>
-          <a href="/track" aria-current={section === 'track' ? 'page' : undefined} className={navLink(section === 'track')}>Track order</a>
-          <a href="/help" aria-current={section === 'help' ? 'page' : undefined} className={navLink(section === 'help')}>Help</a>
+          {menu.map((item) => {
+            const current = isCurrentLink(item.href, path);
+            return <a key={item.href + item.label} href={item.href} {...external(item.href)} aria-current={current ? 'page' : undefined} className={navLink(current)}>{item.label}</a>;
+          })}
           <div className="ml-auto flex items-center gap-4">
             {multiStore && (
               <button onClick={() => open('store')} className="inline-flex h-11 items-center gap-1.5 text-sm font-medium hover:text-ember">
@@ -332,11 +332,9 @@ function Header({ section, path }: { section: string; path: string }) {
       {section === '' && (
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-2 lg:hidden">
         <StoreButton compact />
-        {offers && <a href="/shop?offers=1" className="chip min-h-8 shrink-0 px-3 text-xs">Offers</a>}
-        <a href="/account/schedules" className="chip min-h-8 shrink-0 px-3 text-xs">Regular orders</a>
-        <a href="/track" className="chip min-h-8 shrink-0 px-3 text-xs">Track order</a>
-        <a href="/about" className="chip min-h-8 shrink-0 px-3 text-xs">About us</a>
-        <a href="/help" className="chip min-h-8 shrink-0 px-3 text-xs">Help</a>
+        {menu.filter((item) => item.href !== '/' && item.href !== '/shop').map((item) => (
+          <a key={item.href + item.label} href={item.href} {...external(item.href)} className="chip min-h-8 shrink-0 px-3 text-xs">{item.label}</a>
+        ))}
       </div>
       )}
     </header>
@@ -912,6 +910,20 @@ function Footer() {
   );
 }
 
+/** Shown only on a preview link from the app: what is seen here is not live yet. */
+function PreviewBar() {
+  const { site } = useStorefront();
+  if (!site?.preview) return null;
+  return (
+    <div role="status" className="site-gutter flex flex-wrap items-center justify-between gap-2 bg-ink py-2 text-sm text-white">
+      <span>Preview of unpublished changes. Visitors do not see this yet, and orders are off.</span>
+      <button type="button" onClick={leavePreview} className="min-h-9 rounded-md px-3 font-medium underline underline-offset-2 hover:bg-white/10">
+        Leave preview
+      </button>
+    </div>
+  );
+}
+
 export default function Layout({ section, path, children }: { section: string; path: string; children: ReactNode }) {
   const close = usePanels((s) => s.close);
   useEffect(() => close(), [path, close]);
@@ -921,6 +933,7 @@ export default function Layout({ section, path, children }: { section: string; p
       <a href="#main" className="sr-only z-50 rounded-lg bg-ink px-4 py-3 text-cream focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
         Skip to content
       </a>
+      <PreviewBar />
       <Header section={section} path={path} />
       <main id="main" className="flex-1">{children}</main>
       <Footer />

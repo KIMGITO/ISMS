@@ -33,9 +33,16 @@
   --color-tint-sage: #e6efe2;
   --color-tint-blush: #f8e3dc;
 
-  /* A business's own colour, when set, replaces these on small accents. */
-  --color-brand: var(--brand-primary, #c2571a);
-  --color-on-brand: var(--brand-on-primary, #ffffff);
+  /*
+   * Brand tokens. These are the defaults (the original look); each shop's own values come from
+   * website/src/engine/tokens.ts in a <style id="brand-tokens"> in the page head, which wins
+   * over this layer. Components read the variables, never fixed colours.
+   */
+  --color-brand: #c2571a;
+  --color-on-brand: #ffffff;
+  --color-on-ember: #ffffff;
+  --color-accent: #c2571a;
+  --color-on-accent: #ffffff;
 
   /* Pages use Tailwind's amber and gray for soft backgrounds, so they follow the palette here. */
   --color-amber-50: #fbf4ea;
@@ -81,8 +88,8 @@
   h1,
   h2 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.015em;
+    font-weight: var(--heading-weight, 500);
+    letter-spacing: var(--heading-tracking, -0.015em);
     line-height: 1.2;
     text-wrap: balance;
   }
@@ -181,7 +188,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
-    border-radius: 999px;
+    border-radius: var(--btn-radius, 999px);
     font-size: 0.875rem;
     font-weight: 500;
     letter-spacing: -0.005em;
@@ -205,14 +212,26 @@
 
   /* The main action everywhere: ember, like the shop's orange buttons. */
   .btn-primary {
-    background: var(--color-ember);
-    color: #fff;
+    background: var(--btn-bg, var(--color-ember));
+    color: var(--btn-fg, var(--color-on-ember));
     border: 1px solid var(--color-ember);
   }
 
   .btn-primary:hover:not(:disabled) {
     background: var(--color-brand-deep);
     border-color: var(--color-brand-deep);
+    color: var(--color-on-ember);
+  }
+
+  /* Product pictures follow the shop's picture style: whole cut-outs or framed photos. */
+  .product-media {
+    aspect-ratio: var(--img-ratio, 1 / 1);
+  }
+  .product-media > span {
+    padding: var(--img-pad, 0.5rem);
+  }
+  @media (min-width: 40rem) {
+    .product-media > span { padding: var(--img-pad-lg, 0.75rem); }
   }
 
   /* Small pill, used for "Add" on product cards and banner buttons. */
@@ -234,7 +253,7 @@
 
   .btn-accent {
     background: var(--color-ember);
-    color: #fff;
+    color: var(--color-on-ember);
     border: 1px solid var(--color-ember);
   }
 
@@ -571,5 +590,15 @@
   * {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Space above home page sections on brand designs, from the density token (engine/tokens.ts). */
+@layer components {
+  .section-gap { padding-top: calc(var(--section-space, 2.25rem) * 0.8); }
+  .section-gap-lg { padding-top: calc(var(--section-space-lg, 3.5rem) * 0.75); }
+  @media (min-width: 40rem) {
+    .section-gap { padding-top: var(--section-space, 2.25rem); }
+    .section-gap-lg { padding-top: var(--section-space-lg, 3.5rem); }
   }
 }

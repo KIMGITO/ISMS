@@ -5,16 +5,18 @@ import { TrustStrip } from '../ui';
 import ProductCarousel from './ProductCarousel';
 
 /** Ways to order without the website, like a shop's "get the app" band. Ends the home page and inner pages. */
-export function OrderAnyWayBand() {
+export function OrderAnyWayBand({ gap = 'pt-12 sm:pt-16', title = 'Order the way that suits you', track = true }: {
+  gap?: string; title?: string; track?: boolean;
+} = {}) {
   const { business, settings } = useStorefront();
   const phone = business.contactPhone;
   const whatsapp = settings.whatsapp || phone;
   const whatsappHref = whatsapp ? `https://wa.me/${whatsapp.replace(/\D/g, '').replace(/^0/, '254')}` : null;
   return (
-    <section className="site-gutter pt-12 sm:pt-16" aria-labelledby="order-heading">
+    <section className={`site-gutter ${gap}`} aria-labelledby="order-heading">
       <div className="soft-panel flex flex-col items-center gap-5 rounded-2xl px-5 py-8 text-center sm:px-10 sm:py-12 lg:flex-row lg:justify-between lg:text-left">
         <div className="max-w-xl">
-          <h2 id="order-heading" className="display-lg font-semibold">Order the way that suits you</h2>
+          <h2 id="order-heading" className="display-lg font-semibold">{title}</h2>
           <p className="mt-2 text-sm text-muted sm:text-base">
             Order here, or message us and we'll put it together.
           </p>
@@ -24,7 +26,7 @@ export function OrderAnyWayBand() {
             <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-primary"><MessageCircle size={16} aria-hidden /> WhatsApp us</a>
           )}
           {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="btn btn-dark"><Phone size={16} aria-hidden /> Call {phone}</a>}
-          <a href="/track" className="btn btn-secondary"><Truck size={16} aria-hidden /> Track an order</a>
+          {track && <a href="/track" className="btn btn-secondary"><Truck size={16} aria-hidden /> Track an order</a>}
         </div>
       </div>
     </section>

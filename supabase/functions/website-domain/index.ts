@@ -3,6 +3,8 @@
 //   add    {businessId, hostname}  register it; returns the DNS records the shop must add
 //   check  {businessId}            ask Cloudflare whether it works yet (active once DNS + certificate are done)
 //   remove {businessId}            take it off
+//   recheck_all                    every address, oldest check first (the nightly job
+//                                  website_domains_recheck, 20261208001; service key only)
 // Who may do it and whether the plan allows it are checked by the database functions, called
 // as the signed-in person. Cloudflare needs CF_SAAS_ZONE_ID and CF_SAAS_API_TOKEN (a token with
 // "SSL and Certificates: Edit" on the platform zone); without them nothing is registered.
@@ -17,6 +19,7 @@ import {
   jsonResponse,
   verifyUserMembership,
 } from "../shared/cors.ts";
+import { matchesAnySecret } from "../shared/guard.ts";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 
@@ -59,6 +62,41 @@ function recordsFor(hostname: string, target: string | null, result: any): DnsRe
 }
 
 const isActive = (result: any) => result?.status === "active" && result?.ssl?.status === "active";
+/** What an address is now. A live one that stops working goes back to waiting, so visitors are no longer sent there. */
+const statusOf = (result: any) =>
+  isActive(result) ? "active" : result?.status === "blocked" || result?.status === "moved" ? "failed" : "pending";
+
+/** The nightly check: at most 200 addresses per run, the longest unchecked first. */
+async function recheckAll(admin: any): Promise<Response> {
+  const { data, error } = await admin.from("website_domains")
+    .select("business_id, hostname, cf_hostname_id, status")
+    .not("cf_hostname_id", "is", null)
+    .order("checked_at", { ascending: true, nullsFirst: true })
+    .limit(200);
+  if (error) return errorResponse(error.message, 500);
+  // The same target website_address_info gives the app.
+  const target: string | null = await admin.from("platform_settings").select("platform_domain, custom_domain_target").eq("id", true).maybeSingle()
+    .then((r: any) => r.data?.custom_domain_target ?? (r.data?.platform_domain ? `customers.${r.data.platform_domain}` : null), () => null);
+  let changed = 0;
+  let failed = 0;
+  for (const d of data ?? []) {
+    try {
+      const result = await cf(`/custom_hostnames/${d.cf_hostname_id}`);
+      const status = statusOf(result);
+      if (status !== d.status) changed++;
+      await admin.from("website_domains").update({
+        status,
+        dns_records: recordsFor(d.hostname, target, result),
+        last_error: problem(result),
+        checked_at: new Date().toISOString(),
+      }).eq("business_id", d.business_id).eq("cf_hostname_id", d.cf_hostname_id);
+    } catch (err) {
+      failed++;
+      console.error("[website-domain] recheck", d.hostname, (err as Error).message);
+    }
+  }
+  return jsonResponse({ checked: (data ?? []).length - failed, changed, failed });
+}
 
 function problem(result: any): string | null {
   const errors = [...(result?.verification_errors ?? []), ...(result?.ssl?.validation_errors ?? []).map((e: any) => e?.message)];
@@ -77,6 +115,16 @@ Deno.serve(async (req) => {
     return errorResponse("Invalid JSON payload", 400);
   }
   const { action, businessId, hostname } = body ?? {};
+
+  if (action === "recheck_all") {
+    const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!matchesAnySecret(bearer, [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")])) return errorResponse("Not allowed.", 401);
+    if (!cfConfig()) return jsonResponse({ checked: 0, changed: 0, failed: 0, note: "Cloudflare not configured" });
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    return recheckAll(admin);
+  }
   if (!businessId || typeof businessId !== "string") return errorResponse("businessId is required.", 400);
 
   const { userId, errorResponse: authError } = await verifyUserMembership(req, businessId);
@@ -136,7 +184,7 @@ Deno.serve(async (req) => {
       if (!d.cf_hostname_id) return errorResponse("The address wasn't registered. Remove it and add it again.", 409);
       const result = await cf(`/custom_hostnames/${d.cf_hostname_id}`);
       const row = {
-        status: isActive(result) ? "active" : result?.status === "blocked" || result?.status === "moved" ? "failed" : "pending",
+        status: statusOf(result),
         dns_records: recordsFor(d.hostname, target, result),
         last_error: problem(result),
         checked_at: new Date().toISOString(),

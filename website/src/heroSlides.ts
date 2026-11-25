@@ -4,6 +4,7 @@
 // because the staff app imports this file too.
 import { AD_TONES, AdTone } from './adCards';
 import { pictureSet, ShopPicture } from './shopPictures';
+import type { Industry } from './engine/brand';
 
 export interface HeroSlide {
   id: string;
@@ -56,41 +57,63 @@ export const HERO_BOX_LIMITS = { minXY: -50, maxXY: 100, minSize: 8, maxSize: 20
 
 export const HERO_LIMITS = { slides: 6, images: 3, title: 90, body: 160, ctaLabel: 30, ctaHref: 300 } as const;
 
-/** Built-in slides: words only. Their pictures are the shop's own product photos (visibleHeroSlides). */
-export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
-  {
-    id: 'fresh-milk',
-    title: 'Shop Online, Delivered to Your Door',
-    body: 'Order online and pay with M-Pesa.',
-    ctaLabel: 'Explore shop',
-    ctaHref: '/shop',
-    images: [],
-  },
-  {
-    id: 'dairy',
-    title: 'Everything You Need in One Place',
-    body: 'Good products at fair prices.',
-    ctaLabel: 'Browse products',
-    ctaHref: '/shop',
-    images: [],
-  },
-  {
-    id: 'regular-orders',
-    title: 'Never Run Out Again',
-    body: 'Pick your days. We prepare each order.',
-    ctaLabel: 'Set up regular orders',
-    ctaHref: '/account/schedules',
-    images: [],
-  },
-  {
-    id: 'guides',
-    title: 'Tips and Guides From Our Team',
-    body: 'Simple guides to get the most from what you buy.',
-    ctaLabel: 'Read our guides',
-    ctaHref: '/articles',
-    images: [],
-  },
-];
+type Group = 'shop' | 'food' | 'style' | 'tech' | 'kitchen' | 'services' | 'logistics';
+
+/** Which built-in words an industry uses. */
+export function industryGroup(industry: Industry | undefined): Group {
+  switch (industry) {
+    case 'food_grocery': return 'food';
+    case 'beauty': case 'fashion': return 'style';
+    case 'electronics': return 'tech';
+    case 'restaurant': return 'kitchen';
+    case 'professional_services': return 'services';
+    case 'logistics': return 'logistics';
+    default: return 'shop';
+  }
+}
+
+const slide = (id: string, title: string, body: string, ctaLabel: string, ctaHref: string): HeroSlide =>
+  ({ id, title, body, ctaLabel, ctaHref, images: [] });
+
+const ORDER_ONLINE = slide('order-online', 'Shop Online, Delivered to Your Door', 'Order online and pay with M-Pesa.', 'Explore shop', '/shop');
+const REGULAR = slide('regular-orders', 'Never Run Out Again', 'Pick your days. We prepare each order.', 'Set up regular orders', '/account/schedules');
+const GUIDES = slide('guides', 'Tips and Guides From Our Team', 'Simple guides to get the most from what you buy.', 'Read our guides', '/articles');
+
+/** Built-in slides by kind of business: words only. Their pictures are the shop's own product photos (visibleHeroSlides). */
+const DEFAULT_SLIDES: Record<Group, HeroSlide[]> = {
+  shop: [ORDER_ONLINE, slide('one-place', 'Everything You Need in One Place', 'Good products at fair prices.', 'Browse products', '/shop'), REGULAR, GUIDES],
+  food: [ORDER_ONLINE, slide('one-place', 'Fresh Picks for Every Day', 'Good food at fair prices.', 'Browse products', '/shop'), REGULAR, GUIDES],
+  style: [
+    slide('collection', 'Discover the Collection', 'Chosen with care, delivered to you.', 'Shop the collection', '/shop'),
+    slide('new-in', 'New In This Season', 'See what has just arrived.', 'See what is new', '/shop'),
+    GUIDES,
+  ],
+  tech: [
+    slide('order-online', 'The Tech You Need, Delivered', 'Compare, choose and order online.', 'Shop now', '/shop'),
+    slide('deals', 'Today\'s Deals', 'Lower prices on selected products.', 'See the deals', '/shop?offers=1'),
+    slide('guides', 'Not Sure Which to Choose?', 'Our buying guides explain the differences.', 'Read our guides', '/articles'),
+  ],
+  kitchen: [
+    slide('menu', 'Your Favourites, Ready When You Are', 'Order online for delivery or pickup.', 'See the menu', '/shop'),
+    slide('specials', 'Today\'s Specials', 'Something new to try.', 'See the specials', '/shop?offers=1'),
+  ],
+  services: [
+    slide('services', 'How We Can Help', 'See our services and what they include.', 'Our services', '/shop'),
+    slide('talk', 'Talk to Our Team', 'Tell us what you need and we will advise.', 'Contact us', '/contact'),
+    GUIDES,
+  ],
+  logistics: [
+    slide('services', 'Deliveries Made Simple', 'Book online and follow every step.', 'Our services', '/shop'),
+    slide('track', 'Where Is My Delivery?', 'Track any order with its number.', 'Track an order', '/track'),
+    slide('talk', 'Moving Something Bigger?', 'Talk to our team for a quote.', 'Contact us', '/contact'),
+  ],
+};
+
+/** The built-in slides for this kind of business (a general shop when unknown). */
+export const defaultHeroSlides = (industry?: Industry): HeroSlide[] => DEFAULT_SLIDES[industryGroup(industry)];
+
+/** The general shop's built-in slides. */
+export const DEFAULT_HERO_SLIDES: HeroSlide[] = DEFAULT_SLIDES.shop;
 
 /** Same rule as the database: a page on this site or a secure web address. Anything else becomes the shop. */
 export function safeHref(href: string | undefined): string {
@@ -150,7 +173,12 @@ export const HERO_DRAW_ORDER = [1, 0, 2] as const;
  * Slides the website should show: saved ones that pass the checks, or the built-in ones with the
  * shop's own product photos (none when it has no photos).
  */
-export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: boolean, pictures: readonly ShopPicture[] = []): HeroSlide[] {
+export function visibleHeroSlides(
+  saved: HeroSlide[] | undefined,
+  hasArticles: boolean,
+  pictures: readonly ShopPicture[] = [],
+  industry?: Industry,
+): HeroSlide[] {
   const usable = (saved ?? [])
     .filter((slide) => !slide.hidden && slide.title?.trim())
     .map((slide) => {
@@ -161,7 +189,7 @@ export function visibleHeroSlides(saved: HeroSlide[] | undefined, hasArticles: b
     })
     .filter((slide) => slide.images.length > 0);
   if (usable.length > 0) return usable.slice(0, HERO_LIMITS.slides);
-  return DEFAULT_HERO_SLIDES
+  return defaultHeroSlides(industry)
     .filter((slide) => hasArticles || slide.ctaHref !== '/articles')
     .map((slide, index) => ({ ...slide, images: pictureSet(pictures, index * 3, 3) }));
 }
