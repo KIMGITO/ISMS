@@ -6,6 +6,7 @@ import { onBranchChange, useBusinessStore } from "./businessStore";
 import { useNotificationStore } from "./notificationStore";
 import { isSupabaseConfigured, getSupabase, onSessionRevoked } from "../services/supabaseClient";
 import { SupabaseService } from "../services/supabaseService";
+import { allowedBusinessIdsForHost } from "../utils/tenantHost";
 import { getApiUrl, safeFetch } from "../utils/apiUtils";
 import { EmailService } from "../services/emailService";
 import { AuthOtpService } from "../services/authOtpService";
@@ -418,7 +419,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         if (memsErr) throw memsErr;
 
-        const mappedMems: BusinessMembership[] = (memsData || []).map(m => ({
+        // <name>-app.<domain> opens only that business: memberships elsewhere are left out.
+        const hostBizIds = await allowedBusinessIdsForHost();
+        const mappedMems: BusinessMembership[] = (memsData || [])
+          .filter(m => !hostBizIds || hostBizIds.includes(m.business_id))
+          .map(m => ({
           id: m.id,
           businessId: m.business_id,
           userId: m.user_id,

@@ -31,17 +31,13 @@
     "SINGLE_SHOP_HOSTS": ""
   }
 
-  // Shop addresses, once the platform domain is on Cloudflare: a wildcard route for the
-  // subdomains, and Cloudflare for SaaS (fallback origin customers.<platform domain>) for
-  // shops' own domains:
-  // "routes": [
-  //   { "pattern": "*.<platform domain>/*", "zone_name": "<platform domain>" },
-  //   { "pattern": "*/*", "zone_name": "<platform domain>" }
-  // ]
-  //
-  // Your own address, once the domain is on Cloudflare (docs/HOSTING_CLOUDFLARE.md, step 5):
-  // "routes": [
-  //   { "pattern": "kaykays.com", "custom_domain": true },
-  //   { "pattern": "www.kaykays.com", "custom_domain": true }
-  // ]
+  // Shops: <website name>.interlockingblockbuilders.co.ke (the Worker asks the database which
+  // shop, resolve_website_host). The platform page is the bare domain and www.
+  // <business>-app.<domain> is the app: forwarded to the app Worker through APP below.
+  "services": [{ "binding": "APP", "service": "kaykays-app" }],
+  "routes": [
+    { "pattern": "interlockingblockbuilders.co.ke", "custom_domain": true },
+    { "pattern": "www.interlockingblockbuilders.co.ke", "custom_domain": true },
+    { "pattern": "*.interlockingblockbuilders.co.ke/*", "zone_name": "interlockingblockbuilders.co.ke" }
+  ]
 }

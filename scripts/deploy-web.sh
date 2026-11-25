@@ -104,6 +104,8 @@ node scripts/smoke-test-web.mjs --url "$PREVIEW" "${PATHS[@]}" \
 $WRANGLER versions deploy "$GREEN@100%" -c "$CONFIG" -y --message "$MESSAGE" \
   || fail "Switching traffic failed. Users are still on the previous version."
 output switched yes
+# Addresses (routes and custom domains in the config) aren't part of a version: apply them.
+$WRANGLER triggers deploy -c "$CONFIG" || echo "::warning::The addresses in $CONFIG could not be applied (wrangler triggers deploy)."
 
 # ── 6. Check live, roll back if needed ─────────────────────────────────────
 # The preview host is <8 characters>-<worker>.<subdomain>.workers.dev; the live one drops the prefix.

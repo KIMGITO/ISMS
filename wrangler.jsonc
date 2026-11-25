@@ -19,6 +19,12 @@
   "preview_urls": true,
   "observability": { "enabled": true }
 
-  // Your own address, once the domain is on Cloudflare (docs/HOSTING_CLOUDFLARE.md, step 5):
-  // "routes": [{ "pattern": "app.kaykays.com", "custom_domain": true }]
+  // app.interlockingblockbuilders.co.ke, and <business>-app.interlockingblockbuilders.co.ke
+  // (the app locks to that business, src/utils/tenantHost.ts). One level deep, so the free
+  // certificate covers it. The website Worker also forwards *-app addresses here (APP binding).
+  // Routes are applied by `wrangler triggers deploy` (scripts/deploy-web.sh step 5).
+  "routes": [
+    { "pattern": "app.interlockingblockbuilders.co.ke", "custom_domain": true },
+    { "pattern": "*-app.interlockingblockbuilders.co.ke/*", "zone_name": "interlockingblockbuilders.co.ke" }
+  ]
 }

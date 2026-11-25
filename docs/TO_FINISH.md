@@ -8,6 +8,27 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Domain interlockingblockbuilders.co.ke, look-alike names blocked, app per business (2026-11-25)
+
+Shops at `<name>.interlockingblockbuilders.co.ke`, the app at `<name>-app.interlockingblockbuilders.co.ke` (opens only that business; one level deep, so the free certificate covers it). Migration `20261209002_platform_domain_unique_names.sql` (website names may not end in `-app`), routes in `wrangler.jsonc` and `website/wrangler.jsonc` (the website Worker forwards `*-app` to the app Worker through the `APP` binding), app lock in `src/utils/tenantHost.ts`, `scripts/deploy-web.sh` now applies routes (`wrangler triggers deploy`).
+
+1. [ ] **You:** in Cloudflare DNS for the domain, make sure the wildcard record `*` (CNAME, any target) is **Proxied** (orange cloud). Do not add records for `app`, `www` or the bare domain: the deploy creates them. SSL/TLS -> Edge Certificates should list the free Universal certificate as Active.
+2. [ ] Check no two existing businesses already clash: `SELECT public.fn_business_name_key(name) k, array_agg(name) FROM public.tenants GROUP BY 1 HAVING count(*) > 1;` (rename any it lists), and none has a website name ending in `-app`: `SELECT name, website_slug FROM public.businesses WHERE website_slug LIKE '%-app';`.
+3. [ ] Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh`. `SELECT platform_domain, app_url FROM platform_settings;` should show the new domain.
+4. [ ] Deploy the app first, then the website (the website binds to the app Worker): `bash scripts/deploy-web.sh app`, then `bash scripts/deploy-web.sh website`. Both should end with "Live" and no "could not be applied" warning. `https://app.interlockingblockbuilders.co.ke` shows the sign-in screen.
+5. [ ] **You:** Supabase -> Authentication -> URL Configuration: Site URL `https://app.interlockingblockbuilders.co.ke`, and add the redirect URL `https://*.interlockingblockbuilders.co.ke/**`. Email links (sign-up, reset) should then open on the new address.
+6. [ ] Test isolation: give two businesses the website names `testa` and `testb`. Signed in as testa's owner, `https://testb-app.interlockingblockbuilders.co.ke` should show the no-business screen and `https://testa-app...` testa's data; `https://testa.interlockingblockbuilders.co.ke` should show testa's shop only. Website name `foo-app` and business "TestA Ltd" should be refused.
+7. [ ] Run `bash supabase/tests/permissions/permissions_test.sh` and `bash supabase/tests/website/tenants_test.sh`; both should pass.
+
+---
+
+## Nobody could add a customer, the Owner too (2026-11-25)
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`.
+2. [ ] Signed in as the Owner, open Customers and add one with a phone number. It should save with the phone as `+254...` and an account number.
+
+---
+
 ## Website engine phase 8: five-business test and final report (2026-11-25)
 
 Report: [roadmap/website-engine-audit.md](roadmap/website-engine-audit.md), section 9. Run the phase 2 to 7 steps below first.

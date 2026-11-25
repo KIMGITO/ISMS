@@ -75,7 +75,8 @@ import { balanceSheet, checkDraft, profitAndLoss, quickLines, QUICK_ENTRIES, tri
 import { checkLines, creditNotePayload, creditPreview, draftTotals, lineAmounts, refundPreview, termsDaysOf, termsSetting, toInvoiceDocument, type InvoiceLineRow } from "../services/salesDocs";
 import { formatHours, minutesWithin, periodRange } from "../utils/workedHours";
 import websiteWorker from "../../website/worker/index";
-import { cleanHost, isFilePath, isSingleShopHost } from "../../website/worker/hosts";
+import { cleanHost, isAppHost, isFilePath, isSingleShopHost } from "../../website/worker/hosts";
+import { appHostSlug } from "../utils/tenantHost";
 import { runWebsiteEngineTests } from "./websiteEngineTests";
 import { runMarketingTests } from "./marketingTests";
 
@@ -1755,6 +1756,12 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
     eq(isSingleShopHost("kaykays-website.abc.workers.dev", ""), true, "workers.dev serves the build's shop");
     eq(isSingleShopHost("www.kaykays.com", "kaykays.com, www.kaykays.com"), true, "listed single-shop address");
     eq(isSingleShopHost("milk.shops.test", "kaykays.com"), false, "a shop address is looked up");
+    eq(isAppHost("acme-app.interlockingblockbuilders.co.ke"), true, "<name>-app goes to the app");
+    eq(isAppHost("acme.interlockingblockbuilders.co.ke"), false, "<name> is the shop");
+    eq(isAppHost("app.interlockingblockbuilders.co.ke"), false, "plain app is its own address");
+    eq(appHostSlug("Acme-App.interlockingblockbuilders.co.ke"), "acme", "app address locks to acme");
+    eq(appHostSlug("acme.interlockingblockbuilders.co.ke"), null, "shop address has no app lock");
+    eq(appHostSlug("app.interlockingblockbuilders.co.ke"), null, "plain app has no lock");
     eq(isFilePath("/assets/index-abc.js"), true, "scripts are files");
     eq(isFilePath("/products/fresh-milk"), false, "pages are not files");
 

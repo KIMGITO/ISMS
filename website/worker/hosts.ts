@@ -34,6 +34,9 @@ export function isSingleShopHost(host: string, listed: string | undefined): bool
     .includes(h);
 }
 
+/** "<business>-app.<any domain>": a business's staff app, served by the app Worker. */
+export const isAppHost = (host: string) => /^[a-z0-9]([a-z0-9-]*[a-z0-9])?-app\.[^.]+\.[^.]/.test(cleanHost(host));
+
 /** Paths that are files of the built site (scripts, pictures, icons), not pages. */
 export const isFilePath = (pathname: string) =>
   pathname.startsWith('/assets/') || /\.[a-z0-9]{2,5}$/i.test(pathname.split('/').pop() ?? '');

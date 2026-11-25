@@ -13,11 +13,13 @@
 // Unknown addresses get a plain "nothing here" page that names no business.
 import type { Storefront } from '../src/api';
 import { escapeHtml, publicPaths, renderRoute, robotsTxt, ShopTag, sitemapXml } from '../src/render';
-import { cleanHost, HostAnswer, isFilePath, isSingleShopHost, redirectTo, rpcCacheKey } from './hosts';
+import { cleanHost, HostAnswer, isAppHost, isFilePath, isSingleShopHost, redirectTo, rpcCacheKey } from './hosts';
 import { plansPageHtml, PublicPlans } from './plansPage';
 
 interface Env {
   ASSETS: { fetch(request: Request | string): Promise<Response> };
+  /** The staff app Worker (kaykays-app): <business>-app.<domain> is served by it. */
+  APP?: { fetch(request: Request): Promise<Response> };
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SINGLE_SHOP_HOSTS?: string;
@@ -106,6 +108,12 @@ export default {
 
     if (isSingleShopHost(host, env.SINGLE_SHOP_HOSTS)) {
       return env.ASSETS.fetch(request);
+    }
+
+    // <business>-app.<domain> is that business's staff app, not a shop (website names may not
+    // end in -app, 20261209002).
+    if (isAppHost(host)) {
+      return env.APP ? env.APP.fetch(request) : plainPage('Please try again', 'The app could not be reached just now.', 503);
     }
 
     let answer: HostAnswer | null;
