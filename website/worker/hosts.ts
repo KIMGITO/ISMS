@@ -34,8 +34,13 @@ export function isSingleShopHost(host: string, listed: string | undefined): bool
     .includes(h);
 }
 
-/** "<business>-app.<any domain>": a business's staff app, served by the app Worker. */
-export const isAppHost = (host: string) => /^[a-z0-9]([a-z0-9-]*[a-z0-9])?-app\.[^.]+\.[^.]/.test(cleanHost(host));
+/**
+ * "app.<domain>" and "<business>-app.<domain>": the staff app, served by the app Worker. Plain
+ * "app" must be here too: the shops' wildcard route catches it before its custom domain does.
+ * ("app" is a reserved website name, so no shop can own it.)
+ */
+export const isAppHost = (host: string) =>
+  /^([a-z0-9]([a-z0-9-]*[a-z0-9])?-)?app\.[^.]+\.[^.]/.test(cleanHost(host));
 
 /** Paths that are files of the built site (scripts, pictures, icons), not pages. */
 export const isFilePath = (pathname: string) =>

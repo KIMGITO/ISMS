@@ -1758,7 +1758,8 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
     eq(isSingleShopHost("milk.shops.test", "kaykays.com"), false, "a shop address is looked up");
     eq(isAppHost("acme-app.interlockingblockbuilders.co.ke"), true, "<name>-app goes to the app");
     eq(isAppHost("acme.interlockingblockbuilders.co.ke"), false, "<name> is the shop");
-    eq(isAppHost("app.interlockingblockbuilders.co.ke"), false, "plain app is its own address");
+    eq(isAppHost("app.interlockingblockbuilders.co.ke"), true, "plain app goes to the app");
+    eq(isAppHost("happ.interlockingblockbuilders.co.ke"), false, "a name ending in app is a shop");
     eq(appHostSlug("Acme-App.interlockingblockbuilders.co.ke"), "acme", "app address locks to acme");
     eq(appHostSlug("acme.interlockingblockbuilders.co.ke"), null, "shop address has no app lock");
     eq(appHostSlug("app.interlockingblockbuilders.co.ke"), null, "plain app has no lock");
