@@ -9,6 +9,7 @@ The documentation set for KayKay's Integrated Shop Management System (ISMS), rel
 | ISMS-UG | System User Guide | Staff: owners, managers, cashiers, riders, suppliers | `final/ISMS-System-User-Guide/` |
 | ISMS-TD | Technical Documentation | Developers and technical staff | `final/ISMS-Technical-Documentation/` |
 | ISMS-AG | System Administration Guide | Business administrators and the platform operator | `final/ISMS-System-Administration-Guide/` |
+| ISMS-GS | Access and Getting Started Guide | The platform operator, business owners and admins: getting in from scratch | `final/ISMS-Access-and-Getting-Started-Guide/` |
 
 The Markdown file is the master source; the Word (.docx) and PDF files are generated from it, in the app's colours (amber on slate).
 

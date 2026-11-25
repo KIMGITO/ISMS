@@ -5,7 +5,7 @@
     python3 documentation/tools/build_docs.py ug --check     # checks only (numbering, links, captions)
     python3 documentation/tools/build_docs.py td --no-docx   # skip the DOCX
 
-Documents: ug = ISMS-UG, td = ISMS-TD, ag = ISMS-AG (see DOCS_SET below).
+Documents: ug = ISMS-UG, td = ISMS-TD, ag = ISMS-AG, gs = ISMS-GS (see DOCS_SET below).
 Inputs:  documentation/final/<folder>/<ID>.md, final/diagrams/src/*.dot|*.seq, final/images/screens/
 Outputs: final/<folder>/<ID>.docx (editable), final/<folder>/<ID>.pdf, final/diagrams/*.svg|*.png,
          final/build/<id>/ (intermediate HTML; not committed)
@@ -44,6 +44,7 @@ DOCS_SET = {
     "ug": ("ISMS-System-User-Guide", "ISMS-UG"),
     "td": ("ISMS-Technical-Documentation", "ISMS-TD"),
     "ag": ("ISMS-System-Administration-Guide", "ISMS-AG"),
+    "gs": ("ISMS-Access-and-Getting-Started-Guide", "ISMS-GS"),
 }
 SRC = BUILD = PDF_OUT = DOCX_OUT = None   # set per document in main()
 
