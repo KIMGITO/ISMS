@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     // The model gets the shop's public facts (prices and availability, never stock counts)
     // and the last few turns of this chat. If it is down, refuses, or says something we
     // won't pass on, the customer gets the answer `decide` prepared instead of an error.
-    const ai = await runAI(await loadAISettings(business.id), {
+    const ai = await runAI(await loadAISettings(business.id, "website"), {
       systemInstruction: buildModelPrompt(ctx, decided.reply),
       messages: [...recentTurns(history), { role: "user", content: text }],
       responseMimeType: "application/json",

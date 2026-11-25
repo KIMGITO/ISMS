@@ -41,14 +41,14 @@ eq "both branches are one company" "$(sql "select tenant_id from businesses wher
 eq "transfers see the branches as one company" "$(sql "select fn_branches_share_owner('$B1','$B2')")" "t"
 eq "the owner is not the platform admin" "$(as owner "select is_platform_admin()")" "f"
 eq "the platform admin is" "$(as admin "select is_platform_admin()")" "t"
-has "an owner can't change plans" "$(as owner "select platform_set_plan('$T','pro_plus')")" "Only the platform admin"
+has "an owner can't change plans" "$(as owner "select platform_change_plan('$T','pro_plus','manual')")" "Only the platform admin"
 has "an owner can't list companies" "$(as owner "select * from platform_tenants()")" "Only the platform admin"
 has "an owner can't edit the subscription" "$(as owner "update tenant_subscriptions set plan_code='pro_plus'")" "permission denied"
 has "plan internals are not for app users" "$(as owner "select fn_tenant_plan('$T')")" "permission denied"
 has "an owner can't move a branch to another company" "$(as owner "update businesses set tenant_id='$(sql "select gen_random_uuid()")' where id='$B1'")" "can't be moved"
 
 echo "--- Starter: core only"
-W=$(as admin "select platform_set_plan('$T','starter')")
+W=$(as admin "select platform_change_plan('$T','starter','manual')")
 has "admin puts the company on Starter, with a warning" "$W" "2 branches open"
 eq "Starter: books locked for the owner" "$(as owner "select has_permission('$B1','accounting.view')")" "f"
 eq "Starter: promotions locked" "$(as owner "select has_permission('$B1','promotions.view')")" "f"
@@ -68,7 +68,7 @@ ok "Starter: the cashier still sells" "$S"
 eq "the books still post with accounting locked" "$(sql "select count(*) > 0 from acc_entries where source_id = '$S'")" "t"
 
 echo "--- Pro and add-ons"
-ok "admin moves the company to Pro" "$(as admin "select platform_set_plan('$T','pro')")"
+ok "admin moves the company to Pro" "$(as admin "select platform_change_plan('$T','pro','manual')")"
 eq "Pro: promotions open" "$(as owner "select has_permission('$B1','promotions.view')")" "t"
 eq "Pro: books still locked" "$(as owner "select has_permission('$B1','accounting.view')")" "f"
 ok "Pro: books bought as an add-on" "$(as admin "select platform_set_addons('$T', array['accounting'])")"
@@ -81,7 +81,7 @@ eq "the new branch joins the company" "$(sql "select tenant_id from businesses w
 has "Pro: a fourth branch is refused" "$(newbiz owner Fourth)" "allows 3 branches"
 ok "custom limit: 5 branches for this company" "$(as admin "select platform_set_custom_limits('$T','{\"max_branches\":5}')")"
 ok "now a fourth branch fits" "$(uuid "$(newbiz owner Fourth)")"
-has "Starter refuses add-ons" "$(as admin "select platform_set_plan('$T','starter'); select platform_set_addons('$T', array['ai'])")" "only be added to the Pro plan"
+has "Starter refuses add-ons" "$(as admin "select platform_change_plan('$T','starter','manual'); select platform_set_addons('$T', array['ai'])")" "only be added to the Pro plan"
 eq "moving to Starter dropped the add-on" "$(sql "select cardinality(addons) from tenant_subscriptions where tenant_id='$T'")" "0"
 eq "a restored branch over the limit is refused" "$(as owner "update businesses set deleted_at = now() where id='$N3'" >/dev/null; sql "update tenant_subscriptions set custom_limits='{}' where tenant_id='$T'" >/dev/null; as owner "update businesses set deleted_at = null where id='$N3'" | grep -c 'allows 1 branch')" "1"
 
@@ -95,9 +95,10 @@ ok "read-only: server work (payment callbacks) still records" "$(sql "set role s
 sql "update tenant_subscriptions set status='active', current_period_end = now() - interval '3 days' where tenant_id='$T'" >/dev/null
 eq "paid period just ended: grace" "$(as owner "select get_plan_usage('$B1')->>'status'")" "grace"
 ok "grace: still writable" "$(uuid "$(sale)")"
-ok "admin suspends" "$(as admin "select platform_set_plan('$T','pro_plus','suspended')")"
+ok "admin suspends" "$(as admin "select platform_set_suspended('$T', true, 'test')")"
 has "suspended: writes refused" "$(as owner "insert into product_categories (business_id,name) values ('$B1','Yan')")" "suspended"
-ok "admin restores Pro Plus with no end date" "$(as admin "select platform_set_plan('$T','pro_plus')")"
+ok "admin lets them back in" "$(as admin "select platform_set_suspended('$T', false)")"
+ok "and puts them on Pro Plus, free (no end date)" "$(as admin "select platform_change_plan('$T','pro_plus','manual')")"
 ok "active again" "$(as owner "insert into product_categories (business_id,name) values ('$B1','Zed')")"
 
 echo "--- a second company on a trial, kept apart"
@@ -128,13 +129,15 @@ ok "the newcomer asks for Pro with the online store" "$R"
 has "one request at a time" "$(as late "select request_business_signup('starter','monthly','Leo Shop')")" "already have a request"
 has "Starter has no add-ons" "$(as newbie "select request_business_signup('starter','monthly','X', null, null, array['ai'])")" "only be added to the Pro plan"
 has "an owner can't approve" "$(as owner "select platform_decide_signup('$R', true)")" "Only the platform admin"
+A=$(sql "select fn_platform_rate('pro','monthly','{online_store}',null)->>'month'")
+ok "the admin records a month's bank payment" "$(as admin "select platform_record_payment('{\"request_id\":\"$R\",\"amount\":$A,\"method\":\"Bank\",\"reference\":\"BANK-77\"}')")"
 ok "the platform admin approves" "$(as admin "select platform_decide_signup('$R', true, 'Paid by bank')")"
 eq "now they may start" "$(as late "select can_create_business()")" "t"
 LB=$(uuid "$(newbiz late 'Leo Shop')")
 ok "the company is created" "$LB"
 eq "on Pro, active" "$(as late "select (get_plan_usage('$LB')->>'plan') || ',' || (get_plan_usage('$LB')->>'status')")" "pro,active"
 eq "with the online store add-on" "$(as late "select has_permission('$LB','online_store.view')")" "t"
-eq "paid for one month" "$(sql "select current_period_end::date = (now() + interval '1 month')::date from tenant_subscriptions s join businesses b on b.tenant_id=s.tenant_id where b.id='$LB'")" "t"
+eq "paid for the days a month's money buys (30)" "$(sql "select ((current_period_end at time zone 'Africa/Nairobi')::date - fn_platform_today())::text from tenant_subscriptions s join businesses b on b.tenant_id=s.tenant_id where b.id='$LB'")" "30"
 eq "the request is used" "$(sql "select status from signup_requests where id='$R'")" "used"
 
 echo "--- AI run by the platform (20261204002): caps, plans, own key"
@@ -157,11 +160,11 @@ eq "only the platform admin reads the platform AI setup" "$(as owner "select cou
 has "an owner can't change the platform AI" "$(as owner "select platform_update_ai_settings('{\"model\":\"x\"}')")" "Only the platform admin"
 ok "the platform admin changes the model" "$(as admin "select platform_update_ai_settings('{\"model\":\"Qwen/Qwen2.5-7B-Instruct\"}')")"
 eq "the runner sees the platform model" "$(sql "select fn_ai_plan('$LB')->'platform'->>'model'")" "Qwen/Qwen2.5-7B-Instruct"
-ok "admin moves the company to Perpetual" "$(as admin "select platform_set_plan('$LT', 'perpetual')")"
+ok "admin moves the company to Perpetual" "$(as admin "select platform_change_plan('$LT','perpetual','one_time',220000)")"
 eq "Perpetual: own key" "$(sql "select fn_ai_plan('$LB')->>'own_key'")" "true"
 ok "admin clears the custom cap" "$(as admin "select platform_set_custom_limits('$LT', '{}')")"
 eq "Perpetual: no cap (they pay their own provider)" "$(ai $LB allowed)" "true"
-ok "admin suspends the company" "$(as admin "select platform_set_plan('$LT', 'perpetual', 'suspended')")"
+ok "admin suspends the company" "$(as admin "select platform_set_suspended('$LT', true, 'test')")"
 eq "suspended: AI refused" "$(ai $LB reason)" "read_only"
 
 echo "--- the platform admin sets a company up on any plan, no payment"

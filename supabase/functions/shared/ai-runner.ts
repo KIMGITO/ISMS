@@ -13,6 +13,8 @@ export interface AISettings {
   top_p: number;
   top_k: number;
   system_prompt?: string;
+  /** Per-use switches the business set ({"website": false} = off). */
+  uses?: Record<string, boolean>;
   enabled: boolean;
   /** The plan has the business bring its own AI key (Perpetual): never use the platform's keys. */
   own_key?: boolean;
@@ -55,7 +57,7 @@ export interface AIRunnerResult {
 export function friendlyAIMessage(code?: AIFailureCode): string {
   switch (code) {
     case "disabled":
-      return "The assistant is switched off for this business. The owner can turn it on in Settings.";
+      return "This part of the assistant is switched off for this business. The owner can turn it on in Settings, AI.";
     case "not_in_plan":
       return "The assistant isn't part of this business's plan.";
     case "read_only":
@@ -81,7 +83,7 @@ export function ownerAIHint(code?: AIFailureCode): string {
     case "no_key":
       return "No AI key is set. Add a Hugging Face token as the Supabase secret HF_TOKEN_A.";
     case "disabled":
-      return "The assistant is turned off in AI settings.";
+      return "This use of the AI is switched off in Settings, AI.";
     case "not_in_plan":
       return "AI and insights is not in this plan. Upgrade, or on Pro buy it as an add-on.";
     case "read_only":
@@ -93,6 +95,9 @@ export function ownerAIHint(code?: AIFailureCode): string {
   }
 }
 
+/** What a business can switch on or off (ai_settings.uses; missing = on). */
+export type AIUse = "assistant" | "insights" | "website" | "messages";
+
 /**
  * The AI settings for one request of a business, and its place in today's plan allowance.
  * The platform runs the AI (provider, model, keys): a business only adds its "Assistant
@@ -100,12 +105,16 @@ export function ownerAIHint(code?: AIFailureCode): string {
  * business's own provider and key instead, and never the platform's.
  * Each call counts as one AI request for the company (fn_ai_use); call it once per request.
  */
-export async function loadAISettings(businessId: string): Promise<AISettings> {
+export async function loadAISettings(businessId: string, purpose?: AIUse): Promise<AISettings> {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
   const own = await loadBusinessAISettings(supabase, businessId);
+  // Switched off by the business (all AI, or this use): no request is made or counted.
+  if (own.enabled === false || (purpose && own.uses?.[purpose] === false)) {
+    return { ...own, api_key: "", enabled: false };
+  }
 
   const { data: plan, error: planErr } = await supabase.rpc("fn_ai_plan", { p_business_id: businessId });
   if (planErr || !plan) {
@@ -130,7 +139,7 @@ export async function loadAISettings(businessId: string): Promise<AISettings> {
     top_p: Number(p.top_p ?? 0.95),
     top_k: Number(p.top_k ?? 40),
     system_prompt: own.system_prompt || "",
-    enabled: p.enabled !== false && own.enabled !== false,
+    enabled: p.enabled !== false,
     own_key: false,
     blocked,
   };
@@ -141,7 +150,7 @@ async function loadBusinessAISettings(supabase: any, businessId: string): Promis
 
   const { data: aiData } = await supabase
     .from("ai_settings")
-    .select("provider, api_key, model, temperature, max_tokens, top_p, top_k, system_prompt, enabled")
+    .select("provider, api_key, model, temperature, max_tokens, top_p, top_k, system_prompt, enabled, uses")
     .eq("business_id", businessId)
     .maybeSingle();
 
@@ -152,7 +161,7 @@ async function loadBusinessAISettings(supabase: any, businessId: string): Promis
   if (sourceId && sourceId !== businessId) {
     const { data: shared } = await supabase
       .from("ai_settings")
-      .select("provider, api_key, model, temperature, max_tokens, top_p, top_k, system_prompt, enabled")
+      .select("provider, api_key, model, temperature, max_tokens, top_p, top_k, system_prompt, enabled, uses")
       .eq("business_id", sourceId)
       .maybeSingle();
     if (shared) return shared as AISettings;

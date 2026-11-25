@@ -19,6 +19,9 @@ interface SectionNavProps<T extends string> {
   searchPlaceholder?: string;
   /** Wide screens: lets the list fold to icons only. The choice is remembered under this key. */
   collapseKey?: string;
+  /** Phones: whether the open section shows instead of the list. Pass both to control it (a bottom bar). */
+  phoneOpen?: boolean;
+  onPhoneOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -42,10 +45,15 @@ export function SectionNav<T extends string>({
   onSelect,
   searchPlaceholder = 'Search',
   collapseKey,
+  phoneOpen,
+  onPhoneOpenChange,
   children,
 }: SectionNavProps<T>) {
   const [query, setQuery] = useState('');
-  const [openOnPhone, setOpenOnPhone] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = phoneOpen !== undefined && !!onPhoneOpenChange;
+  const openOnPhone = controlled ? phoneOpen : ownOpen;
+  const setOpenOnPhone = (v: boolean) => (controlled ? onPhoneOpenChange!(v) : setOwnOpen(v));
   const [collapsed, setCollapsed] = useState(() => readCollapsed(collapseKey));
   useOverlay(openOnPhone, () => setOpenOnPhone(false), 'screen');
 

@@ -2,6 +2,7 @@
 // Complete Re-engineered Strict Online-First Inventory & Local Log Hiding Framework
 
 import { toUserMessage } from '../utils/userError';
+import { confirmDelete } from '../components/DeleteImpact';
 import { SheetLayer } from '../components/shared/SheetLayer';
 import { FormSheet, primaryBtn, secondaryBtn } from '../components/shared/FormSheet';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -42,7 +43,6 @@ import { titleCase, searchMatch } from '../utils/stringUtils';
 import { useUiStore } from '../stores/uiStore';
 import UnifiedUploader from '../components/shared/UnifiedUploader';
 import { Switch } from '../components/shared/Switch';
-import { appDialog } from '../components/AppDialog';
 import { NumberInput } from '../components/shared/Input';
 import { QTY_DECIMALS } from '../utils/money';
 
@@ -444,14 +444,7 @@ export default function InventoryView() {
                           setIsEditingProduct(true);
                         };
             const removeProduct = async (p: typeof filteredProducts[number]) => {
-                          if (
-                            await appDialog.confirm({
-                              title: `Delete ${p.name}?`,
-                              message: 'The product is removed from your stock list.',
-                              confirmLabel: 'Delete',
-                              destructive: true,
-                            })
-                          ) {
+                          if (await confirmDelete({ kind: 'product', id: p.id, name: p.name })) {
                             setIsDeletingProduct(true);
                             try {
                               await deleteProduct(p.id);
@@ -463,8 +456,8 @@ export default function InventoryView() {
                               );
                             } catch (err: any) {
                               showToast(
-                                'Not saved',
-                                'Failed to delete item records.',
+                                'Not deleted',
+                                toUserMessage(err, 'Could not delete the product.'),
                                 undefined,
                                 'error',
                               );

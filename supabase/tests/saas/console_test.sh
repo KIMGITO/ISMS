@@ -55,7 +55,7 @@ has "with sale counts" "$R" '"sales_30_days":'
 eq "never sales amounts" "$(as admin "select platform_tenant_detail('$T')::text ~* '(total|amount|revenue|customer)'")" "f"
 has "an unknown company is refused" "$(as admin "select platform_tenant_detail(gen_random_uuid())")" "Unknown company"
 as admin "select platform_extend_trial('$T', 5)" >/dev/null 2>&1
-as admin "select platform_set_plan('$T','pro_plus','active','manual',null,'console test')" >/dev/null
+as admin "select platform_change_plan('$T','pro_plus','manual')" >/dev/null
 has "plan changes show in its history" "$(as admin "select platform_tenant_detail('$T')->'history'")" '"plan_set"'
 
 echo "--- requests"
@@ -65,6 +65,8 @@ has "a waiting request is listed" "$R" '"business_name": "Sam Shop"'
 has "with the payment code" "$R" '"payment_reference": "QWE123"'
 has "and who asked" "$R" '"person": "stranger'
 RID=$(sql "select id from signup_requests where business_name='Sam Shop'")
+has "approving waits for the payment" "$(as admin "select platform_decide_signup('$RID', true, 'paid')")" "Record their payment first"
+ok "the admin records the cash" "$(as admin "select platform_record_payment('{\"request_id\":\"$RID\",\"amount\":6000,\"method\":\"Cash\",\"received_by\":\"Pat\"}')")"
 ok "the admin approves it" "$(as admin "select platform_decide_signup('$RID', true, 'paid')")"
 eq "a decided request leaves the waiting list" "$(as admin "select jsonb_array_length(platform_requests())")" "0"
 has "but shows with the decided ones" "$(as admin "select platform_requests(true)")" '"status": "approved"'

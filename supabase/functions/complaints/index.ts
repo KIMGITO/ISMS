@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     if (!action) return errorResponse("action is required.", 400);
 
     // ── 1. Load AI settings ──────────────────────────────────────────────
-    const settings = await loadAISettings(businessId);
+    const settings = await loadAISettings(businessId, "messages");
 
     if (!settings) {
       // Return mock fallback so the UI never breaks

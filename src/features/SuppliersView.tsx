@@ -6,6 +6,7 @@
 // against the deliveries, and goods can be sent back. The database enforces all of it
 // (20261118001_smarter_buying.sql).
 import { Checkbox } from '../components/shared/Checkbox';
+import { confirmDelete } from '../components/DeleteImpact';
 import { displayName } from '../utils/stringUtils';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -209,13 +210,7 @@ export default function SuppliersView({ embedded, tab: shownTab, onTab }: { embe
   };
 
   const confirmRemoveSupplier = async (s: Supplier) => {
-    const ok = await appDialog.confirm({
-      title: `Remove ${s.name}?`,
-      message: 'Past purchases keep their name. They stop showing as a supplier.',
-      confirmLabel: 'Remove',
-      destructive: true,
-    });
-    if (!ok) return;
+    if (!(await confirmDelete({ kind: 'supplier', id: s.id, name: s.name, verb: 'Remove' }))) return;
     try {
       await removeSupplier(s.id, staffName);
       setSuppliers((list) => list.filter((x) => x.id !== s.id));

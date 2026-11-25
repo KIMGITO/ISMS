@@ -14,7 +14,7 @@ import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn } from '../shared/FormSheet';
 import { SwipeRow } from '../shared/SwipeRow';
 import SearchableDropdown from '../SearchableDropdown';
-import { appDialog } from '../AppDialog';
+import { confirmDelete } from '../DeleteImpact';
 import type { Expense, ExpenseCategory, MoneyMethod } from '../../types';
 import { PayRiderButton } from '../RidersToPay';
 import { loadRiderPayOwed, spendingWithRiderPay } from '../../services/riderPay';
@@ -147,7 +147,7 @@ export default function ExpensesPanel() {
 
   const remove = async (e: Expense) => {
     if (!canDelete) return;
-    const ok = await appDialog.confirm({ title: 'Delete this expense?', message: `${e.category} · ${formatCurrency(e.amount)}. This can't be undone.`, confirmLabel: 'Delete', destructive: true });
+    const ok = await confirmDelete({ kind: 'expense', id: e.id, name: `${e.category} ${formatCurrency(e.amount)}` });
     if (!ok) return;
     try {
       const { ExpenseRepository } = await import('../../services/repositories');

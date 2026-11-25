@@ -1494,11 +1494,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const supabase = getSupabase();
       const bizId = get().currentBusinessId;
       if (bizId) {
-        await supabase
+        const { data, error } = await supabase
           .from("business_memberships")
           .delete()
           .eq("business_id", bizId)
-          .eq("user_id", id);
+          .eq("user_id", id)
+          .select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("You don't have permission to remove this person.");
         await get().refreshSession();
       }
     },

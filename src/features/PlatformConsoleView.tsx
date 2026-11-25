@@ -8,16 +8,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, ArrowLeft, Bot, Building2, CheckCircle2, ClipboardList, Coins, ExternalLink, Gauge,
-  LifeBuoy, LogOut, Moon, Settings2, Sun, Tags, XCircle,
+  Activity, ArrowLeft, Bot, Building2, CheckCircle2, ClipboardList, Coins, ExternalLink, Home, LayoutGrid,
+  LifeBuoy, LogOut, Moon, Plus, Receipt, Settings2, Sun, Tags, Wallet, XCircle,
 } from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { toUserMessage } from '../utils/userError';
 import { formatMoney } from '../utils/money';
 import { SectionNav, NavSection } from '../components/shared/SectionNav';
-import { StatGrid, StatTile } from '../components/shared/StatTile';
 import { DateTimeInput, Field, NumberInput, SearchInput, TextInput } from '../components/shared/Input';
 import { Segmented } from '../components/shared/Choice';
 import { Switch } from '../components/shared/Switch';
@@ -26,120 +24,34 @@ import { FormSheet } from '../components/shared/FormSheet';
 import type { PlanModule, PlanRow } from '../stores/planStore';
 import { setConsoleOpen } from '../utils/platformConsole';
 import { openAsSupport } from '../utils/supportAccess';
+import { CYCLE_TEXT, StatusPill, btnMain, btnQuiet, btnDanger, card, day, num, useCall, when } from './console/common';
+import ConsoleHome from './console/ConsoleHome';
+import ConsoleMoney, { CompanyPayments, RecordPaymentSheet, RunningCostsSection } from './console/ConsoleMoney';
 
-type Section = 'overview' | 'requests' | 'companies' | 'support' | 'plans' | 'costs' | 'settings' | 'ai' | 'activity';
+type Section = 'home' | 'requests' | 'companies' | 'money' | 'support' | 'plans' | 'costs' | 'running_costs' | 'settings' | 'ai' | 'activity';
 
 const SECTIONS: NavSection<Section>[] = [
-  { id: 'overview', group: 'Platform', label: 'Overview', description: 'Companies, trials and use', icon: Gauge },
+  { id: 'home', group: 'Platform', label: 'Home', description: 'Money, growth, break-even, use', icon: Home, keywords: 'overview charts statistics' },
   { id: 'requests', group: 'Platform', label: 'Requests', description: 'Sign-ups and plan changes to approve', icon: ClipboardList, keywords: 'approve signup payment' },
   { id: 'companies', group: 'Platform', label: 'Companies', description: 'Plans, add-ons, limits, trials', icon: Building2, keywords: 'tenant business suspend' },
+  { id: 'money', group: 'Platform', label: 'Money', description: 'Payments received and who owes', icon: Wallet, keywords: 'payment billing paid owe mpesa cash' },
   { id: 'support', group: 'Platform', label: 'Support', description: 'Branches whose owner let you in', icon: LifeBuoy, keywords: 'help access open branch' },
   { id: 'plans', group: 'Prices', label: 'Plans and prices', description: 'Plan and add-on prices', icon: Tags },
+  { id: 'running_costs', group: 'Prices', label: 'Our running costs', description: 'What the platform costs us; break-even', icon: Receipt, keywords: 'expenses break even supabase' },
   { id: 'costs', group: 'Prices', label: 'Costs paid to others', description: 'Estimates the plan page shows', icon: Coins, keywords: 'safaricom sms card domain' },
   { id: 'settings', group: 'Setup', label: 'Platform settings', description: 'Name, domain, trial, VAT, terms', icon: Settings2, keywords: 'domain trial vat terms app url' },
   { id: 'ai', group: 'Setup', label: 'AI', description: 'Provider and model for every company', icon: Bot },
   { id: 'activity', group: 'Setup', label: 'Activity', description: 'What platform admins changed', icon: Activity, keywords: 'audit log' },
 ];
 
-const btn =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition disabled:opacity-60 cursor-pointer';
-const btnMain = `${btn} bg-amber-500 hover:bg-amber-600 text-slate-950`;
-const btnQuiet = `${btn} border border-app-border bg-app-card hover:bg-app-bg text-app-text`;
-const card = 'rounded-2xl bg-app-card ring-1 ring-app-border p-4';
-
-const day = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
-const when = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
-const num = (v: unknown) => Number(v) || 0;
-
-const STATUS_TONE: Record<string, string> = {
-  trial: 'bg-sky-500/15 text-sky-600',
-  active: 'bg-emerald-500/15 text-emerald-600',
-  grace: 'bg-amber-500/15 text-amber-600',
-  read_only: 'bg-red-500/15 text-red-600',
-  suspended: 'bg-red-500/15 text-red-600',
-};
-const STATUS_TEXT: Record<string, string> = {
-  trial: 'Trial', active: 'Active', grace: 'Unpaid (grace)', read_only: 'Read-only', suspended: 'Suspended',
-};
-function StatusPill({ status }: { status: string }) {
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[status] ?? 'bg-app-bg text-app-text-muted'}`}>
-      {STATUS_TEXT[status] ?? status}
-    </span>
-  );
-}
-
-/** A database call with the console's error and success messages. */
-function useCall() {
-  const toast = useNotificationStore((s) => s.showToast);
-  const [busy, setBusy] = useState(false);
-  const call = useCallback(
-    async <T,>(fn: string, args: Record<string, unknown> = {}, ok?: string): Promise<T | null> => {
-      setBusy(true);
-      const { data, error } = await getSupabase().rpc(fn, args);
-      setBusy(false);
-      if (error) {
-        toast('Platform', toUserMessage(error, 'That did not work. Please try again.'), undefined, 'error');
-        return null;
-      }
-      if (ok) toast('Platform', ok, undefined, 'success');
-      return (data ?? true) as T;
-    },
-    [toast],
-  );
-  return { call, busy };
-}
-
-// ============================================================================================
-// Overview
-// ============================================================================================
-interface Overview {
-  companies: number;
-  by_status: Record<string, number>;
-  by_plan: Record<string, number>;
-  trials_ending_7_days: number;
-  requests_waiting: number;
-  ai_calls_today: number;
-  ai_refused_today: number;
-  branches: number;
-  active_7_days: number;
-}
-
-function OverviewSection({ go }: { go: (s: Section) => void }) {
-  const { call } = useCall();
-  const [o, setO] = useState<Overview | null>(null);
-  useEffect(() => {
-    call<Overview>('platform_overview').then(setO);
-  }, [call]);
-  if (!o) return <p className="text-sm text-app-text-muted">Loading...</p>;
-  return (
-    <div className="space-y-4">
-      <StatGrid>
-        <StatTile icon={<Building2 />} tone="sky" label="Companies" value={o.companies} note={`${o.branches} branches`} onClick={() => go('companies')} />
-        <StatTile icon={<Activity />} tone="emerald" label="Selling this week" value={o.active_7_days} note="companies with a sale" />
-        <StatTile icon={<ClipboardList />} tone={o.requests_waiting ? 'red' : 'slate'} label="Requests waiting" value={o.requests_waiting} onClick={() => go('requests')} />
-        <StatTile icon={<Gauge />} tone={o.trials_ending_7_days ? 'amber' : 'slate'} label="Trials ending" value={o.trials_ending_7_days} note="in the next 7 days" />
-        <StatTile icon={<Bot />} tone="violet" label="AI questions today" value={o.ai_calls_today} note={o.ai_refused_today ? `${o.ai_refused_today} over the cap` : undefined} />
-      </StatGrid>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className={card}>
-          <h4 className="text-xs font-semibold text-app-text-muted mb-2">By state</h4>
-          {Object.entries(o.by_status).map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between py-1 text-sm"><StatusPill status={k} /><span className="tabular-nums font-semibold">{v}</span></div>
-          ))}
-        </div>
-        <div className={card}>
-          <h4 className="text-xs font-semibold text-app-text-muted mb-2">By plan</h4>
-          {Object.entries(o.by_plan).map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between py-1 text-sm"><span>{k}</span><span className="tabular-nums font-semibold">{v}</span></div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+/** The phone's bottom bar: the busiest sections, then everything else. */
+const BAR: Array<{ id: Section | 'more'; label: string; icon: React.ElementType }> = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'requests', label: 'Requests', icon: ClipboardList },
+  { id: 'companies', label: 'Companies', icon: Building2 },
+  { id: 'money', label: 'Money', icon: Wallet },
+  { id: 'more', label: 'More', icon: LayoutGrid },
+];
 
 // ============================================================================================
 // Requests
@@ -163,14 +75,23 @@ interface RequestRow {
   decided_at: string | null;
 }
 
-const CYCLE_TEXT: Record<string, string> = { monthly: 'Monthly', annual: 'Yearly', one_time: 'One payment', manual: 'Set by hand', trial: 'Trial' };
-
 function RequestsSection() {
   const { call, busy } = useCall();
   const [rows, setRows] = useState<RequestRow[] | null>(null);
   const [all, setAll] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const load = useCallback(() => call<RequestRow[]>('platform_requests', { p_include_decided: all }).then((d) => setRows(d ?? [])), [call, all]);
+  const [paid, setPaid] = useState<Record<string, number>>({});
+  const [paying, setPaying] = useState<RequestRow | null>(null);
+  const load = useCallback(async () => {
+    const d = (await call<RequestRow[]>('platform_requests', { p_include_decided: all })) ?? [];
+    setRows(d);
+    const ids = d.map((r) => r.id);
+    if (!ids.length) return setPaid({});
+    const { data } = await getSupabase().from('platform_payments').select('request_id, amount').in('request_id', ids).is('voided_at', null);
+    const sums: Record<string, number> = {};
+    for (const x of (data as Array<{ request_id: string; amount: number }>) ?? []) sums[x.request_id] = (sums[x.request_id] ?? 0) + num(x.amount);
+    setPaid(sums);
+  }, [call, all]);
   useEffect(() => {
     load();
   }, [load]);
@@ -209,7 +130,10 @@ function RequestsSection() {
             <b>{r.plan_name}</b>, {CYCLE_TEXT[r.billing_cycle] ?? r.billing_cycle}
             {r.addons.length > 0 && ` + ${r.addons.join(', ')}`}
             {' · '}
-            {r.payment_reference ? <>payment code <span className="font-mono font-semibold">{r.payment_reference}</span></> : 'no payment code'}
+            {r.payment_reference ? <>they gave code <span className="font-mono font-semibold">{r.payment_reference}</span></> : 'no payment code given'}
+          </p>
+          <p className={`text-xs font-semibold ${paid[r.id] ? 'text-emerald-600' : 'text-amber-600'}`}>
+            {paid[r.id] ? `Payment recorded: ${formatMoney(paid[r.id])}` : 'No payment recorded yet'}
           </p>
           {r.message && <p className="text-xs italic text-app-text-muted">"{r.message}"</p>}
           {r.decision_note && <p className="text-xs text-app-text-muted">Note: {r.decision_note}</p>}
@@ -223,14 +147,25 @@ function RequestsSection() {
                 onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               />
               <button type="button" disabled={busy} className={btnQuiet} onClick={() => decide(r, false)}><XCircle size={14} /> Turn down</button>
-              <button type="button" disabled={busy} className={btnMain} onClick={() => decide(r, true)}><CheckCircle2 size={14} /> Approve</button>
+              <button type="button" disabled={busy} className={btnQuiet} onClick={() => setPaying(r)}><Plus size={14} /> Record payment</button>
+              <button type="button" disabled={busy || !paid[r.id]} className={btnMain} onClick={() => decide(r, true)}
+                title={paid[r.id] ? undefined : 'Record their payment first'}><CheckCircle2 size={14} /> Approve</button>
             </div>
           )}
         </div>
       ))}
       <p className="text-[11px] text-app-text-muted">
-        Check the payment code against what you received before approving. A plan change applies at once; a new company then sets itself up.
+        Check the money arrived, record it, then approve. The days they get come from the payment. Turning a request down voids its payment on record, for a refund.
       </p>
+      {paying && (
+        <RecordPaymentSheet
+          requestId={paying.id}
+          title={`${paying.business_name} · ${paying.plan_name}, ${CYCLE_TEXT[paying.billing_cycle] ?? paying.billing_cycle}`}
+          suggestedReference={paying.payment_reference}
+          onClose={() => setPaying(null)}
+          onDone={() => { setPaying(null); load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -257,7 +192,7 @@ interface TenantRow {
   last_sale_at: string | null;
 }
 
-function CompaniesSection({ plans, modules }: { plans: PlanRow[]; modules: PlanModule[] }) {
+function CompaniesSection({ plans, modules, openId, onOpened }: { plans: PlanRow[]; modules: PlanModule[]; openId?: string | null; onOpened?: () => void }) {
   const { call } = useCall();
   const [rows, setRows] = useState<TenantRow[] | null>(null);
   const [q, setQ] = useState('');
@@ -266,6 +201,12 @@ function CompaniesSection({ plans, modules }: { plans: PlanRow[]; modules: PlanM
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    if (!openId || !rows) return;
+    const r = rows.find((x) => x.tenant_id === openId);
+    if (r) setOpen(r);
+    onOpened?.();
+  }, [openId, rows, onOpened]);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (rows ?? []).filter((r) => !t || `${r.name} ${r.owner_name ?? ''} ${r.owner_email ?? ''} ${r.plan_name}`.toLowerCase().includes(t));
@@ -312,6 +253,7 @@ function CompaniesSection({ plans, modules }: { plans: PlanRow[]; modules: PlanM
 }
 
 interface TenantDetail {
+  plan: { status: string; own_ai_key: boolean } | null;
   subscription: {
     plan_code: string;
     status: 'trial' | 'active' | 'suspended';
@@ -341,10 +283,13 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
   const { call, busy } = useCall();
   const [d, setD] = useState<TenantDetail | null>(null);
   const [plan, setPlan] = useState(row.plan);
-  const [status, setStatus] = useState<'trial' | 'active' | 'suspended'>('active');
-  const [cycle, setCycle] = useState('manual');
-  const [periodEnd, setPeriodEnd] = useState<string | null>(null);
-  const [note, setNote] = useState('');
+  const [cycle, setCycle] = useState('monthly');
+  const [agreed, setAgreed] = useState<number | null>(null);
+  const [agreedNote, setAgreedNote] = useState('');
+  const [useAgreed, setUseAgreed] = useState(false);
+  const [suspending, setSuspending] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [payKey, setPayKey] = useState(0);
   const [addons, setAddons] = useState<string[]>([]);
   const [limits, setLimits] = useState<Record<string, number | null>>({});
   const [extra, setExtra] = useState<string[]>([]);
@@ -356,10 +301,11 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
     setD(r);
     const s = r.subscription;
     setPlan(s.plan_code);
-    setStatus(s.status);
-    setCycle(s.billing_cycle === 'trial' ? 'manual' : s.billing_cycle);
-    setPeriodEnd(s.period_end);
-    setNote(s.note ?? '');
+    setCycle(s.billing_cycle === 'trial' ? 'monthly' : s.billing_cycle);
+    const { data: sub } = await getSupabase().from('tenant_subscriptions').select('agreed_price, agreed_note').eq('tenant_id', row.tenant_id).maybeSingle();
+    setAgreed(sub?.agreed_price ?? null);
+    setUseAgreed(sub?.agreed_price != null);
+    setAgreedNote(sub?.agreed_note ?? '');
     setAddons(s.addons ?? []);
     const c = s.custom_limits ?? {};
     setLimits(Object.fromEntries(LIMITS.map(([k]) => [k, typeof c[k] === 'number' ? (c[k] as number) : null])));
@@ -378,12 +324,25 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
     load();
   };
 
+  const kind = chosen?.kind ?? 'subscription';
+  const effCycle = kind === 'trial' ? 'trial' : kind === 'perpetual' ? 'one_time' : cycle;
+  const listPrice = kind === 'perpetual' ? chosen?.one_time_price : effCycle === 'annual' ? chosen?.annual_price : chosen?.monthly_price;
+  const needsAgreed = (effCycle === 'monthly' || effCycle === 'annual' || effCycle === 'one_time') && listPrice == null;
   const savePlan = async () =>
-    after(await call('platform_set_plan', {
-      p_tenant_id: row.tenant_id, p_plan_code: plan, p_status: status,
-      p_billing_cycle: status === 'trial' ? 'trial' : cycle, p_period_end: status === 'trial' ? null : periodEnd,
-      p_note: note.trim() || null,
-    }, 'Plan saved. No payment needed.'));
+    after(await call('platform_change_plan', {
+      p_tenant_id: row.tenant_id, p_plan_code: plan, p_cycle: effCycle,
+      p_agreed_price: (useAgreed || needsAgreed) && effCycle !== 'manual' ? agreed : null,
+      p_agreed_note: agreedNote.trim() || null,
+    }, effCycle === 'manual' ? 'Saved. Free, no end date.' : effCycle === 'trial' ? 'Saved. On a trial.' : 'Saved. The paid-up date comes from their payments.'));
+  const setSuspended = async (on: boolean) => {
+    const r = await call('platform_set_suspended', { p_tenant_id: row.tenant_id, p_suspended: on, p_reason: suspendReason.trim() || null },
+      on ? 'Company suspended.' : 'Company let back in.');
+    if (r) {
+      setSuspending(false);
+      setSuspendReason('');
+      after(r, false);
+    }
+  };
 
   const saveAddons = async () => after(await call('platform_set_addons', { p_tenant_id: row.tenant_id, p_addons: addons }, 'Add-ons saved.'), false);
   const saveLimits = async () => {
@@ -419,33 +378,48 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                 ))}
               </div>
             </Field>
-            <Field label="State" group>
-              <Segmented<"trial" | "active" | "suspended">
-                size="sm"
-                value={status}
-                onChange={setStatus}
-                options={[{ id: 'trial', label: 'Trial' }, { id: 'active', label: 'Active' }, { id: 'suspended', label: 'Suspended' }]}
-              />
-            </Field>
-            {status !== 'trial' && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Paid" group>
-                  <Segmented
-                    size="sm"
-                    value={cycle}
-                    onChange={setCycle}
-                    options={[{ id: 'manual', label: 'By hand' }, { id: 'monthly', label: 'Monthly' }, { id: 'annual', label: 'Yearly' }, { id: 'one_time', label: 'Once' }]}
-                  />
-                </Field>
-                <Field label="Paid up to" hint="Empty = no end date">
-                  <DateTimeInput withTime={false} value={periodEnd} onChange={setPeriodEnd} />
-                </Field>
+            {kind === 'subscription' && (
+              <Field label="How they pay" group>
+                <Segmented
+                  size="sm"
+                  value={cycle}
+                  onChange={setCycle}
+                  options={[{ id: 'monthly', label: 'Monthly' }, { id: 'annual', label: 'Yearly' }, { id: 'manual', label: 'Free' }]}
+                />
+              </Field>
+            )}
+            {effCycle !== 'trial' && effCycle !== 'manual' && (
+              <div className="rounded-xl bg-app-bg p-3 space-y-3">
+                <p className="text-xs">
+                  <span className="text-app-text-muted">List price: </span>
+                  <span className="font-semibold tabular-nums">
+                    {listPrice == null ? 'none (ask us)' : `${formatMoney(num(listPrice))} ${effCycle === 'annual' ? 'a year' : effCycle === 'one_time' ? 'once' : 'a month'}`}
+                  </span>
+                  {chosen?.addons_allowed && addons.length > 0 && <span className="text-app-text-muted"> plus add-ons</span>}
+                </p>
+                {!needsAgreed && (
+                  <Switch checked={useAgreed} onChange={setUseAgreed} label="Agreed a different price"
+                    description="Only when you negotiated it. Their days are worked out from this price." />
+                )}
+                {(useAgreed || needsAgreed) && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={effCycle === 'one_time' ? 'Agreed price, whole licence (KSh)' : 'Agreed price a month (KSh)'}
+                      hint={effCycle === 'annual' ? 'A year costs 12 times this' : undefined}>
+                      <NumberInput value={agreed} onChange={setAgreed} min={0} />
+                    </Field>
+                    <Field label="What was agreed" hint="Their owner can see this"><TextInput value={agreedNote} onChange={(e) => setAgreedNote(e.target.value)} placeholder="e.g. launch price for 6 months" /></Field>
+                  </div>
+                )}
+                {(useAgreed || needsAgreed) && agreed != null && listPrice != null && effCycle !== 'one_time' && (
+                  <p className="text-[11px] text-app-text-muted">
+                    {formatMoney(Math.max(0, num(effCycle === 'annual' ? num(listPrice) / 12 : listPrice) - agreed))} a month below the list price.
+                  </p>
+                )}
               </div>
             )}
-            <Field label="Note (only you see it)">
-              <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. paid M-Pesa QWE123, or free for testing" />
-            </Field>
-            <button type="button" disabled={busy} className={btnMain} onClick={savePlan}>Save plan</button>
+            {effCycle === 'manual' && <p className="text-xs text-app-text-muted">Free: no payments, no end date. Use it for your own test companies or partners.</p>}
+            <button type="button" disabled={busy || ((useAgreed || needsAgreed) && effCycle !== 'manual' && effCycle !== 'trial' && agreed == null)} className={btnMain} onClick={savePlan}>Save plan</button>
+
             {d.subscription.status === 'trial' && (
               <div className="flex flex-wrap items-end gap-2">
                 <Field label="Make the trial longer by (days)">
@@ -455,6 +429,30 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
               </div>
             )}
           </section>
+
+          <section className="space-y-3 border-t border-app-border pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="font-semibold">Payments</h4>
+              <StatusPill status={(d.plan as any)?.status ?? d.subscription.status} />
+              <span className="text-xs text-app-text-muted">
+                {d.subscription.billing_cycle === 'one_time'
+                  ? (d.subscription.period_end ? 'Licence not fully paid' : 'Licence paid')
+                  : d.subscription.billing_cycle === 'monthly' || d.subscription.billing_cycle === 'annual'
+                    ? `Paid up to ${d.subscription.period_end ? day(d.subscription.period_end) : 'not paid yet'}`
+                    : ''}
+              </span>
+            </div>
+            <CompanyPayments tenantId={row.tenant_id} name={row.name} cycle={d.subscription.billing_cycle} reloadKey={payKey} onChanged={() => { setPayKey((k) => k + 1); onChanged(); load(); }} />
+            <div className="pt-1">
+              {d.subscription.status === 'suspended' ? (
+                <button type="button" disabled={busy} className={btnQuiet} onClick={() => setSuspended(false)}>Let them back in</button>
+              ) : (
+                <button type="button" disabled={busy} className="text-xs font-semibold text-red-600 cursor-pointer" onClick={() => setSuspending(true)}>Suspend this company</button>
+              )}
+            </div>
+          </section>
+
+          {d.plan?.own_ai_key && <CompanyAi tenantId={row.tenant_id} />}
 
           {chosen?.addons_allowed && d.subscription.plan_code === plan && (
             <section className="space-y-2 border-t border-app-border pt-4">
@@ -526,12 +524,91 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
           </section>
         </div>
       )}
+      {suspending && d && (
+        <FormSheet
+          title={`Suspend ${row.name}?`}
+          onClose={() => setSuspending(false)}
+          footer={
+            <div className="flex gap-2 justify-end">
+              <button type="button" className={btnQuiet} onClick={() => setSuspending(false)}>Keep them open</button>
+              <button type="button" className={btnDanger} disabled={busy || suspendReason.trim().length < 3} onClick={() => setSuspended(true)}>Suspend</button>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-sm">
+            <ul className="rounded-xl bg-app-bg p-3 text-xs space-y-1 list-disc pl-5">
+              <li>All {d.branches.length} {d.branches.length === 1 ? 'branch stops' : 'branches stop'} at once: {d.branches.reduce((n, b) => n + b.staff, 0)} staff can't sell or change anything.</li>
+              <li>Their {d.branches.filter((b) => b.website_home).length ? 'online shop closes' : 'records stay as they are'}; nothing is deleted.</li>
+              <li>{d.branches.reduce((n, b) => n + b.sales_30_days, 0)} sales were made in the last 30 days.</li>
+              <li>Letting them back in later does not add paid days.</li>
+            </ul>
+            <Field label="Why"><TextInput value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} placeholder="e.g. not paid after reminders" autoFocus /></Field>
+          </div>
+        </FormSheet>
+      )}
     </FormSheet>
+  );
+}
+
+/** Own-key plans (Perpetual): the platform sets the company's provider, model and key. */
+const AI_PROVIDER_IDS = ['huggingface', 'gemini', 'openai', 'anthropic', 'deepseek', 'groq', 'openrouter'] as const;
+function CompanyAi({ tenantId }: { tenantId: string }) {
+  const { call, busy } = useCall();
+  const [cur, setCur] = useState<{ provider: string; model: string; has_key: boolean; key_end: string | null } | null>(null);
+  const [provider, setProvider] = useState('huggingface');
+  const [model, setModel] = useState('');
+  const [key, setKey] = useState('');
+  const load = useCallback(async () => {
+    const r = await call<typeof cur>('platform_company_ai', { p_tenant_id: tenantId });
+    setCur(r && typeof r === 'object' ? r : null);
+    if (r && typeof r === 'object') {
+      setProvider(r.provider);
+      setModel(r.model);
+    }
+  }, [call, tenantId]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const save = async () => {
+    if (await call('platform_set_company_ai', { p_tenant_id: tenantId, p_provider: provider, p_model: model.trim(), p_api_key: key.trim() || null }, 'AI set up for this company.')) {
+      setKey('');
+      load();
+    }
+  };
+  return (
+    <section className="space-y-3 border-t border-app-border pt-4">
+      <h4 className="font-semibold">Their own AI account</h4>
+      <p className="text-xs text-app-text-muted">This plan uses the company's own AI account. You set it up here; the company only switches uses on or off.</p>
+      <Field label="Provider" group>
+        <div className="flex flex-wrap gap-1.5">
+          {AI_PROVIDER_IDS.map((id) => (
+            <button key={id} type="button" onClick={() => setProvider(id)}
+              className={`rounded-xl px-2.5 py-1 text-[11px] font-semibold ring-1 ${provider === id ? 'bg-amber-500 text-slate-950 ring-amber-500' : 'bg-app-bg ring-app-border'}`}>
+              {id}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Model"><TextInput value={model} onChange={(e) => setModel(e.target.value)} /></Field>
+        <Field label="Their key" hint={cur?.has_key ? `A key ending ${cur.key_end ?? '...'} is saved; leave empty to keep it` : 'No key saved yet'}>
+          <TextInput type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} />
+        </Field>
+      </div>
+      <button type="button" disabled={busy || !model.trim()} className={btnQuiet} onClick={save}>Save AI set-up</button>
+    </section>
   );
 }
 
 const ACTION_TEXT: Record<string, string> = {
   plan_set: 'Plan set',
+  payment_recorded: 'Payment recorded',
+  payment_voided: 'Payment voided',
+  suspended: 'Suspended',
+  unsuspended: 'Let back in',
+  company_ai: 'Their AI set up',
+  running_cost: 'Running cost saved',
+  running_cost_deleted: 'Running cost removed',
   addons_set: 'Add-ons set',
   custom_limits_set: 'Own limits set',
   trial_extended: 'Trial extended',
@@ -958,7 +1035,14 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
   /** Back to the business (or the branch chooser / start screen). */
   onClose: () => void;
 }) {
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<Section>('home');
+  // Phones: the open section shows instead of the list; Home is open at the start.
+  const [phoneOpen, setPhoneOpen] = useState(true);
+  const [companyOpenId, setCompanyOpenId] = useState<string | null>(null);
+  const go = (id: Section) => {
+    setSection(id);
+    setPhoneOpen(true);
+  };
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [modules, setModules] = useState<PlanModule[]>([]);
   const user = useAuthStore((s) => s.currentUser);
@@ -979,9 +1063,11 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
 
   const body = (() => {
     switch (section) {
-      case 'overview': return <OverviewSection go={setSection} />;
+      case 'home': return <ConsoleHome onOpen={go} />;
       case 'requests': return <RequestsSection />;
-      case 'companies': return <CompaniesSection plans={plans} modules={modules} />;
+      case 'companies': return <CompaniesSection plans={plans} modules={modules} openId={companyOpenId} onOpened={() => setCompanyOpenId(null)} />;
+      case 'money': return <ConsoleMoney onOpenCompany={(id) => { setCompanyOpenId(id); go('companies'); }} />;
+      case 'running_costs': return <RunningCostsSection />;
       case 'support': return <SupportSection />;
       case 'plans': return <PlansSection plans={plans} modules={modules} reload={loadCatalogue} />;
       case 'costs': return <CostsSection modules={modules} />;
@@ -1006,11 +1092,52 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
           <button type="button" onClick={() => void logout()} className="p-2 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
         </div>
       </header>
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-4" style={{ paddingBottom: 'calc(var(--inset-bottom) + 24px)' }}>
-        <SectionNav<Section> sections={SECTIONS} active={section} onSelect={setSection} searchPlaceholder="Search the console" collapseKey="kkm_console_nav_collapsed">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-4 pb-[calc(var(--mobile-nav-room)+0.5rem)] md:pb-[calc(var(--inset-bottom)+24px)]">
+        <SectionNav<Section>
+          sections={SECTIONS}
+          active={section}
+          onSelect={setSection}
+          phoneOpen={phoneOpen}
+          onPhoneOpenChange={setPhoneOpen}
+          searchPlaceholder="Search the console"
+          collapseKey="kkm_console_nav_collapsed"
+        >
           {body}
         </SectionNav>
       </main>
+      {/* Phones: the same floating bottom bar as the business screens. */}
+      <nav
+        aria-label="Console"
+        style={{
+          bottom: 'calc(var(--mobile-nav-gap) + var(--inset-bottom))',
+          left: 'calc(var(--mobile-edge) + var(--inset-left))',
+          right: 'calc(var(--mobile-edge) + var(--inset-right))',
+          height: 'var(--mobile-nav-height)',
+        }}
+        className="fixed mx-auto max-w-lg md:hidden bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-md border border-slate-800/80 dark:border-white/70 flex items-center justify-around z-30 shadow-xl rounded-2xl select-none px-1 min-[380px]:px-2 gap-0.5"
+      >
+        {BAR.map((t) => {
+          const Icon = t.icon;
+          const onBar = BAR.some((b) => b.id === section);
+          const active = t.id === 'more' ? !phoneOpen || !onBar : phoneOpen && section === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              aria-label={t.label}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => (t.id === 'more' ? setPhoneOpen(false) : go(t.id))}
+              className={`relative flex flex-col items-center justify-center flex-1 min-w-0 h-full cursor-pointer transition-colors ${
+                active ? 'text-amber-400 dark:text-amber-600 font-bold' : 'text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-800'
+              }`}
+            >
+              <Icon size={18} />
+              <span className="nav-label text-[11px] mt-0.5 tracking-tight truncate max-w-full">{t.label}</span>
+              {active && <span className="absolute bottom-1 w-6 h-0.5 bg-amber-500 rounded-full" />}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

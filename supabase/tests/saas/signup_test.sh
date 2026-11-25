@@ -107,13 +107,16 @@ PC=$(as owner "select request_plan_change('$B1', 'pro', 'annual', '{ai}', 'MPESA
 eq "the owner sees the request" "$(as owner "select my_plan_request('$B1')->>'status'")" "pending"
 eq "it is not a new-company request" "$(as owner "select my_signup_state()->'request'")" "null"
 has "one open request at a time" "$(as owner "select request_plan_change('$B1', 'starter', 'monthly')")" "already have a request"
+has "approving waits for the payment" "$(as admin "select platform_decide_signup('$PC', true, 'Paid')")" "Record their payment first"
+A=$(sql "select fn_platform_rate('pro','annual','{ai}',null)->>'year'")
+ok "the admin records the year's payment" "$(as admin "select platform_record_payment('{\"request_id\":\"$PC\",\"amount\":$A,\"method\":\"M-Pesa\",\"reference\":\"MPESA1\"}')")"
 ok "the admin approves" "$(as admin "select platform_decide_signup('$PC', true, 'Paid')")"
 eq "the company is on Pro now" "$(as owner "select get_plan_usage('$B1')->>'plan'")" "pro"
 eq "with the add-on" "$(as owner "select get_plan_usage('$B1')->'addons'->>0")" "ai"
-eq "paid for a year" "$(sql "select (current_period_end > now() + interval '360 days')::text from tenant_subscriptions where tenant_id='$T'")" "true"
+eq "paid for a year, from the payment" "$(sql "select ((current_period_end at time zone 'Africa/Nairobi')::date - fn_platform_today())::text from tenant_subscriptions where tenant_id='$T'")" "365"
 eq "the request is used" "$(sql "select status from signup_requests where id='$PC'")" "used"
 eq "no open request is shown" "$(as owner "select my_plan_request('$B1')")" ""
-as admin "select platform_set_plan('$T','pro_plus')" >/dev/null
+as admin "select platform_set_suspended('$T', false); select platform_change_plan('$T','pro_plus','manual')" >/dev/null
 
 echo
 echo "signup: $PASS passed, $FAIL failed"

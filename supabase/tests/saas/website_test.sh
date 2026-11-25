@@ -75,7 +75,7 @@ eq "the owner reads theirs" "$(as owner "select status from website_domains wher
 eq "nobody writes the table directly" "$(as owner "update website_domains set status='pending'" | grep -c 'permission denied')" "1"
 
 echo "--- plans"
-as admin "select platform_set_plan('$T','pro'); select platform_set_addons('$T', array[]::text[])" >/dev/null
+as admin "select platform_change_plan('$T','pro','manual'); select platform_set_addons('$T', array[]::text[])" >/dev/null
 eq "Pro without the Online store: closed" "$(kind 'mainshop.shops.test')" "closed"
 eq "and the own domain stops too" "$(kind 'shop.example.co.ke')" "closed"
 eq "the storefront is empty" "$(anon "select get_public_storefront('mainshop') is null")" "t"
@@ -89,9 +89,9 @@ has "with the platform's name" "$R" '"platform_name": "Shopsy"'
 eq "the own domain isn't the home without its add-on" "$(kind 'shop.example.co.ke')" "redirect"
 as admin "select platform_set_addons('$T', array['online_store','own_domain'])" >/dev/null
 has "Pro with an own domain shows no Powered by" "$(anon "select resolve_website_host('shop.example.co.ke')")" '"powered_by": false'
-as admin "select platform_set_plan('$T','pro_plus','suspended')" >/dev/null
+as admin "select platform_set_suspended('$T', true, 'test')" >/dev/null
 eq "a suspended company's shop is closed" "$(kind 'shop.example.co.ke')" "closed"
-as admin "select platform_set_plan('$T','pro_plus')" >/dev/null
+as admin "select platform_set_suspended('$T', false); select platform_change_plan('$T','pro_plus','manual')" >/dev/null
 eq "back on Pro Plus it opens" "$(kind 'shop.example.co.ke')" "shop"
 
 echo "--- removing"

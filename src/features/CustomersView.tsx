@@ -1,4 +1,5 @@
 import { CopyRef } from "../components/shared/CopyRef";
+import { confirmDelete } from '../components/DeleteImpact';
 import { toUserMessage } from "../utils/userError";
 import { customerName } from '../utils/stringUtils';
 import { SheetLayer } from '../components/shared/SheetLayer';
@@ -606,14 +607,7 @@ export default function CustomersView() {
   }, [searchTarget, selectedCustomerId, activeDetailTab, invoices, invoicesState]);
 
   const removeCustomer = async (cust: { id: string; name: string }) => {
-    if (
-      !(await appDialog.confirm({
-        title: `Delete ${cust.name}?`,
-        message: 'Their profile is removed for good.',
-        confirmLabel: 'Delete',
-        destructive: true,
-      }))
-    ) return;
+    if (!(await confirmDelete({ kind: 'customer', id: cust.id, name: cust.name }))) return;
     setIsDeletingCustomer(true);
     try {
       await deleteCustomer(cust.id);

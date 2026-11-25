@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
       (await enforceRateLimit(`ai:biz:${businessId}`, 500, 86400));
     if (limited) return limited;
 
-    const settings = await loadAISettings(businessId);
+    const settings = await loadAISettings(businessId, "insights");
     if (!settings) {
       return jsonResponse({ success: false, error: "The assistant is not set up yet. Ask the admin to add it under Settings → AI." }, 503);
     }

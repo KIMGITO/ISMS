@@ -50,7 +50,7 @@ env:
   WINDOWS_BUILD_COMMAND: "npx tauri build --bundles msi"
   LINUX_BUILD_COMMAND: "npx tauri build --bundles appimage,deb"
   # Where the builds land.
-  EXE_PATH: "src-tauri/target/release/app.exe"
+  EXE_PATH: "src-tauri/target/release/denso.exe"
   MSI_GLOB: "src-tauri/target/release/bundle/msi/*.msi"
   APPIMAGE_GLOB: "src-tauri/target/release/bundle/appimage/*.AppImage"
   DEB_GLOB: "src-tauri/target/release/bundle/deb/*.deb"
@@ -282,6 +282,10 @@ jobs:
           restore-keys: linux-cargo-
 
       - run: eval "$INSTALL_COMMAND"
+      # The notes go into the AppStream file, so Software shows what changed in this release.
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-notes
       - run: node scripts/stamp-version.mjs "$VERSION"
       # The Rust cache restores src-tauri/target, including the last release's installers.
       # Without this, the old and new installers are both found.
@@ -290,6 +294,19 @@ jobs:
 
       - name: Build
         run: eval "$LINUX_BUILD_COMMAND"
+
+      # Fails the release if the package has a generic program name, no details file or a
+      # details file that Software can't read.
+      - name: Check the .deb
+        run: |
+          set -euo pipefail
+          deb=$(ls $DEB_GLOB | head -1)
+          dpkg-deb -c "$deb" | tee /tmp/deb-files.txt
+          grep -qE '(^|[ /])usr/bin/denso$' /tmp/deb-files.txt
+          grep -q 'usr/share/metainfo/com.isms.app.metainfo.xml' /tmp/deb-files.txt
+          grep -q 'usr/share/doc/denso/copyright' /tmp/deb-files.txt
+          sudo apt-get install -y -qq appstream >/dev/null
+          appstreamcli validate --no-net --explain src-tauri/linux/com.isms.app.metainfo.xml
 
       - name: Collect the build
         run: |

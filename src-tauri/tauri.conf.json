@@ -2,6 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Denso",
   "version": "0.1.0",
+  "mainBinaryName": "denso",
   "identifier": "com.isms.app",
   "build": {
     "frontendDist": "../dist",
@@ -48,6 +49,9 @@
     "publisher": "Denso",
     "license": "Proprietary",
     "licenseFile": "../LICENSE",
+    "homepage": "https://github.com/KIMGITO/ISMS",
+    "shortDescription": "Business management: sales, stock, money and staff",
+    "longDescription": "Denso runs a shop or small chain: point of sale, stock across branches, debts, expenses, payments, workers and reports, with every figure matching the books. Commercial software by Codensons; downloading is free, use needs a paid plan.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -62,6 +66,20 @@
     "windows": {
       "wix": {
         "upgradeCode": "c9a95509-8443-5d55-9b90-92e51ee44ec7"
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "misc",
+        "files": {
+          "/usr/share/metainfo/com.isms.app.metainfo.xml": "linux/com.isms.app.metainfo.xml",
+          "/usr/share/doc/denso/copyright": "../LICENSE"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/metainfo/com.isms.app.metainfo.xml": "linux/com.isms.app.metainfo.xml"
+        }
       }
     }
   },

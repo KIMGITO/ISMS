@@ -350,7 +350,8 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
 
       const supabase = getSupabase();
       try {
-        const { error } = await supabase.from("businesses").delete().eq("id", id);
+        // Closed, not deleted: its sales, books and stock records are kept (20261205002).
+        const { error } = await supabase.rpc("close_branch", { p_id: id });
         if (error) throw error;
 
         const updated = current.filter((b) => b.id !== id);
@@ -369,15 +370,15 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         });
 
         useNotificationStore.getState().showToast(
-          "Business removed",
-          "The business is closed.",
+          "Branch closed",
+          "Its sales and records are kept.",
           undefined,
           "info"
         );
       } catch (err: any) {
         useNotificationStore.getState().showToast(
-          "Error",
-          toUserMessage(err, "Failed to delete business."),
+          "Not closed",
+          toUserMessage(err, "Could not close the branch."),
           undefined,
           "error"
         );

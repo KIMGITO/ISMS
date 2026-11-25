@@ -177,7 +177,7 @@ export default function WorkedHoursPanel() {
         <p className="text-sm text-app-text-muted">Loading hours…</p>
       ) : seesEveryone ? (
         <>
-          <StatGrid>
+          <StatGrid inset>
             <StatTile inset icon={<Clock />} tone="amber" label="Team hours" value={formatHours(teamMinutes)} />
             <StatTile inset icon={<Users />} tone="sky" label="Worked" value={totals.length} note={totals.length === 1 ? 'person' : 'people'} />
             <StatTile inset icon={<Timer />} tone="slate" label="My hours" value={formatHours(mine?.minutes ?? 0)} />
@@ -221,12 +221,12 @@ export default function WorkedHoursPanel() {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <StatGrid inset cols={3}>
             <StatTile inset icon={<Clock />} tone="amber" label="Hours worked" value={formatHours(mine?.minutes ?? 0)} />
             <StatTile inset icon={<Timer />} tone="sky" label="Shifts" value={mine?.shifts.length ?? 0}
               note={mine && mine.shifts.length > 0 ? `About ${formatHours(mine.minutes / mine.shifts.length)} each` : undefined} />
             <StatTile inset icon={<Zap />} tone={(mine?.auto ?? 0) > 0 ? 'red' : 'slate'} label="Clocked out automatically" value={mine?.auto ?? 0} />
-          </div>
+          </StatGrid>
           {mine ? renderLog(mine.shifts) : <p className="text-sm text-app-text-muted">You did not clock in during this time.</p>}
         </>
       )}

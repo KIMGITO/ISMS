@@ -715,10 +715,10 @@ function PromotionDetail({ promotion: p, canManage, onClose, onEdit, onChanged }
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <StatGrid inset cols={2}>
         <StatTile inset icon={<Ticket />} tone="amber" label="Used" value={`${num(p.uses)}${p.maxUses ? ` / ${num(p.maxUses)}` : ''}`} note={p.held ? `${p.held} held at a till` : undefined} />
         <StatTile inset icon={<BadgePercent />} tone="rose" label="Given off" value={ksh(p.discountGiven)} />
-      </div>
+      </StatGrid>
       {p.description && <p className="text-sm text-app-text-muted">{p.description}</p>}
       <ul className="rounded-xl ring-1 ring-app-border divide-y divide-app-border/60">
         {facts.map((f) => (

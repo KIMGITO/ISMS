@@ -774,6 +774,7 @@ export class SupabaseService {
     const { data, error } = await supabase
       .from("businesses")
       .select("*")
+      .is("deleted_at", null) // closed branches (close_branch) stay in the records only
       .order("name", { ascending: true });
 
     if (error) { if (typeof window !== "undefined") window.dispatchEvent(new Event("network-action-failed")); throw error; }

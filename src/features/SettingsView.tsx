@@ -37,7 +37,6 @@ import {
   Cloud,
   Lock,
   Unlock,
-  Cpu,
   Check,
   X,
   ReceiptText,
@@ -63,7 +62,6 @@ import { PermissionType } from '../services/devicePermissionService';
 import { configManager } from '../services/configManager';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableDropdown from '../components/SearchableDropdown';
-import { AI_PROVIDERS, getAIProvider, isMaskedKey, aiConfigProblem, aiKeyWarning } from '../utils/aiProviders';
 import {
   normalizePhone,
   validatePhone,
@@ -88,7 +86,7 @@ const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode 
   { id: 'invoices', group: 'Shop', label: 'Invoices', description: 'Layout, texts, payment details and stamp', icon: FileText, keywords: 'invoice debt statement a5 stamp prefix number', permission: 'settings.tax' },
   { id: 'sms', group: 'Connections', label: 'SMS', description: 'Text messages through Twilio', icon: MessageSquareText, keywords: 'twilio phone text', permission: 'settings.integrations' },
   { id: 'whatsapp', group: 'Connections', label: 'WhatsApp', description: 'Send messages through WhatsApp', icon: MessageCircle, keywords: 'meta cloud api', permission: 'settings.integrations' },
-  { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Daily use and instructions', icon: Bot, keywords: 'gemini openai claude key model', permission: 'settings.integrations' },
+  { id: 'ai', group: 'Connections', label: 'AI assistant', description: 'Where your business uses AI', icon: Bot, keywords: 'assistant insights website messages on off', permission: 'settings.integrations' },
   { id: 'backup', group: 'Data', label: 'Backups', description: 'Google Sheets backup and restore', icon: CloudUpload, keywords: 'sheets export import restore schedule', permission: 'settings.storage' },
   { id: 'records', group: 'Data', label: 'Old records', description: 'Clear old crash and backup logs', icon: Archive, keywords: 'logs history clear delete crash backup points earned space' },
   { id: 'device', group: 'This device', label: 'Device permissions', description: 'Camera, location, Bluetooth and more', icon: Smartphone, keywords: 'notifications storage microphone', permission: 'settings.view' },
@@ -127,34 +125,13 @@ export default function SettingsView({
   >(null);
   const [showWebSettingsGuide, setShowWebSettingsGuide] = useState(false);
 
-  // AI Platform Config States
-  const [aiConfig, setAiConfig] = useState({
-    business_id: activeBusinessId || 'biz-1',
-    provider: 'huggingface',
-    model: 'Qwen/Qwen2.5-72B-Instruct',
-    temperature: 0.7,
-    max_tokens: 2048,
-    top_p: 0.95,
-    top_k: 40,
-    thinking_enabled: false,
-    structured_output: false,
-    system_prompt: '',
+  // AI: the platform sets it up; the business switches it on or off per use (20261205001).
+  const [aiConfig, setAiConfig] = useState<{ enabled: boolean; uses: Record<string, boolean>; system_prompt: string; own_key?: boolean }>({
     enabled: true,
-    api_key: '',
+    uses: {},
+    system_prompt: '',
   });
-  const [testingAi, setTestingAi] = useState(false);
-  // The provider and masked key as last loaded/saved, so switching provider and back
-  // restores the stored key instead of wiping it.
-  const [savedAiKey, setSavedAiKey] = useState<{ provider: string; masked: string }>({ provider: 'huggingface', masked: '' });
-  const [aiLiveModels, setAiLiveModels] = useState<string[]>([]);
-  const [loadingAiModels, setLoadingAiModels] = useState(false);
-  const [aiModelsError, setAiModelsError] = useState<string | null>(null);
-  const [aiCustomModel, setAiCustomModel] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
 
   // Twilio SMS Configuration States
   const [smsConfig, setSmsConfig] = useState({
@@ -601,153 +578,31 @@ export default function SettingsView({
     }
   };
 
-  // ── COGNITIVE AI CONFIG EDGE CALLS ──
+  // ── AI settings (switches and instructions) ──
   useEffect(() => {
     if (!activeBusinessId) return;
-
-    const fetchAiConfig = async () => {
-      try {
-        const data = await SupabaseService.callEdgeFunction('ai-config', {
-          action: 'get',
-          businessId: activeBusinessId,
-          activeRole: currentRole,
-        });
-        if (data?.success && data.config) {
-          setAiConfig(data.config);
-          setSavedAiKey({ provider: getAIProvider(data.config.provider).id, masked: data.config.api_key || '' });
-        }
-      } catch (err) {
-        console.error('Failed to load AI configuration:', err);
-      }
-    };
-
-    fetchAiConfig();
-  }, [activeBusinessId, currentRole]);
+    SupabaseService.callEdgeFunction('ai-config', { action: 'get', businessId: activeBusinessId })
+      .then((data) => {
+        if (data?.success && data.config) setAiConfig(data.config);
+      })
+      .catch((err) => console.error('Failed to load AI settings:', err));
+  }, [activeBusinessId]);
 
   const handleSaveAiConfig = async () => {
     setSavingAi(true);
-    setAiTestResult(null);
     try {
-      if (currentRole !== 'Owner') {
-        throw new Error(
-          'Only the owner can see or change these keys.',
-        );
-      }
-      const problem = aiPlatform ? null : aiConfigProblem(aiConfig);
-      if (problem) throw new Error(problem);
       const data = await SupabaseService.callEdgeFunction('ai-config', {
         action: 'save',
         businessId: activeBusinessId,
-        activeRole: currentRole,
         config: aiConfig,
       });
-
-      console.log('Response data', data);
-
-      if (data?.success) {
-        setAiConfig(data.config);
-        setSavedAiKey({ provider: getAIProvider(data.config.provider).id, masked: data.config.api_key || '' });
-        showToast(
-          'Assistant settings saved',
-          'Your assistant settings are saved.',
-          undefined,
-          'success',
-        );
-      } else {
-        throw new Error(data?.error || 'Failed to update remote variables.');
-      }
+      if (!data?.success) throw new Error(data?.error || 'Could not save.');
+      setAiConfig(data.config);
+      showToast('AI settings saved', 'Your AI switches are saved.', undefined, 'success');
     } catch (err: any) {
-      showToast(
-        'Save failed',
-        toUserMessage(err, 'Could not save. Try again.'),
-        undefined,
-        'error',
-      );
+      showToast('Save failed', toUserMessage(err, 'Could not save. Try again.'), undefined, 'error');
     } finally {
       setSavingAi(false);
-    }
-  };
-
-  const aiProviderInfo = getAIProvider(aiConfig.provider);
-  /** The platform runs the AI: the business sets only its instructions and the switch. */
-  const aiPlatform = (aiConfig as any).platform === true;
-  const aiModelOptions = (() => {
-    const curated = aiProviderInfo.models;
-    const extra = aiLiveModels
-      .filter((id) => !curated.some((m) => m.id === id))
-      .map((id) => ({ id, label: id }));
-    return [...curated, ...extra];
-  })();
-
-  const handleLoadAiModels = async () => {
-    setLoadingAiModels(true);
-    setAiModelsError(null);
-    try {
-      const data = await SupabaseService.callEdgeFunction('ai-config', {
-        action: 'models',
-        businessId: activeBusinessId,
-        config: { provider: aiProviderInfo.id, api_key: aiConfig.api_key },
-      });
-      if (!data?.success) throw new Error(data?.error || 'Could not load the model list.');
-      setAiLiveModels(Array.isArray(data.models) ? data.models : []);
-    } catch (err: any) {
-      setAiLiveModels([]);
-      setAiModelsError(toUserMessage(err, 'Could not load the model list.'));
-    } finally {
-      setLoadingAiModels(false);
-    }
-  };
-
-  const handleTestAiConnection = async () => {
-    const problem = aiConfigProblem(aiConfig);
-    if (problem) {
-      setAiTestResult({ success: false, message: problem });
-      return;
-    }
-    setTestingAi(true);
-    setAiTestResult(null);
-    try {
-      // ✅ FIXED: Routes to 'ai-config' with action 'test' instead of non-existent 'ai-test'
-      const data = await SupabaseService.callEdgeFunction('ai-config', {
-        action: 'test',
-        businessId: activeBusinessId,
-        activeRole: currentRole,
-        config: aiConfig,
-      });
-
-      if (data?.success) {
-        setAiTestResult({ success: true, message: data.message });
-        showToast(
-          'Assistant works',
-          'The assistant answered the test.',
-          undefined,
-          'success',
-        );
-      } else {
-        setAiTestResult({
-          success: false,
-          message: data?.error || 'Connection failed.',
-        });
-        showToast(
-          'Connection failed',
-          toUserMessage(data?.error, 'The assistant did not answer the test.'),
-          undefined,
-          'error',
-        );
-      }
-    } catch (err: any) {
-      setAiTestResult({
-        success: false,
-        message: toUserMessage(err, 'Could not reach the server. Check your connection.'),
-      });
-      showToast(
-        'Connection failed',
-        toUserMessage(err, 'Could not reach the server. Check your connection.'),
-        undefined,
-        'error',
-      );
-    } finally {
-      setTestingAi(false);
     }
   };
 
@@ -1033,252 +888,67 @@ export default function SettingsView({
               )}
             </div>
             <div className="contents">
-              {/* Enterprise AI Platform configuration card */}
+              {/* AI: on/off per use. The platform runs it (provider, model, keys). */}
               {activeSection === 'ai' && hasRolePermission(currentRole, 'settings.integrations') && (
                 <div className="bg-app-card border border-app-border rounded-3xl p-5 flex flex-col gap-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2 border-b border-app-border/40 pb-2.5 w-full min-w-0">
-                    {/* Left: Icon & Title */}
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <MessageSquareText size={16} className="text-amber-500 shrink-0" />
-                      <h3
-                        className="text-xs font-bold text-app-text font-display truncate"
-                        title="AI assistant"
-                      >
-                        AI assistant
-                      </h3>
-                    </div>
+                  <div className="flex items-center gap-2 border-b border-app-border/40 pb-2.5">
+                    <MessageSquareText size={16} className="text-amber-500 shrink-0" />
+                    <h3 className="text-xs font-bold text-app-text font-display truncate">AI</h3>
+                  </div>
+                  <p className="text-[11px] text-app-text-muted leading-relaxed">
+                    The AI is set up and kept running for you. Choose where your business uses it.
+                  </p>
 
+                  <Switch
+                    checked={aiConfig.enabled}
+                    onChange={(v) => setAiConfig({ ...aiConfig, enabled: v })}
+                    label="Use AI in this business"
+                    description="Off stops every use below."
+                  />
+
+                  <div className={`flex flex-col divide-y divide-app-border/50 rounded-2xl border border-app-border px-3 ${aiConfig.enabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                    {([
+                      ['assistant', 'Assistant in the app', 'Staff ask questions and prepare tasks in chat.'],
+                      ['insights', 'Insights on Home and screens', 'Short advice on sales, money and stock.'],
+                      ['website', 'Shop assistant on your website', 'Answers customers about products and prices.'],
+                      ['messages', 'Writing messages and replies', 'Drafts customer messages and feedback replies.'],
+                    ] as const).map(([key, label, description]) => (
+                      <div key={key} className="py-3">
+                        <Switch
+                          checked={aiConfig.uses?.[key] !== false}
+                          onChange={(v) => setAiConfig({ ...aiConfig, uses: { ...aiConfig.uses, [key]: v } })}
+                          label={label}
+                          description={description}
+                        />
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="flex flex-col gap-4">
-                    {/* Enabled global toggle */}
-                    <div className="flex items-center justify-between gap-4 py-1">
-                      <div>
-                        <span className="font-semibold text-app-text text-[11px] block">
-                          Turn on the assistant
-                        </span>
-                        <span className="text-[11px] text-app-text-muted font-medium block mt-0.5">
-                          Chat help, reply drafts and feedback summaries
-                        </span>
-                      </div>
-                      <Switch
-                        checked={aiConfig.enabled}
-                        onChange={() =>
-                          setAiConfig({
-                            ...aiConfig,
-                            enabled: !aiConfig.enabled,
-                          })}
-                        ariaLabel="Enable the assistant"
-                      />
-                    </div>
+                  <AiUsagePanel businessId={activeBusinessId} />
 
-                    <AiUsagePanel businessId={activeBusinessId} />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-semibold text-app-text-muted block">Assistant instructions</label>
+                    <span className="text-[11px] text-app-text-muted leading-tight">Facts and tone for your business, e.g. opening hours.</span>
+                    <textarea
+                      rows={2}
+                      maxLength={4000}
+                      value={aiConfig.system_prompt || ''}
+                      onChange={(e) => setAiConfig({ ...aiConfig, system_prompt: e.target.value })}
+                      placeholder="e.g. Answer briefly and in simple English. Our shop opens at 7 am."
+                      className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-sans leading-relaxed"
+                    />
+                  </div>
 
-                    {/* Provider, key and model: only when the plan has the business bring its own key */}
-                    {!aiPlatform && (<>
-                    {/* Provider selection */}
-                    <div className="flex flex-col gap-1.5 border-t border-app-border/30 pt-3">
-                      <label className="text-[11px] font-semibold text-app-text-muted block">
-                        Assistant Provider
-                      </label>
-                      <p className="text-[11px] text-app-text-muted font-medium leading-relaxed mb-1">
-                        Which AI service to use.
-                      </p>
-
-                      <SearchableDropdown
-                        items={AI_PROVIDERS.map((p) => ({ id: p.id, label: p.label }))}
-                        selectedValue={getAIProvider(aiConfig.provider).id}
-                        onChange={(val) => {
-                          const prov = getAIProvider(val);
-                          // A stored key belongs to the provider it was saved for; going
-                          // back to that provider brings its masked key back.
-                          const key = prov.id === savedAiKey.provider ? savedAiKey.masked : '';
-                          setAiConfig({ ...aiConfig, provider: prov.id, model: prov.defaultModel, api_key: key });
-                          setAiLiveModels([]);
-                          setAiModelsError(null);
-                          setAiTestResult(null);
-                        }}
-                        placeholder="Select AI provider..."
-                        searchPlaceholder="Search providers..."
-                      />
-                    </div>
-
-                    {/* API key: optional for Hugging Face (server rotation), required for the rest */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] font-semibold text-app-text-muted block">
-                        API Key {aiProviderInfo.needsKey ? '*' : '(optional override)'}
-                      </label>
-                      <PasswordInput variant="app" label="" required={aiProviderInfo.needsKey} autoComplete="off" value={aiConfig.api_key} onChange={(api_key) => setAiConfig({ ...aiConfig, api_key: api_key.trim() })} placeholder={aiProviderInfo.needsKey ? `Paste your ${aiProviderInfo.label} key` : 'Leave empty to use the server keys'} />
-                      <span className="text-[11px] text-app-text-muted leading-tight">
-                        {aiProviderInfo.keyHelp}
-                        {isMaskedKey(aiConfig.api_key) ? ' A key is saved; type a new one only to replace it.' : ''}
-                      </span>
-                      {aiKeyWarning(aiConfig) && (
-                        <span className="text-[11px] text-amber-500 font-bold leading-tight">{aiKeyWarning(aiConfig)}</span>
-                      )}
-                    </div>
-
-                    {/* Model: chosen from the provider's own list so an invalid name can't be sent */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="text-[11px] font-semibold text-app-text-muted block">
-                          Model
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleLoadAiModels}
-                          disabled={loadingAiModels || (aiProviderInfo.needsKey && !aiConfig.api_key)}
-                          className="text-[11px] font-bold text-amber-500 hover:underline disabled:opacity-40 disabled:no-underline flex items-center gap-1"
-                        >
-                          <RefreshCw size={10} className={loadingAiModels ? 'animate-spin' : ''} />
-                          {aiLiveModels.length ? `Live list (${aiLiveModels.length})` : 'Load live list'}
-                        </button>
-                      </div>
-                      <SearchableDropdown
-                        items={[...aiModelOptions.map((m) => ({ id: m.id, label: m.label })), { id: '__custom__', label: 'Other (type the model name)…' }]}
-                        selectedValue={aiModelOptions.some((m) => m.id === aiConfig.model) ? aiConfig.model : '__custom__'}
-                        onChange={(v) => {
-                          if (v === '__custom__') {
-                            setAiCustomModel(true);
-                          } else {
-                            setAiCustomModel(false);
-                            setAiConfig({ ...aiConfig, model: v });
-                          }
-                        }}
-                        placeholder="Choose a model"
-                        searchPlaceholder="Search models"
-                      />
-                      {(aiCustomModel || !aiModelOptions.some((m) => m.id === aiConfig.model)) && (
-                        <input
-                          type="text"
-                          value={aiConfig.model}
-                          onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value.trim() })}
-                          placeholder={aiProviderInfo.defaultModel}
-                          className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-mono"
-                        />
-                      )}
-                      {aiLiveModels.length > 0 && aiConfig.model && !aiLiveModels.includes(aiConfig.model) && (
-                        <span className="text-[11px] text-amber-500 font-bold leading-tight">
-                          {aiProviderInfo.label.replace(/ \(.*\)$/, '')} does not list "{aiConfig.model}" right now. Pick another model or run Test first.
-                        </span>
-                      )}
-                      {aiModelsError && (
-                        <span className="text-[11px] text-red-500 font-bold leading-tight">{aiModelsError}</span>
-                      )}
-                    </div>
-
-                    </>)}
-
-                    {/* System Prompt Instructions */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] font-semibold text-app-text-muted block">
-                        Assistant instructions
-                      </label>
-                      <span className="text-[11px] text-app-text-muted leading-tight">
-                        How the assistant should answer for this business.
-                      </span>
-                      <textarea
-                        rows={2}
-                        value={aiConfig.system_prompt || ''}
-                        onChange={(e) =>
-                          setAiConfig({
-                            ...aiConfig,
-                            system_prompt: e.target.value,
-                          })
-                        }
-                        placeholder="e.g. Answer briefly and in simple English. Our shop opens at 7 am."
-                        className="w-full bg-app-bg text-app-text px-3 py-2 rounded-xl border border-app-border focus:border-amber-500 focus:outline-none text-[11px] font-sans leading-relaxed"
-                      />
-                    </div>
-
-                    {/* AI connection verification feedback results */}
-                    {aiTestResult && (
-                      <div
-                        className={`p-3 rounded-2xl border text-[10px] leading-relaxed font-bold ${
-                          aiTestResult.success
-                            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-500'
-                            : 'bg-red-500/10 border-red-500/25 text-red-500'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 mb-1 text-[10.5px]">
-                          {aiTestResult.success ? (
-                            <CheckCircle2 size={13} />
-                          ) : (
-                            <AlertTriangle size={13} />
-                          )}
-                          <span>
-                            {aiTestResult.success
-                              ? 'Test Succeeded'
-                              : 'Test Failed'}
-                          </span>
-                        </div>
-                        <p className="font-medium font-mono whitespace-pre-wrap">
-                          {aiTestResult.message}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Testing & Saving action triggers */}
-                    <div className="flex items-center justify-end gap-2 mt-1 w-full">
-                      {/* Test AI Connection Button */}
-                      {!aiPlatform && <button
-                        type="button"
-                        title="Test Connection"
-                        disabled={testingAi || savingAi}
-                        onClick={handleTestAiConnection}
-                        className="flex-1 md:flex-none min-w-0 py-2 px-2.5 sm:px-3 md:p-2 bg-app-bg hover:bg-app-border border border-app-border hover:border-amber-500/25 text-app-text rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer text-[11px] sm:text-xs font-bold disabled:opacity-50"
-                      >
-                        {testingAi ? (
-                          <>
-                            <RefreshCw
-                              size={14}
-                              className="animate-spin text-amber-500 shrink-0"
-                            />
-                            <span className="truncate whitespace-nowrap md:hidden">
-                              Sending...
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Cpu
-                              size={14}
-                              className="text-amber-500 shrink-0"
-                            />
-                            <span className="truncate whitespace-nowrap md:hidden">
-                              Test Connection
-                            </span>
-                          </>
-                        )}
-                      </button>}
-
-                      {/* Save AI Settings Button */}
-                      <button
-                        type="button"
-                        title="Save Assistant Settings"
-                        onClick={handleSaveAiConfig}
-                        disabled={testingAi || savingAi}
-                        className="flex-1 md:flex-none min-w-0 py-2 px-2.5 sm:px-3 md:p-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer text-[11px] sm:text-xs font-bold shadow-sm disabled:opacity-50"
-                      >
-                        {savingAi ? (
-                          <>
-                            <RefreshCw
-                              size={14}
-                              className="animate-spin text-slate-950 shrink-0"
-                            />
-                            <span className="truncate whitespace-nowrap md:hidden">
-                              Saving...
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Save size={14} className="shrink-0" />
-                            <span className="truncate whitespace-nowrap md:hidden">
-                              Save Settings
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveAiConfig}
+                      disabled={savingAi}
+                      className="py-2 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer text-xs font-bold disabled:opacity-50"
+                    >
+                      {savingAi ? <RefreshCw size={14} className="animate-spin shrink-0" /> : <Save size={14} className="shrink-0" />}
+                      {savingAi ? 'Saving...' : 'Save'}
+                    </button>
                   </div>
                 </div>
               )}

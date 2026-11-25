@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
 
     if (!metrics) return errorResponse("metrics payload is required.", 400);
 
-    const settings = await loadAISettings(businessId);
+    const settings = await loadAISettings(businessId, "insights");
     if (!settings) {
       return jsonResponse({
         success: false,
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
     const db = createUserClient(req);
     const [books, bizRow] = await Promise.all([
       readBooks(db, businessId, start, end, prevStart, prevEnd),
-      db.from("businesses").select("name, business_type, is_tax_enabled").eq("id", businessId).maybeSingle().then((r: any) => r.data).catch(() => null),
+      db.from("businesses").select("name, business_type, is_tax_enabled").eq("id", businessId).maybeSingle().then((r: any) => r.data, () => null),
     ]);
     const bizName = bizRow?.name || "this business";
     const bizType = bizRow?.business_type || "retail shop";

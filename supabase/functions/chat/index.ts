@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
 
     // ── 2. Load all context in parallel ─────────────────────────────────
     const results = await Promise.allSettled([
-      loadAISettings(businessId),
+      loadAISettings(businessId, "assistant"),
       supabase.from("businesses").select("name, currency").eq("id", businessId).maybeSingle(),
       supabase.from("products").select("name, price, stock, sku, min_stock_level, category, unit").eq("business_id", businessId).is("deleted_at", null).order("name").limit(200),
       supabase.from("customers").select("name, phone, debt_balance, wallet_balance, loyalty_points").eq("business_id", businessId).is("deleted_at", null).order("name").limit(100),
@@ -291,7 +291,7 @@ const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) :
 async function draftCustomerMessage(businessId: string, body: any, history: any[]) {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const [settings, bizRes] = await Promise.all([
-    loadAISettings(businessId),
+    loadAISettings(businessId, "messages"),
     supabase.from("businesses").select("name, currency").eq("id", businessId).maybeSingle(),
   ]);
   const bizName = (bizRes as any)?.data?.name || "our shop";

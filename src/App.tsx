@@ -67,6 +67,7 @@ import { useCustomerStore } from './stores/customerStore';
 import { useBusinessStore } from './stores/businessStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import { AppDialogHost } from './components/AppDialog';
+import { DeleteImpactHost, confirmDelete } from './components/DeleteImpact';
 import { FieldValidationHost } from './components/FieldValidation';
 import { useOverlayStore } from './stores/overlayStore';
 import { useOverlay } from './hooks/useOverlay';
@@ -5063,13 +5064,8 @@ export default function App() {
                           setEditBizLogo(biz.logoUrl || '');
                         };
                         const removeBranch = async () => {
-                          const confirmed = await nativeUiService.confirm(
-                            'Delete branch',
-                            `Are you sure you want to permanently close and delete "${biz.name}"? Its sales and records will be hidden.`,
-                          );
-                          if (confirmed) {
-                            deleteBusiness(biz.id);
-                            showToast('Branch deleted', `${biz.name} was deleted.`);
+                          if (await confirmDelete({ kind: 'branch', id: biz.id, name: biz.name, verb: 'Close' })) {
+                            await deleteBusiness(biz.id);
                           }
                         };
                         const canRemoveBranch = canManageBranch && businesses.length > 1;
@@ -5079,11 +5075,11 @@ export default function App() {
                             title={biz.name}
                             subtitle={biz.address || biz.description || undefined}
                             surfaceClassName="bg-slate-50 dark:bg-slate-950"
-                            actions={[{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch }]}
+                            actions={[{ label: 'Close', icon: <Trash2 size={18} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch }]}
                             more={[
                               { label: isActive ? 'Current branch' : 'Switch to this branch', icon: <Check size={16} />, disabled: isActive, onClick: () => { setActiveBusinessId(biz.id); markBranchChosen(biz.id, currentUser?.id); setShowBusinessDropdown(false); } },
                               { label: 'Edit branch', icon: <Edit size={16} />, hidden: !canManageBranch, onClick: editBranch },
-                              { label: 'Delete branch', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch },
+                              { label: 'Close branch', icon: <Trash2 size={16} />, tone: 'red', hidden: !canRemoveBranch, onClick: removeBranch },
                             ]}
                             className={`rounded-2xl border transition-all ${
                               isActive ? 'border-amber-500' : 'border-slate-200 dark:border-slate-800 hover:border-amber-500/25'
@@ -5625,6 +5621,7 @@ export default function App() {
 
         {/* In-app dialogs and field messages instead of the browser's own boxes and bubbles */}
         <AppDialogHost />
+        <DeleteImpactHost />
         <FieldValidationHost />
 
         <ShortcutHelp open={showShortcutHelp} screen={activeTab as string} onClose={() => setShowShortcutHelp(false)} />

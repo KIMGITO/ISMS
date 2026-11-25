@@ -10,6 +10,7 @@ import UnifiedUploader from "../components/shared/UnifiedUploader";
 import { EmployeeRole } from "../types";
 import { hasRolePermission, getDynamicRoles } from "../utils/permissions";
 import { appDialog } from '../components/AppDialog';
+import { confirmDelete } from '../components/DeleteImpact';
 import { useUiStore } from "../stores/uiStore";
 import { SuppliersTeamCard } from "../components/buying/SuppliersTeamCard";
 import { listSuppliers, saveSupplier, type Supplier } from "../services/operations";
@@ -139,12 +140,8 @@ export default function WorkersView() {
 
   const removeWorker = async (emp: any) => {
                                 if (
-                                  await appDialog.confirm({
-                                    title: `Remove ${titleCase(emp.name)}?`,
-                                    message: 'They lose access to this business.',
-                                    confirmLabel: 'Remove',
-                                    destructive: true,
-                                  })
+                                  currentBusinessId &&
+                                  await confirmDelete({ kind: 'worker', id: emp.id, businessId: currentBusinessId, name: titleCase(emp.name), verb: 'Remove' })
                                 ) {
                                   setIsDeletingWorker(true);
                                   try {

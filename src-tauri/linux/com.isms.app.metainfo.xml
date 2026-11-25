@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream details shown by Software / Discover when installing the .deb or AppImage.
+     scripts/stamp-version.mjs replaces the release list with the release being built. -->
+<component type="desktop-application">
+  <id>com.isms.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary=https://github.com/KIMGITO/ISMS/blob/main/LICENSE</project_license>
+  <name>Denso</name>
+  <summary>Run your shop: sales, stock, money and staff in one place</summary>
+  <developer_name>Codensons (Dennis Kimanthi Gitonga)</developer_name>
+  <description>
+    <p>Denso is a business management app for shops, kitchens and small chains. Sell at the till,
+      keep stock right across branches, track debts, expenses and payments, and see every
+      figure agree with the books.</p>
+    <ul>
+      <li>Point of sale with cash, M-Pesa, Airtel Money, card and bank payments</li>
+      <li>Stock, recipes, suppliers, buying and branch transfers</li>
+      <li>Customers, debts, loyalty points, promotions and an online store</li>
+      <li>Workers, roles, shifts, rider deliveries and reports</li>
+    </ul>
+    <p>Denso is commercial software by Codensons. Downloading is free; using it needs a paid
+      plan. Updates are signed and delivered by the app itself from the official release page.</p>
+  </description>
+  <launchable type="desktop-id">Denso.desktop</launchable>
+  <url type="homepage">https://github.com/KIMGITO/ISMS</url>
+  <url type="bugtracker">https://github.com/KIMGITO/ISMS/issues</url>
+  <categories>
+    <category>Office</category>
+    <category>Finance</category>
+  </categories>
+  <provides>
+    <binary>denso</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-11-25"/>
+  </releases>
+</component>
