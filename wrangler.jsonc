@@ -17,7 +17,7 @@
   "workers_dev": true,
   // Each uploaded version gets its own URL, so it can be checked before it takes traffic.
   "preview_urls": true,
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
 
   // app.interlockingblockbuilders.co.ke, and <business>-app.interlockingblockbuilders.co.ke
   // (the app locks to that business, src/utils/tenantHost.ts). One level deep, so the free

@@ -80,7 +80,7 @@ elif grep -qiE "10007|does not exist|not found" <<<"$status"; then
   exit 0
 else
   echo "$status"
-  fail "Couldn't read the current deployment. Is Wrangler logged in (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID)?"
+  fail "Couldn't read the current deployment. See Wrangler's error above (a bad wrangler.jsonc, or CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID)."
 fi
 output blue "$BLUE"
 

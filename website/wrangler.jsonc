@@ -29,7 +29,7 @@
     "SUPABASE_ANON_KEY": "",
     // Comma list of addresses that serve the build's own shop as before, e.g. "kaykays.com,www.kaykays.com".
     "SINGLE_SHOP_HOSTS": ""
-  }
+  },
 
   // Shops: <website name>.interlockingblockbuilders.co.ke (the Worker asks the database which
   // shop, resolve_website_host). The platform page is the bare domain and www.
