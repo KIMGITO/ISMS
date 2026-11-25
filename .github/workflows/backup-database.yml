@@ -52,7 +52,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'kaykays-backups' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Check settings
         run: |
@@ -91,7 +91,7 @@ jobs:
           echo "Tiers: $tiers"
 
       # The CLI runs pg_dump in a container that matches the database's Postgres version.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.122.0
 
@@ -112,7 +112,7 @@ jobs:
 
       - name: Keep as artifact
         if: env.STORE == 'artifact'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.NAME }}
           path: |

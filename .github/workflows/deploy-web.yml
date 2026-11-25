@@ -78,7 +78,7 @@ jobs:
       LABEL: ${{ matrix.target == 'app' && 'Staff web app' || 'Customer website' }}
       APP_VERSION: ${{ inputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # tags, so a manual run still shows the right version
 
@@ -101,7 +101,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
