@@ -85,6 +85,9 @@ fi
 output blue "$BLUE"
 
 # ── 3. Green ───────────────────────────────────────────────────────────────
+# Apply the config's workers_dev / preview_urls (and addresses) first: if they were switched off
+# in the dashboard, the new version gets no preview URL and can't be checked before it goes live.
+$WRANGLER triggers deploy -c "$CONFIG" || echo "::warning::wrangler triggers deploy failed; preview URLs may be off."
 upload=$($WRANGLER versions upload -c "$CONFIG" "${VARS[@]}" --tag "$COMMIT" --message "$MESSAGE" 2>&1); code=$?
 echo "$upload"
 [ $code -eq 0 ] || fail "Uploading the new version failed. Nothing changed for users."
