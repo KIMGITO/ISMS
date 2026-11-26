@@ -23,6 +23,7 @@ import { Checkbox } from '../components/shared/Checkbox';
 import { FormSheet } from '../components/shared/FormSheet';
 import type { PlanModule, PlanRow } from '../stores/planStore';
 import { setConsoleOpen } from '../utils/platformConsole';
+import { appDialog } from '../components/AppDialog';
 import { openAsSupport } from '../utils/supportAccess';
 import { CYCLE_TEXT, StatusPill, btnMain, btnQuiet, btnDanger, btnStop, card, day, num, useCall, when, ActionBar, ConfirmButton, Note, Tabs, StorageUsage, actionTone, TONE_DOT } from './console/common';
 import AboutView from './AboutView';
@@ -292,6 +293,7 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
   const [addons, setAddons] = useState<string[]>([]);
   const [limits, setLimits] = useState<Record<string, number | null>>({});
   const [extra, setExtra] = useState<string[]>([]);
+  const [paidMods, setPaidMods] = useState<string[]>([]);
   const [days, setDays] = useState<number | null>(7);
   const [tab, setTab] = useState<'overview' | 'plan' | 'payments' | 'limits' | 'branches' | 'history'>('overview');
 
@@ -310,6 +312,8 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
     const c = s.custom_limits ?? {};
     setLimits(Object.fromEntries(LIMITS.map(([k]) => [k, typeof c[k] === 'number' ? (c[k] as number) : null])));
     setExtra(Array.isArray(c.modules) ? (c.modules as string[]) : []);
+    const { data: paid } = await getSupabase().from('module_requests').select('module_key').eq('tenant_id', row.tenant_id).eq('status', 'approved').not('payment_id', 'is', null);
+    setPaidMods(((paid as any[]) ?? []).map((x) => x.module_key));
   }, [call, row.tenant_id]);
   useEffect(() => {
     load();
@@ -355,6 +359,15 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
 
   const sellable = plans.filter((p) => p.active);
   const addable = modules.filter((m) => m.addable);
+  // Switching off a module they paid for asks first; an add-on with no price cannot be switched on.
+  const toggleModule = async (key: string, on: boolean, set: React.Dispatch<React.SetStateAction<string[]>>) => {
+    if (!on && paidMods.includes(key)) {
+      const name = modules.find((m) => m.key === key)?.name ?? key;
+      const ok = await appDialog.confirm({ title: `Switch off ${name}?`, message: `${row.name} paid for this module. Switch it off only if the payment was refunded or the paid time is over.`, confirmLabel: 'Switch off', cancelLabel: 'Keep it on', destructive: true });
+      if (!ok) return;
+    }
+    set((x) => (on ? [...new Set([...x, key])] : x.filter((y) => y !== key)));
+  };
 
   return (
     <div className="space-y-3">
@@ -473,7 +486,7 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                 label="Save plan"
                 disabled={busy || ((useAgreed || needsAgreed) && effCycle !== 'manual' && effCycle !== 'trial' && agreed == null)}
                 question={`Put ${row.name} on ${chosen?.name ?? plan}?`}
-                details={<>{CYCLE_TEXT[effCycle] ?? effCycle}{(useAgreed || needsAgreed) && agreed != null ? `, agreed ${formatMoney(agreed)}` : listPrice != null ? `, ${formatMoney(num(listPrice))}` : ''}. Modules and limits follow the new plan.</>}
+                details={`${CYCLE_TEXT[effCycle] ?? effCycle}${(useAgreed || needsAgreed) && agreed != null ? `, agreed ${formatMoney(agreed)}` : listPrice != null ? `, ${formatMoney(num(listPrice))}` : ''}. Modules and limits follow the new plan.`}
                 confirmLabel="Yes, change plan"
                 onConfirm={savePlan}
               />
@@ -507,9 +520,10 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                 <Checkbox
                   key={m.key}
                   checked={addons.includes(m.key)}
-                  onChange={(on) => setAddons((a) => (on ? [...a, m.key] : a.filter((x) => x !== m.key)))}
+                  onChange={(on) => toggleModule(m.key, on, setAddons)}
+                  disabled={m.addon_monthly_price == null && !addons.includes(m.key)}
                   label={m.name}
-                  description={m.addon_monthly_price != null ? `${formatMoney(num(m.addon_monthly_price))} a month` : undefined}
+                  description={m.addon_monthly_price != null ? `${formatMoney(num(m.addon_monthly_price))} a month${paidMods.includes(m.key) ? ' · paid' : ''}` : 'Price not set, cannot be added'}
                 />
               ))}
               <ActionBar>
@@ -535,7 +549,8 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                   <Checkbox
                     key={m.key}
                     checked={extra.includes(m.key)}
-                    onChange={(on) => setExtra((x) => (on ? [...x, m.key] : x.filter((y) => y !== m.key)))}
+                    onChange={(on) => toggleModule(m.key, on, setExtra)}
+                    description={paidMods.includes(m.key) ? 'Paid' : undefined}
                     label={m.name}
                   />
                 ))}

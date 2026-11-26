@@ -2,6 +2,7 @@
 // Small pieces every platform console section shares.
 
 import React, { useCallback, useState } from 'react';
+import { appDialog } from '../../components/AppDialog';
 import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
@@ -97,37 +98,22 @@ export function Note({ tone, children }: { tone: Tone | 'success'; children: Rea
  * Any module can use it: <ConfirmButton tone="danger" label="Suspend" question="Suspend X?" onConfirm={...} />
  */
 export function ConfirmButton({ label, question, details, confirmLabel, tone = 'save', disabled, onConfirm, icon }: {
-  label: React.ReactNode; question: string; details?: React.ReactNode; confirmLabel?: string;
+  label: React.ReactNode; question: string; details?: string; confirmLabel?: string;
   tone?: Tone; disabled?: boolean; onConfirm: () => unknown | Promise<unknown>; icon?: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
-  const go = async () => {
+  // The app's one confirm popup (blue Cancel, red or blue confirm).
+  const ask = async () => {
+    const ok = await appDialog.confirm({ title: question, message: details, confirmLabel: confirmLabel ?? 'Yes, go ahead', cancelLabel: 'Go back', destructive: tone === 'danger' });
+    if (!ok) return;
     setWorking(true);
     try {
       await onConfirm();
     } finally {
       setWorking(false);
-      setOpen(false);
     }
   };
-  return (
-    <>
-      <button type="button" className={TONE_BTN[tone]} disabled={disabled} onClick={() => setOpen(true)}>{icon}{label}</button>
-      {open && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" onClick={() => !working && setOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-app-card text-app-text ring-1 ring-app-border shadow-2xl p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <p className="text-base font-bold">{question}</p>
-            {details && <div className="text-sm text-app-text-muted">{details}</div>}
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className={btnQuiet} disabled={working} onClick={() => setOpen(false)}>Go back</button>
-              <button type="button" className={TONE_BTN[tone]} disabled={working} onClick={go} autoFocus>{working ? 'Working...' : confirmLabel ?? 'Yes, go ahead'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return <button type="button" className={TONE_BTN[tone]} disabled={disabled || working} onClick={ask}>{icon}{working ? 'Working...' : label}</button>;
 }
 
 /** Tabs for long console screens. */

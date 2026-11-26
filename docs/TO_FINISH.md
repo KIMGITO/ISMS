@@ -6,6 +6,13 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Console dropdowns, one confirm popup, module prices (2026-11-26)
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. Needs 20261212002 live first.
+2. [ ] Check: in the console, Plans → Add-ons, clear one module's price. In a company's Business screen → Add modules, that module says "Price not set yet" and has no Request button.
+3. [ ] Check: console → Module requests, the payment picker is the app's searchable dropdown; Approve is greyed while the module has no price.
+4. [ ] Check: open a company with an approved, paid module, untick it under Add-ons or Extra modules: the app's popup asks "Switch off ...?" with Keep it on / Switch off. Every console save button now opens that same popup.
+
 ## Website Google sign-in, automatic prompt, scrolling pills (2026-11-26)
 
 1. [ ] **You:** create the Google OAuth Web client (origins = every website address; redirect = `https://<project-ref>.supabase.co/auth/v1/callback`) and turn Google on in Supabase with its ID and secret. Click-by-click: [operations/google-sign-in.md](operations/google-sign-in.md).

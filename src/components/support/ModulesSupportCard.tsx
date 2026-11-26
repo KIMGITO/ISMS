@@ -6,6 +6,7 @@ import { getSupabase } from '../../services/supabaseClient';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
 import { TextInput, Field } from '../shared/Input';
+import { formatMoney } from '../../utils/money';
 import { StorageUsage, ConfirmButton, Note, Tabs, card, when, btnSave } from '../../features/console/common';
 
 interface Mod { key: string; name: string; addable: boolean; addon_monthly_price: number | null }
@@ -55,9 +56,10 @@ export default function ModulesSupportCard({ businessId }: { businessId: string 
               <div key={m.key} className="flex flex-wrap items-center gap-2 rounded-xl bg-app-bg p-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{m.name}</p>
+                  <p className="text-xs text-app-text-muted">{m.addon_monthly_price != null ? `${formatMoney(Number(m.addon_monthly_price))} a month` : 'Price not set yet, cannot be requested'}</p>
                   {r && <p className={`text-xs font-semibold ${tone(r.status)}`}>{r.status === 'pending' ? 'Waiting for approval' : r.status === 'approved' ? 'Approved' : `Turned down${r.decision_note ? `: ${r.decision_note}` : ''}`}</p>}
                 </div>
-                {r?.status !== 'pending' && r?.status !== 'approved' && (
+                {m.addon_monthly_price != null && r?.status !== 'pending' && r?.status !== 'approved' && (
                   <ConfirmButton tone="info" label="Request" question={`Request ${m.name}?`} details="Platform support checks your payment, then turns it on."
                     onConfirm={() => rpc('request_module', { p_business_id: businessId, p_module: m.key, p_payment_reference: ref || null }, 'Request sent.')} />
                 )}

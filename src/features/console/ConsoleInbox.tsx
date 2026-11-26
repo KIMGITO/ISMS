@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '../../services/supabaseClient';
 import { formatMoney } from '../../utils/money';
 import { TextInput } from '../../components/shared/Input';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { ActionBar, ConfirmButton, Note, card, day, when, useCall, btnSave } from './common';
 
 interface Req { id: string; tenant_id: string; business_id: string; module_key: string; note: string | null; payment_reference: string | null; status: string; created_at: string }
@@ -16,13 +17,16 @@ export function ModuleRequests() {
   const [names, setNames] = useState<Record<string, string>>({});
   const [pick, setPick] = useState<Record<string, string>>({});
   const [note, setNote] = useState<Record<string, string>>({});
+  const [prices, setPrices] = useState<Record<string, number | null>>({});
   const load = useCallback(async () => {
     const sb = getSupabase();
-    const [r, p, t] = await Promise.all([
+    const [r, p, t, m] = await Promise.all([
       sb.from('module_requests').select('*').eq('status', 'pending').order('created_at'),
       sb.from('platform_payments').select('*').is('voided_at', null).order('paid_on', { ascending: false }).limit(300),
       sb.rpc('platform_tenants'),
+      sb.from('plan_modules').select('key, addon_monthly_price'),
     ]);
+    setPrices(Object.fromEntries(((m.data as any[]) ?? []).map((x) => [x.key, x.addon_monthly_price == null ? null : Number(x.addon_monthly_price)])));
     setRows((r.data as Req[]) ?? []);
     setPays((p.data as Pay[]) ?? []);
     setNames(Object.fromEntries(((t.data as any[]) ?? []).map((x) => [x.tenant_id, x.name])));
@@ -38,20 +42,25 @@ export function ModuleRequests() {
       <Note tone="warn">Approve only once their payment is recorded (Companies → company → Payments). Pick that payment below.</Note>
       {rows.map((r) => {
         const theirs = pays.filter((p) => p.tenant_id === r.tenant_id);
+        const price = prices[r.module_key] ?? null;
         return (
           <div key={r.id} className={`${card} space-y-2`}>
             <p className="text-sm font-semibold">{names[r.tenant_id] ?? 'Company'} wants <span className="text-amber-600">{r.module_key.replace(/_/g, ' ')}</span></p>
+            <p className="text-xs text-app-text-muted">Price: {price == null ? 'not set (set it in Plans → Add-ons first)' : `${formatMoney(price)} a month`}</p>
             <p className="text-xs text-app-text-muted">Asked {when(r.created_at)}{r.payment_reference ? ` · their payment ref: ${r.payment_reference}` : ' · no payment ref given'}</p>
             {theirs.length ? (
-              <select value={pick[r.id] ?? ''} onChange={(e) => setPick((x) => ({ ...x, [r.id]: e.target.value }))} className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm">
-                <option value="">Pick the payment for this module</option>
-                {theirs.map((p) => <option key={p.id} value={p.id}>{day(p.paid_on)} · {formatMoney(p.amount)} · {p.method}{p.reference ? ` · ${p.reference}` : ''}</option>)}
-              </select>
+              <SearchableDropdown
+                items={theirs.map((p) => ({ id: p.id, label: `${formatMoney(p.amount)} · ${p.method}`, sublabel: `${day(p.paid_on)}${p.reference ? ` · ${p.reference}` : ''}` }))}
+                selectedValue={pick[r.id] ?? ''}
+                onChange={(v) => setPick((x) => ({ ...x, [r.id]: v }))}
+                placeholder="Pick the payment for this module"
+                searchPlaceholder="Search payments"
+              />
             ) : <Note tone="danger">No payment recorded for this company yet.</Note>}
             <TextInput value={note[r.id] ?? ''} onChange={(e) => setNote((x) => ({ ...x, [r.id]: e.target.value }))} placeholder="Note to them (optional)" />
             <ActionBar>
               <ConfirmButton tone="danger" label="Turn down" disabled={busy} question="Turn this request down?" onConfirm={() => decide(r, false)} />
-              <ConfirmButton tone="save" label="Approve" disabled={busy || !pick[r.id]} question={`Turn on ${r.module_key.replace(/_/g, ' ')}?`} details="It is added to this company's extra modules." onConfirm={() => decide(r, true)} />
+              <ConfirmButton tone="save" label="Approve" disabled={busy || !pick[r.id] || price == null} question={`Turn on ${r.module_key.replace(/_/g, ' ')}?`} details="It is added to this company's extra modules." onConfirm={() => decide(r, true)} />
             </ActionBar>
           </div>
         );
