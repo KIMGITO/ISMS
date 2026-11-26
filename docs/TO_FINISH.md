@@ -8,6 +8,13 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## First sign-up becomes platform admin, console edges 2px (2026-11-26)
+
+1. Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`.
+2. Run `SELECT public.platform_admin_claimable();` in the SQL editor while signed in as a normal user. It should be false on live (an admin already exists).
+3. On a fresh test DB, sign up and verify an email. A "Become the platform admin?" box should appear; "Make me admin" opens the console. A second sign-up should never see the box.
+4. Open the console on a phone and desktop. Content should sit 2px from the screen edges.
+
 ## Domain interlockingblockbuilders.co.ke, look-alike names blocked, app per business (2026-11-25)
 
 Shops at `<name>.interlockingblockbuilders.co.ke`, the app at `<name>-app.interlockingblockbuilders.co.ke` (opens only that business; one level deep, so the free certificate covers it). Migration `20261209002_platform_domain_unique_names.sql` (website names may not end in `-app`), routes in `wrangler.jsonc` and `website/wrangler.jsonc` (the website Worker forwards `*-app` to the app Worker through the `APP` binding), app lock in `src/utils/tenantHost.ts`, `scripts/deploy-web.sh` now applies routes (`wrangler triggers deploy`).

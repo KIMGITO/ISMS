@@ -40,6 +40,7 @@ import AccountingView from './features/AccountingView';
 import BuyingView from './features/BuyingView';
 import SupplierPortalView from './features/SupplierPortalView';
 import PlatformConsoleView from './features/PlatformConsoleView';
+import ClaimPlatformAdminPrompt from './components/ClaimPlatformAdminPrompt';
 import { setConsoleOpen, useConsoleOpen, usePlatformAdmin } from './utils/platformConsole';
 import { captureWantedPlan } from './utils/wantedPlan';
 import AuditLogView from './features/AuditLogView';
@@ -1645,6 +1646,7 @@ export default function App() {
   return (
     <PreviewFrame>
       <div className="w-full h-full flex flex-col relative bg-app-bg overflow-hidden text-app-text transition-colors duration-200">
+        <ClaimPlatformAdminPrompt userId={currentUser?.isVerified ? currentUser.id : null} name={currentUser?.name} />
         {/* Toasts: a brief pill for your own actions, a card for alerts and messages */}
         <AnimatePresence>
           {toast && (() => {

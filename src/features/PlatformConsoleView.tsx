@@ -1079,8 +1079,8 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
 
   return (
     <div className="min-h-full bg-app-bg text-app-text flex flex-col">
-      <header className="sticky top-0 z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-4 pb-2.5" style={{ paddingTop: 'calc(0.625rem + var(--inset-top))' }}>
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
+      <header className="sticky top-0 z-20 bg-app-card/95 backdrop-blur border-b border-app-border px-[2px] pb-2.5" style={{ paddingTop: 'calc(0.625rem + var(--inset-top))' }}>
+        <div className="flex items-center gap-3">
           <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" aria-label="Leave the console" title="Leave the console">
             <ArrowLeft size={18} />
           </button>
@@ -1092,7 +1092,7 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
           <button type="button" onClick={() => void logout()} className="p-2 rounded-lg text-app-text-muted hover:bg-app-bg cursor-pointer" aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
         </div>
       </header>
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-4 pb-[calc(var(--mobile-nav-room)+0.5rem)] md:pb-[calc(var(--inset-bottom)+24px)]">
+      <main className="flex-1 w-full px-[2px] pt-[2px] pb-[calc(var(--mobile-nav-room)+0.5rem)] md:pb-[calc(var(--inset-bottom)+24px)]">
         <SectionNav<Section>
           sections={SECTIONS}
           active={section}

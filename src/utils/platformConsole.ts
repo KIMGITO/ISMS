@@ -67,3 +67,8 @@ export function usePlatformAdmin(userId: string | null | undefined): boolean {
   }, [userId]);
   return yes;
 }
+
+/** Forget the cached answer, e.g. after claiming the admin role. */
+export function forgetPlatformAdmin(userId: string): void {
+  answers.delete(userId);
+}
