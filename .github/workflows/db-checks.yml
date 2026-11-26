@@ -24,11 +24,11 @@ jobs:
     env:
       DO_NOT_TRACK: "1"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the base commit, to see which migrations are new
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -43,7 +43,7 @@ jobs:
           else base="HEAD~1"; fi
           node scripts/check-migrations.mjs "$base"
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.109.0 # the version that applies migrations on this machine and to live
 
