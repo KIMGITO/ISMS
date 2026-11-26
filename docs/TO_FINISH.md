@@ -6,6 +6,14 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Console UI rework (2026-11-26)
+
+1. [ ] Apply the storage figure: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. Open Console → Companies → a company → Overview: "Storage: X used / Y available" should show with a bar.
+2. [ ] Check in the browser: company opens as a full screen with tabs; Change plan, Save limits, Save add-ons, plan/price saves and Settings save each ask to confirm; Void is a red button; Activity has search and colour filters; Plans show 3 across on wide screens with Perpetual full width below.
+3. [ ] Apply `20261212002_module_requests_support_messages.sql` (same push as step 1), then `bash scripts/check-live-grants.sh` and `bash supabase/tests/permissions/permissions_test.sh`.
+4. [ ] As an Owner: Business and branches → "Plan, storage and support" → Add modules → Request. In Console → Module requests it should show; Approve stays off until a recorded payment is picked; after Approve the module appears under the company's Limits & modules.
+5. [ ] As an Owner send a message on the Messages tab; Console → Messages shows it with a red dot; reply, and the reply shows in the business in blue.
+
 ---
 
 ## M-Pesa keys obey read-only plans (2026-11-26)

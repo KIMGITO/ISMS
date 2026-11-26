@@ -24,15 +24,18 @@ import { FormSheet } from '../components/shared/FormSheet';
 import type { PlanModule, PlanRow } from '../stores/planStore';
 import { setConsoleOpen } from '../utils/platformConsole';
 import { openAsSupport } from '../utils/supportAccess';
-import { CYCLE_TEXT, StatusPill, btnMain, btnQuiet, btnDanger, card, day, num, useCall, when } from './console/common';
+import { CYCLE_TEXT, StatusPill, btnMain, btnQuiet, btnDanger, btnStop, card, day, num, useCall, when, ActionBar, ConfirmButton, Note, Tabs, StorageUsage, actionTone, TONE_DOT } from './console/common';
 import ConsoleHome from './console/ConsoleHome';
+import { ModuleRequests, SupportMessages } from './console/ConsoleInbox';
 import ConsoleMoney, { CompanyPayments, RecordPaymentSheet, RunningCostsSection } from './console/ConsoleMoney';
 
-type Section = 'home' | 'requests' | 'companies' | 'money' | 'support' | 'plans' | 'costs' | 'running_costs' | 'settings' | 'ai' | 'activity';
+type Section = 'home' | 'requests' | 'modules' | 'messages' | 'companies' | 'money' | 'support' | 'plans' | 'costs' | 'running_costs' | 'settings' | 'ai' | 'activity';
 
 const SECTIONS: NavSection<Section>[] = [
   { id: 'home', group: 'Platform', label: 'Home', description: 'Money, growth, break-even, use', icon: Home, keywords: 'overview charts statistics' },
   { id: 'requests', group: 'Platform', label: 'Requests', description: 'Sign-ups and plan changes to approve', icon: ClipboardList, keywords: 'approve signup payment' },
+  { id: 'modules', group: 'Platform', label: 'Module requests', description: 'Modules companies asked for; approve once paid', icon: LayoutGrid, keywords: 'addon module approve' },
+  { id: 'messages', group: 'Platform', label: 'Messages', description: 'Support messages from companies', icon: LifeBuoy, keywords: 'chat help support inbox' },
   { id: 'companies', group: 'Platform', label: 'Companies', description: 'Plans, add-ons, limits, trials', icon: Building2, keywords: 'tenant business suspend' },
   { id: 'money', group: 'Platform', label: 'Money', description: 'Payments received and who owes', icon: Wallet, keywords: 'payment billing paid owe mpesa cash' },
   { id: 'support', group: 'Platform', label: 'Support', description: 'Branches whose owner let you in', icon: LifeBuoy, keywords: 'help access open branch' },
@@ -212,6 +215,9 @@ function CompaniesSection({ plans, modules, openId, onOpened }: { plans: PlanRow
     return (rows ?? []).filter((r) => !t || `${r.name} ${r.owner_name ?? ''} ${r.owner_email ?? ''} ${r.plan_name}`.toLowerCase().includes(t));
   }, [rows, q]);
 
+  if (open) {
+    return <CompanySheet row={open} plans={plans} modules={modules} onClose={() => setOpen(null)} onChanged={load} />;
+  }
   return (
     <div className="space-y-3">
       <SearchInput value={q} onChange={setQ} placeholder="Search companies, owners, plans" />
@@ -239,15 +245,6 @@ function CompaniesSection({ plans, modules, openId, onOpened }: { plans: PlanRow
           </button>
         ))}
       </div>
-      {open && (
-        <CompanySheet
-          row={open}
-          plans={plans}
-          modules={modules}
-          onClose={() => setOpen(null)}
-          onChanged={load}
-        />
-      )}
     </div>
   );
 }
@@ -294,6 +291,7 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
   const [limits, setLimits] = useState<Record<string, number | null>>({});
   const [extra, setExtra] = useState<string[]>([]);
   const [days, setDays] = useState<number | null>(7);
+  const [tab, setTab] = useState<'overview' | 'plan' | 'payments' | 'limits' | 'branches' | 'history'>('overview');
 
   const load = useCallback(async () => {
     const r = await call<TenantDetail>('platform_tenant_detail', { p_tenant_id: row.tenant_id });
@@ -357,13 +355,61 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
   const addable = modules.filter((m) => m.addable);
 
   return (
-    <FormSheet title={row.name} subtitle={`${row.owner_name ?? 'No owner'}${row.owner_email ? ` · ${row.owner_email}` : ''}`} onClose={onClose} wide>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={onClose} className={btnQuiet}><ArrowLeft size={14} /> All companies</button>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-bold truncate">{row.name}</p>
+          <p className="text-xs text-app-text-muted truncate">{row.owner_name ?? 'No owner'}{row.owner_email ? ` · ${row.owner_email}` : ''}</p>
+        </div>
+        {d && <StatusPill status={(d.plan as any)?.status ?? d.subscription.status} />}
+      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'overview', label: 'Overview' }, { id: 'plan', label: 'Change plan' }, { id: 'payments', label: 'Payments' },
+          { id: 'limits', label: 'Limits & modules' }, { id: 'branches', label: 'Branches' }, { id: 'history', label: 'History' },
+        ]}
+      />
       {!d ? (
         <p className="text-sm text-app-text-muted">Loading...</p>
       ) : (
         <div className="space-y-5 text-sm">
-          <section className="space-y-3">
-            <h4 className="font-semibold">Plan</h4>
+          {tab === 'overview' && (
+            <section className={`${card} space-y-3`}>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div><p className="text-xs text-app-text-muted">Plan</p><p className="font-semibold">{plans.find((p) => p.code === d.subscription.plan_code)?.name ?? d.subscription.plan_code}</p></div>
+                <div><p className="text-xs text-app-text-muted">How they pay</p><p className="font-semibold">{CYCLE_TEXT[d.subscription.billing_cycle] ?? d.subscription.billing_cycle}</p></div>
+                <div><p className="text-xs text-app-text-muted">Paid up to</p><p className="font-semibold">{d.subscription.period_end ? day(d.subscription.period_end) : d.subscription.status === 'trial' ? `Trial ends ${day(d.subscription.trial_ends_at)}` : '-'}</p></div>
+                <div><p className="text-xs text-app-text-muted">Branches</p><p className="font-semibold">{row.branches}/{row.max_branches}</p></div>
+                <div><p className="text-xs text-app-text-muted">Staff</p><p className="font-semibold">{row.staff}/{row.max_staff}</p></div>
+                <div><p className="text-xs text-app-text-muted">AI questions</p><p className="font-semibold">{d.ai_today?.calls ?? 0} today, {d.ai_30_days} in 30 days</p></div>
+              </div>
+              <StorageUsage tenantId={row.tenant_id} />
+              {d.subscription.status === 'suspended' && <Note tone="danger">Suspended. Their staff can't sell or change anything.</Note>}
+              {d.subscription.status === 'trial' && (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label="Make the trial longer by (days)">
+                    <NumberInput value={days} onChange={setDays} decimals={0} min={1} max={90} className="w-28" />
+                  </Field>
+                </div>
+              )}
+              <ActionBar left="Changes here ask you to confirm first.">
+                {d.subscription.status === 'trial' && (
+                  <ConfirmButton tone="info" label="Extend trial" disabled={busy || !days} question={`Extend ${row.name}'s trial by ${days} days?`} onConfirm={extendTrial} />
+                )}
+                {d.subscription.status === 'suspended' ? (
+                  <ConfirmButton tone="save" label="Let them back in" disabled={busy} question={`Let ${row.name} back in?`} details="Their staff can work again. No paid days are added." onConfirm={() => setSuspended(false)} />
+                ) : (
+                  <button type="button" disabled={busy} className={btnStop} onClick={() => setSuspending(true)}>Suspend company</button>
+                )}
+              </ActionBar>
+            </section>
+          )}
+          {tab === 'plan' && (
+          <section className={`${card} space-y-3`}>
+            <Note tone="warn">Changing the plan changes what this company can use. Pick, check the price, then save and confirm.</Note>
             <Field label="Plan" group>
               <div className="flex flex-wrap gap-1.5">
                 {sellable.map((p) => (
@@ -418,19 +464,23 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
               </div>
             )}
             {effCycle === 'manual' && <p className="text-xs text-app-text-muted">Free: no payments, no end date. Use it for your own test companies or partners.</p>}
-            <button type="button" disabled={busy || ((useAgreed || needsAgreed) && effCycle !== 'manual' && effCycle !== 'trial' && agreed == null)} className={btnMain} onClick={savePlan}>Save plan</button>
-
-            {d.subscription.status === 'trial' && (
-              <div className="flex flex-wrap items-end gap-2">
-                <Field label="Make the trial longer by (days)">
-                  <NumberInput value={days} onChange={setDays} decimals={0} min={1} max={90} className="w-28" />
-                </Field>
-                <button type="button" disabled={busy || !days} className={btnQuiet} onClick={extendTrial}>Extend trial</button>
-              </div>
-            )}
+            <ActionBar left={plan === d.subscription.plan_code ? 'This is their current plan.' : `Now: ${plans.find((p) => p.code === d.subscription.plan_code)?.name ?? d.subscription.plan_code}`}>
+              <button type="button" className={btnQuiet} onClick={() => setTab('overview')}>Cancel</button>
+              <ConfirmButton
+                tone="save"
+                label="Save plan"
+                disabled={busy || ((useAgreed || needsAgreed) && effCycle !== 'manual' && effCycle !== 'trial' && agreed == null)}
+                question={`Put ${row.name} on ${chosen?.name ?? plan}?`}
+                details={<>{CYCLE_TEXT[effCycle] ?? effCycle}{(useAgreed || needsAgreed) && agreed != null ? `, agreed ${formatMoney(agreed)}` : listPrice != null ? `, ${formatMoney(num(listPrice))}` : ''}. Modules and limits follow the new plan.</>}
+                confirmLabel="Yes, change plan"
+                onConfirm={savePlan}
+              />
+            </ActionBar>
           </section>
+          )}
 
-          <section className="space-y-3 border-t border-app-border pt-4">
+          {tab === 'payments' && (
+          <section className={`${card} space-y-3`}>
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-semibold">Payments</h4>
               <StatusPill status={(d.plan as any)?.status ?? d.subscription.status} />
@@ -443,19 +493,13 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
               </span>
             </div>
             <CompanyPayments tenantId={row.tenant_id} name={row.name} cycle={d.subscription.billing_cycle} reloadKey={payKey} onChanged={() => { setPayKey((k) => k + 1); onChanged(); load(); }} />
-            <div className="pt-1">
-              {d.subscription.status === 'suspended' ? (
-                <button type="button" disabled={busy} className={btnQuiet} onClick={() => setSuspended(false)}>Let them back in</button>
-              ) : (
-                <button type="button" disabled={busy} className="text-xs font-semibold text-red-600 cursor-pointer" onClick={() => setSuspending(true)}>Suspend this company</button>
-              )}
-            </div>
           </section>
+          )}
 
-          {d.plan?.own_ai_key && <CompanyAi tenantId={row.tenant_id} />}
+          {tab === 'limits' && d.plan?.own_ai_key && <CompanyAi tenantId={row.tenant_id} />}
 
-          {chosen?.addons_allowed && d.subscription.plan_code === plan && (
-            <section className="space-y-2 border-t border-app-border pt-4">
+          {tab === 'limits' && chosen?.addons_allowed && d.subscription.plan_code === plan && (
+            <section className={`${card} space-y-2`}>
               <h4 className="font-semibold">Add-ons</h4>
               {addable.map((m) => (
                 <Checkbox
@@ -466,11 +510,14 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                   description={m.addon_monthly_price != null ? `${formatMoney(num(m.addon_monthly_price))} a month` : undefined}
                 />
               ))}
-              <button type="button" disabled={busy} className={btnQuiet} onClick={saveAddons}>Save add-ons</button>
+              <ActionBar>
+                <ConfirmButton tone="save" label="Save add-ons" disabled={busy} question={`Save add-ons for ${row.name}?`} details={addons.length ? addons.join(', ') : 'No add-ons.'} onConfirm={saveAddons} />
+              </ActionBar>
             </section>
           )}
 
-          <section className="space-y-3 border-t border-app-border pt-4">
+          {tab === 'limits' && (
+          <section className={`${card} space-y-3`}>
             <h4 className="font-semibold">Own limits</h4>
             <p className="text-xs text-app-text-muted">Only for this company. Empty = the plan's limit.</p>
             <div className="grid grid-cols-2 gap-3">
@@ -492,11 +539,14 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
                 ))}
               </div>
             </Field>
-            <button type="button" disabled={busy} className={btnQuiet} onClick={saveLimits}>Save limits</button>
+            <ActionBar>
+              <ConfirmButton tone="save" label="Save limits" disabled={busy} question={`Save own limits for ${row.name}?`} details="These replace the plan's limits for this company only." onConfirm={saveLimits} />
+            </ActionBar>
           </section>
+          )}
 
-          <section className="space-y-2 border-t border-app-border pt-4">
-            <h4 className="font-semibold">Branches</h4>
+          {tab === 'branches' && (
+          <section className="space-y-2">
             {d.branches.map((b) => (
               <div key={b.id} className="rounded-xl bg-app-bg p-3 text-xs">
                 <span className="font-semibold text-sm">{b.name}</span>
@@ -514,14 +564,14 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
               AI: {d.ai_today?.calls ?? 0} questions today{d.ai_today?.refused ? ` (${d.ai_today.refused} over the cap)` : ''}, {d.ai_30_days} in 30 days.
             </p>
           </section>
+          )}
 
-          <section className="space-y-1 border-t border-app-border pt-4">
-            <h4 className="font-semibold">History</h4>
-            {d.history.length === 0 && <p className="text-xs text-app-text-muted">Nothing changed yet.</p>}
-            {d.history.map((h, i) => (
-              <p key={i} className="text-xs"><span className="text-app-text-muted">{when(h.at)}</span> {actionText(h.action, h.details)}</p>
-            ))}
-          </section>
+          {tab === 'history' && (
+            <section className={`${card} space-y-2`}>
+              {d.history.length === 0 && <p className="text-xs text-app-text-muted">Nothing changed yet.</p>}
+              {d.history.map((h, i) => <LogRow key={i} action={h.action} details={h.details} at={h.at} />)}
+            </section>
+          )}
         </div>
       )}
       {suspending && d && (
@@ -546,7 +596,7 @@ function CompanySheet({ row, plans, modules, onClose, onChanged }: {
           </div>
         </FormSheet>
       )}
-    </FormSheet>
+    </div>
   );
 }
 
@@ -624,6 +674,9 @@ const ACTION_TEXT: Record<string, string> = {
   support_allowed: 'Owner allowed support',
   support_opened: 'Support opened a branch',
   support_ended: 'Support ended',
+  module_requested: 'Module requested',
+  module_approved: 'Module approved',
+  module_rejected: 'Module turned down',
 };
 
 function actionText(action: string, details: Record<string, unknown>): string {
@@ -631,6 +684,32 @@ function actionText(action: string, details: Record<string, unknown>): string {
     .filter(([k, v]) => v != null && v !== '' && k !== 'request' && k !== 'id')
     .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v.join(', ') || 'none' : typeof v === 'object' ? JSON.stringify(v) : String(v)}`);
   return `${ACTION_TEXT[action] ?? action}${bits.length ? ` (${bits.join('; ')})` : ''}`;
+}
+
+function detailText(details: Record<string, unknown>): string {
+  return Object.entries(details ?? {})
+    .filter(([k, v]) => v != null && v !== '' && k !== 'request' && k !== 'id')
+    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v.join(', ') || 'none' : typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+    .join(' · ');
+}
+
+/** One colour-coded log line: dot + title + when, details underneath. */
+function LogRow({ action, details, at, company }: { action: string; details: Record<string, unknown>; at: string; company?: string }) {
+  const tone = actionTone(action);
+  const extra = detailText(details);
+  return (
+    <div className="flex gap-3 rounded-xl bg-app-bg px-3 py-2">
+      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm font-semibold">{ACTION_TEXT[action] ?? action}</span>
+          {company && <span className="text-xs text-app-text-muted">{company}</span>}
+          <span className="ml-auto text-[11px] text-app-text-muted tabular-nums">{when(at)}</span>
+        </div>
+        {extra && <p className="text-xs text-app-text-muted break-words">{extra}</p>}
+      </div>
+    </div>
+  );
 }
 
 // ============================================================================================
@@ -659,17 +738,23 @@ function PlansSection({ plans, modules, reload }: { plans: PlanRow[]; modules: P
     if (done) reload();
   };
 
+  const [tab, setTab] = useState<'plans' | 'addons'>('plans');
+  const priced = plans.filter((p) => p.kind !== 'trial');
+  const ordered = [...priced.filter((p) => p.kind !== 'perpetual'), ...priced.filter((p) => p.kind === 'perpetual')];
   return (
     <div className="space-y-4">
-      <p className="text-xs text-app-text-muted">The plans page and the in-app plan chooser read these. Empty = "ask us".</p>
-      {plans.filter((p) => p.kind !== 'trial').map((p) => (
-        <div key={p.code} className={`${card} space-y-3`}>
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'plans', label: 'Plan prices' }, { id: 'addons', label: 'Add-on prices' }]} />
+      <Note tone="info">The plans page and the in-app plan chooser read these. Empty = "ask us".</Note>
+      {tab === 'plans' && (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {ordered.map((p) => (
+        <div key={p.code} className={`${card} space-y-3 flex flex-col ${p.kind === 'perpetual' ? 'md:col-span-2 xl:col-span-3 ring-amber-500/40' : ''}`}>
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{p.name}</span>
             {!p.is_public && <span className="text-[11px] text-app-text-muted">hidden</span>}
             <span className="ml-auto text-[11px] text-app-text-muted">{p.max_branches} branches · {p.max_staff} staff</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 flex-1">
             {p.kind === 'perpetual' ? (
               <Field label="One payment">
                 <NumberInput prefix="KSh" value={val(p, 'one_time_price')} onChange={(v) => set(p.code, 'one_time_price', v)} min={0} />
@@ -688,9 +773,15 @@ function PlansSection({ plans, modules, reload }: { plans: PlanRow[]; modules: P
               <NumberInput prefix="KSh" value={val(p, 'setup_fee')} onChange={(v) => set(p.code, 'setup_fee', v)} min={0} />
             </Field>
           </div>
-          <button type="button" disabled={busy} className={btnQuiet} onClick={() => savePlan(p)}>Save {p.name}</button>
+          <ActionBar>
+            <ConfirmButton tone="save" label={`Save ${p.name}`} disabled={busy} question={`Change ${p.name} prices?`}
+              details="New prices show on the plans page at once. Companies already paying keep their agreed price." onConfirm={() => savePlan(p)} />
+          </ActionBar>
         </div>
       ))}
+      </div>
+      )}
+      {tab === 'addons' && (
       <div className={`${card} space-y-3`}>
         <span className="font-semibold text-sm">Add-ons (Pro only)</span>
         {modules.filter((m) => m.addable).map((m) => {
@@ -704,11 +795,14 @@ function PlansSection({ plans, modules, reload }: { plans: PlanRow[]; modules: P
               <Field label="A year" className="w-36">
                 <NumberInput prefix="KSh" value={e.a} onChange={(v) => setAddonEdit((x) => ({ ...x, [m.key]: { ...e, a: v } }))} min={0} />
               </Field>
-              <button type="button" disabled={busy} className={btnQuiet} onClick={() => saveAddon(m)}>Save</button>
+              <div className="ml-auto">
+                <ConfirmButton tone="save" label="Save" disabled={busy} question={`Change ${m.name} prices?`} onConfirm={() => saveAddon(m)} />
+              </div>
             </div>
           );
         })}
       </div>
+      )}
     </div>
   );
 }
@@ -839,6 +933,7 @@ interface PlatformSettings {
 function SettingsSection() {
   const { call, busy } = useCall();
   const [s, setS] = useState<PlatformSettings | null>(null);
+  const [tab, setTab] = useState<'name' | 'trial' | 'pay'>('name');
   useEffect(() => {
     getSupabase().from('platform_settings').select('*').maybeSingle().then(({ data }) => setS(data as PlatformSettings));
   }, []);
@@ -860,6 +955,8 @@ function SettingsSection() {
 
   return (
     <div className="space-y-4">
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'name', label: 'Name & addresses' }, { id: 'trial', label: 'Trial & unpaid' }, { id: 'pay', label: 'Paying' }]} />
+      {tab === 'name' && (
       <div className={`${card} space-y-3`}>
         <h4 className="font-semibold text-sm">Name and addresses</h4>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -874,6 +971,8 @@ function SettingsSection() {
           </a>
         )}
       </div>
+      )}
+      {tab === 'trial' && (
       <div className={`${card} space-y-3`}>
         <h4 className="font-semibold text-sm">Trial and unpaid companies</h4>
         <Switch checked={s.trial_enabled} onChange={(v) => put({ trial_enabled: v })} label="Free trial open" description="Off: new companies must pay, or ask and wait for your approval." />
@@ -883,6 +982,8 @@ function SettingsSection() {
           <Field label="Read-only days" hint="Then suspended"><NumberInput value={s.read_only_days} onChange={(v) => put({ read_only_days: v ?? 0 })} decimals={0} min={0} max={365} /></Field>
         </div>
       </div>
+      )}
+      {tab === 'pay' && (
       <div className={`${card} space-y-3`}>
         <h4 className="font-semibold text-sm">Paying</h4>
         <Field label="VAT on our prices (%)" className="max-w-[10rem]"><NumberInput value={s.vat_percent} onChange={(v) => put({ vat_percent: v ?? 0 })} min={0} max={50} /></Field>
@@ -900,7 +1001,10 @@ function SettingsSection() {
           <Field label="Contact us text"><TextInput {...text('contact_text')} placeholder="Call 07..." /></Field>
         </div>
       </div>
-      <button type="button" disabled={busy} className={btnMain} onClick={save}>Save settings</button>
+      )}
+      <ActionBar left="One save covers all three tabs.">
+        <ConfirmButton tone="save" label="Save settings" disabled={busy} question="Save platform settings?" details="These apply to every company and the plans page at once." onConfirm={save} />
+      </ActionBar>
     </div>
   );
 }
@@ -944,7 +1048,9 @@ function AiSection() {
         <Field label="Top k"><NumberInput value={s.top_k} onChange={(v) => put({ top_k: v ?? 40 })} decimals={0} min={0} /></Field>
       </div>
       <p className="text-[11px] text-app-text-muted">The keys stay as server secrets; they are never typed here. Daily caps are set per plan, or per company under Companies.</p>
-      <button type="button" disabled={busy} className={btnMain} onClick={save}>Save AI settings</button>
+      <ActionBar>
+        <ConfirmButton tone={s.enabled ? 'save' : 'danger'} label="Save AI settings" disabled={busy} question="Save AI settings?" details={s.enabled ? 'Applies to every company.' : 'AI will be OFF for every company.'} onConfirm={save} />
+      </ActionBar>
     </div>
   );
 }
@@ -1011,17 +1117,33 @@ function SupportSection() {
 
 function ActivitySection() {
   const [rows, setRows] = useState<Array<{ id: number; action: string; details: Record<string, unknown>; created_at: string; tenant_id: string | null }> | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [q, setQ] = useState('');
+  const [kind, setKind] = useState<'all' | 'danger' | 'success' | 'warn' | 'info'>('all');
   useEffect(() => {
-    getSupabase().from('platform_audit').select('*').order('created_at', { ascending: false }).limit(150)
+    getSupabase().from('platform_audit').select('*').order('created_at', { ascending: false }).limit(500)
       .then(({ data }) => setRows((data as any[]) ?? []));
+    getSupabase().rpc('platform_tenants').then(({ data }) =>
+      setNames(Object.fromEntries(((data as any[]) ?? []).map((t) => [t.tenant_id, t.name]))));
   }, []);
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (rows ?? []).filter((r) => (kind === 'all' || actionTone(r.action) === kind)
+      && (!t || `${ACTION_TEXT[r.action] ?? r.action} ${names[r.tenant_id ?? ''] ?? ''} ${JSON.stringify(r.details ?? {})}`.toLowerCase().includes(t)));
+  }, [rows, q, kind, names]);
   if (!rows) return <p className="text-sm text-app-text-muted">Loading...</p>;
-  if (!rows.length) return <p className="text-sm text-app-text-muted">Nothing yet.</p>;
   return (
-    <div className={`${card} space-y-1.5`}>
-      {rows.map((r) => (
-        <p key={r.id} className="text-xs"><span className="text-app-text-muted">{when(r.created_at)}</span> {actionText(r.action, r.details)}</p>
-      ))}
+    <div className="space-y-3">
+      <SearchInput value={q} onChange={setQ} placeholder="Search by company, action or detail" />
+      <Segmented size="sm" value={kind} onChange={(v) => setKind(v as typeof kind)} options={[
+        { id: 'all', label: 'All' }, { id: 'danger', label: 'Stops & voids' }, { id: 'success', label: 'Money & approvals' },
+        { id: 'warn', label: 'Requests & changes' }, { id: 'info', label: 'Settings' },
+      ]} />
+      <p className="text-xs text-app-text-muted">{shown.length} of {rows.length} entries (latest 500)</p>
+      <div className="space-y-1.5">
+        {shown.length === 0 && <p className="text-sm text-app-text-muted">Nothing matches.</p>}
+        {shown.map((r) => <LogRow key={r.id} action={r.action} details={r.details} at={r.created_at} company={r.tenant_id ? names[r.tenant_id] : undefined} />)}
+      </div>
     </div>
   );
 }
@@ -1065,6 +1187,8 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
     switch (section) {
       case 'home': return <ConsoleHome onOpen={go} />;
       case 'requests': return <RequestsSection />;
+      case 'modules': return <ModuleRequests />;
+      case 'messages': return <SupportMessages />;
       case 'companies': return <CompaniesSection plans={plans} modules={modules} openId={companyOpenId} onOpened={() => setCompanyOpenId(null)} />;
       case 'money': return <ConsoleMoney onOpenCompany={(id) => { setCompanyOpenId(id); go('companies'); }} />;
       case 'running_costs': return <RunningCostsSection />;

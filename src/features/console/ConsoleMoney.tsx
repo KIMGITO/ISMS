@@ -304,8 +304,8 @@ function PaymentList({ rows, onVoid, showCompany = true }: { rows: PaymentRow[];
             {r.note && <p className="text-[11px] text-app-text-muted">{r.note}</p>}
           </div>
           {!r.voided_at && (
-            <button type="button" onClick={() => onVoid(r)} className="p-2 -mr-2 rounded-lg text-app-text-muted hover:bg-app-bg hover:text-red-600 cursor-pointer" aria-label="Void this payment" title="Void">
-              <Ban size={15} />
+            <button type="button" onClick={() => onVoid(r)} className="inline-flex items-center gap-1 rounded-lg bg-red-600 hover:bg-red-700 px-2.5 py-1.5 text-xs font-bold text-white cursor-pointer" aria-label="Void this payment" title="Void">
+              <Ban size={13} /> Void
             </button>
           )}
         </li>

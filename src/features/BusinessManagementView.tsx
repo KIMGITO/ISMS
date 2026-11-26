@@ -1,6 +1,7 @@
 import { toUserMessage } from "../utils/userError";
 import PlanUsageCard from '../components/plan/PlanUsageCard';
 import SupportAccessCard from '../components/support/SupportAccessCard';
+import ModulesSupportCard from '../components/support/ModulesSupportCard';
 import { usePlan } from '../stores/planStore';
 import { markBranchChosen } from '../utils/branchChoice';
 import React, { useState, useEffect } from "react";
@@ -531,6 +532,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
       {/* The Owner lets platform support into this branch for a while */}
       {!isMoney && isOwner && activeBusinessId && <SupportAccessCard businessId={activeBusinessId} />}
+      {!isMoney && isOwner && activeBusinessId && <ModulesSupportCard businessId={activeBusinessId} />}
 
       {/* Branch Badge Tabs - Visible only on large screens (xl and above) */}
       {!isMoney && (
