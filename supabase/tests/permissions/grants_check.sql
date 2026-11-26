@@ -56,7 +56,7 @@ SELECT problem FROM (
     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
       AND c.relname NOT IN ('audit_logs', 'notifications', 'notification_preferences',
                             'business_memberships', 'crash_reports', 'problem_reports',
-                            'support_grants', 'website_visit_daily',
+                            'support_grants', 'module_requests', 'support_messages', 'website_visit_daily',
                             'marketing_ad_daily', 'marketing_conversions', 'canva_oauth_states')
       AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = 'trg_zz_plan_read_only')
 ) problems
