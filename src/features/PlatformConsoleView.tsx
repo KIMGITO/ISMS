@@ -8,7 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, ArrowLeft, Bot, Building2, CheckCircle2, ClipboardList, Coins, ExternalLink, Home, LayoutGrid,
+  Activity, ArrowLeft, Bot, Info, Building2, CheckCircle2, ClipboardList, Coins, ExternalLink, Home, LayoutGrid,
   LifeBuoy, LogOut, Moon, Plus, Receipt, Settings2, Sun, Tags, Wallet, XCircle,
 } from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
@@ -25,11 +25,12 @@ import type { PlanModule, PlanRow } from '../stores/planStore';
 import { setConsoleOpen } from '../utils/platformConsole';
 import { openAsSupport } from '../utils/supportAccess';
 import { CYCLE_TEXT, StatusPill, btnMain, btnQuiet, btnDanger, btnStop, card, day, num, useCall, when, ActionBar, ConfirmButton, Note, Tabs, StorageUsage, actionTone, TONE_DOT } from './console/common';
+import AboutView from './AboutView';
 import ConsoleHome from './console/ConsoleHome';
 import { ModuleRequests, SupportMessages } from './console/ConsoleInbox';
 import ConsoleMoney, { CompanyPayments, RecordPaymentSheet, RunningCostsSection } from './console/ConsoleMoney';
 
-type Section = 'home' | 'requests' | 'modules' | 'messages' | 'companies' | 'money' | 'support' | 'plans' | 'costs' | 'running_costs' | 'settings' | 'ai' | 'activity';
+type Section = 'home' | 'requests' | 'modules' | 'messages' | 'companies' | 'money' | 'support' | 'plans' | 'costs' | 'running_costs' | 'settings' | 'ai' | 'activity' | 'about';
 
 const SECTIONS: NavSection<Section>[] = [
   { id: 'home', group: 'Platform', label: 'Home', description: 'Money, growth, break-even, use', icon: Home, keywords: 'overview charts statistics' },
@@ -45,6 +46,7 @@ const SECTIONS: NavSection<Section>[] = [
   { id: 'settings', group: 'Setup', label: 'Platform settings', description: 'Name, domain, trial, VAT, terms', icon: Settings2, keywords: 'domain trial vat terms app url' },
   { id: 'ai', group: 'Setup', label: 'AI', description: 'Provider and model for every company', icon: Bot },
   { id: 'activity', group: 'Setup', label: 'Activity', description: 'What platform admins changed', icon: Activity, keywords: 'audit log' },
+  { id: 'about', group: 'Setup', label: 'About this app', description: 'Version and app updates', icon: Info, keywords: 'update version upgrade install download release' },
 ];
 
 /** The phone's bottom bar: the busiest sections, then everything else. */
@@ -1198,6 +1200,7 @@ export default function PlatformConsoleView({ themeMode, onToggleTheme, onClose 
       case 'settings': return <SettingsSection />;
       case 'ai': return <AiSection />;
       case 'activity': return <ActivitySection />;
+      case 'about': return <AboutView />;
     }
   })();
 
