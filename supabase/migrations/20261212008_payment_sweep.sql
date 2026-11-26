@@ -148,7 +148,9 @@ GRANT EXECUTE ON FUNCTION public.run_payment_sweep() TO service_role;
 
 DO $$
 BEGIN
-    PERFORM cron.unschedule('payment-sweep') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'payment-sweep');
-    PERFORM cron.schedule('payment-sweep', '*/2 * * * *', 'SELECT public.run_payment_sweep()');
+    IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron') THEN
+        EXECUTE $q$SELECT cron.unschedule('payment-sweep') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'payment-sweep')$q$;
+        PERFORM cron.schedule('payment-sweep', '*/2 * * * *', 'SELECT public.run_payment_sweep()');
+    END IF;
 END;
 $$;
