@@ -6,6 +6,19 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Website Google sign-in, automatic prompt, scrolling pills (2026-11-26)
+
+1. [ ] **You:** create the Google OAuth Web client (origins = every website address; redirect = `https://<project-ref>.supabase.co/auth/v1/callback`) and turn Google on in Supabase with its ID and secret. Click-by-click: [operations/google-sign-in.md](operations/google-sign-in.md).
+2. [ ] **You:** add the GitHub Actions variable `VITE_GOOGLE_CLIENT_ID` = that Client ID.
+3. [ ] Deploy the website: push to main (Deploy web workflow). The new security headers allow `accounts.google.com/gsi`.
+4. [ ] Check: private window signed in to Google, open the website: "Continue as <name>" appears top-right; tap it, you are signed in and asked for name/phone once. Switch branch, sign in with the Google button: Account shows that branch.
+5. [ ] Check on a phone: button and pill rows (home buttons, categories, review filters, ideas filters) stay on one line and swipe sideways.
+
+## Console About and updates (2026-11-26)
+
+1. [ ] Ship it with the next release (push a version tag so CI builds the apps; web deploys on push to main).
+2. [ ] Check: Console → Setup → About this app shows the version and "Check for updates"; on the desktop/Android app it finds and installs a newer release; on the web it says to reload.
+
 ## Console UI rework (2026-11-26)
 
 1. [ ] Apply the storage figure: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. Open Console → Companies → a company → Overview: "Storage: X used / Y available" should show with a bar.

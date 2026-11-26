@@ -14,7 +14,7 @@ function ContactCard() {
     <aside className="rounded-lg border border-line bg-shell p-5 sm:p-6">
       <h2 className="display-md">Still need help?</h2>
       <p className="mt-2 text-muted">Our team reads every message.{settings.openingHours ? ` We're open ${settings.openingHours.replace(/\s*\n\s*/g, '; ')}.` : ''}</p>
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 pill-row gap-3">
         <a href="/account/messages" className="btn btn-primary"><MessageCircle size={17} aria-hidden /> Message us</a>
         {business.contactPhone && (
           <a href={`tel:${business.contactPhone.replace(/\s/g, '')}`} className="btn btn-secondary"><Phone size={17} aria-hidden /> {business.contactPhone}</a>
@@ -118,7 +118,7 @@ function RelatedPages({ current }: { current: InfoPageDef }) {
   return (
     <nav aria-label="Related pages" className="mt-12">
       <h2 className="eyebrow">{current.group === 'legal' ? 'Other policies' : 'More help'}</h2>
-      <ul className="mt-3 flex flex-wrap gap-2">
+      <ul className="mt-3 pill-row gap-2">
         {pages.map((p) => <li key={p.id}><a href={p.path} className="chip">{p.label}</a></li>)}
       </ul>
     </nav>

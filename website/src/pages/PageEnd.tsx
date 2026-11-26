@@ -21,7 +21,7 @@ export function OrderAnyWayBand({ gap = 'pt-12 sm:pt-16', title = 'Order the way
             Order here, or message us and we'll put it together.
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2.5">
+        <div className="pill-row pill-row-center gap-2.5">
           {whatsappHref && (
             <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-primary"><MessageCircle size={16} aria-hidden /> WhatsApp us</a>
           )}

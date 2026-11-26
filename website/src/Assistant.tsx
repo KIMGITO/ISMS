@@ -163,7 +163,7 @@ export default function Assistant() {
         ))}
         {busy && <p className="text-muted">Checking…</p>}
         {messages.length === 1 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="pill-row gap-2">
             {SUGGESTIONS.map((suggestion) => (
               <button
                 key={suggestion}

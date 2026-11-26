@@ -46,7 +46,7 @@ export function HeroStatement({ variant }: { variant: string }) {
           <p className="text-sm font-medium opacity-80">{business.name}</p>
           <h1 className="display-xl mt-2 max-w-[20ch]">{title}</h1>
           {body && <p className="mt-3 max-w-xl text-sm opacity-85 sm:text-base">{body}</p>}
-          <div className="mt-7 flex flex-wrap gap-2.5">
+          <div className="mt-7 pill-row gap-2.5">
             <a href={cta.href} className="btn bg-white text-ink hover:bg-cream">{cta.label} <ArrowRight size={16} aria-hidden /></a>
             <a href={second.href} className="btn border border-white/60 text-white hover:bg-white/10">{second.label}</a>
           </div>
@@ -62,7 +62,7 @@ export function HeroStatement({ variant }: { variant: string }) {
           <p className="eyebrow">{business.name}</p>
           <h1 className="display-xl mt-2 max-w-[18ch]">{title}</h1>
           {body && <p className="mt-3 max-w-md text-sm text-muted sm:text-base">{body}</p>}
-          <div className="mt-6 flex flex-wrap gap-2.5">
+          <div className="mt-6 pill-row gap-2.5">
             <a href={cta.href} className="btn btn-primary">{cta.label} <ArrowRight size={16} aria-hidden /></a>
             <a href={second.href} className="btn btn-secondary">{second.label}</a>
           </div>
@@ -112,7 +112,7 @@ export function CategoryChips({ title, gap }: { title: string; gap: string }) {
   return (
     <section className={`site-gutter ${gap}`} aria-labelledby="categories-heading">
       <h2 id="categories-heading" className="display-md">{title}</h2>
-      <ul className="mt-4 flex flex-wrap gap-2">
+      <ul className="mt-4 pill-row gap-2">
         {categories.map((c) => (
           <li key={c.name}>
             <a href={shopLink(c.name)} className="btn btn-secondary min-h-10 capitalize">

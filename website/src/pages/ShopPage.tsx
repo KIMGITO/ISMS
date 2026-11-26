@@ -171,7 +171,7 @@ export default function ShopPage({ route }: { route: Route }) {
           </div>
 
           {filtersOn && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 pill-row gap-2">
               {q && <FilterTag label={`“${q}”`} onRemove={() => update({ q: null })} />}
               {category !== 'All' && <FilterTag label={category} onRemove={() => update({ category: null })} />}
               {inStock && <FilterTag label="In stock" onRemove={() => update({ stock: null })} />}

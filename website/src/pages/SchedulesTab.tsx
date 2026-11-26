@@ -221,7 +221,7 @@ export default function SchedulesTab() {
                   )}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 pill-row gap-2">
                 {o.status !== 'declined' && o.status !== 'ended' && (
                   <button onClick={() => setEditing(toDraft(o))} className={secondaryButton}><Pencil size={16} aria-hidden /> Change</button>
                 )}

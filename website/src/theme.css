@@ -602,3 +602,20 @@
     .section-gap-lg { padding-top: var(--section-space-lg, 3.5rem); }
   }
 }
+
+@layer components {
+  /* Rows of pills and buttons never wrap: they stay on one line and scroll sideways. */
+  .pill-row {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pill-row::-webkit-scrollbar { display: none; }
+  .pill-row > * { flex-shrink: 0; white-space: nowrap; }
+  /* Centred rows: auto margins centre a short row but still let a long one scroll from its start. */
+  .pill-row-center > :first-child { margin-left: auto; }
+  .pill-row-center > :last-child { margin-right: auto; }
+}

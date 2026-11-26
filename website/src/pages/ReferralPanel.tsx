@@ -55,7 +55,7 @@ export default function ReferralPanel({ shopName }: { shopName: string }) {
         <span className="font-mono text-2xl font-semibold tracking-wider">{r.code}</span>
       </div>
       {active && (
-        <div className="flex flex-wrap gap-2">
+        <div className="pill-row gap-2">
           <button onClick={share} className={primaryButton}>Share my code</button>
           <button onClick={copy} className={secondaryButton}>{copied ? 'Copied' : 'Copy message'}</button>
         </div>

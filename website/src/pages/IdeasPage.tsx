@@ -219,7 +219,7 @@ export default function IdeasPage() {
       </PageHeader>
       <div className={`${pageClass} grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start`}>
         <div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
+          <div className="pill-row gap-2" role="group" aria-label="Show">
             {FILTERS.map((f) => (
               <button key={f.id} onClick={() => setFilter(f.id)} aria-pressed={filter === f.id} className="chip">{f.label}</button>
             ))}

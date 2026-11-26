@@ -236,7 +236,7 @@ export function ReviewForm({ productId, productName }: { productId: string | nul
       </label>
       <p className="text-sm text-muted">We show your first name and initial.</p>
       <ErrorText>{error}</ErrorText>
-      <div className="flex flex-wrap gap-3">
+      <div className="pill-row gap-3">
         <button type="submit" disabled={busy} className="btn btn-primary">{busy ? 'Sending…' : 'Send review'}</button>
         <button type="button" onClick={() => setOpen(false)} className="btn btn-secondary">Cancel</button>
       </div>
@@ -355,7 +355,7 @@ export function ReviewsPage() {
           <ReviewForm productId={null} />
         </div>
         <div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="pill-row items-center gap-2">
             {(['all', 'shop', 'products'] as const).map((k) => (
               <button key={k} onClick={() => setKind(k)} aria-pressed={kind === k} className="chip">
                 {k === 'all' ? 'All reviews' : k === 'shop' ? 'About the shop' : 'About products'}

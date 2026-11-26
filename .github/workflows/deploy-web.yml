@@ -48,6 +48,7 @@ env:
   VITE_AI_NAME: ${{ secrets.VITE_AI_NAME || 'Kim' }}
   VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.VITE_UNSPLASH_ACCESS_KEY }}
   VITE_AUTH_PROVIDERS: ${{ vars.VITE_AUTH_PROVIDERS }}
+  VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
   VITE_SITE_URL: ${{ secrets.VITE_SITE_URL }}
   VITE_WEBSITE_SLUG: ${{ secrets.VITE_WEBSITE_SLUG || 'kaykays' }}
   APP_URL: ${{ vars.APP_URL }}

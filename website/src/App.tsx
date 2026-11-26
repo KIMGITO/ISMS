@@ -4,6 +4,7 @@ import { fetchStorefront, storeSlug, switchMyStore } from './api';
 import { hasStorePicker, loadStartingStore } from './stores';
 import { applyBrand } from './engine/apply';
 import { Route, startLinkInterceptor, useRoute } from './router';
+import { GoogleOneTap } from './GoogleOneTap';
 import { startAuthListener, useAuth, useSite } from './store';
 import { Loading, Notice, primaryButton } from './ui';
 import { useHashScroll } from './router';
@@ -155,6 +156,7 @@ export default function App() {
   return (
     <>
       <AnnouncementBar />
+      <GoogleOneTap section={route.parts[0] ?? ''} />
       <Layout section={route.parts[0] ?? ''} path={`/${route.parts.join('/')}${route.query.size ? `?${route.query}` : ''}`}>
         {/* Account tabs keep their shell, so only other page changes fade in. */}
         <div key={route.parts[0] === 'account' ? 'account' : route.parts.join('/')} className="page-enter">
