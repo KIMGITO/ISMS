@@ -8,6 +8,11 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Storage limit covers all files (2026-11-26)
+
+1. Apply the database change: `bash scripts/db-push.sh` (includes `20261211003_storage_quota_all_buckets.sql`), then `bash scripts/check-live-grants.sh`.
+2. In the console, give a test company a 1 MB storage limit, then upload a product picture twice. The second upload should fail; set the limit back afterwards.
+
 ## Plan gates in the database + M-Pesa per branch (2026-11-26)
 
 1. Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (adds 20261211002).
