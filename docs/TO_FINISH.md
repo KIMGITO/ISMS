@@ -8,6 +8,10 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## M-Pesa keys obey read-only plans (2026-11-26)
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (adds `20261211004_mpesa_secrets_plan_read_only.sql`, after 20261211001), then `bash scripts/check-live-grants.sh`. It should list no "no read-only plan check" line.
+
 ## Storage limit covers all files (2026-11-26)
 
 1. Apply the database change: `bash scripts/db-push.sh` (includes `20261211003_storage_quota_all_buckets.sql`), then `bash scripts/check-live-grants.sh`.
