@@ -107,3 +107,33 @@ export async function securityEvent(kind: string, source: string, req: Request):
     console.error("[guard] could not log security event:", (err as Error).message);
   }
 }
+
+// Keys already confirmed in this instance, so repeated calls ask Auth only once.
+const confirmedServiceKeys = new Set<string>();
+
+/**
+ * True when the caller holds a service key for this project (pg_cron jobs send the copy kept
+ * in Vault). A project can have more than one (the legacy service_role JWT and the newer
+ * sb_secret_ keys), so a key that isn't an exact match is checked with Auth: only a service
+ * key may list users. Same check as ops-alert.
+ */
+export async function isServiceKey(req: Request): Promise<boolean> {
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const token = bearer || (req.headers.get("apikey") || "").trim();
+  if (token.length < 20) return false;
+  if (safeEqual(token, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || confirmedServiceKeys.has(token)) return true;
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!url) return false;
+  try {
+    const headers: Record<string, string> = { apikey: token };
+    if (token.startsWith("eyJ")) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1`, { headers, signal: AbortSignal.timeout(5000) });
+    await res.body?.cancel();
+    if (!res.ok) return false;
+    confirmedServiceKeys.add(token);
+    return true;
+  } catch (err) {
+    console.error("[guard] couldn't check the caller's key:", (err as Error).message);
+    return false;
+  }
+}

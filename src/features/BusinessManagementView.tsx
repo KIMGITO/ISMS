@@ -11,9 +11,12 @@ import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
   Edit, Wallet, TrendingUp, Smartphone, Banknote, Landmark, User as UserIcon, Store, Search,
-  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban
+  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban,
+  ChevronDown,
 } from "lucide-react";
 import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
+import PaymentsList from "../components/payments/PaymentsList";
+import TillInbox from "../components/payments/TillInbox";
 import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
 import AirtelPaymentsPanel from "../components/payments/AirtelPaymentsPanel";
 import ExpensesPanel from "../components/payments/ExpensesPanel";
@@ -150,10 +153,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
   };
 
 
-  // Voiding a payment
-  const [voidingId, setVoidingId] = useState<string | null>(null);
-  const [voidReason, setVoidReason] = useState("");
-  const [isVoiding, setIsVoiding] = useState(false);
 
 
   // Payments States - Modern Redesigned
@@ -177,10 +176,9 @@ export default function BusinessManagementView({ section = "business" }: { secti
   const [payCustomerId, setPayCustomerId] = useState("");
   const [payDescription, setPayDescription] = useState("");
   const [payType, setPayType] = useState<"customer" | "walk-in">("walk-in");
-  const [paySearchQuery, setPaySearchQuery] = useState("");
-  const [payCustomerDropdownOpen, setPayCustomerDropdownOpen] = useState(false);
   const [payMethodDisplay, setPayMethodDisplay] = useState<"modern" | "classic">("modern");
-  const [payFilter, setPayFilter] = useState<"all" | "customer" | "walk-in">("all");
+  // The record form folds away on phones so the list is in view; open on wide screens.
+  const [payFormOpen, setPayFormOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 1024);
 
   // Opened from search on one payment: the Payments tab with every payment showing, so search
   // can highlight its row.
@@ -189,7 +187,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
     if (searchTarget?.kind !== "payment" || !isMoney) return;
     useUiStore.getState().setSearchTarget(null);
     if (moneyTabs.some((t) => t.id === "payments")) setActiveSubTab("payments");
-    setPayFilter("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTarget]);
 
@@ -228,7 +225,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
     setPayCustomerId("");
     setPayDescription("");
     setPayType("walk-in");
-    setPaySearchQuery("");
   };
 
   /** Checks the form. Returns an error message, or null when it can be recorded. */
@@ -444,23 +440,27 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
   const canVoidPayments = hasRolePermission(currentEmployee?.role || 'Guest', 'payments.manage');
 
-  const handleVoidPayment = async (id: string) => {
-    if (!voidReason.trim()) {
-      showToast("Reason needed", "Say why this payment is being voided.", undefined, "error");
-      return;
-    }
-    setIsVoiding(true);
+  // Both throw on failure so the payment sheet stays open.
+  const voidPayment = async (id: string, reason: string) => {
     try {
       const { PaymentRepository } = await import("../services/repositories");
-      await PaymentRepository.void(id, voidReason.trim(), currentEmployee?.name || "Staff");
+      await PaymentRepository.void(id, reason, currentEmployee?.name || "Staff");
       showToast("Payment voided", "The money balance and the customer's account have been put back.", undefined, "success");
-      setVoidingId(null);
-      setVoidReason("");
     } catch (err: any) {
-      console.error(err);
       showToast("Could not void", toUserMessage(err, "Could not cancel the payment."), undefined, "error");
-    } finally {
-      setIsVoiding(false);
+      throw err;
+    }
+  };
+
+  const assignPayment = async (id: string, customerId: string) => {
+    try {
+      const { PaymentRepository } = await import("../services/repositories");
+      await PaymentRepository.assignToCustomer(id, customerId, currentEmployee?.name || "Staff");
+      const c = localCustomers.find((x) => x.id === customerId);
+      showToast("Payment moved", `It is now ${c?.name || "the customer"}'s payment: debt first, then wallet.`, undefined, "success");
+    } catch (err: any) {
+      showToast("Not moved", toUserMessage(err, "Could not give the payment to the customer."), undefined, "error");
+      throw err;
     }
   };
 
@@ -1198,7 +1198,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
               {isMoney && activeSubTab === 'expenses' && <ExpensesPanel />}
 
               {isMoney && activeSubTab === 'mpesa' && (
-                <MpesaPaymentsPanel customers={localCustomers} />
+                <MpesaPaymentsPanel />
               )}
 
               {isMoney && activeSubTab === 'cards' && <CardPaymentsPanel />}
@@ -1219,8 +1219,11 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {isMoney && activeSubTab === 'payments' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
-                  {/* Money Assets Overview Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(hasRolePermission(role, "payments.mpesa") || hasRolePermission(role, "payments.verify")) && (
+                    <TillInbox customers={localCustomers} canAssign />
+                  )}
+                  {/* Money balances by method */}
+                  <div className="flex gap-3 overflow-x-auto snap-x -mx-1 px-1 pb-1 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible [&>*]:shrink-0 [&>*]:min-w-[9.5rem] [&>*]:snap-start sm:[&>*]:min-w-0">
                     {localMoneyAssets.length === 0 && (
                       <>
                         {MONEY_METHODS.map((m) => (
@@ -1265,22 +1268,29 @@ export default function BusinessManagementView({ section = "business" }: { secti
                     {/* Payment Recorder Form - Modern */}
                     <form
                       onSubmit={handleAddPayment}
-                      className="lg:col-span-1 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4"
+                      className="lg:col-span-1 lg:self-start bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-4"
                     >
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setPayFormOpen((v) => !v)}
+                          aria-expanded={payFormOpen}
+                          className="flex items-center gap-2.5 text-left cursor-pointer"
+                        >
                           <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
                             <CircleDollarSign size={16} className="text-amber-500" />
                           </div>
-                          <div>
-                            <h3 className="text-xs font-semibold text-app-text">
-                              Receive Payment
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-semibold text-app-text">
+                              Record a payment
                             </h3>
-                            <p className="text-[11px] text-app-text-muted font-medium">
-                              Money in from a customer or walk-in
+                            <p className="text-xs text-app-text-muted">
+                              Cash, M-Pesa till, card or bank, from a customer or walk-in
                             </p>
                           </div>
-                        </div>
+                          <ChevronDown size={18} className={`text-app-text-muted transition ${payFormOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {payFormOpen && (<>
 
                         {/* Payment Type Toggle */}
                         <div className="grid grid-cols-2 gap-1.5 bg-app-bg/60 border border-app-border rounded-xl p-1">
@@ -1322,86 +1332,22 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             <label className="text-[10px] text-app-text-muted font-bold">
                               Customer Account *
                             </label>
-                            <div className="relative">
-                              <Search
-                                size={13}
-                                className="absolute left-3 top-3 text-app-text-muted pointer-events-none"
-                              />
-                              <input
-                                type="text"
-                                value={paySearchQuery}
-                                onChange={(e) => {
-                                  setPaySearchQuery(e.target.value);
-                                  setPayCustomerDropdownOpen(true);
-                                  setPayCustomerId("");
-                                }}
-                                onFocus={() => setPayCustomerDropdownOpen(true)}
-                                placeholder="Search customer by name / phone..."
-                                className="w-full bg-app-bg text-app-text border border-app-border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
-                              />
-                              {payCustomerDropdownOpen && (
-                                <>
-                                  <div
-                                    className="fixed inset-0 z-10"
-                                    onClick={() => setPayCustomerDropdownOpen(false)}
-                                  />
-                                  <div className="absolute z-20 mt-1 w-full bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden">
-                                    <div className="max-h-52 overflow-y-auto">
-                                      {localCustomers
-                                        .filter((c) =>
-                                          !paySearchQuery.trim() ||
-                                          c.name.toLowerCase().includes(paySearchQuery.toLowerCase()) ||
-                                          (c.phone || '').includes(paySearchQuery)
-                                        )
-                                        .slice(0, 12)
-                                        .map((c) => (
-                                          <button
-                                            type="button"
-                                            key={c.id}
-                                            onClick={() => {
-                                              setPayCustomerId(c.id);
-                                              setPaySenderName(c.name);
-                                              setPaySenderPhone(c.phone || "");
-                                              setPayCustomerDropdownOpen(false);
-                                              setPaySearchQuery(c.name);
-                                            }}
-                                            className={`w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-amber-500/10 transition cursor-pointer ${
-                                              payCustomerId === c.id ? 'bg-amber-500/5' : ''
-                                            }`}
-                                          >
-                                            <div className="w-7 h-7 rounded-lg bg-app-bg border border-app-border flex items-center justify-center shrink-0">
-                                              <UserIcon size={12} className="text-amber-500" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                              <p className="text-[11px] font-bold text-app-text truncate">
-                                                {c.name}
-                                              </p>
-                                              <div className="flex items-center gap-2 text-[11px] text-app-text-muted font-mono">
-                                                {c.phone && <span>{c.phone}</span>}
-                                                {Number(c.debtBalance || 0) > 0 && (
-                                                  <span className="text-red-500 font-semibold">
-                                                    Debt: {formatCurrency(Number(c.debtBalance))}
-                                                  </span>
-                                                )}
-                                                {Number(c.walletBalance || 0) > 0 && (
-                                                  <span className="text-emerald-500 font-semibold">
-                                                    Wallet: {formatCurrency(Number(c.walletBalance))}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </button>
-                                        ))}
-                                      {localCustomers.length === 0 && (
-                                        <div className="p-3 text-[10px] text-app-text-muted text-center font-medium">
-                                          No registered customers found
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                            <SearchableDropdown
+                              items={localCustomers.map((c) => ({
+                                id: c.id,
+                                label: c.name,
+                                sublabel: [c.accountNumber && `Acc ${c.accountNumber}`, c.phone, Number(c.debtBalance || 0) > 0 && `owes ${formatCurrency(Number(c.debtBalance))}`, Number(c.walletBalance || 0) > 0 && `wallet ${formatCurrency(Number(c.walletBalance))}`].filter(Boolean).join(' · '),
+                              }))}
+                              selectedValue={payCustomerId}
+                              onChange={(id) => {
+                                const c = localCustomers.find((x) => x.id === id);
+                                setPayCustomerId(id);
+                                setPaySenderName(c?.name || "");
+                                setPaySenderPhone(c?.phone || "");
+                              }}
+                              placeholder="Choose the customer"
+                              searchPlaceholder="Name, phone or account number"
+                            />
                             {payCustomerId && (
                               <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
                                 <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
@@ -1640,213 +1586,19 @@ export default function BusinessManagementView({ section = "business" }: { secti
                             </>
                           )}
                         </button>
+                        </>)}
                       </div>
                     </form>
 
-                    {/* Payments Directory / List - Modern */}
-                    <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-app-border/40 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                            <TrendingUp size={14} className="text-emerald-500" />
-                          </div>
-                          <div>
-                            <h3 className="text-xs font-semibold text-app-text">
-                              Payments
-                            </h3>
-                            <p className="text-[11px] text-app-text-muted font-medium">
-                              All received business payments
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex bg-app-bg/60 border border-app-border rounded-lg p-0.5">
-                            {(['all', 'customer', 'walk-in'] as const).map((f) => (
-                              <button
-                                type="button"
-                                key={f}
-                                onClick={() => setPayFilter(f)}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
-                                  payFilter === f
-                                    ? 'bg-amber-500 text-slate-950'
-                                    : 'text-app-text-muted hover:text-app-text'
-                                }`}
-                              >
-                                {f}
-                              </button>
-                            ))}
-                          </div>
-                          <span className="text-[11px] font-mono text-app-text-muted font-semibold bg-app-bg border border-app-border rounded-lg px-2 py-1 whitespace-nowrap">
-                            {localPayments.length} Payments
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 overflow-x-auto min-h-[300px] max-h-[520px]">
-                        {localPayments.length > 0 ? (
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="border-b border-app-border/40 text-[11px] text-app-text-muted font-bold">
-                                <th className="py-2.5">Date</th>
-                                <th className="py-2.5">Payer</th>
-                                <th className="py-2.5">Type</th>
-                                <th className="py-2.5">Method</th>
-                                <th className="py-2.5">Applied To</th>
-                                <th className="py-2.5 text-right">Amount</th>
-                                {canVoidPayments && <th className="py-2.5 text-center">Actions</th>}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-app-border/20 text-xs">
-                              {localPayments
-                                .filter((p) => payFilter === 'all' || (p.paymentType || 'walk-in') === payFilter)
-                                .map((pay) => (
-                                  <React.Fragment key={pay.id}>
-                                  <tr data-search-id={`pay-${pay.id}`} className={`hover:bg-app-bg/30 transition ${pay.status === 'Voided' ? 'opacity-60' : ''}`}>
-                                    <td className="py-2.5 font-mono text-[10px] whitespace-nowrap">
-                                      <div>{new Date(pay.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                                      <div className="text-[11px] text-app-text-muted">
-                                        {new Date(pay.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5">
-                                      <div className="font-bold text-app-text">{pay.senderName}</div>
-                                      <div className="flex items-center gap-1.5 mt-0.5">
-                                        {pay.senderPhone && (
-                                          <span className="text-[11px] text-app-text-muted font-mono">{pay.senderPhone}</span>
-                                        )}
-                                        <CopyRef value={pay.referenceCode} label="payment reference" />
-                                      </div>
-                                      {pay.description && (
-                                        <div className="text-[11px] text-app-text-muted font-medium mt-0.5 truncate max-w-[180px]" title={pay.description}>
-                                          {pay.description}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="py-2.5">
-                                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 ${(pay.paymentType || 'walk-in') === 'customer' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
-                                        {(pay.paymentType || 'walk-in') === 'customer' ? <UserIcon size={8} /> : <Store size={8} />}
-                                        {(pay.paymentType || 'walk-in') === 'customer' ? (pay.customerName || 'Customer') : 'Walk-in'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5">
-                                      <div className="flex items-center gap-1.5">
-                                        {pay.method === 'M-Pesa' ? (
-                                          <Smartphone size={12} className="text-emerald-500" />
-                                        ) : pay.method === 'Cash' ? (
-                                          <Banknote size={12} className="text-amber-500" />
-                                        ) : pay.method === 'Card' ? (
-                                          <CreditCard size={12} className="text-blue-500" />
-                                        ) : pay.method === 'Bank' ? (
-                                          <Landmark size={12} className="text-violet-500" />
-                                        ) : (
-                                          <Wallet size={12} className="text-slate-500" />
-                                        )}
-                                        <span className="font-bold text-app-text text-[10.5px]">{pay.method}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5">
-                                      {(pay.appliedTo && pay.appliedTo !== 'none') ? (
-                                        <div className="flex flex-col gap-0.5">
-                                          <span className={`text-[11px] font-semibold ${pay.appliedTo === 'debt' ? 'text-red-500' : pay.appliedTo === 'wallet' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                            {pay.appliedTo === 'mixed' ? 'Mixed' : pay.appliedTo}
-                                          </span>
-                                          {Number(pay.debtApplied || 0) > 0 && (
-                                            <span className="text-[11px] font-mono text-red-500">
-                                              Debt: {formatCurrency(Number(pay.debtApplied))}
-                                            </span>
-                                          )}
-                                          {Number(pay.walletApplied || 0) > 0 && (
-                                            <span className="text-[11px] font-mono text-emerald-500">
-                                              Wallet: {formatCurrency(Number(pay.walletApplied))}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <span className="text-[11px] text-app-text-muted font-semibold">N/A</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2.5 text-right">
-                                      <span className={`font-semibold font-mono ${pay.status === 'Failed' ? 'text-red-500' : pay.status === 'Voided' ? 'text-app-text-muted line-through' : 'text-emerald-500'}`}>
-                                        {formatCurrency(Number(pay.amount))}
-                                      </span>
-                                      <span className={`block text-[11px] font-bold mt-0.5 ${pay.status === 'Success' ? 'text-emerald-500' : pay.status === 'Pending' ? 'text-amber-500' : pay.status === 'Voided' ? 'text-app-text-muted' : 'text-red-500'}`}>
-                                        {pay.status}
-                                      </span>
-                                      {pay.status === 'Voided' && pay.voidReason && (
-                                        <span className="block text-[11px] text-app-text-muted mt-0.5 max-w-[160px] ml-auto truncate" title={`${pay.voidReason}${pay.voidedBy ? ` (by ${pay.voidedBy})` : ''}`}>
-                                          {pay.voidReason}
-                                        </span>
-                                      )}
-                                    </td>
-                                    {canVoidPayments && (
-                                      <td className="py-2.5 text-center">
-                                        {pay.status !== 'Voided' && (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setVoidingId(voidingId === pay.id ? null : pay.id);
-                                              setVoidReason("");
-                                            }}
-                                            title="Void payment"
-                                            className="px-2 py-1 rounded-lg text-red-500 hover:bg-red-500/10 transition cursor-pointer text-[10px] font-bold inline-flex items-center gap-1"
-                                          >
-                                            <Ban size={12} /> Void
-                                          </button>
-                                        )}
-                                      </td>
-                                    )}
-                                  </tr>
-                                  {voidingId === pay.id && (
-                                    <tr className="bg-red-500/5">
-                                      <td colSpan={7} className="p-3">
-                                        <p className="text-[11px] text-app-text mb-2">
-                                          Voiding takes {formatCurrency(Number(pay.amount))} back out of the {pay.method} balance
-                                          {Number(pay.debtApplied || 0) > 0 && ` and puts ${formatCurrency(Number(pay.debtApplied))} back on the customer's debt`}
-                                          {Number(pay.walletApplied || 0) > 0 && ` and removes ${formatCurrency(Number(pay.walletApplied))} from their wallet`}.
-                                          The record stays, marked Voided.
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                          <input
-                                            type="text"
-                                            autoFocus
-                                            value={voidReason}
-                                            onChange={(e) => setVoidReason(e.target.value)}
-                                            placeholder="Reason, e.g. entered twice"
-                                            className="flex-1 min-w-[180px] bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-red-500"
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => handleVoidPayment(pay.id)}
-                                            disabled={isVoiding || !voidReason.trim()}
-                                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
-                                          >
-                                            {isVoiding ? 'Voiding…' : 'Void payment'}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setVoidingId(null)}
-                                            className="px-3 py-2 border border-app-border rounded-xl text-xs text-app-text cursor-pointer"
-                                          >
-                                            Keep it
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                  </React.Fragment>
-                                ))}
-                            </tbody>
-                          </table>
-                        ) : (
-                          <div className="h-full flex flex-col items-center justify-center text-app-text-muted text-center py-12">
-                            <CircleDollarSign size={32} className="text-slate-700 mb-2" />
-                            <p className="text-[10.5px] font-bold">No Payments Recorded Yet</p>
-                            <p className="text-[11px] max-w-xs mt-0.5">
-                              Payments you record from customers and walk-ins show here.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                    <div className="lg:col-span-2 min-w-0">
+                      <PaymentsList
+                        payments={localPayments}
+                        customers={localCustomers}
+                        canVoid={canVoidPayments}
+                        canAssign={canVoidPayments}
+                        onVoid={voidPayment}
+                        onAssign={assignPayment}
+                      />
                     </div>
                   </div>
                 </div>

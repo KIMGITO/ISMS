@@ -4,7 +4,7 @@
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName } from "../utils/stringUtils";
-import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, MpesaPrompt, PaymentPrompt, PromptProvider } from "../types";
+import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, TillSaleCandidate, MpesaPrompt, PaymentPrompt, PromptProvider } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
 import { normalizeForStorage, readableIds } from "../utils/stringUtils";
@@ -1243,6 +1243,17 @@ export class PaymentRepository {
     });
     if (error) { triggerNetworkFailureEvent(); throw error; }
   }
+
+  /** Makes a walk-in payment a customer's payment (voided and recorded again for them). */
+  public static async assignToCustomer(id: string, customerId: string, by: string): Promise<string> {
+    const { data, error } = await getSupabase().rpc("assign_payment_to_customer", {
+      p_payment_id: toUuid(id),
+      p_customer_id: toUuid(customerId),
+      p_by: by,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return data as string;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1411,6 +1422,16 @@ export class MpesaRepository {
     await this.call("register");
   }
 
+  /** Sandbox only: registers the till again, then has Safaricom send it a test KSh 1. */
+  public static async testTill(): Promise<void> {
+    await this.call("test_till");
+  }
+
+  /** Sandbox only: registers the till again, then has Safaricom send it a test KSh 1. */
+  public static async testTill(): Promise<void> {
+    await this.call("test_till");
+  }
+
   /** Sends a payment prompt to the customer's phone. Returns its checkout id. */
   public static async requestPayment(params: {
     phone: string;
@@ -1441,6 +1462,36 @@ export class MpesaRepository {
     if (error) { triggerNetworkFailureEvent(); throw error; }
   }
 
+  /** M-Pesa sales this till payment could belong to; searched on the server. */
+  public static async tillSaleCandidates(tillPaymentId: string, search?: string): Promise<TillSaleCandidate[]> {
+    const { data, error } = await getSupabase().rpc("till_payment_sale_candidates", {
+      p_till_payment_id: toUuid(tillPaymentId),
+      p_search: search?.trim() || null,
+      p_limit: 30,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return (data || []).map((r: any) => ({
+      saleId: r.sale_id,
+      reference: r.reference,
+      createdAt: r.created_at,
+      customerName: r.customer_name || undefined,
+      total: Number(r.total),
+      linked: Number(r.linked),
+      remaining: Number(r.remaining),
+      sameAmount: Boolean(r.same_amount),
+    }));
+  }
+
+  /** Links a waiting till payment to the sale it paid for. The database checks the sale has room. */
+  public static async linkTillPaymentToSale(tillPaymentId: string, saleId: string, handledBy: string): Promise<void> {
+    const { error } = await getSupabase().rpc("link_till_payment_to_sale", {
+      p_till_payment_id: toUuid(tillPaymentId),
+      p_sale_id: toUuid(saleId),
+      p_handled_by: handledBy,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+  }
+
   public static async getTillPayments(): Promise<TillPayment[]> {
     const { data, error } = await getSupabase()
       .from("mpesa_till_payments")
@@ -1460,6 +1511,7 @@ export class MpesaRepository {
       status: r.status,
       customerId: r.customer_id || undefined,
       paymentId: r.payment_id || undefined,
+      saleId: r.sale_id || undefined,
       handledBy: r.handled_by || undefined,
       handledAt: r.handled_at || undefined,
       note: r.note || undefined,
@@ -1611,6 +1663,7 @@ function mpesaPrompt(r: any): PaymentPrompt {
     description: r.description || undefined,
     requestedBy: r.requested_by || undefined,
     paymentId: r.payment_id || undefined,
+    saleId: r.transaction_id || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at || undefined,
   };
@@ -1686,9 +1739,12 @@ export class PromptRepository {
   /** Sends a prompt with either network. Returns the new prompt's row id. */
   public static async send(
     provider: PromptProvider,
-    params: { phone: string; amount: number; customerId?: string; description?: string },
+    params: { phone: string; amount: number; customerId?: string; description?: string; saleId?: string },
   ): Promise<string> {
-    if (provider === "airtel") return AirtelRepository.requestPayment(params);
+    if (provider === "airtel") {
+      if (params.saleId) throw new Error("Prompts for a sale are M-Pesa only for now.");
+      return AirtelRepository.requestPayment(params);
+    }
     const data = await SupabaseService.callEdgeFunction("mpesa-payments", {
       action: "request",
       businessId: getActiveBusinessId(),

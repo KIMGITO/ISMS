@@ -7,6 +7,7 @@
 //   register  tell Safaricom where to send till payments   (settings.integrations)
 //   request   send a payment prompt to a customer's phone  (payments.mpesa)
 //   check     ask Safaricom about a prompt with no answer  (payments.mpesa)
+//   test_till sandbox: register the till, then send it a test KSh 1 (settings.integrations)
 // The prompt's result arrives at mpesa-webhook and is recorded by the database.
 
 // deno-lint-ignore-file no-explicit-any
@@ -19,8 +20,9 @@ import {
   requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { accessToken, darajaKeys, registerC2bUrls, stkPush, stkQuery } from "../customer-checkout/daraja.ts";
+import { accessToken, c2bSimulate, darajaKeys, stkPush } from "../customer-checkout/daraja.ts";
 import { toMsisdn } from "./phone.ts";
+import { registerTill, settlePrompt } from "./settle.ts";
 
 const MAX_AMOUNT = 250000;
 
@@ -152,20 +154,33 @@ Deno.serve(async (req) => {
       const keys = await darajaKeys(admin, businessId);
       if (!keys) return errorResponse("Connect this business's M-Pesa (Daraja) keys first.", 400, "NOT_CONFIGURED");
       const { data: settings } = await admin.from("mpesa_settings").select("till_number").eq("business_id", businessId).maybeSingle();
-      const base = Deno.env.get("MPESA_C2B_CALLBACK_URL") || `${functionsUrl()}/till-callback`;
-      const withToken = (type: string) => `${base}?type=${type}&token=${encodeURIComponent(keys.callbackToken)}`;
-      const result = await registerC2bUrls(keys, settings?.till_number ?? "", withToken("confirmation"), withToken("validation"));
+      const result = await registerTill(admin, keys, settings?.till_number ?? "", await staffName());
       if (!result.ok) {
         console.error("[mpesa-payments] C2B registration rejected:", result.detail);
         return errorResponse(`Safaricom didn't accept the registration: ${result.detail}`, 502, "REGISTER_REJECTED");
       }
-      await admin.from("mpesa_settings").upsert({
-        business_id: businessId,
-        registered_at: new Date().toISOString(),
-        updated_by: await staffName(),
-        updated_at: new Date().toISOString(),
-      });
       return jsonResponse({ success: true });
+    }
+
+    if (action === "test_till") {
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
+      const limited = await enforceRateLimit(`mpesa-test:biz:${businessId}`, 20, 3600);
+      if (limited) return limited;
+      const keys = await darajaKeys(admin, businessId);
+      if (!keys) return errorResponse("Connect this business's M-Pesa (Daraja) keys first.", 400, "NOT_CONFIGURED");
+      if (keys.environment === "production") {
+        return errorResponse("On a live till, pay KSh 1 from a phone instead.", 400, "NOT_SANDBOX");
+      }
+      const { data: settings } = await admin.from("mpesa_settings").select("till_number").eq("business_id", businessId).maybeSingle();
+      const till = settings?.till_number ?? "";
+      // Sandbox short codes are shared by every Daraja developer and the last registration
+      // wins, so register right before the test payment.
+      const reg = await registerTill(admin, keys, till, await staffName());
+      if (!reg.ok) return errorResponse(`Safaricom didn't accept the registration: ${reg.detail}`, 502, "REGISTER_REJECTED");
+      const sim = await c2bSimulate(keys, till, 1, "TEST");
+      if (!sim.ok) return errorResponse(`Safaricom didn't send the test payment: ${sim.detail}`, 502, "SIMULATE_REJECTED");
+      return jsonResponse({ success: true, detail: sim.detail });
     }
 
     if (action === "request") {
@@ -197,13 +212,25 @@ Deno.serve(async (req) => {
         accountRef = customer.account_number;
       }
 
+      // A prompt for a sale is linked to it before it goes out, so its payment proves that
+      // sale's money instead of being recorded a second time (20261212007).
+      let saleId: string | null = null;
+      if (body.saleId) {
+        const { data: saleRef, error: saleErr } = await admin.rpc("check_sale_prompt", {
+          p_business_id: businessId, p_sale_id: body.saleId, p_amount: amount,
+        });
+        if (saleErr) return errorResponse(saleErr.message || "This sale can't take a prompt.", 409, "SALE_NOT_PROMPTABLE");
+        saleId = String(body.saleId);
+        if (accountRef === "WALKIN" && saleRef) accountRef = String(saleRef).slice(0, 12);
+      }
+
       const keys = await darajaKeys(admin, businessId);
       if (!keys) return errorResponse("This business hasn't connected M-Pesa yet.", 400, "NOT_CONFIGURED");
       const callback = Deno.env.get("MPESA_CALLBACK_URL") || `${functionsUrl()}/mpesa-webhook`;
 
       const push = await stkPush(keys, msisdn, amount, accountRef, `${callback}?token=${encodeURIComponent(keys.callbackToken)}`, "Payment");
       if (!push.accepted) {
-        return errorResponse("Safaricom didn't send the prompt. Check the number and try again.", 502, "STK_REJECTED");
+        return errorResponse(`Safaricom didn't send the prompt: ${push.detail ?? "no reason given"}.`, 502, "STK_REJECTED");
       }
 
       const description = String(body.description ?? "").trim().slice(0, 200) || null;
@@ -214,6 +241,7 @@ Deno.serve(async (req) => {
         phone: msisdn,
         amount,
         customer_id: customerId,
+        transaction_id: saleId,
         account_reference: accountRef,
         description,
         requested_by: await staffName(),
@@ -227,28 +255,21 @@ Deno.serve(async (req) => {
       const denied = await requirePermission(req, businessId, "payments.mpesa");
       if (denied) return denied;
       const { data: row } = await admin
-        .from("mpesa_transactions").select("status, checkout_request_id")
+        .from("mpesa_transactions").select("status, checkout_request_id, created_at, amount, online_order_id")
         .eq("business_id", businessId).eq("checkout_request_id", body.checkoutRequestId).maybeSingle();
       if (!row) return errorResponse("Payment prompt not found.", 404);
       if (row.status !== "Pending") return jsonResponse({ success: true, status: row.status });
 
       const keys = await darajaKeys(admin, businessId);
       if (!keys) return jsonResponse({ success: true, status: "Pending" });
-      const code = await stkQuery(keys, row.checkout_request_id);
-      if (code === null) return jsonResponse({ success: true, status: "Pending" });
-      if (code === 0) {
-        // Paid, but only the callback carries the receipt number, so it is recorded there.
-        return jsonResponse({ success: true, status: "Pending", paid: true });
+      // Safaricom's callback decides the result. Once it is overdue, the status query settles
+      // the prompt (payment-sweep does the same every 2 minutes when nobody is watching).
+      const result = await settlePrompt(admin, keys, row);
+      if (result.status === "Completed") {
+        const { data: done } = await admin.from("mpesa_transactions").select("status").eq("checkout_request_id", row.checkout_request_id).maybeSingle();
+        return jsonResponse({ success: true, status: done?.status ?? "Completed", resultCode: result.resultCode });
       }
-      const { error } = await admin.rpc("confirm_store_payment_request", {
-        p_checkout_request_id: row.checkout_request_id,
-        p_result_code: code,
-        p_amount: null,
-        p_receipt: null,
-        p_raw: { source: "status_query", resultCode: code },
-      });
-      if (error) throw error;
-      return jsonResponse({ success: true, status: "Failed", resultCode: code });
+      return jsonResponse({ success: true, ...result });
     }
 
     return errorResponse("Unknown action.", 400);

@@ -10,6 +10,7 @@ import { MoneyMethod, PaymentMethod, Product, Transaction } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
+import SalePromptButton from '../components/payments/SalePromptButton';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
 import { QTY_DECIMALS, roundQty, formatQty } from '../utils/money';
@@ -399,6 +400,9 @@ export default function QuickSaleView() {
               </button>
             )}
           </motion.div>
+        )}
+        {lastSale?.tx && !lastSale.offline && cart.length === 0 && (
+          <SalePromptButton key={lastSale.tx.id} sale={lastSale.tx} className="mx-2 md:mx-3 mb-2" />
         )}
         {/* Quick sales skip the customer; this puts the sale on their account afterwards. */}
         {lastSale?.tx && cart.length === 0 && !lastSale.tx.customerId && (

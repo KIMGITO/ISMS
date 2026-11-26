@@ -608,9 +608,23 @@ export interface TillPayment {
   status: 'unclaimed' | 'recorded' | 'matched_sale' | 'ignored';
   customerId?: string;
   paymentId?: string;
+  /** The sale this till payment paid for (20261212005). */
+  saleId?: string;
   handledBy?: string;
   handledAt?: string;
   note?: string;
+}
+
+/** A sale a till payment could belong to. */
+export interface TillSaleCandidate {
+  saleId: string;
+  reference: string;
+  createdAt: string;
+  customerName?: string;
+  total: number;
+  linked: number;
+  remaining: number;
+  sameAmount: boolean;
 }
 
 /** A payment prompt (STK push) sent from the app. */
@@ -633,6 +647,8 @@ export interface PaymentPrompt {
   description?: string;
   requestedBy?: string;
   paymentId?: string;
+  /** The sale this prompt was sent for; when paid it proves that sale's money (no new payment). */
+  saleId?: string;
   createdAt: string;
   updatedAt?: string;
 }

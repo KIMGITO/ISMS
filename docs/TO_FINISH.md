@@ -6,12 +6,66 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## M-Pesa results no longer depend on Safaricom's callback (2026-11-26)
+
+Found: prompt callbacks were arriving, but a paid prompt whose callback is lost was never recorded. Till payments stopped after 15:18 because the sandbox short code 600000 is shared by every Daraja developer, and the last one to register gets the callbacks.
+
+1. [ ] Apply the database changes: `bash scripts/db-push.sh` (20261212007 first, then 20261212008: stand-in receipt swap and the `payment-sweep` cron job every 2 min), then `bash scripts/check-live-grants.sh`. It should say "no problems".
+2. [ ] Deploy the functions: `npx supabase functions deploy payment-sweep --no-verify-jwt`, `npx supabase functions deploy mpesa-payments`, `npx supabase functions deploy mpesa-webhook --no-verify-jwt`, `npx supabase functions deploy till-callback --no-verify-jwt`.
+3. [ ] Run `select jobname, schedule from cron.job where jobname = 'payment-sweep';` in the SQL editor. It should show `*/2 * * * *`. After 5 minutes, `select registered_at from mpesa_settings;` should show a time within the last 5 minutes (sandbox till renewed).
+4. [ ] Run `C=supabase_db_isms-seedtest bash supabase/tests/payments/stk_query_settle_test.sh`. It should end `FAIL=0` (22 checks passed on 2026-11-26 against promo_test).
+5. [ ] **You:** Payments & Expenses → M-Pesa → "Send a test KSh 1". KSh 1.00 from John Doe should show under Payments → "Paid to the till" within a minute.
+6. [ ] **You:** send a KSh 1 prompt to your phone and pay it. "Paid" should show within seconds, or within 4 minutes at most if Safaricom's callback is lost (receipt shows as QRY-... until the callback arrives).
+7. [ ] **You:** for real money paid from a phone straight to the till, connect the live (production) Daraja keys and your own till, then "Register till with Safaricom" once. Sandbox code 600000 can't receive real money.
+
+## Mobile checkout bar in POS (2026-11-26)
+
+1. Check the app builds: `npx vite build`, then `npm test`.
+2. **You:** on a phone, open POS and add 2 products. A full-width amber bar above the menu should show the item count, payment method, total and "Checkout". The last row of products should stay visible above it.
+3. **You:** tap Checkout. The sheet opens with large "Back" and "Complete sale · KSh ..." buttons. Finish an M-Pesa sale.
+
+## M-Pesa prompts linked to the sale before sending (2026-11-26)
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (migration 20261212007: `check_sale_prompt`, prompts count toward a sale's M-Pesa proof, paid linked prompt makes no second payment), then `bash scripts/check-live-grants.sh`. It should say "no problems".
+2. [ ] Run `C=supabase_db_isms-seedtest bash supabase/tests/payments/stk_sale_link_test.sh` and `.../till_sale_link_test.sh`. Both should end `FAIL=0` (19 and 22 checks passed on 2026-11-26 against promo_test).
+3. [ ] Deploy the function: `npx supabase functions deploy mpesa-payments`.
+4. [ ] Check the app builds: `npx vite build`, then `npm test` (the type check passed).
+5. [ ] **You:** ring up a KSh 1 M-Pesa sale in POS. On the "Sale saved" card tap "Send M-Pesa prompt", enter your number, pay on the phone. The card should say "M-Pesa paid KSh 1.00 for this sale", and Payments should show no new walk-in payment. Do the same once in Quick Sale.
+
+## Unassigned till payments no longer ring (2026-11-26)
+
+1. Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (includes `20261212006_till_payment_no_ring.sql`). It should say no problems.
+2. **You:** pay KSh 1 to the till with no prompt. The phone should not ring; the payment should show in Payments > Paid to the till and as a quiet notice in the bell.
+
+## Till payments linked to the sale they paid (2026-11-26)
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (migration 20261212005: `sale_id` on till payments, `link_till_payment_to_sale`, `till_payment_sale_candidates`, receipt-number auto link in `record_till_payment`), then `bash scripts/check-live-grants.sh`. It should say "no problems".
+2. [ ] Run `C=supabase_db_isms-seedtest bash supabase/tests/payments/till_sale_link_test.sh`. It should end `FAIL=0` (22 checks passed on 2026-11-26 against promo_test).
+3. [ ] Check the app builds: `npx vite build`, then `npm test`.
+4. [ ] **You:** ring up a KSh 1 M-Pesa sale, then pay KSh 1 to the till from a phone without a prompt. Under Payments → "Paid to the till", tap "Say what it was", choose that sale and confirm. It should move to "Marked as sale or ignored" showing "Sale TXN-...".
+5. [ ] **You:** on a paybill, pay with the sale's receipt number (TXN-...) as the account. It should link itself, and staff get "M-Pesa payment received ... for sale TXN-...".
+
+## Prompt results from Safaricom, new Payments tab (2026-11-26)
+
+1. [ ] Check the app builds and tests pass: `npx vite build`, then `npm test` (the build/test run was cut off; the type check passed).
+2. [ ] Apply the database change: `bash scripts/db-push.sh` (adds `assign_payment_to_customer`, migration 20261212004), then `bash scripts/check-live-grants.sh`. It should say "no problems".
+3. [ ] Deploy the function: `npx supabase functions deploy mpesa-payments`.
+4. [ ] On a test DB, open a walk-in payment, tap "Give to a customer" and pick a customer. The old payment shows Voided, a new one shows on the customer, the M-Pesa balance is unchanged and the books balance (debits = credits).
+5. [ ] **You:** send a prompt and cancel it on the phone. After Safaricom answers, the screen should say "Cancelled by the customer". Send another one and pay it: the screen should show "Paid" with the name, amount and receipt.
+6. [ ] **You:** open Payments on a phone. The list should scroll, with no broken text, and a till payment should show under "Paid to the till".
+
+## M-Pesa prompt and till registration 502 fix (2026-11-26)
+
+1. [ ] Deploy the three functions that share the Daraja client: `npx supabase functions deploy mpesa-payments`, `npx supabase functions deploy customer-checkout`, `npx supabase functions deploy ussd --no-verify-jwt`.
+2. [ ] Check: Payments & Expenses → M-Pesa → "Register till with Safaricom" says registered (Safaricom was already accepting it; the app misread its "00000000" success code).
+3. [ ] Check: send a KSh 1 prompt to a phone. On sandbox it goes out as a paybill to 174379 (sandbox refuses Buy Goods with "Invalid TransactionType"). A refused prompt now shows Safaricom's reason.
+
 ## Payment methods in Settings, Daraja till fields (2026-11-26)
 
 1. [ ] Release the app (commit, push, tag the next version). No database or function change.
 2. [ ] Check: Settings → Shop → Payment methods switches methods on and off; Payments & Expenses no longer has a Methods tab.
 3. [ ] **You:** Payments & Expenses → M-Pesa → Account type "Till (Buy Goods)". Enter Business Short Code (Store Number), PartyB (Till Number), Consumer Key, Consumer Secret, Passkey from developer.safaricom.co.ke. "M-Pesa connected" should show, then "Register till with Safaricom".
-4. [ ] Replace the 16 raw `<select>` boxes left in `src/features/marketing/` with `SearchableDropdown` (component rule).
+4. [ ] After release, open Marketing → a campaign, an advert, Placements and Studio: every choice box should be the app dropdown with a search box (the 16 raw `<select>` boxes are replaced).
 
 ## Console dropdowns, one confirm popup, module prices (2026-11-26)
 

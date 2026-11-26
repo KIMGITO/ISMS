@@ -421,6 +421,10 @@ verify_jwt = false
 [functions.airtel-callback]
 verify_jwt = false
 
+# Called by pg_cron with the Vault service key (may be sb_secret_); it checks the key itself.
+[functions.payment-sweep]
+verify_jwt = false
+
 # The uptime monitor calls GET without a key; each POST action checks its own caller.
 [functions.ops-alert]
 verify_jwt = false

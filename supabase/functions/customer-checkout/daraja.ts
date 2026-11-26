@@ -77,6 +77,13 @@ export interface StkResult {
   accepted: boolean;
   checkoutRequestId?: string;
   merchantRequestId?: string;
+  /** Safaricom's reason when it refuses the prompt. */
+  detail?: string;
+}
+
+/** Daraja success codes are "0" (STK) or "00000000" (C2B v2). */
+function isSuccessCode(code: unknown): boolean {
+  return /^0+$/.test(String(code ?? ""));
 }
 
 export async function stkPush(
@@ -89,15 +96,20 @@ export async function stkPush(
 ): Promise<StkResult> {
   const token = await accessToken(keys);
   const fields = passwordFields(keys);
+  // The sandbox only takes paybill prompts (Buy Goods returns "Invalid TransactionType"),
+  // and its test short code 174379 is both the payer-facing number and the receiver.
+  const sandbox = keys.environment !== "production";
+  const transactionType = sandbox ? "CustomerPayBillOnline" : keys.transactionType;
+  const partyB = transactionType === "CustomerPayBillOnline" ? keys.shortcode : keys.partyB || keys.shortcode;
   const res = await fetch(`${baseUrl(keys)}/mpesa/stkpush/v1/processrequest`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       ...fields,
-      TransactionType: keys.transactionType,
+      TransactionType: transactionType,
       Amount: amount,
       PartyA: phone,
-      PartyB: keys.partyB || keys.shortcode,
+      PartyB: partyB,
       PhoneNumber: phone,
       CallBackURL: callbackUrl,
       AccountReference: reference.slice(0, 12),
@@ -105,9 +117,10 @@ export async function stkPush(
     }),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.ResponseCode !== "0") {
-    console.error("[customer-checkout] STK push rejected:", res.status, body.errorCode ?? body.ResponseCode);
-    return { accepted: false };
+  if (!res.ok || !isSuccessCode(body.ResponseCode)) {
+    const detail = String(body.errorMessage ?? body.ResponseDescription ?? res.status);
+    console.error("[daraja] STK push rejected:", res.status, body.errorCode ?? body.ResponseCode, detail);
+    return { accepted: false, detail };
   }
   return {
     accepted: true,
@@ -157,5 +170,40 @@ export async function registerC2bUrls(
   });
   const body = await res.json().catch(() => ({}));
   const detail = String(body.ResponseDescription ?? body.errorMessage ?? res.status);
-  return { ok: res.ok && String(body.ResponseCode ?? "") === "0", detail };
+  return { ok: res.ok && isSuccessCode(body.ResponseCode), detail };
+}
+
+/**
+ * Sandbox only: asks Safaricom to send a test payment to the till, exactly as a customer
+ * paying from their phone would. The result arrives at till-callback like a real payment.
+ * 254708374149 is Safaricom's sandbox test number.
+ */
+export async function c2bSimulate(
+  keys: DarajaKeys,
+  tillNumber: string,
+  amount: number,
+  billRef: string,
+): Promise<{ ok: boolean; detail: string }> {
+  if (keys.environment === "production") return { ok: false, detail: "Test payments only work on sandbox." };
+  const token = await accessToken(keys);
+  const shortCode = tillNumber || keys.partyB || keys.shortcode;
+  const send = (version: string) =>
+    fetch(`${baseUrl(keys)}/mpesa/c2b/${version}/simulate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ShortCode: shortCode,
+        // Sandbox test short codes are paybills (as for prompts, see stkPush).
+        CommandID: "CustomerPayBillOnline",
+        Amount: amount,
+        Msisdn: "254708374149",
+        BillRefNumber: billRef,
+      }),
+    });
+  // Registration uses v2; older sandbox apps only have v1 simulate.
+  let res = await send("v2");
+  if (res.status === 404) res = await send("v1");
+  const body = await res.json().catch(() => ({}));
+  const detail = String(body.ResponseDescription ?? body.errorMessage ?? res.status);
+  return { ok: res.ok && isSuccessCode(body.ResponseCode), detail };
 }

@@ -87,10 +87,25 @@ function useNow(active: boolean): number {
   return now;
 }
 
+/** The result Safaricom (or Airtel) sent back, in one word. */
+type Outcome = 'waiting' | 'paid' | 'cancelled' | 'no-answer' | 'failed' | 'not-sent';
+function outcomeOf(p: PaymentPrompt): Outcome {
+  if (p.status === 'Completed') return 'paid';
+  if (p.status === 'Pending') return 'waiting';
+  if ((p.resultMessage || '').startsWith('Not sent')) return 'not-sent';
+  if (p.resultCode === '1032' || /cancel/i.test(p.resultMessage || '')) return 'cancelled';
+  if (p.resultCode === '1037' || p.resultCode === '1019') return 'no-answer';
+  return 'failed';
+}
+const OUTCOME_TEXT: Record<Outcome, string> = {
+  waiting: 'Waiting', paid: 'Paid', cancelled: 'Cancelled', 'no-answer': 'No answer', failed: 'Failed', 'not-sent': 'Not sent',
+};
+
 function StatusPill({ p }: { p: PaymentPrompt }) {
-  if (p.status === 'Completed') return <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-bold"><CheckCircle2 size={13} /> Paid</span>;
-  if (p.status === 'Failed') return <span className="inline-flex items-center gap-1 text-red-500 text-xs font-bold"><XCircle size={13} /> Not paid</span>;
-  return <span className="inline-flex items-center gap-1 text-amber-600 text-xs font-bold"><Clock size={13} /> Waiting</span>;
+  const o = outcomeOf(p);
+  if (o === 'paid') return <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-bold shrink-0"><CheckCircle2 size={13} /> Paid</span>;
+  if (o === 'waiting') return <span className="inline-flex items-center gap-1 text-amber-600 text-xs font-bold shrink-0"><Clock size={13} /> Waiting</span>;
+  return <span className="inline-flex items-center gap-1 text-red-500 text-xs font-bold shrink-0"><XCircle size={13} /> {OUTCOME_TEXT[o]}</span>;
 }
 
 function ProviderBadge({ provider }: { provider: PromptProvider }) {
@@ -101,24 +116,12 @@ function ProviderBadge({ provider }: { provider: PromptProvider }) {
   );
 }
 
-/** One step of the live tracker. */
-function Step({ state, title, detail }: { state: 'done' | 'active' | 'failed' | 'waiting'; title: string; detail?: React.ReactNode }) {
-  const icon = {
-    done: <CheckCircle2 size={20} className="text-emerald-600" />,
-    active: <Loader2 size={20} className="text-amber-500 animate-spin" />,
-    failed: <XCircle size={20} className="text-red-500" />,
-    waiting: <span className="w-5 h-5 rounded-full border-2 border-app-border block" />,
-  }[state];
-  return (
-    <li className="flex gap-3">
-      <span className="shrink-0 mt-0.5">{icon}</span>
-      <div className="min-w-0">
-        <div className={`text-sm font-semibold ${state === 'waiting' ? 'text-app-text-muted' : 'text-app-text'}`}>{title}</div>
-        {detail && <div className="text-xs text-app-text-muted mt-0.5">{detail}</div>}
-      </div>
-    </li>
-  );
-}
+// Safaricom's callback decides the result. Prompts stay on the phone about a minute, and the
+// callback can come later still, so nothing is judged early. Quiet checks start at 2 minutes;
+// the server only settles a prompt from its own query after 3 minutes with no callback.
+const AUTO_CHECKS = [120, 180, 240];
+const CHECK_AFTER = 45;
+const RESEND_AFTER = 180;
 
 function Tracker({ prompt, customerName, onAgain, onNew }: {
   prompt: PaymentPrompt;
@@ -127,23 +130,21 @@ function Tracker({ prompt, customerName, onAgain, onNew }: {
   onNew: () => void;
 }) {
   const { showToast } = useAppStore();
-  const pending = prompt.status === 'Pending';
+  const outcome = outcomeOf(prompt);
+  const pending = outcome === 'waiting';
   const now = useNow(pending);
   const elapsed = (now - new Date(prompt.createdAt).getTime()) / 1000;
   const [checking, setChecking] = useState(false);
+  const [paidSeen, setPaidSeen] = useState(false);
   const autoChecks = useRef(0);
 
   const check = async (quiet = false) => {
     setChecking(true);
     try {
       const r = await PromptRepository.check(prompt);
+      if (r.paid) setPaidSeen(true);
       if (!quiet && r.status === 'Pending') {
-        showToast(
-          'Still waiting',
-          r.paid ? 'Safaricom says it is paid. The receipt will show in a moment.' : 'No answer from the customer yet.',
-          undefined,
-          'info',
-        );
+        showToast('Still waiting', r.paid ? 'Safaricom says it is paid. The receipt will show in a moment.' : 'No result from Safaricom yet.', undefined, 'info');
       }
     } catch (err) {
       if (!quiet) showToast('Check', toUserMessage(err, "Couldn't check. Please try again."), undefined, 'error');
@@ -152,11 +153,10 @@ function Tracker({ prompt, customerName, onAgain, onNew }: {
     }
   };
 
-  // If the network's callback is slow, ask it a few times by itself: at about 25 s, 50 s and 90 s.
-  useEffect(() => { autoChecks.current = 0; }, [prompt.id]);
+  useEffect(() => { autoChecks.current = 0; setPaidSeen(false); }, [prompt.id]);
   useEffect(() => {
     if (!pending) return;
-    const due = [25, 50, 90][autoChecks.current];
+    const due = AUTO_CHECKS[autoChecks.current];
     if (due !== undefined && elapsed >= due) {
       autoChecks.current += 1;
       void check(true);
@@ -164,58 +164,55 @@ function Tracker({ prompt, customerName, onAgain, onNew }: {
   }, [pending, Math.floor(elapsed)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = PROVIDERS[prompt.provider];
-  const paid = prompt.status === 'Completed';
-  const failed = prompt.status === 'Failed';
-  const notSent = failed && (prompt.resultMessage || '').startsWith('Not sent');
+  const tone = outcome === 'paid' ? 'border-emerald-500/60 bg-emerald-500/5' : pending ? 'border-amber-500/50' : 'border-red-500/50 bg-red-500/5';
 
   return (
-    <section className={`bg-app-card border-2 rounded-2xl p-4 sm:p-5 shadow-sm ${paid ? 'border-emerald-500/60' : failed ? 'border-red-500/50' : 'border-amber-500/50'}`} aria-live="polite">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1"><ProviderBadge provider={prompt.provider} /><span className="text-xs text-app-text-muted">{when(prompt.createdAt)}</span></div>
-          <div className="text-2xl font-bold text-app-text tabular-nums">{formatCurrency(prompt.amount)}</div>
-          <div className="text-sm text-app-text truncate">{customerName} · {prettyPhone(prompt.phone)}</div>
-          {prompt.description && <div className="text-xs text-app-text-muted truncate">{prompt.description}</div>}
-        </div>
-        {pending && <span className="text-sm font-mono font-bold text-amber-600 tabular-nums shrink-0">{clock(elapsed)}</span>}
+    <section className={`bg-app-card border-2 rounded-2xl p-5 sm:p-6 shadow-sm text-center ${tone}`} aria-live="polite">
+      <div className="flex justify-center mb-3">
+        {outcome === 'paid' ? <CheckCircle2 size={56} className="text-emerald-600" />
+          : pending ? <Loader2 size={52} className="text-amber-500 animate-spin" />
+          : <XCircle size={56} className="text-red-500" />}
       </div>
 
-      <ol className="flex flex-col gap-3">
-        <Step state={notSent ? 'failed' : 'done'} title={notSent ? 'Prompt not sent' : 'Prompt sent'} detail={notSent ? prompt.resultMessage : `To ${prettyPhone(prompt.phone)} on ${p.name}${prompt.requestedBy ? ` by ${prompt.requestedBy}` : ''}`} />
-        {!notSent && (
-          <Step
-            state={pending ? 'active' : paid ? 'done' : 'failed'}
-            title={pending ? 'Waiting for the customer to enter their PIN' : paid ? 'Customer approved' : 'Not paid'}
-            detail={
-              pending
-                ? (elapsed > 75
-                  ? 'Taking long. Prompts usually expire after about a minute: check now, or send it again.'
-                  : 'They should see the request on their phone now.')
-                : failed ? (prompt.resultMessage || 'The customer didn’t complete it.') : undefined
-            }
-          />
-        )}
-        {!notSent && (
-          <Step
-            state={paid ? 'done' : 'waiting'}
-            title={paid ? 'Recorded' : 'Recorded as a payment'}
-            detail={paid ? (
-              <>
-                Receipt <span className="font-mono font-semibold text-app-text">{prompt.receiptNumber}</span>
-                {prompt.customerId ? ` · added to ${customerName}'s account (debt first, then wallet)` : ' · walk-in payment'}
-              </>
-            ) : undefined}
-          />
-        )}
-      </ol>
+      <div className={`text-lg font-bold ${outcome === 'paid' ? 'text-emerald-600' : pending ? 'text-amber-600' : 'text-red-500'}`}>
+        {outcome === 'paid' ? 'Paid'
+          : pending ? (paidSeen ? 'Paid, getting the receipt…' : 'Waiting for the customer')
+          : outcome === 'cancelled' ? 'Cancelled by the customer'
+          : outcome === 'no-answer' ? 'No answer, the prompt expired'
+          : outcome === 'not-sent' ? 'Prompt not sent'
+          : 'Payment failed'}
+      </div>
+      <div className="text-3xl sm:text-4xl font-bold text-app-text tabular-nums mt-1">{formatCurrency(prompt.amount)}</div>
+      <div className="text-base font-semibold text-app-text mt-1 break-words">{customerName}</div>
+      <div className="text-sm text-app-text-muted">{prettyPhone(prompt.phone)} · {p.name}</div>
 
-      <div className="flex flex-wrap gap-2 mt-5">
-        {pending && (
+      {outcome === 'paid' && prompt.receiptNumber && (
+        <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-app-bg border border-app-border px-3 py-1.5 text-sm">
+          Receipt <span className="font-mono font-semibold text-app-text">{prompt.receiptNumber}</span>
+        </div>
+      )}
+      {outcome === 'paid' && (
+        <p className="text-xs text-app-text-muted mt-2">{prompt.customerId ? `Recorded on ${customerName}'s account (debt first, then wallet).` : 'Recorded as a walk-in payment.'}</p>
+      )}
+      {pending && (
+        <p className="text-sm text-app-text-muted mt-3">
+          <span className="font-mono font-semibold text-amber-600 tabular-nums">{clock(elapsed)}</span>
+          {' · '}
+          {elapsed < 90 ? 'They should see the request on their phone. Waiting for Safaricom to confirm.'
+            : 'Still no result from Safaricom. It can take a few minutes; the result updates here by itself.'}
+        </p>
+      )}
+      {!pending && outcome !== 'paid' && prompt.resultMessage && (
+        <p className="text-sm text-app-text-muted mt-3">{prompt.resultMessage}</p>
+      )}
+
+      <div className="flex flex-wrap justify-center gap-2 mt-5">
+        {pending && elapsed >= CHECK_AFTER && (
           <button type="button" onClick={() => void check()} disabled={checking} className="min-h-11 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text flex items-center gap-2 cursor-pointer disabled:opacity-50">
             <RefreshCw size={14} className={checking ? 'animate-spin' : ''} /> Check now
           </button>
         )}
-        {(failed || (pending && elapsed > 60)) && (
+        {((!pending && outcome !== 'paid') || (pending && elapsed > RESEND_AFTER)) && (
           <button type="button" onClick={onAgain} data-shortcut="prompt-again" className={`min-h-11 px-4 rounded-xl text-sm font-bold flex items-center gap-2 cursor-pointer ${p.on}`}>
             <RotateCcw size={14} /> Send again
           </button>
@@ -342,7 +339,7 @@ export default function PaymentPromptView() {
   const today = new Date().toDateString();
   const todays = prompts.filter((p) => new Date(p.createdAt).toDateString() === today);
   const paidToday = todays.filter((p) => p.status === 'Completed').reduce((s, p) => s + p.amount, 0);
-  const waiting = prompts.filter((p) => p.status === 'Pending' && Date.now() - new Date(p.createdAt).getTime() < 10 * 60_000).length;
+  const waiting = prompts.filter((p) => p.status === 'Pending' && Date.now() - new Date(p.createdAt).getTime() < 5 * 60_000).length;
   const listed = prompts.filter((p) => filter === 'all' || p.status === filter).slice(0, 40);
 
   // Nobody can be prompted: say why and where to fix it.
@@ -508,7 +505,7 @@ export default function PaymentPromptView() {
               <h3 className="text-sm font-bold text-app-text">Recent prompts</h3>
             </div>
             <div className="flex gap-1 mb-2 overflow-x-auto" role="tablist" aria-label="Show">
-              {([['all', 'All'], ['Pending', 'Waiting'], ['Completed', 'Paid'], ['Failed', 'Not paid']] as const).map(([id, text]) => (
+              {([['all', 'All'], ['Pending', 'Waiting'], ['Completed', 'Paid'], ['Failed', 'Cancelled or failed']] as const).map(([id, text]) => (
                 <button
                   key={id}
                   type="button"
