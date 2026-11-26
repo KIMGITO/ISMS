@@ -1427,11 +1427,6 @@ export class MpesaRepository {
     await this.call("test_till");
   }
 
-  /** Sandbox only: registers the till again, then has Safaricom send it a test KSh 1. */
-  public static async testTill(): Promise<void> {
-    await this.call("test_till");
-  }
-
   /** Sends a payment prompt to the customer's phone. Returns its checkout id. */
   public static async requestPayment(params: {
     phone: string;
