@@ -4,6 +4,7 @@
 // A till payment carries no account number, so it can't be matched automatically.
 
 import { useEffect, useMemo, useState } from 'react';
+import { onBranchChange } from '../stores/businessStore';
 import { NumberInput } from './shared/Input';
 import {
   Smartphone, Send, RefreshCw, CheckCircle2, XCircle, Clock, AlertTriangle, User as UserIcon,
@@ -101,13 +102,17 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
       .catch((err) => setStatusError(toUserMessage(err, "Couldn't reach the M-Pesa service.")));
   };
 
+  // Each branch has its own keys, till and payments: reload and resubscribe on a branch change.
+  const [branchKey, setBranchKey] = useState('');
+  useEffect(() => onBranchChange((id) => setBranchKey(id)), []);
+
   useEffect(() => {
     loadStatus();
     return MpesaRepository.subscribe(({ tillPayments, prompts }) => {
       setTillPayments(tillPayments);
       setPrompts(prompts);
     });
-  }, []);
+  }, [branchKey]);
 
   const run = async (key: string, fn: () => Promise<void>, success?: [string, string]) => {
     setBusy(key);

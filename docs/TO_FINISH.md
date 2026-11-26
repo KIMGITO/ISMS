@@ -8,6 +8,12 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## Plan gates in the database + M-Pesa per branch (2026-11-26)
+
+1. Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh` (adds 20261211002).
+2. On a Starter company, open Stock Report: it should say "The stock report is not on your plan." Marketing screens should refuse saves.
+3. **You:** in each branch, open Business Management > M-Pesa and connect that branch's own keys and till. Switching branch should show that branch's settings.
+
 ## M-Pesa per business: each shop connects its own Daraja keys (2026-11-26)
 
 Migration `20261211001_mpesa_per_business.sql` (table `mpesa_payment_secrets`, `record_till_payment(p_raw, p_business_id)` without the single-till fallback). Edge functions `mpesa-payments`, `mpesa-webhook`, `till-callback`, `customer-checkout`, `ussd` now use the business's own keys and callback token. The server secrets `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, `MPESA_CALLBACK_TOKEN`, `MPESA_PARTY_B`, `MPESA_TRANSACTION_TYPE` are no longer read.
