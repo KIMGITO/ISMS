@@ -188,43 +188,47 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
         {canConfigure && status && (!status.configured || keysOpen) && (
           <div className="flex flex-col gap-3 mb-4">
             <p className="text-xs text-app-text-muted">
-              Get these from developer.safaricom.co.ke, under your app and Go Live. Empty secret boxes keep the saved ones.
+              From developer.safaricom.co.ke: Consumer Key and Secret are on your app; the Passkey comes by email after Go Live. For a till, Safaricom needs two numbers: the Store Number (Business Short Code) and the Till Number customers pay (PartyB). Empty secret boxes keep the saved ones.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
                 <span className={label}>Environment</span>
-                <select value={env} onChange={(e) => setEnv(e.target.value as 'sandbox' | 'production')} className={input}>
-                  <option value="sandbox">Sandbox (testing)</option>
-                  <option value="production">Production (real money)</option>
-                </select>
+                <SearchableDropdown
+                  items={[{ id: 'sandbox', label: 'Sandbox (testing)' }, { id: 'production', label: 'Production (real money)' }]}
+                  selectedValue={env}
+                  onChange={(v) => setEnv(v as 'sandbox' | 'production')}
+                  placeholder="Choose environment"
+                />
               </label>
               <label className="flex flex-col gap-1">
                 <span className={label}>Account type</span>
-                <select value={txType} onChange={(e) => setTxType(e.target.value as 'CustomerBuyGoodsOnline' | 'CustomerPayBillOnline')} className={input}>
-                  <option value="CustomerBuyGoodsOnline">Till (Buy Goods)</option>
-                  <option value="CustomerPayBillOnline">Paybill</option>
-                </select>
+                <SearchableDropdown
+                  items={[{ id: 'CustomerBuyGoodsOnline', label: 'Till (Buy Goods)' }, { id: 'CustomerPayBillOnline', label: 'Paybill' }]}
+                  selectedValue={txType}
+                  onChange={(v) => setTxType(v as 'CustomerBuyGoodsOnline' | 'CustomerPayBillOnline')}
+                  placeholder="Choose account type"
+                />
               </label>
               <label className="flex flex-col gap-1">
-                <span className={label}>{txType === 'CustomerBuyGoodsOnline' ? 'Store number (head office)' : 'Paybill number'}</span>
+                <span className={label}>{txType === 'CustomerBuyGoodsOnline' ? 'Business Short Code (Store Number / H.O.)' : 'Business Short Code (Paybill)'}</span>
                 <input inputMode="numeric" value={shortcode} onChange={(e) => setShortcode(e.target.value.replace(/\D/g, ''))} className={input} />
               </label>
               {txType === 'CustomerBuyGoodsOnline' && (
                 <label className="flex flex-col gap-1">
-                  <span className={label}>Till number customers pay</span>
-                  <input inputMode="numeric" value={partyB} onChange={(e) => setPartyB(e.target.value.replace(/\D/g, ''))} className={input} />
+                  <span className={label}>PartyB (Till Number)</span>
+                  <input inputMode="numeric" value={partyB} onChange={(e) => setPartyB(e.target.value.replace(/\D/g, ''))} placeholder="Empty = same as Store Number" className={input} />
                 </label>
               )}
               <label className="flex flex-col gap-1">
-                <span className={label}>Consumer key</span>
+                <span className={label}>Consumer Key</span>
                 <input type="password" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className={label}>Consumer secret</span>
+                <span className={label}>Consumer Secret</span>
                 <input type="password" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
               </label>
               <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className={label}>Passkey</span>
+                <span className={label}>Passkey (Lipa Na M-Pesa Online)</span>
                 <input type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
               </label>
             </div>

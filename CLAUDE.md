@@ -61,3 +61,11 @@ Every permission the app checks is also enforced by the database (`has_permissio
 function), and edge functions use `requirePermission`, never a role name. A new table with a
 policy needs the matching GRANT to `authenticated`, or nobody can read it (the invoices bug).
 `supabase/tests/permissions/permissions_test.sh` checks both.
+
+## Component rule (set by the owner, 2026-11-26)
+
+Every screen uses the app's shared components, never raw HTML controls: choices use
+`SearchableDropdown` (`src/components/SearchableDropdown.tsx`), never `<select>`; number boxes
+use `NumberInput`, text boxes `Input`, on/off `Switch`, tick boxes `Checkbox`, segments
+`Segmented`/`Choice` (`src/components/shared/`). A raw `<select>` found while editing a screen
+is replaced in the same change.

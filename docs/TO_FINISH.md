@@ -6,6 +6,13 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Payment methods in Settings, Daraja till fields (2026-11-26)
+
+1. [ ] Release the app (commit, push, tag the next version). No database or function change.
+2. [ ] Check: Settings → Shop → Payment methods switches methods on and off; Payments & Expenses no longer has a Methods tab.
+3. [ ] **You:** Payments & Expenses → M-Pesa → Account type "Till (Buy Goods)". Enter Business Short Code (Store Number), PartyB (Till Number), Consumer Key, Consumer Secret, Passkey from developer.safaricom.co.ke. "M-Pesa connected" should show, then "Register till with Safaricom".
+4. [ ] Replace the 16 raw `<select>` boxes left in `src/features/marketing/` with `SearchableDropdown` (component rule).
+
 ## Console dropdowns, one confirm popup, module prices (2026-11-26)
 
 1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. Needs 20261212002 live first.

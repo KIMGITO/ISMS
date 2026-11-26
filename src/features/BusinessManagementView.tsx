@@ -11,12 +11,11 @@ import { useAppStore } from "../stores/appStore";
 import { 
   Building, Save, Globe, Phone, Mail, Image as ImageIcon,  MapPin, CheckCircle, Info, Plus, X, Briefcase, Receipt, CreditCard, Calendar, RefreshCw,
   Edit, Wallet, TrendingUp, Smartphone, Banknote, Landmark, User as UserIcon, Store, Search,
-  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban, ToggleRight
+  ArrowRight, CircleDollarSign, ShieldCheck, AlertTriangle, CheckCircle2, Trash2, ChevronLeft, ChevronRight, Ban
 } from "lucide-react";
 import MpesaPaymentsPanel from "../components/MpesaPaymentsPanel";
 import CardPaymentsPanel from "../components/payments/CardPaymentsPanel";
 import AirtelPaymentsPanel from "../components/payments/AirtelPaymentsPanel";
-import PaymentMethodsPanel from "../components/payments/PaymentMethodsPanel";
 import ExpensesPanel from "../components/payments/ExpensesPanel";
 import AreaAdvisor from "../components/assistant/AreaAdvisor";
 import { usePaymentMethods } from "../hooks/usePaymentMethods";
@@ -49,7 +48,7 @@ const COLOR_PRESETS = [
   { name: "Monochrome Sleek", primary: "#94a3b8", secondary: "#0f172a", label: "Silver & Charcoal" }
 ];
 
-type MoneyTab = "payments" | "expenses" | "mpesa" | "airtel" | "cards" | "methods";
+type MoneyTab = "payments" | "expenses" | "mpesa" | "airtel" | "cards";
 
 const METHOD_ICONS: Record<MoneyMethod, React.ReactNode> = {
   Cash: <Banknote size={14} className="text-amber-500" />,
@@ -129,7 +128,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
     { id: "airtel", label: "Airtel Money", shortcut: "money-airtel", icon: <Smartphone size={14} />, allowed: hasRolePermission(role, "payments.airtel") || hasRolePermission(role, "settings.integrations") },
     { id: "cards", label: "Cards", icon: <CreditCard size={14} />, allowed: hasRolePermission(role, "payments.card") || hasRolePermission(role, "payments.view") || hasRolePermission(role, "settings.integrations") },
     { id: "expenses", label: "Expenses", shortcut: "money-expenses", icon: <Receipt size={14} />, allowed: hasRolePermission(role, "expenses.view") || hasRolePermission(role, "expenses.create") },
-    { id: "methods", label: "Methods", shortcut: "money-methods", icon: <ToggleRight size={14} />, allowed: hasRolePermission(role, "payments.configure") },
   ] as { id: MoneyTab; label: string; shortcut?: string; icon: React.ReactNode; allowed: boolean }[]).filter((t) => t.allowed);
   const [activeSubTab, setActiveSubTab] = useState<"details" | MoneyTab>(
     section === "money" ? moneyTabs[0]?.id ?? "payments" : "details",
@@ -1207,7 +1205,6 @@ export default function BusinessManagementView({ section = "business" }: { secti
 
               {isMoney && activeSubTab === 'airtel' && <AirtelPaymentsPanel />}
 
-              {isMoney && activeSubTab === 'methods' && <PaymentMethodsPanel />}
 
               <CardChargeSheet
                 open={chargingCard}

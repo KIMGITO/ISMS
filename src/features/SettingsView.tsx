@@ -1,8 +1,10 @@
 import WhatsAppSettingsPanel from "../components/WhatsAppSettingsPanel";
+import PaymentMethodsPanel from "../components/payments/PaymentMethodsPanel";
 import { toUserMessage } from '../utils/userError';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Archive,
+  Wallet,
   Bot,
   CloudUpload,
   MessageCircle,
@@ -79,9 +81,10 @@ interface SettingsViewProps {
   onRestartTour?: () => void;
 }
 
-type SectionId = 'receipts' | 'invoices' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'records' | 'database' | 'device' | 'notifications' | 'help' | 'session';
+type SectionId = 'payments' | 'receipts' | 'invoices' | 'sms' | 'whatsapp' | 'ai' | 'backup' | 'records' | 'database' | 'device' | 'notifications' | 'help' | 'session';
 
 const SETTINGS_SECTIONS: (NavSection<SectionId> & { permission?: PermissionCode })[] = [
+  { id: 'payments', group: 'Shop', label: 'Payment methods', description: 'Switch Cash, M-Pesa, Card, Bank or Airtel on or off', icon: Wallet, keywords: 'methods cash mpesa card bank airtel turn off disable enable switch', permission: 'payments.configure' },
   { id: 'receipts', group: 'Shop', label: 'Receipts & printing', description: 'Paper, shop details, printers and KRA eTIMS', icon: ReceiptText, keywords: 'tax kra etims printer bluetooth wifi thermal qr barcode paper', permission: 'settings.tax' },
   { id: 'invoices', group: 'Shop', label: 'Invoices', description: 'Layout, texts, payment details and stamp', icon: FileText, keywords: 'invoice debt statement a5 stamp prefix number', permission: 'settings.tax' },
   { id: 'sms', group: 'Connections', label: 'SMS', description: 'Text messages through Twilio', icon: MessageSquareText, keywords: 'twilio phone text', permission: 'settings.integrations' },
@@ -1225,6 +1228,8 @@ export default function SettingsView({
                   </div>
                 </div>
               )}
+
+              {activeSection === 'payments' && hasRolePermission(currentRole, 'payments.configure') && <PaymentMethodsPanel />}
 
               {activeSection === 'whatsapp' && hasRolePermission(currentRole, 'settings.integrations') && activeBusinessId && (
                 <WhatsAppSettingsPanel businessId={activeBusinessId} />

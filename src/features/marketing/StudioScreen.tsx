@@ -8,6 +8,7 @@ import { Copy, ExternalLink, Film, Link2, Link2Off, RefreshCw, Trash2, Wand2 } f
 import { FilterChips } from '../../components/shared/Choice';
 import { SearchInput } from '../../components/shared/Input';
 import { FormSheet } from '../../components/shared/FormSheet';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
 import {
@@ -59,10 +60,7 @@ export default function StudioScreen({ businessId }: { businessId: string }) {
             { id: 'all', label: 'All' }, { id: 'image', label: 'Pictures' }, { id: 'video', label: 'Videos' }, { id: 'captions', label: 'Captions' }, { id: 'canva', label: 'From Canva' },
           ]} />
           {folders.length > 0 && (
-            <select aria-label="Folder" value={folder} onChange={(e) => setFolder(e.target.value)} className="rounded-lg border border-app-border bg-app-bg px-2 py-1.5 text-sm text-app-text">
-              <option value="">Every folder</option>
-              {folders.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
+            <SearchableDropdown className="w-44" placeholder="Every folder" selectedValue={folder} onChange={setFolder} items={[{ id: '', label: 'Every folder' }, ...folders.map((f) => ({ id: f, label: f }))]} />
           )}
           <div className="min-w-48 flex-1"><SearchInput value={q} onChange={setQ} placeholder="Search by name or description" /></div>
           <span className="text-xs text-app-text-muted">{(data ?? []).length} files · {mb(used)}</span>
@@ -172,9 +170,7 @@ function CanvaPanel({ businessId, onImported }: { businessId: string; onImported
 
   const formatSelect = (
     <label className={labelClass}>Advert format
-      <select className={`${inputClass} mt-1`} value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
-        {DESIGN_FORMATS.map((f) => <option key={f} value={f}>{FORMATS[f].label}: {DESIGN_SIZES[f].width} × {DESIGN_SIZES[f].height} px{FORMATS[f].media === 'video' ? ' (video)' : ''}</option>)}
-      </select>
+      <SearchableDropdown className="mt-1" placeholder="Choose a size" selectedValue={format} onChange={(x) => setFormat(x as typeof format)} items={DESIGN_FORMATS.map((f) => ({ id: f, label: `${FORMATS[f].label}: ${DESIGN_SIZES[f].width} × ${DESIGN_SIZES[f].height} px${FORMATS[f].media === 'video' ? ' (video)' : ''}` }))} />
     </label>
   );
 

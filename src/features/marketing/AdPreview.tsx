@@ -4,6 +4,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Monitor, Play, Smartphone, Tablet } from 'lucide-react';
 import { Segmented } from '../../components/shared/Choice';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { useBusinessStore } from '../../stores/businessStore';
 import type { Campaign, Creative, MediaItem } from '../../services/marketing';
 import { FORMATS, focalPosition, PLACEMENTS, type AdPlacement } from '../../../website/src/ads/rules';
@@ -154,10 +155,7 @@ export default function AdPreview({ campaign, creatives, media, shopName }: {
             { id: 'desktop', label: 'Desktop', icon: <Monitor size={14} /> },
           ]}
         />
-        <select aria-label="Placement to preview" value={placement} onChange={(e) => setPlacement(e.target.value as AdPlacement | 'all')} className="rounded-lg border border-app-border bg-app-bg px-2 py-1.5 text-sm text-app-text">
-          <option value="all">Every placement</option>
-          {used.map((p) => <option key={p} value={p}>{PLACEMENTS[p].label}</option>)}
-        </select>
+        <SearchableDropdown className="w-52" placeholder="Every placement" selectedValue={placement} onChange={(x) => setPlacement(x as AdPlacement | 'all')} items={[{ id: 'all', label: 'Every placement' }, ...used.map((p) => ({ id: p, label: PLACEMENTS[p].label }))]} />
       </div>
       <div ref={outer} className="overflow-hidden rounded-xl border border-app-border bg-app-bg">
         <div style={{ width: WIDTH[device] * scale, height: height * scale }} className="mx-auto">

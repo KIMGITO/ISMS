@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
 import { NumberInput } from '../../components/shared/Input';
 import { Switch } from '../../components/shared/Switch';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
 import { getPlacements, savePlacement, setBusinessTimezone } from '../../services/marketing';
@@ -48,9 +49,7 @@ export default function PlacementsScreen({ businessId }: { businessId: string })
       <section className={`${cardClass} flex flex-wrap items-end gap-3`} aria-label="Time zone">
         <label className={`${labelClass} min-w-64 flex-1`}>Time zone for campaign dates <span className={hintClass}>Campaigns start and end by this clock.</span>
           {ZONES.length > 0 ? (
-            <select className={`${inputClass} mt-1`} disabled={!canManage} value={zone} onChange={(e) => setZone(e.target.value)}>
-              {ZONES.map((z) => <option key={z} value={z}>{z}</option>)}
-            </select>
+            <SearchableDropdown className="mt-1" disabled={!canManage} placeholder="Choose a time zone" selectedValue={zone} onChange={setZone} items={ZONES.map((z) => ({ id: z, label: z }))} />
           ) : <input className={`${inputClass} mt-1`} disabled={!canManage} value={zone} onChange={(e) => setZone(e.target.value)} />}
         </label>
         {canManage && zone !== tz && (
@@ -82,10 +81,7 @@ export default function PlacementsScreen({ businessId }: { businessId: string })
                     <NumberInput className="mt-1" decimals={0} min={1} max={6} disabled={!canManage} value={v.maxItems} onChange={(n) => change(p, { maxItems: Math.min(6, Math.max(1, n ?? 1)) })} />
                   </label>
                   <label className={labelClass}>When several campaigns compete
-                    <select className={`${inputClass} mt-1`} disabled={!canManage} value={v.rotation} onChange={(e) => change(p, { rotation: e.target.value as PlacementSettings['rotation'] })}>
-                      <option value="priority">Highest priority wins</option>
-                      <option value="rotate">Equal priorities take turns</option>
-                    </select>
+                    <SearchableDropdown className="mt-1" disabled={!canManage} placeholder="Choose" selectedValue={v.rotation} onChange={(x) => change(p, { rotation: x as PlacementSettings['rotation'] })} items={[{ id: 'priority', label: 'Highest priority wins' }, { id: 'rotate', label: 'Equal priorities take turns' }]} />
                   </label>
                   {(p === 'hero' || p === 'announcement') && (
                     <label className={labelClass}>Seconds per advert <span className={hintClass}>Moves on only when there are several, never for visitors who ask for less motion</span>

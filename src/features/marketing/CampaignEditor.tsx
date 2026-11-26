@@ -13,6 +13,7 @@ import { toUserMessage } from '../../utils/userError';
 import { formatMoney } from '../../utils/money';
 import { NumberInput } from '../../components/shared/Input';
 import { StatGrid, StatTile } from '../../components/shared/StatTile';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { getSupabase } from '../../services/supabaseClient';
 import { listPromotions, type Promotion } from '../../services/promotions';
 import {
@@ -235,14 +236,10 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={labelClass}>Kind
-                <select className={`${inputClass} mt-1`} value={draft.campaign_type} onChange={(e) => set('campaign_type', e.target.value)}>
-                  {CAMPAIGN_TYPES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose a type" selectedValue={draft.campaign_type} onChange={(x) => set('campaign_type', x)} items={CAMPAIGN_TYPES.map((x) => ({ id: x.value, label: x.label }))} />
               </label>
               <label className={labelClass}>Aim
-                <select className={`${inputClass} mt-1`} value={draft.objective} onChange={(e) => set('objective', e.target.value)}>
-                  {OBJECTIVES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose a goal" selectedValue={draft.objective} onChange={(x) => set('objective', x)} items={OBJECTIVES.map((x) => ({ id: x.value, label: x.label }))} />
               </label>
             </div>
           </fieldset>
@@ -264,11 +261,7 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
                 <NumberInput className="mt-1" value={draft.priority} decimals={0} min={1} max={100} onChange={(v) => set('priority', Math.min(100, Math.max(1, v ?? 50)))} />
               </label>
               <label className={labelClass}>Colour of bars and boxes
-                <select className={`${inputClass} mt-1`} value={draft.tone} onChange={(e) => set('tone', e.target.value as CampaignDraft['tone'])}>
-                  <option value="brand">Your brand colour</option>
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose a colour" selectedValue={draft.tone} onChange={(x) => set('tone', x as CampaignDraft['tone'])} items={[{ id: 'brand', label: 'Your brand colour' }, { id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }]} />
               </label>
             </div>
           </fieldset>
@@ -279,9 +272,7 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
             <h3 className="font-semibold text-app-text">Button and offer</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={labelClass}>The button goes to
-                <select className={`${inputClass} mt-1`} value={draft.cta_kind} onChange={(e) => { set('cta_kind', e.target.value as CtaKind); set('cta_target', ''); }}>
-                  {CTA_KINDS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose where it goes" selectedValue={draft.cta_kind} onChange={(x) => { set('cta_kind', x as CtaKind); set('cta_target', ''); }} items={CTA_KINDS.map((x) => ({ id: x.value, label: x.label }))} />
               </label>
               {draft.cta_kind !== 'none' && (
                 <label className={labelClass}>Button words
@@ -296,18 +287,12 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
             )}
             {draft.cta_kind === 'product' && (
               <label className={labelClass}>Product
-                <select className={`${inputClass} mt-1`} value={draft.cta_target ?? ''} onChange={(e) => set('cta_target', e.target.value)}>
-                  <option value="">Choose a product</option>
-                  {products.filter((p: any) => p.showOnWebsite !== false).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose a product" searchPlaceholder="Search products..." selectedValue={draft.cta_target ?? ''} onChange={(x) => set('cta_target', x)} items={products.filter((p: any) => p.showOnWebsite !== false).map((p: any) => ({ id: String(p.id), label: p.name }))} />
               </label>
             )}
             {draft.cta_kind === 'category' && (
               <label className={labelClass}>Category
-                <select className={`${inputClass} mt-1`} value={draft.cta_target ?? ''} onChange={(e) => set('cta_target', e.target.value)}>
-                  <option value="">Choose a category</option>
-                  {categories.map((c: any) => { const n = typeof c === 'string' ? c : c.name; return <option key={n} value={n}>{n}</option>; })}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="Choose a category" selectedValue={draft.cta_target ?? ''} onChange={(x) => set('cta_target', x)} items={categories.map((c: any) => { const n = typeof c === 'string' ? c : c.name; return { id: n, label: n }; })} />
               </label>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -315,10 +300,7 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
                 <input className={`${inputClass} mt-1`} maxLength={40} value={draft.discount_label ?? ''} onChange={(e) => set('discount_label', e.target.value)} />
               </label>
               <label className={labelClass}>Promotion code <span className={hintClass}>From Promotions & Points; the discount itself is set there</span>
-                <select className={`${inputClass} mt-1`} value={draft.promotion_id ?? ''} onChange={(e) => set('promotion_id', e.target.value || null)}>
-                  <option value="">None</option>
-                  {(promos.data ?? []).filter((p) => p.code).map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-                </select>
+                <SearchableDropdown className="mt-1" placeholder="None" selectedValue={draft.promotion_id ?? ''} onChange={(x) => set('promotion_id', x || null)} items={[{ id: '', label: 'None' }, ...(promos.data ?? []).filter((p) => p.code).map((p) => ({ id: p.id, label: `${p.code} · ${p.name}` }))]} />
               </label>
             </div>
             <label className={labelClass}>Campaign page address <span className={hintClass}>Optional. Gives the campaign its own page at /promo/…</span>
@@ -334,10 +316,7 @@ export default function CampaignEditor({ businessId, campaignId, newType, onClos
             <h3 className="font-semibold text-app-text">Products in the offer</h3>
             <p className="text-sm text-app-text-muted">Used by product promotions, category banners and the campaign page.</p>
             <label className={labelClass}>Category
-              <select className={`${inputClass} mt-1`} value={draft.target_category ?? ''} onChange={(e) => set('target_category', e.target.value)}>
-                <option value="">Any (whole shop page)</option>
-                {categories.map((c: any) => { const n = typeof c === 'string' ? c : c.name; return <option key={n} value={n}>{n}</option>; })}
-              </select>
+              <SearchableDropdown className="mt-1" placeholder="Any (whole shop page)" selectedValue={draft.target_category ?? ''} onChange={(x) => set('target_category', x)} items={[{ id: '', label: 'Any (whole shop page)' }, ...categories.map((c: any) => { const n = typeof c === 'string' ? c : c.name; return { id: n, label: n }; })]} />
             </label>
             <ProductChooser all={products as any[]} chosen={draft.target_product_ids} onChange={(ids) => set('target_product_ids', ids)} />
           </fieldset>

@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { FormSheet } from '../../components/shared/FormSheet';
 import { Switch } from '../../components/shared/Switch';
+import SearchableDropdown from '../../components/SearchableDropdown';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { toUserMessage } from '../../utils/userError';
 import { saveCreative, updateMedia, type Creative, type CreativeDraft, type MediaItem } from '../../services/marketing';
@@ -112,9 +113,7 @@ export default function CreativeForm({ businessId, campaignId, creative, media, 
 
         {spec.formats.length > 1 && (
           <label className={labelClass}>Format
-            <select className={`${inputClass} mt-1`} value={d.format} onChange={(e) => chooseFormat(e.target.value as AdFormat)}>
-              {spec.formats.map((f) => <option key={f} value={f}>{FORMATS[f].label} ({FORMATS[f].shape}{FORMATS[f].minWidth ? `, ${FORMATS[f].minWidth} px wide or more` : ''})</option>)}
-            </select>
+            <SearchableDropdown className="mt-1" placeholder="Choose a shape" selectedValue={d.format} onChange={(x) => chooseFormat(x as AdFormat)} items={spec.formats.map((f) => ({ id: f, label: `${FORMATS[f].label} (${FORMATS[f].shape}${FORMATS[f].minWidth ? `, ${FORMATS[f].minWidth} px wide or more` : ''})` }))} />
           </label>
         )}
 
@@ -138,10 +137,7 @@ export default function CreativeForm({ businessId, campaignId, creative, media, 
           <div className="space-y-2">
             <span className={labelClass}>Phone version <span className={hintClass}>Optional. Without one, phones show the same {isVideo ? 'video' : 'picture'}, cropped around its focal point.</span></span>
             <div className="flex flex-wrap gap-2">
-              <select aria-label="Phone version format" className={`${inputClass} max-w-xs`} value={mobileFormat} onChange={(e) => setMobileFormat(e.target.value as AdFormat | '')}>
-                <option value="">Shape of the phone version</option>
-                {spec.mobile.map((f) => <option key={f} value={f}>{FORMATS[f].label} ({FORMATS[f].shape})</option>)}
-              </select>
+              <SearchableDropdown className="max-w-xs" placeholder="Shape of the phone version" selectedValue={mobileFormat} onChange={(x) => setMobileFormat(x as AdFormat | '')} items={spec.mobile.map((f) => ({ id: f, label: `${FORMATS[f].label} (${FORMATS[f].shape})` }))} />
             </div>
             {mobileFormat && (
               <ChosenMedia item={d.mobile_media_id ? all[d.mobile_media_id] : undefined} format={mobileFormat} label="Choose the phone version"
@@ -181,12 +177,7 @@ export default function CreativeForm({ businessId, campaignId, creative, media, 
           </label>
           {d.placement === 'hero' && (
             <label className={labelClass}>Words on the banner
-              <select className={`${inputClass} mt-1`} value={d.text_position ?? 'left'} onChange={(e) => set('text_position', e.target.value as Creative['text_position'])}>
-                <option value="left">On the left</option>
-                <option value="center">In the middle</option>
-                <option value="right">On the right</option>
-                <option value="none">None (the picture has its own words)</option>
-              </select>
+              <SearchableDropdown className="mt-1" placeholder="Choose" selectedValue={d.text_position ?? 'left'} onChange={(x) => set('text_position', x as Creative['text_position'])} items={[{ id: 'left', label: 'On the left' }, { id: 'center', label: 'In the middle' }, { id: 'right', label: 'On the right' }, { id: 'none', label: 'None (the picture has its own words)' }]} />
             </label>
           )}
           {!isText && (
