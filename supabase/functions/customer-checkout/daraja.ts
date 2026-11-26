@@ -1,17 +1,51 @@
 // supabase/functions/customer-checkout/daraja.ts
-// Safaricom Daraja STK Push client. Credentials live in edge function secrets only.
+// Safaricom Daraja client. Each business connects its own Daraja app, so every call takes
+// that business's keys (mpesa_payment_secrets, readable by edge functions only).
 
-function env(name: string): string {
-  const value = Deno.env.get(name);
-  if (!value) throw new Error(`Missing secret ${name}`);
-  return value;
+// deno-lint-ignore-file no-explicit-any
+
+export interface DarajaKeys {
+  businessId: string;
+  environment: "sandbox" | "production";
+  consumerKey: string;
+  consumerSecret: string;
+  passkey: string;
+  shortcode: string;
+  partyB: string | null;
+  transactionType: "CustomerBuyGoodsOnline" | "CustomerPayBillOnline";
+  callbackToken: string;
 }
 
-function baseUrl(): string {
-  return Deno.env.get("MPESA_BASE_URL") ||
-    (Deno.env.get("MPESA_ENV") === "production"
-      ? "https://api.safaricom.co.ke"
-      : "https://sandbox.safaricom.co.ke");
+/** This business's Daraja keys, or null when it hasn't connected M-Pesa. */
+export async function darajaKeys(admin: any, businessId: string): Promise<DarajaKeys | null> {
+  const { data } = await admin.from("mpesa_payment_secrets").select("*").eq("business_id", businessId).maybeSingle();
+  return data ? fromRow(data) : null;
+}
+
+/** Finds the business a callback belongs to by the token in its URL. */
+export async function darajaKeysByToken(admin: any, token: string | null): Promise<DarajaKeys | null> {
+  if (!token || !/^[0-9a-f]{48}$/.test(token)) return null;
+  const { data } = await admin.from("mpesa_payment_secrets").select("*").eq("callback_token", token).maybeSingle();
+  return data ? fromRow(data) : null;
+}
+
+function fromRow(r: any): DarajaKeys {
+  return {
+    businessId: r.business_id,
+    environment: r.environment === "production" ? "production" : "sandbox",
+    consumerKey: r.consumer_key,
+    consumerSecret: r.consumer_secret,
+    passkey: r.passkey,
+    shortcode: r.shortcode,
+    partyB: r.party_b,
+    transactionType: r.transaction_type,
+    callbackToken: r.callback_token,
+  };
+}
+
+function baseUrl(keys: Pick<DarajaKeys, "environment">): string {
+  if (keys.environment === "production") return "https://api.safaricom.co.ke";
+  return Deno.env.get("MPESA_SANDBOX_URL") || "https://sandbox.safaricom.co.ke";
 }
 
 /** Daraja wants YYYYMMDDHHmmss in Nairobi time (UTC+3, no daylight saving). */
@@ -19,21 +53,20 @@ function timestamp(): string {
   return new Date(Date.now() + 3 * 3600_000).toISOString().replace(/[-:T]/g, "").slice(0, 14);
 }
 
-async function accessToken(): Promise<string> {
-  const credentials = btoa(`${env("MPESA_CONSUMER_KEY")}:${env("MPESA_CONSUMER_SECRET")}`);
-  const res = await fetch(`${baseUrl()}/oauth/v1/generate?grant_type=client_credentials`, {
+export async function accessToken(keys: Pick<DarajaKeys, "environment" | "consumerKey" | "consumerSecret">): Promise<string> {
+  const credentials = btoa(`${keys.consumerKey}:${keys.consumerSecret}`);
+  const res = await fetch(`${baseUrl(keys)}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${credentials}` },
   });
   if (!res.ok) throw new Error(`Daraja auth failed: ${res.status}`);
   return (await res.json()).access_token;
 }
 
-function passwordFields() {
-  const shortcode = env("MPESA_SHORTCODE");
+function passwordFields(keys: DarajaKeys) {
   const stamp = timestamp();
   return {
-    BusinessShortCode: shortcode,
-    Password: btoa(`${shortcode}${env("MPESA_PASSKEY")}${stamp}`),
+    BusinessShortCode: keys.shortcode,
+    Password: btoa(`${keys.shortcode}${keys.passkey}${stamp}`),
     Timestamp: stamp,
   };
 }
@@ -47,23 +80,24 @@ export interface StkResult {
 }
 
 export async function stkPush(
+  keys: DarajaKeys,
   phone: string,
   amount: number,
   reference: string,
   callbackUrl: string,
   description = "Order",
 ): Promise<StkResult> {
-  const token = await accessToken();
-  const fields = passwordFields();
-  const res = await fetch(`${baseUrl()}/mpesa/stkpush/v1/processrequest`, {
+  const token = await accessToken(keys);
+  const fields = passwordFields(keys);
+  const res = await fetch(`${baseUrl(keys)}/mpesa/stkpush/v1/processrequest`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       ...fields,
-      TransactionType: Deno.env.get("MPESA_TRANSACTION_TYPE") || "CustomerPayBillOnline",
+      TransactionType: keys.transactionType,
       Amount: amount,
       PartyA: phone,
-      PartyB: Deno.env.get("MPESA_PARTY_B") || fields.BusinessShortCode,
+      PartyB: keys.partyB || keys.shortcode,
       PhoneNumber: phone,
       CallBackURL: callbackUrl,
       AccountReference: reference.slice(0, 12),
@@ -83,12 +117,12 @@ export async function stkPush(
 }
 
 /** Returns Daraja's final result code, or null while the customer hasn't responded. */
-export async function stkQuery(checkoutRequestId: string): Promise<number | null> {
-  const token = await accessToken();
-  const res = await fetch(`${baseUrl()}/mpesa/stkpushquery/v1/query`, {
+export async function stkQuery(keys: DarajaKeys, checkoutRequestId: string): Promise<number | null> {
+  const token = await accessToken(keys);
+  const res = await fetch(`${baseUrl(keys)}/mpesa/stkpushquery/v1/query`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ ...passwordFields(), CheckoutRequestID: checkoutRequestId }),
+    body: JSON.stringify({ ...passwordFields(keys), CheckoutRequestID: checkoutRequestId }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.ResultCode === undefined) return null;
@@ -102,10 +136,16 @@ export async function stkQuery(checkoutRequestId: string): Promise<number | null
  * Safaricom refuses URLs containing words such as "mpesa", which is why the
  * receiving function is called till-callback.
  */
-export async function registerC2bUrls(confirmationUrl: string, validationUrl: string): Promise<{ ok: boolean; detail: string }> {
-  const token = await accessToken();
-  const shortCode = Deno.env.get("MPESA_C2B_SHORTCODE") || env("MPESA_SHORTCODE");
-  const res = await fetch(`${baseUrl()}/mpesa/c2b/v2/registerurl`, {
+export async function registerC2bUrls(
+  keys: DarajaKeys,
+  tillNumber: string,
+  confirmationUrl: string,
+  validationUrl: string,
+): Promise<{ ok: boolean; detail: string }> {
+  const token = await accessToken(keys);
+  // Payments are sent to the till customers pay (the Buy Goods till, or the paybill).
+  const shortCode = tillNumber || keys.partyB || keys.shortcode;
+  const res = await fetch(`${baseUrl(keys)}/mpesa/c2b/v2/registerurl`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -118,16 +158,4 @@ export async function registerC2bUrls(confirmationUrl: string, validationUrl: st
   const body = await res.json().catch(() => ({}));
   const detail = String(body.ResponseDescription ?? body.errorMessage ?? res.status);
   return { ok: res.ok && String(body.ResponseCode ?? "") === "0", detail };
-}
-
-/** Which secrets are present, without revealing any of them. */
-export function darajaStatus() {
-  const has = (name: string) => !!Deno.env.get(name);
-  return {
-    configured: ["MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_TOKEN"].every(has),
-    environment: Deno.env.get("MPESA_ENV") === "production" ? "production" : "sandbox",
-    transactionType: Deno.env.get("MPESA_TRANSACTION_TYPE") || "CustomerPayBillOnline",
-    missing: ["MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_TOKEN"].filter((n) => !has(n)),
-    tillFromSecrets: Deno.env.get("MPESA_PARTY_B") || null,
-  };
 }

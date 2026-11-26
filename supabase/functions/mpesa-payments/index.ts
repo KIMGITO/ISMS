@@ -1,7 +1,9 @@
 // supabase/functions/mpesa-payments/index.ts
 // Staff side of M-Pesa (Daraja). Actions:
-//   status    what is configured, without revealing secrets
-//   save_till set this business's till number              (settings.integrations)
+//   status      what is configured, without revealing secrets
+//   save_keys   connect this business's own Daraja app      (settings.integrations)
+//   remove_keys disconnect it                                (settings.integrations)
+//   save_till   set this business's till number              (settings.integrations)
 //   register  tell Safaricom where to send till payments   (settings.integrations)
 //   request   send a payment prompt to a customer's phone  (payments.mpesa)
 //   check     ask Safaricom about a prompt with no answer  (payments.mpesa)
@@ -17,7 +19,7 @@ import {
   requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { darajaStatus, registerC2bUrls, stkPush, stkQuery } from "../customer-checkout/daraja.ts";
+import { accessToken, darajaKeys, registerC2bUrls, stkPush, stkQuery } from "../customer-checkout/daraja.ts";
 import { toMsisdn } from "./phone.ts";
 
 const MAX_AMOUNT = 250000;
@@ -55,12 +57,75 @@ Deno.serve(async (req) => {
       if (denied) return denied;
       const { data: settings } = await admin
         .from("mpesa_settings").select("till_number, registered_at").eq("business_id", businessId).maybeSingle();
+      const keys = await darajaKeys(admin, businessId);
       return jsonResponse({
         success: true,
-        ...darajaStatus(),
+        configured: !!keys,
+        environment: keys?.environment ?? "sandbox",
+        transactionType: keys?.transactionType ?? "CustomerBuyGoodsOnline",
+        shortcode: keys?.shortcode ?? null,
+        partyB: keys?.partyB ?? null,
         tillNumber: settings?.till_number ?? null,
         registeredAt: settings?.registered_at ?? null,
       });
+    }
+
+    if (action === "save_keys") {
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
+      const limited = await enforceRateLimit(`mpesa-keys:biz:${businessId}`, 20, 3600);
+      if (limited) return limited;
+      const existing = await darajaKeys(admin, businessId);
+      const text = (v: unknown) => String(v ?? "").trim();
+      const digits = (v: unknown) => String(v ?? "").replace(/\s/g, "");
+      const environment = body.environment === "production" ? "production" : "sandbox";
+      const transactionType = body.transactionType === "CustomerPayBillOnline" ? "CustomerPayBillOnline" : "CustomerBuyGoodsOnline";
+      // Empty secret boxes keep the saved ones, so the owner can change one thing at a time.
+      const consumerKey = text(body.consumerKey) || existing?.consumerKey || "";
+      const consumerSecret = text(body.consumerSecret) || existing?.consumerSecret || "";
+      const passkey = text(body.passkey) || existing?.passkey || "";
+      const shortcode = digits(body.shortcode);
+      const partyB = transactionType === "CustomerBuyGoodsOnline" ? digits(body.partyB) || null : null;
+      if (!consumerKey || !consumerSecret || !passkey) return errorResponse("Enter the consumer key, consumer secret and passkey.", 400);
+      if (!/^\d{5,10}$/.test(shortcode)) return errorResponse("The short code is 5 to 10 digits.", 400);
+      if (partyB && !/^\d{5,10}$/.test(partyB)) return errorResponse("The till number is 5 to 10 digits.", 400);
+      try {
+        await accessToken({ environment, consumerKey, consumerSecret });
+      } catch {
+        return errorResponse(`Safaricom refused these keys (${environment}). Check them on the Daraja portal.`, 400, "KEYS_REJECTED");
+      }
+      const { error } = await admin.from("mpesa_payment_secrets").upsert({
+        business_id: businessId,
+        environment,
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        passkey,
+        shortcode,
+        party_b: partyB,
+        transaction_type: transactionType,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      // The till payments arrive for is the Buy Goods till (or the paybill).
+      const till = partyB || shortcode;
+      const { error: tillError } = await admin.from("mpesa_settings").upsert({
+        business_id: businessId,
+        till_number: till,
+        updated_by: await staffName(),
+        updated_at: new Date().toISOString(),
+      });
+      if (tillError?.code === "23505") return errorResponse("Another business already uses this till number.", 409);
+      if (tillError) throw tillError;
+      return jsonResponse({ success: true });
+    }
+
+    if (action === "remove_keys") {
+      const denied = await requirePermission(req, businessId, "settings.integrations");
+      if (denied) return denied;
+      const { error } = await admin.from("mpesa_payment_secrets").delete().eq("business_id", businessId);
+      if (error) throw error;
+      await admin.from("mpesa_settings").update({ registered_at: null, updated_at: new Date().toISOString() }).eq("business_id", businessId);
+      return jsonResponse({ success: true });
     }
 
     if (action === "save_till") {
@@ -84,11 +149,12 @@ Deno.serve(async (req) => {
     if (action === "register") {
       const denied = await requirePermission(req, businessId, "settings.integrations");
       if (denied) return denied;
-      const token = Deno.env.get("MPESA_CALLBACK_TOKEN");
-      if (!token) return errorResponse("M-Pesa isn't set up on the server yet.", 400, "NOT_CONFIGURED");
+      const keys = await darajaKeys(admin, businessId);
+      if (!keys) return errorResponse("Connect this business's M-Pesa (Daraja) keys first.", 400, "NOT_CONFIGURED");
+      const { data: settings } = await admin.from("mpesa_settings").select("till_number").eq("business_id", businessId).maybeSingle();
       const base = Deno.env.get("MPESA_C2B_CALLBACK_URL") || `${functionsUrl()}/till-callback`;
-      const withToken = (type: string) => `${base}?type=${type}&token=${encodeURIComponent(token)}`;
-      const result = await registerC2bUrls(withToken("confirmation"), withToken("validation"));
+      const withToken = (type: string) => `${base}?type=${type}&token=${encodeURIComponent(keys.callbackToken)}`;
+      const result = await registerC2bUrls(keys, settings?.till_number ?? "", withToken("confirmation"), withToken("validation"));
       if (!result.ok) {
         console.error("[mpesa-payments] C2B registration rejected:", result.detail);
         return errorResponse(`Safaricom didn't accept the registration: ${result.detail}`, 502, "REGISTER_REJECTED");
@@ -131,11 +197,11 @@ Deno.serve(async (req) => {
         accountRef = customer.account_number;
       }
 
-      const token = Deno.env.get("MPESA_CALLBACK_TOKEN");
-      if (!token) return errorResponse("M-Pesa isn't set up on the server yet.", 400, "NOT_CONFIGURED");
+      const keys = await darajaKeys(admin, businessId);
+      if (!keys) return errorResponse("This business hasn't connected M-Pesa yet.", 400, "NOT_CONFIGURED");
       const callback = Deno.env.get("MPESA_CALLBACK_URL") || `${functionsUrl()}/mpesa-webhook`;
 
-      const push = await stkPush(msisdn, amount, accountRef, `${callback}?token=${encodeURIComponent(token)}`, "Payment");
+      const push = await stkPush(keys, msisdn, amount, accountRef, `${callback}?token=${encodeURIComponent(keys.callbackToken)}`, "Payment");
       if (!push.accepted) {
         return errorResponse("Safaricom didn't send the prompt. Check the number and try again.", 502, "STK_REJECTED");
       }
@@ -166,7 +232,9 @@ Deno.serve(async (req) => {
       if (!row) return errorResponse("Payment prompt not found.", 404);
       if (row.status !== "Pending") return jsonResponse({ success: true, status: row.status });
 
-      const code = await stkQuery(row.checkout_request_id);
+      const keys = await darajaKeys(admin, businessId);
+      if (!keys) return jsonResponse({ success: true, status: "Pending" });
+      const code = await stkQuery(keys, row.checkout_request_id);
       if (code === null) return jsonResponse({ success: true, status: "Pending" });
       if (code === 0) {
         // Paid, but only the callback carries the receipt number, so it is recorded there.

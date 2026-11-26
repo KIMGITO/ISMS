@@ -48,6 +48,15 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
   const [status, setStatus] = useState<MpesaStatus | null>(null);
   const [statusError, setStatusError] = useState('');
   const [tillInput, setTillInput] = useState('');
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [env, setEnv] = useState<'sandbox' | 'production'>('sandbox');
+  const [txType, setTxType] = useState<'CustomerBuyGoodsOnline' | 'CustomerPayBillOnline'>('CustomerBuyGoodsOnline');
+  const [shortcode, setShortcode] = useState('');
+  const [partyB, setPartyB] = useState('');
+  const [consumerKey, setConsumerKey] = useState('');
+  const [consumerSecret, setConsumerSecret] = useState('');
+  const [passkey, setPasskey] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const [tillPayments, setTillPayments] = useState<TillPayment[]>([]);
@@ -79,7 +88,14 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
     MpesaRepository.status()
       .then((s) => {
         setStatus(s);
-        setTillInput(s.tillNumber || s.tillFromSecrets || '');
+        setTillInput(s.tillNumber || '');
+        setEnv(s.environment);
+        setTxType(s.transactionType);
+        setShortcode(s.shortcode || '');
+        setPartyB(s.partyB || '');
+        setConsumerKey('');
+        setConsumerSecret('');
+        setPasskey('');
         setStatusError('');
       })
       .catch((err) => setStatusError(toUserMessage(err, "Couldn't reach the M-Pesa service.")));
@@ -160,11 +176,105 @@ export default function MpesaPaymentsPanel({ customers }: { customers: Customer[
 
         {status && !status.configured && (
           <p className="text-sm text-app-text-muted mb-3">
-            Set up M-Pesa for this business.
+            Connect this business's own Daraja app so payments go to its own till.
           </p>
         )}
 
-        {canConfigure && status && (
+        {canConfigure && status && (!status.configured || keysOpen) && (
+          <div className="flex flex-col gap-3 mb-4">
+            <p className="text-xs text-app-text-muted">
+              Get these from developer.safaricom.co.ke, under your app and Go Live. Empty secret boxes keep the saved ones.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1">
+                <span className={label}>Environment</span>
+                <select value={env} onChange={(e) => setEnv(e.target.value as 'sandbox' | 'production')} className={input}>
+                  <option value="sandbox">Sandbox (testing)</option>
+                  <option value="production">Production (real money)</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={label}>Account type</span>
+                <select value={txType} onChange={(e) => setTxType(e.target.value as 'CustomerBuyGoodsOnline' | 'CustomerPayBillOnline')} className={input}>
+                  <option value="CustomerBuyGoodsOnline">Till (Buy Goods)</option>
+                  <option value="CustomerPayBillOnline">Paybill</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={label}>{txType === 'CustomerBuyGoodsOnline' ? 'Store number (head office)' : 'Paybill number'}</span>
+                <input inputMode="numeric" value={shortcode} onChange={(e) => setShortcode(e.target.value.replace(/\D/g, ''))} className={input} />
+              </label>
+              {txType === 'CustomerBuyGoodsOnline' && (
+                <label className="flex flex-col gap-1">
+                  <span className={label}>Till number customers pay</span>
+                  <input inputMode="numeric" value={partyB} onChange={(e) => setPartyB(e.target.value.replace(/\D/g, ''))} className={input} />
+                </label>
+              )}
+              <label className="flex flex-col gap-1">
+                <span className={label}>Consumer key</span>
+                <input type="password" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={label}>Consumer secret</span>
+                <input type="password" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
+              </label>
+              <label className="flex flex-col gap-1 sm:col-span-2">
+                <span className={label}>Passkey</span>
+                <input type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} placeholder={status.configured ? 'Saved' : ''} className={input} autoComplete="new-password" />
+              </label>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={busy === 'keys' || !shortcode || (!status.configured && (!consumerKey.trim() || !consumerSecret.trim() || !passkey.trim()))}
+                onClick={() => run('keys', async () => {
+                  await MpesaRepository.saveKeys({ environment: env, transactionType: txType, shortcode, partyB, consumerKey, consumerSecret, passkey });
+                  setKeysOpen(false);
+                  loadStatus();
+                }, ['M-Pesa connected', 'Safaricom accepted the keys. Now register the till.'])}
+                className="min-h-10 px-4 bg-amber-500 text-slate-950 font-bold rounded-xl text-sm disabled:opacity-40 cursor-pointer"
+              >
+                {busy === 'keys' ? 'Checking…' : status.configured ? 'Save changes' : 'Connect M-Pesa'}
+              </button>
+              {status.configured && (
+                <button type="button" onClick={() => setKeysOpen(false)} className="min-h-10 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text cursor-pointer">
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {canConfigure && status?.configured && !keysOpen && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-xs text-app-text-muted">
+              {status.transactionType === 'CustomerBuyGoodsOnline' ? 'Till' : 'Paybill'} keys saved, short code {status.shortcode}.
+            </span>
+            <button type="button" onClick={() => setKeysOpen(true)} className="min-h-9 px-3 border border-app-border rounded-xl text-xs font-semibold text-app-text cursor-pointer">
+              Change keys
+            </button>
+            {!confirmRemove ? (
+              <button type="button" onClick={() => setConfirmRemove(true)} className="min-h-9 px-3 text-xs font-semibold text-red-500 cursor-pointer">
+                Disconnect
+              </button>
+            ) : (
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-app-text-muted">Disconnect M-Pesa?</span>
+                <button
+                  type="button"
+                  disabled={busy === 'remove'}
+                  onClick={() => run('remove', async () => { await MpesaRepository.removeKeys(); setConfirmRemove(false); loadStatus(); }, ['M-Pesa disconnected', 'Prompts are off until it is connected again.'])}
+                  className="min-h-9 px-3 bg-red-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {busy === 'remove' ? 'Removing…' : 'Yes, disconnect'}
+                </button>
+                <button type="button" onClick={() => setConfirmRemove(false)} className="min-h-9 px-3 text-xs cursor-pointer">No</button>
+              </span>
+            )}
+          </div>
+        )}
+
+        {canConfigure && status?.configured && (
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
               <label className="flex flex-col gap-1">

@@ -8,6 +8,17 @@ All the owner's account settings (Supabase passwords and MFA, backups, GitHub sa
 
 ---
 
+## M-Pesa per business: each shop connects its own Daraja keys (2026-11-26)
+
+Migration `20261211001_mpesa_per_business.sql` (table `mpesa_payment_secrets`, `record_till_payment(p_raw, p_business_id)` without the single-till fallback). Edge functions `mpesa-payments`, `mpesa-webhook`, `till-callback`, `customer-checkout`, `ussd` now use the business's own keys and callback token. The server secrets `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, `MPESA_CALLBACK_TOKEN`, `MPESA_PARTY_B`, `MPESA_TRANSACTION_TYPE` are no longer read.
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh`. `SELECT count(*) FROM public.mpesa_payment_secrets;` should run (0 rows).
+2. [ ] Deploy the functions together, right after step 1: `npx supabase functions deploy mpesa-payments mpesa-webhook till-callback customer-checkout ussd --no-verify-jwt`.
+3. [ ] **You:** on developer.safaricom.co.ke, create a sandbox app. In the app, open Payments -> M-Pesa -> Connect M-Pesa, choose Sandbox, and enter the sandbox short code `174379`, the passkey and the consumer key and secret. It should say "M-Pesa connected". Wrong keys should say "Safaricom refused these keys".
+4. [ ] Press "Register till with Safaricom". It should say "Till Registered". Then send a prompt to a test phone. The prompt should appear and show as Paid once accepted.
+5. [ ] **You:** for each real shop, the owner does Go Live on Daraja for their own till and enters the production keys under Production. A payment made straight to that till should show under that shop only, never another.
+6. [ ] Optional clean-up: `npx supabase secrets unset MPESA_CONSUMER_KEY MPESA_CONSUMER_SECRET MPESA_SHORTCODE MPESA_PASSKEY MPESA_CALLBACK_TOKEN MPESA_PARTY_B MPESA_TRANSACTION_TYPE MPESA_ENV MPESA_C2B_SHORTCODE` (only the ones that exist).
+
 ## First sign-up becomes platform admin, console edges 2px (2026-11-26)
 
 1. Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`.

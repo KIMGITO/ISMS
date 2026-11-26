@@ -6,7 +6,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { handleCors, jsonResponse, errorResponse, enforceRateLimit } from "../shared/cors.ts";
-import { stkPush, stkQuery } from "./daraja.ts";
+import { darajaKeys, stkPush, stkQuery } from "./daraja.ts";
 import { MAX_AIRTEL_AMOUNT, newReference, pushPayment } from "../airtel-payments/airtel.ts";
 import { keysFor, refreshPrompt } from "../airtel-payments/settle.ts";
 import { toAirtelMsisdn } from "../airtel-payments/phone.ts";
@@ -111,10 +111,6 @@ Deno.serve(async (req) => {
       const limited = await enforceRateLimit(`checkout:user:${user.id}`, 6, 600);
       if (limited) return limited;
 
-      // Without this token Safaricom's callback is refused, and a paid order would never settle.
-      const callbackToken = Deno.env.get("MPESA_CALLBACK_TOKEN");
-      if (!callbackToken) throw new Error("Missing secret MPESA_CALLBACK_TOKEN");
-
       const darajaPhone = toDarajaPhone(phone);
       if (!darajaPhone) {
         return errorResponse("Please enter a valid M-Pesa number, like 0712 345 678.", 400);
@@ -131,16 +127,19 @@ Deno.serve(async (req) => {
       }
 
       const { data: mpesaOn } = await admin.rpc("fn_method_enabled", { p_business_id: order.businessId, p_method: "M-Pesa" });
-      if (mpesaOn !== true) {
+      // The shop's own Daraja app: the money goes to its till, and its token settles the order.
+      const mpesaKeys = mpesaOn === true ? await darajaKeys(admin, order.businessId) : null;
+      if (!mpesaKeys) {
         return errorResponse("This shop isn't taking M-Pesa online right now.", 409, "METHOD_OFF");
       }
 
       const callback = Deno.env.get("MPESA_CALLBACK_URL") || `${url}/functions/v1/mpesa-webhook`;
       const push = await stkPush(
+        mpesaKeys,
         darajaPhone,
         Number(order.total),
         `ORDER${order.orderNumber}`,
-        `${callback}?token=${encodeURIComponent(callbackToken)}`,
+        `${callback}?token=${encodeURIComponent(mpesaKeys.callbackToken)}`,
       );
       if (!push.accepted) {
         return errorResponse("M-Pesa couldn't send the payment prompt. Check the number is on Safaricom and try again in a minute.", 502, "STK_REJECTED");
@@ -171,7 +170,7 @@ Deno.serve(async (req) => {
 
       const { data: pending, error: pendingError } = await admin
         .from("mpesa_transactions")
-        .select("checkout_request_id, created_at")
+        .select("business_id, checkout_request_id, created_at")
         .eq("online_order_id", orderId)
         .eq("status", "Pending")
         .order("created_at", { ascending: false })
@@ -181,7 +180,8 @@ Deno.serve(async (req) => {
       if (pendingError) throw pendingError;
 
       if (pending && Date.now() - new Date(pending.created_at).getTime() > 20_000) {
-        const code = await stkQuery(pending.checkout_request_id).catch(() => null);
+        const pendingKeys = await darajaKeys(admin, pending.business_id);
+        const code = pendingKeys ? await stkQuery(pendingKeys, pending.checkout_request_id).catch(() => null) : null;
         if (code === 0) {
           const { error: flagError } = await admin.rpc("flag_order_payment_unconfirmed", {
             p_order_id: orderId,

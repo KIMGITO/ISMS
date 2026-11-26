@@ -6,7 +6,8 @@
 //   ?type=confirmation record the payment; it lands in the queue unless it names an account number
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readJson, safeEqual, securityEvent, tooLarge } from "../shared/guard.ts";
+import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readJson, securityEvent, tooLarge } from "../shared/guard.ts";
+import { darajaKeysByToken } from "../customer-checkout/daraja.ts";
 
 function reply(status = 200): Response {
   return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
@@ -17,8 +18,14 @@ function reply(status = 200): Response {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const expected = Deno.env.get("MPESA_CALLBACK_TOKEN");
-  if (req.method !== "POST" || !safeEqual(url.searchParams.get("token"), expected)) {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+  // Each business registers its till with its own token, so the token names the business.
+  const owner = req.method === "POST" ? await darajaKeysByToken(admin, url.searchParams.get("token")) : null;
+  if (!owner) {
     await securityEvent("bad_token", "till-callback", req);
     return new Response("Forbidden", { status: 403 });
   }
@@ -41,12 +48,7 @@ Deno.serve(async (req) => {
       }
       throw e;
     }
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } },
-    );
-    const { data, error } = await admin.rpc("record_till_payment", { p_raw: payload });
+    const { data, error } = await admin.rpc("record_till_payment", { p_raw: payload, p_business_id: owner.businessId });
     if (error) throw error;
     console.log(`[till-callback] ${payload?.TransID}: ${data}`);
     return reply();

@@ -1364,9 +1364,9 @@ export class ProductionBatchRepository {
 export interface MpesaStatus {
   configured: boolean;
   environment: "sandbox" | "production";
-  transactionType: string;
-  missing: string[];
-  tillFromSecrets: string | null;
+  transactionType: "CustomerBuyGoodsOnline" | "CustomerPayBillOnline";
+  shortcode: string | null;
+  partyB: string | null;
   tillNumber: string | null;
   registeredAt: string | null;
 }
@@ -1384,6 +1384,23 @@ export class MpesaRepository {
 
   public static status(): Promise<MpesaStatus> {
     return this.call("status");
+  }
+
+  /** Connects this business's own Daraja app. Empty secrets keep the saved ones. */
+  public static async saveKeys(keys: {
+    environment: "sandbox" | "production";
+    transactionType: "CustomerBuyGoodsOnline" | "CustomerPayBillOnline";
+    shortcode: string;
+    partyB: string;
+    consumerKey: string;
+    consumerSecret: string;
+    passkey: string;
+  }): Promise<void> {
+    await this.call("save_keys", keys);
+  }
+
+  public static async removeKeys(): Promise<void> {
+    await this.call("remove_keys");
   }
 
   public static async saveTill(tillNumber: string): Promise<void> {

@@ -4,7 +4,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readJson, safeEqual, securityEvent, tooLarge } from "../shared/guard.ts";
+import { BodyTooLarge, ipAllowed, MAX_CALLBACK_BYTES, readJson, securityEvent, tooLarge } from "../shared/guard.ts";
+import { darajaKeysByToken } from "../customer-checkout/daraja.ts";
 
 function ack(status = 200): Response {
   return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
@@ -14,9 +15,14 @@ function ack(status = 200): Response {
 }
 
 Deno.serve(async (req) => {
-  const expected = Deno.env.get("MPESA_CALLBACK_TOKEN");
-  const token = new URL(req.url).searchParams.get("token");
-  if (req.method !== "POST" || !safeEqual(token, expected)) {
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+  // Each business has its own token, so the token says whose prompt this is.
+  const owner = req.method === "POST" ? await darajaKeysByToken(admin, new URL(req.url).searchParams.get("token")) : null;
+  if (!owner) {
     await securityEvent("bad_token", "mpesa-webhook", req);
     return new Response("Forbidden", { status: 403 });
   }
@@ -43,11 +49,14 @@ Deno.serve(async (req) => {
     const items: any[] = callback.CallbackMetadata?.Item ?? [];
     const value = (name: string) => items.find((i) => i.Name === name)?.Value ?? null;
 
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } },
-    );
+    // A business's token can only settle that business's own prompts.
+    const { data: prompt } = await admin.from("mpesa_transactions")
+      .select("business_id").eq("checkout_request_id", callback.CheckoutRequestID).maybeSingle();
+    if (prompt && prompt.business_id !== owner.businessId) {
+      await securityEvent("bad_token", "mpesa-webhook", req);
+      return new Response("Forbidden", { status: 403 });
+    }
+
     const args = {
       p_checkout_request_id: callback.CheckoutRequestID,
       p_result_code: Number(callback.ResultCode),
