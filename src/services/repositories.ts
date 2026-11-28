@@ -4,7 +4,8 @@
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName } from "../utils/stringUtils";
-import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, TillSaleCandidate, MpesaPrompt, PaymentPrompt, PromptProvider } from "../types";
+import { OPEN_TILL_STATUSES } from "../types";
+import { Product, Transaction, Customer, Expense, ExpenseCategory, InventoryAdjustment, Payment, TillPayment, TillSaleCandidate, TillPaymentEvent, TillAllocation, StkException, MpesaPrompt, PaymentPrompt, PromptProvider } from "../types";
 import { useBusinessStore } from "../stores/businessStore";
 import { SupabaseService } from "./supabaseService";
 import { normalizeForStorage, readableIds } from "../utils/stringUtils";
@@ -1474,7 +1475,70 @@ export class MpesaRepository {
       linked: Number(r.linked),
       remaining: Number(r.remaining),
       sameAmount: Boolean(r.same_amount),
+      customerPhone: r.customer_phone || undefined,
+      score: Number(r.score || 0),
+      reasons: r.reasons || [],
     }));
+  }
+
+  /** Gives part or all of a waiting till payment to one M-Pesa sale (locked, checked in the DB). */
+  public static async allocateTillPayment(
+    tillPaymentId: string, saleId: string, amount: number, handledBy: string,
+  ): Promise<{ status: string; left: number; saleReference: string }> {
+    const { data, error } = await getSupabase().rpc("allocate_till_payment", {
+      p_till_payment_id: toUuid(tillPaymentId),
+      p_sale_id: toUuid(saleId),
+      p_amount: amount,
+      p_handled_by: handledBy,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return { status: data?.status, left: Number(data?.left ?? 0), saleReference: data?.sale_reference };
+  }
+
+  /** under_review / disputed / reversed, or 'unclaimed' to clear a flag. A reason is required. */
+  public static async flagTillPayment(
+    tillPaymentId: string, status: "under_review" | "disputed" | "reversed" | "unclaimed", note: string, handledBy: string,
+  ): Promise<void> {
+    const { error } = await getSupabase().rpc("flag_till_payment", {
+      p_till_payment_id: toUuid(tillPaymentId), p_status: status, p_note: note, p_handled_by: handledBy,
+    });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+  }
+
+  public static async tillPaymentHistory(tillPaymentId: string): Promise<{ events: TillPaymentEvent[]; allocations: TillAllocation[] }> {
+    const sb = getSupabase();
+    const [ev, al] = await Promise.all([
+      sb.from("mpesa_till_payment_events").select("*").eq("till_payment_id", toUuid(tillPaymentId)).order("id"),
+      sb.from("mpesa_till_allocations").select("*, transactions(reference_id)").eq("till_payment_id", toUuid(tillPaymentId)).order("allocated_at"),
+    ]);
+    if (ev.error || al.error) { triggerNetworkFailureEvent(); throw ev.error || al.error; }
+    return {
+      events: (ev.data || []).map((r: any) => ({
+        id: r.id, action: r.action, previousStatus: r.previous_status || undefined, newStatus: r.new_status || undefined,
+        amount: r.amount == null ? undefined : Number(r.amount), saleId: r.sale_id || undefined,
+        staffName: r.staff_name || undefined, note: r.note || undefined, createdAt: r.created_at,
+      })),
+      allocations: (al.data || []).map((r: any) => ({
+        id: r.id, saleId: r.sale_id, saleReference: r.transactions?.reference_id || undefined, amount: Number(r.amount),
+        allocatedBy: r.allocated_by, allocatedAt: r.allocated_at, reversedAt: r.reversed_at || undefined,
+        reversedBy: r.reversed_by || undefined, reverseReason: r.reverse_reason || undefined,
+      })),
+    };
+  }
+
+  public static async stkExceptions(): Promise<StkException[]> {
+    const { data, error } = await getSupabase().rpc("stk_payment_exceptions", { p_business_id: getActiveBusinessId() });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
+    return (data || []).map((r: any) => ({
+      id: r.id, receiptNumber: r.receipt_number, amount: Number(r.amount), phone: r.phone, paidAt: r.paid_at,
+      saleId: r.sale_id || undefined, saleReference: r.sale_reference || undefined,
+      paymentId: r.payment_id || undefined, requestedBy: r.requested_by || undefined,
+    }));
+  }
+
+  public static async resolveStkException(id: string, note: string, by: string): Promise<void> {
+    const { error } = await getSupabase().rpc("resolve_stk_exception", { p_id: toUuid(id), p_note: note, p_by: by });
+    if (error) { triggerNetworkFailureEvent(); throw error; }
   }
 
   /** Links a waiting till payment to the sale it paid for. The database checks the sale has room. */
@@ -1488,14 +1552,21 @@ export class MpesaRepository {
   }
 
   public static async getTillPayments(): Promise<TillPayment[]> {
-    const { data, error } = await getSupabase()
-      .from("mpesa_till_payments")
-      .select("*")
-      .eq("business_id", getActiveBusinessId())
-      .order("trans_time", { ascending: false })
-      .limit(200);
+    // The latest 200, plus every one still waiting however old, so the queue is never cut short.
+    const sb = getSupabase();
+    const [recent, open] = await Promise.all([
+      sb.from("mpesa_till_payments").select("*").eq("business_id", getActiveBusinessId())
+        .order("trans_time", { ascending: false }).limit(200),
+      sb.from("mpesa_till_payments").select("*").eq("business_id", getActiveBusinessId())
+        .in("status", OPEN_TILL_STATUSES).order("trans_time", { ascending: false }).limit(1000),
+    ]);
+    const error = recent.error || open.error;
     if (error) { triggerNetworkFailureEvent(); throw error; }
-    return (data || []).map((r) => ({
+    const seen = new Set<string>();
+    const data = [...(open.data || []), ...(recent.data || [])]
+      .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)))
+      .sort((a, b) => (a.trans_time < b.trans_time ? 1 : -1));
+    return data.map((r) => ({
       id: r.id,
       transId: r.trans_id,
       amount: Number(r.amount),
@@ -1504,6 +1575,9 @@ export class MpesaRepository {
       billRef: r.bill_ref || undefined,
       transTime: r.trans_time,
       status: r.status,
+      allocated: Number(r.allocated || 0),
+      shortCode: r.short_code || undefined,
+      transType: r.trans_type || undefined,
       customerId: r.customer_id || undefined,
       paymentId: r.payment_id || undefined,
       saleId: r.sale_id || undefined,
@@ -1558,6 +1632,7 @@ export class MpesaRepository {
       .channel(`realtime-mpesa-${activeBusinessId}-${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "mpesa_till_payments", filter }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "mpesa_transactions", filter }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mpesa_till_allocations", filter }, load)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

@@ -6,6 +6,16 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Unclaimed Payments reconciliation (2026-11-28)
+
+Till payments can be split over sales or partly claimed, flagged (under review, disputed, reversed), and every step is kept in an append-only history. Header indicator on every screen. Migration `20261213001_unclaimed_reconciliation.sql`; test `supabase/tests/payments/unclaimed_reconciliation_test.sh` (47 checks pass on the test DB).
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. It should list `mpesa_till_allocations` and `mpesa_till_payment_events` as SELECT for authenticated.
+2. [ ] Release the app (web deploy and next app version). The Inbox icon should show in the top bar next to the bell for staff with M-Pesa or payment-checking rights.
+3. [ ] **You:** on sandbox, pay the till without an account reference. Within seconds the Inbox count should go up by 1 on another open device without reloading.
+4. [ ] **You:** open it, give part of it to an M-Pesa sale, then the rest to another. It should show "Partly claimed" after the first and disappear from the count after the second; History lists both with your name.
+5. [ ] **You:** check the screen on a phone and a tablet: rows stack, no sideways scrolling, details open full screen.
+
 ## M-Pesa results no longer depend on Safaricom's callback (2026-11-26)
 
 Found: prompt callbacks were arriving, but a paid prompt whose callback is lost was never recorded. Till payments stopped after 15:18 because the sandbox short code 600000 is shared by every Daraja developer, and the last one to register gets the callbacks.

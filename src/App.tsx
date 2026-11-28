@@ -2,6 +2,7 @@ import { passwordProblem, PASSWORD_HINT } from './utils/passwordRule';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from './stores/appStore';
 import { useCartStore } from './stores/cartStore';
+import { useUnclaimedPaymentsStore } from './stores/unclaimedPaymentsStore';
 import PreviewFrame from './components/PreviewFrame';
 import { InteractiveGuide, TourStep } from './components/InteractiveGuide';
 import GlobalSearch from './components/GlobalSearch';
@@ -36,6 +37,8 @@ import RiderDeliveriesView from './features/RiderDeliveriesView';
 import RegularOrdersView from './features/RegularOrdersView';
 import PettyCashView from './features/PettyCashView';
 import PaymentPromptView, { usePromptProviders } from './features/PaymentPromptView';
+import UnclaimedPaymentsView from './features/UnclaimedPaymentsView';
+import UnclaimedPaymentsIndicator from './components/payments/UnclaimedPaymentsIndicator';
 import AccountingView from './features/AccountingView';
 import BuyingView from './features/BuyingView';
 import SupplierPortalView from './features/SupplierPortalView';
@@ -145,6 +148,7 @@ import {
   Activity,
   Info,
   Wallet,
+  Inbox,
   History,
   ArrowRightLeft,
   PieChart,
@@ -224,6 +228,7 @@ const MOBILE_TABS = [
   { id: 'business-management', label: 'Business', icon: Building, permission: 'business.update' },
   { id: 'money', label: 'Payments', icon: Wallet, permission: MONEY_PERMISSIONS },
   { id: 'prompt', label: 'Prompts', icon: Send, permission: PROMPT_PERMISSIONS },
+  { id: 'unclaimed-payments', label: 'Unclaimed', icon: Inbox, permission: ['payments.verify', 'payments.mpesa'] as const },
   { id: 'petty-cash', label: 'Petty Cash', icon: Coins, permission: 'pettycash.record' },
   { id: 'finance', label: 'Finance', icon: PieChart, permission: FINANCE_PERMISSIONS },
   { id: 'production', label: 'BOM', icon: FlaskConical, permission: 'bom.view' },
@@ -828,6 +833,7 @@ export default function App() {
 
   const { cart } = useCartStore();
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const unclaimedCount = useUnclaimedPaymentsStore((s) => s.unclaimedCount);
 
   // First-time worker setup pin states
   const [isSetupPinMode, setIsSetupPinMode] = useState(false);
@@ -4099,6 +4105,18 @@ export default function App() {
                             </span>
                           )}
 
+                          {tab.id === 'unclaimed-payments' && unclaimedCount > 0 && (
+                            <span
+                              className={`absolute bg-amber-500 text-slate-950 font-bold rounded-full flex items-center justify-center shadow-xs ${
+                                isSidebarCollapsed
+                                  ? 'top-1.5 right-1.5 w-4 h-4 text-[10px]'
+                                  : 'right-4 top-1/2 -translate-y-1/2 min-w-[20px] h-5 px-1.5 text-[10px] z-20'
+                              }`}
+                            >
+                              {unclaimedCount}
+                            </span>
+                          )}
+
                           {tab.id === 'notifications' &&
                             unreadNotificationsCount > 0 && (
                               <span
@@ -4304,6 +4322,9 @@ export default function App() {
                             <span className="hidden lg:inline text-xs font-bold">Prompt</span>
                           </button>
                         )}
+
+                        {/* Till payments still to match, from any screen (POS and Quick Sale too) */}
+                        <UnclaimedPaymentsIndicator />
 
                         {/* Notification Bell Icon (Always visible) */}
                         <button
@@ -4646,6 +4667,19 @@ export default function App() {
                         </SecurityGuard>
                       </motion.div>
                     )}
+                    {activeTab === 'unclaimed-payments' && (
+                      <motion.div
+                        key="unclaimed-payments-view"
+                        {...SCREEN_MOTION}
+                        className="absolute inset-0"
+                      >
+                        <SecurityGuard
+                          permission={['payments.verify', 'payments.mpesa'] as any}
+                        >
+                          <UnclaimedPaymentsView />
+                        </SecurityGuard>
+                      </motion.div>
+                    )}
                     {activeTab === 'petty-cash' && (
                       <motion.div
                         key="petty-cash-view"
@@ -4836,6 +4870,11 @@ export default function App() {
                                 {id === 'pos' && cartItemsCount > 0 && (
                                   <span className="absolute -top-1.5 -right-2 bg-amber-500 text-slate-950 font-semibold rounded-full w-3.5 h-3.5 text-[11px] flex items-center justify-center shadow-xs ">
                                     {cartItemsCount}
+                                  </span>
+                                )}
+                                {id === 'unclaimed-payments' && unclaimedCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 font-bold rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow-xs z-20">
+                                    {unclaimedCount}
                                   </span>
                                 )}
                               </div>

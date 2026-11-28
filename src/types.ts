@@ -597,6 +597,12 @@ export interface PendingAction {
 
 
 /** Money sent straight to the till, waiting for staff to say what it was. */
+export type TillPaymentStatus =
+  | 'unclaimed' | 'under_review' | 'partial' | 'disputed' | 'recorded' | 'matched_sale' | 'ignored' | 'reversed';
+
+/** Still needs someone to sort it out (the Unclaimed Payments queue). */
+export const OPEN_TILL_STATUSES: TillPaymentStatus[] = ['unclaimed', 'under_review', 'partial', 'disputed'];
+
 export interface TillPayment {
   id: string;
   transId: string;
@@ -605,7 +611,11 @@ export interface TillPayment {
   payerName?: string;
   billRef?: string;
   transTime: string;
-  status: 'unclaimed' | 'recorded' | 'matched_sale' | 'ignored';
+  status: TillPaymentStatus;
+  /** How much is already given to sales (20261213001); amount - allocated is left. */
+  allocated: number;
+  shortCode?: string;
+  transType?: string;
   customerId?: string;
   paymentId?: string;
   /** The sale this till payment paid for (20261212005). */
@@ -625,6 +635,49 @@ export interface TillSaleCandidate {
   linked: number;
   remaining: number;
   sameAmount: boolean;
+  customerPhone?: string;
+  /** Higher = more likely (receipt reference, sender phone, same customer, time). */
+  score: number;
+  /** Plain-language reasons this sale is suggested. */
+  reasons: string[];
+}
+
+/** One step in a till payment's history (append-only). */
+export interface TillPaymentEvent {
+  id: number;
+  action: string;
+  previousStatus?: string;
+  newStatus?: string;
+  amount?: number;
+  saleId?: string;
+  staffName?: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface TillAllocation {
+  id: string;
+  saleId: string;
+  saleReference?: string;
+  amount: number;
+  allocatedBy: string;
+  allocatedAt: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  reverseReason?: string;
+}
+
+/** A paid prompt sent for a sale it could not be matched to (recorded as a payment instead). */
+export interface StkException {
+  id: string;
+  receiptNumber: string;
+  amount: number;
+  phone: string;
+  paidAt: string;
+  saleId?: string;
+  saleReference?: string;
+  paymentId?: string;
+  requestedBy?: string;
 }
 
 /** A payment prompt (STK push) sent from the app. */

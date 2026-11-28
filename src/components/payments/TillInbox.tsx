@@ -35,7 +35,7 @@ export default function TillInbox({ customers, canAssign }: { customers: Custome
     sublabel: [c.accountNumber && `Acc ${c.accountNumber}`, c.phone, Number(c.debtBalance || 0) > 0 && `owes ${formatCurrency(Number(c.debtBalance))}`].filter(Boolean).join(' · '),
   })), [customers]);
 
-  const waiting = rows.filter((p) => p.status === 'unclaimed');
+  const waiting = rows.filter((p) => p.status === 'unclaimed' || p.status === 'partial' || p.status === 'under_review');
   const handled = rows.filter((p) => p.status === 'matched_sale' || p.status === 'ignored').slice(0, 10);
   const open = openId ? rows.find((p) => p.id === openId) : undefined;
 
