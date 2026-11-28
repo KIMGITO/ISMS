@@ -215,7 +215,7 @@ export default function SchedulesTab() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{o.productName}</p>
                   <p className="mt-1 text-muted">{weekText(o.dayQty, o.unit)} · {o.fulfilment === 'delivery' ? 'Delivery' : 'Pickup'}</p>
-                  <p className="mt-1 text-sm text-muted">{STATUS[o.status]}{o.decisionNote ? ` — ${o.decisionNote}` : ''}</p>
+                  <p className="mt-1 text-sm text-muted">{STATUS[o.status]}{o.decisionNote ? `: ${o.decisionNote}` : ''}</p>
                   {o.pendingDayQty && (
                     <p className="mt-1 text-sm font-medium text-brand-deep">Change sent, waiting for the shop: {weekText(o.pendingDayQty, o.unit)}</p>
                   )}
@@ -252,9 +252,9 @@ export default function SchedulesTab() {
                 return (
                   <li key={`${d.orderId}:${d.day}`} className="text-sm">
                     <span className="font-medium">{dayName(d.day, data.today)}:</span>{' '}
-                    {o?.productName} {d.state === 'skipped' ? <span className="text-muted">— not coming</span> : `${qty(d.quantity)} ${o?.unit ?? ''}`}
-                    {d.state === 'delivered' && <span className="text-muted"> — delivered</span>}
-                    {d.state === 'changed' && <span className="text-muted"> — changed by the shop</span>}
+                    {o?.productName} {d.state === 'skipped' ? <span className="text-muted">(not coming)</span> : `${qty(d.quantity)} ${o?.unit ?? ''}`}
+                    {d.state === 'delivered' && <span className="text-muted"> (delivered)</span>}
+                    {d.state === 'changed' && <span className="text-muted"> (changed by the shop)</span>}
                     {d.message && <span className="block text-muted">“{d.message}”</span>}
                   </li>
                 );

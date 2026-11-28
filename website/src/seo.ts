@@ -11,6 +11,8 @@ export interface PageMeta {
   path: string;
   image?: string | null;
   noindex?: boolean;
+  /** No such page: the server answers 404 (worker/index.ts), not a "not found" page with 200. */
+  notFound?: boolean;
   type?: 'website' | 'article' | 'product';
   jsonLd?: object[];
 }
@@ -226,6 +228,7 @@ export const notFoundMeta = (site: Storefront, path: string): PageMeta => ({
   description: clip(`We couldn't find that page on the ${site.business.name} website.`),
   path,
   noindex: true,
+  notFound: true,
 });
 
 export const infoMeta = (page: InfoPageDef, site: Storefront, siteUrl: string): PageMeta => ({
@@ -294,7 +297,7 @@ export function metaForRoute(parts: string[], site: Storefront, siteUrl: string)
     case 'checkout':
       return privateMeta(site, 'Checkout', path);
     case 'order-confirmed':
-      return privateMeta(site, 'Order confirmed', path);
+      return id ? privateMeta(site, 'Order confirmed', path) : notFoundMeta(site, path);
     case 'reviews':
       return reviewsMeta(site, siteUrl);
     case 'ideas':
@@ -306,6 +309,9 @@ export function metaForRoute(parts: string[], site: Storefront, siteUrl: string)
       };
     case 'track':
       return privateMeta(site, 'Track your order', path);
+    // Advert landing pages (ads/CampaignPage.tsx) load in the browser; not for search results.
+    case 'promo':
+      return id ? privateMeta(site, 'Offer', path) : notFoundMeta(site, path);
     case 'sitemap':
       return sitemapMeta(site, siteUrl);
     default: {

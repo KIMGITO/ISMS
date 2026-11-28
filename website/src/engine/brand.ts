@@ -5,7 +5,9 @@
 export type Industry =
   | 'food_grocery' | 'restaurant' | 'beauty' | 'fashion' | 'electronics' | 'pharmacy' | 'hardware'
   | 'professional_services' | 'logistics' | 'general_retail' | 'other';
-export type Personality = 'premium' | 'friendly' | 'bold' | 'classic' | 'minimal' | 'natural' | 'technical' | 'playful';
+export type Personality =
+  | 'premium' | 'friendly' | 'bold' | 'classic' | 'minimal' | 'natural' | 'technical' | 'playful'
+  | 'fresh' | 'editorial' | 'care' | 'workshop' | 'bistro';
 export type Tone = 'warm' | 'formal' | 'confident' | 'playful' | 'plain';
 export type PresetId = 'original' | Personality;
 export type CornerStyle = 'square' | 'soft' | 'round';
@@ -55,13 +57,13 @@ interface Option<T extends string> {
 }
 
 export const INDUSTRIES: (Option<Industry> & { personality: Personality })[] = [
-  { id: 'food_grocery', label: 'Food & groceries', hint: 'Dairy, bakery, grocery, farm produce', personality: 'friendly' },
-  { id: 'restaurant', label: 'Restaurant & café', hint: 'Meals, drinks, takeaway', personality: 'natural' },
+  { id: 'food_grocery', label: 'Food & groceries', hint: 'Dairy, bakery, grocery, farm produce', personality: 'fresh' },
+  { id: 'restaurant', label: 'Restaurant & café', hint: 'Meals, drinks, takeaway', personality: 'bistro' },
   { id: 'beauty', label: 'Beauty & personal care', hint: 'Skin care, salon, cosmetics, fragrance', personality: 'premium' },
-  { id: 'fashion', label: 'Fashion', hint: 'Clothes, shoes, accessories', personality: 'minimal' },
+  { id: 'fashion', label: 'Fashion', hint: 'Clothes, shoes, accessories', personality: 'editorial' },
   { id: 'electronics', label: 'Electronics', hint: 'Phones, computers, appliances', personality: 'technical' },
-  { id: 'pharmacy', label: 'Pharmacy & health', hint: 'Chemist, health products', personality: 'classic' },
-  { id: 'hardware', label: 'Hardware & building', hint: 'Tools, paint, building materials', personality: 'bold' },
+  { id: 'pharmacy', label: 'Pharmacy & health', hint: 'Chemist, health products', personality: 'care' },
+  { id: 'hardware', label: 'Hardware & building', hint: 'Tools, paint, building materials', personality: 'workshop' },
   { id: 'professional_services', label: 'Professional services', hint: 'Consulting, legal, accounting, agencies', personality: 'classic' },
   { id: 'logistics', label: 'Logistics & delivery', hint: 'Courier, transport, moving', personality: 'bold' },
   { id: 'general_retail', label: 'General shop', hint: 'A bit of everything', personality: 'friendly' },
@@ -77,6 +79,11 @@ export const PERSONALITIES: Option<Personality>[] = [
   { id: 'natural', label: 'Natural', hint: 'Soft serif, earthy tones, relaxed spacing' },
   { id: 'technical', label: 'Technical', hint: 'Precise type, square shapes, dense details' },
   { id: 'playful', label: 'Playful', hint: 'Round, bright and lively' },
+  { id: 'fresh', label: 'Fresh market', hint: 'Bright greens, round cards, made for quick daily shopping' },
+  { id: 'editorial', label: 'Editorial', hint: 'Magazine headings, big pictures, sharp edges' },
+  { id: 'care', label: 'Care', hint: 'Clear, calm and easy to read, for health and wellbeing' },
+  { id: 'workshop', label: 'Workshop', hint: 'Tall heavy headings, strong contrast, no-nonsense' },
+  { id: 'bistro', label: 'Bistro', hint: 'Warm serif menu headings and appetising colours' },
 ];
 
 export const TONES: Option<Tone>[] = [
@@ -98,13 +105,18 @@ export const SOCIAL_NETWORKS: { id: SocialNetwork; label: string; host: RegExp }
 
 export type FontName =
   | 'Poppins' | 'Inter' | 'DM Sans' | 'Manrope' | 'Work Sans' | 'Nunito Sans' | 'Outfit' | 'Archivo'
-  | 'Space Grotesk' | 'IBM Plex Sans' | 'Lora' | 'Playfair Display' | 'Cormorant Garamond' | 'Fraunces' | 'Source Serif 4';
+  | 'Space Grotesk' | 'IBM Plex Sans' | 'Lora' | 'Playfair Display' | 'Cormorant Garamond' | 'Fraunces' | 'Source Serif 4'
+  | 'Plus Jakarta Sans' | 'Figtree' | 'Sora' | 'Lexend' | 'Rubik' | 'Montserrat' | 'Raleway' | 'Josefin Sans'
+  | 'Barlow' | 'Bricolage Grotesque' | 'Syne' | 'Bebas Neue' | 'DM Serif Display' | 'Libre Baskerville'
+  | 'EB Garamond' | 'Merriweather' | 'Abril Fatface';
 
 /**
  * The fonts a shop can choose (Google Fonts; the website's CSP allows only that host). Keep in
  * step with fn_website_fonts() in the database. `weights` are the ones the font file offers.
+ * `headingOnly` fonts are display faces: fine for a heading, tiring for a paragraph, so a shop
+ * that picks one for text gets the design's text font instead.
  */
-export const FONTS: Record<FontName, { kind: 'sans' | 'serif'; weights: number[] }> = {
+export const FONTS: Record<FontName, { kind: 'sans' | 'serif'; weights: number[]; headingOnly?: true }> = {
   Poppins: { kind: 'sans', weights: [400, 500, 600, 700] },
   Inter: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
   'DM Sans': { kind: 'sans', weights: [400, 500, 600, 700] },
@@ -120,6 +132,23 @@ export const FONTS: Record<FontName, { kind: 'sans' | 'serif'; weights: number[]
   'Cormorant Garamond': { kind: 'serif', weights: [400, 500, 600, 700] },
   Fraunces: { kind: 'serif', weights: [400, 500, 600, 700, 800] },
   'Source Serif 4': { kind: 'serif', weights: [400, 500, 600, 700] },
+  'Plus Jakarta Sans': { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Figtree: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Sora: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Lexend: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Rubik: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Montserrat: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Raleway: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  'Josefin Sans': { kind: 'sans', weights: [400, 500, 600, 700] },
+  Barlow: { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  'Bricolage Grotesque': { kind: 'sans', weights: [400, 500, 600, 700, 800] },
+  Syne: { kind: 'sans', weights: [400, 500, 600, 700, 800], headingOnly: true },
+  'Bebas Neue': { kind: 'sans', weights: [400], headingOnly: true },
+  'DM Serif Display': { kind: 'serif', weights: [400], headingOnly: true },
+  'Libre Baskerville': { kind: 'serif', weights: [400, 700] },
+  'EB Garamond': { kind: 'serif', weights: [400, 500, 600, 700, 800] },
+  Merriweather: { kind: 'serif', weights: [400, 700] },
+  'Abril Fatface': { kind: 'serif', weights: [400], headingOnly: true },
 };
 
 export const isFont = (name: unknown): name is FontName => typeof name === 'string' && Object.hasOwn(FONTS, name);

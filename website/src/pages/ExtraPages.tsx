@@ -80,7 +80,7 @@ export function TrackPage() {
             <PackageSearch size={40} strokeWidth={1.5} className="mx-auto text-ember" aria-hidden />
             <h2 className="display-md mt-4">Sign in to track your orders</h2>
             <p className="mx-auto mt-2 max-w-md text-muted">Your orders are kept safely in your account. Sign in with the email you ordered with to see every order and its status.</p>
-            <div className="mt-6 pill-row pill-row-center gap-3">
+            <div className="mt-6 pill-row pill-row-center max-w-full gap-3">
               <a href="/account" className={primaryButton}>Sign in</a>
               <a href="/help#how-do-i-track-my-order" className={secondaryButton}>How tracking works</a>
             </div>
@@ -192,7 +192,7 @@ export function NotFoundPage() {
         <p className="eyebrow">Error 404</p>
         <h1 className="display-lg mt-2">We can't find that page</h1>
         <p className="mt-3 text-lg text-muted">It may have moved. Try searching, or start from one of these.</p>
-        <div className="mt-6 pill-row pill-row-center gap-3">
+        <div className="mt-6 pill-row pill-row-center max-w-full gap-3">
           <a href="/shop" className={primaryButton}>Go to the shop</a>
           <a href="/help" className={secondaryButton}>Help centre</a>
           <a href="/sitemap" className={secondaryButton}>Site map</a>

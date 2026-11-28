@@ -88,7 +88,7 @@ export function pageHtml(
 ): string {
   let html = template
     .replace(/<title>[\s\S]*?<\/title>\s*/, '')
-    .replace(/<meta (name="description"|property="og:[^"]+"|name="twitter:card")[^>]*>\s*/g, '')
+    .replace(/<meta (name="description"|name="robots"|property="og:[^"]+"|name="twitter:card")[^>]*>\s*/g, '')
     .replace('</head>', `  ${headTags(meta, site, siteUrl, opts.indexable, opts.shop)}\n  </head>`)
     .replace('<div id="root"></div>', `<div id="root">${content}</div>`);
   // The shop's design tokens and fonts, so the first paint is already in its colours.
@@ -149,12 +149,14 @@ export function shopPages(site: Storefront): [string[], string][] {
   ];
 }
 
-/** Pages search engines are told to skip. */
-const PRIVATE = ['account', 'cart', 'saved', 'track', 'checkout', 'order-confirmed', 'search'];
-
+/**
+ * Only search results are blocked: every query is a new address. Account, cart and the other
+ * private pages stay crawlable so search engines can read their noindex tag; a blocked page
+ * they never read can still be listed from links to it.
+ */
 export const robotsTxt = (siteUrl: string, indexable: boolean) =>
   indexable
-    ? `User-agent: *\nAllow: /\n${PRIVATE.map((p) => `Disallow: /${p}`).join('\n')}\n\nSitemap: ${siteUrl}/sitemap.xml\n`
+    ? `User-agent: *\nAllow: /\nDisallow: /search\n\nSitemap: ${siteUrl}/sitemap.xml\n`
     : 'User-agent: *\nDisallow: /\n';
 
 export const sitemapXml = (siteUrl: string, paths: string[]) =>
@@ -162,13 +164,37 @@ export const sitemapXml = (siteUrl: string, paths: string[]) =>
     .map((path) => `  <url><loc>${escapeHtml(`${siteUrl}${path}`)}</loc></url>`)
     .join('\n')}\n</urlset>\n`;
 
-/** One page for the Worker: the matching public page, or the app shell with the right head. */
-export function renderRoute(template: string, site: Storefront, siteUrl: string, pathname: string, shop: ShopTag): string {
-  const parts = pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p));
+/** The id of the script tag that carries the shop's data into the page (read by api.ts). */
+export const STOREFRONT_DATA_ID = 'storefront-data';
+
+/**
+ * Above this the data is left out and the page fetches it as before: search engines read only
+ * the first 2 MB of a page, and the readable content and links must come first.
+ */
+const MAX_EMBEDDED = 600_000;
+
+/**
+ * One page for the Worker: the matching public page, or the app shell with the right head, and
+ * the HTTP status (404 for an address with no page). The shop's data rides along in the page so
+ * the app draws the shop at once instead of waiting for a second request.
+ */
+export function renderRoute(template: string, site: Storefront, siteUrl: string, pathname: string, shop: ShopTag): { html: string; status: number } {
+  let parts: string[];
+  try {
+    parts = pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p));
+  } catch {
+    // A broken address such as /%E0 is no page, not a server error.
+    parts = ['%'];
+  }
   const key = parts.join('/');
   const page = shopPages(site).find(([p]) => p.join('/') === key);
   const meta = metaForRoute(parts, site, siteUrl);
-  return pageHtml(template, meta, site, siteUrl, page?.[1] ?? '', { indexable: true, shop });
+  let html = pageHtml(template, meta, site, siteUrl, page?.[1] ?? '', { indexable: true, shop });
+  const data = safeJson(site);
+  if (data.length <= MAX_EMBEDDED) {
+    html = html.replace('</body>', `<script id="${STOREFRONT_DATA_ID}" type="application/json">${data}</script>\n  </body>`);
+  }
+  return { html, status: meta.notFound ? 404 : 200 };
 }
 
 /** Paths of every public page (for sitemap.xml). */

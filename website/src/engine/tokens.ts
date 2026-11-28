@@ -66,7 +66,7 @@ export function resolveDesign(primaryColor: string | null | undefined, brand: Pu
     accent: isHex(brand?.accentColor) ? brand!.accentColor!.toLowerCase() : null,
     page,
     headingFont,
-    bodyFont: isFont(brand?.bodyFont) ? brand!.bodyFont! : preset.bodyFont,
+    bodyFont: isFont(brand?.bodyFont) && !FONTS[brand!.bodyFont!].headingOnly ? brand!.bodyFont! : preset.bodyFont,
     headingWeight,
     corners: brand?.cornerStyle ?? preset.corners,
     buttons: brand?.buttonStyle ?? preset.buttons,

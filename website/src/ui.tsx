@@ -142,7 +142,7 @@ export function ErrorText({ children }: { children: ReactNode }) {
 export function Notice({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
     <div className="grid min-h-[60vh] place-items-center px-4 py-12 text-center">
-      <div className="max-w-md">
+      <div className="w-full max-w-md">
         <Store size={40} className="mx-auto text-brand" aria-hidden />
         <h1 className="display-md mt-4">{title}</h1>
         <p className="mt-2 text-muted">{body}</p>

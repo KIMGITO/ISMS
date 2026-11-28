@@ -19,11 +19,16 @@ export default function ProductCarousel({ id, title, products, viewAll, classNam
 }) {
   const track = useRef<HTMLUListElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
+  // How much of the row is in view and how far it has scrolled, for the bar under it.
+  const [bar, setBar] = useState({ size: 1, at: 0 });
 
   const measure = () => {
     const el = track.current;
     if (!el) return;
     setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+    const size = el.scrollWidth > 0 ? Math.min(1, el.clientWidth / el.scrollWidth) : 1;
+    const room = el.scrollWidth - el.clientWidth;
+    setBar({ size, at: room > 0 ? (el.scrollLeft / room) * (1 - size) : 0 });
   };
 
   useEffect(() => {
@@ -66,6 +71,14 @@ export default function ProductCarousel({ id, title, products, viewAll, classNam
       >
         {products.map((product) => <ProductCard key={product.id} product={product} />)}
       </ul>
+      {bar.size < 0.99 && (
+        <div className="relative mx-auto mt-2 h-1 w-24 overflow-hidden rounded-full bg-ink/10 sm:w-32" aria-hidden>
+          <span
+            className="absolute inset-y-0 rounded-full bg-ember transition-[left] duration-150"
+            style={{ width: `${bar.size * 100}%`, left: `${bar.at * 100}%` }}
+          />
+        </div>
+      )}
       {viewAll && (
         <div className="mt-3 text-center sm:hidden">
           <a href={viewAll} className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-ember">View all <ArrowRight size={14} aria-hidden /></a>

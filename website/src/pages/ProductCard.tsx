@@ -69,7 +69,8 @@ export function CartStepper({ product, size = 'sm' }: { product: Product; size?:
   const setQuantity = useCart((s) => s.setQuantity);
   const remove = useCart((s) => s.remove);
   const addToCart = useAddToCart();
-  const height = size === 'lg' ? 'h-12' : 'h-8 sm:h-9';
+  // At least 40px on phones so a thumb hits it; a mouse needs less.
+  const height = size === 'lg' ? 'h-12' : 'h-10 sm:h-9';
 
   if (!line) {
     return (
@@ -109,7 +110,7 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
   return (
     <Tag className="group relative flex min-w-0 flex-col rounded-lg border border-line bg-white p-2 transition hover:border-ember/40 hover:shadow-soft sm:p-3">
       <OfferRibbon product={product} className="top-3 sm:top-4" />
-      <SaveButton productId={product.id} name={product.name} className="absolute right-2 top-2 z-10 size-8 border border-line shadow-none sm:right-3 sm:top-3" />
+      <SaveButton productId={product.id} name={product.name} className="absolute right-2 top-2 z-10 size-9 border border-line shadow-none sm:right-3 sm:top-3" />
       <a href={href} className="product-media relative block overflow-hidden rounded-md bg-white" tabIndex={-1} aria-hidden>
         <span className="block size-full transition duration-500 group-hover:scale-[1.04]">
           <ProductImage product={product} width={460} fit="brand" />
@@ -137,7 +138,7 @@ export default function ProductCard({ product, as = 'li' }: { product: Product; 
           {product.inStock ? (
             <CartStepper product={product} />
           ) : (
-            <a href={href} className="grid h-8 place-items-center rounded-full border border-line text-xs text-muted sm:h-9">Details</a>
+            <a href={href} className="grid h-10 place-items-center rounded-full border border-line text-xs text-muted sm:h-9">Details</a>
           )}
         </div>
       </div>

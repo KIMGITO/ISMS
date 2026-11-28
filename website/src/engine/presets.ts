@@ -70,6 +70,32 @@ export const PRESETS: Record<PresetId, Preset> = {
     headingTracking: '-0.015em', corners: 'round', buttons: 'pill', density: 'comfortable',
     page: '#fffdf7', ink: '#24123a', muted: '#64577a', line: '#efe8f3', primary: '#7b3fe4',
   },
+  // Looks made for one kind of business (INDUSTRIES picks them by default).
+  fresh: {
+    id: 'fresh', label: 'Fresh market', headingFont: 'Plus Jakarta Sans', bodyFont: 'Figtree', headingWeight: 800,
+    headingTracking: '-0.025em', corners: 'round', buttons: 'pill', density: 'compact',
+    page: '#fcfdf8', ink: '#15241a', muted: '#55645a', line: '#e4eadf', primary: '#1f8a4c',
+  },
+  editorial: {
+    id: 'editorial', label: 'Editorial', headingFont: 'DM Serif Display', bodyFont: 'Figtree', headingWeight: 400,
+    headingTracking: '-0.01em', corners: 'square', buttons: 'solid', density: 'airy',
+    page: '#faf7f2', ink: '#161412', muted: '#625c55', line: '#e7e1d8', primary: '#161412',
+  },
+  care: {
+    id: 'care', label: 'Care', headingFont: 'Lexend', bodyFont: 'Lexend', headingWeight: 600,
+    headingTracking: '-0.015em', corners: 'round', buttons: 'solid', density: 'comfortable',
+    page: '#f8fbfc', ink: '#102a33', muted: '#4c6470', line: '#dfe9ed', primary: '#0e7c86',
+  },
+  workshop: {
+    id: 'workshop', label: 'Workshop', headingFont: 'Bebas Neue', bodyFont: 'Barlow', headingWeight: 400,
+    headingTracking: '0.01em', corners: 'square', buttons: 'solid', density: 'compact',
+    page: '#fbfaf7', ink: '#141414', muted: '#545454', line: '#e2e0db', primary: '#c2410c',
+  },
+  bistro: {
+    id: 'bistro', label: 'Bistro', headingFont: 'EB Garamond', bodyFont: 'Rubik', headingWeight: 600,
+    headingTracking: '-0.01em', corners: 'soft', buttons: 'pill', density: 'comfortable',
+    page: '#fdf8f1', ink: '#2a1810', muted: '#6e5a4c', line: '#eedfd0', primary: '#a3311f',
+  },
 };
 
 /** How an industry shows its products: whole on a plain ground, or a photo filling the frame. */

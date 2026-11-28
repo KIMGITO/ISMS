@@ -166,12 +166,13 @@ export default {
       platformName: answer.platform_name,
       platformUrl: answer.platform_url,
     };
-    const html = renderRoute(await shell.text(), site, siteUrl, url.pathname, shop);
+    const { html, status } = renderRoute(await shell.text(), site, siteUrl, url.pathname, shop);
     // A preview link (?preview=, from the app): the page itself is the live one (the draft is
     // fetched by the browser with the secret), but it is never stored or indexed.
     const preview = url.searchParams.has('preview');
     return withHeaders(
       new Response(html, {
+        status,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': preview ? 'no-store' : 'public, max-age=0, must-revalidate',

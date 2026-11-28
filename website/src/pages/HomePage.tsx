@@ -10,10 +10,11 @@ import { OrderAnyWayBand } from './PageEnd';
 import { Testimonials } from './Reviews';
 import ProductCarousel from './ProductCarousel';
 import { ArticleCard } from './ArticlesPage';
-import { CategoryChips, CategoryTiles, HeroStatement, ProductGrid, StorySection, VisitSection } from './HomeSections';
+import { CategoryChips, CategoryTiles, HeroStatement, ProductGrid, ProductList, StorySection, VisitSection } from './HomeSections';
 import { composeHome, ResolvedSection, SectionKind } from '../engine/layout';
 import { presetFor } from '../engine/tokens';
 import { HeroAds, PromoCards, VideoAds } from '../ads/AdSlots';
+import { CategoryPhotos, CustomerCards, HeroCollage, HeroOverlay, ProductSpotlight, QuoteSlider } from './HomeShowcase';
 
 const SLIDE_MS = 7000;
 
@@ -331,14 +332,23 @@ export default function HomePage() {
     const { kind, variant, title } = section;
     const legacyRow = 'pt-10 sm:pt-12';
     const gap = original ? ORIGINAL_GAP[kind] ?? legacyRow : section.gap === 'lg' ? 'section-gap-lg' : 'section-gap';
-    const rows = (id: string, list: Product[], viewAll?: string) => variant === 'grid'
+    const rows = (id: string, list: Product[], viewAll?: string) => variant === 'spotlight'
+      ? <ProductSpotlight key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />
+      : variant === 'list'
+      ? <ProductList key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />
+      : variant === 'grid'
       ? <ProductGrid key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />
       : <ProductCarousel key={id} id={id} title={title} products={list} viewAll={viewAll} gap={gap} />;
     switch (kind) {
-      case 'hero': return variant === 'carousel' ? <Hero key={kind} /> : <HeroStatement key={kind} variant={variant} />;
+      case 'hero':
+        if (variant === 'carousel') return <Hero key={kind} />;
+        if (variant === 'overlay') return <HeroOverlay key={kind} />;
+        if (variant === 'collage') return <HeroCollage key={kind} />;
+        return <HeroStatement key={kind} variant={variant} />;
       case 'categories':
         if (variant === 'tiles') return <CategoryTiles key={kind} title={title} gap={gap} />;
         if (variant === 'chips') return <CategoryChips key={kind} title={title} gap={gap} />;
+        if (variant === 'photos') return <CategoryPhotos key={kind} title={title} gap={gap} />;
         return <CategoryCircles key={kind} title={title} gap={gap} />;
       case 'adverts': return <AdPosters key={kind} cards={posters} gap={gap} />;
       case 'strip': return strips[0] ? <div key={kind} className={`site-gutter ${gap}`}><AdStrip card={strips[0]} /></div> : null;
@@ -354,13 +364,20 @@ export default function HomePage() {
           const list = inStockFirst(products.filter((p) => p.category === category)).slice(0, 12);
           const heading = category.replace(/^./, (c) => c.toUpperCase());
           const viewAll = `/shop?category=${encodeURIComponent(category)}`;
+          if (variant === 'list') return <ProductList key={id} id={id} title={heading} products={list} viewAll={viewAll} gap={gap} max={6} />;
           return variant === 'grid'
             ? <ProductGrid key={id} id={id} title={heading} products={list} viewAll={viewAll} gap={gap} max={4} />
             : <ProductCarousel key={id} id={id} title={heading} products={list} viewAll={viewAll} gap={gap} />;
         });
       case 'story': return <StorySection key={kind} variant={variant} title={title} gap={gap} />;
       case 'trust': return <div key={kind} className={`site-gutter ${gap}`}><TrustStrip site={site} /></div>;
-      case 'testimonials': return <Testimonials key={kind} title={title} gap={gap} />;
+      case 'testimonials': {
+        // Without reviews to show, the new looks fall back to the original's "write a review" card.
+        const plain = <Testimonials key={kind} title={title} gap={gap} />;
+        if (variant === 'people') return <CustomerCards key={kind} title={title} gap={gap} fallback={plain} />;
+        if (variant === 'slider') return <QuoteSlider key={kind} title={title} gap={gap} fallback={plain} />;
+        return plain;
+      }
       case 'guides':
         return articles.length > 0 && (
           <section key={kind} className={`site-gutter ${gap}`} aria-labelledby="guides-heading">

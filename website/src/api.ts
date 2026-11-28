@@ -487,8 +487,31 @@ export function recordView(slug: string, page: string, source: string, landing: 
     .then(() => undefined, () => undefined);
 }
 
+/**
+ * The shop's data the website Worker put in the page (render.ts renderRoute), so the first screen
+ * draws without waiting for a request. Only for the shop at this address, never on a preview link
+ * (that shows the draft) or for another branch picked on this device. Read once; the app still
+ * fetches the live data straight after, so prices are never more than a moment old.
+ */
+export function takeEmbeddedStorefront(): Storefront | null {
+  if (typeof document === 'undefined' || previewSecret || storeSlug() !== WEBSITE_SLUG) return null;
+  const tag = document.getElementById('storefront-data');
+  if (!tag) return null;
+  tag.remove();
+  try {
+    const data = JSON.parse(tag.textContent || 'null') as Storefront | null;
+    return data && typeof data === 'object' && data.business && Array.isArray(data.products) ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Returns null when the slug isn't published. On a preview link, the draft of this shop. */
 export async function fetchStorefront(slug = storeSlug()): Promise<Storefront | null> {
+  // Dev server only: a made-up shop, for working on the website without a published one.
+  if (import.meta.env.DEV && import.meta.env.VITE_DEMO_SHOP === '1') {
+    return (await import('./dev/demoStorefront')).demoStorefront();
+  }
   if (previewSecret && slug === WEBSITE_SLUG) {
     const draft = await rpc<Storefront | null>('get_preview_storefront', { p_slug: slug, p_secret: previewSecret });
     if (draft) return draft;

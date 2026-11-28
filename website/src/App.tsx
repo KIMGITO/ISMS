@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { fetchStorefront, storeSlug, switchMyStore } from './api';
+import { fetchStorefront, storeSlug, switchMyStore, takeEmbeddedStorefront } from './api';
 import { hasStorePicker, loadStartingStore } from './stores';
 import { applyBrand } from './engine/apply';
 import { Route, startLinkInterceptor, useRoute } from './router';
@@ -35,6 +35,13 @@ import CampaignPage from './ads/CampaignPage';
 
 startAuthListener();
 startLinkInterceptor();
+
+// The shop the server put in the page: drawn straight away, then refreshed (load below).
+const embedded = takeEmbeddedStorefront();
+if (embedded) {
+  applyBrand(embedded);
+  useSite.getState().setSite(embedded);
+}
 
 /** Pages with their own product sections or a task to finish, so they don't get the shared ending. */
 const NO_PAGE_END = new Set(['', 'shop', 'search', 'products', 'cart', 'checkout', 'order-confirmed', 'account']);
@@ -87,15 +94,16 @@ function Page({ route }: { route: Route }) {
 export default function App() {
   const site = useSite((s) => s.site);
   const setSite = useSite((s) => s.setSite);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'unpublished' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'unpublished' | 'error'>(embedded ? 'ready' : 'loading');
   const route = useRoute();
   const recovering = useAuth((s) => s.recovering);
   usePageMeta(route.parts, site);
   useVisitCounter(route.parts, status === 'ready' ? site?.business.slug ?? null : null);
   useHashScroll(route, status === 'ready');
 
-  const load = async () => {
-    setStatus('loading');
+  /** `quiet`: the shop is already showing (from the page), so refresh it without a spinner or error page. */
+  const load = async (quiet = false) => {
+    if (!quiet) setStatus('loading');
     try {
       // A brief network hiccup shouldn't show an error page, so try up to three times.
       let data: Awaited<ReturnType<typeof fetchStorefront>> = null;
@@ -109,6 +117,7 @@ export default function App() {
         }
       }
       if (!data) {
+        if (quiet) return;
         setStatus('unpublished');
         return;
       }
@@ -118,12 +127,12 @@ export default function App() {
       void loadAds();
     } catch (err) {
       console.error('Could not load storefront:', err);
-      setStatus('error');
+      if (!quiet) setStatus('error');
     }
   };
 
   useEffect(() => {
-    load();
+    void load(!!embedded);
   }, []);
 
   // A signed-in customer's account follows the branch being shopped, so orders and points go there.
@@ -146,7 +155,7 @@ export default function App() {
   if (status === 'error' || !site) {
     return (
       <Notice title="We couldn't load this page" body="Please check your connection and try again.">
-        <button onClick={load} className={`${primaryButton} mt-6`}>
+        <button onClick={() => load()} className={`${primaryButton} mt-6`}>
           <RefreshCw size={18} aria-hidden /> Try again
         </button>
       </Notice>

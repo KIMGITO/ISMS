@@ -6,9 +6,10 @@ import { Product } from '../api';
 import { hoursText } from '../engine/brand';
 import { industryGroup, safeHref, visibleHeroSlides } from '../heroSlides';
 import { shopPictures } from '../shopPictures';
+import { productPaths } from '../seo';
 import { useStorefront } from '../store';
-import { NoPicture } from '../ui';
-import ProductCard from './ProductCard';
+import { NoPicture, perUnit, ProductImage } from '../ui';
+import ProductCard, { CartStepper, PriceLine } from './ProductCard';
 
 /** The biggest categories first, each with its first product photo. */
 export function topCategories(products: Product[], max = 8) {
@@ -78,7 +79,9 @@ export function HeroStatement({ variant }: { variant: string }) {
 /** Categories as picture tiles with the name under each. */
 export function CategoryTiles({ title, gap }: { title: string; gap: string }) {
   const { products } = useStorefront();
-  const categories = topCategories(products);
+  const all = topCategories(products);
+  // Two across on phones: an odd count leaves one tile alone, so the smallest one waits for the shop page.
+  const categories = all.length > 3 && all.length % 2 === 1 ? all.slice(0, -1) : all;
   if (categories.length < 2) return null;
   return (
     <section className={`site-gutter ${gap}`} aria-labelledby="categories-heading">
@@ -142,6 +145,55 @@ export function ProductGrid({ id, title, products, viewAll, gap, max = 8 }: {
       </div>
       <ul className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {products.slice(0, max).map((product) => <ProductCard key={product.id} product={product} />)}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Products as a compact list (the "Compact list" variant): small picture, name, price and the
+ * cart stepper on one line. Many products fit on a phone screen, so it suits regular orders
+ * of everyday items. One column on phones, two from tablets up.
+ */
+export function ProductList({ id, title, products, viewAll, gap, max = 8 }: {
+  id: string; title: string; products: Product[]; viewAll?: string; gap: string; max?: number;
+}) {
+  const { business, products: all } = useStorefront();
+  if (products.length === 0) return null;
+  const paths = productPaths(all);
+  return (
+    <section id={id} className={`site-gutter scroll-mt-36 ${gap}`} aria-labelledby={`${id}-heading`}>
+      <div className="flex items-end justify-between gap-3">
+        <h2 id={`${id}-heading`} className="display-md">{title}</h2>
+        {viewAll && (
+          <a href={viewAll} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-ember hover:underline">
+            View all <ArrowRight size={14} aria-hidden />
+          </a>
+        )}
+      </div>
+      <ul className="mt-4 grid gap-x-8 md:grid-cols-2">
+        {products.slice(0, max).map((product) => {
+          const href = paths.get(product.id);
+          return (
+            <li key={product.id} className="flex items-center gap-3 border-b border-line py-3">
+              <a href={href} tabIndex={-1} aria-hidden className="block size-16 shrink-0 overflow-hidden rounded-md border border-line bg-white sm:size-[4.5rem]">
+                <ProductImage product={product} width={160} fit="brand" />
+              </a>
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-medium first-letter:uppercase">
+                  <a href={href} className="hover:text-ember">{product.name}</a>
+                </h3>
+                <p className="text-xs text-muted">per {perUnit(product.unit)}</p>
+                <div className="mt-0.5"><PriceLine product={product} currency={business.currency} /></div>
+              </div>
+              <div className="w-28 shrink-0">
+                {product.inStock
+                  ? <CartStepper product={product} />
+                  : <span className="grid h-10 place-items-center text-xs text-muted sm:h-9">Sold out</span>}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

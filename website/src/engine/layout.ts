@@ -14,20 +14,20 @@ export type SectionKind =
 
 /** Each section's ways of looking, the first being its default. */
 export const SECTION_VARIANTS: Record<SectionKind, readonly string[]> = {
-  hero: ['carousel', 'statement', 'banner'],
-  categories: ['circles', 'tiles', 'chips'],
+  hero: ['carousel', 'statement', 'banner', 'overlay', 'collage'],
+  categories: ['circles', 'tiles', 'chips', 'photos'],
   adverts: ['posters'],
   strip: ['bar'],
   strip2: ['bar'],
   promotions: ['codes'],
-  offers: ['carousel', 'grid'],
-  products: ['carousel', 'grid'],
-  reviewed: ['carousel', 'grid'],
-  aisles: ['carousel', 'grid'],
+  offers: ['carousel', 'grid', 'list', 'spotlight'],
+  products: ['carousel', 'grid', 'list', 'spotlight'],
+  reviewed: ['carousel', 'grid', 'list', 'spotlight'],
+  aisles: ['carousel', 'grid', 'list'],
   story: ['split', 'centred'],
   trust: ['boxes'],
-  testimonials: ['quotes'],
-  recent: ['carousel'],
+  testimonials: ['quotes', 'people', 'slider'],
+  recent: ['carousel', 'list'],
   guides: ['cards'],
   visit: ['card'],
   contact: ['band'],
@@ -57,8 +57,10 @@ export const SECTION_INFO: Record<SectionKind, { label: string; hint: string }> 
 export const VARIANT_LABELS: Record<string, string> = {
   carousel: 'Sliding row', statement: 'Statement with picture', banner: 'Words on brand colour',
   circles: 'Round pictures', tiles: 'Picture tiles', chips: 'Name buttons', grid: 'Grid',
-  split: 'Words and picture', centred: 'Centred words', posters: 'Cards', bar: 'Bar', codes: 'Codes',
+  list: 'Compact list', split: 'Words and picture', centred: 'Centred words', posters: 'Cards', bar: 'Bar', codes: 'Codes',
   boxes: 'Boxes', quotes: 'Quotes', cards: 'Cards', card: 'Card', band: 'Band',
+  overlay: 'Words over a big picture', collage: 'Words and three pictures', photos: 'Tall picture cards',
+  spotlight: 'One large, four small', people: 'Customer cards', slider: 'One review at a time',
 };
 
 export const SECTION_KINDS = Object.keys(SECTION_VARIANTS) as SectionKind[];
@@ -127,39 +129,64 @@ const ORIGINAL: Recipe = [
 /** A shop with many products: browse first, aisle by aisle. */
 const STORE: Recipe = ORIGINAL;
 
+/** Everyday food: offers and categories up front, quick rows, customer cards as proof. */
+const MARKET: Recipe = [
+  ['hero', 'carousel'], ['categories', 'circles'], ['promotions'], ['offers', 'carousel'], ['adverts'], ['strip'],
+  ['products', 'grid'], ['reviewed', 'carousel'], ['strip2'], ['aisles', 'carousel'], ['trust'], ['testimonials', 'people'],
+  ['recent'], ['guides'], ['contact'],
+];
+
 /** A shop that sells on looks and story: an editorial opening, fewer rows, the story near the top. */
 const BOUTIQUE: Recipe = [
-  ['hero', 'statement'], ['categories', 'tiles'], ['products', 'grid'], ['story', 'split'], ['promotions'],
-  ['offers', 'carousel'], ['adverts'], ['testimonials'], ['guides'], ['trust'], ['recent'], ['contact'],
+  ['hero', 'statement'], ['categories', 'photos'], ['products', 'grid'], ['story', 'split'], ['promotions'],
+  ['offers', 'carousel'], ['adverts'], ['testimonials', 'slider'], ['guides'], ['trust'], ['recent'], ['contact'],
+];
+
+/** Fashion: one big picture, tall category cards, a featured piece, then the story. */
+const LOOKBOOK: Recipe = [
+  ['hero', 'overlay'], ['categories', 'photos'], ['products', 'spotlight'], ['offers', 'carousel'], ['story', 'split'],
+  ['adverts'], ['promotions'], ['testimonials', 'people'], ['guides'], ['trust'], ['recent'], ['contact'],
 ];
 
 /** A shop customers compare in: deals and departments first, many rows. */
 const TECH: Recipe = [
-  ['hero', 'carousel'], ['promotions'], ['offers', 'carousel'], ['categories', 'tiles'], ['products', 'grid'],
-  ['strip'], ['reviewed', 'carousel'], ['aisles', 'carousel'], ['trust'], ['guides'], ['testimonials'], ['recent'], ['contact'],
+  ['hero', 'carousel'], ['promotions'], ['offers', 'spotlight'], ['categories', 'tiles'], ['products', 'grid'],
+  ['strip'], ['reviewed', 'carousel'], ['aisles', 'carousel'], ['trust'], ['guides'], ['testimonials', 'people'], ['recent'], ['contact'],
+];
+
+/** Health: calm, easy to scan, departments as tiles, quick re-ordering from a list. */
+const CHEMIST: Recipe = [
+  ['hero', 'carousel'], ['promotions'], ['categories', 'tiles'], ['offers', 'carousel'], ['products', 'grid'],
+  ['aisles', 'list'], ['trust'], ['testimonials', 'people'], ['guides'], ['visit'], ['recent'], ['contact'],
+];
+
+/** Hardware: departments, deals, then dense lists for people who know what they want. */
+const YARD: Recipe = [
+  ['hero', 'carousel'], ['categories', 'tiles'], ['offers', 'grid'], ['promotions'], ['products', 'list'],
+  ['strip'], ['aisles', 'list'], ['trust'], ['testimonials', 'people'], ['guides'], ['visit'], ['contact'],
 ];
 
 /** A kitchen: the menu, today's specials, and where to find it. */
 const KITCHEN: Recipe = [
-  ['hero', 'statement'], ['promotions'], ['categories', 'chips'], ['products', 'grid'], ['offers', 'carousel'],
-  ['story', 'split'], ['testimonials'], ['visit'], ['contact'],
+  ['hero', 'collage'], ['promotions'], ['categories', 'chips'], ['products', 'spotlight'], ['offers', 'carousel'],
+  ['story', 'split'], ['testimonials', 'slider'], ['visit'], ['contact'],
 ];
 
 /** A firm that sells advice: who they are, what they do, proof, how to reach them. No delivery promises. */
 const SERVICES: Recipe = [
-  ['hero', 'banner'], ['story', 'centred'], ['products', 'grid'], ['promotions'], ['testimonials'],
+  ['hero', 'banner'], ['story', 'centred'], ['products', 'grid'], ['promotions'], ['testimonials', 'slider'],
   ['guides'], ['visit'], ['contact'],
 ];
 
 /** A delivery firm: as a services firm, plus the payment and delivery promises customers look for. */
 const COURIER: Recipe = [
-  ['hero', 'banner'], ['story', 'centred'], ['products', 'grid'], ['promotions'], ['trust'], ['testimonials'],
+  ['hero', 'banner'], ['story', 'centred'], ['products', 'grid'], ['promotions'], ['trust'], ['testimonials', 'people'],
   ['guides'], ['visit'], ['contact'],
 ];
 
 const RECIPES: Record<Industry, Recipe> = {
-  food_grocery: STORE, general_retail: STORE, pharmacy: STORE, hardware: STORE, other: STORE,
-  beauty: BOUTIQUE, fashion: BOUTIQUE, electronics: TECH, restaurant: KITCHEN,
+  food_grocery: MARKET, general_retail: STORE, pharmacy: CHEMIST, hardware: YARD, other: STORE,
+  beauty: BOUTIQUE, fashion: LOOKBOOK, electronics: TECH, restaurant: KITCHEN,
   professional_services: SERVICES, logistics: COURIER,
 };
 
