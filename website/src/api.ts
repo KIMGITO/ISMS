@@ -496,7 +496,11 @@ export function recordVisit(slug: string, page: string, source: string, landing:
   supabase.rpc('record_website_visit', {
     p_slug: slug, p_page: page, p_source: source, p_landing: landing,
     p_visitor: ids.visitor, p_session: ids.visit, p_path: path.split(/[?#]/)[0].slice(0, 200), p_consent: true,
-  }).then(() => undefined, () => undefined);
+  }).then(
+    // A database without the history yet: still count the page in the totals.
+    ({ error }) => { if (error) recordView(slug, page, source, landing); },
+    () => undefined,
+  );
 }
 
 /**
