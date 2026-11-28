@@ -129,6 +129,7 @@ const pages: Shortcut[] = [
   { id: "pos-customer", keys: "Alt+C", action: "Choose a customer", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-delivery", keys: "Alt+D", action: "Delivery on / off", scope: "pos", permissions: ["pos.create_sale"], module: "deliveries" },
   { id: "pos-note", keys: "Alt+N", action: "Add a note", scope: "pos", permissions: ["pos.create_sale"] },
+  { id: "pos-hold", keys: "Alt+H", action: "Hold this sale and serve the next customer", scope: "pos", permissions: ["pos.create_sale"], keywords: ["park", "suspend", "wait", "resume"] },
   { id: "pos-quote", keys: "Alt+Q", action: "Save the cart as a quote", scope: "pos", permissions: ["quotes.manage"], keywords: ["quotation", "proforma", "estimate"] },
   { id: "pos-complete", keys: "Ctrl+Enter F9", action: "Complete the sale", scope: "pos", permissions: ["pos.create_sale"] },
   { id: "pos-receipt", keys: "Alt+R R", action: "Receipt (after a sale)", scope: "pos", permissions: ["pos.create_sale"] },

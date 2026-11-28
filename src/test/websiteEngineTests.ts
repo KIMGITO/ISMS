@@ -15,6 +15,7 @@ import { defaultMenu, isCurrentLink, menuLinks, safeMenuHref } from "../../websi
 import { homeMeta } from "../../website/src/seo";
 import { brokenLink, checkWebsite, hasPlaceholder, SITE_SECTIONS, type SiteFacts } from "../../website/src/engine/checks";
 import { isBot, VISIT_PAGES, VISIT_SOURCES, visitPage, visitSource } from "../../website/src/engine/visits";
+import { cookieText, readCookie } from "../../website/src/visitorCookies";
 import { rpcCacheKey } from "../../website/worker/hosts";
 
 type Run = (name: string, fn: () => void) => void;
@@ -324,7 +325,23 @@ export function runWebsiteEngineTests(runTest: Run) {
     eq(Array.from(table.matchAll(/^ {4}([a-z_]+) [a-z]/gm), (m) => m[1]), ["business_id", "day", "page", "source", "views"], "only these columns: no address, device or visitor");
     const call = readFileSync("website/src/api.ts", "utf8").match(/record_website_view', \{([^}]*)\}/)?.[1] ?? "";
     eq(Array.from(call.matchAll(/(p_[a-z]+):/g), (m) => m[1]), ["p_slug", "p_page", "p_source", "p_landing"], "the website sends only these four");
-    ok(!/localStorage|sessionStorage|cookie/.test(readFileSync("website/src/useVisitCounter.ts", "utf8").replace(/^\/\/.*$/gm, "")), "the counter stores nothing in the browser");
+    ok(!/localStorage|sessionStorage|document\.cookie/.test(readFileSync("website/src/useVisitCounter.ts", "utf8").replace(/^\/\/.*$/gm, "")), "the counter itself stores nothing in the browser");
+  });
+
+  runTest("Visit history: cookies only with consent, random ids only, same page kinds as the database", () => {
+    const sql = readFileSync("supabase/migrations/20261217002_website_visitor_history.sql", "utf8");
+    const list = (re: RegExp) => Array.from((sql.match(re)?.[1] ?? "").matchAll(/'([a-z]+)'/g), (m) => m[1]);
+    eq(list(/page text NOT NULL CHECK \(page IN \(([^)]*)\)/), [...VISIT_PAGES], "page kinds = history check");
+    eq(list(/source text NOT NULL CHECK \(source IN \(([^)]*)\)/), [...VISIT_SOURCES], "sources = history check");
+    const table = sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS public.website_visit_history"), sql.indexOf("CREATE INDEX"));
+    eq(Array.from(table.matchAll(/^ {4}([a-z_]+) [a-z]/gm), (m) => m[1]),
+      ["id", "business_id", "visitor_id", "session_id", "page", "path", "source", "landing", "customer_user", "created_at"], "no name, phone, address or device");
+    ok(/IF NOT COALESCE\(p_consent, false\)/.test(sql), "the database keeps history only with consent");
+    const cookies = readFileSync("website/src/visitorCookies.ts", "utf8");
+    ok(/if \(statsConsent\(\) !== 'yes'\) return null;/.test(cookies), "no ids before the visitor says yes");
+    eq(readCookie("a=1; kk_vid=abc; kk_sid=x%3Dy", "kk_sid"), "x=y", "reads a cookie");
+    eq(readCookie("kk_vidx=1", "kk_vid"), null, "a longer name is another cookie");
+    eq(cookieText("kk_vid", "v", 60, true), "kk_vid=v; Max-Age=60; Path=/; SameSite=Lax; Secure", "first-party, not sent to other sites");
   });
 
   runTest("Worker cache: one shop's answer is never another shop's", () => {

@@ -3,6 +3,7 @@
  * WhatsApp/email text are all drawn from these lines, so every copy matches the paper.
  */
 import { BusinessReceiptSettings, ReceiptContent, PaperWidth } from "./types";
+import { needsPaymentCode } from "../../utils/paymentProof";
 import { getShortId } from "../../utils/idUtils";
 import { moneyNumber, formatQty } from "../../utils/money";
 
@@ -140,6 +141,9 @@ export function buildReceiptLines(content: ReceiptContent, settings: BusinessRec
   rule("=");
   row("TOTAL", `${cur} ${formatMoney(content.grandTotal)}`, true);
   if (content.amountPaid > 0) row(`Paid (${content.paymentMethod})`, `${cur} ${formatMoney(content.amountPaid)}`);
+  if (content.amountPaid > 0 && content.paymentRef) row("Payment code", content.paymentRef);
+  // Older M-Pesa / Airtel / bank sales were saved before the code was required (20261217001).
+  else if (content.amountPaid > 0 && needsPaymentCode(content.paymentMethodCode)) row("Payment code", "Not recorded");
   // Wallet money the customer had already paid in covers this first.
   if ((content.walletPaid || 0) > 0) row("Paid from wallet", `${cur} ${formatMoney(content.walletPaid!)}`);
   if (content.balanceDue > 0) {

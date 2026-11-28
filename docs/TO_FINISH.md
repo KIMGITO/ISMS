@@ -6,6 +6,21 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Money first at the till, hold a sale, visitor cookies, Statistics redesign (2026-11-28)
+
+Money first: a till sale used to be saved as paid the moment it was rung up. One tap on M-Pesa, Airtel or Bank (POS, Quick Sale, a quote sold from the Sales Log, a regular order marked delivered) moved the money balance, posted the books, took the stock and printed a "Paid" receipt with no proof the money had arrived. Now those methods need the payment's code (M-Pesa or Airtel code, bank reference) before anything is saved. The database refuses the sale without it (`20261217001_sale_payment_proof.sql`), and a code pays one sale only. An M-Pesa code already in the till queue is matched to the sale and must cover it. Removing the sale gives the payment back to the queue. Cash and Card are unchanged (cash is in hand; a card already needs an approved charge). Online orders are unchanged (they settle only on the provider's callback). Receipts show the code; older sales without one print "Payment code: Not recorded". The after-sale "Send M-Pesa prompt" button is gone from POS and Quick Sale, since the money is now proven before the sale.
+
+Hold: POS has Hold (Alt+H) to park a cart and serve the next customer, and Quick Sale has Hold on the code step. Held carts sit in the cart panel; tap one to resume, and the current cart is held in its place. Nothing is sold or taken from stock while held. Held carts are kept on that device per branch.
+
+Website: visitors are asked about statistics cookies. With "Allow", two random first-party cookies (visitor 13 months, visit 30 minutes) let the shop see unique and returning visitors and each visitor's pages (`20261217002_website_visitor_history.sql`, kept 13 months). "Needed only" keeps the old anonymous counter. The Cookies page explains this. Website > Statistics is redesigned: a visit-to-paid-order strip, money per day, recent visitors. Unsplash search shows a centred loader.
+
+1. [ ] Apply the database changes: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. No missing grants should be reported.
+2. [ ] Check on a test DB that the books agree: `C=supabase_db_isms-seedtest bash supabase/tests/sales/payment_proof_test.sh`. It should report "failed 0", including "books balance" and "M-Pesa balance up 100.00".
+3. [ ] **You:** in POS, add an item and choose M-Pesa, then press Complete sale without a code. It must say "Record the money first" and save nothing. Type a code such as `QK12AB34CD` and complete. The receipt shows "Payment code QK12AB34CD". Try the same code on a second sale: it must be refused.
+4. [ ] **You:** in POS, fill a cart and press Hold. The cart empties and a chip appears under "On hold". Ring up another sale, then tap the chip: the first cart comes back.
+5. [ ] **You:** if a phone still has offline M-Pesa sales queued from before this update, sync them before updating. After the update the database refuses an M-Pesa sale with no code.
+6. [ ] Deploy the website (the release does this), open it in a private window, and choose Allow statistics. Browse two pages. Website > Statistics should list one new visitor with those pages. Choose "Needed only" on /cookies, and the kk_vid and kk_sid cookies should be gone (browser dev tools > Storage).
+
 ## Escape closes sheets, fillable till test payment (2026-11-28)
 
 Escape now closes the top sheet, dialog or menu on every screen (one handler in `src/app/useNativeShell.ts`, the same list the phone's Back button uses; the screen underneath never sees the key). Sheets that weren't on that list were added. Payments > M-Pesa > "Send a test payment" (sandbox only) opens a sheet with amount, account reference, payer name and phone. "In the app" posts Safaricom's C2B callback to the app's own till-callback address, so it is received, matched and booked like a real payment; "Through Safaricom" uses Safaricom's simulator (whole shillings, Safaricom's own name). No database change.

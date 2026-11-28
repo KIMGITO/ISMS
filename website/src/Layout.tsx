@@ -1,4 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { onConsentChange, setStatsConsent, statsConsent, type StatsConsent } from './visitorCookies';
 import {
   ArrowUp, Bell, ChevronDown, ChevronRight, Clock, Gift, Heart, Home, LayoutGrid, Lock, Mail, MapPin, Menu, MessageCircle, Minus, Phone, Plus,
   Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, User, X,
@@ -746,25 +747,29 @@ function CartToast() {
   );
 }
 
-const NOTICE_KEY = 'kaykays-storage-notice';
-
-/** This site only stores what it needs to work, so this tells rather than asks. */
+/**
+ * Asks once whether statistics cookies may be used (visitorCookies.ts). Needed storage (cart,
+ * sign-in) needs no consent; statistics cookies do, so nothing is set until "Allow". The
+ * cookies page always shows it, so the answer can be changed there.
+ */
 function StorageNotice() {
-  const [show, setShow] = useState(() => {
-    try { return !localStorage.getItem(NOTICE_KEY); } catch { return false; }
-  });
-  if (!show) return null;
-  const dismiss = () => {
-    try { localStorage.setItem(NOTICE_KEY, '1'); } catch { /* shown again next visit */ }
-    setShow(false);
-  };
+  const onCookiesPage = typeof location !== 'undefined' && location.pathname.replace(/\/$/, '') === '/cookies';
+  const [answer, setAnswer] = useState<StatsConsent>(() => statsConsent());
+  useEffect(() => onConsentChange(setAnswer), []);
+  if (answer !== null && !onCookiesPage) return null;
+  const choose = (a: 'yes' | 'no') => setStatsConsent(a);
   return (
-    <div className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-xl rounded-lg border border-line bg-white p-3.5 shadow-2xl lg:bottom-6 lg:left-6 lg:right-auto lg:mx-0">
+    <div role="dialog" aria-label="Cookies" className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-xl rounded-lg border border-line bg-white p-3.5 shadow-2xl lg:bottom-6 lg:left-6 lg:right-auto lg:mx-0">
       <p className="text-xs leading-relaxed text-muted sm:text-sm">
-        We save your cart and sign-in on this device. No tracking cookies.{' '}
+        We save your cart and sign-in on this device. With your OK we also use statistics cookies to see
+        how visitors use the shop, never for adverts.{' '}
         <a href="/cookies" className="font-medium text-ink underline">Learn more</a>
+        {answer && <span className="block pt-1 text-ink">Your choice: {answer === 'yes' ? 'statistics allowed' : 'needed only'}.</span>}
       </p>
-      <button onClick={dismiss} className="btn btn-primary btn-sm mt-3 w-full sm:w-auto">OK</button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={() => choose('yes')} className="btn btn-primary btn-sm">Allow statistics</button>
+        <button onClick={() => choose('no')} className="btn btn-sm border border-line bg-white text-ink">Needed only</button>
+      </div>
     </div>
   );
 }

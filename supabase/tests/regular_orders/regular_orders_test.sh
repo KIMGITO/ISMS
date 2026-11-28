@@ -87,8 +87,10 @@ eq "stock back" "$(stock $MILK)" "$(sql "select ($S2 + $TQ)::numeric(14,3)")"
 eq "refund clears the debt it made" "$(debt $BOB)" "$D0"
 eq "and gives back the wallet used" "$(sql "select wallet_balance::numeric(14,2) from customers where id='$BOB'")" "300.00"
 eq "books balanced after refund" "$(books)" "0.00"
-TX3=$(as cash "select deliver_regular_orders('$B', '$BOB', '$TODAY', jsonb_build_array(jsonb_build_object('orderId','$R1','quantity',$TQ)), 'M-Pesa', null, 0, 'reg-test-5', null)")
+has "M-Pesa day without the payment code refused" "$(as cash "select deliver_regular_orders('$B', '$BOB', '$TODAY', jsonb_build_array(jsonb_build_object('orderId','$R1','quantity',$TQ)), 'M-Pesa', null, 0, 'reg-test-5', null)")" "Enter the M-Pesa code"
+TX3=$(as cash "select deliver_regular_orders('$B', '$BOB', '$TODAY', jsonb_build_array(jsonb_build_object('orderId','$R1','quantity',$TQ)), 'M-Pesa', null, 0, 'reg-test-5', null, 'rg12 test9')")
 ok "can deliver again after removal" "$TX3"
+eq "the code is kept on the sale, tidied" "$(sql "select payment_ref from transactions where id='$TX3'")" "RG12TEST9"
 eq "books balanced" "$(books)" "0.00"
 
 echo "== one-day change"

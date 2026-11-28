@@ -23,9 +23,57 @@ function paymentMethodName(method: string): string {
 import { salesOutbox, isNetworkError } from "../services/offline/salesOutbox";
 import { formatCurrency } from '../utils/helpers';
 import { moneyNumber, roundQty, roundMoney } from '../utils/money';
+import { needsPaymentCode, paymentCodeProblem, tidyPaymentCode } from '../utils/paymentProof';
+
+/**
+ * A cart put aside so the till can serve the next customer. It is not a sale: no money,
+ * stock or books move until it is resumed and paid like any other cart. Kept on this
+ * device per branch, so a reload or crash doesn't lose it.
+ */
+export interface HeldSale {
+  id: string;
+  heldAt: string;
+  /** Short name the cashier sees: the customer, or "Sale 2". */
+  label: string;
+  cart: CartItem[];
+  customer: Customer | null;
+  quote: { id: string; number: string } | null;
+  /** Screen-only extras (note, cart discount, delivery) the till restores on resume. */
+  extras?: Record<string, unknown>;
+}
+
+const heldKey = (branchId: string) => `isms:held-sales:${branchId || "none"}`;
+function readHeld(branchId: string): HeldSale[] {
+  try {
+    const raw = localStorage.getItem(heldKey(branchId));
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+function writeHeld(branchId: string, list: HeldSale[]) {
+  try {
+    localStorage.setItem(heldKey(branchId), JSON.stringify(list));
+  } catch {
+    /* storage full or blocked: the held list still lives in memory for this session */
+  }
+}
 
 interface CartState {
   cart: CartItem[];
+  /** Carts on hold at this branch, oldest first. */
+  held: HeldSale[];
+  /** Puts the current cart on hold and empties the till. Returns the held entry, or null if the cart is empty. */
+  holdSale: (extras?: Record<string, unknown>) => HeldSale | null;
+  /**
+   * Brings a held cart back. Whatever is in the till now is held first, so nothing is lost.
+   * Prices and stock are refreshed from the shelf; items no longer sold are dropped.
+   * Returns the held entry's extras and how many lines changed, or null if not found.
+   */
+  resumeHeld: (id: string, extrasNow?: Record<string, unknown>) => { extras?: Record<string, unknown>; changed: number } | null;
+  /** Throws a held cart away (nothing was sold, so nothing to undo). */
+  dropHeld: (id: string) => void;
   selectedCustomer: Customer | null;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -49,14 +97,67 @@ interface CartState {
     /** How the delivery is paid (on our bill, to the rider, or free). The fee is what the rider earns. */
     deliveryMode?: DeliveryMode,
     /** A promotion or referral code held with promo_reserve; its discount is already in cartDiscountValue. */
-    promotion?: { redemptionId: string; code?: string; discount: number } | null
+    promotion?: { redemptionId: string; code?: string; discount: number } | null,
+    /** The code of the money that paid (M-Pesa / Airtel code, bank reference). Required for those methods. */
+    paymentRef?: string
   ) => Promise<{ success: boolean; transaction?: Transaction; error?: string; /** saved on this device, syncs later */ offline?: boolean }>;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
   cart: [],
+  // Filled just after start (below): the branch store may not exist yet while modules load.
+  held: [],
   selectedCustomer: null,
   quote: null,
+
+  holdSale: (extras) => {
+    const { cart, selectedCustomer, quote, held } = get();
+    if (cart.length === 0) return null;
+    const entry: HeldSale = {
+      id: newUuid(),
+      heldAt: new Date().toISOString(),
+      label: selectedCustomer?.name?.trim() || `Sale ${held.length + 1}`,
+      cart,
+      customer: selectedCustomer,
+      quote,
+      extras,
+    };
+    const next = [...held, entry];
+    writeHeld(useBusinessStore.getState().activeBusinessId, next);
+    set({ held: next, cart: [], selectedCustomer: null, quote: null });
+    return entry;
+  },
+
+  resumeHeld: (id, extrasNow) => {
+    const entry = get().held.find((h) => h.id === id);
+    if (!entry) return null;
+    const products = useInventoryStore.getState().products;
+    let changed = 0;
+    const cart: CartItem[] = [];
+    for (const item of entry.cart) {
+      const live = products.find((p) => p.id === item.product.id);
+      if (!live || live.stock <= 0) { changed++; continue; }
+      const quantity = roundQty(Math.min(item.quantity, live.stock));
+      // A quote keeps its quoted price; a plain cart takes today's shelf price.
+      const product = entry.quote ? { ...live, price: item.product.price } : live;
+      if (quantity !== item.quantity || product.price !== item.product.price) changed++;
+      cart.push({ ...item, product, quantity });
+    }
+    // Nothing left on the shelf: keep it held rather than lose it.
+    if (cart.length === 0) return { extras: entry.extras, changed: -1 };
+    // Park what is on the till now, then take the held one off the list.
+    if (get().cart.length > 0) get().holdSale(extrasNow);
+    const rest = get().held.filter((h) => h.id !== id);
+    writeHeld(useBusinessStore.getState().activeBusinessId, rest);
+    set({ held: rest, cart, selectedCustomer: entry.customer, quote: entry.quote });
+    return { extras: entry.extras, changed };
+  },
+
+  dropHeld: (id) => {
+    const rest = get().held.filter((h) => h.id !== id);
+    writeHeld(useBusinessStore.getState().activeBusinessId, rest);
+    set({ held: rest });
+  },
   loadQuote: (quote, items, customer) => set({ quote, cart: items, selectedCustomer: customer }),
 
   addToCart: (product) => {
@@ -114,7 +215,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ selectedCustomer: customer });
   },
 
-  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFeeIn = 0, riderName = "", deliveryMode = "charged", promotion = null) => {
+  checkout: async (paymentMethod, note, taxRate = 0, cartDiscountType = 'percent', cartDiscountValue = 0, isDelivery = false, deliveryFeeIn = 0, riderName = "", deliveryMode = "charged", promotion = null, paymentRef = "") => {
     if (!checkPermissionGate("pos.create_sale")) {
       return { success: false, error: "Permission Denied: pos.create_sale" };
     }
@@ -141,6 +242,10 @@ export const useCartStore = create<CartState>((set, get) => ({
         error: "Promotion and referral codes need an internet connection. Remove the code, or try again when you're back online.",
       };
     }
+
+    // Money first: no M-Pesa, Airtel or bank sale without the payment's code (the database checks too).
+    const paymentCodeIssue = paymentCodeProblem(paymentMethod, paymentRef);
+    if (paymentCodeIssue) return { success: false, error: paymentCodeIssue };
 
     if (paymentMethod === 'Credit_Debt' && !selectedCustomer) {
       return {
@@ -172,8 +277,14 @@ export const useCartStore = create<CartState>((set, get) => ({
     const deliveryFee = isDelivery && deliveryMode === "charged" ? deliveryFeeIn : 0;
     const riderPay = isDelivery ? Math.max(0, deliveryFeeIn) : 0;
 
+    let restoreStock: (() => void) | null = null;
     try {
       // Deduct stock in real time in inventoryStore
+      // Kept so a sale the server refuses (a wrong or used payment code, say) gives the stock back.
+      const stockBefore = new Map(products.filter((p) => cart.some((i) => i.product.id === p.id)).map((p) => [p.id, p.stock]));
+      restoreStock = () => useInventoryStore.setState((st) => ({
+        products: st.products.map((p) => (stockBefore.has(p.id) ? { ...p, stock: stockBefore.get(p.id)! } : p)),
+      }));
       await useInventoryStore.getState().deductStock(cart);
 
       // Calculate totals
@@ -231,6 +342,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         referenceId,
         promotionCode: promotion?.code,
         promotionDiscount: promotion ? promotion.discount : 0,
+        paymentRef: needsPaymentCode(paymentMethod) ? tidyPaymentCode(paymentRef) : undefined,
       };
 
       // Keeps the sale on this device until it reaches the server
@@ -249,15 +361,21 @@ export const useCartStore = create<CartState>((set, get) => ({
       // Making a sale proves the person is working, so a forgotten clock-in fixes itself.
       // Clocking in needs the server, so offline it waits for the next online sale.
       // Not waited for: the sale doesn't depend on it. The shift counter follows the clock-in.
-      if (!isOffline && !useAuthStore.getState().activeShift) {
-        void useAuthStore.getState().punchIn()
-          .then(() => useAuthStore.getState().addShiftSale(finalTotal))
-          .catch(() => {});
-      } else {
-        useAuthStore.getState().addShiftSale(finalTotal);
-      }
+      // Counted once the sale is kept (saved, or queued offline), never for a refused one.
+      const countShiftSale = () => {
+        if (!isOffline && !useAuthStore.getState().activeShift) {
+          void useAuthStore.getState().punchIn()
+            .then(() => useAuthStore.getState().addShiftSale(finalTotal))
+            .catch(() => {});
+        } else {
+          useAuthStore.getState().addShiftSale(finalTotal);
+        }
+      };
 
-      if (isOffline) return saveOffline();
+      if (isOffline) {
+        countShiftSale();
+        return saveOffline();
+      }
 
       let savedTx: any;
 
@@ -387,13 +505,21 @@ export const useCartStore = create<CartState>((set, get) => ({
       }
 
       set({ cart: [], selectedCustomer: null, quote: null });
+      countShiftSale();
       if (activeBusinessId) void kraService.reportSaleIfConnected(activeBusinessId, savedTx.id);
       return { success: true, transaction: savedTx };
     } catch (err: any) {
+      restoreStock?.();
       return { success: false, error: toUserMessage(err, "The sale could not be saved. Check your connection and try again.") };
     }
   },
 }));
 
 // The cart and chosen customer belong to the branch they were picked in.
-setTimeout(() => onBranchChange(() => useCartStore.getState().clearCart()), 0);
+setTimeout(() => {
+  useCartStore.setState({ held: readHeld(useBusinessStore.getState().activeBusinessId) });
+  onBranchChange((branchId) => {
+    useCartStore.getState().clearCart();
+    useCartStore.setState({ held: readHeld(branchId) });
+  });
+}, 0);

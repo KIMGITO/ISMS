@@ -31,6 +31,7 @@ import {
   Keyboard,
   X,
   FileSignature,
+  PauseCircle,
 } from 'lucide-react';
 import { hasRolePermission } from '../utils/permissions';
 import { motion, AnimatePresence } from 'motion/react';
@@ -44,7 +45,8 @@ import { DeliveryZone, fetchActiveZones } from '../components/DeliveryZonesEdito
 import { formatLocation } from '../../website/src/customerProfile';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { ReceiptService } from '../services/receipt/ReceiptService';
-import SalePromptButton from '../components/payments/SalePromptButton';
+import PaymentCodeField from '../components/payments/PaymentCodeField';
+import { needsPaymentCode, paymentCodeProblem } from '../utils/paymentProof';
 import CardChargeSheet, { type CardChargeResult, describeCard } from '../components/payments/CardChargeSheet';
 import { CardRepository } from '../services/repositories';
 import { useCartStore } from '../stores/cartStore';
@@ -89,7 +91,7 @@ export default function POSView() {
     useShallow((s) => ({ allProducts: s.products, productCategories: s.categories })),
   );
   const allCustomers = useCustomerStore((s) => s.customers);
-  const { cart, selectedCustomer, addToCart, removeFromCart, updateCartQty, updateCartDiscount, selectCustomer, checkout, clearCart } =
+  const { cart, selectedCustomer, addToCart, removeFromCart, updateCartQty, updateCartDiscount, selectCustomer, checkout, clearCart, holdSale, resumeHeld } =
     useCartStore(
       useShallow((s) => ({
         cart: s.cart,
@@ -101,6 +103,8 @@ export default function POSView() {
         selectCustomer: s.selectCustomer,
         checkout: s.checkout,
         clearCart: s.clearCart,
+        holdSale: s.holdSale,
+        resumeHeld: s.resumeHeld,
       })),
     );
   const isOnline = useTransactionStore((s) => s.isOnline);
@@ -124,6 +128,9 @@ export default function POSView() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const cartQuote = useCartStore((s) => s.quote);
+  const heldSales = useCartStore((s) => s.held);
+  const dropHeld = useCartStore((s) => s.dropHeld);
+  const [dropConfirm, setDropConfirm] = useState<string | null>(null);
   // Only the methods this business has switched on; Credit is a sale on debt, always offered.
   const enabledMethods = usePaymentMethods();
   // M-Pesa first (most sales), else the first method switched on.
@@ -166,6 +173,9 @@ export default function POSView() {
   const [cardSheetOpen, setCardSheetOpen] = useState(false);
   const [paidCard, setPaidCard] = useState<CardChargeResult | null>(null);
   const [note, setNote] = useState('');
+  // Money first: the M-Pesa / Airtel code or bank reference of the payment, typed before saving.
+  const [paymentRef, setPaymentRef] = useState('');
+  const [showRefError, setShowRefError] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [lastTxId, setLastTxId] = useState('');
@@ -410,6 +420,82 @@ export default function POSView() {
     showToast('Sale not completed', message, undefined, 'error');
   };
 
+  /** Puts the sheet back to a fresh sale (after a sale, or when one is held). */
+  const resetSaleForm = () => {
+    setNote('');
+    setPaymentRef('');
+    setShowRefError(false);
+    setCartDiscountType('percent');
+    setCartDiscountValue(0);
+    setTaxRate(businessTaxRate);
+    setIsDelivery(false);
+    setDeliveryFee(0);
+    setDeliveryMode('charged');
+    // The next sale starts on the default method again (or Credit for a pay-later customer).
+    autoCredit.current = false;
+    setPaymentMethod(defaultMethod);
+    setRiderName('');
+    setSelectedRiderId('');
+    setDeliveryLocation('');
+    setPointsToUse('');
+    setPromoCode(null);
+    setPromo(null);
+    setPromoInput('');
+    setCheckoutError(null);
+  };
+
+  // Hold: park this customer's cart and serve the next one. Nothing is sold, paid or taken
+  // from stock until the held cart is resumed and completed like any other sale.
+  const saleExtras = (): Record<string, unknown> => ({
+    note, cartDiscountType, cartDiscountValue, isDelivery, deliveryFee, deliveryMode,
+    riderName, selectedRiderId, deliveryLocation, paymentMethod,
+  });
+  const holdCurrentSale = () => {
+    if (cart.length === 0 || isCheckingOut) return;
+    if (paidCard) {
+      showToast("Can't hold this sale", 'A card has already been paid for it. Complete the sale first.', undefined, 'error');
+      return;
+    }
+    const entry = holdSale(saleExtras());
+    if (!entry) return;
+    const hadCode = !!promoCode;
+    resetSaleForm();
+    showToast('Sale on hold',
+      `${entry.label} is waiting. Resume it from the held list in the cart.${hadCode ? ' Enter the promotion code again when you resume.' : ''}`,
+      undefined, 'success');
+  };
+  const resumeHeldSale = (id: string) => {
+    if (isCheckingOut) return;
+    if (paidCard) {
+      showToast("Can't switch sales", 'A card has already been paid for this cart. Complete the sale first.', undefined, 'error');
+      return;
+    }
+    const hadCart = cart.length > 0;
+    const res = resumeHeld(id, saleExtras());
+    if (!res) return;
+    if (res.changed < 0) {
+      showToast('Still on hold', 'None of its items are in stock now. Restock, or remove the held sale.', undefined, 'error');
+      return;
+    }
+    resetSaleForm();
+    const x = res.extras ?? {};
+    if (typeof x.note === 'string') setNote(x.note);
+    if (x.cartDiscountType === 'percent' || x.cartDiscountType === 'amount') setCartDiscountType(x.cartDiscountType);
+    if (typeof x.cartDiscountValue === 'number') setCartDiscountValue(x.cartDiscountValue);
+    if (typeof x.isDelivery === 'boolean') setIsDelivery(x.isDelivery && deliveriesOn);
+    if (typeof x.deliveryFee === 'number') setDeliveryFee(x.deliveryFee);
+    if (x.deliveryMode === 'charged' || x.deliveryMode === 'rider_collects' || x.deliveryMode === 'free') setDeliveryMode(x.deliveryMode as DeliveryMode);
+    if (typeof x.riderName === 'string') setRiderName(x.riderName);
+    if (typeof x.selectedRiderId === 'string') setSelectedRiderId(x.selectedRiderId);
+    if (typeof x.deliveryLocation === 'string') setDeliveryLocation(x.deliveryLocation);
+    if (typeof x.paymentMethod === 'string') setPaymentMethod(x.paymentMethod as PaymentMethod);
+    if (res.changed > 0) {
+      showToast('Cart updated', `${res.changed} ${res.changed === 1 ? 'line was' : 'lines were'} changed to today's price or stock.`, undefined, 'info');
+    } else if (hadCart) {
+      showToast('Sales swapped', 'The cart you had is now on hold.', undefined, 'success');
+    }
+  };
+
   const handleCheckout = async (cardArg?: CardChargeResult) => {
     if (isCheckingOut) return;
     // A code must be good before any card is charged.
@@ -419,6 +505,15 @@ export default function POSView() {
     }
     if (promoCode && !isOnline) {
       failCheckout('Codes need an internet connection. Remove the code, or try again when you are back online.');
+      return;
+    }
+    // Money first: an M-Pesa, Airtel or bank sale is saved only with the payment's code.
+    const refProblem = paymentCodeProblem(paymentMethod, paymentRef);
+    if (refProblem) {
+      setShowRefError(true);
+      failCheckout(refProblem);
+      if (!isWide) setIsCartOpen(true);
+      setTimeout(() => document.getElementById('pos-payment-ref')?.focus(), 60);
       return;
     }
     let card: CardChargeResult | null = null;
@@ -494,6 +589,7 @@ export default function POSView() {
         isDelivery ? riderName : '',
         deliveryMode,
         promoHold,
+        needsPaymentCode(paymentMethod) ? paymentRef : '',
       );
       if (result.success && result.transaction) {
         setPaidCard(null);
@@ -519,22 +615,7 @@ export default function POSView() {
           setCheckoutSuccess(true);
         }
         setIsCartOpen(false);
-        setNote('');
-        setCartDiscountValue(0);
-        setTaxRate(businessTaxRate);
-        setIsDelivery(false);
-        setDeliveryFee(0);
-        setDeliveryMode('charged');
-        // The next sale starts on the default method again (or Credit for a pay-later customer).
-        autoCredit.current = false;
-        setPaymentMethod(defaultMethod);
-        setRiderName('');
-        setSelectedRiderId('');
-        setDeliveryLocation('');
-        setPointsToUse('');
-        setPromoCode(null);
-        setPromo(null);
-        setPromoInput('');
+        resetSaleForm();
 
         // Send a professional toast popup notification on completed checkout action
         showToast(
@@ -602,6 +683,11 @@ export default function POSView() {
         if (methods[k] && (methods[k] === 'Credit_Debt' || enabledMethods.includes(methods[k] as MoneyMethod))) return done(), setPaymentMethod(methods[k]);
         const code = e.code;
         if (code === 'KeyD' && deliveriesOn) return done(), setIsDelivery((v) => !v);
+        if (code === 'KeyH') {
+          done();
+          holdCurrentSale();
+          return;
+        }
         if (code === 'KeyQ') {
           done();
           if (cart.length > 0 && hasRolePermission(currentEmployee?.role || 'Guest', 'quotes.manage' as any)) setQuoting(true);
@@ -693,6 +779,17 @@ export default function POSView() {
                   </button>
                 )}
                 <button
+                  type="button"
+                  onClick={holdCurrentSale}
+                  disabled={cart.length === 0 || isCheckingOut}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 disabled:opacity-30 text-app-text hover:bg-app-bg rounded-xl ring-1 ring-app-border text-[11px] font-medium transition cursor-pointer"
+                  data-shortcut="pos-hold"
+                  title="Hold this sale and serve the next customer (Alt+H)"
+                  aria-label="Hold this sale"
+                >
+                  <PauseCircle size={14} /> Hold
+                </button>
+                <button
                   onClick={clearCart}
                   disabled={cart.length === 0}
                   data-shortcut="pos-clear"
@@ -706,6 +803,42 @@ export default function POSView() {
 
               {/* Drawer Body - Scrollable Items List */}
               <div className="@container flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                {heldSales.length > 0 && (
+                  <div className="flex flex-col gap-1.5" aria-label="Sales on hold">
+                    <p className="text-[11px] font-medium text-app-text-muted">On hold · tap to resume</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {heldSales.map((h) => {
+                        const items = h.cart.reduce((n, i) => n + i.quantity, 0);
+                        const confirming = dropConfirm === h.id;
+                        return (
+                          <div key={h.id} className="inline-flex items-center rounded-xl ring-1 ring-amber-500/40 bg-amber-500/10 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => resumeHeldSale(h.id)}
+                              disabled={isCheckingOut}
+                              className="pl-2.5 pr-1.5 py-1.5 text-app-text font-medium cursor-pointer disabled:opacity-40"
+                              title={`Held at ${new Date(h.heldAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                            >
+                              {titleCase(h.label)} · {items} {items === 1 ? 'item' : 'items'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirming) { dropHeld(h.id); setDropConfirm(null); }
+                                else setDropConfirm(h.id);
+                              }}
+                              onBlur={() => confirming && setDropConfirm(null)}
+                              className={`px-1.5 py-1.5 rounded-r-xl cursor-pointer ${confirming ? 'text-red-600 font-semibold' : 'text-app-text-muted hover:text-red-500'}`}
+                              aria-label={confirming ? 'Tap again to throw this held sale away' : 'Throw this held sale away'}
+                            >
+                              {confirming ? 'Remove?' : <X size={12} />}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {/* Cart Items Checklist with themed cards */}
                 <div className="flex flex-col gap-2">
                   {cart.length === 0 && (
@@ -920,6 +1053,17 @@ export default function POSView() {
                       ))}
                     </div>
                   </div>
+
+                  {needsPaymentCode(paymentMethod) && cart.length > 0 && (
+                    <PaymentCodeField
+                      id="pos-payment-ref"
+                      method={paymentMethod}
+                      amount={finalTotal}
+                      value={paymentRef}
+                      onChange={(v) => { setPaymentRef(v); setCheckoutError(null); }}
+                      showError={showRefError}
+                    />
+                  )}
 
                   <div data-shortcut="pos-note" className="flex flex-col gap-1.5">
                     <label htmlFor="pos-note" data-kbd-here className="text-[11px] font-semibold text-app-text-muted">
@@ -1384,7 +1528,7 @@ export default function POSView() {
                     </>
                   ) : (
                     <span className="flex items-center gap-2">
-                      {paymentMethod === 'Card' && !paidCard ? 'Charge card' : 'Complete sale'} · {formatCurrency(finalTotal)}
+                      {paymentMethod === 'Card' && !paidCard ? 'Charge card' : needsPaymentCode(paymentMethod) && !paymentRef.trim() ? 'Enter the code to finish' : 'Complete sale'} · {formatCurrency(finalTotal)}
                       {isWide && <kbd className="px-1.5 py-0.5 rounded bg-slate-950/15 text-[10px] font-mono">F9</kbd>}
                     </span>
                   )}
@@ -1559,12 +1703,12 @@ export default function POSView() {
                   DATE: {new Date().toLocaleDateString()}
                 </span>
                 <span className="text-app-text block font-bold text-amber-500 text-xs border-t border-app-border/40 pt-1 mt-1.5">
-                  Total: {formatCurrency(finalTotal)}
+                  Total: {formatCurrency(lastTx?.finalTotal ?? finalTotal)}
                 </span>
               </div>
 
-              {lastTx && isOnline && (
-                <SalePromptButton key={lastTx.id} sale={lastTx} className="w-full mb-2" />
+              {lastTx?.paymentRef && (
+                <p className="text-[11px] text-app-text-muted mb-2">Paid with code {lastTx.paymentRef}</p>
               )}
               <div className="w-full flex gap-2">
                 <button

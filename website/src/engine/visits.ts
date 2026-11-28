@@ -1,7 +1,7 @@
 // The private visit counter (website engine phase 7, 20261208001). For each page opened the
 // website sends only what kind of page it is and, for the first page of a visit, what kind of
-// place the visitor came from. No address, no visitor id, nothing stored in the browser, no
-// cookie. Plain logic here so the app's tests can check it.
+// place the visitor came from. Visitors who accept statistics cookies are also kept in a visit
+// history by random ids (visitorCookies.ts, 20261217002). Plain logic here so tests can check it.
 import { INFO_PAGES } from '../infoPages';
 
 /** Kinds of page counted. Keep in step with website_visit_daily.page (20261208001). */

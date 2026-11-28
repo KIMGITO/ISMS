@@ -59,6 +59,8 @@ export interface Transaction {
   /** Promotion or referral code used on the sale, and the part of `discount` it gave (set by the database). */
   promotionCode?: string;
   promotionDiscount?: number;
+  /** Code of the money that paid (M-Pesa / Airtel code, bank reference). Required for those methods. */
+  paymentRef?: string;
 }
 
 /**

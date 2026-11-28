@@ -185,6 +185,8 @@ export const deliverRegularOrders = (businessId: string, d: {
   /** Made once when the sheet opens, so a double tap or retry records one sale. */
   referenceId: string;
   note: string;
+  /** M-Pesa / Airtel code or bank reference: required for those methods (money first, 20261217001). */
+  paymentRef?: string;
 }) =>
   rpc<string>('deliver_regular_orders', {
     p_business_id: toUuid(businessId),
@@ -196,6 +198,7 @@ export const deliverRegularOrders = (businessId: string, d: {
     p_rider_pay: d.riderPay,
     p_reference_id: d.referenceId,
     p_note: d.note,
+    p_payment_ref: d.paymentRef || null,
   });
 
 export const saveRingTime = (businessId: string, ringAt: string) =>

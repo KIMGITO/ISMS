@@ -306,13 +306,18 @@ function defaultText(id: InfoPageId, site: Storefront): string {
 
     case 'cookies':
       return lines(
-        'This website does not use advertising or tracking cookies. It saves a few things on your device so the shop works for you.',
+        'This website does not use advertising cookies. It saves a few things on your device so the shop works for you, and, only if you allow it, statistics cookies that show the shop how visitors use the website.',
         '## What we save on your device',
         '- **Your cart**, so it is still there when you come back.',
         '- **Saved items and recently viewed products**, shown only to you on this device.',
         '- **Your sign-in**, so you stay signed in. Signing out removes it.',
-        '- **That you have seen our storage notice**, so it doesn\'t keep appearing.',
+        '- **Your cookie choice** (kk_consent, 6 months), so we don\'t ask again.',
         'These are needed for the site to work, so they don\'t need consent. You can clear them any time in your browser settings; you will then be signed out and your cart will empty.',
+        '## Statistics cookies (only with your OK)',
+        '- **kk_vid** (13 months): a random number for this browser, so a second visit is known to be the same visitor.',
+        '- **kk_sid** (30 minutes): a random number for this visit.',
+        'With them we keep which pages of this website you opened and when, and where the visit came from (a search engine, social media, another website or typed in). We keep no name, phone number, IP address or device details with them; if you are signed in, the visit is linked to your account here. The shop uses this to see how many people visit, how many come back and which pages help. It is kept 13 months and never sold or used for adverts.',
+        'Choose "Needed only" in the box on this page to stop them; the numbers already set are removed straight away.',
         '## Content from other services',
         'Our fonts are loaded from Google Fonts and some photos from Unsplash. Your browser connects to those services to fetch them, which shares your IP address with them, as with any website. They do not receive your account or order details.',
         '## Questions',

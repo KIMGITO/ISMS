@@ -7,7 +7,7 @@ B1=b1000000-0000-0000-0000-000000000000; EMP=e2000000-0000-0000-0000-00000000000
 BR=d3000000-0000-0000-0000-000000000000   # Bread, 50.00
 R=$$
 item(){ echo "[{\"product_id\":\"$BR\",\"product_name\":\"x\",\"quantity\":$1,\"unit_price\":50,\"discount_percentage\":0}]"; }
-sale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":$1,\"discount\":0,\"tax\":0,\"final_total\":$1,\"payment_method\":\"$3\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$2\"}'::jsonb, '$(item 2)'::jsonb)"; }
+sale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":$1,\"discount\":0,\"tax\":0,\"final_total\":$1,\"payment_method\":\"$3\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$2\",\"payment_ref\":\"PR-$2\"}'::jsonb, '$(item 2)'::jsonb)"; }
 id_of(){ grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' <<<"$1" | head -1; }
 # What the edge function does: check, then store the prompt with the sale linked.
 prompt(){ local chk; chk=$(sql "select check_sale_prompt('$B1', '$1', $2)");

@@ -90,6 +90,8 @@ export interface ReceiptContent {
   payRiderOnDelivery?: number;
   grandTotal: number;
   amountPaid: number;
+  /** Code of the money that paid (M-Pesa / Airtel code, bank reference). */
+  paymentRef?: string;
   /** Part of the bill paid from the customer's wallet (credit sales). */
   walletPaid?: number;
   balanceDue: number;

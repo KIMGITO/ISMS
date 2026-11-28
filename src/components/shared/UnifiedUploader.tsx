@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useOwnProductPictures } from "../website/OwnProductPictures";
 import { 
   Upload, Camera, Image as ImageIcon, Link as LinkIcon, X, 
-  Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2
+  Check, AlertCircle, RefreshCw as RetryIcon, ZoomIn, Move, Eraser, Undo2, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { uploadService } from "../../services/uploadService";
@@ -1432,14 +1432,10 @@ export default function UnifiedUploader({
 
                       {/* Display states (Loading, Empty, Error, Grid) */}
                       {unsplashLoading ? (
-                        /* SKELETON LOADER GRID */
-                        <div className="grid grid-cols-3 gap-2">
-                          {Array.from({ length: 12 }).map((_, i) => (
-                            <div 
-                              key={i} 
-                              className="relative w-full h-0 pb-[100%] rounded-xl bg-app-border/40 border border-app-border/10"
-                            />
-                          ))}
+                        /* LOADER: centred in the results area while Unsplash answers */
+                        <div role="status" aria-live="polite" className="h-64 flex flex-col items-center justify-center gap-2 rounded-xl border border-app-border/40 bg-app-text/5">
+                          <Loader2 size={26} className="animate-spin text-brand-500" />
+                          <p className="text-[11px] font-semibold text-app-text-muted">Searching Unsplash…</p>
                         </div>
                       ) : unsplashError ? (
                         /* ERROR STATE */

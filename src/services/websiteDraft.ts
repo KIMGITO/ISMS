@@ -107,5 +107,33 @@ export const makePreviewLink = (businessId: string) =>
 export const loadWebsiteStats = (businessId: string, days: number) =>
   call<WebsiteStats>('website_stats', { p_business_id: businessId, p_days: days });
 
+/** Visitors who accepted statistics cookies (website_visitor_stats, 20261217002). */
+export interface VisitorStats {
+  visitors: number;
+  returning: number;
+  cookieVisits: number;
+  cookiePages: number;
+  signedIn: number;
+  recent: {
+    visitor: string;
+    visits: number;
+    pages: number;
+    firstSeen: string;
+    lastSeen: string;
+    signedIn: boolean;
+    trail: { page: string; path: string | null; at: string }[];
+  }[];
+}
+
+/** Null on a database without the visit history yet (the screen then leaves it out). */
+export const loadVisitorStats = async (businessId: string, days: number): Promise<VisitorStats | null> => {
+  const { data, error } = await getSupabase().rpc('website_visitor_stats', { p_business_id: businessId, p_days: days });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') return null; // function not there yet
+    throw error;
+  }
+  return data as VisitorStats;
+};
+
 /** Someone else saved first: the screen offers Reload instead of an error. */
 export const isConflict = (err: unknown) => /Someone else saved the website/.test(String((err as { message?: string })?.message ?? ''));

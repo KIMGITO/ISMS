@@ -2,6 +2,8 @@
 // set up / change an order (a quantity per weekday), mark a customer's day delivered (one sale),
 // change or skip one day (with a message for the customer), and approve what a customer asked for.
 import React, { useMemo, useState } from 'react';
+import PaymentCodeField from '../payments/PaymentCodeField';
+import { needsPaymentCode, paymentCodeProblem } from '../../utils/paymentProof';
 import { Check, MessageCircle, Smartphone, Trash2, X } from 'lucide-react';
 import { FormSheet, Field, fieldClass, primaryBtn, secondaryBtn, dangerBtn } from '../shared/FormSheet';
 import { NumberInput } from '../shared/Input';
@@ -185,6 +187,8 @@ export function DeliverSheet({ businessId, day, today, entry, onClose, onDone }:
   const [rider, setRider] = useState('');
   const [riderPay, setRiderPay] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paymentRef, setPaymentRef] = useState('');
+  const [refTried, setRefTried] = useState(false);
   const [reference] = useState(() => `reg-${newUuid()}`);
   const delivering = open.some((i) => i.order.fulfilment === 'delivery');
   const total = open.reduce((s, i) => s + (qty[i.order.id] || 0) * i.order.price, 0);
@@ -193,10 +197,17 @@ export function DeliverSheet({ businessId, day, today, entry, onClose, onDone }:
   const save = async () => {
     const lines = open.map((i) => ({ orderId: i.order.id, quantity: qty[i.order.id] || 0 })).filter((l) => l.quantity > 0);
     if (lines.length === 0) return toast('Nothing to record', 'Enter what was delivered, or skip the day instead.', 'error');
+    // Money first: an M-Pesa, Airtel or bank day needs the payment's code.
+    const refProblem = paymentCodeProblem(payment, paymentRef);
+    if (refProblem) {
+      setRefTried(true);
+      return toast('Record the money first', refProblem, 'error');
+    }
     setBusy(true);
     try {
       await deliverRegularOrders(businessId, {
         customerId: entry.customerId, day, lines, payment, riderName: rider.trim(), riderPay: riderPay || 0, referenceId: reference, note: '',
+        paymentRef: needsPaymentCode(payment) ? paymentRef : undefined,
       });
       toast('Delivered', `${entry.name}: ${formatCurrency(total)} recorded as a sale.`);
       onDone();
@@ -235,6 +246,9 @@ export function DeliverSheet({ businessId, day, today, entry, onClose, onDone }:
           value={payment} onChange={setPayment} size="sm" ariaLabel="Paid how"
         />
       </Field>
+      {needsPaymentCode(payment) && (
+        <PaymentCodeField method={payment} amount={total} value={paymentRef} onChange={setPaymentRef} showError={refTried} />
+      )}
       {payment === 'Credit_Debt' && (
         <p className="text-xs text-app-text-muted">
           {wallet > 0 ? `Their wallet (${formatCurrency(wallet)}) pays first; the rest goes on their debt.` : 'Goes on their debt, to pay later.'}

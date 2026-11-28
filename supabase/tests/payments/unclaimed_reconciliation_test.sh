@@ -8,7 +8,7 @@ B1=b1000000-0000-0000-0000-000000000000; EMP=e2000000-0000-0000-0000-00000000000
 BR=d3000000-0000-0000-0000-000000000000
 R=$$
 item(){ echo "[{\"product_id\":\"$BR\",\"product_name\":\"x\",\"quantity\":$1,\"unit_price\":50,\"discount_percentage\":0}]"; }
-msale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":$1,\"discount\":0,\"tax\":0,\"final_total\":$1,\"payment_method\":\"M-Pesa\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$2\"}'::jsonb, '$(item $3)'::jsonb)"; }
+msale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":$1,\"discount\":0,\"tax\":0,\"final_total\":$1,\"payment_method\":\"M-Pesa\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$2\",\"payment_ref\":\"PR-$2\"}'::jsonb, '$(item $3)'::jsonb)"; }
 c2b(){ sql "select record_till_payment('{\"TransID\":\"$1\",\"TransAmount\":\"$2\",\"BusinessShortCode\":\"600000\",\"BillRefNumber\":\"\",\"MSISDN\":\"254711000$R\",\"FirstName\":\"Jane\",\"TransTime\":\"$(TZ=Africa/Nairobi date +%Y%m%d%H%M%S)\"}'::jsonb, '$B1')"; }
 tp(){ sql "select id from mpesa_till_payments where trans_id='$1'"; }
 st(){ sql "select status||':'||allocated from mpesa_till_payments where trans_id='$1'"; }

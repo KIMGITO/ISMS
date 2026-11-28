@@ -152,6 +152,7 @@ export function buildReceiptContent(tx: Transaction, settings: BusinessReceiptSe
     payRiderOnDelivery: tx.isDelivery && tx.deliveryMode === "rider_collects" ? round2(tx.riderPay || 0) : 0,
     grandTotal,
     amountPaid: credit ? 0 : grandTotal,
+    paymentRef: credit ? undefined : tx.paymentRef || undefined,
     walletPaid,
     balanceDue: owed,
     note: tx.note || undefined,

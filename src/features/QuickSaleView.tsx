@@ -10,7 +10,9 @@ import { MoneyMethod, PaymentMethod, Product, Transaction } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { ReceiptSheet } from '../components/receipts/ReceiptSheet';
 import { SaleCustomerPicker } from '../components/SaleCustomerPicker';
-import SalePromptButton from '../components/payments/SalePromptButton';
+import PaymentCodeField from '../components/payments/PaymentCodeField';
+import { useCartStore } from '../stores/cartStore';
+import { needsPaymentCode, paymentCodeProblem } from '../utils/paymentProof';
 import { ReceiptService } from '../services/receipt/ReceiptService';
 import { formatCurrency } from '../utils/helpers';
 import { QTY_DECIMALS, roundQty, formatQty } from '../utils/money';
@@ -118,6 +120,11 @@ export default function QuickSaleView() {
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
   const [isPaying, setIsPaying] = useState(false);
+  // Money first: M-Pesa, Airtel and bank ask for the payment's code before the sale is saved.
+  const [codeFor, setCodeFor] = useState<PaymentMethod | null>(null);
+  const [codeDraft, setCodeDraft] = useState('');
+  const [codeTried, setCodeTried] = useState(false);
+  const holdSale = useCartStore((s) => s.holdSale);
   const [error, setError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<{ total: number; method: string; tx?: Transaction; offline?: boolean } | null>(null);
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
@@ -235,14 +242,33 @@ export default function QuickSaleView() {
     setEditing({ ...current, draft: qtyText(next) });
   };
 
-  const pay = async (method: PaymentMethod) => {
+  const closeCode = () => {
+    setCodeFor(null);
+    setCodeDraft('');
+    setCodeTried(false);
+  };
+
+  const pay = async (method: PaymentMethod, paymentRef = '') => {
     if (cart.length === 0 || isPaying) return;
+    if (needsPaymentCode(method) && codeFor !== method) {
+      // Ask for the code first; nothing is saved until it is typed.
+      setError(null);
+      setCodeFor(method);
+      setCodeDraft('');
+      setCodeTried(false);
+      return;
+    }
+    if (paymentCodeProblem(method, paymentRef)) {
+      setCodeTried(true);
+      return;
+    }
     setIsPaying(true);
     setError(null);
     const saleTotal = total;
     try {
-      const result = await checkout(method, '', taxRate);
+      const result = await checkout(method, '', taxRate, 'percent', 0, false, 0, '', 'charged', null, paymentRef);
       if (result.success) {
+        closeCode();
         setLastSale({ total: saleTotal, method, tx: result.transaction, offline: result.offline });
         if (result.transaction && activeBusinessId && ReceiptService.getSettings(activeBusinessId).autoPrint) {
           setReceiptAutoPrint(true);
@@ -401,9 +427,6 @@ export default function QuickSaleView() {
             )}
           </motion.div>
         )}
-        {lastSale?.tx && !lastSale.offline && cart.length === 0 && (
-          <SalePromptButton key={lastSale.tx.id} sale={lastSale.tx} className="mx-2 md:mx-3 mb-2" />
-        )}
         {/* Quick sales skip the customer; this puts the sale on their account afterwards. */}
         {lastSale?.tx && cart.length === 0 && !lastSale.tx.customerId && (
           <SaleCustomerPicker
@@ -476,6 +499,43 @@ export default function QuickSaleView() {
               <span className="text-sm text-app-text-muted">Total{taxRate > 0 ? ' incl. tax' : ''}</span>
               <span className="text-2xl font-bold text-app-text">{formatCurrency(total)}</span>
             </div>
+            {codeFor ? (
+              <form
+                className="space-y-2"
+                onSubmit={(e) => { e.preventDefault(); void pay(codeFor, codeDraft); }}
+              >
+                <PaymentCodeField
+                  id="quick-payment-ref"
+                  method={codeFor}
+                  amount={total}
+                  value={codeDraft}
+                  onChange={setCodeDraft}
+                  showError={codeTried}
+                  autoFocus
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={closeCode} disabled={isPaying}
+                    className="py-2.5 rounded-lg ring-1 ring-app-border text-sm text-app-text cursor-pointer disabled:opacity-60">
+                    Back
+                  </button>
+                  <button type="button" disabled={isPaying}
+                    onClick={() => {
+                      // Not paid yet: put the cart aside (resume it in POS) and serve the next customer.
+                      if (holdSale()) {
+                        closeCode();
+                        showToast('Sale on hold', 'Resume it from the held list in POS when the money arrives.', undefined, 'success');
+                      }
+                    }}
+                    className="py-2.5 rounded-lg ring-1 ring-amber-500/50 text-sm text-app-text cursor-pointer disabled:opacity-60">
+                    Hold
+                  </button>
+                  <button type="submit" disabled={isPaying}
+                    className="py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold cursor-pointer disabled:opacity-60">
+                    {isPaying ? 'Saving…' : 'Save sale'}
+                  </button>
+                </div>
+              </form>
+            ) : (
             <div className={`grid gap-2 ${payOptions.length >= 4 ? 'grid-cols-2' : payOptions.length === 3 ? 'grid-cols-3' : payOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {payOptions.length === 0 && (
                 <p className="text-xs text-app-text-muted py-2 text-center">No payment methods are on. Use POS.</p>
@@ -494,6 +554,7 @@ export default function QuickSaleView() {
                 </button>
               ))}
             </div>
+            )}
             <button
               type="button"
               onClick={clearCart}

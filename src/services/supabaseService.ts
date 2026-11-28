@@ -148,6 +148,7 @@ export class SupabaseService {
         rider_pay: tx.isDelivery ? tx.riderPay || 0 : 0,
         rider_name: tx.riderName,
         reference_id: tx.referenceId || null,
+        payment_ref: tx.paymentRef || null,
         promotion_redemption_id: promotionRedemptionId,
       },
       p_items: tx.items.map((item) => ({

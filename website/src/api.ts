@@ -488,6 +488,18 @@ export function recordView(slug: string, page: string, source: string, landing: 
 }
 
 /**
+ * Same count, plus the page in the visitor's history: only for a visitor who accepted statistics
+ * cookies (20261217002). Sends the two random cookie ids and the page address without its query.
+ */
+export function recordVisit(slug: string, page: string, source: string, landing: boolean,
+  ids: { visitor: string; visit: string }, path: string): void {
+  supabase.rpc('record_website_visit', {
+    p_slug: slug, p_page: page, p_source: source, p_landing: landing,
+    p_visitor: ids.visitor, p_session: ids.visit, p_path: path.split(/[?#]/)[0].slice(0, 200), p_consent: true,
+  }).then(() => undefined, () => undefined);
+}
+
+/**
  * The shop's data the website Worker put in the page (render.ts renderRoute), so the first screen
  * draws without waiting for a request. Only for the shop at this address, never on a preview link
  * (that shows the draft) or for another branch picked on this device. Read once; the app still
