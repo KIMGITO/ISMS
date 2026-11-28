@@ -1,0 +1,31 @@
+{
+  "version": "1.9.3",
+  "notes": "### Fixes and improvements\n\n- website falls back to the plain counter when the visit history isn't in the database yet (a9b5088)\n\n**Full changelog:** https://github.com/KIMGITO/ISMS/compare/v1.9.2...v1.9.3",
+  "pub_date": "2026-11-28T18:55:18.174Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN09vMVRXOE5vNkM5cm1tRzlBcGlIZnhnMWlrUVIzazR1eVVXTlpmQ2NpU3FGTmdVeGhTYjBhc2FwUnQ2SDl5ckxXa2x5ZGg3bnkrRVhmRmpkUmRkREFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1ODkyMDk5CWZpbGU6RGVuc29fMS45LjNfeDY0X2VuLVVTLm1zaQl2ZXJzaW9uOjEuOS4zCnhHempaNE1CMkwyR0Fnc2NadTltVEVJVFRnNXdieU8vUFNjdTA2bE9XdEFwSmsxelpkOGVXZEtYbE1NSmhjR0FiUVl0bW96RUxEY01vV08vVEtZQUFBPT0K",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-windows-x64-setup.msi"
+    },
+    "windows-x86_64-msi": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN09vMVRXOE5vNkM5cm1tRzlBcGlIZnhnMWlrUVIzazR1eVVXTlpmQ2NpU3FGTmdVeGhTYjBhc2FwUnQ2SDl5ckxXa2x5ZGg3bnkrRVhmRmpkUmRkREFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1ODkyMDk5CWZpbGU6RGVuc29fMS45LjNfeDY0X2VuLVVTLm1zaQl2ZXJzaW9uOjEuOS4zCnhHempaNE1CMkwyR0Fnc2NadTltVEVJVFRnNXdieU8vUFNjdTA2bE9XdEFwSmsxelpkOGVXZEtYbE1NSmhjR0FiUVl0bW96RUxEY01vV08vVEtZQUFBPT0K",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-windows-x64-setup.msi"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN1BnNGR6NlM2UTZYYUgwTDRTclhCZ2dNa05UcUJ0aW9tTDJPckcrWmpRK0p2K0hQZ0toSGtrNUtCZW5wbVFsdVI1MUVXOEN0SXZFNWh2UlJSVkxXNkFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1ODkyMDY0CWZpbGU6RGVuc29fMS45LjNfYW1kNjQuQXBwSW1hZ2UJdmVyc2lvbjoxLjkuMwpkWGpNd2dKamRZZFpaeEJUbno3SXk1S0VmYTRFcklUL0JDUnR1QTFGeHBOK3dzcEZUMUJvbGwwR0h0aEV3STMzUGZqSEJRVG1sL0crRVhyU3NneVRDUT09Cg==",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-linux-x86_64.AppImage"
+    },
+    "linux-x86_64-appimage": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN1BnNGR6NlM2UTZYYUgwTDRTclhCZ2dNa05UcUJ0aW9tTDJPckcrWmpRK0p2K0hQZ0toSGtrNUtCZW5wbVFsdVI1MUVXOEN0SXZFNWh2UlJSVkxXNkFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1ODkyMDY0CWZpbGU6RGVuc29fMS45LjNfYW1kNjQuQXBwSW1hZ2UJdmVyc2lvbjoxLjkuMwpkWGpNd2dKamRZZFpaeEJUbno3SXk1S0VmYTRFcklUL0JDUnR1QTFGeHBOK3dzcEZUMUJvbGwwR0h0aEV3STMzUGZqSEJRVG1sL0crRVhyU3NneVRDUT09Cg==",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-linux-x86_64.AppImage"
+    },
+    "linux-x86_64-deb": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2RTZ1NOQzgyN0tkZVBQUDBicTBQbzQ1OU1udTNxbkZNQ25MbTY3eWVzZXNpeHgwbjVGVDdFcHFzYXBpWm8wM1dDS2U0NE9GSjZ3aW1VSk5nQzRORWxyVE55UVpBMHdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1ODkyMDY0CWZpbGU6RGVuc29fMS45LjNfYW1kNjQuZGViCXZlcnNpb246MS45LjMKYmxXT0JsUCttMW9TaWo5aDNHdW11RTlDa0Rmd084QTMxRG8rMnN6Y3BJMXZtb0psUFJ0T010WG5QcU11UjFaWE1zVUEzS0d2WGV2NTM3UEV1Y2dpQ2c9PQo=",
+      "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-linux-amd64.deb"
+    }
+  },
+  "android": {
+    "url": "https://github.com/KIMGITO/kaykays-releases/releases/download/v1.9.3/Denso-1.9.3-android.apk",
+    "sha256": "bf003e12f8adbdc843eb715a05d14a2b1553fb5683fc068a9e5f90843419a0bb"
+  }
+}
