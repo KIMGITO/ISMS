@@ -372,23 +372,6 @@ export interface Supplier {
   created_at?: string;
 }
 
-export interface BackupConfig {
-  googleSheetUrl: string;
-  googleServiceAccount: string;
-  schedule: string; // "nightly_12am" | "nightly_3am" | "every_12h"
-  enabled: boolean;
-}
-
-export interface BackupHistoryLog {
-  id: string;
-  timestamp: string;
-  type: "manual" | "auto";
-  status: "success" | "failed";
-  error?: string;
-  retries: number;
-  details?: Record<string, number>;
-}
-
 export interface CustomerLedgerEntry {
   id: string;
   businessId: string;

@@ -27,12 +27,10 @@ import {
 } from '../../services/messaging/messageVariables';
 import { visibleGroups, groupById } from '../../services/messaging/customerGroups';
 
-type SendMode = 'auto' | 'whatsapp' | 'sms' | 'email' | 'manual';
+type SendMode = 'email' | 'manual';
 type Purpose = 'service' | 'promotion';
 type ChatLine = { role: 'user' | 'assistant'; content: string };
 
-/** One SMS holds 160 plain characters; longer ones go as 153-character parts. */
-const smsParts = (length: number) => (length <= 160 ? 1 : Math.ceil(length / 153));
 const fieldLabel = 'block text-xs font-medium text-app-text-muted mb-1';
 const GROUP_ORDER: VariableGroup[] = ['Customer', 'Money', 'Points', 'Buying', 'Shop'];
 
@@ -76,7 +74,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
   const canSend = role ? hasRolePermission(role, 'communication.send') : false;
   const canUseAi = role ? hasRolePermission(role, 'ai.use') : false;
 
-  const [sendMode, setSendMode] = useState<SendMode>('auto');
+  const [sendMode, setSendMode] = useState<SendMode>('manual');
   const [purpose, setPurpose] = useState<Purpose>('service');
   const [template, setTemplate] = useState('Hello {first_name}, ');
   const [manualQueue, setManualQueue] = useState<Customer[]>([]);
@@ -116,7 +114,6 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
   const previewCustomer = previewList[Math.min(previewIdx, Math.max(0, previewList.length - 1))] ?? sample;
   useEffect(() => setPreviewIdx(0), [recipients.length]);
   const preview = fillMessage(template, previewCustomer, ctx);
-  const parts = smsParts(preview.length);
   const unknown = unknownVariables(template, ctx);
   const blanks = emptyFor(template, reachable, ctx);
 
@@ -220,27 +217,17 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
     }
   };
 
-  const sendThrough = async (channel: 'whatsapp' | 'sms' | 'email', customer: Customer, body: string): Promise<boolean> => {
-    if (channel === 'email') {
-      if (!customer.email || customer.email === 'no-email@kaykays.com') return false;
-      const result = await SupabaseService.callEdgeFunction('send-email', {
-        to: customer.email,
-        type: 'customer_message',
-        variables: { body },
-        businessId: activeBusinessId,
-        purpose,
-      });
-      return result?.success !== false;
-    }
-    if (!customer.phone) return false;
-    const result = await SupabaseService.callEdgeFunction(channel === 'whatsapp' ? 'whatsapp-config' : 'sms-config', {
-      action: 'send',
+  // Email is the only automatic channel. WhatsApp messages are sent by hand (each chat opens).
+  const sendThrough = async (customer: Customer, body: string): Promise<boolean> => {
+    if (!customer.email || customer.email === 'no-email@kaykays.com') return false;
+    const result = await SupabaseService.callEdgeFunction('send-email', {
+      to: customer.email,
+      type: 'customer_message',
+      variables: { body },
       businessId: activeBusinessId,
-      to: customer.phone,
-      body,
       purpose,
     });
-    return !!result?.success;
+    return result?.success !== false;
   };
 
   const send = async () => {
@@ -261,13 +248,12 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
     if (reachable.length > 1) {
       const ok = await appDialog.confirm({
         title: `Send to ${reachable.length} customers?`,
-        message: `Each gets their own copy${sendMode === 'auto' ? ' by WhatsApp, or SMS if WhatsApp fails' : ''}.`,
+        message: 'Each gets their own copy by email.',
         confirmLabel: 'Send',
       });
       if (!ok) return;
     }
-    // Automatic tries WhatsApp then SMS. Whoever can't be reached goes to the by-hand list.
-    const channels: ('whatsapp' | 'sms' | 'email')[] = sendMode === 'auto' ? ['whatsapp', 'sms'] : [sendMode];
+    // Whoever can't be reached by email goes to the by-hand list.
     const recipientsNow = reachable;
     const unsent: Customer[] = [];
     let sent = 0;
@@ -275,13 +261,10 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
     try {
       for (const customer of recipientsNow) {
         let delivered = false;
-        for (const channel of channels) {
-          try {
-            delivered = await sendThrough(channel, customer, fillMessage(template, customer, ctx));
-          } catch (err) {
-            console.error(`Sending by ${channel} failed:`, err);
-          }
-          if (delivered) break;
+        try {
+          delivered = await sendThrough(customer, fillMessage(template, customer, ctx));
+        } catch (err) {
+          console.error('Sending by email failed:', err);
         }
         if (delivered) sent++;
         else unsent.push(customer);
@@ -435,7 +418,7 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
             {showAllVars ? 'Less' : 'More'} <ChevronRight size={12} className={`transition ${showAllVars ? '-rotate-90' : 'rotate-90'}`} />
           </button>
           <span className="ml-auto text-[11px] text-app-text-muted tabular-nums">
-            {preview.length} chars{(sendMode === 'auto' || sendMode === 'sms') && parts > 1 ? ` · ${parts} SMS` : ''}
+            {preview.length} chars
           </span>
         </div>
 
@@ -577,11 +560,8 @@ export function BulkMessageComposer({ recipients, ctx, onCustomChange, audience,
           <span className={fieldLabel}>Send by</span>
           <SearchableDropdown
             items={[
-              { id: 'auto', label: 'Automatic', sublabel: 'WhatsApp, else SMS' },
-              { id: 'whatsapp', label: 'WhatsApp' },
-              { id: 'sms', label: 'SMS' },
+              { id: 'manual', label: 'WhatsApp by hand', sublabel: 'You open each chat' },
               { id: 'email', label: 'Email' },
-              { id: 'manual', label: 'By hand', sublabel: 'You open each chat' },
             ]}
             selectedValue={sendMode}
             onChange={(v) => setSendMode(v as SendMode)}

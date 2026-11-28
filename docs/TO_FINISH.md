@@ -6,12 +6,31 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Payment messages: only when confirmed, only to the sale maker (2026-11-28)
+
+An M-Pesa sale no longer says "Payment received" when it is saved. "M-Pesa payment received" comes only after the money is confirmed (STK prompt paid, till payment with the receipt number, or staff matching a till payment to the sale, which sent nothing before). Sale and debt money messages (payment received, credit sale, debt payment) go only to the person who made the sale or recorded the payment, never to the Owner or other staff. A prompt not tied to a sale goes only to whoever sent it. Payments nobody started (paid to a customer's account number, or waiting to be assigned) still go to the team. Migration `20261214002_mpesa_received_confirmed_sale_maker.sql`; test `supabase/tests/payments/payment_message_recipient_test.sh` (15 checks pass; the other 4 payment tests still pass).
+
+1. [ ] Apply the database change first (the function below writes the new column): `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`.
+2. [ ] Deploy the function: `npx supabase functions deploy mpesa-payments`.
+3. [ ] Release the app (web deploy and next app version).
+4. [ ] **You:** on sandbox, make an M-Pesa sale with an STK prompt. No "payment received" message should show until you enter the PIN on the phone; after that, only the cashier who made the sale gets it (the Owner's phone gets nothing). Cancel a second prompt: no message at all.
+5. [ ] **You:** make a Cash sale and a Credit sale as a cashier. The cashier gets the message; the Owner does not.
+
+## Export data replaces Sheets backup; SMS and WhatsApp connections removed (2026-11-28)
+
+Settings → Export data builds one Excel workbook (Summary, Charts, Daily sales, Sales, Product sales, Items sold, Expenses, Customer payments, Supplier payments, Products and stock, Customers, Profit and loss, Books) for a chosen period (30 days by default). It shows progress, and Retry carries on from the step that failed. The Google Sheets backup, the hourly backup job, and the Twilio SMS and WhatsApp Cloud connections are gone. Bulk messages go by email or WhatsApp by hand. Migration `20261214001_drop_sheets_sms_whatsapp.sql`.
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. `SELECT jobname FROM cron.job;` should no longer list `run-due-backups`.
+2. [ ] Delete the old functions on live: `npx supabase functions delete backup-config`, `npx supabase functions delete sms-config`, `npx supabase functions delete whatsapp-config`. `npx supabase functions list` should no longer show them.
+3. [ ] In the web app, open Settings → Export data, keep 30 days and press Export. The bar should fill and a `.xlsx` should download. In Excel, the Summary sheet's Profit (books) should match Finance → Profit and loss for the same dates.
+4. [ ] **You:** run the same export on the Android phone and the Windows app. The file should save (Documents on Android) and open. Turn on airplane mode halfway through: an error should show, and Retry should finish once you are back online.
+
 ## Unclaimed Payments reconciliation (2026-11-28)
 
 Till payments can be split over sales or partly claimed, flagged (under review, disputed, reversed), and every step is kept in an append-only history. Header indicator on every screen. Migration `20261213001_unclaimed_reconciliation.sql`; test `supabase/tests/payments/unclaimed_reconciliation_test.sh` (47 checks pass on the test DB).
 
 1. [ ] Apply the database change: `bash scripts/db-push.sh` (or `npx supabase db push`), then `bash scripts/check-live-grants.sh`. It should list `mpesa_till_allocations` and `mpesa_till_payment_events` as SELECT for authenticated.
-2. [ ] Release the app (web deploy and next app version). The Inbox icon should show in the top bar next to the bell for staff with M-Pesa or payment-checking rights.
+2. [x] (2026-11-28, v1.8.0) Release the app (web deploy and next app version). The Inbox icon should show in the top bar next to the bell for staff with M-Pesa or payment-checking rights.
 3. [ ] **You:** on sandbox, pay the till without an account reference. Within seconds the Inbox count should go up by 1 on another open device without reloading.
 4. [ ] **You:** open it, give part of it to an M-Pesa sale, then the rest to another. It should show "Partly claimed" after the first and disappear from the count after the second; History lists both with your name.
 5. [ ] **You:** check the screen on a phone and a tablet: rows stack, no sideways scrolling, details open full screen.

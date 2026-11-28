@@ -245,6 +245,8 @@ Deno.serve(async (req) => {
         account_reference: accountRef,
         description,
         requested_by: await staffName(),
+        // Only this person is told when the money arrives (20261214002).
+        requested_user_id: userId,
       }).select("id, checkout_request_id").single();
       if (error) throw error;
 

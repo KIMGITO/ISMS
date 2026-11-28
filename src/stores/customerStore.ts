@@ -11,6 +11,7 @@ import { getSupabase } from "../services/supabaseClient";
 import { NotificationService } from "../services/notifications/notificationService";
 import { formatCurrency } from '../utils/helpers';
 import { moneyNumber } from '../utils/money';
+import { useAuthStore } from "./authStore";
 
 interface CustomerState {
   customers: Customer[];
@@ -184,7 +185,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => {
         },
         {
           title: `Debt payment from ${cust.name}`,
-          role: "Owner",
+          // Only the person who recorded it sees this (2026-11-28), not the Owner or other staff.
+          userId: useAuthStore.getState().currentEmployee?.id ?? useAuthStore.getState().currentUser?.id ?? null,
           priority: "medium",
           payloadExtra: { customerName: cust.name, remainingDebt: newDebt }
         }

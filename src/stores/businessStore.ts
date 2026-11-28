@@ -206,7 +206,6 @@ export const useBusinessStore = create<BusinessState>((set, get) => {
         // Initialize defaults in settings tables
         await supabase.from("receipt_settings").insert({ business_id: newBizId }).select();
         await supabase.from("printer_settings").insert({ business_id: newBizId }).select();
-        await supabase.from("sms_settings").insert({ business_id: newBizId }).select();
         await supabase.from("ai_settings").insert({ business_id: newBizId }).select();
 
         const newBiz: Business = {

@@ -330,9 +330,12 @@ export const useCartStore = create<CartState>((set, get) => ({
 
       // A credit sale adds to what the customer owes; only other sales are money received.
       // Wallet money paid for part (or all) of a credit sale; only the rest is a debt.
-      // Notifying the owner happens after the till is free again (not waited for).
+      // The message is sent after the till is free again (not waited for).
       const fromWallet = isCredit ? Number(savedTx?.walletApplied) || 0 : 0;
       const onCredit = Math.max(0, Math.round((finalTotal - fromWallet) * 100) / 100);
+      // Sale money messages go only to the person who made the sale (the clocked-in user),
+      // never to the Owner or other staff (2026-11-28).
+      const saleMaker = currentEmployee.id;
       void (async () => {
       if (isCredit && selectedCustomer) {
         await useCustomerStore.getState().refreshCustomer(selectedCustomer.id).catch(() => {});
@@ -346,15 +349,18 @@ export const useCartStore = create<CartState>((set, get) => ({
             amount: moneyNumber(onCredit),
             debtBalance: moneyNumber(owes ?? (selectedCustomer.debtBalance || 0) + onCredit),
           },
-          { role: "Owner", priority: "medium", payloadExtra: { customerId: selectedCustomer.id } }
+          { userId: saleMaker, priority: "medium", payloadExtra: { customerId: selectedCustomer.id } }
         );
       } else if (isCredit && selectedCustomer) {
         NotificationService.createNotification(
           "Payment Received",
           { amount: moneyNumber(fromWallet), paymentMethod: "wallet", fromCustomer: ` from ${selectedCustomer.name}` },
-          { role: "Owner", priority: "medium" }
+          { userId: saleMaker, priority: "medium" }
         );
-      } else {
+      } else if (paymentMethod !== 'M-Pesa') {
+        // M-Pesa money is not received until it is confirmed: the server sends
+        // "M-Pesa payment received" when a prompt completes, the till payment carries the
+        // receipt number, or staff match the till payment to this sale.
         NotificationService.createNotification(
           "Payment Received",
           {
@@ -362,7 +368,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             paymentMethod: paymentMethodName(paymentMethod),
             fromCustomer: selectedCustomer ? ` from ${selectedCustomer.name}` : "",
           },
-          { role: "Owner", priority: "medium" }
+          { userId: saleMaker, priority: "medium" }
         );
       }
       })().catch((e) => console.error("Could not send the sale notification:", e?.code ?? e));
