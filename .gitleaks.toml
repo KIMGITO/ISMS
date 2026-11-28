@@ -5,8 +5,11 @@
 useDefault = true
 
 [allowlist]
-description = "localStorage key names"
+description = "localStorage key names; Safaricom's public sandbox passkey"
 regexTarget = "line"
 regexes = [
   '''\b(STORAGE_KEY|PREFS_LOCAL_KEY|localBomKey|localPurchasesKey|PATTERNS_KEY|CATALOGUE_KEY)\s*=\s*["'`][A-Za-z0-9_:.\-]+["'`]''',
+  # Safaricom's public Daraja sandbox passkey (shortcode 174379), printed in Safaricom's own
+  # docs. It was in daraja_test.ts in de228c9 before the test switched to a made-up one.
+  '''\bbfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919\b''',
 ]

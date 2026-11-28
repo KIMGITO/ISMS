@@ -1,0 +1,6 @@
+# Files in supabase/migrations that replace the archived files here (merged 2026-11-28, see
+# README.md). scripts/check-migrations.mjs allows the old files to leave supabase/migrations
+# only while they are kept in this folder. Remove this file once live has been reset onto the
+# merged files (npx supabase db reset --linked).
+20261121001_shop_features.sql
+20261204007_platform_payments_website.sql

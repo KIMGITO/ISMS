@@ -6664,6 +6664,7 @@ CREATE TRIGGER trg_zz_plan_read_only BEFORE INSERT OR UPDATE OR DELETE ON public
 -- app) and the Twilio SMS and WhatsApp Cloud API connections. Their edge functions
 -- (backup-config, sms-config, whatsapp-config) are removed in the same change.
 -- backup_history_logs stays: log cleanup and retention still read it, and old rows are history.
+-- destructive-ok: these tables belonged to the removed Google Sheets backup, Twilio SMS and WhatsApp connections; no app version left reads them (their screens and edge functions are gone).
 
 DO $$
 BEGIN

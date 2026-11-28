@@ -8,7 +8,10 @@
 //   - a file name that isn't <11 digits>_<lower_snake>.sql, or two files with one version;
 //   - a new file that sorts before a file already on the base: `db push` skips it on live
 //     ("Remote migration versions not found" / needs --include-all) and it lands out of order;
-//   - a file on the base that was deleted;
+//   - a file on the base that was deleted, unless it was merged (squashed): then it must be in
+//     supabase/migrations_archive/ and the merged file must be named in
+//     supabase/migrations_archive/SQUASH (one file name per line). Live must then be reset onto
+//     the merged files (`npx supabase db reset --linked`); `db push` alone would refuse;
 //   - a new or changed file that drops, renames, retypes or empties a table or column without
 //     a `-- destructive-ok: <reason>` line. Installed apps lag behind (no rollback, fix forward),
 //     so the old app must keep working: expand first, contract later
@@ -47,9 +50,24 @@ for (const f of files) {
   versions.set(m[1], f);
 }
 
+// A deliberate merge of old files: the merged files may sort before files on the base, and the
+// old files may leave supabase/migrations as long as they are kept in the archive.
+const ARCHIVE = 'supabase/migrations_archive';
+let squashed = new Set();
+try {
+  squashed = new Set(readFileSync(join(ARCHIVE, 'SQUASH'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#')));
+} catch { /* no merge declared */ }
+let archived = new Set();
+try { archived = new Set(readdirSync(ARCHIVE)); } catch { /* no archive */ }
+
 const newestOnBase = [...baseFiles.keys()].sort().at(-1);
 for (const f of baseFiles.keys()) {
-  if (!files.includes(f)) errors.push(`${f}: deleted, but it is on ${base} and may be on live. Undo it in a new migration instead.`);
+  if (files.includes(f)) continue;
+  if (squashed.size && archived.has(f)) {
+    warnings.push(`${f}: merged into ${[...squashed].join(', ')} (kept in ${ARCHIVE}). Reset live onto the merged files.`);
+    continue;
+  }
+  errors.push(`${f}: deleted, but it is on ${base} and may be on live. Undo it in a new migration instead.`);
 }
 
 // SQL without comments, so a comment mentioning DROP doesn't count.
@@ -72,7 +90,7 @@ for (const f of files) {
   checked++;
   if (onBase !== undefined) {
     warnings.push(`${f}: changed, but it is already on ${base}. If it is on live, live keeps the old text; put the change in a new migration.`);
-  } else if (newestOnBase && f < newestOnBase) {
+  } else if (newestOnBase && f < newestOnBase && !squashed.has(f)) {
     errors.push(`${f}: sorts before ${newestOnBase}, which is already on ${base}. Give it a newer version number.`);
   }
   const ok = /--\s*destructive-ok:\s*\S/i.test(text);
