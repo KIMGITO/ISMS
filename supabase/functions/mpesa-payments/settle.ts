@@ -54,10 +54,21 @@ export async function settlePrompt(admin: any, keys: DarajaKeys, row: PromptRow)
 }
 
 /** Where Safaricom sends till payments (the function name must not contain "mpesa"). */
-export function tillCallbackUrls(callbackToken: string): { confirmation: string; validation: string } {
+export function tillCallbackUrls(callbackToken: string): { confirmation: string; validation: string; ping: string } {
   const base = Deno.env.get("MPESA_C2B_CALLBACK_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1/till-callback`;
   const withToken = (type: string) => `${base}?type=${type}&token=${encodeURIComponent(callbackToken)}`;
-  return { confirmation: withToken("confirmation"), validation: withToken("validation") };
+  return { confirmation: withToken("confirmation"), validation: withToken("validation"), ping: withToken("ping") };
+}
+
+/** True when our own callback address answers over HTTPS with its token accepted (type=ping). */
+export async function pingCallbackUrl(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: "POST", body: "{}", signal: AbortSignal.timeout(10_000) });
+    await res.body?.cancel();
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** Registers the till's callback URLs with Safaricom and notes when. */
@@ -66,7 +77,7 @@ export async function registerTill(
   keys: DarajaKeys,
   tillNumber: string,
   by: string,
-): Promise<{ ok: boolean; detail: string }> {
+): Promise<{ ok: boolean; detail: string; duplicate?: boolean }> {
   const urls = tillCallbackUrls(keys.callbackToken);
   const result = await registerC2bUrls(keys, tillNumber, urls.confirmation, urls.validation);
   if (!result.ok) return result;

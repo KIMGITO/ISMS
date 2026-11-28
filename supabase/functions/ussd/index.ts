@@ -7,7 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { enforceRateLimit } from "../shared/cors.ts";
 import { BodyTooLarge, readText, safeEqual, securityEvent } from "../shared/guard.ts";
-import { darajaKeys, stkPush } from "../customer-checkout/daraja.ts";
+import { darajaKeys, stkCallbackUrl, stkPush } from "../customer-checkout/daraja.ts";
 import { respond, UssdContext } from "./menu.ts";
 
 const reply = (text: string) => new Response(text, { headers: { "Content-Type": "text/plain" } });
@@ -70,8 +70,6 @@ async function placeOrder(admin: any, accountId: string, msisdn: string, action:
   });
   if (beginError) throw beginError;
 
-  const callback = Deno.env.get("MPESA_CALLBACK_URL") ||
-    `${Deno.env.get("SUPABASE_URL")}/functions/v1/mpesa-webhook`;
   const keys = await darajaKeys(admin, order.businessId);
   if (!keys) throw new Error("Shop has not connected M-Pesa");
 
@@ -80,7 +78,7 @@ async function placeOrder(admin: any, accountId: string, msisdn: string, action:
     msisdn,
     Number(order.total),
     `ORDER${order.orderNumber}`,
-    `${callback}?token=${encodeURIComponent(keys.callbackToken)}`,
+    stkCallbackUrl(keys),
   );
   if (!push.accepted) throw new Error("STK push rejected");
 

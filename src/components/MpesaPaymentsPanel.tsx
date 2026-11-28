@@ -224,25 +224,30 @@ export default function MpesaPaymentsPanel() {
               <button
                 type="button"
                 disabled={!status.configured || !status.tillNumber || busy === 'register'}
-                onClick={() => run('register', async () => { await MpesaRepository.registerTill(); loadStatus(); }, ['Till Registered', 'Safaricom will now send till payments to the app.'])}
+                onClick={() => run('register', async () => {
+                  const r = await MpesaRepository.registerTill();
+                  loadStatus();
+                  showToast(
+                    'Registration accepted',
+                    r.reachable
+                      ? 'Safaricom accepted it and the app\'s address answered. A payment to the till confirms delivery.'
+                      : 'Safaricom accepted it, but the app\'s address didn\'t answer the check. Payments may not arrive.',
+                    undefined,
+                    r.reachable ? 'success' : 'error',
+                  );
+                })}
                 className="min-h-10 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text disabled:opacity-40 cursor-pointer"
               >
                 {busy === 'register' ? 'Registering…' : status.registeredAt ? 'Register again' : 'Register till with Safaricom'}
               </button>
               <span className="text-xs text-app-text-muted">
-                {status.registeredAt ? `Registered ${when(status.registeredAt)}` : 'Not registered: payments sent straight to the till won’t appear yet.'}
+                {status.registeredAt ? `Accepted by Safaricom ${when(status.registeredAt)}` : 'Not registered: payments sent straight to the till won’t appear yet.'}
               </span>
-              {status.environment === 'sandbox' && (
-                <button
-                  type="button"
-                  disabled={!status.tillNumber || busy === 'test'}
-                  onClick={() => run('test', async () => { await MpesaRepository.testTill(); loadStatus(); }, ['Test payment sent', 'KSh 1.00 should show under Payments → Paid to the till within a minute.'])}
-                  className="min-h-10 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text disabled:opacity-40 cursor-pointer"
-                >
-                  {busy === 'test' ? 'Sending…' : 'Send a test KSh 1'}
-                </button>
-              )}
             </div>
+            <p className="text-xs text-app-text-muted">
+              Last till payment received: {status.lastTillPaymentAt ? when(status.lastTillPaymentAt) : 'none yet'}.
+              {' '}Last prompt result received: {status.lastStkCallbackAt ? when(status.lastStkCallbackAt) : 'none yet'}.
+            </p>
             {status.environment === 'sandbox' && (
               <div className="flex flex-wrap items-center gap-3">
                 <button

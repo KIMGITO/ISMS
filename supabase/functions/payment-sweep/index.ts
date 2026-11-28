@@ -2,6 +2,8 @@
 // Called every 2 minutes by run_payment_sweep (pg_cron, 20261212008). Service key only.
 // Deploy with --no-verify-jwt: the Vault key may be an sb_secret_ key, which the JWT gate refuses.
 //
+// 0. Stored Safaricom callbacks that failed or arrived before their prompt row are processed
+//    again (daraja_callback_retry, 20261215001).
 // 1. Prompts whose Safaricom callback is overdue are settled from Safaricom's status query, so a
 //    paid prompt is recorded within minutes even if the callback is lost and nobody is watching.
 // 2. Sandbox tills are registered again: the sandbox short codes (600000...) are shared by every
@@ -32,9 +34,19 @@ Deno.serve(async (req) => {
     return keyCache.get(businessId)!;
   };
 
-  const out = { prompts: 0, settled: 0, renewed: 0, errors: 0 };
+  const out = { prompts: 0, settled: 0, renewed: 0, errors: 0, callbacks: null as unknown };
 
-  // 1. Overdue prompts from the last day.
+  // 0. Stored callbacks due for another try.
+  const { data: retried, error: retryError } = await admin.rpc("daraja_callback_retry", { p_limit: 100 });
+  if (retryError) {
+    out.errors++;
+    console.error("[payment-sweep] callback retry:", retryError.message);
+  } else {
+    out.callbacks = retried;
+  }
+
+  // 1. Overdue prompts from the last day, newest first: a prompt Safaricom never answers for
+  //    can't hold back the ones a customer just paid.
   const now = Date.now();
   const { data: prompts, error } = await admin.from("mpesa_transactions")
     .select("business_id, checkout_request_id, created_at, amount, online_order_id")
@@ -42,7 +54,7 @@ Deno.serve(async (req) => {
     .not("checkout_request_id", "is", null)
     .lt("created_at", new Date(now - PAID_GRACE_SECONDS * 1000).toISOString())
     .gt("created_at", new Date(now - 86400_000).toISOString())
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(MAX_PROMPTS);
   if (error) {
     console.error("[payment-sweep] prompts:", error.message);

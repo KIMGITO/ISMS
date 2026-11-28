@@ -1,6 +1,8 @@
 // src/services/repositories.ts
-// Re-engineered for Strict Online-First Real-Time Architecture
+// Reads and writes for the tables the app uses, one repository per kind of record. Online first:
+// every call goes to the database.
 
+import { AppError } from "../utils/userError";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName } from "../utils/stringUtils";
@@ -1123,7 +1125,8 @@ export class PaymentRepository {
    */
   public static async add(payment: Omit<Payment, "id" | "created_at" | "updated_at">): Promise<SQLiteRow<Payment>> {
     const supabase = getSupabase();
-    const activeBusinessId = getActiveBusinessId();
+    const businessId = payment.businessId || getActiveBusinessId();
+    if (!businessId) throw new AppError("Choose a business before recording a payment.");
 
     // Always go through the RPC so money assets and customer balances are updated.
     // Cash often has no reference, and payments.reference_code is unique per business,
@@ -1133,7 +1136,7 @@ export class PaymentRepository {
       `CASH-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
     const paymentId = await SupabaseService.processBusinessPayment({
-      businessId: payment.businessId || activeBusinessId,
+      businessId,
       referenceCode,
       amount: payment.amount,
       method: payment.method,
@@ -1381,6 +1384,9 @@ export interface MpesaStatus {
   partyB: string | null;
   tillNumber: string | null;
   registeredAt: string | null;
+  /** When Safaricom last delivered a prompt result / a till payment to the app. */
+  lastStkCallbackAt?: string | null;
+  lastTillPaymentAt?: string | null;
 }
 
 export type TillPaymentAction = "customer" | "walk_in" | "sale" | "ignore" | "reopen";
@@ -1419,8 +1425,10 @@ export class MpesaRepository {
     await this.call("save_till", { tillNumber });
   }
 
-  public static async registerTill(): Promise<void> {
-    await this.call("register");
+  /** Safaricom took the registration (otherwise this throws); reachable: our callback address answered. */
+  public static async registerTill(): Promise<{ reachable: boolean }> {
+    const data = await this.call("register");
+    return { reachable: !!data?.reachable };
   }
 
   /** Sandbox only: registers the till again, then has Safaricom send it a test KSh 1. */

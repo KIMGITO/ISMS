@@ -6,7 +6,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { handleCors, jsonResponse, errorResponse, enforceRateLimit } from "../shared/cors.ts";
-import { darajaKeys, stkPush, stkQuery } from "./daraja.ts";
+import { darajaKeys, isStkAmount, STK_MAX_AMOUNT, stkCallbackUrl, stkPush } from "./daraja.ts";
+import { settlePrompt } from "../mpesa-payments/settle.ts";
 import { MAX_AIRTEL_AMOUNT, newReference, pushPayment } from "../airtel-payments/airtel.ts";
 import { keysFor, refreshPrompt } from "../airtel-payments/settle.ts";
 import { toAirtelMsisdn } from "../airtel-payments/phone.ts";
@@ -133,15 +134,20 @@ Deno.serve(async (req) => {
         return errorResponse("This shop isn't taking M-Pesa online right now.", 409, "METHOD_OFF");
       }
 
-      const callback = Deno.env.get("MPESA_CALLBACK_URL") || `${url}/functions/v1/mpesa-webhook`;
-      const push = await stkPush(
-        mpesaKeys,
-        darajaPhone,
-        Number(order.total),
-        `ORDER${order.orderNumber}`,
-        `${callback}?token=${encodeURIComponent(mpesaKeys.callbackToken)}`,
-      );
+      // Daraja takes whole shillings only (an order total with cents used to be refused with a
+      // misleading "check the number" message).
+      const mpesaAmount = Number(order.total);
+      if (!Number.isInteger(mpesaAmount)) {
+        return errorResponse("M-Pesa only takes whole shillings, and this order has cents. Please ask the shop to adjust the order.", 409, "NOT_WHOLE");
+      }
+      if (!isStkAmount(mpesaAmount)) {
+        return errorResponse(`M-Pesa takes payments from Ksh 1 to Ksh ${STK_MAX_AMOUNT.toLocaleString()}.`, 409, "AMOUNT_LIMIT");
+      }
+      const push = await stkPush(mpesaKeys, darajaPhone, mpesaAmount, `ORDER${order.orderNumber}`, stkCallbackUrl(mpesaKeys));
       if (!push.accepted) {
+        if (push.uncertain) {
+          return errorResponse("M-Pesa is slow to answer. Check your phone for the prompt before trying again, so you are not charged twice.", 504, "STK_UNCERTAIN");
+        }
         return errorResponse("M-Pesa couldn't send the payment prompt. Check the number is on Safaricom and try again in a minute.", 502, "STK_REJECTED");
       }
 
@@ -157,8 +163,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "check") {
-      // Fallback for a callback that never arrived. A successful query is not settled here,
-      // because only the callback carries the receipt, so it flags the order for staff instead.
+      // Fallback for a callback that never arrived.
       const { data: order, error: orderError } = await admin
         .from("online_orders")
         .select("id, status, order_number")
@@ -170,7 +175,7 @@ Deno.serve(async (req) => {
 
       const { data: pending, error: pendingError } = await admin
         .from("mpesa_transactions")
-        .select("business_id, checkout_request_id, created_at")
+        .select("business_id, checkout_request_id, created_at, amount")
         .eq("online_order_id", orderId)
         .eq("status", "Pending")
         .order("created_at", { ascending: false })
@@ -179,24 +184,13 @@ Deno.serve(async (req) => {
 
       if (pendingError) throw pendingError;
 
+      // Same rule as payment-sweep (mpesa-payments/settle.ts): Safaricom's status query settles a
+      // prompt whose callback is overdue; a query error or "still processing" changes nothing.
       if (pending && Date.now() - new Date(pending.created_at).getTime() > 20_000) {
         const pendingKeys = await darajaKeys(admin, pending.business_id);
-        const code = pendingKeys ? await stkQuery(pendingKeys, pending.checkout_request_id).catch(() => null) : null;
-        if (code === 0) {
-          const { error: flagError } = await admin.rpc("flag_order_payment_unconfirmed", {
-            p_order_id: orderId,
-            p_checkout_request_id: pending.checkout_request_id,
-          });
-          if (flagError) throw flagError;
-        }
-        if (code !== null && code !== 0) {
-          await admin.rpc("confirm_online_order_payment", {
-            p_checkout_request_id: pending.checkout_request_id,
-            p_result_code: code,
-            p_amount: null,
-            p_receipt: null,
-            p_raw: { source: "stk_query", ResultCode: code },
-          });
+        if (pendingKeys) {
+          await settlePrompt(admin, pendingKeys, { ...pending, online_order_id: orderId })
+            .catch((err) => console.error("[customer-checkout] mpesa check:", err));
         }
       }
 

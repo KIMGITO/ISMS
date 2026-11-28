@@ -20,16 +20,9 @@ import {
   requirePermission,
   enforceRateLimit,
 } from "../shared/cors.ts";
-import { accessToken, c2bSimulate, darajaKeys, stkPush } from "../customer-checkout/daraja.ts";
+import { accessToken, c2bSimulate, DarajaError, darajaKeys, darajaLog, isStkAmount, STK_MAX_AMOUNT, stkCallbackUrl, stkPush } from "../customer-checkout/daraja.ts";
 import { toMsisdn } from "./phone.ts";
-import { registerTill, settlePrompt } from "./settle.ts";
-
-const MAX_AMOUNT = 250000;
-
-
-function functionsUrl(): string {
-  return `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
-}
+import { pingCallbackUrl, registerTill, settlePrompt, tillCallbackUrls } from "./settle.ts";
 
 Deno.serve(async (req) => {
   const corsResp = handleCors(req);
@@ -54,14 +47,37 @@ Deno.serve(async (req) => {
       return data?.name || "Staff";
     };
 
+    /** Saves the till number; a registration only stays if it was for this till (and Daraja environment). */
+    const saveTill = async (till: string | null, sameEnvironment = true) => {
+      const { data: before } = await admin.from("mpesa_settings").select("till_number, registered_at").eq("business_id", businessId).maybeSingle();
+      return admin.from("mpesa_settings").upsert({
+        business_id: businessId,
+        till_number: till,
+        registered_at: sameEnvironment && before?.till_number === till ? before?.registered_at ?? null : null,
+        updated_by: await staffName(),
+        updated_at: new Date().toISOString(),
+      });
+    };
+
     if (action === "status") {
       const denied = await requirePermission(req, businessId, "payments.view", "payments.mpesa", "settings.integrations");
       if (denied) return denied;
-      const { data: settings } = await admin
-        .from("mpesa_settings").select("till_number, registered_at").eq("business_id", businessId).maybeSingle();
-      const keys = await darajaKeys(admin, businessId);
+      // The only real proof that Safaricom reaches us: the last callback it actually delivered.
+      const lastCallback = async (kind: string) => {
+        const { data } = await admin.from("daraja_callbacks").select("received_at")
+          .eq("business_id", businessId).eq("kind", kind).order("received_at", { ascending: false }).limit(1).maybeSingle();
+        return data?.received_at ?? null;
+      };
+      const [{ data: settings }, keys, lastStkCallbackAt, lastTillPaymentAt] = await Promise.all([
+        admin.from("mpesa_settings").select("till_number, registered_at").eq("business_id", businessId).maybeSingle(),
+        darajaKeys(admin, businessId),
+        lastCallback("stk"),
+        lastCallback("c2b_confirmation"),
+      ]);
       return jsonResponse({
         success: true,
+        lastStkCallbackAt,
+        lastTillPaymentAt,
         configured: !!keys,
         environment: keys?.environment ?? "sandbox",
         transactionType: keys?.transactionType ?? "CustomerBuyGoodsOnline",
@@ -93,7 +109,10 @@ Deno.serve(async (req) => {
       if (partyB && !/^\d{5,10}$/.test(partyB)) return errorResponse("The till number is 5 to 10 digits.", 400);
       try {
         await accessToken({ environment, consumerKey, consumerSecret });
-      } catch {
+      } catch (err) {
+        if (err instanceof DarajaError && (err.kind === "timeout" || err.kind === "network")) {
+          return errorResponse("Safaricom didn't answer, so the keys couldn't be checked. Try again in a minute.", 504, "DARAJA_UNREACHABLE");
+        }
         return errorResponse(`Safaricom refused these keys (${environment}). Check them on the Daraja portal.`, 400, "KEYS_REJECTED");
       }
       const { error } = await admin.from("mpesa_payment_secrets").upsert({
@@ -109,13 +128,7 @@ Deno.serve(async (req) => {
       });
       if (error) throw error;
       // The till payments arrive for is the Buy Goods till (or the paybill).
-      const till = partyB || shortcode;
-      const { error: tillError } = await admin.from("mpesa_settings").upsert({
-        business_id: businessId,
-        till_number: till,
-        updated_by: await staffName(),
-        updated_at: new Date().toISOString(),
-      });
+      const { error: tillError } = await saveTill(partyB || shortcode, existing?.environment === environment);
       if (tillError?.code === "23505") return errorResponse("Another business already uses this till number.", 409);
       if (tillError) throw tillError;
       return jsonResponse({ success: true });
@@ -135,12 +148,7 @@ Deno.serve(async (req) => {
       if (denied) return denied;
       const till = String(body.tillNumber ?? "").replace(/\s/g, "");
       if (till && !/^\d{5,10}$/.test(till)) return errorResponse("A till number is 5 to 10 digits.", 400);
-      const { error } = await admin.from("mpesa_settings").upsert({
-        business_id: businessId,
-        till_number: till || null,
-        updated_by: await staffName(),
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await saveTill(till || null);
       if (error) {
         if (error.code === "23505") return errorResponse("Another business already uses this till number.", 409);
         throw error;
@@ -156,10 +164,18 @@ Deno.serve(async (req) => {
       const { data: settings } = await admin.from("mpesa_settings").select("till_number").eq("business_id", businessId).maybeSingle();
       const result = await registerTill(admin, keys, settings?.till_number ?? "", await staffName());
       if (!result.ok) {
-        console.error("[mpesa-payments] C2B registration rejected:", result.detail);
+        if (result.duplicate) {
+          return errorResponse(
+            `Safaricom says this till's addresses are already registered (${result.detail}). If till payments aren't arriving, change the URLs for this short code on the Daraja portal or ask Safaricom to.`,
+            409, "REGISTER_DUPLICATE",
+          );
+        }
         return errorResponse(`Safaricom didn't accept the registration: ${result.detail}`, 502, "REGISTER_REJECTED");
       }
-      return jsonResponse({ success: true });
+      // Safaricom accepting the request doesn't prove it can reach us, so check the address
+      // ourselves. Only a real payment proves delivery (status.lastTillPaymentAt).
+      const reachable = await pingCallbackUrl(tillCallbackUrls(keys.callbackToken).ping);
+      return jsonResponse({ success: true, reachable, detail: result.detail });
     }
 
     if (action === "test_till") {
@@ -197,8 +213,8 @@ Deno.serve(async (req) => {
       const msisdn = toMsisdn(body.phone);
       if (!msisdn) return errorResponse("Enter a Safaricom number like 0712 345 678.", 400);
       const amount = Number(body.amount);
-      if (!Number.isInteger(amount) || amount < 1 || amount > MAX_AMOUNT) {
-        return errorResponse(`M-Pesa takes whole shillings from 1 to ${MAX_AMOUNT.toLocaleString()}.`, 400);
+      if (!isStkAmount(amount)) {
+        return errorResponse(`M-Pesa takes whole shillings from 1 to ${STK_MAX_AMOUNT.toLocaleString()}.`, 400);
       }
 
       let accountRef = "WALKIN";
@@ -226,10 +242,9 @@ Deno.serve(async (req) => {
 
       const keys = await darajaKeys(admin, businessId);
       if (!keys) return errorResponse("This business hasn't connected M-Pesa yet.", 400, "NOT_CONFIGURED");
-      const callback = Deno.env.get("MPESA_CALLBACK_URL") || `${functionsUrl()}/mpesa-webhook`;
-
-      const push = await stkPush(keys, msisdn, amount, accountRef, `${callback}?token=${encodeURIComponent(keys.callbackToken)}`, "Payment");
+      const push = await stkPush(keys, msisdn, amount, accountRef, stkCallbackUrl(keys), "Payment");
       if (!push.accepted) {
+        if (push.uncertain) return errorResponse(`${push.detail}.`, 504, "STK_UNCERTAIN");
         return errorResponse(`Safaricom didn't send the prompt: ${push.detail ?? "no reason given"}.`, 502, "STK_REJECTED");
       }
 
@@ -248,7 +263,12 @@ Deno.serve(async (req) => {
         // Only this person is told when the money arrives (20261214002).
         requested_user_id: userId,
       }).select("id, checkout_request_id").single();
-      if (error) throw error;
+      if (error) {
+        // The prompt is on the customer's phone; its callback is kept (daraja_callbacks) even
+        // without this row, so the payment can still be traced by its CheckoutRequestID.
+        darajaLog("stk_row_not_saved", { business: businessId, checkoutRequestId: push.checkoutRequestId, message: error.message }, "error");
+        throw error;
+      }
 
       return jsonResponse({ success: true, id: row.id, checkoutRequestId: row.checkout_request_id });
     }
