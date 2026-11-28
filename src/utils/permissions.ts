@@ -1,5 +1,6 @@
 // src/utils/permissions.ts
-// Re-engineered Role-Based Access Control Matrix (RBAC) — Streamlined 5-Role Core
+// Permission codes, role defaults and the checks screens use. The database enforces the same
+// rules (has_permission in RLS and functions), so these checks only decide what is shown.
 
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";

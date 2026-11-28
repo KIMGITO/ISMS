@@ -1,5 +1,6 @@
 // src/services/supabaseService.ts
 import { AppError } from "../utils/userError";
+import { roundMoney } from "../utils/money";
 import { getSupabase } from "./supabaseClient";
 import { toUuid } from "../utils/idUtils";
 import { customerName, readableIds } from "../utils/stringUtils";
@@ -106,7 +107,7 @@ export class SupabaseService {
         unit_price: item.product.price,
         quantity: item.quantity,
         discount_percentage: item.discountPercentage,
-        line_total: Number(((item.product.price * (1 - item.discountPercentage / 100)) * item.quantity).toFixed(2)),
+        line_total: roundMoney(item.product.price * (1 - item.discountPercentage / 100) * item.quantity),
       }));
 
       const { error: itemsErr } = await supabase
@@ -193,7 +194,7 @@ export class SupabaseService {
             unit_price: item.product.price,
             quantity: item.quantity,
             discount_percentage: item.discountPercentage,
-            line_total: Number(((item.product.price * (1 - item.discountPercentage / 100)) * item.quantity).toFixed(2)),
+            line_total: roundMoney(item.product.price * (1 - item.discountPercentage / 100) * item.quantity),
           })),
         );
         if (itemsErr) throw itemsErr;

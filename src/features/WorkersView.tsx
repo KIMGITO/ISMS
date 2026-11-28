@@ -269,7 +269,7 @@ export default function WorkersView() {
 
     try {
       if (isSupplier) {
-        if (!handlesSuppliers) return;
+        if (!handlesSuppliers || !currentBusinessId) return;
         // A new supplier is added to the list first; then whoever has an email is invited.
         let id = supplierId;
         if (id === 'new') {

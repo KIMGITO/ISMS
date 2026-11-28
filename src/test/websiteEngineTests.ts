@@ -57,7 +57,8 @@ export function runWebsiteEngineTests(runTest: Run) {
   });
 
   runTest("Website engine: the brand vocabulary matches the database rules", () => {
-    const sql = readFileSync("supabase/migrations/20261206001_website_brand.sql", "utf8");
+    const sql = ["20261206001_website_brand.sql", "20261216001_website_more_fonts_designs.sql"]
+      .map((f) => readFileSync(`supabase/migrations_archive/${f}`, "utf8")).join("\n");
     for (const f of Object.keys(FONTS)) ok(sql.includes(`'${f}'`), `font ${f} allowed in the database`);
     for (const i of INDUSTRIES) ok(sql.includes(`'${i.id}'`), `industry ${i.id} allowed in the database`);
     for (const p of PERSONALITIES) ok(sql.includes(`'${p.id}'`), `personality ${p.id} allowed in the database`);
@@ -220,7 +221,7 @@ export function runWebsiteEngineTests(runTest: Run) {
 
   // Phases 4-5 (20261206002): the draft's rules match the website's.
   runTest("Website: home sections and menu links follow the same rules in the database", () => {
-    const sql = readFileSync("supabase/migrations/20261206002_website_drafts_publish.sql", "utf8");
+    const sql = readFileSync("supabase/migrations_archive/20261206002_website_drafts_publish.sql", "utf8");
     const list = sql.match(/COALESCE\(e->>'kind', ''\) = ANY \(ARRAY\[([^\]]+)\]/)![1];
     const kinds = Array.from(list.matchAll(/'([a-z0-9]+)'/g), (m) => m[1]);
     eq(kinds, SECTION_KINDS, "section kinds in fn_valid_home");
@@ -300,7 +301,7 @@ export function runWebsiteEngineTests(runTest: Run) {
   });
 
   runTest("Visit counter: page kinds and sources match the database, and nothing personal is sent", () => {
-    const sql = readFileSync("supabase/migrations/20261208001_website_visits_domain_recheck.sql", "utf8");
+    const sql = readFileSync("supabase/migrations_archive/20261208001_website_visits_domain_recheck.sql", "utf8");
     const list = (re: RegExp) => Array.from((sql.match(re)?.[1] ?? "").matchAll(/'([a-z]+)'/g), (m) => m[1]);
     eq(list(/page text NOT NULL CHECK \(page IN \(([^)]*)\)/), [...VISIT_PAGES], "page kinds = table check");
     eq(list(/source text NOT NULL CHECK \(source IN \(([^)]*)\)/), [...VISIT_SOURCES], "sources = table check");

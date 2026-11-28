@@ -52,9 +52,12 @@ export default function DesignScreen() {
   // What "Automatic" resolves to, from the chosen design with no single overrides.
   const base = PRESETS[presetFor(toPublicBrand({ ...b }))];
   const suggested = PERSONALITIES.find((p) => p.id === INDUSTRIES.find((i) => i.id === b.industry)?.personality);
-  const fontItems = (current: string) => [
+  const fontItems = (current: string, forText = false) => [
     { id: AUTO, label: `Automatic (${current})` },
-    ...Object.entries(FONTS).map(([font, info]) => ({ id: font, label: font, sublabel: info.kind === 'serif' ? 'Serif' : 'Sans serif' })),
+    ...Object.entries(FONTS)
+      .filter(([, info]) => !(forText && info.headingOnly))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([font, info]) => ({ id: font, label: font, sublabel: info.headingOnly ? 'Display, for headings' : info.kind === 'serif' ? 'Serif' : 'Sans serif' })),
   ];
   const presets: { id: string; label: string; hint: string }[] = [
     { id: AUTO, label: 'Suggested', hint: `From your personality or industry: ${PRESETS[presetFor(toPublicBrand({ ...b, design_preset: null }))].label}` },
@@ -114,7 +117,7 @@ export default function DesignScreen() {
               </label>
               <label className={labelClass}>
                 Text
-                <SearchableDropdown className="mt-1" placeholder="Font" selectedValue={b.body_font ?? AUTO} onChange={(v) => set('body_font', v === AUTO ? null : v)} items={fontItems(base.bodyFont)} />
+                <SearchableDropdown className="mt-1" placeholder="Font" selectedValue={b.body_font ?? AUTO} onChange={(v) => set('body_font', v === AUTO ? null : v)} items={fontItems(base.bodyFont, true)} />
               </label>
             </div>
             <Choice label="Heading weight" field="heading_weight" brand={b} onChange={set} current={String(base.headingWeight)}

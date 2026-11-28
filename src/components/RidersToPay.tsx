@@ -16,6 +16,7 @@ import {
   loadRidersToPay, payRider, removeRiderPayment,
   type PayFrom, type RiderPayItem, type RiderPayment, type RiderToPay,
 } from '../services/riderPay';
+import type { ShowToast } from '../stores/notificationStore';
 
 const TZ = 'Africa/Nairobi';
 const METHODS = ['Cash', 'M-Pesa', 'Airtel Money', 'Card', 'Bank'];
@@ -61,7 +62,7 @@ export function BillFilters({ status, period, onStatus, onPeriod }: {
   );
 }
 
-type Toast = (title: string, message?: string, action?: unknown, type?: any) => void;
+type Toast = ShowToast;
 
 const payState = (i: RiderPayItem) =>
   i.balance <= 0 ? { label: 'Paid', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' }

@@ -1520,7 +1520,7 @@ export default function BusinessManagementView({ section = "business" }: { secti
                           </label>
                           <textarea
                             rows={2}
-                            placeholder={payType === 'walk-in' ? 'e.g. Walk-in customer — fuel reimbursement' : 'e.g. August order settlement'}
+                            placeholder={payType === 'walk-in' ? 'e.g. Walk-in customer, fuel refund' : 'e.g. August order settlement'}
                             value={payDescription}
                             onChange={(e) => setPayDescription(e.target.value)}
                             className="bg-app-bg text-app-text border border-app-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-medium"

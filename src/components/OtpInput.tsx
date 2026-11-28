@@ -224,7 +224,7 @@ export function OtpInput({
             title="Paste from clipboard"
           >
             {copied ? <ClipboardCheck size={16} className="text-green-400" /> : <Clipboard size={16} />}
-            {copied ? "Pasted!" : "Paste Code"}
+            {copied ? "Pasted" : "Paste code"}
           </button>
         </div>
       )}

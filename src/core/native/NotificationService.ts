@@ -77,13 +77,13 @@ class NotificationService {
 
       // Notification received while app is open / in foreground
       PushNotifications.addListener("pushNotificationReceived", (notification) => {
-        console.log("[PushNotifications] Push received in foreground:", notification);
+        console.log("[PushNotifications] Push received in foreground");
         this.receiveListeners.forEach((l) => l(notification));
       });
 
       // User tapped a notification that was shown in the system tray
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-        console.log("[PushNotifications] Notification tapped:", action.notification);
+        console.log("[PushNotifications] Notification tapped");
         this.receiveListeners.forEach((l) => l(action.notification));
       });
 

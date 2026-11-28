@@ -211,7 +211,7 @@ function buildWorkbook(data: Map<string, Row[]>, from: Date, to: Date, businessN
     perAccount.set(l.account_id, p);
   }
   const pl = [...perAccount.entries()]
-    .map(([id, v]) => ({ acc: accById.get(id), ...v }))
+    .map(([id, v]) => ({ acc: accById.get(id)!, ...v }))
     .filter((r) => r.acc && (r.acc.type === 'income' || r.acc.type === 'expense'))
     .map((r) => ({
       code: r.acc.code, name: r.acc.name, type: r.acc.type === 'income' ? 'Income' : 'Expense',

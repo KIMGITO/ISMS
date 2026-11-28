@@ -257,7 +257,6 @@ export default function WorkspaceAssistantView() {
         return; // Ignore response if cancelled
       }
 
-      console.log('Full AI Response Object:', response);
 
       if (response && (response.success || response.reply)) {
         let replyText =

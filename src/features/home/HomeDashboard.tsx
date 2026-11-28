@@ -13,6 +13,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useAppStore } from "../../stores/appStore";
 import { canOpenScreen } from "../../utils/screens";
 import { toUuid } from "../../utils/idUtils";
+import { formatQty } from "../../utils/money";
 import TrackedReports from "../../components/TrackedReports";
 import type { Expense, Payment } from "../../types";
 import {
@@ -206,7 +207,7 @@ export default function HomeDashboard() {
 
   // ---------- Chart definitions (shared by the page and the full-screen viewer) ----------
   const productRows = (frame: number | null) =>
-    [...at(frame).products.entries()].filter(([, v]) => v.revenue > 0).map(([k, v]) => ({ key: k, label: v.name, value: v.revenue, note: `${+v.qty.toFixed(2)} sold` }));
+    [...at(frame).products.entries()].filter(([, v]) => v.revenue > 0).map(([k, v]) => ({ key: k, label: v.name, value: v.revenue, note: `${formatQty(v.qty)} sold` }));
   const productScale = Math.max(0, ...[...total.products.values()].map((p) => p.revenue));
   const expenseRows = (frame: number | null) => {
     const s = at(frame);

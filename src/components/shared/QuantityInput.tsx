@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { tidyNumberText } from "./Input";
+import type { CartItem } from "../../types";
 
 /**
  * POS cart quantity: − / + or type. Tapping the number selects it, so typing replaces it
  * whole (no deleting the old number first). Enter or leaving the box applies it; 0 removes
  * the line; Esc puts the old number back.
  */
-export function QuantityInput({ item, updateCartQty, removeFromCart }) {
+interface QuantityInputProps {
+  item: CartItem;
+  updateCartQty: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+}
+
+export function QuantityInput({ item, updateCartQty, removeFromCart }: QuantityInputProps) {
   const [inputValue, setInputValue] = useState(String(item.quantity ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
   // A click focuses, then its mouseup would drop the selection; the first mouseup is ignored.

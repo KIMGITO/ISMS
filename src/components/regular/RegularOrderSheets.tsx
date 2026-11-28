@@ -65,7 +65,7 @@ export function WeekEditor({ value, onChange, unit }: { value: number[]; onChang
         ))}
       </div>
       <p className="text-xs text-app-text-muted">
-        {weekText(value, unit)}{weekTotal(value) > 0 ? ` — ${qtyText(weekTotal(value))}${unit ? ` ${unit}` : ''} a week` : ''}
+        {weekText(value, unit)}{weekTotal(value) > 0 ? `, ${qtyText(weekTotal(value))}${unit ? ` ${unit}` : ''} a week` : ''}
       </p>
     </div>
   );

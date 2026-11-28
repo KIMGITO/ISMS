@@ -1,5 +1,6 @@
 // src/stores/inventoryStore.ts
-// Re-engineered for Pure Real-Time Streaming — Removes local cache lookups entirely
+// Products, categories and stock changes for the active branch, read live from the database.
+// Nothing is cached on the device.
 
 import { create } from "zustand";
 import { Product, InventoryAdjustment, AdjustmentType } from "../types";

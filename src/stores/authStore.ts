@@ -823,6 +823,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     // Owner Account Creation
     signUpOwner: async (name, email, phone, password) => {
+      if (!password) return { success: false, error: "Enter a password." };
       try {
         const supabase = getSupabase();
 
@@ -907,7 +908,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
         useNotificationStore.getState().showToast(
           "Business ready",
-          `Welcome to ${name} command center!`,
+          `${name} is set up and ready to use.`,
           undefined,
           "success"
         );
@@ -920,6 +921,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     // Secure Login Online
     loginOnline: async (emailOrPhone, password) => {
+      if (!password) return { success: false, error: "Enter your password." };
       try {
         const supabase = getSupabase();
         await settleSignOut();
@@ -1148,6 +1150,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const invitePhone = formatToE164(phone?.trim() || invite.phone || "");
 
         // 2. Register account in Supabase Auth (without emailRedirectTo to avoid magic links)
+        if (!password) return { success: false, error: "Choose a password." };
         let authUserId: string | undefined;
         await settleSignOut();
         const { data, error } = await supabase.auth.signUp({

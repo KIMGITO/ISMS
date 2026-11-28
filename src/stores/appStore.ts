@@ -8,9 +8,9 @@ import { useUiStore } from "./uiStore";
 import { useBusinessStore } from "./businessStore";
 
 /**
- * Backwards-compatible facade hook that aggregates all separate, modular stores
- * into a single unified workspace. This physically separates the features, states,
- * and actions into individual stores while providing seamless integration for existing views.
+ * One hook that combines the separate stores (auth, inventory, customers, cart, sales,
+ * notifications, UI, business), for older screens that read everything from one place.
+ * New code can use the individual stores directly.
  */
 export const useAppStore = () => {
   const auth = useAuthStore();

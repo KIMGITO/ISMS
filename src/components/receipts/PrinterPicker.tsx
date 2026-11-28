@@ -191,7 +191,7 @@ export function PrinterPicker({ open, actionLabel, onCancel, onConfirm }: Props)
                         <span className="block text-xs text-app-text-muted truncate">
                           {p.kind === 'network' ? `${p.address}:${p.port ?? 9100}` : p.address}
                           {' · '}
-                          {p.available ? (p.kind === 'bluetooth' ? (p.paired ? 'Paired, nearby' : 'Nearby, will pair') : 'Answering') : 'Not found — is it on?'}
+                          {p.available ? (p.kind === 'bluetooth' ? (p.paired ? 'Paired, nearby' : 'Nearby, will pair') : 'Answering') : 'Not found. Is it switched on?'}
                         </span>
                       </span>
                       {isSelected && <CheckCircle2 size={18} className="text-amber-500 shrink-0" />}

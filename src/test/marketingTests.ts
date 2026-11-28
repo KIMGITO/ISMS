@@ -16,7 +16,7 @@ const eq = (got: unknown, want: unknown, what: string) => {
 };
 const ok = (cond: boolean, what: string) => { if (!cond) throw new Error(what); };
 
-const SQL = readFileSync("supabase/migrations/20261207001_marketing_campaigns.sql", "utf8");
+const SQL = readFileSync("supabase/migrations_archive/20261207001_marketing_campaigns.sql", "utf8");
 const NOW = Date.parse("2026-11-27T09:00:00Z");
 const iso = (offsetMin: number) => new Date(NOW + offsetMin * 60_000).toISOString();
 

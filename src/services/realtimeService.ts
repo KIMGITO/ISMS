@@ -48,7 +48,6 @@ class RealtimeService {
           "postgres_changes",
           { event: "*", schema: "public", table: table },
           (payload) => {
-            console.log(`Realtime event intercepted for table "${table}":`, payload.eventType);
             
             // Only fetch the specific table that changed, avoiding global sync storms
             if (table === "notifications") {

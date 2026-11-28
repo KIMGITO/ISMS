@@ -201,7 +201,7 @@ export default function JoinCodePanel({ businessId }: { businessId: string }) {
                     call(
                       () => supabase.rpc('decide_join_request', { p_request_id: r.id, p_approve: true, p_role: roles[r.id] ?? 'Cashier' }),
                       `${r.name} can now open the business`,
-                    ).then((ok) => ok && useAuthStore.getState().refreshSession())
+                    ).then((ok) => { if (ok) void useAuthStore.getState().refreshSession(); })
                   }
                 >
                   <UserCheck size={12} aria-hidden /> Let in

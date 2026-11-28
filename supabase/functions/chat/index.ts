@@ -142,15 +142,15 @@ Deno.serve(async (req) => {
     const bizName = biz?.name || "Denso";
     const currency = biz?.currency || "KSh";
     const aiName = Deno.env.get("VITE_AI_NAME") || "Kim";
-    const userRole = activeRole || "Owner";
-    const hasFullAccess = ["owner", "admin", "administrator"].includes(userRole.toLowerCase());
+    // No role found means the least access, never the most.
+    const userRole = activeRole || "Staff";
 
     // Permissions come from the database on every message, never from the request: what the
     // Roles screen saved, else the role's default (the same rule the database enforces), so
     // a change there applies to the very next message. The assistant only sees what this
     // person may see, because anything in its context can be repeated back to them.
     const userClient = createUserClient(req);
-    const userPerms: string[] = hasFullAccess ? [] : await livePermissions(userClient, supabase, businessId, userRole);
+    const { fullAccess: hasFullAccess, codes: userPerms } = await livePermissions(userClient, supabase, businessId, userRole);
     const canSeeCustomers = hasFullAccess || userPerms.includes("customers.view");
     const canSeeStaff = hasFullAccess || userPerms.includes("staff.view");
     const userName = employeeName || "Operator";
@@ -339,12 +339,19 @@ How to reply:
  * saved Roles-screen rows, else the role's defaults). On a database without that function
  * yet, reads the same two tables directly.
  */
-async function livePermissions(userClient: any, admin: any, businessId: string, role: string): Promise<string[]> {
+async function livePermissions(
+  userClient: any,
+  admin: any,
+  businessId: string,
+  role: string,
+): Promise<{ fullAccess: boolean; codes: string[] }> {
   const { data, error } = await userClient.rpc("my_permissions", { p_business_id: businessId });
   if (!error) {
     const row = Array.isArray(data) ? data[0] : data;
-    return Array.isArray(row?.codes) ? row.codes : [];
+    return { fullAccess: row?.full_access === true, codes: Array.isArray(row?.codes) ? row.codes : [] };
   }
+  // Same rule as my_permissions, for a database that does not have it yet.
+  if (["Owner", "Admin", "Administrator"].includes(role)) return { fullAccess: true, codes: [] };
   const [saved, defaults] = await Promise.all([
     admin.from("role_permissions").select("permission, granted").eq("business_id", businessId).eq("role", role),
     admin.from("role_default_permissions").select("permissions").eq("role", role).maybeSingle(),
@@ -352,5 +359,6 @@ async function livePermissions(userClient: any, admin: any, businessId: string, 
   const rows: { permission: string; granted: boolean }[] = saved.data || [];
   const decided = new Set(rows.map((r) => r.permission));
   const fromDefaults: string[] = (defaults.data?.permissions || []).filter((p: string) => !decided.has(p));
-  return [...rows.filter((r) => r.granted).map((r) => r.permission), ...fromDefaults].sort();
+  const codes = [...rows.filter((r) => r.granted).map((r) => r.permission), ...fromDefaults].sort();
+  return { fullAccess: false, codes };
 }

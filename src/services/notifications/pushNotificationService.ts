@@ -164,7 +164,7 @@ class PushNotificationService {
   }
 
   public handlePushClick(notification: AppNotification) {
-    console.log("App opened via push notification:", notification);
+    console.log("App opened via push notification");
     this.notificationListeners.forEach((listener) => {
       try {
         listener(notification);

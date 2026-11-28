@@ -1361,9 +1361,10 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
     return () => { live = false; };
   }, [businessId, start, end, version]);
 
-  const charged = (data?.months || []).reduce((s, m) => s + m.vatCharged, 0);
-  const paid = (data?.months || []).reduce((s, m) => s + m.vatPaid, 0);
-  const onPurchases = (data?.months || []).reduce((s, m) => s + m.vatOnPurchases, 0);
+  const months: VatMonth[] = data?.months ?? [];
+  const charged = months.reduce((s, m) => s + m.vatCharged, 0);
+  const paid = months.reduce((s, m) => s + m.vatPaid, 0);
+  const onPurchases = months.reduce((s, m) => s + m.vatOnPurchases, 0);
 
   return (
     <Card
@@ -1395,7 +1396,7 @@ function VatTab({ businessId, start, end, version, canManage, onPayVat }: {
                 </tr>
               </thead>
               <tbody>
-                {data.months.map((m) => (
+                {months.map((m) => (
                   <tr key={m.month} className="border-t border-app-border">
                     <td className="py-1.5 pr-3 whitespace-nowrap">{monthName(m.month)}</td>
                     <td className="text-right">{exact(m.sales)}</td>

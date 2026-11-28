@@ -17,6 +17,7 @@ import {
   Tone,
 } from '../../../website/src/engine/brand';
 import { isHex } from '../../../website/src/engine/color';
+import { palettesFor } from '../../../website/src/engine/palettes';
 import { BrandRecord, loadBrand } from '../../services/websiteBrand';
 import { useBusinessStore } from '../../stores/businessStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -44,6 +45,41 @@ function TextField({ label, hint, value, onChange, max, rows }: {
       )}
       {text.length > max * 0.8 && <span className={`${hintClass} text-xs`}>{text.length} of {max} letters</span>}
     </label>
+  );
+}
+
+/** One-tap colour sets, the ones for this kind of business first. Fills all four colour fields. */
+function ColourSets({ brand, onPick }: { brand: BrandRecord; onPick: (p: { primary: string; secondary: string; accent: string; background: string }) => void }) {
+  const sets = palettesFor(brand.industry as Parameters<typeof palettesFor>[0]);
+  const isOn = (p: { primary: string; secondary: string; accent: string; background: string }) =>
+    brand.primary_color === p.primary && brand.secondary_color === p.secondary && brand.accent_color === p.accent && brand.background_color === p.background;
+  return (
+    <div className={labelClass}>
+      <span>Colour sets</span>
+      <span className={hintClass}>Pick one to fill the four colours below, then change any of them.</span>
+      <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {sets.map((p) => {
+          const on = isOn(p);
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                aria-pressed={on}
+                onClick={() => onPick(p)}
+                className={`flex w-full items-center gap-2 rounded-xl border p-2 text-left text-xs transition ${on ? 'border-brand-500 bg-brand-500/10' : 'border-app-border hover:bg-app-bg'}`}
+              >
+                <span className="flex h-8 w-14 shrink-0 overflow-hidden rounded-lg border border-app-border" style={{ background: p.background }} aria-hidden>
+                  <span className="w-1/2" style={{ background: p.primary }} />
+                  <span className="w-1/4" style={{ background: p.secondary }} />
+                  <span className="w-1/4" style={{ background: p.accent }} />
+                </span>
+                <span className="min-w-0 truncate text-app-text">{p.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -279,6 +315,7 @@ export default function BrandScreen() {
             <PictureField label="Logo for dark backgrounds" hint="A white or light version, for banners." value={b.logo_light_url} onChange={(v) => set('logo_light_url', v)} aspect="original" />
             <PictureField label="Small mark" hint="A square symbol, used where the full logo is too wide." value={b.logo_mark_url} onChange={(v) => set('logo_mark_url', v)} aspect={1} />
             <PictureField label="Browser tab icon" hint="Square, simple. Without one, the small mark or logo is used." value={b.favicon_url} onChange={(v) => set('favicon_url', v)} aspect={1} />
+            <ColourSets brand={b} onPick={(p) => brandPart.setValue({ ...b, primary_color: p.primary, secondary_color: p.secondary, accent_color: p.accent, background_color: p.background })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <ColourField label="Main colour" hint="Buttons, links and prices. Also on receipts." value={b.primary_color} onChange={(v) => set('primary_color', v)} />
               <ColourField label="Second colour" hint="Banners and the footer." value={b.secondary_color} onChange={(v) => set('secondary_color', v)} />

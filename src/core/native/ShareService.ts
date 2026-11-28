@@ -35,7 +35,7 @@ class ShareService {
     }
 
     // Secondary fallback (Log to console or alert if not supported on browser context)
-    console.log("Sharing is not supported on this platform. Content:", options);
+    console.log("Sharing is not supported on this platform.");
     return false;
   }
 }

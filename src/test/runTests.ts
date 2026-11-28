@@ -591,7 +591,7 @@ runTest("Update manifest lists signed desktop installers and the Android APK", (
     "Denso-1.2.0-linux-amd64.deb", "Denso-1.2.0-linux-amd64.deb.sig",
     "Denso-1.2.0-android.apk",
   ];
-  const m = buildManifest({
+  const m: any = buildManifest({
     version: "1.2.0", tag: "v1.2.0", repo: "KIMGITO/ISMS", notes: "### Features\n- x\n", files,
     readText: (name: string) => `sig-of-${name}\n`, sha256: () => "abc123",
   });
@@ -995,7 +995,7 @@ runTest("Receipt names the promotion code apart from other discounts", () => {
 
 runTest("Promotion and referral permissions exist and follow the roles", () => {
   // Every permission the promotion and referral functions check is one the Roles screen knows.
-  const sql = ["20261126001_promotions.sql", "20261126002_referrals.sql"].map((f) => readFileSync(`supabase/migrations/${f}`, "utf8")).join("\n");
+  const sql = ["20261126001_promotions.sql", "20261126002_referrals.sql"].map((f) => readFileSync(`supabase/migrations_archive/${f}`, "utf8")).join("\n");
   const asked = new Set([...sql.matchAll(/assert_permission\([^,]+,\s*([^)]*)\)/g)].flatMap((m) => [...m[1].matchAll(/'([a-z_]+\.[a-z_]+)'/g)].map((x) => x[1])));
   const known = new Set(ALL_PERMISSIONS.map((p) => p.code));
   for (const p of asked) if (!known.has(p as any)) throw new Error(`${p} is checked by the database but missing in the app`);
@@ -1514,7 +1514,7 @@ runTest("No VAT at all unless KRA eTIMS is connected, even with the tax switch o
   if (vatPercentFor(on, undefined) !== 0) throw new Error("unknown eTIMS status (loading, offline) must mean no VAT");
   if (vatPercentFor({ isTaxEnabled: false, taxPercentage: 16 }, connected) !== 0) throw new Error("switch off means no VAT");
   if (vatPercentFor({}, connected) !== 0) throw new Error("a missing switch means off");
-  const sql = readFileSync("supabase/migrations/20261124001_vat_needs_etims.sql", "utf8");
+  const sql = readFileSync("supabase/migrations_archive/20261124001_vat_needs_etims.sql", "utf8");
   for (const need of ["vat_allowed", "trg_tax_needs_etims", "trg_0_sale_vat_needs_etims", "IF NOT v_vat_ok THEN", "SET DEFAULT false"]) {
     if (!sql.includes(need)) throw new Error(`database must enforce it too: ${need}`);
   }
@@ -1799,7 +1799,7 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
       throw new Error(`unexpected fetch ${url}`);
     }) as typeof fetch;
     g.caches = { default: { match: async () => undefined, put: async () => undefined } };
-    const shell = '<html><head><title>Build shop</title><meta name="description" content="x" /><link rel="icon" type="image/png" href="/favicon.png" /></head><body><div id="root"></div></body></html>';
+    const shell = '<html><head><title>Build shop</title><meta name="robots" content="noindex" /><meta name="description" content="x" /><link rel="icon" type="image/png" href="/favicon.png" /></head><body><div id="root"></div></body></html>';
     const env = {
       SUPABASE_URL: "https://db.test", SUPABASE_ANON_KEY: "anon", SINGLE_SHOP_HOSTS: "",
       ASSETS: { fetch: async (r: Request | string) => new Response(String(typeof r === "string" ? r : r.url).endsWith("/shell.tpl") ? shell : "asset") },
@@ -1829,6 +1829,19 @@ runTest("Regular orders: week words, a day's customers, stock outlook", () => {
     eq((await none.text()).includes("Milk"), false, "names no business");
     eq(await (await get("https://milk.shops.test/assets/app.js")).text(), "asset", "files come from the build");
     eq((await (await get("https://milk.shops.test/robots.txt")).text()).includes("Sitemap: https://milk.shops.test/sitemap.xml"), true, "robots per shop");
+    // Search engine rules (technical SEO audit 2026-11-28).
+    eq((html.match(/name="robots"/g) ?? []).length, 1, "one robots tag: the shell's noindex is replaced");
+    eq(html.includes('content="index, follow"'), true, "real page is indexable");
+    eq(html.includes('<script id="storefront-data" type="application/json">'), true, "shop data in the page for an instant first screen");
+    eq(/<script id="storefront-data"[^>]*>[^<]*Milk \\u003cCo>/.test(html), true, "embedded data cannot close its script tag");
+    eq((await get("https://milk.shops.test/no-such-page")).status, 404, "unknown page answers 404");
+    eq((await get("https://milk.shops.test/products/gone")).status, 404, "missing product answers 404");
+    eq((await get("https://milk.shops.test/%E0%A4%A")).status, 404, "broken address answers 404, not an error");
+    eq((await get("https://milk.shops.test/cart")).status, 200, "private pages still load");
+    eq((await get("https://milk.shops.test/promo/summer")).status, 200, "advert landing pages load");
+    const robots = await (await get("https://milk.shops.test/robots.txt")).text();
+    eq(robots.includes("Disallow: /account") || robots.includes("Disallow: /cart"), false, "private pages crawlable so their noindex is read");
+    eq(robots.includes("Disallow: /search"), true, "search results blocked");
     eq((await (await get("https://milk.shops.test/sitemap.xml")).text()).includes("https://milk.shops.test/products/fresh-milk"), true, "sitemap per shop");
     const home = await get("https://shops.test/");
     const plansHtml = await home.text();

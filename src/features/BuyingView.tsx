@@ -34,6 +34,7 @@ import { listPurchases, listSuppliers, type PurchaseOrder, type Supplier } from 
 import { getSupabase } from '../services/supabaseClient';
 import { NumberInput } from '../components/shared/Input';
 import { QTY_DECIMALS, formatQty } from '../utils/money';
+import type { ShowToast } from '../stores/notificationStore';
 
 type Tab = 'suppliers' | 'purchases' | 'reorder' | 'approvals' | 'bills' | 'returns' | 'settings';
 
@@ -214,7 +215,7 @@ export default function BuyingView() {
   );
 }
 
-type Toast = (title: string, message?: string, a?: any, kind?: any) => void;
+type Toast = ShowToast;
 
 // ---------------------------------------------------------------- Reorder
 
@@ -500,7 +501,7 @@ function ApprovalsTab({ overview, canApprove, canBill, onChanged, onToast }: {
     setBusy(id);
     try {
       await fn();
-      onToast(ok, undefined, undefined, 'success');
+      onToast(ok, '', undefined, 'success');
       onChanged();
     } catch (e) {
       onToast('Not done', toUserMessage(e, 'Could not save. Check your connection.'), undefined, 'error');
@@ -824,7 +825,7 @@ function SettingsTab({ businessId, overview, onChanged, onToast }: {
     try {
       await saveBuyingSettings(businessId, Number(tol) || 0, Math.round(Number(safety) || 0),
         LIMIT_ROLES.map((role) => ({ role, max: limits[role].trim() === '' ? null : Number(limits[role]) })));
-      onToast('Buying settings saved', undefined, undefined, 'success');
+      onToast('Buying settings saved', '', undefined, 'success');
       onChanged();
     } catch (e) {
       onToast('Not saved', toUserMessage(e, 'Could not save the settings.'), undefined, 'error');

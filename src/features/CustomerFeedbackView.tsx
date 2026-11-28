@@ -214,7 +214,6 @@ Feedback: "${comment.comment}"`,
     try {
       const data = await SupabaseService.callEdgeFunction('complaints', {
         action: 'analytics',
-        comments: comments.filter((c) => !c.archivedAt),
         businessId: activeBusinessId,
       });
       setInsights(data?.success && data.analytics ? data.analytics : empty);

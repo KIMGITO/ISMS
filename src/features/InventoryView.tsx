@@ -1,5 +1,6 @@
 // src/features/InventoryView.tsx
-// Complete Re-engineered Strict Online-First Inventory & Local Log Hiding Framework
+// Inventory screen: products, stock levels and stock changes. Online first: every figure comes
+// from the database, not a copy kept on the device.
 
 import { toUserMessage } from '../utils/userError';
 import { confirmDelete } from '../components/DeleteImpact';

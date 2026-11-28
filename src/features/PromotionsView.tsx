@@ -1023,7 +1023,7 @@ function ReferralsTab({ businessId, canManage }: { businessId: string; canManage
       {!data && !error && <Skeleton />}
       {data && (
         <>
-          <ProgrammeCard campaign={k} canManage={canManage} onEdit={() => setEditing('edit')} onNew={() => setEditing('new')} />
+          <ProgrammeCard campaign={k ?? null} canManage={canManage} onEdit={() => setEditing('edit')} onNew={() => setEditing('new')} />
 
           <PeriodBar value={period} onChange={setPeriod} onRefresh={() => void load()} loading={loading} />
 

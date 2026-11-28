@@ -22,6 +22,9 @@ export interface ToastMessage {
   quiet?: boolean;
 }
 
+/** The toast function, for components that take it as a prop. */
+export type ShowToast = NotificationState['showToast'];
+
 interface NotificationState {
   toast: ToastMessage | null;
   notifications: SQLiteRow<AppNotification>[];
@@ -32,7 +35,7 @@ interface NotificationState {
   initScheduleReminders: () => void;
   markReminderAsRead: (id: string) => void;
   // Local UI-only toast (doesn't save to DB)
-  showToast: (sender: string, message: string, avatar?: string, type?: "success" | "error" | "info" | "offline", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
+  showToast: (sender: string, message?: string, avatar?: string, type?: "success" | "error" | "info" | "offline", category?: "inventory" | "logistics" | "security" | "sales" | "audit" | "system") => void;
   clearToast: () => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -216,7 +219,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   showToast: (sender, rawMessage, avatar, type, category) => {
     // Safety net: an error toast never shows raw database or runtime text.
-    const message = type === "error" ? toUserMessage(rawMessage) : rawMessage;
+    const message = (type === "error" ? toUserMessage(rawMessage) : rawMessage) ?? "";
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     

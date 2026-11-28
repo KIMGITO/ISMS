@@ -36,18 +36,18 @@ export interface NotificationTone {
 
 // Friendly display mapping — 12 custom slots uploaded by the user.
 export const NOTIFICATION_TONES: NotificationTone[] = [
-  { id: "default", label: "Default", description: "Notification 1 — standard tone", file: "notification1.mp3", soundName: "notification1" },
-  { id: "chime", label: "Chime", description: "Notification 2 — bright chime", file: "notification2.mp3", soundName: "notification2" },
-  { id: "ding", label: "Ding", description: "Notification 3 — clear ding", file: "notification3.mp3", soundName: "notification3" },
-  { id: "soft", label: "Soft", description: "Notification 4 — gentle tone", file: "notification4.mp3", soundName: "notification4" },
-  { id: "bell", label: "Bell", description: "Notification 5 — bell ring", file: "notification5.mp3", soundName: "notification5" },
-  { id: "alert", label: "Alert", description: "Notification 6 — attention alert", file: "notification6.mp3", soundName: "notification6" },
-  { id: "priority", label: "Priority", description: "Notification 7 — high-priority tone", file: "notification7.mp3", soundName: "notification7" },
-  { id: "focus", label: "Focus", description: "Notification 8 — focus-friendly tone", file: "notification8.mp3", soundName: "notification8" },
-  { id: "marimba", label: "Marimba", description: "Notification 9 — warm marimba", file: "notification9.mp3", soundName: "notification9" },
-  { id: "pulse", label: "Pulse", description: "Notification 10 — rhythmic pulse", file: "notification10.mp3", soundName: "notification10" },
-  { id: "reveille", label: "Reveille", description: "Notification 11 — bright wake-up call", file: "notification11.mp3", soundName: "notification11" },
-  { id: "echo", label: "Echo", description: "Notification 12 — soft echo tone", file: "notification12.mp3", soundName: "notification12" },
+  { id: "default", label: "Default", description: "Sound 1, standard tone", file: "notification1.mp3", soundName: "notification1" },
+  { id: "chime", label: "Chime", description: "Sound 2, bright chime", file: "notification2.mp3", soundName: "notification2" },
+  { id: "ding", label: "Ding", description: "Sound 3, clear ding", file: "notification3.mp3", soundName: "notification3" },
+  { id: "soft", label: "Soft", description: "Sound 4, gentle tone", file: "notification4.mp3", soundName: "notification4" },
+  { id: "bell", label: "Bell", description: "Sound 5, bell ring", file: "notification5.mp3", soundName: "notification5" },
+  { id: "alert", label: "Alert", description: "Sound 6, attention alert", file: "notification6.mp3", soundName: "notification6" },
+  { id: "priority", label: "Priority", description: "Sound 7, high-priority tone", file: "notification7.mp3", soundName: "notification7" },
+  { id: "focus", label: "Focus", description: "Sound 8, focus-friendly tone", file: "notification8.mp3", soundName: "notification8" },
+  { id: "marimba", label: "Marimba", description: "Sound 9, warm marimba", file: "notification9.mp3", soundName: "notification9" },
+  { id: "pulse", label: "Pulse", description: "Sound 10, rhythmic pulse", file: "notification10.mp3", soundName: "notification10" },
+  { id: "reveille", label: "Reveille", description: "Sound 11, bright wake-up call", file: "notification11.mp3", soundName: "notification11" },
+  { id: "echo", label: "Echo", description: "Sound 12, soft echo tone", file: "notification12.mp3", soundName: "notification12" },
 ];
 
 const STORAGE_KEY = "kkm_notification_tone_v1";
@@ -143,13 +143,13 @@ export const RingToneService = {
   },
 
   /** Raw sound name the Android ringing service plays, or "alarm" for the phone's alarm sound. */
-  nativeName(id: RingToneId = this.getId()): string {
+  nativeName(this: { getId(): RingToneId }, id: RingToneId = this.getId()): string {
     if (id === "alarm") return "alarm";
     return NOTIFICATION_TONES.find((t) => t.id === id)?.soundName || "alarm";
   },
 
   /** File played in the browser and desktop app. */
-  webUrl(id: RingToneId = this.getId()): string {
+  webUrl(this: { getId(): RingToneId }, id: RingToneId = this.getId()): string {
     const tone = NOTIFICATION_TONES.find((t) => t.id === (id === "alarm" ? RING_FALLBACK : id));
     return `/sounds/${(tone || NOTIFICATION_TONES[0]).file}`;
   },

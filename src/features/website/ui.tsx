@@ -40,7 +40,7 @@ export function useSaveToDraft() {
   return async <K extends WebsitePart>(parts: Pick<WebsiteDocument, K>, what: string): Promise<boolean> => {
     const result = await savePart(parts);
     if (result.ok) showToast('Website', `${what} saved to the draft. Publish to show it on the website.`, undefined, 'success');
-    else showToast('Website', result.message, undefined, 'error');
+    else showToast('Website', result.message ?? 'Could not save.', undefined, 'error');
     return result.ok;
   };
 }
