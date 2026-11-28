@@ -154,7 +154,7 @@ export default function UnclaimedPaymentsView() {
           <Segmented
             size="sm"
             value={tab}
-            onChange={setTab}
+            onChange={(v) => setTab(v as "payments" | "exceptions")}
             options={[{ id: "payments", label: "Till payments" }, { id: "exceptions", label: "Prompt exceptions", count: exceptions.length }]}
           />
         </div>
