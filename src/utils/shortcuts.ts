@@ -55,6 +55,7 @@ export const GO_TO_KEYS: Partial<Record<ScreenId, string>> = {
   production: "j", // Jobs (production batches)
   money: "e", // payments & Expenses
   prompt: "m", // M-Pesa prompt
+  "unclaimed-payments": "$", // money waiting to be matched (every letter is taken)
   "petty-cash": "c", // petty Cash
   finance: "f",
   dashboard: "k", // clocK in (Shift)
