@@ -14,7 +14,7 @@ SELECT problem FROM (
           'check_promo_code', 'check_request_session', 'fn_audit_actor_name',
           'fn_can_write_storage_folder', 'fn_storage_folder_permission', 'gen_random_bytes',
           'get_invitation_by_token', 'get_preview_campaigns', 'get_preview_storefront', 'get_public_campaigns', 'get_product_ideas', 'get_public_plans', 'get_public_storefront',
-          'get_user_business_ids', 'is_owner_or_admin', 'record_website_view', 'report_crash', 'resolve_website_host', 'session_is_live',
+          'get_user_business_ids', 'is_owner_or_admin', 'record_website_view', 'record_website_visit', 'report_crash', 'resolve_website_host', 'session_is_live',
           'submit_website_feedback', 'track_ad_events', 'uuid_generate_v4', 'vat_allowed',
           'website_accepts_airtel', 'website_accepts_cards')
     UNION ALL
@@ -56,7 +56,7 @@ SELECT problem FROM (
     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
       AND c.relname NOT IN ('audit_logs', 'notifications', 'notification_preferences',
                             'business_memberships', 'crash_reports', 'problem_reports',
-                            'support_grants', 'module_requests', 'support_messages', 'website_visit_daily',
+                            'support_grants', 'module_requests', 'support_messages', 'website_visit_daily', 'website_visit_history',
                             'marketing_ad_daily', 'marketing_conversions', 'canva_oauth_states',
                             -- Server-only Daraja plumbing: a payment arriving for a business on an
                             -- ended plan must still be stored (money rule 1).

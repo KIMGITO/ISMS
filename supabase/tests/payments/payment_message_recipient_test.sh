@@ -9,7 +9,7 @@ BR=d3000000-0000-0000-0000-000000000000   # Bread, 50.00
 CARL=00000000-0000-0000-0000-0000000000a2; OLIVE=00000000-0000-0000-0000-0000000000a0
 R=$$
 item(){ echo "[{\"product_id\":\"$BR\",\"product_name\":\"x\",\"quantity\":2,\"unit_price\":50,\"discount_percentage\":0}]"; }
-sale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":100,\"discount\":0,\"tax\":0,\"final_total\":100,\"payment_method\":\"M-Pesa\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$1\"}'::jsonb, '$(item)'::jsonb)"; }
+sale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":100,\"discount\":0,\"tax\":0,\"final_total\":100,\"payment_method\":\"M-Pesa\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$1\",\"payment_ref\":\"PR-$1\"}'::jsonb, '$(item)'::jsonb)"; }
 id_of(){ grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' <<<"$1" | head -1; }
 c2b(){ sql "select record_till_payment('{\"TransID\":\"$1\",\"TransAmount\":\"100\",\"BusinessShortCode\":\"600000\",\"BillRefNumber\":\"$2\",\"MSISDN\":\"254711000000\",\"FirstName\":\"Jane\",\"TransTime\":\"$(TZ=Africa/Nairobi date +%Y%m%d%H%M%S)\"}'::jsonb, '$B1')"; }
 # Who got a "payment received" message mentioning $1 (user ids, or "everyone" for a team message).
