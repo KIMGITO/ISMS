@@ -6,6 +6,77 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## App.tsx split into src/app (2026-11-28)
+
+`src/App.tsx` went from 5,385 lines to 455. The screens and pieces are now in `src/app/` (top bar, side menu, phone bar, screen list, toasts, branch list, first-launch screens), the sign-in screens in `src/app/auth/` (one file per screen plus `useAuthFlow.ts`), and App's effects in hooks (`useDataSync`, `useNativeShell`, `useBottomNavBehaviour`, `useAppearance`, `usePlanReady`, `useBranchChooser`). Unused state was removed. Nothing a user sees changed: type check, the 112 unit tests and the build pass, and a browser run of the same 24 steps on the old and new code gave pixel-identical screens, apart from animation frames. No database change.
+
+1. [ ] **You:** on an Android phone, open the app. Check that Back closes an open sheet, then goes back a screen, then asks to exit. A field you tap should stay above the keyboard. Double-tapping an empty spot should hide and show the bottom bar. These only run on a phone.
+2. [ ] Commit the split, then release the app.
+
+## App.tsx split, migrations merged into five files (2026-11-28)
+
+`src/App.tsx` lost its tab list, permission constants, tour steps and logo to `src/app/` (navConfig.ts, tour.ts, WorkspaceLogo.tsx). The 68 migrations are now 5: the two earlier squashed files, `20261121001_shop_features.sql`, `20261204006_support_role.sql` (kept alone: it adds an enum value) and `20261204007_platform_payments_website.sql`. A test DB built from the 5 has the same schema as one built from the 68 (`pg_dump -s`, no difference). The old files are in `supabase/migrations_archive/`. Also fixed: `20261214001` failed on a database without pg_cron.
+
+The live database's migration history still lists the old file names, so a plain `db push` will refuse. The app is not in production, so reset live onto the new files:
+
+1. **You:** take a backup of live first (`bash scripts/db-backup.sh`), since a reset wipes the data (including the test seed).
+2. Reset live onto the 5 files: `npx supabase db reset --linked`, then `bash scripts/check-live-grants.sh`. The check should report no missing grants.
+3. Run `npx supabase migration list --linked`. It should show exactly the 5 versions, local and remote matching.
+4. **You:** sign up again as the first user (you become platform admin), create the business, and open Home, POS and Payments to check they load.
+
+## Code and wording review: no fake feedback insights, AI access from the database, strict types (2026-11-28)
+
+Feedback > Insights no longer shows made-up figures when AI is off, and reads the feedback itself. The assistant takes full access from the database instead of the role name. Strict type checks are on. Wording fixes across the app and website. Details: [operations/code-review-2026-11-28.md](operations/code-review-2026-11-28.md). No database change.
+
+1. [ ] Deploy the two changed functions: `npx supabase functions deploy complaints --no-verify-jwt` and `npx supabase functions deploy chat --no-verify-jwt`.
+2. [ ] **You:** switch AI off for messages (Settings > AI), then open Feedback > Insights. It should say Kim is not available, with no categories or numbers. Switch AI back on: Insights should list categories from your real feedback.
+3. [ ] **You:** sign in as a Cashier and ask the assistant "what can I do?". It should list only the Cashier's permissions. As the Owner it should say you can do everything.
+4. [ ] Deploy the website (`npm run website:deploy`) and release the app, so the wording and About-page fixes reach users.
+
+## Customer website: designs per business type, more fonts and colour sets, new home sections (2026-11-28)
+
+Five new designs made for one kind of business (Fresh market, Editorial, Care, Workshop, Bistro), 17 more fonts, 18 one-tap colour sets on Website > Brand, and new home sections in Website > Homepage: big-picture and three-picture openings, tall category cards, "one large, four small" products, customer cards and a one-at-a-time review slider. Sliding rows get a progress bar. Fixed: the contact band at the foot of every page made phones scroll sideways. Shops on the Original design look the same as before. Migration `20261216001_website_more_fonts_designs.sql`. Design test shop: `VITE_DEMO_SHOP=1 npm run website:dev`, then `http://localhost:5180/?demo=fashion` (any industry id; `&preset=workshop` for a design). Reasons: [DECISIONS-2026-11-28-website.md](DECISIONS-2026-11-28-website.md).
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh`. It should say no problems.
+2. [ ] Deploy the website: `npm run website:deploy`, and release the app (Brand and Design screens changed).
+3. [ ] **You:** in the app, Website > Design: choose "Workshop" and Save to draft. The preview headings should turn tall capitals. Then choose the heading font "Abril Fatface"; it should be offered for headings but not for text.
+4. [ ] **You:** Website > Brand > Colour sets: tap one. The four colour boxes should fill in, and the preview should change colour.
+5. [ ] **You:** Website > Homepage: set Opening banner to "Words over a big picture", Customer reviews to "Customer cards", Publish, and open the shop on your phone. No part of the page should scroll sideways.
+
+## Customer website: SEO fixes, instant first screen, compact list layout (2026-11-28)
+
+Real 404s, canonical/trailing-slash fix, noindex on the fallback page, robots.txt only blocks /search, shop data embedded in each page so the first screen draws at once, bigger tap targets on phones, and a "Compact list" layout for product rows (Website > Homepage). Plan and reasons: [operations/website-seo-fix-plan.md](operations/website-seo-fix-plan.md). Code only; no database change. Tests: `npm test` (Website Worker test extended).
+
+1. [ ] Deploy the website: `npm run website:deploy` (or let CI release it).
+2. [ ] `curl -sI https://<a shop>.interlockingblockbuilders.co.ke/no-such-page`. It should say `404`. Then `/cart` should say `200`.
+3. [ ] `curl -s https://<a shop>.interlockingblockbuilders.co.ke/robots.txt`. It should show `Disallow: /search` and no other Disallow.
+4. [ ] `curl -s https://<a shop>.interlockingblockbuilders.co.ke/ | grep -c storefront-data`. It should print `1`.
+5. [ ] **You:** open a shop on your phone with mobile data. The shop should appear without the loading picture first.
+6. [ ] **You:** in the app, Website → Homepage → Products → choose "Compact list", Preview. Products should show as rows with picture, price and Add.
+7. [ ] **You:** in Google Search Console for a shop, Pages → "Soft 404" should stop growing over the next weeks.
+
+## Pay debt moves the Payments screen balance (2026-11-28)
+
+Found by the M-Pesa reconciliation: Customers > Pay debt posted the books but never moved the Payments screen balance or made a payment row (every method). `process_debt_payment` now records through `process_business_payment`. Live had no affected rows (checked read-only 2026-11-28: Cash and M-Pesa agree with the books), so nothing needs correcting. Migration `20261215002_debt_payment_moves_money.sql`; test `supabase/tests/payments/debt_payment_money_test.sh` (20 pass). Staff with a custom role that has "customers.debts" but no payments permission can no longer record a debt payment.
+
+1. [ ] Apply the database change with the Daraja one below: `bash scripts/db-push.sh`, then `bash scripts/check-live-grants.sh`. It should say no problems.
+2. [ ] **You:** Customers → pick a customer who owes → Pay debt, KSh 1 by Cash. Payments should list the payment, and the Cash balance should go up by KSh 1.00.
+3. [ ] In the SQL editor: `select m.business_id, m.method, m.balance, coalesce(sum(l.debit-l.credit),0) books from money_assets m join acc_accounts a on a.business_id=m.business_id and acc_key_method(a.system_key)=m.method left join acc_lines l on l.account_id=a.id group by 1,2,3;`. Each row's two numbers should be equal.
+
+## Daraja audit: callbacks kept before processing, token cache, timeouts (2026-11-28)
+
+Every STK and till callback is now stored (`daraja_callbacks`) before it is processed; failed or too-early ones are retried by `payment-sweep`. OAuth tokens are cached, every Daraja call has a timeout, the callback token survives a disconnect, and online orders get their real receipt after a status-query settle. Report: [operations/daraja-integration-report.md](operations/daraja-integration-report.md). Migration `20261215001_daraja_callback_inbox.sql`; tests `supabase/tests/payments/daraja_callback_inbox_test.sh` (43 pass) and `supabase/functions/customer-checkout/daraja_test.ts` (12 pass).
+
+1. [ ] Apply the database change: `bash scripts/db-push.sh` (after 20261214002), then `bash scripts/check-live-grants.sh`. It should say no problems (`daraja_callbacks` and `mpesa_callback_tokens` are service-role only on purpose).
+2. [ ] Deploy the functions, in this order, so no callback hits old code reading a missing table: `npx supabase functions deploy mpesa-webhook --no-verify-jwt`, `npx supabase functions deploy till-callback --no-verify-jwt`, `npx supabase functions deploy payment-sweep --no-verify-jwt`, `npx supabase functions deploy mpesa-payments`, `npx supabase functions deploy customer-checkout`, `npx supabase functions deploy ussd --no-verify-jwt`.
+3. [ ] Run `select count(*) from mpesa_callback_tokens;` in the SQL editor. It should equal `select count(*) from mpesa_payment_secrets;`.
+4. [ ] **You:** Payments & Expenses → M-Pesa → "Register till with Safaricom". The message should say Safaricom accepted it and "Our payment address answered".
+5. [ ] **You:** on sandbox, "Send a test KSh 1 to the till". Within a minute the panel should say "Last till payment received from Safaricom just now", and `select kind, status, result from daraja_callbacks order by received_at desc limit 3;` should show `c2b_confirmation | processed | queued`.
+6. [ ] **You:** send a KSh 1 prompt to your own phone from Payment Prompts and pay it. The panel should show "Last prompt result received", and `daraja_callbacks` a row `stk | processed | recorded`.
+7. [ ] **You:** send another prompt and cancel it on the phone. The prompt should show Failed and `daraja_callbacks` should show `stk | processed | failed`.
+8. [ ] Run `npx supabase functions logs payment-sweep` after 5 minutes. Lines should include `"callbacks"` and no `errors` above 0.
+9. [ ] **You (production only):** with live keys, register the till once and pay KSh 1 from a phone straight to the till (no prompt). It should appear under Payments → Paid to the till. If registration is refused, check whether Safaricom wants the store number instead of the till number for your Buy Goods account (see report, "Outstanding").
+
 ## Payment messages: only when confirmed, only to the sale maker (2026-11-28)
 
 An M-Pesa sale no longer says "Payment received" when it is saved. "M-Pesa payment received" comes only after the money is confirmed (STK prompt paid, till payment with the receipt number, or staff matching a till payment to the sale, which sent nothing before). Sale and debt money messages (payment received, credit sale, debt payment) go only to the person who made the sale or recorded the payment, never to the Owner or other staff. A prompt not tied to a sale goes only to whoever sent it. Payments nobody started (paid to a customer's account number, or waiting to be assigned) still go to the team. Migration `20261214002_mpesa_received_confirmed_sale_maker.sql`; test `supabase/tests/payments/payment_message_recipient_test.sh` (15 checks pass; the other 4 payment tests still pass).
