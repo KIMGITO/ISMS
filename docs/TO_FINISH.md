@@ -6,6 +6,15 @@ Rule: [CLAUDE.md](../CLAUDE.md) → "Finishing rule".
 
 All the owner's account settings (Supabase passwords and MFA, backups, GitHub safety, 2FA), with click-by-click steps: [operations/owner-setup.md](operations/owner-setup.md).
 
+## Escape closes sheets, fillable till test payment (2026-11-28)
+
+Escape now closes the top sheet, dialog or menu on every screen (one handler in `src/app/useNativeShell.ts`, the same list the phone's Back button uses; the screen underneath never sees the key). Sheets that weren't on that list were added. Payments > M-Pesa > "Send a test payment" (sandbox only) opens a sheet with amount, account reference, payer name and phone. "In the app" posts Safaricom's C2B callback to the app's own till-callback address, so it is received, matched and booked like a real payment; "Through Safaricom" uses Safaricom's simulator (whole shillings, Safaricom's own name). No database change.
+
+1. [ ] Deploy the function: `npx supabase functions deploy mpesa-payments`.
+2. [ ] On a sandbox business, open Payments > M-Pesa > Send a test payment, enter KSh 150.50, name "Jane Wanjiku", account "INV-0012", choose In the app, Send. It should show under Payments with that name, amount and reference, and the Payments balance and books should move by KSh 150.50.
+3. [ ] Open any sheet (e.g. a sale's edits, a till payment) and press Escape: only that sheet closes. In Quick Sale, Escape with a sheet open must not clear the cart.
+4. [ ] Commit, then release the app.
+
 ## App.tsx split into src/app (2026-11-28)
 
 `src/App.tsx` went from 5,385 lines to 455. The screens and pieces are now in `src/app/` (top bar, side menu, phone bar, screen list, toasts, branch list, first-launch screens), the sign-in screens in `src/app/auth/` (one file per screen plus `useAuthFlow.ts`), and App's effects in hooks (`useDataSync`, `useNativeShell`, `useBottomNavBehaviour`, `useAppearance`, `usePlanReady`, `useBranchChooser`). Unused state was removed. Nothing a user sees changed: type check, the 112 unit tests and the build pass, and a browser run of the same 24 steps on the old and new code gave pixel-identical screens, apart from animation frames. No database change.

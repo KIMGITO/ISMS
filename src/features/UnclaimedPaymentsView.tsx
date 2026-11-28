@@ -5,6 +5,7 @@
 // amount or a sale's balance, and every step is written to an append-only history.
 // Desktop: table + right-side drawer. Tablet/phone: compact rows + full-screen details.
 import { useEffect, useMemo, useState } from "react";
+import { useOverlay } from "../hooks/useOverlay";
 import { X, SlidersHorizontal, History, Flag, Link2, User, Undo2, AlertTriangle } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { useUnclaimedPaymentsStore } from "../stores/unclaimedPaymentsStore";
@@ -306,11 +307,7 @@ function PaymentDetails({ p, onClose }: { p: TillPayment; onClose: () => void })
   const [customerId, setCustomerId] = useState("");
   const [hist, setHist] = useState<{ events: TillPaymentEvent[]; allocations: TillAllocation[] } | null>(null);
 
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
+  useOverlay(true, onClose, "bottom-sheet");
 
   useEffect(() => {
     if (!canAllocate || mode !== "match") return;

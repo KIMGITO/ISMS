@@ -2,6 +2,7 @@
 // (POS and Quick Sale included) to staff who can match payments. Opens a small list of the
 // latest ones; never pops up by itself, so it can't interrupt a checkout.
 import { useEffect, useRef, useState } from "react";
+import { useOverlay } from "../../hooks/useOverlay";
 import { Inbox } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -21,6 +22,7 @@ export default function UnclaimedPaymentsIndicator() {
   const setFocus = useUnclaimedPaymentsStore((s) => s.setFocus);
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const [open, setOpen] = useState(false);
+  useOverlay(open, () => setOpen(false), "dropdown");
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,10 +32,8 @@ export default function UnclaimedPaymentsIndicator() {
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+    return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
   if (!allowed) return null;

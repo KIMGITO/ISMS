@@ -1431,9 +1431,20 @@ export class MpesaRepository {
     return { reachable: !!data?.reachable };
   }
 
-  /** Sandbox only: registers the till again, then has Safaricom send it a test KSh 1. */
-  public static async testTill(): Promise<void> {
-    await this.call("test_till");
+  /**
+   * Sandbox only: a test till payment with the amount, payer name and account reference typed in.
+   * via "app" records it straight away, as Safaricom's confirmation would; via "safaricom"
+   * registers the till again and has Safaricom's simulator send it (whole shillings, its own name).
+   */
+  public static async testTill(params: {
+    amount: number;
+    name?: string;
+    billRef?: string;
+    phone?: string;
+    via: "app" | "safaricom";
+  }): Promise<{ transId?: string; result?: string }> {
+    const data = await this.call("test_till", params);
+    return { transId: data?.transId, result: data?.result };
   }
 
   /** Sends a payment prompt to the customer's phone. Returns its checkout id. */

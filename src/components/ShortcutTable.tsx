@@ -1,7 +1,7 @@
 // Keyboard shortcuts this person's role can use, with a search and a "where" filter.
 // Used in About this app (all screens) and the "?" help (the current screen).
 import SearchableDropdown from './SearchableDropdown';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Keyboard, Search, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -115,15 +115,6 @@ export function ShortcutTable({ scopes, autoFocus, listClassName = '' }: TablePr
 /** The "?" window: shortcuts for the screen you're on, plus the ones that work everywhere. */
 export function ShortcutHelp({ open, screen, onClose }: { open: boolean; screen: string; onClose: () => void }) {
   useOverlay(open, onClose, 'dialog');
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
   return (
     <AnimatePresence>
       {open && (

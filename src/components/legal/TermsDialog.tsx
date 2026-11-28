@@ -2,7 +2,8 @@
 // Shows the app's Terms of Use. The text is TERMS.md at the repository root, bundled at
 // build time, so the file and the app can never say different things.
 
-import { Fragment, useEffect, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
+import { useOverlay } from '../../hooks/useOverlay';
 import { X } from 'lucide-react';
 import termsSource from '../../../TERMS.md?raw';
 import { SheetLayer } from '../shared/SheetLayer';
@@ -50,12 +51,7 @@ function renderTerms(source: string): ReactNode[] {
 }
 
 export function TermsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useOverlay(open, onClose, 'dialog');
 
   if (!open) return null;
   return (

@@ -22,6 +22,20 @@ export function useNativeShell() {
     splashScreenService.hide();
   }, []);
 
+  // Escape closes the top sheet, dialog or menu, like the Back button. It runs first (capture)
+  // and stops the key there, so exactly one layer closes and the screen underneath (a till
+  // clearing its cart, say) never sees it. Page steps ("screen") are left to the page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+      if (!useOverlayStore.getState().popTopOverlay(['screen'])) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
   // Native Android hardware Back Button interception and confirmation flow
   useEffect(() => {
     const unsubscribeBackButton = nativePlatformService.onBackButton(

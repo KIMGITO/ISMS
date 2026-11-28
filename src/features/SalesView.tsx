@@ -2,6 +2,7 @@
 // Sales Log: every sale, grouped by day, newest first.
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useOverlay } from "../hooks/useOverlay";
 import { useUiStore } from "../stores/uiStore";
 import { useAppStore } from "../stores/appStore";
 import { Transaction } from "../types";
@@ -413,11 +414,7 @@ export default function SalesView() {
 
 /** What was changed on one sale after it was made, who changed it and when, oldest first. */
 function SaleEditsSheet({ sale, entries, onClose }: { sale: Transaction; entries: AuditEntry[]; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useOverlay(true, onClose, "bottom-sheet");
   return (
     <SheetLayer>
       <div className="absolute inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>

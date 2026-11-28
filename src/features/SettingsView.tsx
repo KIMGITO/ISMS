@@ -74,6 +74,7 @@ import { SupabaseService } from '../services/supabaseService';
 import { Switch } from '../components/shared/Switch';
 import AiUsagePanel from '../components/assistant/AiUsagePanel';
 import { hasModule } from '../stores/planStore';
+import { useOverlay } from '../hooks/useOverlay';
 
 
 interface SettingsViewProps {
@@ -124,6 +125,7 @@ export default function SettingsView({
     string | null
   >(null);
   const [showWebSettingsGuide, setShowWebSettingsGuide] = useState(false);
+  useOverlay(showWebSettingsGuide, () => setShowWebSettingsGuide(false), 'dialog');
 
   // AI: the platform sets it up; the business switches it on or off per use (20261205001).
   const [aiConfig, setAiConfig] = useState<{ enabled: boolean; uses: Record<string, boolean>; system_prompt: string; own_key?: boolean }>({

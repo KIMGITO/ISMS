@@ -7,7 +7,8 @@
 //   register  tell Safaricom where to send till payments   (settings.integrations)
 //   request   send a payment prompt to a customer's phone  (payments.mpesa)
 //   check     ask Safaricom about a prompt with no answer  (payments.mpesa)
-//   test_till sandbox: register the till, then send it a test KSh 1 (settings.integrations)
+//   test_till sandbox: a test till payment with the amount, name and account typed in, either
+//             straight into the app or through Safaricom's simulator (settings.integrations)
 // The prompt's result arrives at mpesa-webhook and is recorded by the database.
 
 // deno-lint-ignore-file no-explicit-any
@@ -181,22 +182,83 @@ Deno.serve(async (req) => {
     if (action === "test_till") {
       const denied = await requirePermission(req, businessId, "settings.integrations");
       if (denied) return denied;
-      const limited = await enforceRateLimit(`mpesa-test:biz:${businessId}`, 20, 3600);
+      const limited = await enforceRateLimit(`mpesa-test:biz:${businessId}`, 60, 3600);
       if (limited) return limited;
       const keys = await darajaKeys(admin, businessId);
       if (!keys) return errorResponse("Connect this business's M-Pesa (Daraja) keys first.", 400, "NOT_CONFIGURED");
       if (keys.environment === "production") {
-        return errorResponse("On a live till, pay KSh 1 from a phone instead.", 400, "NOT_SANDBOX");
+        return errorResponse("On a live till, pay from a phone instead.", 400, "NOT_SANDBOX");
       }
       const { data: settings } = await admin.from("mpesa_settings").select("till_number").eq("business_id", businessId).maybeSingle();
       const till = settings?.till_number ?? "";
-      // Sandbox short codes are shared by every Daraja developer and the last registration
-      // wins, so register right before the test payment.
-      const reg = await registerTill(admin, keys, till, await staffName());
-      if (!reg.ok) return errorResponse(`Safaricom didn't accept the registration: ${reg.detail}`, 502, "REGISTER_REJECTED");
-      const sim = await c2bSimulate(keys, till, 1, "TEST");
-      if (!sim.ok) return errorResponse(`Safaricom didn't send the test payment: ${sim.detail}`, 502, "SIMULATE_REJECTED");
-      return jsonResponse({ success: true, detail: sim.detail });
+
+      const amount = Math.round(Number(body.amount ?? 1) * 100) / 100;
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 250000) {
+        return errorResponse("Enter an amount between KSh 0.01 and KSh 250,000.00.", 400, "BAD_AMOUNT");
+      }
+      const billRef = String(body.billRef ?? "").trim().slice(0, 20);
+      const name = String(body.name ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
+      const phone = String(body.phone ?? "").trim();
+      const msisdn = phone ? toMsisdn(phone) : "254708374149";
+      if (!msisdn) return errorResponse("Enter a Safaricom number like 0712 345 678, or leave it empty.", 400);
+
+      if (body.via === "safaricom") {
+        // Safaricom's sandbox only takes whole shillings and fills in its own payer name.
+        if (!Number.isInteger(amount)) return errorResponse("Safaricom's sandbox only takes whole shillings.", 400, "BAD_AMOUNT");
+        // Sandbox short codes are shared by every Daraja developer and the last registration
+        // wins, so register right before the test payment.
+        const reg = await registerTill(admin, keys, till, await staffName());
+        if (!reg.ok) return errorResponse(`Safaricom didn't accept the registration: ${reg.detail}`, 502, "REGISTER_REJECTED");
+        const sim = await c2bSimulate(keys, till, amount, billRef || "TEST");
+        if (!sim.ok) return errorResponse(`Safaricom didn't send the test payment: ${sim.detail}`, 502, "SIMULATE_REJECTED");
+        return jsonResponse({ success: true, detail: sim.detail });
+      }
+
+      // In the app: post Safaricom's C2B confirmation to our own till-callback address, so the
+      // whole receiver runs as for a real payment (token, inbox, record_till_payment, books).
+      const nairobi = new Date(Date.now() + 3 * 3600_000).toISOString().replace(/\D/g, "").slice(0, 14);
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const transId = "TST" + Array.from(crypto.getRandomValues(new Uint8Array(7)), (b) => alphabet[b % alphabet.length]).join("");
+      const [first = "", ...rest] = name.split(" ");
+      const payload = {
+        TransactionType: keys.transactionType === "CustomerPayBillOnline" ? "Pay Bill" : "Buy Goods",
+        TransID: transId,
+        TransTime: nairobi,
+        TransAmount: amount.toFixed(2),
+        BusinessShortCode: till || keys.partyB || keys.shortcode,
+        BillRefNumber: billRef,
+        InvoiceNumber: "",
+        OrgAccountBalance: "",
+        ThirdPartyTransID: "",
+        MSISDN: msisdn,
+        FirstName: first,
+        MiddleName: rest.length > 1 ? rest.slice(0, -1).join(" ") : "",
+        LastName: rest.length ? rest[rest.length - 1] : "",
+        _test: { by: await staffName() },
+      };
+      const urls = tillCallbackUrls(keys.callbackToken);
+      // Safaricom calls validation first when it is switched on for the short code.
+      const post = (url: string) => fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15_000),
+      });
+      await post(urls.validation).then((r) => r.body?.cancel()).catch(() => undefined);
+      const res = await post(urls.confirmation);
+      const reply = await res.json().catch(() => ({} as any));
+      if (!res.ok || String(reply?.ResultCode) !== "0") {
+        const why = res.status === 403
+          ? "the till-callback address refused it (token or MPESA_ALLOWED_IPS)"
+          : String(reply?.ResultDesc ?? `HTTP ${res.status}`);
+        return errorResponse(`The test callback wasn't accepted: ${why}.`, 502, "CALLBACK_REFUSED");
+      }
+      const { data: inbox } = await admin.from("daraja_callbacks").select("status, result, error")
+        .eq("kind", "c2b_confirmation").eq("dedupe_key", transId).maybeSingle();
+      const result = inbox?.result ?? inbox?.status ?? "received";
+      darajaLog("c2b_test_callback", { business: businessId, transId, amount, billRef: billRef || null, result }, "log");
+      if (inbox?.status === "failed") return errorResponse(`The callback arrived but wasn't recorded: ${inbox.error ?? "unknown error"}.`, 502, "CALLBACK_FAILED");
+      return jsonResponse({ success: true, transId, result });
     }
 
     if (action === "request") {

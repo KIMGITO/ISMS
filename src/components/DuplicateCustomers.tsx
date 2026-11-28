@@ -2,6 +2,7 @@
 // Lets staff review customers who may be the same person, then merge or dismiss them.
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useOverlay } from '../hooks/useOverlay';
 import { AlertTriangle, ArrowLeft, Globe, X } from 'lucide-react';
 import { Customer } from '../types';
 import SearchableDropdown from './SearchableDropdown';
@@ -161,6 +162,7 @@ function MergeReview({ first, second, accountIds, onBack, onDone }: {
 
 export default function DuplicateCustomers({ businessId, customers, onClose, onMerged }: Props) {
   const { showToast } = useAppStore();
+  useOverlay(true, onClose, 'bottom-sheet');
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [pair, setPair] = useState<{ first: Customer; second: Customer; accountIds: string[] } | null>(null);

@@ -13,6 +13,7 @@ import { hasRolePermission } from '../utils/permissions';
 import { toUserMessage } from '../utils/userError';
 import SearchableDropdown from './SearchableDropdown';
 import { TextInput } from './shared/Input';
+import TestTillPaymentSheet from './payments/TestTillPaymentSheet';
 
 const card = 'bg-app-card border border-app-border rounded-2xl p-4 sm:p-5 shadow-sm';
 const label = 'text-xs font-semibold text-app-text-muted';
@@ -40,6 +41,7 @@ export default function MpesaPaymentsPanel() {
   const [passkey, setPasskey] = useState('');
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [testOpen, setTestOpen] = useState(false);
 
   const loadStatus = () => {
     MpesaRepository.status()
@@ -80,6 +82,7 @@ export default function MpesaPaymentsPanel() {
 
   return (
     <div className="flex flex-col gap-5 animate-in fade-in duration-200">
+      {testOpen && <TestTillPaymentSheet onClose={() => setTestOpen(false)} onSent={loadStatus} />}
       {/* Connection */}
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -252,14 +255,13 @@ export default function MpesaPaymentsPanel() {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  disabled={!status.tillNumber || busy === 'test'}
-                  onClick={() => run('test', async () => { await MpesaRepository.testTill(); loadStatus(); }, ['Test Payment Sent', 'KSh 1.00 from the sandbox test number should show under Payments in a few seconds.'])}
-                  className="min-h-10 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text disabled:opacity-40 cursor-pointer"
+                  onClick={() => setTestOpen(true)}
+                  className="min-h-10 px-4 border border-app-border rounded-xl text-sm font-semibold text-app-text cursor-pointer"
                 >
-                  {busy === 'test' ? 'Sending…' : 'Send a test KSh 1 to the till'}
+                  Send a test payment
                 </button>
                 <span className="text-xs text-app-text-muted">
-                  Sandbox till numbers are shared with other developers, so the app registers again every few minutes.
+                  Type the amount, name and account reference. Sandbox till numbers are shared with other developers, so "Through Safaricom" registers again first.
                 </span>
               </div>
             )}

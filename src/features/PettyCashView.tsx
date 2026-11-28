@@ -2,6 +2,7 @@
 // Each entry is saved as a cash expense, so it comes off the cash balance and shows on the
 // Finances page. Staff see their own entries; managers see everyone's.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useOverlay } from '../hooks/useOverlay';
 import { Check, Coins, Pencil, Plus, RotateCcw, Settings2, Trash2, X } from 'lucide-react';
 import { getSupabase } from '../services/supabaseClient';
 import { useBusinessStore } from '../stores/businessStore';
@@ -146,6 +147,7 @@ export default function PettyCashView() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [removing, setRemoving] = useState<Entry | null>(null);
+  useOverlay(!!removing, () => setRemoving(null), 'dialog');
   const [reason, setReason] = useState('');
 
   const load = useCallback(async () => {

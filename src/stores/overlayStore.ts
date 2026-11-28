@@ -12,7 +12,8 @@ interface OverlayState {
   overlays: Overlay[];
   pushOverlay: (overlay: Overlay) => void;
   removeOverlay: (id: string) => void;
-  popTopOverlay: () => boolean;
+  /** Closes the top overlay. skip: types left alone (Escape leaves page steps to the page). */
+  popTopOverlay: (skip?: OverlayType[]) => boolean;
 }
 
 // Priority order for closing overlays (lower index = higher priority to close)
@@ -46,9 +47,9 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
     }));
   },
 
-  popTopOverlay: () => {
-    const { overlays } = get();
-    
+  popTopOverlay: (skip) => {
+    const overlays = get().overlays.filter((o) => !skip?.includes(o.type));
+
     if (overlays.length === 0) {
       return false;
     }
