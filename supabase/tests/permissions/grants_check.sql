@@ -57,7 +57,10 @@ SELECT problem FROM (
       AND c.relname NOT IN ('audit_logs', 'notifications', 'notification_preferences',
                             'business_memberships', 'crash_reports', 'problem_reports',
                             'support_grants', 'module_requests', 'support_messages', 'website_visit_daily',
-                            'marketing_ad_daily', 'marketing_conversions', 'canva_oauth_states')
+                            'marketing_ad_daily', 'marketing_conversions', 'canva_oauth_states',
+                            -- Server-only Daraja plumbing: a payment arriving for a business on an
+                            -- ended plan must still be stored (money rule 1).
+                            'daraja_callbacks', 'mpesa_callback_tokens')
       AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = 'trg_zz_plan_read_only')
 ) problems
 ORDER BY 1;

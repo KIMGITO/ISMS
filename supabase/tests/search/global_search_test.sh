@@ -41,7 +41,9 @@ eq "stock movement references are unique" "$(sql "select count(*) - count(distin
 echo "--- search finds the exact record"
 has "receipt as logged ($RECEIPT)" "$(search owner $B1 "$RECEIPT")" "sale|$RECEIPT"
 has "receipt as printed (RCT-$YEAR-$CODE)" "$(search owner $B1 "RCT-$YEAR-$CODE")" "sale|$RECEIPT"
-has "first 5 characters of the receipt" "$(search owner $B1 "${CODE:0:5}")" "sale|$RECEIPT"
+# Plain numbers under 6 digits are read as prices, so an all-digit start takes one more character.
+START=${CODE:0:5}; [[ $START =~ ^[0-9]+$ ]] && START=${CODE:0:6}
+has "first characters of the receipt ($START)" "$(search owner $B1 "$START")" "sale|$RECEIPT"
 has "receipt number ranks first" "$(search owner $B1 "$RECEIPT" | head -1)" "sale|$RECEIPT"
 has "expense by reference" "$(search owner $B1 "$E")" "expense|$E|Shop rent"
 has "expense by the end of its reference" "$(search owner $B1 "${E: -6}")" "expense|$E"
