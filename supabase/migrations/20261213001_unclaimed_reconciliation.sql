@@ -540,3 +540,11 @@ BEGIN
 EXCEPTION WHEN undefined_object THEN NULL;
 END;
 $$;
+
+-- Read-only plans block changes here too, like every business table (20261204001).
+DROP TRIGGER IF EXISTS trg_zz_plan_read_only ON public.mpesa_till_allocations;
+CREATE TRIGGER trg_zz_plan_read_only BEFORE INSERT OR UPDATE OR DELETE ON public.mpesa_till_allocations
+    FOR EACH ROW EXECUTE FUNCTION public.fn_block_when_read_only();
+DROP TRIGGER IF EXISTS trg_zz_plan_read_only ON public.mpesa_till_payment_events;
+CREATE TRIGGER trg_zz_plan_read_only BEFORE INSERT OR UPDATE OR DELETE ON public.mpesa_till_payment_events
+    FOR EACH ROW EXECUTE FUNCTION public.fn_block_when_read_only();

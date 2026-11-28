@@ -9,7 +9,7 @@ BR=d3000000-0000-0000-0000-000000000000
 R=$$
 item(){ echo "[{\"product_id\":\"$BR\",\"product_name\":\"x\",\"quantity\":$1,\"unit_price\":50,\"discount_percentage\":0}]"; }
 msale(){ as cash "select record_till_sale('{\"business_id\":\"$B1\",\"total\":$1,\"discount\":0,\"tax\":0,\"final_total\":$1,\"payment_method\":\"M-Pesa\",\"staff_name\":\"Carl\",\"staff_id\":\"$EMP\",\"reference_id\":\"$2\"}'::jsonb, '$(item $3)'::jsonb)"; }
-c2b(){ sql "select record_till_payment('{\"TransID\":\"$1\",\"TransAmount\":\"$2\",\"BusinessShortCode\":\"600000\",\"BillRefNumber\":\"\",\"MSISDN\":\"254711000$R\",\"FirstName\":\"Jane\",\"TransTime\":\"20261126101500\"}'::jsonb, '$B1')"; }
+c2b(){ sql "select record_till_payment('{\"TransID\":\"$1\",\"TransAmount\":\"$2\",\"BusinessShortCode\":\"600000\",\"BillRefNumber\":\"\",\"MSISDN\":\"254711000$R\",\"FirstName\":\"Jane\",\"TransTime\":\"$(TZ=Africa/Nairobi date +%Y%m%d%H%M%S)\"}'::jsonb, '$B1')"; }
 tp(){ sql "select id from mpesa_till_payments where trans_id='$1'"; }
 st(){ sql "select status||':'||allocated from mpesa_till_payments where trans_id='$1'"; }
 id_of(){ grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' <<<"$1" | head -1; }
@@ -44,9 +44,9 @@ has "second 20 partial" "$(alloc UP3$R $S2 20)" "partial"
 
 echo "--- concurrent allocation of the same money"
 c2b UP4$R 100 >/dev/null; ID4=$(tp UP4$R)
-q="SET request.jwt.claims = '{\"sub\":\"a2000000-0000-0000-0000-000000000000\",\"role\":\"authenticated\"}'; SET role authenticated; select allocate_till_payment('$ID4', '$S3', 100, 'Carl');"
-(docker exec -i $C psql -U supabase_admin -d $DB -tAq <<<"$q" > /tmp/claude-1000/c1.$R 2>&1 &)
-docker exec -i $C psql -U supabase_admin -d $DB -tAq <<<"$q" > /tmp/claude-1000/c2.$R 2>&1; sleep 1
+as cash "select allocate_till_payment('$ID4', '$S3', 100, 'Carl')" >/dev/null &
+as cash "select allocate_till_payment('$ID4', '$S3', 100, 'Carl')" >/dev/null
+wait
 eq "exactly one allocation won" "$(sql "select count(*) from mpesa_till_allocations where till_payment_id='$ID4'")" "1"
 eq "sale C not over its total" "$(sql "select fn_sale_till_linked('$S3')")" "100.00"
 
