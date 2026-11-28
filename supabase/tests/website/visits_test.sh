@@ -18,7 +18,7 @@ delete from website_visit_daily; delete from rate_limits where key like 'webview
 
 echo "--- the migration runs twice"
 for i in 1 2; do
-  out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/20261208001_website_visits_domain_recheck.sql" 2>&1 | grep ERROR || true)
+  out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/../migrations_archive/20261208001_website_visits_domain_recheck.sql" 2>&1 | grep ERROR || true)
   eq "migration run $i" "$out" ""
 done
 sql "delete from website_visit_daily; delete from rate_limits where key like 'webview:%';" >/dev/null

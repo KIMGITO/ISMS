@@ -24,7 +24,7 @@ update website_settings set home=null, navigation=null, seo=null, whatsapp=null,
 delete from website_brand where business_id in ('$B1','$B2');" >/dev/null
 
 echo "--- the migration runs twice"
-out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/20261206002_website_drafts_publish.sql" 2>&1 | grep ERROR || true)
+out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/../migrations_archive/20261206002_website_drafts_publish.sql" 2>&1 | grep ERROR || true)
 eq "migration is repeatable" "$out" ""
 
 echo "--- reading the draft"

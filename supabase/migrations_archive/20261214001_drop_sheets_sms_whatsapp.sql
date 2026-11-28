@@ -5,9 +5,11 @@
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'run-due-backups') THEN
-    PERFORM cron.unschedule('run-due-backups');
+  -- Two steps: cron.job can only be named once we know the cron schema exists.
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron') THEN
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'run-due-backups') THEN
+      PERFORM cron.unschedule('run-due-backups');
+    END IF;
   END IF;
 END $$;
 

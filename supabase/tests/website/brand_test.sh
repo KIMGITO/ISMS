@@ -15,7 +15,7 @@ save(){ as "$1" "select website_brand_save('$2', '$3'::jsonb)"; }
 sql "INSERT INTO auth.users (id, email, aud, role) VALUES ('${UID_OF[stranger]}','stranger@t.test','authenticated','authenticated') ON CONFLICT DO NOTHING;" >/dev/null
 
 echo "--- the migration runs twice and seeds existing shops with the original look"
-out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/20261206001_website_brand.sql" 2>&1 | grep ERROR || true)
+out=$(docker exec -i $C psql -U postgres -q -d $DB -v ON_ERROR_STOP=1 -1 < "$M/../migrations_archive/20261206001_website_brand.sql" 2>&1 | grep ERROR || true)
 eq "migration is repeatable" "$out" ""
 eq "existing shops start on the original look" "$(sql "select string_agg(design_preset, ',' order by business_id) from website_brand where business_id in ('$B1','$B2')")" "original,original"
 eq "industry guessed from the name" "$(sql "select fn_guess_industry('Retail', 'Mama Dairy Farm')")" "food_grocery"
