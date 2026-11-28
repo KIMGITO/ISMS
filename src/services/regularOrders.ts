@@ -198,7 +198,8 @@ export const deliverRegularOrders = (businessId: string, d: {
     p_rider_pay: d.riderPay,
     p_reference_id: d.referenceId,
     p_note: d.note,
-    p_payment_ref: d.paymentRef || null,
+    // Only with a code, so a database without 20261217001 still takes cash and credit days.
+    ...(d.paymentRef ? { p_payment_ref: d.paymentRef } : {}),
   });
 
 export const saveRingTime = (businessId: string, ringAt: string) =>
